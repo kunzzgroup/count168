@@ -153,15 +153,17 @@
         return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
     }
 
-    /** 合计列 Win/Loss：每行用 win_loss_full（缺省 win_loss）四舍五入到分（ROUND_HALF_UP）再累加，与单元格显示（截断两位）可不一致 */
-    function winLossRowHalfUp2(row) {
+    /** 合计用 Win/Loss：累加 win_loss_full（缺省 win_loss），最后再统一截两位（ROUND_DOWN），与 history 合计口径一致 */
+    function winLossFullRawForTotals(row) {
         const raw = row && row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ''
             ? row.win_loss_full
             : (row && row.win_loss != null ? row.win_loss : '0');
+        const s = raw === '-' ? '0' : raw;
         try {
-            return MoneyDecimal.formatFixedHalfUp(raw === '-' ? '0' : raw, 2);
+            MoneyDecimal.toDecimal(s, 0);
+            return s;
         } catch (_) {
-            return '0.00';
+            return '0';
         }
     }
 
@@ -2140,8 +2142,7 @@
     }
 
     // ==================== 渲染表格与总计 ====================
-    // 可选第三个参数 totalsFromApi：仅当 left/right 与本次展示行完全一致时使用，跳过前端合计
-    function renderTables(leftRows, rightRows, totalsFromApi) {
+    function renderTables(leftRows, rightRows) {
         const normalizedRows = normalizeRateRowsByCrDr(leftRows, rightRows);
         // 按 role 排序数据
         const sortedLeftRows = sortByRole(normalizedRows.leftRows);
@@ -2174,29 +2175,9 @@
             fillTable('tbody_left', 'table_left', sortedLeftRows);
             fillTable('tbody_right', 'table_right', sortedRightRows);
 
-            // bf/cr_dr/balance 优先用后端 totals；Win/Loss 合计强制用逐行四舍五入（win_loss_full）再累加
-            let leftTotals, rightTotals, summaryTotals;
-            const ltWl = calculateTotals(sortedLeftRows);
-            const rtWl = calculateTotals(sortedRightRows);
-            if (totalsFromApi && totalsFromApi.left && totalsFromApi.right && totalsFromApi.summary) {
-                leftTotals = { ...totalsFromApi.left, win_loss: ltWl.win_loss };
-                rightTotals = { ...totalsFromApi.right, win_loss: rtWl.win_loss };
-                summaryTotals = {
-                    bf: totalsFromApi.summary.bf,
-                    win_loss: MoneyDecimal.add(ltWl.win_loss, rtWl.win_loss).toString(),
-                    cr_dr: totalsFromApi.summary.cr_dr,
-                    balance: totalsFromApi.summary.balance
-                };
-            } else {
-                leftTotals = ltWl;
-                rightTotals = rtWl;
-                summaryTotals = {
-                    bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
-                    win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
-                    cr_dr: MoneyDecimal.add(leftTotals.cr_dr, rightTotals.cr_dr).toString(),
-                    balance: MoneyDecimal.add(leftTotals.balance, rightTotals.balance).toString()
-                };
-            }
+            const leftTotals = calculateTotals(sortedLeftRows);
+            const rightTotals = calculateTotals(sortedRightRows);
+            const summaryTotals = calculateTotals([...sortedLeftRows, ...sortedRightRows]);
 
             updateTotals('left', leftTotals);
             updateTotals('right', rightTotals);
@@ -2290,14 +2271,7 @@
             groupedContainer.appendChild(tablesWrapper);
 
             // 计算该 currency 的汇总
-            const leftTotals = calculateTotals(leftRows);
-            const rightTotals = calculateTotals(rightRows);
-            const currencySummary = {
-                bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
-                win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
-                cr_dr: MoneyDecimal.add(leftTotals.cr_dr, rightTotals.cr_dr).toString(),
-                balance: MoneyDecimal.add(leftTotals.balance, rightTotals.balance).toString()
-            };
+            const currencySummary = calculateTotals([...leftRows, ...rightRows]);
 
             // 累加到总汇总
             totalSummary.bf = MoneyDecimal.add(totalSummary.bf, currencySummary.bf).toString();
@@ -2459,13 +2433,20 @@
     }
 
     function calculateTotals(rows) {
-        return rows.reduce((totals, row) => {
-            totals.bf = MoneyDecimal.add(totals.bf, row.bf || '0').toString();
-            totals.win_loss = MoneyDecimal.add(totals.win_loss, winLossRowHalfUp2(row)).toString();
-            totals.cr_dr = MoneyDecimal.add(totals.cr_dr, row.cr_dr || '0').toString();
-            totals.balance = MoneyDecimal.add(totals.balance, row.balance || '0').toString();
-            return totals;
-        }, { bf: '0', win_loss: '0', cr_dr: '0', balance: '0' });
+        const sums = rows.reduce((acc, row) => {
+            acc.bf = MoneyDecimal.add(acc.bf, row.bf || '0').toString();
+            acc.win_loss = MoneyDecimal.add(acc.win_loss, winLossFullRawForTotals(row)).toString();
+            acc.cr_dr = MoneyDecimal.add(acc.cr_dr, row.cr_dr || '0').toString();
+            return acc;
+        }, { bf: '0', win_loss: '0', cr_dr: '0' });
+        const bfTot = MoneyDecimal.formatFixed(sums.bf, 2);
+        const wlTot = MoneyDecimal.formatFixed(sums.win_loss, 2);
+        const crTot = MoneyDecimal.formatFixed(sums.cr_dr, 2);
+        const balTot = MoneyDecimal.formatFixed(
+            MoneyDecimal.add(MoneyDecimal.add(bfTot, wlTot), crTot),
+            2
+        );
+        return { bf: bfTot, win_loss: wlTot, cr_dr: crTot, balance: balTot };
     }
 
     // ==================== 处理 Balance 点击事件 ====================

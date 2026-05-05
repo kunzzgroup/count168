@@ -2100,7 +2100,7 @@ try {
     // 计算总和
     $left_totals = calculateTotals($left_table);
     $right_totals = calculateTotals($right_table);
-    $summary_totals = addMoneyFields($left_totals, $right_totals);
+    $summary_totals = calculateTotals($results);
     $left_table = normalizeMoneyRows($left_table);
     $right_table = normalizeMoneyRows($right_table);
 
@@ -2319,20 +2319,27 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to)
  */
 function calculateTotals($data)
 {
-    $totals = ['bf' => '0', 'win_loss' => '0', 'cr_dr' => '0', 'balance' => '0'];
+    $bf = '0';
+    $wl = '0';
+    $cr = '0';
 
     foreach ($data as $row) {
-        $totals['bf'] = money_add($totals['bf'], $row['bf'] ?? '0', 2);
-        $totals['win_loss'] = money_add($totals['win_loss'], $row['win_loss'] ?? '0', 2);
-        $totals['cr_dr'] = money_add($totals['cr_dr'], $row['cr_dr'] ?? '0', 2);
-        $totals['balance'] = money_add($totals['balance'], $row['balance'] ?? '0', 2);
+        $bf = money_add($bf, $row['bf'] ?? '0', 8);
+        $wlFull = $row['win_loss_full'] ?? ($row['win_loss'] ?? '0');
+        $wl = money_add($wl, $wlFull, 8);
+        $cr = money_add($cr, $row['cr_dr'] ?? '0', 8);
     }
 
+    $bf2 = searchMoney2($bf);
+    $wl2 = searchMoney2($wl);
+    $cr2 = searchMoney2($cr);
+    $balance2 = searchMoney2(money_add(money_add($bf2, $wl2, 8), $cr2, 8));
+
     return [
-        'bf' => searchMoney2($totals['bf']),
-        'win_loss' => searchMoney2($totals['win_loss']),
-        'cr_dr' => searchMoney2($totals['cr_dr']),
-        'balance' => searchMoney2($totals['balance']),
+        'bf' => $bf2,
+        'win_loss' => $wl2,
+        'cr_dr' => $cr2,
+        'balance' => $balance2,
     ];
 }
 
