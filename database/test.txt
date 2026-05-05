@@ -45,3 +45,24 @@ CREATE TABLE user_backup(
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+CREATE TABLE user_company_permission_backup(
+    id                  int(11) NOT NULL AUTO_INCREMENT,
+    user_id             int(11) NOT NULL,
+    user_name           varchar(255) DEFAULT NULL,
+    company_id          int(11) NOT NULL,
+    company_name        varchar(255) DEFAULT NULL,
+    account_permission  text DEFAULT NULL,
+    process_permission  text DEFAULT NULL,
+    created_at          timestamp DEFAULTCURRENT_TIMESTAMP,
+    updated_at          timestamp DEFAULTCURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_user_company_permission_backup_user_id (user_id),
+    KEY idx_user_company_permission_backup_user_name (user_name),
+    KEY idx_user_company_permission_backup_company_id (company_id),
+    KEY idx_user_company_permission_backup_company_name (company_name),
+    KEY idx_user_company_permission_backup_created_at (created_at),
+    KEY idx_user_company_permission_backup_updated_at (updated_at),
+    KEY idx_user_company_permission_backup_account_permission (account_permission),
+    KEY idx_user_company_permission_backup_process_permission (process_permission),
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
