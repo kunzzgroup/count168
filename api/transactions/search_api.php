@@ -1470,7 +1470,10 @@ try {
         $account_currency_ids = [];
         $acc_str = trim((string) $account_id);
 
-        if (!$hide_zero_balance && $has_account_currency_table) {
+        // 账户 × 币别组合：只要存在 account_currency 表就始终走「现代路径」枚举 active + 交易币别。
+        // 切勿在 hide_zero_balance=1 时改走 Legacy（仅从 DCD 推币别）：会漏掉大量组合行，
+        // 前端再隐藏零余额后合计永远少半边账（典型 ±0.37 级尾差）。
+        if ($has_account_currency_table) {
             // === 现代路径：从 bulk_ac 批量数据读取，无需逐账户查询 ===
             foreach ($bulk_ac[$account_id] ?? [] as $cid => $code) {
                 addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);

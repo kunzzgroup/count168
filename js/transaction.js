@@ -2842,9 +2842,13 @@
             }
         };
         const eps = '0.00001';
+        // 展示列 win_loss 可能已为 0.00，但 win_loss_full 仍有轧差；隐藏该行会把合计变成「少半边账」
+        const wlProbe = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
+            ? String(row.win_loss_full).replace(/,/g, '').trim()
+            : (row.win_loss || '0');
         const hasAnyMoneyColumn =
             absVal(row.bf).gt(eps) ||
-            absVal(row.win_loss).gt(eps) ||
+            absVal(wlProbe).gt(eps) ||
             absVal(row.cr_dr).gt(eps);
         if (hasAnyMoneyColumn) return true;
         const hasTxnFlag =
