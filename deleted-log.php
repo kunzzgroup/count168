@@ -172,6 +172,7 @@ $assetVer = function ($file) {
     $path = __DIR__ . '/' . $file;
     return file_exists($path) ? filemtime($path) : time();
 };
+$sidebarCompanyIdJs = trim((string) ($_SESSION['company_id'] ?? ''));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -373,6 +374,12 @@ $assetVer = function ($file) {
                 body: JSON.stringify({ log_id: id })
             }).then(function (r) { return r.json(); }).then(function (j) {
                 if (j && j.success) {
+                    var d = j.data || {};
+                    var lc = d.log_company_id != null ? String(d.log_company_id) : '';
+                    var sid = <?php echo json_encode($sidebarCompanyIdJs, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+                    if (lc !== '' && String(sid) !== lc) {
+                        alert('数据已写回数据库。若要在账号列表等页面查看，请先在侧栏切换到该删除记录所属公司（内部 company id: ' + lc + '）。');
+                    }
                     location.reload();
                 } else {
                     alert((j && (j.message || j.error)) ? (j.message || j.error) : 'Restore failed');

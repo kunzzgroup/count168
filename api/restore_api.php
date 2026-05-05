@@ -22,12 +22,10 @@ if (!$canRestore) {
     exit;
 }
 
-if (empty($_SESSION['company_id'])) {
-    api_error('Company not selected', 400);
+if (empty($_SESSION['user_id'])) {
+    api_error('Not logged in', 401);
     exit;
 }
-
-$sessionCompany = (string) $_SESSION['company_id'];
 
 $raw = file_get_contents('php://input');
 $body = [];
@@ -49,11 +47,8 @@ try {
         exit;
     }
 
-    $logCompany = isset($logRow['company_id']) ? (string) $logRow['company_id'] : '';
-    if ($logCompany !== $sessionCompany) {
-        api_error('Forbidden: company mismatch', 403);
-        exit;
-    }
+    // Admin/Owner 可在 Deleted Log 中查看任意公司的记录；恢复目标以日志内 company_id / deleted_data 为准，
+    // 不得要求与当前侧栏 session company_id 一致（否则会 Forbidden: company mismatch）。
 
     if (isset($logRow['action_type']) && strtoupper((string) $logRow['action_type']) === 'RESTORE') {
         api_error('This entry was already restored', 400);
@@ -107,8 +102,8 @@ try {
         $ins = $pdo->prepare($sql);
         $ins->execute($vals);
 
-        $upd = $pdo->prepare('UPDATE `deleted_logs` SET `action_type` = ? WHERE `id` = ? AND `company_id` = ?');
-        $upd->execute(['RESTORE', $logId, $sessionCompany]);
+        $upd = $pdo->prepare('UPDATE `deleted_logs` SET `action_type` = ? WHERE `id` = ?');
+        $upd->execute(['RESTORE', $logId]);
 
         $pdo->commit();
     } catch (Throwable $e) {
@@ -116,7 +111,12 @@ try {
         throw $e;
     }
 
-    api_success(['log_id' => $logId], 'Restored successfully');
+    $logCompanyOut = trim((string) ($logRow['company_id'] ?? ''));
+    api_success([
+        'log_id' => $logId,
+        'log_company_id' => $logCompanyOut,
+        'table_name' => $table,
+    ], 'Restored successfully');
 } catch (Throwable $e) {
     error_log('restore_api error: ' . $e->getMessage());
     api_error('Restore failed', 500);
