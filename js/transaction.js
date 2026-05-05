@@ -38,24 +38,40 @@
     }
 
     // ==================== 数字格式化函数 ====================
+    /**
+     * 两位小数展示口径：与 domain_report.js formatAmount 一致——
+     * 先对微抖动归零（绝对值小于 0.005 视为 0），再 MoneyDecimal.formatFixed（ROUND_DOWN）。
+     * customer_report.js 无微归零步；此处按你要求与 Domain Report 完全同款。
+     */
+    function formatMoneyTwoDecimalsLikeReports(raw) {
+        try {
+            const cleaned = String(raw ?? '').replace(/,/g, '').trim();
+            if (cleaned === '' || cleaned === '-') return '0.00';
+            const value = MoneyDecimal.cmp(MoneyDecimal.abs(cleaned), '0.005') < 0 ? '0' : cleaned;
+            return MoneyDecimal.formatFixed(value, 2);
+        } catch (_) {
+            return '0.00';
+        }
+    }
+
     function formatNumber(num) {
         try {
-            return MoneyDecimal.formatThousands(num, 2);
+            return MoneyDecimal.formatThousands(formatMoneyTwoDecimalsLikeReports(num === null || num === undefined ? '0' : num), 2);
         } catch (_) {
             return '0.00';
         }
     }
 
     /**
-     * Payment History 专用：history_api 已给两位小数时直接加千分位，避免 parseFloat(-40.80)+Math.trunc 变成 -40.79。
-     * 非标准两位时：与 datacapture 一致 epsilon + 向 0 截断再 toLocaleString。
+     * Payment History / Transaction List 表格金额：同上 ROUND_DOWN 两位后加千分位；
+     * history_api 已给两位时再套一层不会改变数值。
      */
     function formatPaymentHistoryMoney(value) {
         if (value === '-' || value === null || value === undefined) return '-';
         const cleaned = String(value).replace(/,/g, '').trim();
         if (cleaned === '' || cleaned === '-') return '0.00';
         try {
-            return MoneyDecimal.formatThousands(cleaned, 2);
+            return MoneyDecimal.formatThousands(formatMoneyTwoDecimalsLikeReports(cleaned), 2);
         } catch (_) {
             return '0.00';
         }
@@ -2438,10 +2454,10 @@
         }
         const balSum = bfSum.plus(wlSum).plus(crSum);
         return {
-            bf: MoneyDecimal.formatFixed(bfSum.toString(), 2),
-            win_loss: MoneyDecimal.formatFixed(wlSum.toString(), 2),
-            cr_dr: MoneyDecimal.formatFixed(crSum.toString(), 2),
-            balance: MoneyDecimal.formatFixed(balSum.toString(), 2)
+            bf: formatMoneyTwoDecimalsLikeReports(bfSum.toString()),
+            win_loss: formatMoneyTwoDecimalsLikeReports(wlSum.toString()),
+            cr_dr: formatMoneyTwoDecimalsLikeReports(crSum.toString()),
+            balance: formatMoneyTwoDecimalsLikeReports(balSum.toString())
         };
     }
 
