@@ -51,16 +51,24 @@ if ($scope['mode'] === 'none') {
     exit;
 }
 
-$companyScopeMulti = ($scope['mode'] === 'in');
+$scopeMode = $scope['mode'];
+$companyScopeMulti = ($scopeMode === 'in');
 $companyFilter = $companyScopeMulti ? '' : (string) ($scope['id'] ?? '');
 $scopeCompanyIds = $companyScopeMulti ? $scope['ids'] : [(string) ($scope['id'] ?? '')];
 
+$scopeHintText = '';
+if ($scopeMode === 'all') {
+    $scopeHintText = 'Admin / Owner：可查看<strong>全部公司</strong>的删除记录（与当前侧栏所选公司无关）。';
+} elseif ($scopeMode === 'in') {
+    $scopeHintText = '已合并显示您可访问公司、以及<strong>相同 GroupID</strong>下其他公司的删除记录（与当前侧栏选哪一家公司无关）。';
+}
+
 $where = [];
 $params = [];
-if ($scope['mode'] === 'one') {
+if ($scopeMode === 'one') {
     $where[] = 'd.`company_id` = ?';
     $params[] = $companyFilter;
-} else {
+} elseif ($scopeMode === 'in') {
     $phC = implode(',', array_fill(0, count($scopeCompanyIds), '?'));
     $where[] = 'd.`company_id` IN (' . $phC . ')';
     $params = array_merge($params, $scopeCompanyIds);
@@ -135,13 +143,15 @@ try {
     $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $udSql = 'SELECT DISTINCT d.`user` FROM `deleted_logs` d WHERE ';
-    if ($scope['mode'] === 'one') {
+    if ($scopeMode === 'one') {
         $udSql .= 'd.`company_id` = ? AND ';
         $udParams = [$companyFilter];
-    } else {
+    } elseif ($scopeMode === 'in') {
         $udPh = implode(',', array_fill(0, count($scopeCompanyIds), '?'));
         $udSql .= 'd.`company_id` IN (' . $udPh . ') AND ';
         $udParams = $scopeCompanyIds;
+    } else {
+        $udParams = [];
     }
     $udSql .= "d.`user` IS NOT NULL AND d.`user` <> '' ORDER BY d.`user` ASC";
     $ud = $pdo->prepare($udSql);
@@ -183,8 +193,8 @@ $assetVer = function ($file) {
         <div class="content">
             <h1 class="account-page-title">Deleted Log</h1>
             <div class="deleted-log-separator-line"></div>
-            <?php if (!empty($companyScopeMulti)) : ?>
-            <p class="deleted-log-scope-hint">已合并显示您可访问公司、以及<strong>相同 GroupID</strong>下其他公司的删除记录（与当前侧栏选哪一家公司无关）。</p>
+            <?php if ($scopeHintText !== '') : ?>
+            <p class="deleted-log-scope-hint"><?php echo $scopeHintText; ?></p>
             <?php endif; ?>
 
 

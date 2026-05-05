@@ -1,9 +1,10 @@
 <?php
 /**
- * Deleted Log 列表：以 getCompaniesByUser / getCompaniesByOwner 为基准，再按 **GroupID** 扩展到同组全部公司。
- * 否则会出现：Owner 在 A 公司删账号（deleted_logs.company_id=A），Admin 的 user_company_map 仅有 B 公司时查不到 A 的记录。
+ * Deleted Log 列表：
+ * - **Admin / Owner**：不按公司过滤（全库 deleted_logs）
+ * - 其他角色：getCompaniesByUser / Owner + 同 GroupID 扩展
  *
- * @return array{mode:'one'|'in'|'none', id?:string, ids?:list<string>}
+ * @return array{mode:'all'|'one'|'in'|'none', id?:string, ids?:list<string>}
  */
 function deleted_log_expand_company_scope_by_group(PDO $pdo, array $companyIds): array
 {
@@ -63,20 +64,14 @@ function deleted_log_page_company_scope(PDO $pdo): array
     $role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
     $userType = strtolower((string) ($_SESSION['user_type'] ?? 'user'));
 
+    if ($role === 'admin' || $role === 'owner' || $userType === 'owner') {
+        return ['mode' => 'all'];
+    }
+
     $collected = [];
 
     try {
-        if ($userType === 'owner' || $role === 'owner') {
-            $ownerId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $uid);
-            if ($ownerId > 0) {
-                $rows = getCompaniesByOwner($pdo, $ownerId, true, true);
-                foreach ($rows as $r) {
-                    if (!empty($r['id'])) {
-                        $collected[] = (string) $r['id'];
-                    }
-                }
-            }
-        } elseif ($uid > 0) {
+        if ($uid > 0) {
             $rows = getCompaniesByUser($pdo, $uid, true, true);
             foreach ($rows as $r) {
                 if (!empty($r['id'])) {
