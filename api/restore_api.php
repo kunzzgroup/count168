@@ -102,6 +102,26 @@ try {
         $ins = $pdo->prepare($sql);
         $ins->execute($vals);
 
+        if ($table === 'account') {
+            $newAccountId = (int) $pdo->lastInsertId();
+            $linkCid = (int) trim((string) ($logRow['company_id'] ?? ''));
+            if ($newAccountId > 0 && $linkCid > 0) {
+                $chkTbl = $pdo->query("SHOW TABLES LIKE 'account_company'");
+                if ($chkTbl && $chkTbl->rowCount() > 0) {
+                    $ex = $pdo->prepare(
+                        'SELECT 1 FROM account_company WHERE account_id = ? AND company_id = ? LIMIT 1'
+                    );
+                    $ex->execute([$newAccountId, $linkCid]);
+                    if (!$ex->fetchColumn()) {
+                        $linkIns = $pdo->prepare(
+                            'INSERT INTO account_company (account_id, company_id) VALUES (?, ?)'
+                        );
+                        $linkIns->execute([$newAccountId, $linkCid]);
+                    }
+                }
+            }
+        }
+
         $upd = $pdo->prepare('UPDATE `deleted_logs` SET `action_type` = ? WHERE `id` = ?');
         $upd->execute(['RESTORE', $logId]);
 

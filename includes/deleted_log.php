@@ -46,6 +46,23 @@ function deleted_log_validate_table(string $table): bool
     return in_array($table, deleted_log_allowed_tables(), true);
 }
 
+/**
+ * 账号在「当前操作公司」以外是否仍有 account_company 关联。
+ * true = 仅移除一家公司挂靠，账号主档仍在 → 只记 account_company 日志。
+ * false = 仅此一家公司挂靠，删除后将删掉 account 主档 → 合并为只记 account 日志（避免同一操作两条审计）。
+ */
+function deleted_log_account_has_other_company_links(PDO $pdo, int $accountId, int $exceptCompanyId): bool
+{
+    try {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM account_company WHERE account_id = ? AND company_id != ?');
+        $st->execute([$accountId, $exceptCompanyId]);
+        return (int) $st->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        error_log('deleted_log_account_has_other_company_links: ' . $e->getMessage());
+        return true;
+    }
+}
+
 function deleted_log_session_username(): string
 {
     if (session_status() !== PHP_SESSION_ACTIVE) {

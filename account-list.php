@@ -149,12 +149,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             $userTag = (string) ($_SESSION['login_id'] ?? $_SESSION['name'] ?? '');
             $cidLogPost = (string) $company_id;
             foreach ($ids as $aid) {
-                deletedLog($pdo, $userTag, $pageTag, 'account_company', $company_id . ':' . $aid, 'DELETE', [
-                    'company_id' => $company_id,
-                    'account_id' => $aid,
-                ], $cidLogPost);
+                $aid = (int) $aid;
+                if (deleted_log_account_has_other_company_links($pdo, $aid, (int) $company_id)) {
+                    deletedLog($pdo, $userTag, $pageTag, 'account_company', $company_id . ':' . $aid, 'DELETE', [
+                        'company_id' => $company_id,
+                        'account_id' => $aid,
+                    ], $cidLogPost);
+                }
             }
-            
+
             // 只删除inactive账户，并确保属于当前公司
             // 先删除 account_company 关联（只删除当前公司的关联）
             $delete_ac_params = array_merge([$company_id], $ids);

@@ -103,10 +103,12 @@ try {
     $userTag = (string) ($_SESSION['login_id'] ?? $_SESSION['name'] ?? '');
     $cidLog = (string) $company_id;
     foreach ($ids as $aid) {
-        deletedLog($pdo, $userTag, $pageTag, 'account_company', $company_id . ':' . $aid, 'DELETE', [
-            'company_id' => $company_id,
-            'account_id' => $aid,
-        ], $cidLog);
+        if (deleted_log_account_has_other_company_links($pdo, $aid, $company_id)) {
+            deletedLog($pdo, $userTag, $pageTag, 'account_company', $company_id . ':' . $aid, 'DELETE', [
+                'company_id' => $company_id,
+                'account_id' => $aid,
+            ], $cidLog);
+        }
     }
 
     $delete_ac_params = array_merge([$company_id], $ids);
