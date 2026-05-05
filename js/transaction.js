@@ -166,15 +166,17 @@
         return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
     }
 
-    /** 合计列 Win/Loss：每行对 win_loss_full（缺省 win_loss）half-up 到分再累加，与 search_api 列表口径一致 */
-    function winLossRowHalfUp2(row) {
+    /** 合计列 Win/Loss：只累加高精度 win_loss_full（勿累加已 half-up 的 win_loss），最后再 formatFixedHalfUp 一次 */
+    function winLossFullRawForTotals(row) {
         const raw = row && row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ''
             ? row.win_loss_full
             : (row && row.win_loss != null ? row.win_loss : '0');
+        const s = raw === '-' ? '0' : raw;
         try {
-            return MoneyDecimal.formatFixedHalfUp(raw === '-' ? '0' : raw, 2);
+            MoneyDecimal.toDecimal(s, 0);
+            return s;
         } catch (_) {
-            return '0.00';
+            return '0';
         }
     }
 
@@ -2446,7 +2448,7 @@
     function calculateTotals(rows) {
         const sums = rows.reduce((acc, row) => {
             acc.bf = MoneyDecimal.add(acc.bf, row.bf || '0').toString();
-            acc.win_loss = MoneyDecimal.add(acc.win_loss, winLossRowHalfUp2(row)).toString();
+            acc.win_loss = MoneyDecimal.add(acc.win_loss, winLossFullRawForTotals(row)).toString();
             acc.cr_dr = MoneyDecimal.add(acc.cr_dr, row.cr_dr || '0').toString();
             return acc;
         }, { bf: '0', win_loss: '0', cr_dr: '0' });

@@ -2331,7 +2331,7 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to)
 }
 
 /**
- * 计算表格总和
+ * 计算表格总和（Win/Loss：必须先累加 win_loss_full，最后再 half-up 一次，勿累加已展示的 win_loss）
  */
 function calculateTotals($data)
 {
@@ -2341,7 +2341,8 @@ function calculateTotals($data)
 
     foreach ($data as $row) {
         $bf = money_add($bf, $row['bf'] ?? '0', 8);
-        $wl = money_add($wl, $row['win_loss'] ?? '0', 8);
+        $wlFull = $row['win_loss_full'] ?? ($row['win_loss'] ?? '0');
+        $wl = money_add($wl, $wlFull, 8);
         $cr = money_add($cr, $row['cr_dr'] ?? '0', 8);
     }
 
