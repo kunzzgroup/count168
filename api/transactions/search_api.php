@@ -704,8 +704,8 @@ function searchApiApplyDomainSourceCompanyRows(
         if ($curCode === '') {
             continue;
         }
-        // amount 保留正负；勿对每笔先 trunc2 再累加——否则 Σ(round2(ai))≠round2(Σai)，会和 Data Capture/txn quant 口径叠加成全局 Win/Loss 脚底漏水（如全天 −0.37）。
-        $amt = money_normalize($row['amount'] ?? '0', 8);
+        // amount 保留正负：冲正/退款为负时，池子 B/F 调整方向与代数一致；abs 仅用于近零判断
+        $amt = trunc2($row['amount'] ?? '0');
         if (!searchMoneyNonZero($amt)) {
             continue;
         }
@@ -739,8 +739,8 @@ function searchApiApplyDomainSourceCompanyRows(
         if ($curCode === '') {
             continue;
         }
-        // 同上：高精度累加佣金 delta，勿逐笔 trunc2（见上方 poolBfAdjust 注释）。
-        $amt = money_normalize($row['amount'] ?? '0', 8);
+        // 同上：按带符号 amount 累加 delta，不对金额取 abs
+        $amt = trunc2($row['amount'] ?? '0');
         if (!searchMoneyNonZero($amt)) {
             continue;
         }

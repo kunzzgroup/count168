@@ -10,7 +10,6 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
-require_once __DIR__ . '/../transactions/dcd_processed_quant.php';
 
 function domainReportMoneyOut($value): string {
     return money_out($value ?? '0');
@@ -104,16 +103,14 @@ function formatProcesses(array $processes) {
  * 以 process 为主表，无数据的 process 也显示（0）；过滤 dcd.company_id 保证 Win/Lose 只计当前公司
  */
 function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, string $date_to, ?int $process_id) {
-    // 与 Transaction search_api / Payment History：每条 DCD 先 quant2 再 SUM，勿对 processed_amount 原始 DECIMAL 直接聚合。
-    $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
     $sql = "
         SELECT 
             p.id AS process_pk,
             p.process_id,
             d.name AS description_name,
-            COALESCE(SUM(ABS($dcdQ)), 0) AS turnover_total,
-            COALESCE(SUM(CASE WHEN ($dcdQ) > 0 THEN ($dcdQ) ELSE 0 END), 0) AS win_total,
-            COALESCE(SUM(CASE WHEN ($dcdQ) < 0 THEN ABS(($dcdQ)) ELSE 0 END), 0) AS lose_total
+            COALESCE(SUM(ABS(dcd.processed_amount)), 0) AS turnover_total,
+            COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
+            COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN ABS(dcd.processed_amount) ELSE 0 END), 0) AS lose_total
         FROM process p
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN data_captures dc ON dc.process_id = p.id

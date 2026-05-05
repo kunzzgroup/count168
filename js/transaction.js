@@ -2909,8 +2909,8 @@
                     : ((typeof row.has_win_loss_transactions === 'number')
                         ? row.has_win_loss_transactions !== 0
                         : parseInt(row.has_win_loss_transactions || '0', 10) !== 0);
-                const wlRaw = winLossFullRawForTotals(row);
-                const byValue = MoneyDecimal.toDecimal(String(wlRaw || '0').replace(/,/g, '').trim() || '0').abs().gt('0.00001');
+                const wl = parseBalanceValue(row.win_loss);
+                const byValue = wl !== null && MoneyDecimal.toDecimal(wl).abs().gt('0.00001');
                 return byFlag || byValue;
             };
             const shouldShow = showWinLossOnly
@@ -2996,14 +2996,8 @@
             return byFlag || byValue;
         };
         const hasWinLoss = row => {
-            const byFlag = (typeof row.has_win_loss_transactions === 'boolean')
-                ? row.has_win_loss_transactions
-                : ((typeof row.has_win_loss_transactions === 'number')
-                    ? row.has_win_loss_transactions !== 0
-                    : parseInt(row.has_win_loss_transactions || '0', 10) !== 0);
-            const wlRaw = winLossFullRawForTotals(row);
-            const byValue = MoneyDecimal.toDecimal(String(wlRaw || '0').replace(/,/g, '').trim() || '0').abs().gt('0.00001');
-            return byFlag || byValue;
+            const wl = parseBalanceValue(row.win_loss);
+            return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt('0.00001');
         };
         const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
         const shouldShow = showWinLossOnly
