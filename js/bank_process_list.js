@@ -1159,7 +1159,7 @@ function closeAddBankModal() {
     if (bankRemarkEl) bankRemarkEl.value = '';
     const dayEndClear = document.getElementById('bank_day_end');
     if (dayEndClear) {
-        dayEndClear.removeAttribute('min');
+        delete dayEndClear.dataset.bankMinYmd;
         delete dayEndClear.dataset.bankContractEndHint;
     }
 }
@@ -1275,11 +1275,13 @@ async function openBankEditModal(id) {
         document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';
         document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
         const dayStart = process.day_start || '';
-        document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+        const dayStartYmd = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+        document.getElementById('bank_day_start').value = formatBankYmdToUi(dayStartYmd);
         const dayEnd = process.day_end || '';
         const dayEndEl = document.getElementById('bank_day_end');
         if (dayEndEl) {
-            dayEndEl.value = dayEnd ? (dayEnd.length === 10 ? dayEnd : dayEnd.split(' ')[0]) : '';
+            const dayEndYmd = dayEnd ? (dayEnd.length === 10 ? dayEnd : dayEnd.split(' ')[0]) : '';
+            dayEndEl.value = formatBankYmdToUi(dayEndYmd);
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
         if (freqEl) freqEl.value = process.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
@@ -2011,6 +2013,9 @@ function bindBankFieldErrorClear() {
     }
     if (dayStartEl && !dayStartEl._freqBound) {
         dayStartEl._freqBound = true;
+        dayStartEl.addEventListener('blur', function () {
+            this.value = normalizeBankDateInputValue(this.value);
+        });
         dayStartEl.addEventListener('change', syncBankDayEndContractMin);
         dayStartEl.addEventListener('input', syncBankDayEndContractMin);
     }
@@ -2020,6 +2025,9 @@ function bindBankFieldErrorClear() {
     }
     if (dayEndEl && !dayEndEl._freqBound) {
         dayEndEl._freqBound = true;
+        dayEndEl.addEventListener('blur', function () {
+            this.value = normalizeBankDateInputValue(this.value);
+        });
         dayEndEl.addEventListener('input', updateBankFrequencyOptions);
         dayEndEl.addEventListener('change', updateBankFrequencyOptions);
     }
@@ -2070,6 +2078,30 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
         const formData = new FormData(this);
+        const dayStartInput = document.getElementById('bank_day_start');
+        const dayEndInput = document.getElementById('bank_day_end');
+        const dayStartYmd = parseBankUiDateToYmd(dayStartInput && dayStartInput.value);
+        const dayEndYmd = parseBankUiDateToYmd(dayEndInput && dayEndInput.value);
+        if (dayStartInput && dayStartInput.value && !dayStartYmd) {
+            showNotification('Day start format must be dd/mm/yy', 'danger');
+            bankProcessSubmitInFlight = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = editId ? 'Update Process' : 'Add Process';
+            }
+            return;
+        }
+        if (dayEndInput && dayEndInput.value && !dayEndYmd) {
+            showNotification('Day end format must be dd/mm/yy', 'danger');
+            bankProcessSubmitInFlight = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = editId ? 'Update Process' : 'Add Process';
+            }
+            return;
+        }
+        formData.set('day_start', dayStartYmd || '');
+        formData.set('day_end', dayEndYmd || '');
         if (editId) {
             ['country', 'bank', 'type', 'name'].forEach(function (key) {
                 formData.delete(key);
@@ -2158,8 +2190,10 @@ function updateBankFrequencyOptions() {
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (!dayEndEl || !freqEl) return;
 
-    if (dayEndEl.min && dayEndEl.value && dayEndEl.value < dayEndEl.min) {
-        dayEndEl.value = dayEndEl.min;
+    const minYmd = (dayEndEl.dataset.bankMinYmd || '').trim();
+    const dayEndYmd = parseBankUiDateToYmd(dayEndEl.value);
+    if (minYmd && dayEndYmd && dayEndYmd < minYmd) {
+        dayEndEl.value = formatBankYmdToUi(minYmd);
     }
 
     const hasDayEnd = !!dayEndEl.value;
@@ -2177,6 +2211,35 @@ function updateBankFrequencyOptions() {
             monthlyOption.disabled = false;
         }
     }
+}
+
+function formatBankYmdToUi(ymd) {
+    if (!ymd) return '';
+    const m = String(ymd).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return '';
+    return m[3] + '/' + m[2] + '/' + m[1].slice(2);
+}
+
+function parseBankUiDateToYmd(value) {
+    const raw = value == null ? '' : String(value).trim();
+    if (!raw) return '';
+    let m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return m[1] + '-' + m[2] + '-' + m[3];
+    m = raw.match(/^(\d{2})\/(\d{2})\/(\d{2}|\d{4})$/);
+    if (!m) return '';
+    const dd = m[1];
+    const mm = m[2];
+    const yy = m[3].length === 2 ? '20' + m[3] : m[3];
+    const iso = yy + '-' + mm + '-' + dd;
+    const d = new Date(Number(yy), Number(mm) - 1, Number(dd));
+    if (isNaN(d.getTime())) return '';
+    const valid = d.getFullYear() === Number(yy) && (d.getMonth() + 1) === Number(mm) && d.getDate() === Number(dd);
+    return valid ? iso : '';
+}
+
+function normalizeBankDateInputValue(value) {
+    const ymd = parseBankUiDateToYmd(value);
+    return ymd ? formatBankYmdToUi(ymd) : (value == null ? '' : String(value).trim());
 }
 
 /** 与 api/processes/billing_schedule.php getBillingTermMonthsFromContract 一致 */
@@ -2265,13 +2328,13 @@ function autoCalculateBankDayEnd() {
     if (!dayEndEl) {
         return;
     }
-    const start = (dayStartEl && dayStartEl.value || '').trim();
+    const start = parseBankUiDateToYmd(dayStartEl && dayStartEl.value);
     const contract = (contractEl && contractEl.value || '').trim();
     const prevContractEnd = (dayEndEl.dataset.bankContractEndHint || '').trim();
     const freqEl = document.getElementById('bank_day_start_frequency');
     const frequency = (freqEl && freqEl.value === 'monthly') ? 'monthly' : '1st_of_every_month';
     if (!start) {
-        dayEndEl.removeAttribute('min');
+        delete dayEndEl.dataset.bankMinYmd;
         delete dayEndEl.dataset.bankContractEndHint;
         updateBankFrequencyOptions();
         return;
@@ -2279,20 +2342,21 @@ function autoCalculateBankDayEnd() {
     const term = parseBankContractTermMonths(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
     if (!calculated) {
-        dayEndEl.min = start;
+        dayEndEl.dataset.bankMinYmd = start;
         delete dayEndEl.dataset.bankContractEndHint;
-        if (dayEndEl.value && dayEndEl.value < start) {
-            dayEndEl.value = start;
+        const currentYmd = parseBankUiDateToYmd(dayEndEl.value);
+        if (currentYmd && currentYmd < start) {
+            dayEndEl.value = formatBankYmdToUi(start);
         }
         updateBankFrequencyOptions();
         return;
     }
-    dayEndEl.min = calculated;
-    const cur = (dayEndEl.value || '').trim();
+    dayEndEl.dataset.bankMinYmd = calculated;
+    const cur = parseBankUiDateToYmd(dayEndEl.value);
     if (cur && cur < calculated) {
-        dayEndEl.value = calculated;
+        dayEndEl.value = formatBankYmdToUi(calculated);
     } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
-        dayEndEl.value = calculated;
+        dayEndEl.value = formatBankYmdToUi(calculated);
     }
     dayEndEl.dataset.bankContractEndHint = calculated;
     updateBankFrequencyOptions();
