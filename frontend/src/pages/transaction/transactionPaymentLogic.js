@@ -1,4 +1,4 @@
-import { parseBalanceValue, roundMoneyNearestHalf } from "./transactionFormat.js";
+import { parseBalanceValue } from "./transactionFormat.js";
 
 export const TRANSACTION_CURRENCY_FILTER_KEY_PREFIX = "transaction_currency_filter_v1_";
 export const TX_LIST_SESSION_PREFIX = "count168_txlist_v1_";
@@ -230,15 +230,15 @@ export function calculateTotals(rows) {
   const cr_dr = sumField("cr_dr");
   const balance = sumField("balance");
   return {
-    bf: roundMoneyNearestHalf(bf).toFixed(2),
-    win_loss: roundMoneyNearestHalf(win_loss).toFixed(2),
-    cr_dr: roundMoneyNearestHalf(cr_dr).toFixed(2),
-    balance: roundMoneyNearestHalf(balance).toFixed(2),
+    bf: bf.toFixed(2),
+    win_loss: win_loss.toFixed(2),
+    cr_dr: cr_dr.toFixed(2),
+    balance: balance.toFixed(2),
   };
 }
 
 export function mergeTotals(leftT, rightT) {
-  const add = (a, b) => roundMoneyNearestHalf(parseFloat(a || 0) + parseFloat(b || 0)).toFixed(2);
+  const add = (a, b) => (parseFloat(a || 0) + parseFloat(b || 0)).toFixed(2);
   return {
     bf: add(leftT.bf, rightT.bf),
     win_loss: add(leftT.win_loss, rightT.win_loss),

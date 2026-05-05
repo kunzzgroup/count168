@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { parseRateExpression, buildClientRequestId, formatRateAmount, roundMoneyNearestHalf } from "../transactionFormat.js";
+import { parseRateExpression, buildClientRequestId } from "../transactionFormat.js";
+import { formatRateAmount } from "../transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../transactionSubmitHelpers.js";
 import { submitTransaction } from "../transactionApi.js";
 import { transactionQueryKeys } from "../transactionQueryKeys.js";
@@ -50,16 +51,14 @@ export function useTransactionForm({
 
   const handleBalanceCellClick = useCallback((account, side) => {
     if (!account) return;
-    const snapped = roundMoneyNearestHalf(account.balance ?? 0);
-    const amt = snapped.toFixed(2);
     if (side === "left") {
       setTxToAccount(account);
       setTxCurrency(account.currency || "");
-      setTxAmount(amt);
+      setTxAmount(String(account.balance || ""));
     } else {
       setTxFromAccount(account);
       setTxCurrency(account.currency || "");
-      setTxAmount(amt);
+      setTxAmount(String(account.balance || ""));
     }
   }, []);
 
@@ -244,17 +243,12 @@ export function useTransactionForm({
       return;
     }
 
-    const amountStr = String(txAmount ?? "").replace(/,/g, "").trim();
-    if (amountStr === "") {
+    const amountStr = String(txAmount ?? "").trim();
+    const n = Number(amountStr);
+    if (!Number.isFinite(n) || amountStr === "") {
       pushToast(isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount (>= 0)", "error");
       return;
     }
-    const parsed = Number(amountStr);
-    if (!Number.isFinite(parsed)) {
-      pushToast(isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount (>= 0)", "error");
-      return;
-    }
-    const n = roundMoneyNearestHalf(amountStr);
     if (!isAdjustment && n < 0) {
       pushToast("Please enter a valid amount (>= 0)", "error");
       return;
@@ -276,7 +270,7 @@ export function useTransactionForm({
         transaction_type: txType === "PROFIT" ? winLoseSide : txType,
         account_id: toId,
         from_account_id: isAdjustment ? "" : fromId || "",
-        amount: n.toFixed(2),
+        amount: txAmount,
         transaction_date: txDate,
         description: "",
         sms: txRemark,

@@ -6,58 +6,6 @@ function cleanNumberLike(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-/**
- * Round to `decimals` places using half-up (四舍五入), aligned with legacy `MoneyDecimal.formatFixedHalfUp` / Decimal.ROUND_HALF_UP.
- * Prefer parsing decimal strings so values like "1.005" round correctly despite IEEE floats.
- */
-export function roundMoneyHalfUp(value, decimals = 2) {
-  if (value === null || value === undefined) return 0;
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) return 0;
-    const wide = String(Number.prototype.toFixed.call(value, 14));
-    return roundMoneyHalfUp(wide, decimals);
-  }
-  let raw = String(value).replace(/,/g, "").trim();
-  if (raw === "" || raw === "-") return 0;
-  const neg = raw[0] === "-";
-  let unsigned = neg ? raw.slice(1) : raw;
-  if (/e|E/.test(unsigned)) {
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return 0;
-    return roundMoneyHalfUp(n, decimals);
-  }
-  if (!/^\d*\.?\d*$/.test(unsigned)) {
-    const n = Number(raw);
-    return Number.isFinite(n) ? roundMoneyHalfUp(n, decimals) : 0;
-  }
-  if (unsigned.startsWith(".")) unsigned = "0" + unsigned;
-  const [intPartRaw, fracRaw = ""] = unsigned.split(".");
-  const intPart = intPartRaw === "" ? "0" : intPartRaw;
-  const keep = (fracRaw + "0".repeat(decimals)).slice(0, decimals);
-  const roundDigit = parseInt((fracRaw + "0".repeat(decimals + 1)).charAt(decimals) || "0", 10);
-  const scale = 10n ** BigInt(decimals);
-  let subunits = BigInt(intPart) * scale + BigInt(keep);
-  if (roundDigit >= 5) subunits += 1n;
-  const out = Number(subunits) / Number(scale);
-  return neg ? -out : out;
-}
-
-/**
- * Snap to nearest 0.50 after 2dp half-up (五毫进位). Removes “odd cents” like -0.37 / -1.77 in the transaction grid.
- */
-export function roundMoneyNearestHalf(value) {
-  const r = roundMoneyHalfUp(value, 2);
-  const fixed = r.toFixed(2);
-  const neg = fixed.startsWith("-");
-  const body = neg ? fixed.slice(1) : fixed;
-  const [intP, fracP = "00"] = body.split(".");
-  const frac2 = (fracP + "00").slice(0, 2);
-  const cents = BigInt(intP) * 100n + BigInt(frac2);
-  const signedCents = neg ? -cents : cents;
-  const roundedCents = Math.round(Number(signedCents) / 50) * 50;
-  return roundedCents / 100;
-}
-
 export function toUpperDisplay(value) {
   if (value === null || value === undefined) return "-";
   const str = String(value).trim();
@@ -72,26 +20,26 @@ export function getHistoryRemark(row) {
   return toUpperDisplay(row?.sms || "-");
 }
 
-// Show '-' stays '-', otherwise 2 decimals (nearest 0.50) with thousand separators.
+// Keep legacy behavior: show '-' stays '-', otherwise always 2 decimals with thousand separators.
 export function formatMoney2(value) {
   const n = cleanNumberLike(value);
   if (n === null) return value === "-" ? "-" : "0.00";
-  const rounded = roundMoneyNearestHalf(value);
-  const fixed = rounded.toFixed(2);
+  const fixed = (Math.trunc((n + Number.EPSILON) * 100) / 100).toFixed(2);
   const parts = fixed.split(".");
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return parts.join(".");
 }
 
 /**
- * Main grid + totals: 2dp half-up then nearest 0.50 (五毫), then thousands.
+ * Main grid + totals: align with legacy MoneyDecimal-style display (avoid trunc quirks on pre-rounded API strings).
  */
 export function formatPaymentHistoryMoney(value) {
   if (value === "-" || value === null || value === undefined) return "-";
   const cleaned = String(value).replace(/,/g, "").trim();
   if (cleaned === "" || cleaned === "-") return "0.00";
-  const rounded = roundMoneyNearestHalf(cleaned);
-  return rounded.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return "0.00";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function formatHistoryMoney(v) {
@@ -152,8 +100,9 @@ export function parseRateExpression(rawValue) {
 }
 
 export function formatRateAmount(value) {
-  const raw = String(value ?? "").replace(/,/g, "").trim();
-  const rounded = roundMoneyHalfUp(raw || "0", 2);
-  return rounded.toFixed(2);
+  const n = Number(String(value ?? "").replace(/,/g, "").trim());
+  if (!Number.isFinite(n)) return "0.00";
+  // Backend normalizes; keep 2dp string for stability.
+  return n.toFixed(2);
 }
 
