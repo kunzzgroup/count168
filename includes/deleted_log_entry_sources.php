@@ -12,10 +12,15 @@ function deleted_log_entry_source_definitions(): array
         ],
         'account' => [
             'label' => 'Account · 账号',
-            'hint' => '账号列表删 inactive',
+            'hint' => '账号列表、币种、账号币种等',
             'pages' => [
                 'account-list.php',
                 '/api/accounts/delete_accounts_api.php',
+                '/api/accounts/delete_currency_api.php',
+                '/api/accounts/account_currency_api.php',
+                '/api/accounts/bulk_account_currency_api.php',
+                '/api/accounts/account_company_api.php',
+                '/api/accounts/account_link_api.php',
             ],
         ],
         'txn_maint' => [

@@ -27,6 +27,11 @@ function deleted_log_display_page_label(string $page): string
     $map = [
         'account-list.php' => '账号列表 Account List',
         '/api/accounts/delete_accounts_api.php' => '账号列表 Account List',
+        '/api/accounts/delete_currency_api.php' => '币种设置 Currency',
+        '/api/accounts/account_currency_api.php' => '账号币种 Account Currency',
+        '/api/accounts/bulk_account_currency_api.php' => '批量账号币种 Bulk Account Currency',
+        '/api/accounts/account_company_api.php' => '账号多公司 Account Company',
+        '/api/accounts/account_link_api.php' => '账号关联 Account Link',
         '/api/transactions/maintenance_delete_api.php' => '交易维护 Transaction Maintenance',
         '/api/payment_maintenance/delete_api.php' => '收付款维护 Payment Maintenance',
         '/api/capture_maintenance/delete_api.php' => '抓数维护 Data Capture Maintenance',
