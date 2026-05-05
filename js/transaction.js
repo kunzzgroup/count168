@@ -153,6 +153,18 @@
         return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
     }
 
+    /** 合计列 Win/Loss：每行用 win_loss_full（缺省 win_loss）四舍五入到分（ROUND_HALF_UP）再累加，与单元格显示（截断两位）可不一致 */
+    function winLossRowHalfUp2(row) {
+        const raw = row && row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ''
+            ? row.win_loss_full
+            : (row && row.win_loss != null ? row.win_loss : '0');
+        try {
+            return MoneyDecimal.formatFixedHalfUp(raw === '-' ? '0' : raw, 2);
+        } catch (_) {
+            return '0.00';
+        }
+    }
+
     // ==================== Contra Inbox（Manager+） ====================
     function isContraInboxOpen() {
         const pop = document.getElementById('contraInboxPopover');
@@ -2162,15 +2174,22 @@
             fillTable('tbody_left', 'table_left', sortedLeftRows);
             fillTable('tbody_right', 'table_right', sortedRightRows);
 
-            // 优先使用后端返回的 totals，避免前端重复计算造成误差或状态不同步
+            // bf/cr_dr/balance 优先用后端 totals；Win/Loss 合计强制用逐行四舍五入（win_loss_full）再累加
             let leftTotals, rightTotals, summaryTotals;
+            const ltWl = calculateTotals(sortedLeftRows);
+            const rtWl = calculateTotals(sortedRightRows);
             if (totalsFromApi && totalsFromApi.left && totalsFromApi.right && totalsFromApi.summary) {
-                leftTotals = totalsFromApi.left;
-                rightTotals = totalsFromApi.right;
-                summaryTotals = totalsFromApi.summary;
+                leftTotals = { ...totalsFromApi.left, win_loss: ltWl.win_loss };
+                rightTotals = { ...totalsFromApi.right, win_loss: rtWl.win_loss };
+                summaryTotals = {
+                    bf: totalsFromApi.summary.bf,
+                    win_loss: MoneyDecimal.add(ltWl.win_loss, rtWl.win_loss).toString(),
+                    cr_dr: totalsFromApi.summary.cr_dr,
+                    balance: totalsFromApi.summary.balance
+                };
             } else {
-                leftTotals = calculateTotals(sortedLeftRows);
-                rightTotals = calculateTotals(sortedRightRows);
+                leftTotals = ltWl;
+                rightTotals = rtWl;
                 summaryTotals = {
                     bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
                     win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
@@ -2442,7 +2461,7 @@
     function calculateTotals(rows) {
         return rows.reduce((totals, row) => {
             totals.bf = MoneyDecimal.add(totals.bf, row.bf || '0').toString();
-            totals.win_loss = MoneyDecimal.add(totals.win_loss, row.win_loss || '0').toString();
+            totals.win_loss = MoneyDecimal.add(totals.win_loss, winLossRowHalfUp2(row)).toString();
             totals.cr_dr = MoneyDecimal.add(totals.cr_dr, row.cr_dr || '0').toString();
             totals.balance = MoneyDecimal.add(totals.balance, row.balance || '0').toString();
             return totals;
@@ -2810,7 +2829,7 @@
         console.log('✅ Show Name 已切换:', showName);
     }
 
-    // 未勾选 Show 0 balance 时：默认隐藏 balance≈0 的行；但若该行 B/F、Win/Loss、Cr/Dr 仍有数则保留，避免后端 Total 有汇总而明细被全部滤掉
+    // 未勾选 Show 0 balance：Balance≈0 且四列≈0 时保留条件：本期 Cr/Dr、本期非零金额 W/L，或本期 Data Capture 带 id_product 的明细（金额可为 0，与 Payment History 一致）。
     function rowPassesHideZeroBalanceFilter(showZero, row) {
         if (showZero) return true;
         const num = parseBalanceValue(row.balance);
@@ -2828,9 +2847,17 @@
                 return MoneyDecimal.toDecimal('0');
             }
         };
-        // 有真实交易记录（例如 PROFIT 0.00）时，不应被“隐藏 0 balance”吃掉。
-        const hasTxnFlag = flagToBool(row.has_win_loss_history) || flagToBool(row.has_win_loss_transactions) || flagToBool(row.has_crdr_transactions);
-        return hasTxnFlag || absVal(row.bf).gt('0.00001') || absVal(row.win_loss).gt('0.00001') || absVal(row.cr_dr).gt('0.00001');
+        const eps = '0.00001';
+        const hasAnyMoneyColumn =
+            absVal(row.bf).gt(eps) ||
+            absVal(row.win_loss).gt(eps) ||
+            absVal(row.cr_dr).gt(eps);
+        if (hasAnyMoneyColumn) return true;
+        const hasTxnFlag =
+            flagToBool(row.has_win_loss_transactions) ||
+            flagToBool(row.has_crdr_transactions) ||
+            flagToBool(row.has_period_id_product_rows);
+        return hasTxnFlag;
     }
 
     // ==================== 根据 Show 0 balance 过滤前端行并渲染 ====================
@@ -3937,6 +3964,15 @@
 
             // Payment History 弹窗内表格走浏览器默认复制，避免与主表逻辑冲突
             if (table.closest('#historyModal')) {
+                return;
+            }
+
+            // 选区仅在单个单元格内：不劫持，否则会把同一行所有列拼成 TSV 粘贴到 Excel
+            const startEl = elementFromRangeNode(range.startContainer);
+            const endEl = elementFromRangeNode(range.endContainer);
+            const startCell = startEl && startEl.closest ? startEl.closest('td, th') : null;
+            const endCell = endEl && endEl.closest ? endEl.closest('td, th') : null;
+            if (startCell && endCell && startCell === endCell && table.contains(startCell)) {
                 return;
             }
 
