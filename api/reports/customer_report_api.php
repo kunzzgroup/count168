@@ -7,6 +7,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../transactions/dcd_processed_quant.php';
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
@@ -104,9 +105,10 @@ function applyCurrencyFilter(array $currencyList, string $filterCodes): array {
 }
 
 function getWinLoseByCurrency(PDO $pdo, int $accountId, int $currencyId, string $dateFrom, string $dateTo): array {
+    $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
     $sql = "SELECT
-                COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
-                COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN dcd.processed_amount ELSE 0 END), 0) AS lose_total
+                COALESCE(SUM(CASE WHEN ($dcdQ) > 0 THEN ($dcdQ) ELSE 0 END), 0) AS win_total,
+                COALESCE(SUM(CASE WHEN ($dcdQ) < 0 THEN ($dcdQ) ELSE 0 END), 0) AS lose_total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
@@ -122,9 +124,10 @@ function getWinLoseByCurrency(PDO $pdo, int $accountId, int $currencyId, string 
 }
 
 function getWinLoseNoCurrency(PDO $pdo, int $accountId, string $dateFrom, string $dateTo): array {
+    $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
     $sql = "SELECT
-                COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
-                COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN dcd.processed_amount ELSE 0 END), 0) AS lose_total
+                COALESCE(SUM(CASE WHEN ($dcdQ) > 0 THEN ($dcdQ) ELSE 0 END), 0) AS win_total,
+                COALESCE(SUM(CASE WHEN ($dcdQ) < 0 THEN ($dcdQ) ELSE 0 END), 0) AS lose_total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
