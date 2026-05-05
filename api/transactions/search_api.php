@@ -146,6 +146,71 @@ function searchMoneyIsZero($value): bool
     return money_cmp($value ?? '0', '0', 8) === 0;
 }
 
+/**
+ * Transaction List search_api：是否可在响应中附带 balance_contributors 调试块（非 member；owner / admin / manager）。
+ */
+function searchApiCanEmitBalanceContributorsDebug(): bool
+{
+    $ut = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
+    if ($ut === 'member') {
+        return false;
+    }
+    if ($ut === 'owner') {
+        return true;
+    }
+    $role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
+    return in_array($role, ['owner', 'admin', 'manager'], true);
+}
+
+/**
+ * 列出 |balance| 非近零的账户×币别行（与列表行口径一致，含 Domain 池校正之后）。
+ *
+ * @return array{contributors: list<array<string, mixed>>, contributors_balance_sum: string}
+ */
+function searchApiBuildBalanceContributorsDebug(array $results): array
+{
+    $contributors = [];
+    foreach ($results as $row) {
+        $bal = $row['balance'] ?? '0';
+        if (!searchMoneyNonZero($bal)) {
+            continue;
+        }
+        $side = money_cmp($bal, '0') >= 0 ? 'left' : 'right';
+        $contributors[] = [
+            'table_side' => $side,
+            'account_id' => (string) ($row['account_id'] ?? ''),
+            'account_db_id' => (int) ($row['account_db_id'] ?? 0),
+            'account_name' => (string) ($row['account_name'] ?? ''),
+            'currency' => (string) ($row['currency'] ?? ''),
+            'role' => (string) ($row['role'] ?? ''),
+            'bf' => searchMoney2($row['bf'] ?? '0'),
+            'win_loss' => searchMoney2($row['win_loss'] ?? '0'),
+            'win_loss_full' => isset($row['win_loss_full']) ? money_normalize($row['win_loss_full'] ?? '0', 8) : searchMoney2($row['win_loss'] ?? '0'),
+            'cr_dr' => searchMoney2($row['cr_dr'] ?? '0'),
+            'balance' => searchMoney2($bal),
+        ];
+    }
+    usort($contributors, function ($a, $b) {
+        $c = money_cmp(money_abs($b['balance']), money_abs($a['balance']));
+        if ($c !== 0) {
+            return $c;
+        }
+        $ac = strcmp($a['currency'], $b['currency']);
+        if ($ac !== 0) {
+            return $ac;
+        }
+        return strcmp($a['account_id'], $b['account_id']);
+    });
+    $sum = '0';
+    foreach ($contributors as $c) {
+        $sum = money_add($sum, $c['balance'], 8);
+    }
+    return [
+        'contributors' => $contributors,
+        'contributors_balance_sum' => searchMoney2($sum),
+    ];
+}
+
 function normalizeMoneyRow(array $row): array
 {
     foreach (['bf', 'win_loss', 'cr_dr', 'balance'] as $field) {
@@ -760,6 +825,10 @@ try {
         throw new Exception('用户未登录');
     }
 
+    $raw_dbg_co = isset($_GET['debug_contributors']) ? strtolower(trim((string) $_GET['debug_contributors'])) : '';
+    $debug_contributors_requested = in_array($raw_dbg_co, ['1', 'true', 'yes'], true);
+    $emit_balance_contributors_debug = $debug_contributors_requested && searchApiCanEmitBalanceContributorsDebug();
+
     // 获取搜索参数
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
@@ -902,6 +971,7 @@ try {
         sort($cache_key_payload['categories']);
         sort($cache_key_payload['currencies']);
         sort($cache_key_payload['target_account_ids']);
+        $cache_key_payload['balance_contributors_debug'] = $emit_balance_contributors_debug ? 1 : 0;
         $cache_hash = sha1(json_encode($cache_key_payload, JSON_UNESCAPED_UNICODE));
         $cache_file = $cache_dir . DIRECTORY_SEPARATOR . $cache_hash . '.json';
 
@@ -2118,6 +2188,14 @@ try {
             'active_currency_codes' => $active_currency_codes
         ]
     ];
+    if ($emit_balance_contributors_debug) {
+        $dbgPack = searchApiBuildBalanceContributorsDebug($results);
+        $payload['data']['debug'] = [
+            'balance_contributors' => $dbgPack['contributors'],
+            'balance_contributors_count' => count($dbgPack['contributors']),
+            'contributors_balance_sum' => $dbgPack['contributors_balance_sum'],
+        ];
+    }
     $json = json_encode($payload);
     if (!empty($cache_file) && $json !== false) {
         @file_put_contents($cache_file, $json, LOCK_EX);
