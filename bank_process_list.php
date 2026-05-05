@@ -248,11 +248,13 @@ if (!function_exists('renderBankProcessModals')) {
                                 <div class="form-row bank-day-start-row">
                                     <div class="form-group bank-day-start-input-wrap">
                                         <label for="bank_day_start">Day start</label>
-                                        <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                        <input type="text" id="bank_day_start" name="day_start" class="bank-input"
+                                            placeholder="dd/mm/yy" autocomplete="off">
                                     </div>
                                     <div class="form-group bank-day-end-input-wrap">
                                         <label for="bank_day_end">Day end</label>
-                                        <input type="date" id="bank_day_end" name="day_end" class="bank-input">
+                                        <input type="text" id="bank_day_end" name="day_end" class="bank-input"
+                                            placeholder="dd/mm/yy" autocomplete="off">
                                     </div>
                                 </div>
                             </div>
