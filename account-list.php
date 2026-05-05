@@ -1,6 +1,7 @@
 <?php
 // 使用统一的session检查
 require_once 'session_check.php';
+require_once __DIR__ . '/includes/deleted_log.php';
 
 // 不缓存 HTML，部署后刷新即可拿到带最新 ?v= 的页面
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -143,6 +144,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 header('Location: account-list.php?error=cannot_delete_used_in_datacapture&accounts=' . urlencode($usedAccountIds));
                 exit;
             }
+
+            $pageTag = 'account-list.php';
+            $userTag = (string) ($_SESSION['login_id'] ?? $_SESSION['name'] ?? '');
+            foreach ($ids as $aid) {
+                deletedLog($pdo, $userTag, $pageTag, 'account_company', $company_id . ':' . $aid, 'DELETE', [
+                    'company_id' => $company_id,
+                    'account_id' => $aid,
+                ]);
+            }
             
             // 只删除inactive账户，并确保属于当前公司
             // 先删除 account_company 关联（只删除当前公司的关联）
@@ -170,6 +180,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             // 删除没有其他公司关联的账户
             $deleted_account_count = 0;
             if (!empty($remaining_accounts)) {
+                foreach ($remaining_accounts as $raid) {
+                    deletedLog($pdo, $userTag, $pageTag, 'account', (string) $raid);
+                }
                 $remaining_placeholders = str_repeat('?,', count($remaining_accounts) - 1) . '?';
                 $delete_stmt = $pdo->prepare("
                     DELETE FROM account 
