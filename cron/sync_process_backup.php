@@ -21,8 +21,24 @@ if ($pdo->query("SHOW TABLES LIKE 'process_backup'")->rowCount() < 1) {
     exit(1);
 }
 
+// currency 表在部分环境列名可能不同；无 code 时回退（需已 JOIN 别名 c）
+$currencyNameExpr = "''";
+try {
+    $curFields = $pdo->query('SHOW COLUMNS FROM currency')->fetchAll(PDO::FETCH_COLUMN, 0);
+    $curSet = array_fill_keys($curFields, true);
+    if (isset($curSet['code'])) {
+        $currencyNameExpr = 'COALESCE(c.code, \'\')';
+    } elseif (isset($curSet['currency_code'])) {
+        $currencyNameExpr = 'COALESCE(c.currency_code, \'\')';
+    } elseif (isset($curSet['name'])) {
+        $currencyNameExpr = 'COALESCE(c.name, \'\')';
+    }
+} catch (Throwable $e) {
+    $currencyNameExpr = "''";
+}
+
 $sqlDelete = 'DELETE FROM process_backup';
-$sqlInsert = <<<'SQL'
+$sqlInsert = <<<SQL
 INSERT INTO process_backup (
   id, process_id, description_id, description_name, currency_id,
   currency_name, remove_word, replace_word_from, replace_word_to, remark, status,
@@ -36,7 +52,7 @@ SELECT
   p.description_id,
   COALESCE(d.name, '') AS description_name,
   p.currency_id,
-  COALESCE(c.code, '') AS currency_name,
+  {$currencyNameExpr} AS currency_name,
   p.remove_word,
   p.replace_word_from,
   p.replace_word_to,
@@ -57,11 +73,14 @@ SELECT
   p.sync_source_process_id
 FROM `process` p
 LEFT JOIN description d ON d.id = p.description_id
+LEFT JOIN currency c ON c.id = p.currency_id
 LEFT JOIN company co ON co.id = p.company_id
 LEFT JOIN `user` u_created ON p.created_by = u_created.id
 LEFT JOIN owner o_created ON p.created_by_owner_id = o_created.id
 LEFT JOIN `user` u_modified ON p.modified_by = u_modified.id
+  AND (p.modified_by_type IS NULL OR p.modified_by_type = 'user')
 LEFT JOIN owner o_modified ON p.modified_by_owner_id = o_modified.id
+  AND p.modified_by_type = 'owner'
 SQL;
 
 try {
