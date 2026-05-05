@@ -147,11 +147,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
 
             $pageTag = 'account-list.php';
             $userTag = (string) ($_SESSION['login_id'] ?? $_SESSION['name'] ?? '');
+            $cidLogPost = (string) $company_id;
             foreach ($ids as $aid) {
                 deletedLog($pdo, $userTag, $pageTag, 'account_company', $company_id . ':' . $aid, 'DELETE', [
                     'company_id' => $company_id,
                     'account_id' => $aid,
-                ]);
+                ], $cidLogPost);
             }
             
             // 只删除inactive账户，并确保属于当前公司
@@ -181,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             $deleted_account_count = 0;
             if (!empty($remaining_accounts)) {
                 foreach ($remaining_accounts as $raid) {
-                    deletedLog($pdo, $userTag, $pageTag, 'account', (string) $raid);
+                    deletedLog($pdo, $userTag, $pageTag, 'account', (string) $raid, 'DELETE', null, $cidLogPost);
                 }
                 $remaining_placeholders = str_repeat('?,', count($remaining_accounts) - 1) . '?';
                 $delete_stmt = $pdo->prepare("

@@ -182,12 +182,12 @@ $assetVer = function ($file) {
     <div class="container">
         <div class="content">
             <h1 class="account-page-title">Deleted Log</h1>
-            <div class="account-separator-line"></div>
+            <div class="deleted-log-separator-line"></div>
             <?php if (!empty($companyScopeMulti)) : ?>
-            <p class="deleted-log-scope-hint">未在侧栏锁定单一公司时，将显示您可访问的<strong>全部公司</strong>的删除记录（已按权限合并）。</p>
+            <p class="deleted-log-scope-hint">已合并显示您名下可访问的<strong>全部公司</strong>的删除记录（与当前侧栏选哪一家公司无关）。</p>
             <?php endif; ?>
 
-            <p class="deleted-log-tabs-intro">按「带删除按钮的页面 / 接口」快速筛选（与下方 Module 可叠加）</p>
+
             <nav class="deleted-log-entry-tabs" aria-label="Delete entry source">
                 <?php
                 $navBase = $_GET;

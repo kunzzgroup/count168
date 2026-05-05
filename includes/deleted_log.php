@@ -9,6 +9,7 @@
  * @param string      $recordId   写入日志主键展示字段；WHERE id=? 时使用
  * @param string      $actionType 默认 DELETE
  * @param array|null  $whereEquals 若提供，则 WHERE 按关联列等值查询（用于无主键 id 的表）
+ * @param string|null $companyIdOverride 写入日志行的 company_id（应与本次删除所属公司一致）
  *
  * @return bool 是否成功写入日志（未查到原行返回 false；失败不抛异常以免影响删除）
  */
@@ -79,7 +80,42 @@ function deleted_log_client_ip(): string
     return (string) ($_SERVER['REMOTE_ADDR'] ?? '');
 }
 
-function deletedLog(PDO $conn, string $user, string $page, string $table, string $recordId, string $actionType = 'DELETE', ?array $whereEquals = null): bool
+/**
+ * 校验当前登录用户是否可操作该公司（删除请求里的 company_id）
+ */
+function deleted_log_user_can_use_company(PDO $pdo, int $companyId): bool
+{
+    if ($companyId <= 0) {
+        return false;
+    }
+    $ut = strtolower((string) ($_SESSION['user_type'] ?? 'user'));
+    if ($ut === 'owner') {
+        $oid = (int) ($_SESSION['owner_id'] ?? $_SESSION['real_owner_id'] ?? 0);
+        if ($oid <= 0) {
+            return false;
+        }
+        try {
+            $st = $pdo->prepare('SELECT 1 FROM company WHERE id = ? AND owner_id = ? LIMIT 1');
+            $st->execute([$companyId, $oid]);
+            return (bool) $st->fetchColumn();
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+    $uid = (int) ($_SESSION['user_id'] ?? 0);
+    if ($uid <= 0) {
+        return false;
+    }
+    try {
+        $st = $pdo->prepare('SELECT 1 FROM user_company_map WHERE user_id = ? AND company_id = ? LIMIT 1');
+        $st->execute([$uid, $companyId]);
+        return (bool) $st->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function deletedLog(PDO $conn, string $user, string $page, string $table, string $recordId, string $actionType = 'DELETE', ?array $whereEquals = null, ?string $companyIdOverride = null): bool
 {
     if (!deleted_log_validate_table($table)) {
         error_log('deletedLog: rejected non-whitelist table: ' . $table);
@@ -127,9 +163,12 @@ function deletedLog(PDO $conn, string $user, string $page, string $table, string
             'INSERT INTO `deleted_logs` (`user`, `company_id`, `page`, `table_name`, `record_id`, `action_type`, `ip_address`, `deleted_data`)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         );
+        $cidStored = ($companyIdOverride !== null && trim($companyIdOverride) !== '')
+            ? trim($companyIdOverride)
+            : deleted_log_company_id_string();
         $ins->execute([
             $effectiveUser,
-            deleted_log_company_id_string(),
+            $cidStored,
             $page,
             $table,
             $recordId,
