@@ -33,6 +33,17 @@
     font-weight: 500;
 }
 
+.calendar-day.calendar-day-disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+.bank-form .bank-form-day-picker {
+    min-width: 0;
+    font: inherit;
+}
+
 /* Calendar popup - width set by JS to match date-range bar */
 .calendar-popup {
     position: fixed;

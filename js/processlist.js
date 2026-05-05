@@ -174,6 +174,42 @@ function parseIsoDate(value) {
     return date;
 }
 
+function bankFormDayEndMinYmdAttr(el) {
+    if (!el) return '';
+    return (el.getAttribute('min') || '').trim();
+}
+
+/** 與 dashboard date range 相同：dd/mm/yyyy 顯示；hidden 欄位存 Y-m-d */
+function bankFormSetDayYmdAndDisplay(inputId, displayId, ymd) {
+    const inp = document.getElementById(inputId);
+    const disp = document.getElementById(displayId);
+    if (!inp) return;
+    const raw = ymd == null ? '' : String(ymd).trim();
+    const iso = (raw.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(raw)) ? raw.substring(0, 10) : '';
+    inp.value = iso;
+    if (disp) {
+        if (!iso) {
+            disp.textContent = 'dd/mm/yyyy';
+        } else {
+            const p = iso.split('-');
+            disp.textContent = p[2].padStart(2, '0') + '/' + p[1].padStart(2, '0') + '/' + p[0];
+        }
+    }
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setBankFormDayInputYmd(el, ymd) {
+    if (!el || !el.id) return;
+    const disp = el.id === 'bank_day_start' ? 'bank_day_start_display' : (el.id === 'bank_day_end' ? 'bank_day_end_display' : null);
+    if (!disp) return;
+    bankFormSetDayYmdAndDisplay(el.id, disp, ymd);
+}
+
+function clearBankFormDayPickers() {
+    bankFormSetDayYmdAndDisplay('bank_day_start', 'bank_day_start_display', '');
+    bankFormSetDayYmdAndDisplay('bank_day_end', 'bank_day_end_display', '');
+}
+
 function getProcessListDateRange() {
     const fromInput = document.getElementById('date_from');
     const toInput = document.getElementById('date_to');
@@ -1142,9 +1178,13 @@ function openAddProcessForSelectedPermission() {
             if (typeof updateBankFrequencyOptions === 'function') {
                 const dayEndEl = document.getElementById('bank_day_end');
                 if (dayEndEl) {
-                    dayEndEl.value = '';
+                    setBankFormDayInputYmd(dayEndEl, '');
                     dayEndEl.removeAttribute('min');
                     delete dayEndEl.dataset.bankContractEndHint;
+                }
+                const dayStartEl = document.getElementById('bank_day_start');
+                if (dayStartEl) {
+                    setBankFormDayInputYmd(dayStartEl, '');
                 }
                 updateBankFrequencyOptions();
             }
@@ -1234,6 +1274,7 @@ function closeAddBankModal() {
         dayEndClear.removeAttribute('min');
         delete dayEndClear.dataset.bankContractEndHint;
     }
+    clearBankFormDayPickers();
 }
 
 function openProcessNoteModal(target) {
@@ -1419,11 +1460,13 @@ async function openBankEditModal(id) {
         document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';
         document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
         const dayStart = process.day_start || '';
-        document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+        const dayStartYmd = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+        setBankFormDayInputYmd(document.getElementById('bank_day_start'), dayStartYmd);
         const dayEnd = process.day_end || '';
         const dayEndEl = document.getElementById('bank_day_end');
         if (dayEndEl) {
-            dayEndEl.value = dayEnd ? (dayEnd.length === 10 ? dayEnd : dayEnd.split(' ')[0]) : '';
+            const dayEndYmd = dayEnd ? (dayEnd.length === 10 ? dayEnd : dayEnd.split(' ')[0]) : '';
+            setBankFormDayInputYmd(dayEndEl, dayEndYmd);
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
         if (freqEl) freqEl.value = process.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
@@ -3789,8 +3832,9 @@ function updateBankFrequencyOptions() {
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (!dayEndEl || !freqEl) return;
 
-    if (dayEndEl.min && dayEndEl.value && dayEndEl.value < dayEndEl.min) {
-        dayEndEl.value = dayEndEl.min;
+    const minYmd = bankFormDayEndMinYmdAttr(dayEndEl);
+    if (minYmd && dayEndEl.value && dayEndEl.value < minYmd) {
+        setBankFormDayInputYmd(dayEndEl, minYmd);
     }
 
     const hasDayEnd = !!dayEndEl.value;
@@ -3909,20 +3953,20 @@ function autoCalculateBankDayEnd() {
     const term = parseBankContractTermMonths(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
     if (!calculated) {
-        dayEndEl.min = start;
+        dayEndEl.setAttribute('min', start);
         delete dayEndEl.dataset.bankContractEndHint;
         if (dayEndEl.value && dayEndEl.value < start) {
-            dayEndEl.value = start;
+            setBankFormDayInputYmd(dayEndEl, start);
         }
         updateBankFrequencyOptions();
         return;
     }
-    dayEndEl.min = calculated;
+    dayEndEl.setAttribute('min', calculated);
     const cur = (dayEndEl.value || '').trim();
     if (cur && cur < calculated) {
-        dayEndEl.value = calculated;
+        setBankFormDayInputYmd(dayEndEl, calculated);
     } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
-        dayEndEl.value = calculated;
+        setBankFormDayInputYmd(dayEndEl, calculated);
     }
     dayEndEl.dataset.bankContractEndHint = calculated;
     updateBankFrequencyOptions();
@@ -6184,14 +6228,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Bank Add/Edit 表单：必填项变化时更新 Add Process 按钮可用状态
-    ['bank_country', 'bank_bank', 'bank_type', 'bank_name', 'bank_day_start', 'bank_cost', 'bank_price', 'bank_contract'].forEach(function (id) {
+    ['bank_country', 'bank_bank', 'bank_type', 'bank_name', 'bank_day_start', 'bank_day_end', 'bank_cost', 'bank_price', 'bank_contract'].forEach(function (id) {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('input', updateBankSubmitButtonState);
             el.addEventListener('change', updateBankSubmitButtonState);
         }
     });
-
     // 统一管理需要大写的输入框（Remarks/Remark 默认大写英语字母）；bank_remark 已改为 SOP 弹窗内编辑，保存时大写
     const uppercaseInputs = [
         'add_process_id',
@@ -6562,6 +6605,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     initProcessListDateFilter();
+    if (window.MaintenanceDateRangePicker && typeof window.MaintenanceDateRangePicker.initBankFormDayPickers === 'function') {
+        window.MaintenanceDateRangePicker.initBankFormDayPickers();
+    }
     console.log('DOM loaded, calling fetchProcesses...');
     try {
         loadPermissionButtons().then(() => {

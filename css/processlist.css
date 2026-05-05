@@ -939,7 +939,8 @@
     flex: 1 1 0; /* Balanced widths */
 }
 
-.bank-form .bank-day-start-input-wrap .bank-input {
+.bank-form .bank-day-start-input-wrap .bank-form-day-picker,
+.bank-form .bank-day-end-input-wrap .bank-form-day-picker {
     width: 100%;
 }
 
