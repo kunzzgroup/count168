@@ -3,13 +3,15 @@ require_once __DIR__ . '/session_check.php';
 require_once __DIR__ . '/includes/deleted_log.php';
 require_once __DIR__ . '/includes/deleted_log_display.php';
 require_once __DIR__ . '/includes/deleted_log_entry_sources.php';
+require_once __DIR__ . '/includes/deleted_log_page_scope.php';
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
-$role = strtolower((string) ($_SESSION['role'] ?? ''));
+$role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
 $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
-$canAccess = ($role === 'admin' || $role === 'owner' || $userType === 'owner');
+$canAccess = in_array($role, ['admin', 'owner', 'manager', 'supervisor'], true)
+    || $userType === 'owner';
 if (!$canAccess) {
     header('Location: dashboard.php');
     exit;
@@ -43,10 +45,25 @@ function deleted_log_table_to_module(string $table, array $moduleToTables): stri
     return '';
 }
 
-$companyFilter = deleted_log_company_id_string();
-if ($companyFilter === '') {
+$scope = deleted_log_page_company_scope($pdo);
+if ($scope['mode'] === 'none') {
     header('Location: dashboard.php');
     exit;
+}
+
+$companyScopeMulti = ($scope['mode'] === 'in');
+$companyFilter = $companyScopeMulti ? '' : (string) ($scope['id'] ?? '');
+$scopeCompanyIds = $companyScopeMulti ? $scope['ids'] : [(string) ($scope['id'] ?? '')];
+
+$where = [];
+$params = [];
+if ($scope['mode'] === 'one') {
+    $where[] = 'd.`company_id` = ?';
+    $params[] = $companyFilter;
+} else {
+    $phC = implode(',', array_fill(0, count($scopeCompanyIds), '?'));
+    $where[] = 'd.`company_id` IN (' . $phC . ')';
+    $params = array_merge($params, $scopeCompanyIds);
 }
 
 $filterUser = isset($_GET['user']) ? trim((string) $_GET['user']) : '';
@@ -60,9 +77,6 @@ $searchQ = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 $pageNum = isset($_GET['p']) ? max(1, (int) $_GET['p']) : 1;
 $perPage = 20;
 $offset = ($pageNum - 1) * $perPage;
-
-$where = ['d.`company_id` = ?'];
-$params = [$companyFilter];
 
 if ($filterUser !== '') {
     $where[] = 'd.`user` = ?';
@@ -120,10 +134,18 @@ try {
     $dataStmt->execute($params);
     $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $ud = $pdo->prepare(
-        "SELECT DISTINCT d.`user` FROM `deleted_logs` d WHERE d.`company_id` = ? AND d.`user` IS NOT NULL AND d.`user` <> '' ORDER BY d.`user` ASC"
-    );
-    $ud->execute([$companyFilter]);
+    $udSql = 'SELECT DISTINCT d.`user` FROM `deleted_logs` d WHERE ';
+    if ($scope['mode'] === 'one') {
+        $udSql .= 'd.`company_id` = ? AND ';
+        $udParams = [$companyFilter];
+    } else {
+        $udPh = implode(',', array_fill(0, count($scopeCompanyIds), '?'));
+        $udSql .= 'd.`company_id` IN (' . $udPh . ') AND ';
+        $udParams = $scopeCompanyIds;
+    }
+    $udSql .= "d.`user` IS NOT NULL AND d.`user` <> '' ORDER BY d.`user` ASC";
+    $ud = $pdo->prepare($udSql);
+    $ud->execute($udParams);
     $userDistinct = $ud->fetchAll(PDO::FETCH_COLUMN) ?: [];
 } catch (Throwable $e) {
     error_log('deleted-log page: ' . $e->getMessage());
@@ -161,6 +183,9 @@ $assetVer = function ($file) {
         <div class="content">
             <h1 class="account-page-title">Deleted Log</h1>
             <div class="account-separator-line"></div>
+            <?php if (!empty($companyScopeMulti)) : ?>
+            <p class="deleted-log-scope-hint">未在侧栏锁定单一公司时，将显示您可访问的<strong>全部公司</strong>的删除记录（已按权限合并）。</p>
+            <?php endif; ?>
 
             <p class="deleted-log-tabs-intro">按「带删除按钮的页面 / 接口」快速筛选（与下方 Module 可叠加）</p>
             <nav class="deleted-log-entry-tabs" aria-label="Delete entry source">

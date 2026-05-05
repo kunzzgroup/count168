@@ -1,5 +1,15 @@
 /* deleted-log.php — 与 Account List 卡片表格风格一致 */
 
+.deleted-log-scope-hint {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #334155;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+}
+
 .deleted-log-tabs-intro {
     margin: 0 0 10px;
     font-size: 13px;
