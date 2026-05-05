@@ -165,6 +165,19 @@
         }
     }
 
+    /** 表尾 Total 的 Balance：与 search_api trunc2 一致，对 (B/F + Win/Loss + Cr/Dr) 向零截断到分，保证三列相加等于 Balance */
+    function transactionFooterBalanceTruncate2(bf, winLoss, crDr) {
+        try {
+            const sum = MoneyDecimal.add(
+                MoneyDecimal.add(bf || '0', winLoss || '0'),
+                crDr || '0'
+            );
+            return MoneyDecimal.formatFixed(sum, 2);
+        } catch (_) {
+            return '0.00';
+        }
+    }
+
     // ==================== Contra Inbox（Manager+） ====================
     function isContraInboxOpen() {
         const pop = document.getElementById('contraInboxPopover');
@@ -2181,12 +2194,19 @@
             if (totalsFromApi && totalsFromApi.left && totalsFromApi.right && totalsFromApi.summary) {
                 leftTotals = { ...totalsFromApi.left, win_loss: ltWl.win_loss };
                 rightTotals = { ...totalsFromApi.right, win_loss: rtWl.win_loss };
+                leftTotals.balance = transactionFooterBalanceTruncate2(leftTotals.bf, leftTotals.win_loss, leftTotals.cr_dr);
+                rightTotals.balance = transactionFooterBalanceTruncate2(rightTotals.bf, rightTotals.win_loss, rightTotals.cr_dr);
                 summaryTotals = {
                     bf: totalsFromApi.summary.bf,
                     win_loss: MoneyDecimal.add(ltWl.win_loss, rtWl.win_loss).toString(),
                     cr_dr: totalsFromApi.summary.cr_dr,
                     balance: totalsFromApi.summary.balance
                 };
+                summaryTotals.balance = transactionFooterBalanceTruncate2(
+                    summaryTotals.bf,
+                    summaryTotals.win_loss,
+                    summaryTotals.cr_dr
+                );
             } else {
                 leftTotals = ltWl;
                 rightTotals = rtWl;
@@ -2194,8 +2214,13 @@
                     bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
                     win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
                     cr_dr: MoneyDecimal.add(leftTotals.cr_dr, rightTotals.cr_dr).toString(),
-                    balance: MoneyDecimal.add(leftTotals.balance, rightTotals.balance).toString()
+                    balance: '0.00'
                 };
+                summaryTotals.balance = transactionFooterBalanceTruncate2(
+                    summaryTotals.bf,
+                    summaryTotals.win_loss,
+                    summaryTotals.cr_dr
+                );
             }
 
             updateTotals('left', leftTotals);
@@ -2296,14 +2321,18 @@
                 bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
                 win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
                 cr_dr: MoneyDecimal.add(leftTotals.cr_dr, rightTotals.cr_dr).toString(),
-                balance: MoneyDecimal.add(leftTotals.balance, rightTotals.balance).toString()
+                balance: '0.00'
             };
+            currencySummary.balance = transactionFooterBalanceTruncate2(
+                currencySummary.bf,
+                currencySummary.win_loss,
+                currencySummary.cr_dr
+            );
 
-            // 累加到总汇总
+            // 累加到总汇总（Balance 在循环结束后按「总 B/F + 总 Win/Loss + 总 Cr/Dr」一次截断，与各组 Balance 之和可不同）
             totalSummary.bf = MoneyDecimal.add(totalSummary.bf, currencySummary.bf).toString();
             totalSummary.win_loss = MoneyDecimal.add(totalSummary.win_loss, currencySummary.win_loss).toString();
             totalSummary.cr_dr = MoneyDecimal.add(totalSummary.cr_dr, currencySummary.cr_dr).toString();
-            totalSummary.balance = MoneyDecimal.add(totalSummary.balance, currencySummary.balance).toString();
 
             // 为该 currency 创建 Summary Table
             const summaryWrapper = document.createElement('div');
@@ -2312,6 +2341,12 @@
             summaryWrapper.appendChild(summaryTable);
             groupedContainer.appendChild(summaryWrapper);
         });
+
+        totalSummary.balance = transactionFooterBalanceTruncate2(
+            String(totalSummary.bf),
+            String(totalSummary.win_loss),
+            String(totalSummary.cr_dr)
+        );
 
         // 隐藏全局的 summary section（只显示每个 currency 的 summary）
         document.querySelector('.transaction-summary-section').style.display = 'none';
@@ -2459,13 +2494,15 @@
     }
 
     function calculateTotals(rows) {
-        return rows.reduce((totals, row) => {
+        const t = rows.reduce((totals, row) => {
             totals.bf = MoneyDecimal.add(totals.bf, row.bf || '0').toString();
             totals.win_loss = MoneyDecimal.add(totals.win_loss, winLossRowHalfUp2(row)).toString();
             totals.cr_dr = MoneyDecimal.add(totals.cr_dr, row.cr_dr || '0').toString();
             totals.balance = MoneyDecimal.add(totals.balance, row.balance || '0').toString();
             return totals;
         }, { bf: '0', win_loss: '0', cr_dr: '0', balance: '0' });
+        t.balance = transactionFooterBalanceTruncate2(t.bf, t.win_loss, t.cr_dr);
+        return t;
     }
 
     // ==================== 处理 Balance 点击事件 ====================
