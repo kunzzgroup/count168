@@ -131,6 +131,15 @@ function trunc2($value): string
     return searchMoney2($value);
 }
 
+/** Transaction 列表 Win/Loss 列：对高精度金额四舍五入到分（HALF_UP）再展示 */
+function searchMoneyHalfUp2($value): string
+{
+    if ($value === null || trim((string) $value) === '') {
+        return money_round_half_up('0', 2);
+    }
+    return money_round_half_up((string) $value, 2);
+}
+
 function searchMoneyNeg($value): string
 {
     return money_mul($value ?? '0', '-1', 8);
@@ -725,16 +734,23 @@ function searchApiApplyDomainSourceCompanyRows(
         $aid = (int) ($row['account_db_id'] ?? 0);
         $cur = strtoupper((string) ($row['currency'] ?? ''));
         if ($aid > 0 && $cur !== '') {
+            $touched = false;
             if (isset($poolBfAdjust[$aid][$cur])) {
                 $bd = $poolBfAdjust[$aid][$cur];
                 $row['bf'] = trunc2(money_add($row['bf'] ?? '0', $bd, 8));
-                $row['balance'] = trunc2(money_add($row['balance'] ?? '0', $bd, 8));
+                $touched = true;
             }
             if (isset($poolAdjust[$aid][$cur])) {
                 $delta = $poolAdjust[$aid][$cur];
                 $row['cr_dr'] = trunc2(money_add($row['cr_dr'] ?? '0', $delta, 8));
-                $row['balance'] = trunc2(money_add($row['balance'] ?? '0', $delta, 8));
                 $row['has_crdr_transactions'] = searchMoneyNonZero($row['cr_dr'] ?? '0') ? 1 : (int) $row['has_crdr_transactions'];
+                $touched = true;
+            }
+            if ($touched) {
+                $bf_d = trunc2($row['bf'] ?? '0');
+                $wl_d = searchMoneyHalfUp2($row['win_loss_full'] ?? ($row['win_loss'] ?? '0'));
+                $cr_d = trunc2($row['cr_dr'] ?? '0');
+                $row['balance'] = searchMoneyHalfUp2(money_add(money_add($bf_d, $wl_d, 8), $cr_d, 8));
             }
         }
     }
@@ -1902,11 +1918,11 @@ try {
             }
         }
 
-        // 4. 计算 Balance（显示口径）：金额保持字符串，经 BC Math 逐项相加后截到 2 位。
+        // 4. 计算 Balance（显示口径）：Win/Loss 先对高精度 half-up 到分，再与 B/F、Cr/Dr 相加后对 Balance half-up 到分。
         $bf_display = trunc2($bf);
-        $win_loss_display = trunc2($win_loss);
+        $win_loss_display = searchMoneyHalfUp2($wlPack['win_loss_full'] ?? $win_loss);
         $cr_dr_display = trunc2($cr_dr);
-        $balance = trunc2(money_add(money_add($bf_display, $win_loss_display, 8), $cr_dr_display, 8));
+        $balance = searchMoneyHalfUp2(money_add(money_add($bf_display, $win_loss_display, 8), $cr_dr_display, 8));
 
         // 4b. 本期是否有 RATE Middle-Man 分录（与 Win/Loss 内 RATE_MIDDLEMAN 查询合并，避免每条组合多一次 EXISTS）
         $is_rate_middleman = !empty($wlPack['has_rate_middleman']);
@@ -2100,7 +2116,7 @@ try {
     // 计算总和
     $left_totals = calculateTotals($left_table);
     $right_totals = calculateTotals($right_table);
-    $summary_totals = addMoneyFields($left_totals, $right_totals);
+    $summary_totals = calculateTotals($results);
     $left_table = normalizeMoneyRows($left_table);
     $right_table = normalizeMoneyRows($right_table);
 
@@ -2319,20 +2335,26 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to)
  */
 function calculateTotals($data)
 {
-    $totals = ['bf' => '0', 'win_loss' => '0', 'cr_dr' => '0', 'balance' => '0'];
+    $bf = '0';
+    $wl = '0';
+    $cr = '0';
 
     foreach ($data as $row) {
-        $totals['bf'] = money_add($totals['bf'], $row['bf'] ?? '0', 2);
-        $totals['win_loss'] = money_add($totals['win_loss'], $row['win_loss'] ?? '0', 2);
-        $totals['cr_dr'] = money_add($totals['cr_dr'], $row['cr_dr'] ?? '0', 2);
-        $totals['balance'] = money_add($totals['balance'], $row['balance'] ?? '0', 2);
+        $bf = money_add($bf, $row['bf'] ?? '0', 8);
+        $wl = money_add($wl, $row['win_loss'] ?? '0', 8);
+        $cr = money_add($cr, $row['cr_dr'] ?? '0', 8);
     }
 
+    $bf2 = searchMoney2($bf);
+    $wl2 = searchMoneyHalfUp2($wl);
+    $cr2 = searchMoney2($cr);
+    $balance2 = searchMoneyHalfUp2(money_add(money_add($bf2, $wl2, 8), $cr2, 8));
+
     return [
-        'bf' => searchMoney2($totals['bf']),
-        'win_loss' => searchMoney2($totals['win_loss']),
-        'cr_dr' => searchMoney2($totals['cr_dr']),
-        'balance' => searchMoney2($totals['balance']),
+        'bf' => $bf2,
+        'win_loss' => $wl2,
+        'cr_dr' => $cr2,
+        'balance' => $balance2,
     ];
 }
 
@@ -2696,7 +2718,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to;
         $win_loss_full = money_normalize($win_loss, 8);
         return [
-            'win_loss' => trunc2($win_loss),
+            'win_loss' => searchMoneyHalfUp2($win_loss_full),
             'win_loss_full' => $win_loss_full,
             'has_rate_middleman' => $has_rate_mm,
             'has_win_loss_transactions' => $has_win_loss_transactions,
@@ -2849,7 +2871,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
     $win_loss_full = money_normalize($win_loss, 8);
     return [
-        'win_loss' => trunc2($win_loss),
+        'win_loss' => searchMoneyHalfUp2($win_loss_full),
         'win_loss_full' => $win_loss_full,
         'has_rate_middleman' => $has_rate_middleman,
         'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman),

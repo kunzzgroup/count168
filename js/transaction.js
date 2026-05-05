@@ -61,6 +61,19 @@
         }
     }
 
+    /** Transaction 列表 Win/Loss：先 half-up 到分再千分位（与 search_api searchMoneyHalfUp2 一致） */
+    function formatPaymentHistoryMoneyHalfUp(value) {
+        if (value === '-' || value === null || value === undefined) return '-';
+        const cleaned = String(value).replace(/,/g, '').trim();
+        if (cleaned === '' || cleaned === '-') return '0.00';
+        try {
+            const rounded = MoneyDecimal.formatFixedHalfUp(cleaned === '-' ? '0' : cleaned, 2);
+            return MoneyDecimal.formatThousands(rounded, 2);
+        } catch (_) {
+            return '0.00';
+        }
+    }
+
     // ==================== 文本转大写显示 ====================
     function toUpperDisplay(value) {
         if (value === null || value === undefined) {
@@ -153,7 +166,7 @@
         return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
     }
 
-    /** 合计列 Win/Loss：每行用 win_loss_full（缺省 win_loss）四舍五入到分（ROUND_HALF_UP）再累加，与单元格显示（截断两位）可不一致 */
+    /** 合计列 Win/Loss：每行对 win_loss_full（缺省 win_loss）half-up 到分再累加，与 search_api 列表口径一致 */
     function winLossRowHalfUp2(row) {
         const raw = row && row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ''
             ? row.win_loss_full
@@ -2140,8 +2153,7 @@
     }
 
     // ==================== 渲染表格与总计 ====================
-    // 可选第三个参数 totalsFromApi：仅当 left/right 与本次展示行完全一致时使用，跳过前端合计
-    function renderTables(leftRows, rightRows, totalsFromApi) {
+    function renderTables(leftRows, rightRows) {
         const normalizedRows = normalizeRateRowsByCrDr(leftRows, rightRows);
         // 按 role 排序数据
         const sortedLeftRows = sortByRole(normalizedRows.leftRows);
@@ -2174,29 +2186,9 @@
             fillTable('tbody_left', 'table_left', sortedLeftRows);
             fillTable('tbody_right', 'table_right', sortedRightRows);
 
-            // bf/cr_dr/balance 优先用后端 totals；Win/Loss 合计强制用逐行四舍五入（win_loss_full）再累加
-            let leftTotals, rightTotals, summaryTotals;
-            const ltWl = calculateTotals(sortedLeftRows);
-            const rtWl = calculateTotals(sortedRightRows);
-            if (totalsFromApi && totalsFromApi.left && totalsFromApi.right && totalsFromApi.summary) {
-                leftTotals = { ...totalsFromApi.left, win_loss: ltWl.win_loss };
-                rightTotals = { ...totalsFromApi.right, win_loss: rtWl.win_loss };
-                summaryTotals = {
-                    bf: totalsFromApi.summary.bf,
-                    win_loss: MoneyDecimal.add(ltWl.win_loss, rtWl.win_loss).toString(),
-                    cr_dr: totalsFromApi.summary.cr_dr,
-                    balance: totalsFromApi.summary.balance
-                };
-            } else {
-                leftTotals = ltWl;
-                rightTotals = rtWl;
-                summaryTotals = {
-                    bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
-                    win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
-                    cr_dr: MoneyDecimal.add(leftTotals.cr_dr, rightTotals.cr_dr).toString(),
-                    balance: MoneyDecimal.add(leftTotals.balance, rightTotals.balance).toString()
-                };
-            }
+            const leftTotals = calculateTotals(sortedLeftRows);
+            const rightTotals = calculateTotals(sortedRightRows);
+            const summaryTotals = calculateTotals([...sortedLeftRows, ...sortedRightRows]);
 
             updateTotals('left', leftTotals);
             updateTotals('right', rightTotals);
@@ -2290,14 +2282,7 @@
             groupedContainer.appendChild(tablesWrapper);
 
             // 计算该 currency 的汇总
-            const leftTotals = calculateTotals(leftRows);
-            const rightTotals = calculateTotals(rightRows);
-            const currencySummary = {
-                bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
-                win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
-                cr_dr: MoneyDecimal.add(leftTotals.cr_dr, rightTotals.cr_dr).toString(),
-                balance: MoneyDecimal.add(leftTotals.balance, rightTotals.balance).toString()
-            };
+            const currencySummary = calculateTotals([...leftRows, ...rightRows]);
 
             // 累加到总汇总
             totalSummary.bf = MoneyDecimal.add(totalSummary.bf, currencySummary.bf).toString();
@@ -2342,7 +2327,7 @@
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Win/Loss</td>
-            <td>${formatPaymentHistoryMoney(totals.win_loss)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.win_loss)}</td>
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Cr/Dr</td>
@@ -2350,7 +2335,7 @@
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Balance</td>
-            <td>${formatPaymentHistoryMoney(totals.balance)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.balance)}</td>
         </tr>
     `;
         table.appendChild(tbody);
@@ -2414,9 +2399,9 @@
                 </td>
                 <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
                 <td>${formatPaymentHistoryMoney(row.bf)}</td>
-                <td>${formatPaymentHistoryMoney(winLossValue)}</td>
+                <td>${formatPaymentHistoryMoneyHalfUp(winLossValue)}</td>
                 <td>${formatPaymentHistoryMoney(crDrValue)}</td>
-                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoney(balanceValue)}</td>
+                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(balanceValue)}</td>
             `;
 
                 // 点击账户单元格打开历史记录
@@ -2448,9 +2433,9 @@
             <td>Total</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};"></td>
             <td>${formatPaymentHistoryMoney(totals.bf)}</td>
-            <td>${formatPaymentHistoryMoney(totals.win_loss)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.win_loss)}</td>
             <td>${formatPaymentHistoryMoney(totals.cr_dr)}</td>
-            <td>${formatPaymentHistoryMoney(totals.balance)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.balance)}</td>
         </tr>
     `;
         table.appendChild(tfoot);
@@ -2459,13 +2444,20 @@
     }
 
     function calculateTotals(rows) {
-        return rows.reduce((totals, row) => {
-            totals.bf = MoneyDecimal.add(totals.bf, row.bf || '0').toString();
-            totals.win_loss = MoneyDecimal.add(totals.win_loss, winLossRowHalfUp2(row)).toString();
-            totals.cr_dr = MoneyDecimal.add(totals.cr_dr, row.cr_dr || '0').toString();
-            totals.balance = MoneyDecimal.add(totals.balance, row.balance || '0').toString();
-            return totals;
-        }, { bf: '0', win_loss: '0', cr_dr: '0', balance: '0' });
+        const sums = rows.reduce((acc, row) => {
+            acc.bf = MoneyDecimal.add(acc.bf, row.bf || '0').toString();
+            acc.win_loss = MoneyDecimal.add(acc.win_loss, winLossRowHalfUp2(row)).toString();
+            acc.cr_dr = MoneyDecimal.add(acc.cr_dr, row.cr_dr || '0').toString();
+            return acc;
+        }, { bf: '0', win_loss: '0', cr_dr: '0' });
+        const bfTot = MoneyDecimal.formatFixed(sums.bf, 2);
+        const wlTot = MoneyDecimal.formatFixedHalfUp(sums.win_loss, 2);
+        const crTot = MoneyDecimal.formatFixed(sums.cr_dr, 2);
+        const balTot = MoneyDecimal.formatFixedHalfUp(
+            MoneyDecimal.add(MoneyDecimal.add(bfTot, wlTot), crTot),
+            2
+        );
+        return { bf: bfTot, win_loss: wlTot, cr_dr: crTot, balance: balTot };
     }
 
     // ==================== 处理 Balance 点击事件 ====================
@@ -2742,9 +2734,9 @@
             <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">${row.account_id}</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
             <td>${formatPaymentHistoryMoney(row.bf)}</td>
-            <td>${formatPaymentHistoryMoney(row.win_loss)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(row.win_loss)}</td>
             <td>${formatPaymentHistoryMoney(row.cr_dr)}</td>
-            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoney(row.balance)}</td>
+            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(row.balance)}</td>
         `;
             tr.querySelector('.transaction-account-cell').addEventListener('click', function () {
                 openHistoryModal(this.getAttribute('data-account-id'), this.getAttribute('data-account-code'), this.getAttribute('data-account-name'), this.getAttribute('data-currency'));
@@ -2787,17 +2779,17 @@
     // ==================== 更新总和 ====================
     function updateTotals(side, totals) {
         document.getElementById(`${side}_total_bf`).textContent = formatPaymentHistoryMoney(totals.bf);
-        document.getElementById(`${side}_total_winloss`).textContent = formatPaymentHistoryMoney(totals.win_loss);
+        document.getElementById(`${side}_total_winloss`).textContent = formatPaymentHistoryMoneyHalfUp(totals.win_loss);
         document.getElementById(`${side}_total_crdr`).textContent = formatPaymentHistoryMoney(totals.cr_dr);
-        document.getElementById(`${side}_total_balance`).textContent = formatPaymentHistoryMoney(totals.balance);
+        document.getElementById(`${side}_total_balance`).textContent = formatPaymentHistoryMoneyHalfUp(totals.balance);
     }
 
     // ==================== 更新汇总 ====================
     function updateSummary(totals) {
         document.getElementById('sum_total_bf').textContent = formatPaymentHistoryMoney(totals.bf);
-        document.getElementById('sum_total_winloss').textContent = formatPaymentHistoryMoney(totals.win_loss);
+        document.getElementById('sum_total_winloss').textContent = formatPaymentHistoryMoneyHalfUp(totals.win_loss);
         document.getElementById('sum_total_crdr').textContent = formatPaymentHistoryMoney(totals.cr_dr);
-        document.getElementById('sum_total_balance').textContent = formatPaymentHistoryMoney(totals.balance);
+        document.getElementById('sum_total_balance').textContent = formatPaymentHistoryMoneyHalfUp(totals.balance);
     }
 
     // ==================== Show Name 切换 ====================
