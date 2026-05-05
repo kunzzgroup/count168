@@ -19,6 +19,17 @@ require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
+ * WIN/LOSE/ADJUSTMENT 行对 Win/Loss 的贡献：与 data_capture processed_amount 相同，
+ * 按「向 0 截断到分 + ε」逐行量化后再 SUM，避免与 DCD 混用原始 DECIMAL 产生 Σ 残差。
+ *
+ * @param string $signedContributionExpr 带符号的 SQL 表达式，如 t.amount、-t.amount、e.amount
+ */
+function searchApiWlTxnAmountSqlQuant2(string $signedContributionExpr): string
+{
+    return dcd_processed_amount_sql_quant2('(' . $signedContributionExpr . ')');
+}
+
+/**
  * 审批过滤：过滤未批准交易（向后兼容：若无字段则不过滤）
  */
 function hasContraApprovalColumns(PDO $pdo): bool
@@ -1642,35 +1653,23 @@ try {
         }
 
         // 与 SUM(wl_total) 同行口径：笔数只计「该行对 Win/Loss 的贡献非 0」，避免 0 金额 WIN/LOSE 仍令 has_win_loss_* 为真（Payment History 无实质行但列表仍显示）。
-        $txnWlRowWinLoseAdj = '(CASE 
-                        WHEN t.transaction_type = \'WIN\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN t.amount
-                        WHEN t.transaction_type = \'LOSE\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN -t.amount
-                        WHEN t.transaction_type = \'WIN\' AND ((t.description NOT LIKE \'Process: %\' AND t.description NOT LIKE \'Inactive Compensation %\' AND t.description NOT LIKE \'Compensation %\') OR t.description IS NULL) THEN -t.amount
-                        WHEN t.transaction_type = \'LOSE\' AND ((t.description NOT LIKE \'Process: %\' AND t.description NOT LIKE \'Inactive Compensation %\' AND t.description NOT LIKE \'Compensation %\') OR t.description IS NULL) THEN t.amount
-                        WHEN t.transaction_type = \'ADJUSTMENT\' THEN t.amount
+        // 与 DCD 一致：每笔 transaction 金额先 quant2 再 SUM（dcd_processed_amount_sql_quant2）。
+        $txnWlRowContributionSql = '(CASE 
+                        WHEN t.transaction_type = \'WIN\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
+                        WHEN t.transaction_type = \'LOSE\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN ' . searchApiWlTxnAmountSqlQuant2('-t.amount') . '
+                        WHEN t.transaction_type = \'WIN\' AND ((t.description NOT LIKE \'Process: %\' AND t.description NOT LIKE \'Inactive Compensation %\' AND t.description NOT LIKE \'Compensation %\') OR t.description IS NULL) THEN ' . searchApiWlTxnAmountSqlQuant2('-t.amount') . '
+                        WHEN t.transaction_type = \'LOSE\' AND ((t.description NOT LIKE \'Process: %\' AND t.description NOT LIKE \'Inactive Compensation %\' AND t.description NOT LIKE \'Compensation %\') OR t.description IS NULL) THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
+                        WHEN t.transaction_type = \'ADJUSTMENT\' THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
                         ELSE 0 
                     END)';
+        $txnWlRowWinLoseAdj = $txnWlRowContributionSql;
 
         $sql = "SELECT t.account_id, IFNULL(t.currency_id, 0) AS currency_id,
                  SUM(CASE WHEN $wlDateExpr < ? THEN (
-                    CASE 
-                        WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
-                        WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
-                        WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
-                        WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
-                        ELSE 0 
-                    END
+                    $txnWlRowContributionSql
                  ) ELSE 0 END) AS bf_total,
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
-                    CASE 
-                        WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
-                        WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
-                        WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
-                        WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
-                        ELSE 0 
-                    END
+                    $txnWlRowContributionSql
                  ) ELSE 0 END) AS wl_total,
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlRowWinLoseAdj) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
                  SUM(CASE WHEN $wlDateExpr <= ? THEN 
@@ -1697,25 +1696,17 @@ try {
         }
 
         $txnWlFromInner = '(CASE
-                        WHEN t.transaction_type = \'WIN\' THEN t.amount
-                        WHEN t.transaction_type = \'LOSE\' THEN -t.amount
+                        WHEN t.transaction_type = \'WIN\' THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
+                        WHEN t.transaction_type = \'LOSE\' THEN ' . searchApiWlTxnAmountSqlQuant2('-t.amount') . '
                         ELSE 0
                     END)';
 
         $sql = "SELECT t.from_account_id AS account_id, IFNULL(t.currency_id, 0) AS currency_id,
                  SUM(CASE WHEN $wlDateExpr < ? THEN (
-                    CASE
-                        WHEN t.transaction_type = 'WIN' THEN t.amount
-                        WHEN t.transaction_type = 'LOSE' THEN -t.amount
-                        ELSE 0
-                    END
+                    $txnWlFromInner
                  ) ELSE 0 END) AS bf_total,
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
-                    CASE
-                        WHEN t.transaction_type = 'WIN' THEN t.amount
-                        WHEN t.transaction_type = 'LOSE' THEN -t.amount
-                        ELSE 0
-                    END
+                    $txnWlFromInner
                  ) ELSE 0 END) AS wl_total,
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlFromInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
                  SUM(CASE WHEN $wlDateExpr <= ? THEN 
@@ -1856,18 +1847,20 @@ try {
                       ELSE e.amount
                     END)';
 
+        $rateMmAmtQuant2 = searchApiWlTxnAmountSqlQuant2('e.amount');
+
         $sql = "SELECT e.account_id, e.currency_id,
                  SUM(CASE WHEN h.transaction_date < ? THEN (
                     CASE
                       WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
                       WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-                      WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
+                      WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN $rateMmAmtQuant2
                       ELSE e.amount
                     END
                  ) ELSE 0 END) AS bf_total,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount ELSE 0 END) AS wl_rate_mm,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS(e.amount) > 0.0000001 THEN 1 ELSE 0 END) AS wl_rate_mm_count,
-                 SUM(CASE WHEN h.transaction_date <= ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS(e.amount) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN $rateMmAmtQuant2 ELSE 0 END) AS wl_rate_mm,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS($rateMmAmtQuant2) > 0.0000001 THEN 1 ELSE 0 END) AS wl_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date <= ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS($rateMmAmtQuant2) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_rate_mm_count,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN (
                     CASE
                       WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
@@ -2471,11 +2464,11 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
-                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
-                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
-                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
+                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2498,8 +2491,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2548,11 +2541,11 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
-                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
-                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
-                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
+                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2568,8 +2561,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2669,12 +2662,13 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     }
     $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
-    // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算）
+    // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算；MIDDLEMAN 与 Win/Loss bulk 口径 quant2 对齐）
+    $rateMmBfQuant = searchApiWlTxnAmountSqlQuant2('e.amount');
     $rateStmt = $pdo->prepare("
         SELECT COALESCE(SUM(CASE
           WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
           WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
+          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN $rateMmBfQuant
           ELSE e.amount
         END), 0) AS total
         FROM transaction_entry e
@@ -2804,10 +2798,10 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
     // 2. 所有 Bank Process 的 WIN/LOSE（Cost/Sell Price/Profit，Remaining days 与 1号/Monthly 均计入 Win/Loss）
     if (searchApiTxnHasCurrencyId($pdo)) {
-        // 与 history_api 的事件口径一致：每条 transaction 金额先 round(2) 再求和
+        // 与 DCD / Payment History 一致：每笔 amount 先 quant2（向 0 截断到分）再 SUM
         $sql = "SELECT COALESCE(SUM(CASE
-                    WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                    WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
+                    WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                    WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
                     ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
@@ -2821,7 +2815,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $wl_row_count += (int) ($txnBankRow['cnt'] ?? 0);
 
         // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）+ ADJUSTMENT
-        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN -t.amount WHEN t.transaction_type = 'LOSE' THEN t.amount WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount ELSE 0 END), 0) as total, COUNT(*) AS cnt
+        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . " WHEN t.transaction_type = 'LOSE' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . " WHEN t.transaction_type = 'ADJUSTMENT' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . " ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
                   AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
@@ -2833,7 +2827,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $win_loss = money_add($win_loss, $txnManualRow['total'] ?? '0', 8);
         $wl_row_count += (int) ($txnManualRow['cnt'] ?? 0);
 
-        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN t.amount WHEN t.transaction_type = 'LOSE' THEN -t.amount ELSE 0 END), 0) as total, COUNT(*) AS cnt
+        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . " WHEN t.transaction_type = 'LOSE' THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . " ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.from_account_id = ? AND $wlDateExpr BETWEEN ? AND ?
                   AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
@@ -2846,8 +2840,9 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $wl_row_count += (int) ($txnManualFromRow['cnt'] ?? 0);
 
         // 4. RATE Middle-Man：手续费应显示在 Win/Loss，而不是 Cr/Dr（一次查询同时得到金额与是否存在）
+        $mmAmtQuant = searchApiWlTxnAmountSqlQuant2('e.amount');
         $rateStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(e.amount), 0) AS total, COUNT(*) AS cnt
+            SELECT COALESCE(SUM($mmAmtQuant), 0) AS total, COUNT(*) AS cnt
             FROM transaction_entry e
             JOIN transactions h ON e.header_id = h.id
             WHERE h.company_id = ?
