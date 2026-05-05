@@ -2444,13 +2444,21 @@
         let crSum = MoneyDecimal.toDecimal('0');
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            bfSum = bfSum.plus(MoneyDecimal.toDecimal(row.bf || '0', 0));
+            const bfRaw =
+                row.bf_full !== undefined && row.bf_full !== null && String(row.bf_full).trim() !== ''
+                    ? row.bf_full
+                    : (row.bf || '0');
+            bfSum = bfSum.plus(MoneyDecimal.toDecimal(bfRaw, 0));
             const wlRaw =
                 row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ''
                     ? row.win_loss_full
                     : (row.win_loss != null ? row.win_loss : '0');
             wlSum = wlSum.plus(MoneyDecimal.toDecimal(wlRaw === '-' ? '0' : wlRaw, 0));
-            crSum = crSum.plus(MoneyDecimal.toDecimal(row.cr_dr || '0', 0));
+            const crRaw =
+                row.cr_dr_full !== undefined && row.cr_dr_full !== null && String(row.cr_dr_full).trim() !== ''
+                    ? row.cr_dr_full
+                    : (row.cr_dr || '0');
+            crSum = crSum.plus(MoneyDecimal.toDecimal(crRaw === '-' ? '0' : crRaw, 0));
         }
         const balSum = bfSum.plus(wlSum).plus(crSum);
         return {
