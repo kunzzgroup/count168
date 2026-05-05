@@ -824,6 +824,8 @@ try {
     $show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] === '1';
     $show_capture_only = isset($_GET['show_capture_only']) && $_GET['show_capture_only'] === '1';
     $hide_zero_balance = isset($_GET['hide_zero_balance']) && $_GET['hide_zero_balance'] === '1';
+    /** 诊断用：附带 Win/Loss 按来源桶汇总与非零明细（与列表Σ win_loss_full 对齐）；不传或!=1 则无此字段且不写入缓存键 */
+    $debug_wl_total = isset($_GET['debug_wl_total']) && (string) $_GET['debug_wl_total'] === '1';
 
     // 解析目标账户：优先使用请求中的 target_account_id（保证 member 切换账户后显示所选账户数据），否则 member 用 session
     $target_account_ids = [];
@@ -924,7 +926,7 @@ try {
     if (!is_dir($cache_dir)) {
         @mkdir($cache_dir, 0777, true);
     }
-    if (is_dir($cache_dir)) {
+    if (!$debug_wl_total && is_dir($cache_dir)) {
         $cache_key_payload = [
             'user_id' => (int) ($_SESSION['user_id'] ?? 0),
             'user_type' => strtolower((string) ($_SESSION['user_type'] ?? '')),
@@ -2135,6 +2137,16 @@ try {
     $left_totals = calculateTotals($left_table);
     $right_totals = calculateTotals($right_table);
     $summary_totals = calculateTotals($results);
+
+    $debug_win_loss_payload = null;
+    if ($debug_wl_total) {
+        $codeByDbId = [];
+        foreach ($accounts as $a) {
+            $codeByDbId[(int) ($a['id'] ?? 0)] = trim((string) ($a['account_id'] ?? ''));
+        }
+        $debug_win_loss_payload = searchApiBuildWinLossDebugPayload($bulk, $results, $codeByDbId, $summary_totals, $date_from_db, $date_to_db, $filter_currency_codes);
+    }
+
     $left_table = normalizeMoneyRows($left_table);
     $right_table = normalizeMoneyRows($right_table);
 
@@ -2152,8 +2164,11 @@ try {
             'active_currency_codes' => $active_currency_codes
         ]
     ];
+    if ($debug_win_loss_payload !== null) {
+        $payload['data']['debug_win_loss'] = $debug_win_loss_payload;
+    }
     $json = json_encode($payload);
-    if (!empty($cache_file) && $json !== false) {
+    if (!$debug_wl_total && !empty($cache_file) && $json !== false) {
         @file_put_contents($cache_file, $json, LOCK_EX);
     }
     echo $json;
@@ -2346,6 +2361,165 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to)
     $cr_dr = money_add($cr_dr, $stmt->fetchColumn() ?: '0', 8);
 
     return trunc2($cr_dr);
+}
+
+/**
+ * Transaction List Win/Loss 诊断：与本请求 bulk 路径下 calculateWinLossByCurrency 同口径拆分三桶。
+ * @return array{wl_dcd:string, wl_txn_win_lose:string, wl_rate_middleman:string, wl_rebuilt:string}|null bulk 不可用（旧库无 currency）时返回 null。
+ */
+function searchApiWlDebugBucketsFromBulk(?array $bulk, int $account_db_id, int $currency_id, string $account_code): ?array
+{
+    if ($bulk === null) {
+        return null;
+    }
+    $acc_str = trim((string) $account_db_id);
+    $code_str = trim((string) $account_code);
+
+    $dcd = '0';
+    $dcd = money_add($dcd, $bulk['dcd'][$acc_str][$currency_id]['wl'] ?? '0', 8);
+    if ($code_str !== '' && $code_str !== $acc_str) {
+        $dcd = money_add($dcd, $bulk['dcd'][$code_str][$currency_id]['wl'] ?? '0', 8);
+    }
+
+    $txn = '0';
+    $txn_row = $bulk['txn_win_lose'][$account_db_id][$currency_id] ?? null;
+    if ($txn_row !== null) {
+        $txn = money_add($txn, $txn_row['wl'] ?? '0', 8);
+    }
+    $txn_null = $bulk['txn_win_lose'][$account_db_id][0] ?? null;
+    if ($txn_null !== null &&
+        (isset($bulk['dcd'][$acc_str][$currency_id]) ||
+            ($code_str !== '' && isset($bulk['dcd'][$code_str][$currency_id])))) {
+        $txn = money_add($txn, $txn_null['wl'] ?? '0', 8);
+    }
+
+    $mm = $bulk['entry'][$account_db_id][$currency_id]['wl_mm'] ?? '0';
+
+    $rebuilt = '0';
+    $rebuilt = money_add($rebuilt, $dcd, 8);
+    $rebuilt = money_add($rebuilt, $txn, 8);
+    $rebuilt = money_add($rebuilt, $mm, 8);
+
+    return [
+        'wl_dcd' => money_normalize($dcd, 8),
+        'wl_txn_win_lose' => money_normalize($txn, 8),
+        'wl_rate_middleman' => money_normalize($mm, 8),
+        'wl_rebuilt' => money_normalize($rebuilt, 8),
+    ];
+}
+
+/**
+ * @param array<int, string> $codeByDbId account.id => account.account_id（编码）
+ */
+function searchApiBuildWinLossDebugPayload(
+    ?array $bulk,
+    array $results,
+    array $codeByDbId,
+    array $summary_totals,
+    string $date_from_db,
+    string $date_to_db,
+    array $filter_currency_codes
+): array {
+    $sumDcd = '0';
+    $sumTxn = '0';
+    $sumMm = '0';
+    $sumRebuild = '0';
+    $sumWlFull = '0';
+
+    $nonZeroRows = [];
+    $bucketMismatches = [];
+
+    foreach ($results as $row) {
+        $aid = (int) ($row['account_db_id'] ?? 0);
+        $cid = (int) ($row['currency_id_debug'] ?? 0);
+        $code = $codeByDbId[$aid] ?? '';
+
+        $wlFull = money_normalize((string) ($row['win_loss_full'] ?? ($row['win_loss'] ?? '0')), 8);
+        $sumWlFull = money_add($sumWlFull, $wlFull, 8);
+
+        $item = [
+            'account_display' => (string) ($row['account_id'] ?? ''),
+            'account_db_id' => $aid,
+            'account_code_raw' => $code,
+            'currency' => (string) ($row['currency'] ?? ''),
+            'currency_id' => $cid,
+            'win_loss_full' => $wlFull,
+            'win_loss_half_up' => searchMoneyHalfUp2($wlFull),
+        ];
+
+        $bk = searchApiWlDebugBucketsFromBulk($bulk, $aid, $cid, $code);
+        if ($bk !== null) {
+            $sumDcd = money_add($sumDcd, $bk['wl_dcd'], 8);
+            $sumTxn = money_add($sumTxn, $bk['wl_txn_win_lose'], 8);
+            $sumMm = money_add($sumMm, $bk['wl_rate_middleman'], 8);
+            $sumRebuild = money_add($sumRebuild, $bk['wl_rebuilt'], 8);
+
+            $item['wl_dcd'] = $bk['wl_dcd'];
+            $item['wl_txn_win_lose'] = $bk['wl_txn_win_lose'];
+            $item['wl_rate_middleman'] = $bk['wl_rate_middleman'];
+            $item['wl_rebuilt'] = $bk['wl_rebuilt'];
+
+            $delta = money_sub($bk['wl_rebuilt'], $wlFull, 8);
+            if (money_cmp(money_abs($delta), '0.0000001', 8) > 0) {
+                $item['rebuild_minus_row'] = money_normalize($delta, 8);
+                $bucketMismatches[] = $item;
+            }
+        } else {
+            $item['note'] = 'no_bulk_debug_breakdown_legacy_txn_currency';
+        }
+
+        if (money_cmp($wlFull, '0', 8) !== 0) {
+            $nonZeroRows[] = $item;
+        }
+    }
+
+    $deltaBucketVsSumRows = money_sub($sumRebuild, $sumWlFull, 8);
+
+    usort($nonZeroRows, function ($a, $b) {
+        $absA = money_abs($a['win_loss_full'] ?? '0');
+        $absB = money_abs($b['win_loss_full'] ?? '0');
+        $c = money_cmp($absA, $absB, 8);
+        if ($c !== 0) {
+            return $c;
+        }
+        return strcmp((string) ($a['account_display'] ?? ''), (string) ($b['account_display'] ?? ''));
+    });
+
+    $smallestByAbs = array_slice($nonZeroRows, 0, 80);
+
+    $nzCopy = $nonZeroRows;
+    usort($nzCopy, function ($a, $b) {
+        $absA = money_abs($a['win_loss_full'] ?? '0');
+        $absB = money_abs($b['win_loss_full'] ?? '0');
+        $c = money_cmp($absB, $absA, 8);
+        if ($c !== 0) {
+            return $c;
+        }
+        return strcmp((string) ($a['account_display'] ?? ''), (string) ($b['account_display'] ?? ''));
+    });
+    $largestAbsWinLoss = array_slice($nzCopy, 0, 25);
+
+    return [
+        '_hint' => 'GET debug_wl_total=1：桶合计与Σ win_loss_full 应对齐；差额通常来自 Domain 校正行或未入 bulk 的虚拟行。',
+        'range' => ['date_from' => $date_from_db, 'date_to' => $date_to_db],
+        'currency_filters' => $filter_currency_codes,
+        'bulk_available' => $bulk !== null,
+        'totals_summary_from_api' => $summary_totals,
+        'bucket_sums_hp' => [
+            'sum_wl_dcd' => money_normalize($sumDcd, 8),
+            'sum_wl_txn_win_lose' => money_normalize($sumTxn, 8),
+            'sum_wl_rate_middleman' => money_normalize($sumMm, 8),
+            'sum_wl_rebuilt' => money_normalize($sumRebuild, 8),
+            'sum_win_loss_full_rows' => money_normalize($sumWlFull, 8),
+            'delta_rebuilt_minus_sum_win_loss_full' => money_normalize($deltaBucketVsSumRows, 8),
+        ],
+        'bucket_sums_display_win_loss_half_up_total' => searchMoneyHalfUp2($sumRebuild),
+        'nonzero_rows_count' => count($nonZeroRows),
+        'nonzero_sorted_smallest_abs' => $smallestByAbs,
+        'nonzero_sorted_largest_abs' => $largestAbsWinLoss,
+        'bucket_mismatch_vs_row_count' => count($bucketMismatches),
+        'bucket_mismatch_rows' => $bucketMismatches,
+    ];
 }
 
 /**

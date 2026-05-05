@@ -20,6 +20,19 @@
     let lastCompletedSearchTs = 0;
 
     /**
+     * Transaction List Win/Loss 诊断：设为 true 后，搜索会在 URL 中加 debug_wl_total=1，
+     * 后端返回 data.debug_win_loss；成功后在控制台分组打印（不改变表格展示）。
+     * 控制台：window.DEBUG_TRANSACTION_WL_TOTAL = true 再点 Searching。
+     * 顺带：window.DEBUG_TRANSACTION_SEARCH = true 会打印完整 data（数据量大慎用）。
+     */
+    function transactionsApiAppendWlDebug(url) {
+        if (typeof window !== 'undefined' && window.DEBUG_TRANSACTION_WL_TOTAL === true) {
+            return url + '&debug_wl_total=1';
+        }
+        return url;
+    }
+
+    /**
      * 与 transaction.php 所在 Web 目录对齐的 API URL。
      * 部署在子目录时避免 `/api/...` 请求落到域名根（导致永远读不到当前仓库里的 PHP）。
      *
@@ -1912,9 +1925,10 @@
             url += `&currency=${selectedCurrencies.join(',')}`;
         }
 
-        console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies });
+        console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies, debugWlTotal: !!(typeof window !== 'undefined' && window.DEBUG_TRANSACTION_WL_TOTAL === true) });
 
         // 添加时间戳防止缓存
+        url = transactionsApiAppendWlDebug(url);
         url += '&_t=' + Date.now();
 
         const tablesSection = document.querySelector('.transaction-tables-section');
@@ -2019,6 +2033,27 @@
         isSearchInFlight = true;
         activeSearchKey = requestKey;
 
+        function logTxSearchWlDebug(apiData) {
+            if (!apiData || !apiData.debug_win_loss) {
+                return;
+            }
+            const d = apiData.debug_win_loss;
+            try {
+                console.groupCollapsed('[Transaction List] Win/Loss 诊断 (debug_wl_total)');
+                console.log('bucket_sums_hp', d.bucket_sums_hp);
+                console.log('totals_summary_from_api', d.totals_summary_from_api);
+                const small = d.nonzero_sorted_smallest_abs || [];
+                console.log('nonzero 按 |W/L| 升序（前 20 条）', small.slice(0, 20));
+                if ((d.bucket_mismatch_rows || []).length > 0) {
+                    console.warn('bucket_mismatch_rows', d.bucket_mismatch_rows);
+                }
+                console.log('完整 debug_win_loss', d);
+                console.groupEnd();
+            } catch (e) {
+                console.warn('[Transaction List] debug_win_loss 打印失败', e);
+            }
+        }
+
         fetch(url, {
             method: 'GET',
             cache: 'no-cache',
@@ -2035,6 +2070,7 @@
                         console.log('✅ 搜索成功:', data.data);
                         console.log('📊 行数:', (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0));
                     }
+                    logTxSearchWlDebug(data.data);
                     const currentSearchData = data.data || {};
                     const leftRows = Array.isArray(currentSearchData.left_table) ? currentSearchData.left_table : [];
                     const rightRows = Array.isArray(currentSearchData.right_table) ? currentSearchData.right_table : [];
@@ -2049,6 +2085,7 @@
                         if (currentCompanyId) {
                             fallbackUrl += `&company_id=${currentCompanyId}`;
                         }
+                        fallbackUrl = transactionsApiAppendWlDebug(fallbackUrl);
                         fallbackUrl += '&_t=' + Date.now();
                         if (loadingEl && !silent) {
                             loadingEl.textContent = 'Loading data';
@@ -2065,6 +2102,7 @@
                         })
                             .then(resp => resp.json())
                             .then(fallback => {
+                                logTxSearchWlDebug(fallback.data || {});
                                 if (loadingEl) loadingEl.style.display = 'none';
                                 if (!fallback.success || !fallback.data) {
                                     commitSearchData(currentSearchData, { quiet: silent });
@@ -2109,6 +2147,7 @@
                         if (!showAllCurrencies && selectedCurrencies.length > 0) {
                             fallbackUrl += `&currency=${selectedCurrencies.join(',')}`;
                         }
+                        fallbackUrl = transactionsApiAppendWlDebug(fallbackUrl);
                         fallbackUrl += '&_t=' + Date.now();
 
                         if (loadingEl && !silent) {
@@ -2126,6 +2165,7 @@
                         })
                             .then(resp => resp.json())
                             .then(fallback => {
+                                logTxSearchWlDebug(fallback.data || {});
                                 if (loadingEl) loadingEl.style.display = 'none';
                                 if (!fallback.success || !fallback.data || !fallback.data.totals) {
                                     commitSearchData(currentSearchData, { quiet: silent });
