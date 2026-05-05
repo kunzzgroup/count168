@@ -245,6 +245,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/processlist.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet"
         href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
@@ -779,6 +780,7 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="calendar-days" id="calendar-days"></div>
     </div>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="js/decimal.min.js?v=<?php echo time(); ?>"></script>
     <script src="js/money-decimal.js?v=<?php echo time(); ?>"></script>
     <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
