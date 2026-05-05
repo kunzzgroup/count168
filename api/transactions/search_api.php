@@ -131,6 +131,18 @@ function trunc2($value): string
     return searchMoney2($value);
 }
 
+/**
+ * Bulk SQL 聚合写入内存缓存时用 8 位精度；勿对每笔聚合 trunc2，否则多账户/单日大行集累加会与明细口径漂移，
+ * 表现为 Transaction List 底部合计相对 Customer Report（高精度合计）或自身 Balance 关系出现固定尾差。
+ */
+function searchApiBulkAggMoney8($value): string
+{
+    if ($value === null || trim((string) $value) === '') {
+        return money_normalize('0', 8);
+    }
+    return money_normalize((string) $value, 8);
+}
+
 function searchMoneyNeg($value): string
 {
     return money_mul($value ?? '0', '-1', 8);
@@ -1574,8 +1586,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['dcd'][$r['acc_str']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_total'] ?? '0'),
-                'wl' => trunc2($r['wl_total'] ?? '0'),
+                'bf' => searchApiBulkAggMoney8($r['bf_total'] ?? '0'),
+                'wl' => searchApiBulkAggMoney8($r['wl_total'] ?? '0'),
                 'wl_count' => (int) $r['wl_count'],
                 'id_product_rows_period' => (int) ($r['id_product_rows_period'] ?? 0),
                 'up_to_count' => (int) ($r['up_to_count'] ?? 0)
@@ -1657,8 +1669,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_win_lose'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_total'] ?? '0'),
-                'wl' => trunc2($r['wl_total'] ?? '0'),
+                'bf' => searchApiBulkAggMoney8($r['bf_total'] ?? '0'),
+                'wl' => searchApiBulkAggMoney8($r['wl_total'] ?? '0'),
                 'wl_count' => (int) $r['wl_count'],
                 'up_to_count' => (int) ($r['up_to_count'] ?? 0)
             ];
@@ -1707,8 +1719,8 @@ try {
             $cid = (int) $r['currency_id'];
             $existing = $bulk['txn_win_lose'][$aid][$cid] ?? ['bf' => '0', 'wl' => '0', 'wl_count' => 0, 'up_to_count' => 0];
             $bulk['txn_win_lose'][$aid][$cid] = [
-                'bf' => trunc2(money_add($existing['bf'] ?? '0', $r['bf_total'] ?? '0', 8)),
-                'wl' => trunc2(money_add($existing['wl'] ?? '0', $r['wl_total'] ?? '0', 8)),
+                'bf' => money_normalize(money_add($existing['bf'] ?? '0', $r['bf_total'] ?? '0', 8), 8),
+                'wl' => money_normalize(money_add($existing['wl'] ?? '0', $r['wl_total'] ?? '0', 8), 8),
                 'wl_count' => (int) ($existing['wl_count'] ?? 0) + (int) $r['wl_count'],
                 'up_to_count' => (int) ($existing['up_to_count'] ?? 0) + (int) ($r['up_to_count'] ?? 0)
             ];
@@ -1769,8 +1781,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_to'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_cr_dr'] ?? '0'),
-                'cr_dr' => trunc2($r['wl_cr_dr'] ?? '0'),
+                'bf' => searchApiBulkAggMoney8($r['bf_cr_dr'] ?? '0'),
+                'cr_dr' => searchApiBulkAggMoney8($r['wl_cr_dr'] ?? '0'),
                 'count' => (int) $r['wl_txn_count']
             ];
         }
@@ -1812,8 +1824,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_from'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_cr_dr'] ?? '0'),
-                'cr_dr' => trunc2($r['wl_cr_dr'] ?? '0'),
+                'bf' => searchApiBulkAggMoney8($r['bf_cr_dr'] ?? '0'),
+                'cr_dr' => searchApiBulkAggMoney8($r['wl_cr_dr'] ?? '0'),
                 'count' => (int) $r['wl_txn_count']
             ];
         }
@@ -1854,11 +1866,11 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['entry'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_total'] ?? '0'),
-                'wl_mm' => trunc2($r['wl_rate_mm'] ?? '0'),
+                'bf' => searchApiBulkAggMoney8($r['bf_total'] ?? '0'),
+                'wl_mm' => searchApiBulkAggMoney8($r['wl_rate_mm'] ?? '0'),
                 'wl_mm_count' => (int) $r['wl_rate_mm_count'],
                 'wl_mm_up_to_count' => (int) ($r['up_to_rate_mm_count'] ?? 0),
-                'cr_dr' => trunc2($r['wl_cr_dr_other'] ?? '0'),
+                'cr_dr' => searchApiBulkAggMoney8($r['wl_cr_dr_other'] ?? '0'),
                 'cr_dr_count' => (int) $r['wl_cr_dr_other_count']
             ];
         }
