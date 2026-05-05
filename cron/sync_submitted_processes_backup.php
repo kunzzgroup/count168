@@ -1,7 +1,7 @@
 <?php
 /**
  * 将 submitted_processes 全量同步到 submitted_processes_backup。
- * company_name：company.name；
+ * company_name：按 company 表实际列 — COALESCE(name, company_name, company_id) 中存在的列；
  * user_name：与 submitted_processes_api 一致 — COALESCE(user.login_id, owner.owner_code)；
  * process_name：process.process_id（process.id = submitted_processes.process_id）。
  * 若源表无 capture_date 列，则备份表中该列为 NULL。
@@ -33,6 +33,27 @@ try {
 
 $captureSelect = $hasCaptureDate ? 'sp.capture_date' : 'NULL';
 
+$companyNameExpr = "''";
+try {
+    $coFields = $pdo->query('SHOW COLUMNS FROM company')->fetchAll(PDO::FETCH_COLUMN, 0);
+    $coSet = array_fill_keys($coFields, true);
+    $coParts = [];
+    if (isset($coSet['name'])) {
+        $coParts[] = 'c.name';
+    }
+    if (isset($coSet['company_name'])) {
+        $coParts[] = 'c.company_name';
+    }
+    if (isset($coSet['company_id'])) {
+        $coParts[] = 'c.company_id';
+    }
+    if ($coParts !== []) {
+        $companyNameExpr = 'COALESCE(' . implode(', ', $coParts) . ", '')";
+    }
+} catch (Throwable $e) {
+    $companyNameExpr = "''";
+}
+
 $sqlDelete = 'DELETE FROM submitted_processes_backup';
 $sqlInsert = <<<SQL
 INSERT INTO submitted_processes_backup (
@@ -42,7 +63,7 @@ INSERT INTO submitted_processes_backup (
 SELECT
   sp.id,
   sp.company_id,
-  COALESCE(c.name, '') AS company_name,
+  {$companyNameExpr} AS company_name,
   sp.user_id,
   COALESCE(u.login_id, o.owner_code, '') AS user_name,
   sp.user_type,
