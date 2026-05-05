@@ -1887,18 +1887,28 @@ try {
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
         // Layer 2 过滤：(账户 + 货币) 组合级别。两者互相对称：
-        // 情况A：仅 Show Win/Loss Only —— 跳过该货币“本期没有任何 Win/Loss 相关记录”的行
+        // 情况A：仅 Show Win/Loss Only —— 无本期 W/L 动账时不再一律隐藏：仅当 B/F、W/L、Cr/Dr 截断后皆近零才跳过（避免轧差户被漏掉）
         if ($show_capture_only && !$show_inactive) {
             if (!$has_win_loss_transactions) {
-                continue;
+                $all_near_zero = searchMoneyIsZero(trunc2($bf))
+                    && searchMoneyIsZero(trunc2($win_loss))
+                    && searchMoneyIsZero(trunc2($cr_dr));
+                if ($all_near_zero) {
+                    continue;
+                }
             }
         }
-        // 情况B：仅 Show Payment Only —— 跳过该货币没有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 的行
+        // 情况B：仅 Show Payment Only —— 对称：无 Cr/Dr 动账时若仍有三列轧差则保留行
         // 注意：$has_crdr_transactions 已在 calculateCrDrByCurrency 中修正，
         // 不再受 RATE 分录（transaction_entry）count 污染。
         if ($show_inactive && !$show_capture_only) {
             if (!$has_crdr_transactions) {
-                continue;
+                $all_near_zero = searchMoneyIsZero(trunc2($bf))
+                    && searchMoneyIsZero(trunc2($win_loss))
+                    && searchMoneyIsZero(trunc2($cr_dr));
+                if ($all_near_zero) {
+                    continue;
+                }
             }
         }
 
@@ -2097,10 +2107,10 @@ try {
     $left_table = array_values($left_table);
     $right_table = array_values($right_table);
 
-    // 计算总和
+    // 计算总和：左右表脚各算各；中间 Summary 对全体 $results 单次汇总（避免左右各截断再累加出现固定尾差）
     $left_totals = calculateTotals($left_table);
     $right_totals = calculateTotals($right_table);
-    $summary_totals = addMoneyFields($left_totals, $right_totals);
+    $summary_totals = calculateTotals($results);
     $left_table = normalizeMoneyRows($left_table);
     $right_table = normalizeMoneyRows($right_table);
 
@@ -2319,20 +2329,24 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to)
  */
 function calculateTotals($data)
 {
-    $totals = ['bf' => '0', 'win_loss' => '0', 'cr_dr' => '0', 'balance' => '0'];
+    $sum_bf = '0';
+    $sum_wl = '0';
+    $sum_cr = '0';
 
     foreach ($data as $row) {
-        $totals['bf'] = money_add($totals['bf'], $row['bf'] ?? '0', 2);
-        $totals['win_loss'] = money_add($totals['win_loss'], $row['win_loss'] ?? '0', 2);
-        $totals['cr_dr'] = money_add($totals['cr_dr'], $row['cr_dr'] ?? '0', 2);
-        $totals['balance'] = money_add($totals['balance'], $row['balance'] ?? '0', 2);
+        $sum_bf = money_add($sum_bf, $row['bf'] ?? '0', 8);
+        $wl_full = $row['win_loss_full'] ?? ($row['win_loss'] ?? '0');
+        $sum_wl = money_add($sum_wl, $wl_full, 8);
+        $sum_cr = money_add($sum_cr, $row['cr_dr'] ?? '0', 8);
     }
 
+    $sum_bal = money_add(money_add($sum_bf, $sum_wl, 8), $sum_cr, 8);
+
     return [
-        'bf' => searchMoney2($totals['bf']),
-        'win_loss' => searchMoney2($totals['win_loss']),
-        'cr_dr' => searchMoney2($totals['cr_dr']),
-        'balance' => searchMoney2($totals['balance']),
+        'bf' => searchMoney2($sum_bf),
+        'win_loss' => searchMoney2($sum_wl),
+        'cr_dr' => searchMoney2($sum_cr),
+        'balance' => searchMoney2($sum_bal),
     ];
 }
 
