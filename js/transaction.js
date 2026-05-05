@@ -11,6 +11,10 @@
     let lastSearchCommitMs = 0;
     let externalRefreshRetryTimer = null;
     const showDescriptionColumn = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.showDescriptionColumn !== undefined) ? window.TRANSACTION_PAGE.showDescriptionColumn : false;
+    if (typeof window !== 'undefined' && typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.txDebugWl === true) {
+        window.DEBUG_TRANSACTION_WL_TOTAL = true;
+        console.info('[Transaction List] tx_debug_wl=1：搜索请求将自动附带 debug_wl_total=1；完成后在控制台查看「Win/Loss 诊断」分组，或检视 search_api.php 的 data.debug_win_loss。');
+    }
     const RATE_TYPE_VALUE = 'RATE';
     let isSubmittingTx = false;
     let activeSearchController = null;
@@ -22,7 +26,7 @@
     /**
      * Transaction List Win/Loss 诊断：设为 true 后，搜索会在 URL 中加 debug_wl_total=1，
      * 后端返回 data.debug_win_loss；成功后在控制台分组打印（不改变表格展示）。
-     * 控制台：window.DEBUG_TRANSACTION_WL_TOTAL = true 再点 Searching。
+     * 也可用网址 ?tx_debug_wl=1（见 transaction.php），或控制台：window.DEBUG_TRANSACTION_WL_TOTAL = true 再点 Searching。
      * 顺带：window.DEBUG_TRANSACTION_SEARCH = true 会打印完整 data（数据量大慎用）。
      */
     function transactionsApiAppendWlDebug(url) {

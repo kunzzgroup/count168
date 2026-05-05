@@ -36,6 +36,9 @@ try {
 
 $company_id = $session_company_id;
 
+// Transaction List Win/Loss 诊断：?tx_debug_wl=1 时搜索请求自动带 debug_wl_total=1（见 js/transaction.js）
+$tx_debug_wl = isset($_GET['tx_debug_wl']) && (string) $_GET['tx_debug_wl'] === '1';
+
 // Capture Date 默认：当天
 $today_dt = new DateTime('today');
 $default_date_from = $today_dt->format('d/m/Y');
@@ -112,6 +115,11 @@ $default_date_to = $today_dt->format('d/m/Y');
                 <?php endif; ?>
             </div>
         </div>
+        <?php if ($tx_debug_wl): ?>
+        <div class="tx-debug-wl-banner" role="status" style="margin:8px 0 0;padding:10px 14px;background:#1e3a5f;color:#e8f1ff;font-size:13px;border-radius:6px;">
+            Win/Loss 诊断已开启（网址含 <code style="background:#274a73;padding:2px 6px;border-radius:4px;">tx_debug_wl=1</code>）。请点击 <strong>Searching</strong>，然后在浏览器<strong>控制台</strong>展开 “Win/Loss 诊断” 分组，或对 <code style="background:#274a73;padding:2px 6px;border-radius:4px;">search_api.php</code> 响应查看 <code style="background:#274a73;padding:2px 6px;border-radius:4px;">data.debug_win_loss</code>。账目要真平仍须依诊断结果在资料层更正。
+        </div>
+        <?php endif; ?>
 
         <!-- Separator line -->
         <div class="transaction-separator-line"></div>
@@ -588,7 +596,8 @@ $default_date_to = $today_dt->format('d/m/Y');
             viewerRole: <?php echo json_encode($viewerRole); ?>,
             canApproveContra: <?php echo $canApproveContra ? 'true' : 'false'; ?>,
             showDescriptionColumn: <?php echo $useDescriptionColumn ? 'true' : 'false'; ?>,
-            apiBase: <?php echo json_encode($tx_api_base, JSON_UNESCAPED_UNICODE); ?>
+            apiBase: <?php echo json_encode($tx_api_base, JSON_UNESCAPED_UNICODE); ?>,
+            txDebugWl: <?php echo $tx_debug_wl ? 'true' : 'false'; ?>
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
