@@ -11,6 +11,10 @@
     let lastSearchCommitMs = 0;
     let externalRefreshRetryTimer = null;
     const showDescriptionColumn = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.showDescriptionColumn !== undefined) ? window.TRANSACTION_PAGE.showDescriptionColumn : false;
+    if (typeof window !== 'undefined' && typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.txDebugWl === true) {
+        window.DEBUG_TRANSACTION_WL_TOTAL = true;
+        console.info('[Transaction List] tx_debug_wl=1：搜索请求将自动附带 debug_wl_total=1；完成后在控制台查看「Win/Loss 诊断」分组，或检视 search_api.php 的 data.debug_win_loss。');
+    }
     const RATE_TYPE_VALUE = 'RATE';
     let isSubmittingTx = false;
     let activeSearchController = null;
@@ -18,6 +22,35 @@
     let activeSearchKey = '';
     let lastCompletedSearchKey = '';
     let lastCompletedSearchTs = 0;
+
+    /**
+     * Transaction List Win/Loss 诊断：设为 true 后，搜索会在 URL 中加 debug_wl_total=1，
+     * 后端返回 data.debug_win_loss；成功后在控制台分组打印（不改变表格展示）。
+     * 也可用网址 ?tx_debug_wl=1（见 transaction.php），或控制台：window.DEBUG_TRANSACTION_WL_TOTAL = true 再点 Searching。
+     * 顺带：window.DEBUG_TRANSACTION_SEARCH = true 会打印完整 data（数据量大慎用）。
+     */
+    function transactionsApiAppendWlDebug(url) {
+        if (typeof window !== 'undefined' && window.DEBUG_TRANSACTION_WL_TOTAL === true) {
+            return url + '&debug_wl_total=1';
+        }
+        return url;
+    }
+
+    /**
+     * 与 transaction.php 所在 Web 目录对齐的 API URL。
+     * 部署在子目录时避免 `/api/...` 请求落到域名根（导致永远读不到当前仓库里的 PHP）。
+     *
+     * @param {string} relPath 不以 / 开头，如 api/transactions/search_api.php
+     */
+    function transactionsApiUrl(relPath) {
+        const raw = String(relPath || '').replace(/^\/+/, '');
+        const cfg = typeof window.TRANSACTION_PAGE !== 'undefined' ? window.TRANSACTION_PAGE : null;
+        const base = cfg && cfg.apiBase != null ? String(cfg.apiBase).replace(/\/$/, '') : '';
+        if (!base) {
+            return '/' + raw;
+        }
+        return base + '/' + raw;
+    }
 
     function syncSubmitButtonState() {
         const confirmCheckbox = document.getElementById('confirm_submit');
@@ -56,6 +89,19 @@
         if (cleaned === '' || cleaned === '-') return '0.00';
         try {
             return MoneyDecimal.formatThousands(cleaned, 2);
+        } catch (_) {
+            return '0.00';
+        }
+    }
+
+    /** Transaction 列表 Win/Loss：先 half-up 到分再千分位（与 search_api searchMoneyHalfUp2 一致） */
+    function formatPaymentHistoryMoneyHalfUp(value) {
+        if (value === '-' || value === null || value === undefined) return '-';
+        const cleaned = String(value).replace(/,/g, '').trim();
+        if (cleaned === '' || cleaned === '-') return '0.00';
+        try {
+            const rounded = MoneyDecimal.formatFixedHalfUp(cleaned === '-' ? '0' : cleaned, 2);
+            return MoneyDecimal.formatThousands(rounded, 2);
         } catch (_) {
             return '0.00';
         }
@@ -153,16 +199,53 @@
         return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
     }
 
-    /** 合计列 Win/Loss：每行用 win_loss_full（缺省 win_loss）四舍五入到分（ROUND_HALF_UP）再累加，与单元格显示（截断两位）可不一致 */
-    function winLossRowHalfUp2(row) {
+    /** 合计列 Win/Loss：只累加高精度 win_loss_full（勿累加已 half-up 的 win_loss），最后再 formatFixedHalfUp 一次 */
+    function winLossFullRawForTotals(row) {
         const raw = row && row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ''
             ? row.win_loss_full
             : (row && row.win_loss != null ? row.win_loss : '0');
+        const s = raw === '-' ? '0' : raw;
         try {
-            return MoneyDecimal.formatFixedHalfUp(raw === '-' ? '0' : raw, 2);
+            MoneyDecimal.toDecimal(s, 0);
+            return s;
         } catch (_) {
-            return '0.00';
+            return '0';
         }
+    }
+
+    /**
+     * 底部 Summary：可选将「极小」Total Win/Loss 显示为 0.00（仅影响该汇总行 Balance 的同链路透显，不改正数与各账户列）。
+     * transaction.php 加 ?tx_wl_tol=1 时 TRANSACTION_PAGE.winLossSummaryAbsTol 为 '1.00'。
+     */
+    function applySummaryWinLossDisplayTolerance(totals) {
+        const tolRaw = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.winLossSummaryAbsTol != null)
+            ? window.TRANSACTION_PAGE.winLossSummaryAbsTol
+            : null;
+        if (totals == null || tolRaw === null || tolRaw === undefined || String(tolRaw).trim() === '') {
+            return totals;
+        }
+        let tol;
+        try {
+            tol = MoneyDecimal.toDecimal(String(tolRaw).replace(/,/g, '').trim()).abs();
+        } catch (_) {
+            return totals;
+        }
+        if (tol.isZero()) return totals;
+        let absWl;
+        try {
+            absWl = MoneyDecimal.toDecimal(String(totals.win_loss ?? '0').replace(/,/g, '').trim()).abs();
+        } catch (_) {
+            return totals;
+        }
+        if (absWl.gt(tol)) return totals;
+        const bf2 = String(totals.bf ?? '0').replace(/,/g, '').trim();
+        const cr2 = String(totals.cr_dr ?? '0').replace(/,/g, '').trim();
+        const wl0 = MoneyDecimal.formatFixedHalfUp('0', 2);
+        const balance2 = MoneyDecimal.formatFixedHalfUp(
+            MoneyDecimal.add(MoneyDecimal.add(bf2, wl0), cr2),
+            2
+        );
+        return { bf: totals.bf, win_loss: wl0, cr_dr: totals.cr_dr, balance: balance2 };
     }
 
     // ==================== Contra Inbox（Manager+） ====================
@@ -216,7 +299,7 @@
     }
 
     function buildContraInboxUrl() {
-        let url = '/api/transactions/contra_inbox_api.php';
+        let url = transactionsApiUrl('api/transactions/contra_inbox_api.php');
         if (currentCompanyId) {
             url += `?company_id=${currentCompanyId}`;
         }
@@ -253,7 +336,7 @@
             form.append('company_id', String(currentCompanyId));
         }
 
-        fetch('/api/transactions/contra_approve_api.php', {
+        fetch(transactionsApiUrl('api/transactions/contra_approve_api.php'), {
             method: 'POST',
             body: form
         })
@@ -287,7 +370,7 @@
             form.append('company_id', String(currentCompanyId));
         }
 
-        fetch('/api/transactions/contra_reject_api.php', {
+        fetch(transactionsApiUrl('api/transactions/contra_reject_api.php'), {
             method: 'POST',
             body: form
         })
@@ -575,7 +658,7 @@
 
     // ==================== 加载分类列表 ====================
     function loadCategories() {
-        return fetch('/api/transactions/get_categories_api.php')
+        return fetch(transactionsApiUrl('api/transactions/get_categories_api.php'))
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -873,8 +956,8 @@
         }
 
         const url = params.toString()
-            ? `/api/transactions/get_accounts_api.php?${params.toString()}`
-            : '/api/transactions/get_accounts_api.php';
+            ? `${transactionsApiUrl('api/transactions/get_accounts_api.php')}?${params.toString()}`
+            : transactionsApiUrl('api/transactions/get_accounts_api.php');
 
         return fetch(url)
             .then(response => response.json())
@@ -1442,7 +1525,7 @@
     // ==================== 加载 Company Currencies ====================
     function loadCompanyCurrencies() {
         // 构建 URL，如果指定了 company_id 则添加参数
-        let url = '/api/transactions/get_company_currencies_api.php';
+        let url = transactionsApiUrl('api/transactions/get_company_currencies_api.php');
         if (currentCompanyId) {
             url += `?company_id=${currentCompanyId}`;
         }
@@ -1456,7 +1539,7 @@
                 }
                 return response.json();
             }),
-            fetch(`/api/transactions/user_currency_order_api.php?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
+            fetch(`${transactionsApiUrl('api/transactions/user_currency_order_api.php')}?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
         ])
             .then(([data, orderData]) => {
                 console.log('🔍 Currency API 返回:', {
@@ -1757,7 +1840,7 @@
                 localStorage.setItem(defaultKey, String(newOrder[0] || '').trim().toUpperCase());
 
                 // 同时永久保存到数据库
-                fetch('/api/transactions/user_currency_order_api.php', {
+                fetch(transactionsApiUrl('api/transactions/user_currency_order_api.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ order: newOrder })
@@ -1866,7 +1949,7 @@
         }
 
         // 构建 URL，处理多选分类
-        let url = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+        let url = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
 
         // 处理分类参数：如果是全选则不传参数，否则传递多个分类
         if (selectedCategories.length > 0 && !selectedCategories.includes('')) {
@@ -1881,9 +1964,10 @@
             url += `&currency=${selectedCurrencies.join(',')}`;
         }
 
-        console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies });
+        console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies, debugWlTotal: !!(typeof window !== 'undefined' && window.DEBUG_TRANSACTION_WL_TOTAL === true) });
 
         // 添加时间戳防止缓存
+        url = transactionsApiAppendWlDebug(url);
         url += '&_t=' + Date.now();
 
         const tablesSection = document.querySelector('.transaction-tables-section');
@@ -1988,6 +2072,27 @@
         isSearchInFlight = true;
         activeSearchKey = requestKey;
 
+        function logTxSearchWlDebug(apiData) {
+            if (!apiData || !apiData.debug_win_loss) {
+                return;
+            }
+            const d = apiData.debug_win_loss;
+            try {
+                console.groupCollapsed('[Transaction List] Win/Loss 诊断 (debug_wl_total)');
+                console.log('bucket_sums_hp', d.bucket_sums_hp);
+                console.log('totals_summary_from_api', d.totals_summary_from_api);
+                const small = d.nonzero_sorted_smallest_abs || [];
+                console.log('nonzero 按 |W/L| 升序（前 20 条）', small.slice(0, 20));
+                if ((d.bucket_mismatch_rows || []).length > 0) {
+                    console.warn('bucket_mismatch_rows', d.bucket_mismatch_rows);
+                }
+                console.log('完整 debug_win_loss', d);
+                console.groupEnd();
+            } catch (e) {
+                console.warn('[Transaction List] debug_win_loss 打印失败', e);
+            }
+        }
+
         fetch(url, {
             method: 'GET',
             cache: 'no-cache',
@@ -2004,6 +2109,7 @@
                         console.log('✅ 搜索成功:', data.data);
                         console.log('📊 行数:', (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0));
                     }
+                    logTxSearchWlDebug(data.data);
                     const currentSearchData = data.data || {};
                     const leftRows = Array.isArray(currentSearchData.left_table) ? currentSearchData.left_table : [];
                     const rightRows = Array.isArray(currentSearchData.right_table) ? currentSearchData.right_table : [];
@@ -2011,13 +2117,14 @@
 
                     // 兜底修复：单选币别时若后端返回空行，则自动重查全部币别并在前端按该币别过滤
                     if (singleSelectedCurrency && totalAccounts === 0) {
-                        let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
                         }
                         if (currentCompanyId) {
                             fallbackUrl += `&company_id=${currentCompanyId}`;
                         }
+                        fallbackUrl = transactionsApiAppendWlDebug(fallbackUrl);
                         fallbackUrl += '&_t=' + Date.now();
                         if (loadingEl && !silent) {
                             loadingEl.textContent = 'Loading data';
@@ -2034,6 +2141,7 @@
                         })
                             .then(resp => resp.json())
                             .then(fallback => {
+                                logTxSearchWlDebug(fallback.data || {});
                                 if (loadingEl) loadingEl.style.display = 'none';
                                 if (!fallback.success || !fallback.data) {
                                     commitSearchData(currentSearchData, { quiet: silent });
@@ -2068,7 +2176,7 @@
 
                     // 兜底修复：勾选 Show Win/Loss Only 且无明细时，保留空表行，但 totals 使用“同条件去掉 Win/Loss 过滤”结果
                     if (showCaptureOnly && totalAccounts === 0) {
-                        let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
                         }
@@ -2078,6 +2186,7 @@
                         if (!showAllCurrencies && selectedCurrencies.length > 0) {
                             fallbackUrl += `&currency=${selectedCurrencies.join(',')}`;
                         }
+                        fallbackUrl = transactionsApiAppendWlDebug(fallbackUrl);
                         fallbackUrl += '&_t=' + Date.now();
 
                         if (loadingEl && !silent) {
@@ -2095,6 +2204,7 @@
                         })
                             .then(resp => resp.json())
                             .then(fallback => {
+                                logTxSearchWlDebug(fallback.data || {});
                                 if (loadingEl) loadingEl.style.display = 'none';
                                 if (!fallback.success || !fallback.data || !fallback.data.totals) {
                                     commitSearchData(currentSearchData, { quiet: silent });
@@ -2140,8 +2250,7 @@
     }
 
     // ==================== 渲染表格与总计 ====================
-    // 可选第三个参数 totalsFromApi：仅当 left/right 与本次展示行完全一致时使用，跳过前端合计
-    function renderTables(leftRows, rightRows, totalsFromApi) {
+    function renderTables(leftRows, rightRows) {
         const normalizedRows = normalizeRateRowsByCrDr(leftRows, rightRows);
         // 按 role 排序数据
         const sortedLeftRows = sortByRole(normalizedRows.leftRows);
@@ -2174,29 +2283,9 @@
             fillTable('tbody_left', 'table_left', sortedLeftRows);
             fillTable('tbody_right', 'table_right', sortedRightRows);
 
-            // bf/cr_dr/balance 优先用后端 totals；Win/Loss 合计强制用逐行四舍五入（win_loss_full）再累加
-            let leftTotals, rightTotals, summaryTotals;
-            const ltWl = calculateTotals(sortedLeftRows);
-            const rtWl = calculateTotals(sortedRightRows);
-            if (totalsFromApi && totalsFromApi.left && totalsFromApi.right && totalsFromApi.summary) {
-                leftTotals = { ...totalsFromApi.left, win_loss: ltWl.win_loss };
-                rightTotals = { ...totalsFromApi.right, win_loss: rtWl.win_loss };
-                summaryTotals = {
-                    bf: totalsFromApi.summary.bf,
-                    win_loss: MoneyDecimal.add(ltWl.win_loss, rtWl.win_loss).toString(),
-                    cr_dr: totalsFromApi.summary.cr_dr,
-                    balance: totalsFromApi.summary.balance
-                };
-            } else {
-                leftTotals = ltWl;
-                rightTotals = rtWl;
-                summaryTotals = {
-                    bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
-                    win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
-                    cr_dr: MoneyDecimal.add(leftTotals.cr_dr, rightTotals.cr_dr).toString(),
-                    balance: MoneyDecimal.add(leftTotals.balance, rightTotals.balance).toString()
-                };
-            }
+            const leftTotals = calculateTotals(sortedLeftRows);
+            const rightTotals = calculateTotals(sortedRightRows);
+            const summaryTotals = applySummaryWinLossDisplayTolerance(calculateTotals([...sortedLeftRows, ...sortedRightRows]));
 
             updateTotals('left', leftTotals);
             updateTotals('right', rightTotals);
@@ -2290,14 +2379,7 @@
             groupedContainer.appendChild(tablesWrapper);
 
             // 计算该 currency 的汇总
-            const leftTotals = calculateTotals(leftRows);
-            const rightTotals = calculateTotals(rightRows);
-            const currencySummary = {
-                bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
-                win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
-                cr_dr: MoneyDecimal.add(leftTotals.cr_dr, rightTotals.cr_dr).toString(),
-                balance: MoneyDecimal.add(leftTotals.balance, rightTotals.balance).toString()
-            };
+            const currencySummary = applySummaryWinLossDisplayTolerance(calculateTotals([...leftRows, ...rightRows]));
 
             // 累加到总汇总
             totalSummary.bf = MoneyDecimal.add(totalSummary.bf, currencySummary.bf).toString();
@@ -2342,7 +2424,7 @@
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Win/Loss</td>
-            <td>${formatPaymentHistoryMoney(totals.win_loss)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.win_loss)}</td>
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Cr/Dr</td>
@@ -2350,7 +2432,7 @@
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Balance</td>
-            <td>${formatPaymentHistoryMoney(totals.balance)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.balance)}</td>
         </tr>
     `;
         table.appendChild(tbody);
@@ -2414,9 +2496,9 @@
                 </td>
                 <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
                 <td>${formatPaymentHistoryMoney(row.bf)}</td>
-                <td>${formatPaymentHistoryMoney(winLossValue)}</td>
+                <td>${formatPaymentHistoryMoneyHalfUp(winLossValue)}</td>
                 <td>${formatPaymentHistoryMoney(crDrValue)}</td>
-                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoney(balanceValue)}</td>
+                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(balanceValue)}</td>
             `;
 
                 // 点击账户单元格打开历史记录
@@ -2448,9 +2530,9 @@
             <td>Total</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};"></td>
             <td>${formatPaymentHistoryMoney(totals.bf)}</td>
-            <td>${formatPaymentHistoryMoney(totals.win_loss)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.win_loss)}</td>
             <td>${formatPaymentHistoryMoney(totals.cr_dr)}</td>
-            <td>${formatPaymentHistoryMoney(totals.balance)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.balance)}</td>
         </tr>
     `;
         table.appendChild(tfoot);
@@ -2459,13 +2541,20 @@
     }
 
     function calculateTotals(rows) {
-        return rows.reduce((totals, row) => {
-            totals.bf = MoneyDecimal.add(totals.bf, row.bf || '0').toString();
-            totals.win_loss = MoneyDecimal.add(totals.win_loss, winLossRowHalfUp2(row)).toString();
-            totals.cr_dr = MoneyDecimal.add(totals.cr_dr, row.cr_dr || '0').toString();
-            totals.balance = MoneyDecimal.add(totals.balance, row.balance || '0').toString();
-            return totals;
-        }, { bf: '0', win_loss: '0', cr_dr: '0', balance: '0' });
+        const sums = rows.reduce((acc, row) => {
+            acc.bf = MoneyDecimal.add(acc.bf, row.bf || '0').toString();
+            acc.win_loss = MoneyDecimal.add(acc.win_loss, winLossFullRawForTotals(row)).toString();
+            acc.cr_dr = MoneyDecimal.add(acc.cr_dr, row.cr_dr || '0').toString();
+            return acc;
+        }, { bf: '0', win_loss: '0', cr_dr: '0' });
+        const bfTot = MoneyDecimal.formatFixed(sums.bf, 2);
+        const wlTot = MoneyDecimal.formatFixedHalfUp(sums.win_loss, 2);
+        const crTot = MoneyDecimal.formatFixed(sums.cr_dr, 2);
+        const balTot = MoneyDecimal.formatFixedHalfUp(
+            MoneyDecimal.add(MoneyDecimal.add(bfTot, wlTot), crTot),
+            2
+        );
+        return { bf: bfTot, win_loss: wlTot, cr_dr: crTot, balance: balTot };
     }
 
     // ==================== 处理 Balance 点击事件 ====================
@@ -2742,9 +2831,9 @@
             <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">${row.account_id}</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
             <td>${formatPaymentHistoryMoney(row.bf)}</td>
-            <td>${formatPaymentHistoryMoney(row.win_loss)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(row.win_loss)}</td>
             <td>${formatPaymentHistoryMoney(row.cr_dr)}</td>
-            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoney(row.balance)}</td>
+            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(row.balance)}</td>
         `;
             tr.querySelector('.transaction-account-cell').addEventListener('click', function () {
                 openHistoryModal(this.getAttribute('data-account-id'), this.getAttribute('data-account-code'), this.getAttribute('data-account-name'), this.getAttribute('data-currency'));
@@ -2787,17 +2876,17 @@
     // ==================== 更新总和 ====================
     function updateTotals(side, totals) {
         document.getElementById(`${side}_total_bf`).textContent = formatPaymentHistoryMoney(totals.bf);
-        document.getElementById(`${side}_total_winloss`).textContent = formatPaymentHistoryMoney(totals.win_loss);
+        document.getElementById(`${side}_total_winloss`).textContent = formatPaymentHistoryMoneyHalfUp(totals.win_loss);
         document.getElementById(`${side}_total_crdr`).textContent = formatPaymentHistoryMoney(totals.cr_dr);
-        document.getElementById(`${side}_total_balance`).textContent = formatPaymentHistoryMoney(totals.balance);
+        document.getElementById(`${side}_total_balance`).textContent = formatPaymentHistoryMoneyHalfUp(totals.balance);
     }
 
     // ==================== 更新汇总 ====================
     function updateSummary(totals) {
         document.getElementById('sum_total_bf').textContent = formatPaymentHistoryMoney(totals.bf);
-        document.getElementById('sum_total_winloss').textContent = formatPaymentHistoryMoney(totals.win_loss);
+        document.getElementById('sum_total_winloss').textContent = formatPaymentHistoryMoneyHalfUp(totals.win_loss);
         document.getElementById('sum_total_crdr').textContent = formatPaymentHistoryMoney(totals.cr_dr);
-        document.getElementById('sum_total_balance').textContent = formatPaymentHistoryMoney(totals.balance);
+        document.getElementById('sum_total_balance').textContent = formatPaymentHistoryMoneyHalfUp(totals.balance);
     }
 
     // ==================== Show Name 切换 ====================
@@ -2848,9 +2937,13 @@
             }
         };
         const eps = '0.00001';
+        // 展示列 win_loss 可能已为 0.00，但 win_loss_full 仍有轧差；隐藏该行会把合计变成「少半边账」
+        const wlProbe = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
+            ? String(row.win_loss_full).replace(/,/g, '').trim()
+            : (row.win_loss || '0');
         const hasAnyMoneyColumn =
             absVal(row.bf).gt(eps) ||
-            absVal(row.win_loss).gt(eps) ||
+            absVal(wlProbe).gt(eps) ||
             absVal(row.cr_dr).gt(eps);
         if (hasAnyMoneyColumn) return true;
         const hasTxnFlag =
@@ -3397,7 +3490,7 @@
         isSubmittingTx = true;
         syncSubmitButtonState();
 
-        fetch('/api/transactions/submit_api.php', {
+        fetch(transactionsApiUrl('api/transactions/submit_api.php'), {
             method: 'POST',
             body: formData
         })
@@ -3485,7 +3578,7 @@
         }
 
         // 构建 URL，仅请求当前行的账户数据（使用数字 id，避免关联账户混入）
-        let url = `/api/transactions/history_api.php?account_id=${aid}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+        let url = `${transactionsApiUrl('api/transactions/history_api.php')}?account_id=${aid}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
         if (isVirtualCompanyRow) {
             url += `&virtual_company_code=${encodeURIComponent(virtualCompanyCode)}`;
         }
