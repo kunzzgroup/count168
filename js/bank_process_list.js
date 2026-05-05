@@ -2250,6 +2250,9 @@ function normalizeBankDateInputValue(value) {
 function initBankDatePickerInput(inputId) {
     const el = document.getElementById(inputId);
     if (!el || typeof flatpickr === 'undefined') return;
+    if (el.type !== 'text') {
+        el.type = 'text';
+    }
     if (el._flatpickr) {
         el._flatpickr.destroy();
     }
@@ -2272,6 +2275,22 @@ function initBankDatePickerInput(inputId) {
 function initBankDatePickers() {
     initBankDatePickerInput('bank_day_start');
     initBankDatePickerInput('bank_day_end');
+}
+
+function ensureBankDatePickerOnFocus() {
+    ['bank_day_start', 'bank_day_end'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el || el._bankDateFocusBound) return;
+        el._bankDateFocusBound = true;
+        el.addEventListener('focus', function () {
+            if (!el._flatpickr && typeof flatpickr !== 'undefined') {
+                initBankDatePickerInput(id);
+                if (el._flatpickr && !el.readOnly && !el.disabled) {
+                    el._flatpickr.open();
+                }
+            }
+        });
+    });
 }
 
 /** 与 api/processes/billing_schedule.php getBillingTermMonthsFromContract 一致 */
@@ -4648,6 +4667,8 @@ function removeProfitSharingEntry(index) {
 }
 function initBankProcessModule() {
     restoreSelectedCountriesFromStorage();
+    initBankDatePickers();
+    ensureBankDatePickerOnFocus();
     document.querySelectorAll("input[name='add_payment_alert']").forEach(function (radio) {
         radio.addEventListener('change', function () { toggleAlertFieldsBank('add'); });
     });
