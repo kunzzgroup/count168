@@ -256,7 +256,7 @@ $sidebarCompanyIdJs = trim((string) ($_SESSION['company_id'] ?? ''));
 
 <div class="account-table-wrapper">
     <div class="deleted-log-table-header">
-        <div>Time</div>
+        <div>lanjiao</div>
         <div>User</div>
         <div>Company</div>
         <div>Acc ID</div>
