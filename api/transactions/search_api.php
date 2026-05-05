@@ -131,18 +131,6 @@ function trunc2($value): string
     return searchMoney2($value);
 }
 
-/**
- * Bulk SQL 聚合写入内存缓存时用 8 位精度；勿对每笔聚合 trunc2，否则多账户/单日大行集累加会与明细口径漂移，
- * 表现为 Transaction List 底部合计相对 Customer Report（高精度合计）或自身 Balance 关系出现固定尾差。
- */
-function searchApiBulkAggMoney8($value): string
-{
-    if ($value === null || trim((string) $value) === '') {
-        return money_normalize('0', 8);
-    }
-    return money_normalize((string) $value, 8);
-}
-
 function searchMoneyNeg($value): string
 {
     return money_mul($value ?? '0', '-1', 8);
@@ -376,7 +364,6 @@ function searchApiAppendDomainNetProfitVirtualRows(
                 $results[$idx]['account_name'] = $profitRowName;
                 $results[$idx]['role'] = 'PROFIT';
                 $results[$idx]['cr_dr'] = $amt;
-                $results[$idx]['cr_dr_full'] = money_normalize($amt, 8);
                 $results[$idx]['balance'] = $amt;
                 $results[$idx]['has_crdr_transactions'] = 1;
             }
@@ -391,11 +378,9 @@ function searchApiAppendDomainNetProfitVirtualRows(
             'currency' => $cur,
             'currency_id_debug' => $cid,
             'bf' => '0',
-            'bf_full' => '0',
             'win_loss' => '0',
             'win_loss_full' => '0',
             'cr_dr' => $amt,
-            'cr_dr_full' => money_normalize($amt, 8),
             'balance' => $amt,
             'has_crdr_transactions' => 1,
             'is_alert' => 0,
@@ -591,7 +576,6 @@ function searchApiAppendDomainListFeeVirtualRows(
         } catch (PDOException $e) {
         }
 
-        $negAmt = searchMoneyNeg($amt);
         $results[] = [
             'account_id' => $src,
             'account_name' => $name,
@@ -600,12 +584,10 @@ function searchApiAppendDomainListFeeVirtualRows(
             'currency' => $cur,
             'currency_id_debug' => $cid,
             'bf' => '0',
-            'bf_full' => '0',
             'win_loss' => '0',
             'win_loss_full' => '0',
-            'cr_dr' => $negAmt,
-            'cr_dr_full' => money_normalize($negAmt, 8),
-            'balance' => $negAmt,
+            'cr_dr' => searchMoneyNeg($amt),
+            'balance' => searchMoneyNeg($amt),
             'has_crdr_transactions' => 1,
             'is_alert' => 0,
             'is_rate_middleman' => 0
@@ -745,16 +727,12 @@ function searchApiApplyDomainSourceCompanyRows(
         if ($aid > 0 && $cur !== '') {
             if (isset($poolBfAdjust[$aid][$cur])) {
                 $bd = $poolBfAdjust[$aid][$cur];
-                $prevBfFull = $row['bf_full'] ?? ($row['bf'] ?? '0');
                 $row['bf'] = trunc2(money_add($row['bf'] ?? '0', $bd, 8));
-                $row['bf_full'] = money_normalize(money_add($prevBfFull, $bd, 8), 8);
                 $row['balance'] = trunc2(money_add($row['balance'] ?? '0', $bd, 8));
             }
             if (isset($poolAdjust[$aid][$cur])) {
                 $delta = $poolAdjust[$aid][$cur];
-                $prevCrFull = $row['cr_dr_full'] ?? ($row['cr_dr'] ?? '0');
                 $row['cr_dr'] = trunc2(money_add($row['cr_dr'] ?? '0', $delta, 8));
-                $row['cr_dr_full'] = money_normalize(money_add($prevCrFull, $delta, 8), 8);
                 $row['balance'] = trunc2(money_add($row['balance'] ?? '0', $delta, 8));
                 $row['has_crdr_transactions'] = searchMoneyNonZero($row['cr_dr'] ?? '0') ? 1 : (int) $row['has_crdr_transactions'];
             }
@@ -1596,8 +1574,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['dcd'][$r['acc_str']][$r['currency_id']] = [
-                'bf' => searchApiBulkAggMoney8($r['bf_total'] ?? '0'),
-                'wl' => searchApiBulkAggMoney8($r['wl_total'] ?? '0'),
+                'bf' => trunc2($r['bf_total'] ?? '0'),
+                'wl' => trunc2($r['wl_total'] ?? '0'),
                 'wl_count' => (int) $r['wl_count'],
                 'id_product_rows_period' => (int) ($r['id_product_rows_period'] ?? 0),
                 'up_to_count' => (int) ($r['up_to_count'] ?? 0)
@@ -1679,8 +1657,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_win_lose'][$r['account_id']][$r['currency_id']] = [
-                'bf' => searchApiBulkAggMoney8($r['bf_total'] ?? '0'),
-                'wl' => searchApiBulkAggMoney8($r['wl_total'] ?? '0'),
+                'bf' => trunc2($r['bf_total'] ?? '0'),
+                'wl' => trunc2($r['wl_total'] ?? '0'),
                 'wl_count' => (int) $r['wl_count'],
                 'up_to_count' => (int) ($r['up_to_count'] ?? 0)
             ];
@@ -1729,8 +1707,8 @@ try {
             $cid = (int) $r['currency_id'];
             $existing = $bulk['txn_win_lose'][$aid][$cid] ?? ['bf' => '0', 'wl' => '0', 'wl_count' => 0, 'up_to_count' => 0];
             $bulk['txn_win_lose'][$aid][$cid] = [
-                'bf' => money_normalize(money_add($existing['bf'] ?? '0', $r['bf_total'] ?? '0', 8), 8),
-                'wl' => money_normalize(money_add($existing['wl'] ?? '0', $r['wl_total'] ?? '0', 8), 8),
+                'bf' => trunc2(money_add($existing['bf'] ?? '0', $r['bf_total'] ?? '0', 8)),
+                'wl' => trunc2(money_add($existing['wl'] ?? '0', $r['wl_total'] ?? '0', 8)),
                 'wl_count' => (int) ($existing['wl_count'] ?? 0) + (int) $r['wl_count'],
                 'up_to_count' => (int) ($existing['up_to_count'] ?? 0) + (int) ($r['up_to_count'] ?? 0)
             ];
@@ -1791,8 +1769,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_to'][$r['account_id']][$r['currency_id']] = [
-                'bf' => searchApiBulkAggMoney8($r['bf_cr_dr'] ?? '0'),
-                'cr_dr' => searchApiBulkAggMoney8($r['wl_cr_dr'] ?? '0'),
+                'bf' => trunc2($r['bf_cr_dr'] ?? '0'),
+                'cr_dr' => trunc2($r['wl_cr_dr'] ?? '0'),
                 'count' => (int) $r['wl_txn_count']
             ];
         }
@@ -1834,8 +1812,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_from'][$r['account_id']][$r['currency_id']] = [
-                'bf' => searchApiBulkAggMoney8($r['bf_cr_dr'] ?? '0'),
-                'cr_dr' => searchApiBulkAggMoney8($r['wl_cr_dr'] ?? '0'),
+                'bf' => trunc2($r['bf_cr_dr'] ?? '0'),
+                'cr_dr' => trunc2($r['wl_cr_dr'] ?? '0'),
                 'count' => (int) $r['wl_txn_count']
             ];
         }
@@ -1876,11 +1854,11 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['entry'][$r['account_id']][$r['currency_id']] = [
-                'bf' => searchApiBulkAggMoney8($r['bf_total'] ?? '0'),
-                'wl_mm' => searchApiBulkAggMoney8($r['wl_rate_mm'] ?? '0'),
+                'bf' => trunc2($r['bf_total'] ?? '0'),
+                'wl_mm' => trunc2($r['wl_rate_mm'] ?? '0'),
                 'wl_mm_count' => (int) $r['wl_rate_mm_count'],
                 'wl_mm_up_to_count' => (int) ($r['up_to_rate_mm_count'] ?? 0),
-                'cr_dr' => searchApiBulkAggMoney8($r['wl_cr_dr_other'] ?? '0'),
+                'cr_dr' => trunc2($r['wl_cr_dr_other'] ?? '0'),
                 'cr_dr_count' => (int) $r['wl_cr_dr_other_count']
             ];
         }
@@ -1894,9 +1872,7 @@ try {
         $currency_code = $combo['currency_code'];
 
         // 1. 计算 B/F (起始日期之前的所有累计余额，按 currency 过滤)
-        $bfPack = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);
-        $bf = $bfPack['bf'];
-        $bf_full = $bfPack['bf_full'];
+        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);
 
         // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
         $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
@@ -1911,28 +1887,18 @@ try {
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
         // Layer 2 过滤：(账户 + 货币) 组合级别。两者互相对称：
-        // 情况A：仅 Show Win/Loss Only —— 无本期 W/L 动账时不再一律隐藏：仅当 B/F、W/L、Cr/Dr 截断后皆近零才跳过（避免轧差户被漏掉）
+        // 情况A：仅 Show Win/Loss Only —— 跳过该货币“本期没有任何 Win/Loss 相关记录”的行
         if ($show_capture_only && !$show_inactive) {
             if (!$has_win_loss_transactions) {
-                $all_near_zero = searchMoneyIsZero(trunc2($bf))
-                    && searchMoneyIsZero(trunc2($win_loss))
-                    && searchMoneyIsZero(trunc2($cr_dr));
-                if ($all_near_zero) {
-                    continue;
-                }
+                continue;
             }
         }
-        // 情况B：仅 Show Payment Only —— 对称：无 Cr/Dr 动账时若仍有三列轧差则保留行
+        // 情况B：仅 Show Payment Only —— 跳过该货币没有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 的行
         // 注意：$has_crdr_transactions 已在 calculateCrDrByCurrency 中修正，
         // 不再受 RATE 分录（transaction_entry）count 污染。
         if ($show_inactive && !$show_capture_only) {
             if (!$has_crdr_transactions) {
-                $all_near_zero = searchMoneyIsZero(trunc2($bf))
-                    && searchMoneyIsZero(trunc2($win_loss))
-                    && searchMoneyIsZero(trunc2($cr_dr));
-                if ($all_near_zero) {
-                    continue;
-                }
+                continue;
             }
         }
 
@@ -2059,11 +2025,9 @@ try {
             'currency_id_debug' => $currency_id,
             // 与 history_api 显示口径保持一致：统一在后端保留 2 位小数再返回
             'bf' => $bf_display,
-            'bf_full' => $bf_full,
             'win_loss' => $win_loss_display,
             'win_loss_full' => $wlPack['win_loss_full'] ?? $win_loss_display,
             'cr_dr' => $cr_dr_display,
-            'cr_dr_full' => $cr_dr_result['value_full'],
             'balance' => $balance,
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
@@ -2133,10 +2097,10 @@ try {
     $left_table = array_values($left_table);
     $right_table = array_values($right_table);
 
-    // 计算总和：左右表脚各算各；中间 Summary 对全体 $results 单次汇总（避免左右各截断再累加出现固定尾差）
+    // 计算总和
     $left_totals = calculateTotals($left_table);
     $right_totals = calculateTotals($right_table);
-    $summary_totals = calculateTotals($results);
+    $summary_totals = addMoneyFields($left_totals, $right_totals);
     $left_table = normalizeMoneyRows($left_table);
     $right_table = normalizeMoneyRows($right_table);
 
@@ -2355,24 +2319,20 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to)
  */
 function calculateTotals($data)
 {
-    $sum_bf = '0';
-    $sum_wl = '0';
-    $sum_cr = '0';
+    $totals = ['bf' => '0', 'win_loss' => '0', 'cr_dr' => '0', 'balance' => '0'];
 
     foreach ($data as $row) {
-        $sum_bf = money_add($sum_bf, $row['bf_full'] ?? ($row['bf'] ?? '0'), 8);
-        $wl_full = $row['win_loss_full'] ?? ($row['win_loss'] ?? '0');
-        $sum_wl = money_add($sum_wl, $wl_full, 8);
-        $sum_cr = money_add($sum_cr, $row['cr_dr_full'] ?? ($row['cr_dr'] ?? '0'), 8);
+        $totals['bf'] = money_add($totals['bf'], $row['bf'] ?? '0', 2);
+        $totals['win_loss'] = money_add($totals['win_loss'], $row['win_loss'] ?? '0', 2);
+        $totals['cr_dr'] = money_add($totals['cr_dr'], $row['cr_dr'] ?? '0', 2);
+        $totals['balance'] = money_add($totals['balance'], $row['balance'] ?? '0', 2);
     }
 
-    $sum_bal = money_add(money_add($sum_bf, $sum_wl, 8), $sum_cr, 8);
-
     return [
-        'bf' => searchMoney2($sum_bf),
-        'win_loss' => searchMoney2($sum_wl),
-        'cr_dr' => searchMoney2($sum_cr),
-        'balance' => searchMoney2($sum_bal),
+        'bf' => searchMoney2($totals['bf']),
+        'win_loss' => searchMoney2($totals['win_loss']),
+        'cr_dr' => searchMoney2($totals['cr_dr']),
+        'balance' => searchMoney2($totals['balance']),
     ];
 }
 
@@ -2408,10 +2368,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             }
         }
 
-        return [
-            'bf' => trunc2($bf),
-            'bf_full' => money_normalize($bf, 8),
-        ];
+        return trunc2($bf);
     }
 
     $bf = '0';
@@ -2684,10 +2641,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
     $bf = money_add($bf, $rateStmt->fetchColumn() ?: '0', 8);
 
-    return [
-        'bf' => trunc2($bf),
-        'bf_full' => money_normalize($bf, 8),
-    ];
+    return trunc2($bf);
 }
 
 /**
@@ -2968,7 +2922,6 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $cr_dr_disp = trunc2($cr_dr);
         return [
             'value' => $cr_dr_disp,
-            'value_full' => money_normalize($cr_dr, 8),
             // 与展示口径一致：截断后全 0 则不计入 has（避免分录累加浮点余量导致「仅 OPENING BALANCE」账号仍被认为有 Cr/Dr 流水）
             'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr_disp),
         ];
@@ -3126,7 +3079,6 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
 
     return [
         'value' => trunc2($cr_dr),
-        'value_full' => money_normalize($cr_dr, 8),
         'has_transactions' => $transaction_count > 0 || searchMoneyNonZero($cr_dr),
     ];
 }
