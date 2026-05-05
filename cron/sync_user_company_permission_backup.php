@@ -26,7 +26,7 @@ SELECT
   ucp.process_permission,
   ucp.created_at,
   ucp.updated_at
-FROM user_company_permission ucp
+FROM user_company_permissions ucp
 LEFT JOIN user u ON u.id = ucp.user_id
 LEFT JOIN company c ON c.id = ucp.company_id
 LEFT JOIN owner o ON o.id = c.owner_id
