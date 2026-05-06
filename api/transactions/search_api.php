@@ -135,11 +135,12 @@ function searchMoney2($value): string
 }
 
 /**
- * 截断到2位小数（不四舍五入），返回字符串金额。
+ * 统一到2位小数（HALF_UP，四舍五入），返回字符串金额。
+ * 说明：保留函数名是为了兼容现有调用点，但已不再执行截断逻辑。
  */
 function trunc2($value): string
 {
-    return searchMoney2($value);
+    return searchMoneyHalfUp2($value);
 }
 
 /**
