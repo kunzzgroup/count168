@@ -2550,14 +2550,9 @@
             acc.cr_dr = MoneyDecimal.add(acc.cr_dr, row.cr_dr || '0').toString();
             return acc;
         }, { bf: '0', win_loss: '0', cr_dr: '0' });
-        const bfTot = MoneyDecimal.formatFixed(sums.bf, 2);
-        const wlTot = MoneyDecimal.formatFixedHalfUp(sums.win_loss, 2);
-        const crTot = MoneyDecimal.formatFixed(sums.cr_dr, 2);
-        const balTot = MoneyDecimal.formatFixedHalfUp(
-            MoneyDecimal.add(MoneyDecimal.add(bfTot, wlTot), crTot),
-            2
-        );
-        return { bf: bfTot, win_loss: wlTot, cr_dr: crTot, balance: balTot };
+        const balRaw = MoneyDecimal.add(MoneyDecimal.add(sums.bf, sums.win_loss), sums.cr_dr).toString();
+        // 返回原始汇总值；2位四舍五入仅在渲染展示时处理
+        return { bf: sums.bf, win_loss: sums.win_loss, cr_dr: sums.cr_dr, balance: balRaw };
     }
 
     // ==================== 处理 Balance 点击事件 ====================
