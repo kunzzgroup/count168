@@ -12045,78 +12045,25 @@ function attachRateValueEditListener(cell, row) {
 // Apply rate multiplication or division to processed amount
 // Priority: 1) Rate Value column (cells[7]), 2) Global rateInput (if checkbox checked)
 // Supports "*3" for multiplication and "/3" for division, or plain numbers
-function logSummaryRateCalculation(payload) {
-    try {
-        console.log('[Summary Rate]', payload);
-    } catch (_) { /* ignore */ }
-}
-
 function applyRateToProcessedAmount(row, processedAmount) {
     if (!row) {
         return processedAmount;
     }
 
     const cells = row.querySelectorAll('td');
-    const rowLabel = (cells[0] && cells[0].textContent) ? String(cells[0].textContent).trim().slice(0, 120) : '';
-
-    const applyRateValue = function (rateValueStr, rateSource) {
+    const applyRateValue = function (rateValueStr) {
         const value = String(rateValueStr || '').trim();
         if (value === '') return null;
         try {
             if (value.startsWith('*')) {
                 const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
-                if (!rateValue.isZero()) {
-                    const raw = MoneyDecimal.mul(processedAmount, rateValue).toString();
-                    const out = truncateRateAmountTo8Decimals(raw);
-                    logSummaryRateCalculation({
-                        row: rowLabel,
-                        rateSource,
-                        baseBeforeRate: String(processedAmount),
-                        rateInputRaw: value,
-                        operation: 'multiply',
-                        rateOperand: rateValue.toString(),
-                        computedBeforeTrunc8: raw,
-                        afterTrunc8: out,
-                        note: 'Rate 结果向 0 截断到 8 位小数；与合计相加前仍会再截断到 6 位。'
-                    });
-                    return out;
-                }
+                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.mul(processedAmount, rateValue).toString());
             } else if (value.startsWith('/')) {
                 const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
-                if (!rateValue.isZero()) {
-                    const raw = MoneyDecimal.div(processedAmount, rateValue).toString();
-                    const out = truncateRateAmountTo8Decimals(raw);
-                    logSummaryRateCalculation({
-                        row: rowLabel,
-                        rateSource,
-                        baseBeforeRate: String(processedAmount),
-                        rateInputRaw: value,
-                        operation: 'divide',
-                        rateOperand: rateValue.toString(),
-                        computedBeforeTrunc8: raw,
-                        afterTrunc8: out,
-                        note: 'Rate 结果向 0 截断到 8 位小数；与合计相加前仍会再截断到 6 位。'
-                    });
-                    return out;
-                }
+                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.div(processedAmount, rateValue).toString());
             } else {
                 const rateValue = MoneyDecimal.toDecimal(value, 0);
-                if (!rateValue.isZero()) {
-                    const raw = MoneyDecimal.mul(processedAmount, rateValue).toString();
-                    const out = truncateRateAmountTo8Decimals(raw);
-                    logSummaryRateCalculation({
-                        row: rowLabel,
-                        rateSource,
-                        baseBeforeRate: String(processedAmount),
-                        rateInputRaw: value,
-                        operation: 'multiply (plain number, same as *)',
-                        rateOperand: rateValue.toString(),
-                        computedBeforeTrunc8: raw,
-                        afterTrunc8: out,
-                        note: 'Rate 结果向 0 截断到 8 位小数；与合计相加前仍会再截断到 6 位。'
-                    });
-                    return out;
-                }
+                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.mul(processedAmount, rateValue).toString());
             }
         } catch (_) { /* ignore invalid rate */ }
         return null;
@@ -12125,7 +12072,7 @@ function applyRateToProcessedAmount(row, processedAmount) {
     // Priority 1: Check Rate Value column (cells[7]) - if has value, use it
     const rateValueCell = cells[7];
     if (rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '') {
-        const rated = applyRateValue(rateValueCell.textContent.trim(), 'rateValueCell');
+        const rated = applyRateValue(rateValueCell.textContent.trim());
         if (rated !== null) return rated;
     }
 
@@ -12145,7 +12092,7 @@ function applyRateToProcessedAmount(row, processedAmount) {
             return processedAmount;
         }
 
-        const rated = applyRateValue(rateInput.value.trim(), 'globalRateInput');
+        const rated = applyRateValue(rateInput.value.trim());
         if (rated !== null) return rated;
     }
 
