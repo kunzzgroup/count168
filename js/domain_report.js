@@ -34,7 +34,7 @@ function showNotification(message, type = 'success') {
 
 function formatAmount(amount) {
     const value = MoneyDecimal.cmp(MoneyDecimal.abs(amount || '0'), '0.005') < 0 ? '0' : (amount || '0');
-    return MoneyDecimal.formatFixed(value, 2);
+    return MoneyDecimal.formatFixedHalfUp(value, 2);
 }
 
 function reportAdd(a, b) {
