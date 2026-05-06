@@ -9562,7 +9562,8 @@ function evaluateFormulaExpression(formula, processValueOverride = null, clicked
             sanitized = sanitized.replace(/\u2212/g, '-'); // Unicode minus -> ASCII minus
             if (/^[0-9+\-*/().]+$/.test(sanitized)) {
                 const result = evaluateExpression(sanitized);
-                console.log('Formula expression evaluated (pure numeric, direct):', formula, '->', sanitized, '=', result);
+                const resultForLog = typeof truncateProcessedAmountTo6Decimals === 'function' ? truncateProcessedAmountTo6Decimals(result) : result;
+                console.log('Formula expression evaluated (pure numeric, direct):', formula, '->', sanitized, '=', resultForLog);
                 return result;
             }
         }
@@ -9581,14 +9582,15 @@ function evaluateFormulaExpression(formula, processValueOverride = null, clicked
         // If so, evaluate directly without additional parsing
         if (/^[0-9+\-*/().]+$/.test(sanitized)) {
             const result = evaluateExpression(sanitized);
-            console.log('Formula expression evaluated (direct):', formula, '->', sanitized, '=', result);
+            const resultForLog = typeof truncateProcessedAmountTo6Decimals === 'function' ? truncateProcessedAmountTo6Decimals(result) : result;
+            console.log('Formula expression evaluated (direct):', formula, '->', sanitized, '=', resultForLog);
             return result;
         }
 
         // For formulas with references, use evaluateExpression after parsing
         const result = evaluateExpression(sanitized);
-
-        console.log('Formula expression evaluated:', formula, '->', parsedFormula, '=', result);
+        const resultForLog = typeof truncateProcessedAmountTo6Decimals === 'function' ? truncateProcessedAmountTo6Decimals(result) : result;
+        console.log('Formula expression evaluated:', formula, '->', parsedFormula, '=', resultForLog);
         return result;
     } catch (error) {
         console.error('Error evaluating formula expression:', error, 'formula:', formula);
@@ -11134,9 +11136,12 @@ function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = nu
     } catch (_) {
         normalized = '0';
     }
+    const normalizedForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
+        ? truncateProcessedAmountTo6Decimals(normalized)
+        : normalized;
 
     if (row) {
-        row.setAttribute('data-final-processed-amount', normalized);
+        row.setAttribute('data-final-processed-amount', normalizedForTotal);
     }
 
     if (processedAmountCell) {
@@ -11144,7 +11149,7 @@ function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = nu
         processedAmountCell.style.color = MoneyDecimal.cmp(normalized, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(normalized, '0') < 0 ? '#A91215' : '#000000');
     }
 
-    return normalized;
+    return normalizedForTotal;
 }
 
 function removeThousandsSeparators(value) {
