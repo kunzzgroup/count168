@@ -9911,13 +9911,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
     }
 
     if (cells[8]) {
-        const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
-            ? roundProcessedAmountTo2Decimals(finalProcessedAmount)
-            : finalProcessedAmount;
-        cells[8].textContent = typeof formatNumberWithThousands === 'function'
-            ? formatNumberWithThousands(rounded)
-            : String(finalProcessedAmount);
-        cells[8].style.color = MoneyDecimal.cmp(finalProcessedAmount, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(finalProcessedAmount, '0') < 0 ? '#A91215' : '#000000');
+        setRowProcessedAmountDisplay(row, finalProcessedAmount, cells[8]);
     }
 
     if (options.updateTotal !== false && typeof updateProcessedAmountTotal === 'function') {
@@ -9944,8 +9938,7 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
         const formulaText = (formulaCell.querySelector('.formula-text')?.textContent || formulaCell.textContent || '').trim()
         if (!formulaText || formulaText === 'Formula') {
             row.setAttribute('data-base-processed-amount', '0')
-            processedAmountCell.textContent = '0.00'
-            processedAmountCell.style.color = '#000000'
+            setRowProcessedAmountDisplay(row, '0', processedAmountCell)
             return
         }
 
@@ -9976,8 +9969,7 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
             ? applyRateToProcessedAmount(row, processedAmount)
             : processedAmount
 
-        processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalProcessedAmount))
-        processedAmountCell.style.color = MoneyDecimal.cmp(finalProcessedAmount, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(finalProcessedAmount, '0') < 0 ? '#A91215' : '#000000')
+        setRowProcessedAmountDisplay(row, finalProcessedAmount, processedAmountCell)
     })
 
     updateProcessedAmountTotal()
@@ -11130,6 +11122,29 @@ function formatNumberWithThousands(value) {
     } catch (_) {
         return '0.00';
     }
+}
+
+// 统一写入 Processed Amount：
+// 1) data-final-processed-amount 保存统计使用的 raw 值
+// 2) 单元格仅用于 2 位四舍五入展示
+function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = null) {
+    let normalized = '0';
+    try {
+        normalized = MoneyDecimal.toDecimal(finalAmount, 0).toString();
+    } catch (_) {
+        normalized = '0';
+    }
+
+    if (row) {
+        row.setAttribute('data-final-processed-amount', normalized);
+    }
+
+    if (processedAmountCell) {
+        processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(normalized));
+        processedAmountCell.style.color = MoneyDecimal.cmp(normalized, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(normalized, '0') < 0 ? '#A91215' : '#000000');
+    }
+
+    return normalized;
 }
 
 function removeThousandsSeparators(value) {
@@ -19124,8 +19139,7 @@ function updateProcessedAmountCell(processValue, processedAmount) {
                 let val = MoneyDecimal.toDecimal(processedAmount || '0', 0).toString();
                 // Apply rate multiplication if checkbox is checked
                 val = applyRateToProcessedAmount(row, val);
-                processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                processedAmountCell.style.color = MoneyDecimal.cmp(val, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(val, '0') < 0 ? '#A91215' : '#000000');
+                setRowProcessedAmountDisplay(row, val, processedAmountCell);
                 // processedAmountCell.style.backgroundColor = '#e8f5e8'; // Removed
                 updateProcessedAmountTotal();
             }
@@ -19135,7 +19149,6 @@ function updateProcessedAmountCell(processValue, processedAmount) {
 }
 
 function getSummaryRowFinalAmount(row, cells) {
-    const safeCells = cells || row.querySelectorAll('td');
     const baseAmountText = row.getAttribute('data-base-processed-amount');
     const hasBaseAmount = baseAmountText !== null && String(baseAmountText).trim() !== '';
 
@@ -19146,14 +19159,18 @@ function getSummaryRowFinalAmount(row, cells) {
                 return applyRateToProcessedAmount(row, baseAmount);
             }
             return baseAmount;
-        } catch (_) { /* fallback to cell text */ }
+        } catch (_) { /* ignore and try final raw attr */ }
     }
 
-    const processedAmountCell = safeCells[8];
-    if (!processedAmountCell) return '0';
-    const fallbackText = (processedAmountCell.textContent || '').trim().replace(/,/g, '');
+    const finalAmountText = row.getAttribute('data-final-processed-amount');
+    if (finalAmountText !== null && String(finalAmountText).trim() !== '') {
+        try {
+            return MoneyDecimal.toDecimal(finalAmountText, 0).toString();
+        } catch (_) { /* ignore invalid final raw attr */ }
+    }
+    // 不再从单元格展示文本反推统计金额，避免 2 位展示值参与汇总。
     try {
-        return MoneyDecimal.toDecimal(fallbackText, 0).toString();
+        return MoneyDecimal.toDecimal('0', 0).toString();
     } catch (_) {
         return '0';
     }
