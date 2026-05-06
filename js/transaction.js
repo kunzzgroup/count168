@@ -2420,7 +2420,7 @@
         tbody.innerHTML = `
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">B/F</td>
-            <td>${formatPaymentHistoryMoney(totals.bf)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.bf)}</td>
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Win/Loss</td>
@@ -2428,7 +2428,7 @@
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Cr/Dr</td>
-            <td>${formatPaymentHistoryMoney(totals.cr_dr)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.cr_dr)}</td>
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Balance</td>
@@ -2495,9 +2495,9 @@
                     ${row.account_id}
                 </td>
                 <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
-                <td>${formatPaymentHistoryMoney(row.bf)}</td>
+                <td>${formatPaymentHistoryMoneyHalfUp(row.bf)}</td>
                 <td>${formatPaymentHistoryMoneyHalfUp(winLossValue)}</td>
-                <td>${formatPaymentHistoryMoney(crDrValue)}</td>
+                <td>${formatPaymentHistoryMoneyHalfUp(crDrValue)}</td>
                 <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(balanceValue)}</td>
             `;
 
@@ -2529,9 +2529,9 @@
         <tr class="transaction-table-footer">
             <td>Total</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};"></td>
-            <td>${formatPaymentHistoryMoney(totals.bf)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.bf)}</td>
             <td>${formatPaymentHistoryMoneyHalfUp(totals.win_loss)}</td>
-            <td>${formatPaymentHistoryMoney(totals.cr_dr)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(totals.cr_dr)}</td>
             <td>${formatPaymentHistoryMoneyHalfUp(totals.balance)}</td>
         </tr>
     `;
@@ -2830,9 +2830,9 @@
             tr.innerHTML = `
             <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">${row.account_id}</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
-            <td>${formatPaymentHistoryMoney(row.bf)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(row.bf)}</td>
             <td>${formatPaymentHistoryMoneyHalfUp(row.win_loss)}</td>
-            <td>${formatPaymentHistoryMoney(row.cr_dr)}</td>
+            <td>${formatPaymentHistoryMoneyHalfUp(row.cr_dr)}</td>
             <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(row.balance)}</td>
         `;
             tr.querySelector('.transaction-account-cell').addEventListener('click', function () {
@@ -2875,17 +2875,17 @@
 
     // ==================== 更新总和 ====================
     function updateTotals(side, totals) {
-        document.getElementById(`${side}_total_bf`).textContent = formatPaymentHistoryMoney(totals.bf);
+        document.getElementById(`${side}_total_bf`).textContent = formatPaymentHistoryMoneyHalfUp(totals.bf);
         document.getElementById(`${side}_total_winloss`).textContent = formatPaymentHistoryMoneyHalfUp(totals.win_loss);
-        document.getElementById(`${side}_total_crdr`).textContent = formatPaymentHistoryMoney(totals.cr_dr);
+        document.getElementById(`${side}_total_crdr`).textContent = formatPaymentHistoryMoneyHalfUp(totals.cr_dr);
         document.getElementById(`${side}_total_balance`).textContent = formatPaymentHistoryMoneyHalfUp(totals.balance);
     }
 
     // ==================== 更新汇总 ====================
     function updateSummary(totals) {
-        document.getElementById('sum_total_bf').textContent = formatPaymentHistoryMoney(totals.bf);
+        document.getElementById('sum_total_bf').textContent = formatPaymentHistoryMoneyHalfUp(totals.bf);
         document.getElementById('sum_total_winloss').textContent = formatPaymentHistoryMoneyHalfUp(totals.win_loss);
-        document.getElementById('sum_total_crdr').textContent = formatPaymentHistoryMoney(totals.cr_dr);
+        document.getElementById('sum_total_crdr').textContent = formatPaymentHistoryMoneyHalfUp(totals.cr_dr);
         document.getElementById('sum_total_balance').textContent = formatPaymentHistoryMoneyHalfUp(totals.balance);
     }
 
