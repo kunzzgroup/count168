@@ -2731,7 +2731,10 @@
             const numericBalance = parseBalanceValue(balance);
             if (numericBalance !== null) {
                 const absBalance = MoneyDecimal.abs(numericBalance).toString();
-                amountInput.value = MoneyDecimal.formatFixed(absBalance, 2);
+                // 展示按 2 位；算法/提交保留点击行的原始金额
+                amountInput.value = MoneyDecimal.formatFixedHalfUp(absBalance, 2);
+                amountInput.setAttribute('data-raw-amount', absBalance);
+                amountInput.setAttribute('data-amount-source', 'balance-click');
                 if (currencyAmountInput) {
                     if (isRateView) {
                         // RATE 模式（按你的要求）：
@@ -3108,10 +3111,22 @@
         const setVal = (node, v) => {
             if (node) node.value = v;
         };
-        setVal(byId('action_amount'), '');
+        const actionAmountEl = byId('action_amount');
+        setVal(actionAmountEl, '');
+        if (actionAmountEl) {
+            actionAmountEl.removeAttribute('data-raw-amount');
+            actionAmountEl.removeAttribute('data-amount-source');
+        }
         setVal(byId('action_description'), '');
         const confirmCk = byId('confirm_submit');
         if (confirmCk) confirmCk.checked = false;
+    }
+
+    function getActionAmountForSubmit(inputEl) {
+        if (!inputEl) return '';
+        const raw = (inputEl.getAttribute('data-raw-amount') || '').trim();
+        if (raw !== '') return raw;
+        return inputEl.value || '';
     }
 
     // ==================== 提交功能 ====================
@@ -3140,7 +3155,7 @@
         const rateCurrencyFromAmountInput = document.getElementById('rate_currency_from_amount');
         let amount = isRate
             ? (rateCurrencyFromAmountInput ? rateCurrencyFromAmountInput.value : '')
-            : (standardAmountInput ? standardAmountInput.value : '');
+            : getActionAmountForSubmit(standardAmountInput);
 
         const standardDateInput = document.getElementById('transaction_date');
         const rateDateInput = document.getElementById('rate_transaction_date');
@@ -3894,6 +3909,7 @@
     function handleConfirmSubmit() {
         const confirmCheckbox = document.getElementById('confirm_submit');
         const submitBtn = document.getElementById('submit_btn');
+        const actionAmountInput = document.getElementById('action_amount');
 
         if (confirmCheckbox && submitBtn) {
             // 根据复选框初始状态设置按钮是否可点
@@ -3907,6 +3923,14 @@
                 if (!submitBtn.disabled && !isSubmittingTx) {
                     submitAction();
                 }
+            });
+        }
+
+        // 用户手动编辑 Amount 后，回到“以输入值提交”，不再使用点击 Balance 注入的原始值
+        if (actionAmountInput) {
+            actionAmountInput.addEventListener('input', function () {
+                actionAmountInput.removeAttribute('data-raw-amount');
+                actionAmountInput.removeAttribute('data-amount-source');
             });
         }
     }
