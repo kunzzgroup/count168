@@ -3644,7 +3644,7 @@
 
                         // 格式化数字列（如果不是 '-'）；展示使用四舍五入到 2 位（HALF_UP），但不改变后端原始值与统计口径
                         const winLoss = row.win_loss === '-' ? '-' : formatPaymentHistoryMoneyHalfUp(row.win_loss);
-                        const crDr = row.cr_dr === '-' ? '-' : formatPaymentHistoryMoney(row.cr_dr);
+                        const crDr = row.cr_dr === '-' ? '-' : formatPaymentHistoryMoneyHalfUp(row.cr_dr);
                         const balance = row.balance === '-' ? '-' : formatPaymentHistoryMoneyHalfUp(row.balance);
                         const remarkValue = getHistoryRemark(row);
                         const descriptionDisplay = toUpperDisplay(row.description);

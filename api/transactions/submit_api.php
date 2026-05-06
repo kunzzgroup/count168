@@ -122,6 +122,18 @@ function submitTrunc2($value): string
 }
 
 /**
+ * 交易入库金额统一按高精度保存（默认 8 位），避免用户输入 6 位小数时被提前截断。
+ * 展示口径（2 位）应在前端或响应格式化阶段处理，不影响数据库原值。
+ */
+function submitStoreAmount($value, int $scale = 8): string
+{
+    if ($value === null || trim((string)$value) === '') {
+        return money_normalize('0', $scale);
+    }
+    return money_normalize($value ?? '0', $scale);
+}
+
+/**
  * RATE 专用：四舍五入到2位小数（half-up），其他交易类型继续使用 submitTrunc2。
  */
 function submitRateRound2($value): string
@@ -256,7 +268,7 @@ try {
     $transaction_type = trim($_POST['transaction_type'] ?? '');
     $account_id = (int)($_POST['account_id'] ?? 0);
     $from_account_id = !empty($_POST['from_account_id']) ? (int)$_POST['from_account_id'] : null;
-    $amount = submitTrunc2($_POST['amount'] ?? '0');
+    $amount = submitStoreAmount($_POST['amount'] ?? '0', 8);
     $transaction_date = trim($_POST['transaction_date'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $sms = trim($_POST['sms'] ?? '');
@@ -950,7 +962,7 @@ try {
             // 非 RATE 类型的原有逻辑
             // ADJUSTMENT 需要保留正负号；其他交易类型仍统一保存正数。
             if (!$is_adjustment) {
-                $amount = submitTrunc2(abs($amount));
+                $amount = submitStoreAmount(money_abs($amount, 8), 8);
             }
             
             // WIN/LOSE（含前端 PROFIT）：按单条记录保存（To + From + Amount），不再自动生成相反类型第二条

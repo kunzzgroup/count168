@@ -126,21 +126,23 @@ function searchApiHasAccountCurrencyTable(PDO $pdo): bool
     return $v;
 }
 
+/**
+ * 统计口径统一为 6 位小数（展示仍在前端按 2 位处理）。
+ */
 function searchMoney2($value): string
 {
     if ($value === null || trim((string)$value) === '') {
-        return money_normalize('0', 2);
+        return money_normalize('0', 6);
     }
-    return money_normalize($value ?? '0', 2);
+    return money_normalize($value ?? '0', 6);
 }
 
 /**
- * 统一到2位小数（HALF_UP，四舍五入），返回字符串金额。
- * 说明：保留函数名是为了兼容现有调用点，但已不再执行截断逻辑。
+ * 兼容旧调用名：此函数现在用于“统计口径量化”，统一到 6 位。
  */
 function trunc2($value): string
 {
-    return searchMoneyHalfUp2($value);
+    return searchMoney2($value);
 }
 
 /**
@@ -773,9 +775,10 @@ function searchApiApplyDomainSourceCompanyRows(
             }
             if ($touched) {
                 $bf_d = trunc2($row['bf'] ?? '0');
-                $wl_d = searchMoneyHalfUp2($row['win_loss_full'] ?? ($row['win_loss'] ?? '0'));
+                $wl6 = trunc2($row['win_loss_full'] ?? ($row['win_loss'] ?? '0'));
                 $cr_d = trunc2($row['cr_dr'] ?? '0');
-                $row['balance'] = searchMoneyHalfUp2(money_add(money_add($bf_d, $wl_d, 8), $cr_d, 8));
+                $balance6 = trunc2(money_add(money_add($bf_d, $wl6, 8), $cr_d, 8));
+                $row['balance'] = searchMoneyHalfUp2($balance6);
             }
         }
     }
@@ -1939,11 +1942,12 @@ try {
             }
         }
 
-        // 4. 计算 Balance（显示口径）：Win/Loss 先对高精度 half-up 到分，再与 B/F、Cr/Dr 相加后对 Balance half-up 到分。
-        $bf_display = trunc2($bf);
-        $win_loss_display = searchMoneyHalfUp2($wlPack['win_loss_full'] ?? $win_loss);
-        $cr_dr_display = trunc2($cr_dr);
-        $balance = searchMoneyHalfUp2(money_add(money_add($bf_display, $win_loss_display, 8), $cr_dr_display, 8));
+        // 4. 计算 Balance：先按 6 位统计口径运算，再在展示层 half-up 到 2 位。
+        $bf_stat = trunc2($bf);
+        $win_loss_stat = trunc2($wlPack['win_loss_full'] ?? $win_loss);
+        $cr_dr_stat = trunc2($cr_dr);
+        $win_loss_display = searchMoneyHalfUp2($win_loss_stat);
+        $balance = searchMoneyHalfUp2(trunc2(money_add(money_add($bf_stat, $win_loss_stat, 8), $cr_dr_stat, 8)));
 
         // 4b. 本期是否有 RATE Middle-Man 分录（与 Win/Loss 内 RATE_MIDDLEMAN 查询合并，避免每条组合多一次 EXISTS）
         $is_rate_middleman = !empty($wlPack['has_rate_middleman']);
@@ -2539,10 +2543,14 @@ function calculateTotals($data)
         $cr = money_add($cr, $row['cr_dr'] ?? '0', 8);
     }
 
-    $bf2 = searchMoney2($bf);
-    $wl2 = searchMoneyHalfUp2($wl);
-    $cr2 = searchMoney2($cr);
-    $balance2 = searchMoneyHalfUp2(money_add(money_add($bf2, $wl2, 8), $cr2, 8));
+    // 统计先统一到 6 位，再输出展示值（2 位 half-up）
+    $bf6 = searchMoney2($bf);
+    $wl6 = searchMoney2($wl);
+    $cr6 = searchMoney2($cr);
+    $bf2 = searchMoneyHalfUp2($bf6);
+    $wl2 = searchMoneyHalfUp2($wl6);
+    $cr2 = searchMoneyHalfUp2($cr6);
+    $balance2 = searchMoneyHalfUp2(searchMoney2(money_add(money_add($bf6, $wl6, 8), $cr6, 8)));
 
     return [
         'bf' => $bf2,

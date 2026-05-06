@@ -47,27 +47,25 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
 }
 
 /**
- * 截断到2位小数（不四舍五入）
+ * 统计口径统一 6 位小数（展示仍在输出阶段按 2 位）。
  */
 function historyTrunc2($value): string
 {
     if ($value === null || trim((string)$value) === '') {
-        return money_normalize('0', 2);
+        return money_normalize('0', 6);
     }
-    return money_normalize($value ?? '0', 2);
+    return money_normalize($value ?? '0', 6);
 }
 
 /**
- * Data Capture 的 processed_amount 与前端 js/datacapturesummary.js roundProcessedAmountTo2Decimals 对齐：
- * 向 0 截断到 2 位 + 1e-9/-1e-9 纠偏，避免库内浮点 -40.799999… 在 Payment History 被 historyTrunc2 显示成 -40.79。
- * 仅用于 data_capture 行，其它交易类型仍用 historyTrunc2。
+ * Data Capture 统计值统一按 6 位小数参与算法。
  */
 function historyDataCaptureProcessed2($value): string
 {
     if ($value === null || trim((string)$value) === '') {
-        return money_normalize('0', 2);
+        return money_normalize('0', 6);
     }
-    return money_normalize($value ?? '0', 2);
+    return money_normalize($value ?? '0', 6);
 }
 
 function historyFormat2($value): string
@@ -2323,14 +2321,14 @@ try {
     $balance_by_currency = [];
     if ($bfCurrency !== null && $bfCurrency !== '') {
         // Payment History：累加用更高精度（8dp）保存，展示时再统一 HALF_UP 到 2dp
-        $balance_by_currency[$bfCurrency] = money_normalize($bf, 8);
+        $balance_by_currency[$bfCurrency] = money_normalize($bf, 6);
     }
 
     foreach ($events as $event) {
         $displayCurrency = $event['currency'] ?? $bfCurrency;
         $curKey = ($displayCurrency !== null && (string) $displayCurrency !== '') ? (string) $displayCurrency : '-';
         if (!isset($balance_by_currency[$curKey])) {
-            $balance_by_currency[$curKey] = money_normalize('0', 8);
+            $balance_by_currency[$curKey] = money_normalize('0', 6);
         }
 
         $rawWl = $event['win_loss'] ?? '0';
@@ -2339,13 +2337,13 @@ try {
         $crdrForCalc = ($rawCrDr === '-' || trim((string) $rawCrDr) === '') ? '0' : $rawCrDr;
 
         // 保留 8 位用于 running balance 计算；展示再 HALF_UP 到 2 位
-        $eventWinLoss = money_normalize($wlForCalc, 8);
-        $eventCrDr = money_normalize($crdrForCalc, 8);
+        $eventWinLoss = money_normalize($wlForCalc, 6);
+        $eventCrDr = money_normalize($crdrForCalc, 6);
 
         $balance_by_currency[$curKey] = money_add(
-            money_add($balance_by_currency[$curKey], $eventWinLoss, 8),
+            money_add($balance_by_currency[$curKey], $eventWinLoss, 6),
             $eventCrDr,
-            8
+            6
         );
         $row_balance = $balance_by_currency[$curKey];
 
