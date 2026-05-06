@@ -11146,7 +11146,7 @@ function formatNumberWithThousandsTrunc6(value) {
 
 // 统一写入 Processed Amount：
 // 1) data-final-processed-amount 保存统计使用的 raw 值
-// 2) 单元格仅用于 6 位截断展示（不四舍五入）
+// 2) 单元格仅用于 2 位四舍五入展示（展示值不参与统计）
 function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = null) {
     let normalized = '0';
     try {
@@ -11163,7 +11163,7 @@ function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = nu
     }
 
     if (processedAmountCell) {
-        processedAmountCell.textContent = formatNumberWithThousandsTrunc6(normalized);
+        processedAmountCell.textContent = formatNumberWithThousands(normalized);
         processedAmountCell.style.color = MoneyDecimal.cmp(normalized, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(normalized, '0') < 0 ? '#A91215' : '#000000');
     }
 
@@ -19251,13 +19251,13 @@ function updateProcessedAmountTotal() {
     });
 
     const finalTotalRaw = hasValue ? total.toString() : '0';
-    const finalTotal = truncateProcessedAmountTo6Decimals(finalTotalRaw);
+    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
     console.log('Processed Amount total (UI):', {
         rows: totalDebugRows,
         sumQuant6Raw: finalTotalRaw,
-        sumDisplay6: finalTotal
+        sumDisplay2: finalTotal
     });
-    totalCell.textContent = formatNumberWithThousandsTrunc6(finalTotal);
+    totalCell.textContent = formatNumberWithThousands(finalTotal);
     if (MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0) {
         totalCell.style.color = '#0D60FF';
     } else {
@@ -19271,7 +19271,7 @@ function updateProcessedAmountTotal() {
         submitBtn.disabled = !canSubmit;
 
         if (!isWithinRange) {
-            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${formatNumberWithThousandsTrunc6(finalTotal)}`;
+            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${formatNumberWithThousands(finalTotal)}`;
         } else if (!allRowsHaveCurrencyAndFormula) {
             submitBtn.title = '请为每一行选择 Currency 并填写 Formula 后再提交。';
         } else {
@@ -19878,11 +19878,11 @@ async function submitSummaryData() {
         });
 
         const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
-        const finalTotal = truncateProcessedAmountTo6Decimals(finalTotalRaw);
+        const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
         console.log('Processed Amount total (submit validation):', {
             rows: totalDebugRows,
             sumQuant6Raw: finalTotalRaw,
-            sumDisplay6: finalTotal
+            sumDisplay2: finalTotal
         });
         if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
             // Re-enable button on validation error
@@ -19891,7 +19891,7 @@ async function submitSummaryData() {
                 submitBtn.textContent = 'Submit';
             }
             isSubmitting = false;
-            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousandsTrunc6(finalTotal)}`, 'error');
+            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`, 'error');
             return;
         }
     }
