@@ -53,7 +53,12 @@
         // Format number function
         function formatNumber(num) {
             try {
-                return MoneyDecimal.formatThousands(num, 2);
+                const fixed = MoneyDecimal.formatFixedHalfUp(num, 2);
+                const negative = fixed.charAt(0) === '-';
+                const unsigned = negative ? fixed.slice(1) : fixed;
+                const parts = unsigned.split('.');
+                parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return (negative ? '-' : '') + parts.join('.');
             } catch (_) {
                 return '0.00';
             }
