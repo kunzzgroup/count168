@@ -337,19 +337,49 @@ function summary_money_value(array $row, string $key, string $default = '0'): st
 ensureTemplateSchema($pdo);
 
 /**
+ * 获取与当前 process 处于同一 copy/sync 组的其它流程（双向）。
+ * 规则：
+ * - 若当前是子流程（sync_source_process_id 有值），锚点为其源流程；
+ * - 若当前是源流程（存在子流程指向它），锚点为自己；
+ * - 同步目标为：源流程 + 全部同源子流程，排除当前流程自身。
+ */
+function getLinkedProcessTargets(PDO $pdo, int $processId, int $companyId): array
+{
+    $currentStmt = $pdo->prepare("
+        SELECT id, process_id, sync_source_process_id
+        FROM process
+        WHERE id = ? AND company_id = ?
+        LIMIT 1
+    ");
+    $currentStmt->execute([$processId, $companyId]);
+    $current = $currentStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$current) {
+        return [];
+    }
+
+    $anchorId = !empty($current['sync_source_process_id'])
+        ? (int)$current['sync_source_process_id']
+        : (int)$current['id'];
+
+    $targetStmt = $pdo->prepare("
+        SELECT id, process_id
+        FROM process
+        WHERE company_id = ?
+          AND (id = ? OR sync_source_process_id = ?)
+          AND id <> ?
+    ");
+    $targetStmt->execute([$companyId, $anchorId, $anchorId, $processId]);
+
+    return $targetStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
  * 同步 Formula 到所有关联的 Multi-use Processes
  * 当源 Process 的 Formula 更新时，自动同步到所有 sync_source_process_id 指向该源 Process 的 Processes
  */
 function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $templateData, int $companyId) {
     try {
-        // 查找所有 sync_source_process_id 指向当前源 Process 的 Processes
-        $stmt = $pdo->prepare("
-            SELECT id, process_id 
-            FROM process 
-            WHERE sync_source_process_id = ? AND company_id = ?
-        ");
-        $stmt->execute([$sourceProcessId, $companyId]);
-        $syncedProcesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $syncedProcesses = getLinkedProcessTargets($pdo, $sourceProcessId, $companyId);
         
         if (empty($syncedProcesses)) {
             return; // 没有需要同步的 Processes
@@ -496,12 +526,7 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
  */
 function syncDeleteTemplateToMultiUseProcesses(PDO $pdo, int $sourceProcessId, string $idProduct, $accountId, string $productType, $formulaVariant, $subOrder, int $companyId) {
     try {
-        $stmt = $pdo->prepare("
-            SELECT id, process_id FROM process 
-            WHERE sync_source_process_id = ? AND company_id = ?
-        ");
-        $stmt->execute([$sourceProcessId, $companyId]);
-        $syncedProcesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $syncedProcesses = getLinkedProcessTargets($pdo, $sourceProcessId, $companyId);
         if (empty($syncedProcesses)) {
             return;
         }
