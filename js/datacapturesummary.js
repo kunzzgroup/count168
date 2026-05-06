@@ -19193,6 +19193,7 @@ function updateProcessedAmountTotal() {
     let total = MoneyDecimal.toDecimal('0');
     let hasValue = false;
     let allRowsHaveCurrencyAndFormula = true; // 有 Account 的行必须都有 Currency 和 Formula 才能 Submit
+    const totalDebugRows = [];
 
     summaryTableBody.querySelectorAll('tr').forEach(row => {
         const selectCheckbox = row.querySelector('.summary-select-checkbox');
@@ -19220,6 +19221,11 @@ function updateProcessedAmountTotal() {
         const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
             ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
             : String(rowFinalAmount);
+        totalDebugRows.push({
+            process: (cells[0] && cells[0].textContent ? String(cells[0].textContent).trim() : ''),
+            raw: String(rowFinalAmount),
+            quant6: String(rowForTotal)
+        });
         try {
             total = total.plus(MoneyDecimal.toDecimal(rowForTotal, 0));
             hasValue = true;
@@ -19228,6 +19234,11 @@ function updateProcessedAmountTotal() {
 
     const finalTotalRaw = hasValue ? total.toString() : '0';
     const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 展示：对累加结果四舍五入到 2 位
+    console.log('Processed Amount total (UI):', {
+        rows: totalDebugRows,
+        sumQuant6Raw: finalTotalRaw,
+        sumDisplay2: finalTotal
+    });
     totalCell.textContent = formatNumberWithThousands(finalTotal);
     if (MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0) {
         totalCell.style.color = '#0D60FF';
@@ -19823,6 +19834,7 @@ async function submitSummaryData() {
     if (summaryTableBody && totalCell) {
         let totalAmount = MoneyDecimal.toDecimal('0', 0);
         let hasValue = false;
+        const totalDebugRows = [];
 
         summaryTableBody.querySelectorAll('tr').forEach(row => {
             // 如果 Select 被勾选，则这行不参与合计/校验
@@ -19836,6 +19848,11 @@ async function submitSummaryData() {
             const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
                 ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
                 : String(rowFinalAmount);
+            totalDebugRows.push({
+                process: (cells[0] && cells[0].textContent ? String(cells[0].textContent).trim() : ''),
+                raw: String(rowFinalAmount),
+                quant6: String(rowForTotal)
+            });
             try {
                 totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
                 hasValue = true;
@@ -19844,6 +19861,11 @@ async function submitSummaryData() {
 
         const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
         const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
+        console.log('Processed Amount total (submit validation):', {
+            rows: totalDebugRows,
+            sumQuant6Raw: finalTotalRaw,
+            sumDisplay2: finalTotal
+        });
         if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
             // Re-enable button on validation error
             if (submitBtn) {
