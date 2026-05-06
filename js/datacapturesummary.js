@@ -11107,8 +11107,16 @@ function truncateProcessedAmountTo6Decimals(value) {
     }
 }
 
-// Processed Amount 展示：固定 2 位小数，四舍五入（ROUND_HALF_UP）。仅用于界面展示；与展示口径一致的持久化字段可复用此函数。
-// 合计请用 truncateProcessedAmountTo6Decimals 逐行截断后再相加，勿用本函数参与累加。
+// Rate 运算结果默认保留 8 位小数（向 0 截断，不四舍五入）。
+function truncateRateAmountTo8Decimals(value) {
+    try {
+        return MoneyDecimal.formatFixed(value, 8);
+    } catch (_) {
+        return '0.00000000';
+    }
+}
+
+// 兼容旧调用：仍保留 2 位四舍五入函数，避免其它流程报错。
 function roundProcessedAmountTo2Decimals(value) {
     try {
         return MoneyDecimal.formatFixedHalfUp(value, 2);
@@ -11126,9 +11134,19 @@ function formatNumberWithThousands(value) {
     }
 }
 
+// Processed Amount 展示统一为 6 位小数（向 0 截断，不四舍五入）。
+function formatNumberWithThousandsTrunc6(value) {
+    try {
+        const quant6 = truncateProcessedAmountTo6Decimals(value);
+        return MoneyDecimal.formatThousands(quant6, 6);
+    } catch (_) {
+        return '0.000000';
+    }
+}
+
 // 统一写入 Processed Amount：
 // 1) data-final-processed-amount 保存统计使用的 raw 值
-// 2) 单元格仅用于 2 位四舍五入展示
+// 2) 单元格仅用于 6 位截断展示（不四舍五入）
 function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = null) {
     let normalized = '0';
     try {
@@ -11145,7 +11163,7 @@ function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = nu
     }
 
     if (processedAmountCell) {
-        processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(normalized));
+        processedAmountCell.textContent = formatNumberWithThousandsTrunc6(normalized);
         processedAmountCell.style.color = MoneyDecimal.cmp(normalized, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(normalized, '0') < 0 ? '#A91215' : '#000000');
     }
 
@@ -12039,13 +12057,13 @@ function applyRateToProcessedAmount(row, processedAmount) {
         try {
             if (value.startsWith('*')) {
                 const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
-                if (!rateValue.isZero()) return MoneyDecimal.mul(processedAmount, rateValue).toString();
+                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.mul(processedAmount, rateValue).toString());
             } else if (value.startsWith('/')) {
                 const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
-                if (!rateValue.isZero()) return MoneyDecimal.div(processedAmount, rateValue).toString();
+                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.div(processedAmount, rateValue).toString());
             } else {
                 const rateValue = MoneyDecimal.toDecimal(value, 0);
-                if (!rateValue.isZero()) return MoneyDecimal.mul(processedAmount, rateValue).toString();
+                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.mul(processedAmount, rateValue).toString());
             }
         } catch (_) { /* ignore invalid rate */ }
         return null;
@@ -19233,13 +19251,13 @@ function updateProcessedAmountTotal() {
     });
 
     const finalTotalRaw = hasValue ? total.toString() : '0';
-    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 展示：对累加结果四舍五入到 2 位
+    const finalTotal = truncateProcessedAmountTo6Decimals(finalTotalRaw);
     console.log('Processed Amount total (UI):', {
         rows: totalDebugRows,
         sumQuant6Raw: finalTotalRaw,
-        sumDisplay2: finalTotal
+        sumDisplay6: finalTotal
     });
-    totalCell.textContent = formatNumberWithThousands(finalTotal);
+    totalCell.textContent = formatNumberWithThousandsTrunc6(finalTotal);
     if (MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0) {
         totalCell.style.color = '#0D60FF';
     } else {
@@ -19253,7 +19271,7 @@ function updateProcessedAmountTotal() {
         submitBtn.disabled = !canSubmit;
 
         if (!isWithinRange) {
-            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${formatNumberWithThousands(finalTotal)}`;
+            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${formatNumberWithThousandsTrunc6(finalTotal)}`;
         } else if (!allRowsHaveCurrencyAndFormula) {
             submitBtn.title = '请为每一行选择 Currency 并填写 Formula 后再提交。';
         } else {
@@ -19860,11 +19878,11 @@ async function submitSummaryData() {
         });
 
         const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
-        const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
+        const finalTotal = truncateProcessedAmountTo6Decimals(finalTotalRaw);
         console.log('Processed Amount total (submit validation):', {
             rows: totalDebugRows,
             sumQuant6Raw: finalTotalRaw,
-            sumDisplay2: finalTotal
+            sumDisplay6: finalTotal
         });
         if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
             // Re-enable button on validation error
@@ -19873,7 +19891,7 @@ async function submitSummaryData() {
                 submitBtn.textContent = 'Submit';
             }
             isSubmitting = false;
-            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`, 'error');
+            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousandsTrunc6(finalTotal)}`, 'error');
             return;
         }
     }
