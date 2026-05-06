@@ -9901,31 +9901,15 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
 
     row.setAttribute('data-base-processed-amount', baseProcessedAmount);
 
-    const rateAudit = {};
     let finalProcessedAmount = baseProcessedAmount;
     if (typeof applyRateToProcessedAmount === 'function') {
-        finalProcessedAmount = applyRateToProcessedAmount(row, baseProcessedAmount, rateAudit);
+        finalProcessedAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
     }
 
     try {
         finalProcessedAmount = MoneyDecimal.toDecimal(finalProcessedAmount, 0).toString();
     } catch (_) {
         finalProcessedAmount = '0';
-    }
-
-    if (isDataCaptureSummaryAmountAuditEnabled()) {
-        const rowLabel = (cells[0] && cells[0].textContent) ? String(cells[0].textContent).trim().slice(0, 120) : '';
-        logDataCaptureSummaryAmountAudit('row (recalculateAndRenderProcessedAmount)', {
-            row: rowLabel,
-            baseFromFormulaSource: baseProcessedAmount,
-            rateApplied: !!rateAudit.applied,
-            rateSource: rateAudit.source || '',
-            rateToken: rateAudit.rateToken || '',
-            afterRateTrunc8: rateAudit.applied ? (rateAudit.afterRateTrunc8 || '') : '(no rate)',
-            normalizedForUi: finalProcessedAmount,
-            statQuant6Trunc: truncateProcessedAmountTo6Decimals(finalProcessedAmount),
-            uiDisplay2HalfUp: roundProcessedAmountTo2Decimals(finalProcessedAmount)
-        });
     }
 
     if (cells[8]) {
@@ -9983,32 +9967,9 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
         }
 
         row.setAttribute('data-base-processed-amount', String(processedAmount))
-        const rateAudit = {};
-        let finalProcessedAmount = typeof applyRateToProcessedAmount === 'function'
-            ? applyRateToProcessedAmount(row, processedAmount, rateAudit)
+        const finalProcessedAmount = typeof applyRateToProcessedAmount === 'function'
+            ? applyRateToProcessedAmount(row, processedAmount)
             : processedAmount
-
-        try {
-            finalProcessedAmount = MoneyDecimal.toDecimal(finalProcessedAmount, 0).toString();
-        } catch (_) {
-            finalProcessedAmount = '0';
-        }
-
-        if (isDataCaptureSummaryAmountAuditEnabled()) {
-            const rowLabel = (cells[0] && cells[0].textContent) ? String(cells[0].textContent).trim().slice(0, 120) : '';
-            logDataCaptureSummaryAmountAudit('row (recalculateSummaryProcessedAmountsFromDisplayedFormula)', {
-                row: rowLabel,
-                note: 'Displayed formula path; source column may differ from full calculateFormulaResultFromExpression.',
-                baseFromDisplayedFormula: String(processedAmount),
-                rateApplied: !!rateAudit.applied,
-                rateSource: rateAudit.source || '',
-                rateToken: rateAudit.rateToken || '',
-                afterRateTrunc8: rateAudit.applied ? (rateAudit.afterRateTrunc8 || '') : '(no rate)',
-                normalizedForUi: finalProcessedAmount,
-                statQuant6Trunc: truncateProcessedAmountTo6Decimals(finalProcessedAmount),
-                uiDisplay2HalfUp: roundProcessedAmountTo2Decimals(finalProcessedAmount)
-            });
-        }
 
         setRowProcessedAmountDisplay(row, finalProcessedAmount, processedAmountCell)
     })
@@ -11137,59 +11098,6 @@ function applyInputMethodTransformation(result, inputMethod) {
     }
 }
 
-// 金额审计（仅控制台）：用于核对 base / rate(8位截断) / 统计(6位截断) / 展示(2位四舍五入)。
-// 开启方式（任一即可）：
-// - URL 加 ?amountAudit=1 或 ?debugAmounts=1
-// - 控制台执行：localStorage.setItem('DATACAPTURESUMMARY_AMOUNT_AUDIT','1') 后刷新
-// - window.DATACAPTURESUMMARY_AMOUNT_AUDIT = true 后刷新或在下一次重算前设为 true
-// 关闭：localStorage.removeItem('DATACAPTURESUMMARY_AMOUNT_AUDIT') 或 window.DATACAPTURESUMMARY_AMOUNT_AUDIT = false
-function isDataCaptureSummaryAmountAuditEnabled() {
-    if (typeof window !== 'undefined' && window.DATACAPTURESUMMARY_AMOUNT_AUDIT === true) {
-        return true;
-    }
-    try {
-        if (typeof window !== 'undefined' && window.location && typeof URLSearchParams !== 'undefined') {
-            const p = new URLSearchParams(window.location.search || '');
-            const v = String(p.get('amountAudit') || p.get('debugAmounts') || '').toLowerCase();
-            if (v === '1' || v === 'true' || v === 'yes') {
-                return true;
-            }
-        }
-    } catch (_) { /* ignore */ }
-    try {
-        if (typeof localStorage !== 'undefined' && localStorage.getItem('DATACAPTURESUMMARY_AMOUNT_AUDIT') === '1') {
-            return true;
-        }
-    } catch (_) { /* ignore */ }
-    return false;
-}
-
-function logDataCaptureSummaryAmountAudit(message, payload) {
-    if (!isDataCaptureSummaryAmountAuditEnabled()) {
-        return;
-    }
-    try {
-        console.log('[AmountAudit]', message, payload);
-    } catch (_) { /* ignore */ }
-}
-
-if (typeof window !== 'undefined') {
-    window.enableDataCaptureSummaryAmountAudit = function () {
-        try {
-            localStorage.setItem('DATACAPTURESUMMARY_AMOUNT_AUDIT', '1');
-        } catch (_) { /* ignore */ }
-        window.DATACAPTURESUMMARY_AMOUNT_AUDIT = true;
-        console.log('[AmountAudit] 已开启（localStorage + 当前页）。刷新后仍有效；关闭请用 disableDataCaptureSummaryAmountAudit()');
-    };
-    window.disableDataCaptureSummaryAmountAudit = function () {
-        try {
-            localStorage.removeItem('DATACAPTURESUMMARY_AMOUNT_AUDIT');
-        } catch (_) { /* ignore */ }
-        window.DATACAPTURESUMMARY_AMOUNT_AUDIT = false;
-        console.log('[AmountAudit] 已关闭。刷新页面后 URL 参数仍可能开启。');
-    };
-}
-
 // 合计 / 校验用：每行贡献金额向 0 截断到 6 位小数（不四舍五入），再累加。不参与单元格展示。
 function truncateProcessedAmountTo6Decimals(value) {
     try {
@@ -12137,43 +12045,78 @@ function attachRateValueEditListener(cell, row) {
 // Apply rate multiplication or division to processed amount
 // Priority: 1) Rate Value column (cells[7]), 2) Global rateInput (if checkbox checked)
 // Supports "*3" for multiplication and "/3" for division, or plain numbers
-function applyRateToProcessedAmount(row, processedAmount, auditMeta) {
-    const clearAudit = function () {
-        if (auditMeta && typeof auditMeta === 'object') {
-            auditMeta.applied = false;
-            auditMeta.source = '';
-            auditMeta.rateToken = '';
-            auditMeta.afterRateTrunc8 = '';
-        }
-    };
-    const setAudit = function (source, token, after8) {
-        if (auditMeta && typeof auditMeta === 'object') {
-            auditMeta.applied = true;
-            auditMeta.source = source || '';
-            auditMeta.rateToken = token || '';
-            auditMeta.afterRateTrunc8 = after8 || '';
-        }
-    };
+function logSummaryRateCalculation(payload) {
+    try {
+        console.log('[Summary Rate]', payload);
+    } catch (_) { /* ignore */ }
+}
 
+function applyRateToProcessedAmount(row, processedAmount) {
     if (!row) {
-        clearAudit();
         return processedAmount;
     }
 
     const cells = row.querySelectorAll('td');
-    const applyRateValue = function (rateValueStr) {
+    const rowLabel = (cells[0] && cells[0].textContent) ? String(cells[0].textContent).trim().slice(0, 120) : '';
+
+    const applyRateValue = function (rateValueStr, rateSource) {
         const value = String(rateValueStr || '').trim();
         if (value === '') return null;
         try {
             if (value.startsWith('*')) {
                 const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
-                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.mul(processedAmount, rateValue).toString());
+                if (!rateValue.isZero()) {
+                    const raw = MoneyDecimal.mul(processedAmount, rateValue).toString();
+                    const out = truncateRateAmountTo8Decimals(raw);
+                    logSummaryRateCalculation({
+                        row: rowLabel,
+                        rateSource,
+                        baseBeforeRate: String(processedAmount),
+                        rateInputRaw: value,
+                        operation: 'multiply',
+                        rateOperand: rateValue.toString(),
+                        computedBeforeTrunc8: raw,
+                        afterTrunc8: out,
+                        note: 'Rate 结果向 0 截断到 8 位小数；与合计相加前仍会再截断到 6 位。'
+                    });
+                    return out;
+                }
             } else if (value.startsWith('/')) {
                 const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
-                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.div(processedAmount, rateValue).toString());
+                if (!rateValue.isZero()) {
+                    const raw = MoneyDecimal.div(processedAmount, rateValue).toString();
+                    const out = truncateRateAmountTo8Decimals(raw);
+                    logSummaryRateCalculation({
+                        row: rowLabel,
+                        rateSource,
+                        baseBeforeRate: String(processedAmount),
+                        rateInputRaw: value,
+                        operation: 'divide',
+                        rateOperand: rateValue.toString(),
+                        computedBeforeTrunc8: raw,
+                        afterTrunc8: out,
+                        note: 'Rate 结果向 0 截断到 8 位小数；与合计相加前仍会再截断到 6 位。'
+                    });
+                    return out;
+                }
             } else {
                 const rateValue = MoneyDecimal.toDecimal(value, 0);
-                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.mul(processedAmount, rateValue).toString());
+                if (!rateValue.isZero()) {
+                    const raw = MoneyDecimal.mul(processedAmount, rateValue).toString();
+                    const out = truncateRateAmountTo8Decimals(raw);
+                    logSummaryRateCalculation({
+                        row: rowLabel,
+                        rateSource,
+                        baseBeforeRate: String(processedAmount),
+                        rateInputRaw: value,
+                        operation: 'multiply (plain number, same as *)',
+                        rateOperand: rateValue.toString(),
+                        computedBeforeTrunc8: raw,
+                        afterTrunc8: out,
+                        note: 'Rate 结果向 0 截断到 8 位小数；与合计相加前仍会再截断到 6 位。'
+                    });
+                    return out;
+                }
             }
         } catch (_) { /* ignore invalid rate */ }
         return null;
@@ -12182,12 +12125,8 @@ function applyRateToProcessedAmount(row, processedAmount, auditMeta) {
     // Priority 1: Check Rate Value column (cells[7]) - if has value, use it
     const rateValueCell = cells[7];
     if (rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '') {
-        const token = rateValueCell.textContent.trim();
-        const rated = applyRateValue(token);
-        if (rated !== null) {
-            setAudit('rateValueCell', token, rated);
-            return rated;
-        }
+        const rated = applyRateValue(rateValueCell.textContent.trim(), 'rateValueCell');
+        if (rated !== null) return rated;
     }
 
     // Priority 2: Check global rateInput if checkbox is checked
@@ -12203,19 +12142,13 @@ function applyRateToProcessedAmount(row, processedAmount, auditMeta) {
     if (rateCheckbox && rateCheckbox.checked) {
         const rateInput = document.getElementById('rateInput');
         if (!rateInput || !rateInput.value) {
-            clearAudit();
             return processedAmount;
         }
 
-        const token = rateInput.value.trim();
-        const rated = applyRateValue(token);
-        if (rated !== null) {
-            setAudit('globalRateInput', token, rated);
-            return rated;
-        }
+        const rated = applyRateValue(rateInput.value.trim(), 'globalRateInput');
+        if (rated !== null) return rated;
     }
 
-    clearAudit();
     return MoneyDecimal.toDecimal(processedAmount, 0).toString();
 }
 
@@ -19372,13 +19305,11 @@ function updateProcessedAmountTotal() {
 
     const finalTotalRaw = hasValue ? total.toString() : '0';
     const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
-    if (isDataCaptureSummaryAmountAuditEnabled()) {
-        console.log('[AmountAudit] total (UI)', {
-            rows: totalDebugRows,
-            sumQuant6Raw: finalTotalRaw,
-            sumDisplay2HalfUp: finalTotal
-        });
-    }
+    console.log('Processed Amount total (UI):', {
+        rows: totalDebugRows,
+        sumQuant6Raw: finalTotalRaw,
+        sumDisplay2: finalTotal
+    });
     totalCell.textContent = formatNumberWithThousands(finalTotal);
     if (MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0) {
         totalCell.style.color = '#0D60FF';
@@ -20001,13 +19932,11 @@ async function submitSummaryData() {
 
         const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
         const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
-        if (isDataCaptureSummaryAmountAuditEnabled()) {
-            console.log('[AmountAudit] total (submit validation)', {
-                rows: totalDebugRows,
-                sumQuant6Raw: finalTotalRaw,
-                sumDisplay2HalfUp: finalTotal
-            });
-        }
+        console.log('Processed Amount total (submit validation):', {
+            rows: totalDebugRows,
+            sumQuant6Raw: finalTotalRaw,
+            sumDisplay2: finalTotal
+        });
         if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
             // Re-enable button on validation error
             if (submitBtn) {
