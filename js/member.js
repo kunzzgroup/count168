@@ -10,6 +10,9 @@ const memberCurrencySortOrder = new Map();
 let memberCurrencyDisplayOrder = null;
 const memberSelectedCurrencies = new Set();
 let memberIsAllSelected = true;
+let memberSearchSeq = 0;
+let memberSummaryAbortController = null;
+let memberHistoryAbortController = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const filterEl = document.getElementById('member_currency_filter');
@@ -32,12 +35,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function performMemberSearch() {
-    fetchMemberSummary()
-        .then(() => fetchMemberHistory())
-        .catch(() => {
+    const seq = ++memberSearchSeq;
+    fetchMemberSummary(seq)
+        .then(() => fetchMemberHistory(undefined, seq))
+        .catch((err) => {
+            if (err && err.name === 'AbortError') return;
+            if (seq !== memberSearchSeq) return;
             memberIsAllSelected = true;
             memberSelectedCurrencies.clear();
-            fetchMemberHistory();
+            fetchMemberHistory(undefined, seq);
         });
 }
 
@@ -450,8 +456,12 @@ function showNotification(message, type = 'info') {
     }, 2500);
 }
 
-function fetchMemberSummary() {
+function fetchMemberSummary(seq = memberSearchSeq) {
     return new Promise((resolve, reject) => {
+        if (memberSummaryAbortController) {
+            memberSummaryAbortController.abort();
+        }
+        memberSummaryAbortController = new AbortController();
         const dateFrom = document.getElementById('date_from').value;
         const dateTo = document.getElementById('date_to').value;
         const filterWrapper = document.getElementById('member_currency_filter');
@@ -472,10 +482,13 @@ function fetchMemberSummary() {
         });
 
         const url = `api/transactions/search_api.php?${params.toString()}&_t=${Date.now()}`;
-        fetch(url, { cache: 'no-cache' })
+        fetch(url, { cache: 'no-cache', signal: memberSummaryAbortController.signal })
             .then(res => res.text())
             .then(text => parseJsonResponse(text))
             .then(data => {
+                if (seq !== memberSearchSeq) {
+                    return resolve();
+                }
                 if (!data.success) {
                     throw new Error(data.error || 'Query failed');
                 }
@@ -497,6 +510,10 @@ function fetchMemberSummary() {
                 });
                 updateCurrencySelection();
                 loadMemberCurrencyOrder().then(() => {
+                    if (seq !== memberSearchSeq) {
+                        resolve();
+                        return;
+                    }
                     const currencies = getAvailableCurrencies();
                     if (currencies.length > 0) {
                         // 默认「全部货币」拉 history（一次请求、前端按币别分表），避免 Profit Sharing 等在非首列币别时被漏掉
@@ -508,6 +525,14 @@ function fetchMemberSummary() {
                 });
             })
             .catch(err => {
+                if (err && err.name === 'AbortError') {
+                    reject(err);
+                    return;
+                }
+                if (seq !== memberSearchSeq) {
+                    reject(err);
+                    return;
+                }
                 console.error('Summary fetch failed:', err);
                 memberCurrencySummary = [];
                 memberCurrencySortOrder.clear();
@@ -748,7 +773,11 @@ function createCurrencyButton(code, label, isAll = false) {
     return btn;
 }
 
-function fetchMemberHistory(forcedFilter) {
+function fetchMemberHistory(forcedFilter, seq = memberSearchSeq) {
+    if (memberHistoryAbortController) {
+        memberHistoryAbortController.abort();
+    }
+    memberHistoryAbortController = new AbortController();
     const dateFrom = document.getElementById('date_from').value;
     const dateTo = document.getElementById('date_to').value;
 
@@ -786,10 +815,11 @@ function fetchMemberHistory(forcedFilter) {
             company_id: memberConfig.companyId
         });
         const urlFallback = `api/transactions/history_api.php?${paramsFallback.toString()}&_t=${Date.now()}`;
-        fetch(urlFallback, { cache: 'no-store' })
+        fetch(urlFallback, { cache: 'no-store', signal: memberHistoryAbortController.signal })
             .then(res => res.text())
             .then(text => parseJsonResponse(text))
             .then(data => {
+                if (seq !== memberSearchSeq) return;
                 if (!data.success) {
                     renderCurrencyTables({ '-': [] }, ['-']);
                     showNotification(data.error || 'No data in the selected date range.', 'info');
@@ -814,6 +844,8 @@ function fetchMemberHistory(forcedFilter) {
                 }
             })
             .catch(err => {
+                if (err && err.name === 'AbortError') return;
+                if (seq !== memberSearchSeq) return;
                 console.error('History fallback fetch failed:', err);
                 renderCurrencyTables({ '-': [] }, ['-']);
                 showNotification(err.message || 'No data in the selected date range.', 'info');
@@ -836,10 +868,11 @@ function fetchMemberHistory(forcedFilter) {
     }
     const url = `api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`;
 
-    fetch(url, { cache: 'no-store' })
+    fetch(url, { cache: 'no-store', signal: memberHistoryAbortController.signal })
         .then(res => res.text())
         .then(text => parseJsonResponse(text))
         .then(data => {
+            if (seq !== memberSearchSeq) return;
             if (!data.success) {
                 throw new Error(data.error || 'Query failed');
             }
@@ -862,6 +895,8 @@ function fetchMemberHistory(forcedFilter) {
             }
         })
         .catch(err => {
+            if (err && err.name === 'AbortError') return;
+            if (seq !== memberSearchSeq) return;
             console.error('History fetch failed:', err);
             renderCurrencyTables({}, []);
             showNotification(err.message, 'error');
