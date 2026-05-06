@@ -1946,8 +1946,11 @@ try {
         $bf_stat = trunc2($bf);
         $win_loss_stat = trunc2($wlPack['win_loss_full'] ?? $win_loss);
         $cr_dr_stat = trunc2($cr_dr);
+        $balance_full = trunc2(money_add(money_add($bf_stat, $win_loss_stat, 8), $cr_dr_stat, 8));
+        $bf_display = searchMoneyHalfUp2($bf_stat);
         $win_loss_display = searchMoneyHalfUp2($win_loss_stat);
-        $balance = searchMoneyHalfUp2(trunc2(money_add(money_add($bf_stat, $win_loss_stat, 8), $cr_dr_stat, 8)));
+        $cr_dr_display = searchMoneyHalfUp2($cr_dr_stat);
+        $balance = searchMoneyHalfUp2($balance_full);
 
         // 4b. 本期是否有 RATE Middle-Man 分录（与 Win/Loss 内 RATE_MIDDLEMAN 查询合并，避免每条组合多一次 EXISTS）
         $is_rate_middleman = !empty($wlPack['has_rate_middleman']);
@@ -2070,6 +2073,7 @@ try {
             'win_loss_full' => $wlPack['win_loss_full'] ?? $win_loss_display,
             'cr_dr' => $cr_dr_display,
             'balance' => $balance,
+            'balance_full' => $balance_full,
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
             'has_win_loss_history' => $has_win_loss_history ? 1 : 0,

@@ -2489,6 +2489,9 @@
                 const winLossValue = row.win_loss;
                 const crDrValue = row.cr_dr;
                 const balanceValue = row.balance;
+                const balanceRawValue = (row.balance_full !== undefined && row.balance_full !== null && String(row.balance_full).trim() !== '')
+                    ? row.balance_full
+                    : row.balance;
 
                 tr.innerHTML = `
                 <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">
@@ -2498,7 +2501,7 @@
                 <td>${formatPaymentHistoryMoneyHalfUp(row.bf)}</td>
                 <td>${formatPaymentHistoryMoneyHalfUp(winLossValue)}</td>
                 <td>${formatPaymentHistoryMoneyHalfUp(crDrValue)}</td>
-                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(balanceValue)}</td>
+                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceRawValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(balanceValue)}</td>
             `;
 
                 // 点击账户单元格打开历史记录
@@ -2836,7 +2839,7 @@
             <td>${formatPaymentHistoryMoneyHalfUp(row.bf)}</td>
             <td>${formatPaymentHistoryMoneyHalfUp(row.win_loss)}</td>
             <td>${formatPaymentHistoryMoneyHalfUp(row.cr_dr)}</td>
-            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(row.balance)}</td>
+            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${(row.balance_full !== undefined && row.balance_full !== null && String(row.balance_full).trim() !== '') ? row.balance_full : row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoneyHalfUp(row.balance)}</td>
         `;
             tr.querySelector('.transaction-account-cell').addEventListener('click', function () {
                 openHistoryModal(this.getAttribute('data-account-id'), this.getAttribute('data-account-code'), this.getAttribute('data-account-name'), this.getAttribute('data-currency'));
