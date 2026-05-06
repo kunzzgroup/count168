@@ -70,7 +70,7 @@ function historyDataCaptureProcessed2($value): string
 
 function historyFormat2($value): string
 {
-    return historyTrunc2($value);
+    return money_round_half_up($value ?? '0', 2);
 }
 
 /**
@@ -80,9 +80,9 @@ function historyFormat2($value): string
 function historyFormatExactCents2($value): string
 {
     if ($value === null || trim((string)$value) === '') {
-        return money_normalize('0', 2);
+        return money_round_half_up('0', 2);
     }
-    return money_normalize($value ?? '0', 2);
+    return money_round_half_up($value ?? '0', 2);
 }
 
 function historyNeg($value): string
@@ -2426,7 +2426,7 @@ try {
             'rate' => $event['rate'] ?? '-',
             // Payment History 展示口径：2dp 且 HALF_UP（四舍五入）；仅影响展示，不改变后端计算/数据库精度
             'win_loss' => money_cmp($eventWinLoss, '0') !== 0 ? money_round_half_up($eventWinLoss, 2) : '0.00',
-            'cr_dr' => money_cmp($eventCrDr, '0') !== 0 ? historyFormatExactCents2($eventCrDr) : '0.00',
+            'cr_dr' => money_cmp($eventCrDr, '0') !== 0 ? money_round_half_up($eventCrDr, 2) : '0.00',
             'balance' => money_round_half_up($row_balance, 2),
             'description' => $finalDescription,
             'sms' => $event['sms'],
