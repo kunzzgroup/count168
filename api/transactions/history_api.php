@@ -2322,23 +2322,30 @@ try {
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
     $balance_by_currency = [];
     if ($bfCurrency !== null && $bfCurrency !== '') {
-        // 与逐行累加一致：先量化 B/F，避免 round 后仍带 IEEE 尾差再被 historyTrunc2 错成少 0.01
-        $balance_by_currency[$bfCurrency] = money_normalize($bf, 2);
+        // Payment History：累加用更高精度（8dp）保存，展示时再统一 HALF_UP 到 2dp
+        $balance_by_currency[$bfCurrency] = money_normalize($bf, 8);
     }
 
     foreach ($events as $event) {
         $displayCurrency = $event['currency'] ?? $bfCurrency;
         $curKey = ($displayCurrency !== null && (string) $displayCurrency !== '') ? (string) $displayCurrency : '-';
         if (!isset($balance_by_currency[$curKey])) {
-            $balance_by_currency[$curKey] = '0';
+            $balance_by_currency[$curKey] = money_normalize('0', 8);
         }
+
         $rawWl = $event['win_loss'] ?? '0';
-        $eventWinLoss = (($event['row_type'] ?? '') === 'data_capture')
-            ? historyDataCaptureProcessed2($rawWl)
-            : historyTrunc2($rawWl);
-        $eventCrDr = historyTrunc2($event['cr_dr'] ?? '0');
-        $balance_by_currency[$curKey] = historyTrunc2(
-            money_add(money_add($balance_by_currency[$curKey], $eventWinLoss, 8), $eventCrDr, 8)
+        $rawCrDr = $event['cr_dr'] ?? '0';
+        $wlForCalc = ($rawWl === '-' || trim((string) $rawWl) === '') ? '0' : $rawWl;
+        $crdrForCalc = ($rawCrDr === '-' || trim((string) $rawCrDr) === '') ? '0' : $rawCrDr;
+
+        // 保留 8 位用于 running balance 计算；展示再 HALF_UP 到 2 位
+        $eventWinLoss = money_normalize($wlForCalc, 8);
+        $eventCrDr = money_normalize($crdrForCalc, 8);
+
+        $balance_by_currency[$curKey] = money_add(
+            money_add($balance_by_currency[$curKey], $eventWinLoss, 8),
+            $eventCrDr,
+            8
         );
         $row_balance = $balance_by_currency[$curKey];
 
@@ -2419,9 +2426,10 @@ try {
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',
-            'win_loss' => money_cmp($eventWinLoss, '0') !== 0 ? historyFormatExactCents2($eventWinLoss) : '0.00',
+            // Payment History 展示口径：2dp 且 HALF_UP（四舍五入）；仅影响展示，不改变后端计算/数据库精度
+            'win_loss' => money_cmp($eventWinLoss, '0') !== 0 ? money_round_half_up($eventWinLoss, 2) : '0.00',
             'cr_dr' => money_cmp($eventCrDr, '0') !== 0 ? historyFormatExactCents2($eventCrDr) : '0.00',
-            'balance' => historyFormatExactCents2($row_balance),
+            'balance' => money_round_half_up($row_balance, 2),
             'description' => $finalDescription,
             'sms' => $event['sms'],
             'remark' => $event['remark'] ?? null,
