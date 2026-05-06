@@ -40,7 +40,8 @@ function escapeHtml(text) {
 }
 
 function formatAmount(amount) {
-    return MoneyDecimal.formatFixed(amount || '0', 2);
+    // Customer Report display: 2dp with HALF_UP rounding (四舍五入)
+    return MoneyDecimal.formatFixedHalfUp(amount || '0', 2);
 }
 
 function reportAdd(a, b) {
