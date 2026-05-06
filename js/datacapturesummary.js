@@ -8354,8 +8354,7 @@ function saveFormula() {
     }
 
     // Calculate processed amount
-    // IMPORTANT: Save raw value (no rounding) to database, but display rounded value on page
-    // 重要：保存原始值（不四舍五入）到数据库，但页面显示时使用四舍五入的值
+    // 页面 Processed Amount 为展示用四舍五入 2 位；保存 processedAmount 与展示一致（合计另按 6 位截断逐行累加，见 updateProcessedAmountTotal）。
     let processedAmount = 0;
     // If formula is empty, keep processedAmount as 0
     if (!formulaValue || formulaValue.trim() === '' || formulaDisplay === 'formula') {
@@ -8364,7 +8363,7 @@ function saveFormula() {
     } else {
         // 不再根据公式中是否包含 *0.1 之类来决定是否应用 Source Percent，
         // 一律走统一的计算函数，由 enableSourcePercent 和 sourcePercentValue 控制是否乘以百分比
-        // 计算原始值后按「第三位小数≥5则进位」舍入再保存，与页面显示一致
+        // 计算原始值后按展示口径四舍五入到 2 位再保存，与页面 Processed Amount 一致
         const rawAmount = calculateFormulaResultFromExpression(
             formulaValue,
             sourcePercentValue,
@@ -11105,11 +11104,20 @@ function applyInputMethodTransformation(result, inputMethod) {
     }
 }
 
-// Processed Amount：固定展示 2 位小数，向 0 截断（不四舍五入）。例：-2.089 -> -2.08，2.089 -> 2.08
-// 说明：少数二进制浮点（如语义为 -2.07 但乘 100 略小于 -207）截断后可能显示 -2.06，与「仅截断」规则一致
+// 合计 / 校验用：每行贡献金额向 0 截断到 6 位小数（不四舍五入），再累加。不参与单元格展示。
+function truncateProcessedAmountTo6Decimals(value) {
+    try {
+        return MoneyDecimal.formatFixed(value, 6);
+    } catch (_) {
+        return '0.000000';
+    }
+}
+
+// Processed Amount 展示：固定 2 位小数，四舍五入（ROUND_HALF_UP）。仅用于界面展示；与展示口径一致的持久化字段可复用此函数。
+// 合计请用 truncateProcessedAmountTo6Decimals 逐行截断后再相加，勿用本函数参与累加。
 function roundProcessedAmountTo2Decimals(value) {
     try {
-        return MoneyDecimal.formatFixed(value, 2);
+        return MoneyDecimal.formatFixedHalfUp(value, 2);
     } catch (_) {
         return '0.00';
     }
@@ -19187,14 +19195,17 @@ function updateProcessedAmountTotal() {
         }
 
         const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+        const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
+            ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
+            : String(rowFinalAmount);
         try {
-            total = total.plus(MoneyDecimal.toDecimal(rowFinalAmount, 0));
+            total = total.plus(MoneyDecimal.toDecimal(rowForTotal, 0));
             hasValue = true;
         } catch (_) { /* ignore invalid row amount */ }
     });
 
     const finalTotalRaw = hasValue ? total.toString() : '0';
-    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 只在显示时截断到 2 位
+    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 展示：对累加结果四舍五入到 2 位
     totalCell.textContent = formatNumberWithThousands(finalTotal);
     if (MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0) {
         totalCell.style.color = '#0D60FF';
@@ -19800,13 +19811,16 @@ async function submitSummaryData() {
 
             const cells = row.querySelectorAll('td');
             const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+            const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
+                ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
+                : String(rowFinalAmount);
             try {
-                totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowFinalAmount), 0));
+                totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
                 hasValue = true;
             } catch (_) { /* ignore invalid amount */ }
         });
 
-        const finalTotalRaw = hasValue ? totalAmount : '0';
+        const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
         const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
         if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
             // Re-enable button on validation error
