@@ -1,15 +1,17 @@
 -- Generated from u857194726_count168_no_definer.sql
--- Target: u857194726_Games
--- Excluded: transactions*, transaction_*, bank_process*, process*, submitted_processes*
+-- Target: u857194726_Banks
+-- Excluded: data_captures*, data_capture_*, process, process_backup, process_day*,
+--           description, description_backup
+-- Includes: transactions*, transaction_entry*, bank_process*, submitted_processes*, etc.
 -- No procedures, events, triggers, INSERT data, or views.
--- NOTE: FK fk_data_captures_process -> process was omitted because process is excluded.
---       Column data_captures.process_id remains (integer); enforce in app or restore FK later.
+-- NOTE: FK fk_submitted_processes_process -> process omitted (process excluded).
+--       Column submitted_processes.process_id remains; enforce in app or restore FK later.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE DATABASE IF NOT EXISTS `u857194726_Games` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `u857194726_Games`;
+-- NOTE: Keep this schema database-agnostic.
+-- Target database is selected by application provisioning logic.
 
 -- Table structure for table `account`
 --
@@ -181,6 +183,140 @@ CREATE TABLE `auto_login_credentials` (
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp() COMMENT '更新时间',
   `created_by` int(11) DEFAULT NULL COMMENT '创建人ID（关联user表）'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='自动登录凭证表';
+-- Table structure for table `bank_process`
+--
+
+CREATE TABLE `bank_process` (
+  `id` int(11) NOT NULL,
+  `company_id` int(10) UNSIGNED NOT NULL COMMENT '公司ID',
+  `country` varchar(100) DEFAULT NULL COMMENT '国家',
+  `bank` varchar(100) DEFAULT NULL COMMENT '银行名称',
+  `type` varchar(100) DEFAULT NULL COMMENT '类型',
+  `name` varchar(255) DEFAULT NULL COMMENT '详情/名称',
+  `card_merchant_id` int(11) DEFAULT NULL COMMENT '卡商账户ID（关联 account.id）',
+  `customer_id` int(11) DEFAULT NULL COMMENT '顾客账户ID（关联 account.id）',
+  `profit_account_id` int(11) DEFAULT NULL COMMENT '利润账户ID（关联 account.id）',
+  `contract` varchar(20) DEFAULT NULL COMMENT '合约（如 1, 2, 3, 6 个月）',
+  `insurance` decimal(25,8) DEFAULT NULL,
+  `sop` text DEFAULT NULL,
+  `remark` varchar(500) DEFAULT NULL,
+  `cost` decimal(25,8) DEFAULT NULL,
+  `price` decimal(25,8) DEFAULT NULL,
+  `profit` decimal(25,8) DEFAULT NULL,
+  `profit_sharing` text DEFAULT NULL COMMENT '利润分配（如 "BB - 4, AA - 10"）',
+  `day_start` date DEFAULT NULL COMMENT 'Day start 日期',
+  `day_start_frequency` varchar(30) NOT NULL DEFAULT '1st_of_every_month' COMMENT '1st_of_every_month=每月1号算账; monthly=每月(day_start日-1)号算账',
+  `day_end` date DEFAULT NULL COMMENT '合同结束日期（Contract 到期日）',
+  `status` enum('active','inactive','waiting') NOT NULL DEFAULT 'active' COMMENT '状态：active=启用，inactive=停用，waiting=等待中',
+  `issue_flag` varchar(20) DEFAULT NULL,
+  `dts_modified` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp() COMMENT '最后更改时间',
+  `modified_by` int(11) DEFAULT NULL COMMENT '最后修改人 user.id',
+  `modified_by_type` enum('user','owner') DEFAULT 'user',
+  `modified_by_owner_id` int(10) UNSIGNED DEFAULT NULL,
+  `dts_created` datetime NOT NULL DEFAULT current_timestamp() COMMENT '创建时间',
+  `created_by` int(11) DEFAULT NULL COMMENT '创建人 user.id',
+  `created_by_type` enum('user','owner') NOT NULL DEFAULT 'user',
+  `created_by_owner_id` int(11) DEFAULT NULL,
+  `accounting_resend_relax_created_floor` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1=Resend 后 Inbox 放宽创建日门槛并允许多账期',
+  `accounting_resend_schedule_day_start` date DEFAULT NULL COMMENT 'Resend 弹窗 day_start，仅 relax 期间',
+  `accounting_resend_schedule_day_end` date DEFAULT NULL COMMENT 'Resend 弹窗 day_end，仅 relax 期间',
+  `accounting_resend_schedule_frequency` varchar(40) DEFAULT NULL COMMENT 'monthly 或 1st_of_every_month，仅 relax 期间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Bank 流程记录表（与 process 用途类似，记录 Bank 专用字段）';
+-- Table structure for table `bank_process_accounting_resend_daily_guard`
+--
+
+CREATE TABLE `bank_process_accounting_resend_daily_guard` (
+  `id` int(11) NOT NULL,
+  `company_id` int(11) NOT NULL,
+  `bank_process_id` int(11) NOT NULL,
+  `resend_day_start` date NOT NULL,
+  `guard_date` date NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Table structure for table `bank_process_accounting_resend_daily_guard_backup`
+--
+
+CREATE TABLE `bank_process_accounting_resend_daily_guard_backup` (
+  `id` int(11) NOT NULL,
+  `company_id` int(11) NOT NULL,
+  `company_name` varchar(255) DEFAULT NULL COMMENT '来自 company.company_id 展示',
+  `bank_process_id` int(11) NOT NULL,
+  `bank_process_name` varchar(255) NOT NULL,
+  `resend_day_start` date NOT NULL,
+  `guard_date` date NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='bank_process_accounting_resend_daily_guard 备份（含 company_name）';
+-- Table structure for table `bank_process_backup`
+--
+
+CREATE TABLE `bank_process_backup` (
+  `id` int(11) NOT NULL,
+  `company_id` int(10) UNSIGNED NOT NULL COMMENT '公司ID',
+  `company_name` varchar(255) DEFAULT NULL COMMENT '公司展示名（通常同步自 company.company_id）',
+  `country` varchar(100) DEFAULT NULL COMMENT '国家',
+  `bank` varchar(100) DEFAULT NULL COMMENT '银行名称',
+  `type` varchar(100) DEFAULT NULL COMMENT '类型',
+  `name` varchar(255) DEFAULT NULL COMMENT '详情/名称',
+  `card_merchant_id` int(11) DEFAULT NULL COMMENT '卡商账户ID（关联 account.id）',
+  `card_merchant_name` varchar(255) DEFAULT NULL COMMENT '卡商账户名（关联 account.name）',
+  `customer_id` int(11) DEFAULT NULL COMMENT '顾客账户ID（关联 account.id）',
+  `customer_name` varchar(255) DEFAULT NULL COMMENT '顾客账户名（关联 account.name）',
+  `profit_account_id` int(11) DEFAULT NULL COMMENT '利润账户ID（关联 account.id）',
+  `profit_account_name` varchar(255) DEFAULT NULL COMMENT '利润账户名（关联 account.name）',
+  `contract` varchar(20) DEFAULT NULL COMMENT '合约（如 1, 2, 3, 6 个月）',
+  `insurance` decimal(25,8) DEFAULT NULL,
+  `sop` text DEFAULT NULL,
+  `remark` varchar(500) DEFAULT NULL,
+  `cost` decimal(25,8) DEFAULT NULL,
+  `price` decimal(25,8) DEFAULT NULL,
+  `profit` decimal(25,8) DEFAULT NULL,
+  `profit_sharing` text DEFAULT NULL COMMENT '利润分配（如 "BB - 4, AA - 10"）',
+  `day_start` date DEFAULT NULL COMMENT 'Day start 日期',
+  `day_start_frequency` varchar(30) NOT NULL DEFAULT '1st_of_every_month' COMMENT '1st_of_every_month=每月1号算账; monthly=每月(day_start日-1)号算账',
+  `day_end` date DEFAULT NULL COMMENT '合同结束日期（Contract 到期日）',
+  `status` enum('active','inactive','waiting') NOT NULL DEFAULT 'active' COMMENT '状态：active=启用, inactive=停用, waiting=等待中',
+  `issue_flag` varchar(20) DEFAULT NULL,
+  `dts_modified` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp() COMMENT '最后更改时间',
+  `modified_by` int(11) DEFAULT NULL COMMENT '最后修改人 user.id',
+  `modified_by_name` varchar(255) DEFAULT NULL COMMENT '最后修改人展示名（user.login_id / owner.owner_code 等）',
+  `modified_by_type` enum('user','owner') DEFAULT 'user',
+  `modified_by_owner_id` int(10) UNSIGNED DEFAULT NULL,
+  `dts_created` datetime NOT NULL DEFAULT current_timestamp() COMMENT '创建时间',
+  `created_by` int(11) DEFAULT NULL COMMENT '创建人 user.id',
+  `created_by_name` varchar(255) DEFAULT NULL COMMENT '创建人展示名（user.login_id / owner.owner_code 等）',
+  `created_by_type` enum('user','owner') NOT NULL DEFAULT 'user',
+  `created_by_owner_id` int(11) DEFAULT NULL,
+  `accounting_resend_relax_created_floor` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1=Resend 后 Inbox 放宽创建门槛并允许多账期',
+  `accounting_resend_schedule_day_start` date DEFAULT NULL COMMENT 'Resend 弹窗 day_start，仅 relax 期间',
+  `accounting_resend_schedule_day_end` date DEFAULT NULL COMMENT 'Resend 弹窗 day_end，仅 relax 期间',
+  `accounting_resend_schedule_frequency` varchar(40) DEFAULT NULL COMMENT 'monthly 或 1st_of_every_month，仅 relax 期间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Bank 流程备份（含关联展示名字段）';
+-- Table structure for table `bank_process_maintenance_resend_pending`
+--
+
+CREATE TABLE `bank_process_maintenance_resend_pending` (
+  `id` int(11) NOT NULL,
+  `company_id` int(11) NOT NULL,
+  `bank_process_id` int(11) NOT NULL,
+  `process_accounting_posted_id` int(11) DEFAULT NULL,
+  `period_type` varchar(64) NOT NULL DEFAULT 'monthly',
+  `transaction_date` date DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Table structure for table `bank_process_maintenance_resend_pending_backup`
+--
+
+CREATE TABLE `bank_process_maintenance_resend_pending_backup` (
+  `id` int(11) NOT NULL,
+  `company_id` int(11) NOT NULL,
+  `company_name` varchar(255) DEFAULT NULL COMMENT '来自 company.company_id 展示',
+  `bank_process_id` int(11) NOT NULL,
+  `bank_process_name` varchar(255) DEFAULT NULL COMMENT '来自 bank_process.name 展示',
+  `process_accounting_posted_id` int(11) DEFAULT NULL,
+  `period_type` varchar(255) NOT NULL DEFAULT 'monthly',
+  `transaction_date` date DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='bank_process_maintenance_resend_pending 备份（含 company_name, bank_process_name）';
 -- Table structure for table `company`
 --
 
@@ -324,231 +460,6 @@ CREATE TABLE `currency_backup` (
   `company_id` int(10) UNSIGNED NOT NULL COMMENT '公司ID',
   `company_name` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `data_captures`
---
-
-CREATE TABLE `data_captures` (
-  `id` int(11) NOT NULL,
-  `company_id` int(10) UNSIGNED NOT NULL,
-  `capture_date` date NOT NULL,
-  `process_id` int(11) NOT NULL,
-  `currency_id` int(11) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `created_by` int(11) DEFAULT NULL,
-  `user_type` enum('user','owner') NOT NULL DEFAULT 'user',
-  `remark` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `data_captures_backup`
---
-
-CREATE TABLE `data_captures_backup` (
-  `backup_id` int(11) NOT NULL COMMENT '备份记录自增ID',
-  `id` int(11) NOT NULL COMMENT '原表记录ID',
-  `company_id` int(10) UNSIGNED NOT NULL,
-  `capture_date` date NOT NULL,
-  `process_id` int(11) NOT NULL,
-  `currency_id` int(11) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `created_by` int(11) DEFAULT NULL,
-  `user_type` enum('user','owner') NOT NULL DEFAULT 'user',
-  `remark` text DEFAULT NULL,
-  `backup_created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '备份创建时间，用于自动清理'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `data_captures_deleted`
---
-
-CREATE TABLE `data_captures_deleted` (
-  `id` int(11) NOT NULL,
-  `capture_id` int(11) NOT NULL,
-  `company_id` int(11) NOT NULL,
-  `process_id` int(11) NOT NULL,
-  `currency_id` int(11) NOT NULL,
-  `capture_date` date NOT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `created_by` int(11) DEFAULT NULL,
-  `user_type` enum('user','owner') NOT NULL DEFAULT 'user',
-  `remark` text DEFAULT NULL,
-  `deleted_by_user_id` int(11) DEFAULT NULL,
-  `deleted_by_owner_id` int(11) DEFAULT NULL,
-  `deleted_at` timestamp NULL DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `data_capture_details`
---
-
-CREATE TABLE `data_capture_details` (
-  `id` int(11) NOT NULL,
-  `company_id` int(10) UNSIGNED NOT NULL,
-  `capture_id` int(11) NOT NULL,
-  `id_product_main` varchar(255) DEFAULT NULL,
-  `description_main` varchar(255) DEFAULT NULL,
-  `id_product_sub` varchar(255) DEFAULT NULL,
-  `columns_value` text DEFAULT NULL,
-  `description_sub` varchar(255) DEFAULT NULL,
-  `product_type` enum('main','sub') NOT NULL DEFAULT 'main',
-  `formula_variant` tinyint(4) NOT NULL DEFAULT 1,
-  `id_product` varchar(255) NOT NULL,
-  `account_id` varchar(50) DEFAULT NULL,
-  `currency_id` int(11) NOT NULL,
-  `source_value` text DEFAULT NULL,
-  `source_percent` varchar(255) DEFAULT '0',
-  `enable_source_percent` tinyint(1) NOT NULL DEFAULT 1,
-  `formula` text DEFAULT NULL,
-  `processed_amount` decimal(25,8) DEFAULT NULL,
-  `rate` decimal(25,8) DEFAULT NULL,
-  `display_order` int(11) DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `data_capture_details_backup`
---
-
-CREATE TABLE `data_capture_details_backup` (
-  `backup_id` int(11) NOT NULL COMMENT '备份记录自增ID',
-  `id` int(11) NOT NULL COMMENT '原表记录ID',
-  `company_id` int(10) UNSIGNED NOT NULL,
-  `capture_id` int(11) NOT NULL,
-  `id_product_main` varchar(255) DEFAULT NULL,
-  `description_main` varchar(255) DEFAULT NULL,
-  `id_product_sub` varchar(255) DEFAULT NULL,
-  `columns_value` text DEFAULT NULL,
-  `description_sub` varchar(255) DEFAULT NULL,
-  `product_type` enum('main','sub') NOT NULL DEFAULT 'main',
-  `formula_variant` tinyint(4) NOT NULL DEFAULT 1,
-  `id_product` varchar(255) NOT NULL,
-  `account_id` varchar(50) DEFAULT NULL,
-  `currency_id` int(11) NOT NULL,
-  `source_value` text DEFAULT NULL,
-  `source_percent` varchar(255) DEFAULT '0',
-  `enable_source_percent` tinyint(1) NOT NULL DEFAULT 1,
-  `formula` text DEFAULT NULL,
-  `processed_amount` decimal(15,6) DEFAULT NULL,
-  `rate` decimal(15,4) DEFAULT NULL,
-  `display_order` int(11) DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `backup_created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '备份创建时间，用于自动清理'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `data_capture_submit_queue`
---
-
-CREATE TABLE `data_capture_submit_queue` (
-  `id` int(11) NOT NULL,
-  `company_id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `status` varchar(20) NOT NULL DEFAULT 'processing',
-  `request_json` longtext NOT NULL,
-  `capture_id` int(11) DEFAULT NULL,
-  `rows_count` int(11) NOT NULL DEFAULT 0,
-  `error_message` text DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `finished_at` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
--- Table structure for table `data_capture_submit_queue_backup`
---
-
-CREATE TABLE `data_capture_submit_queue_backup` (
-  `id` int(11) NOT NULL,
-  `company_id` int(11) NOT NULL,
-  `company_name` varchar(255) DEFAULT NULL COMMENT 'company.company_id，与其它 *_backup 一致',
-  `user_id` int(11) DEFAULT NULL,
-  `status` varchar(20) NOT NULL DEFAULT 'processing',
-  `request_json` longtext NOT NULL,
-  `capture_id` int(11) DEFAULT NULL,
-  `capture_name` varchar(512) DEFAULT NULL COMMENT 'COALESCE(description.name, process.process_id)，与维护页一致',
-  `rows_count` int(11) NOT NULL DEFAULT 0,
-  `error_message` text DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `finished_at` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `data_capture_summary_state`
---
-
-CREATE TABLE `data_capture_summary_state` (
-  `id` int(11) NOT NULL,
-  `company_id` int(11) NOT NULL,
-  `process_key` varchar(255) NOT NULL,
-  `state_json` longtext NOT NULL,
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
--- Table structure for table `data_capture_summary_state_backup`
---
-
-CREATE TABLE `data_capture_summary_state_backup` (
-  `id` int(11) NOT NULL,
-  `company_id` int(11) NOT NULL,
-  `company_name` varchar(255) DEFAULT NULL COMMENT 'company.company_id，与其它 *_backup 一致',
-  `process_key` varchar(255) NOT NULL,
-  `state_json` longtext NOT NULL,
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `data_capture_templates`
---
-
-CREATE TABLE `data_capture_templates` (
-  `id` int(11) NOT NULL,
-  `company_id` int(10) UNSIGNED NOT NULL,
-  `process_id` varchar(50) DEFAULT NULL,
-  `source_columns` text DEFAULT NULL,
-  `batch_selection` varchar(255) DEFAULT NULL,
-  `columns_display` text DEFAULT NULL,
-  `data_capture_id` int(11) DEFAULT NULL,
-  `row_index` int(11) DEFAULT NULL,
-  `sub_order` decimal(11,2) DEFAULT NULL,
-  `id_product` varchar(255) NOT NULL,
-  `product_type` enum('main','sub') NOT NULL DEFAULT 'main',
-  `formula_variant` tinyint(4) NOT NULL DEFAULT 1,
-  `parent_id_product` varchar(255) DEFAULT NULL,
-  `template_key` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '',
-  `description` varchar(255) DEFAULT NULL,
-  `account_id` int(11) NOT NULL,
-  `account_display` varchar(255) DEFAULT NULL,
-  `currency_id` int(11) DEFAULT NULL,
-  `currency_display` varchar(255) DEFAULT NULL,
-  `formula_operators` text DEFAULT NULL,
-  `input_method` varchar(100) DEFAULT NULL,
-  `formula_display` varchar(255) DEFAULT NULL,
-  `last_source_value` text DEFAULT NULL,
-  `last_processed_amount` decimal(25,8) DEFAULT NULL,
-  `source_percent` varchar(255) DEFAULT '0',
-  `enable_source_percent` tinyint(1) DEFAULT 1,
-  `enable_input_method` tinyint(1) DEFAULT 0,
-  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `created_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `data_capture_templates_backup`
---
-
-CREATE TABLE `data_capture_templates_backup` (
-  `backup_id` int(11) NOT NULL COMMENT '备份记录自增ID',
-  `id` int(11) NOT NULL COMMENT '原表记录ID',
-  `company_id` int(10) UNSIGNED NOT NULL,
-  `process_id` varchar(50) DEFAULT NULL,
-  `source_columns` text DEFAULT NULL,
-  `batch_selection` varchar(255) DEFAULT NULL,
-  `columns_display` text DEFAULT NULL,
-  `data_capture_id` int(11) DEFAULT NULL,
-  `row_index` int(11) DEFAULT NULL,
-  `sub_order` decimal(11,2) DEFAULT NULL,
-  `id_product` varchar(255) NOT NULL,
-  `product_type` enum('main','sub') NOT NULL DEFAULT 'main',
-  `formula_variant` tinyint(4) NOT NULL DEFAULT 1,
-  `parent_id_product` varchar(255) DEFAULT NULL,
-  `template_key` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '',
-  `description` varchar(255) DEFAULT NULL,
-  `account_id` int(11) NOT NULL,
-  `account_display` varchar(255) DEFAULT NULL,
-  `currency_id` int(11) DEFAULT NULL,
-  `currency_display` varchar(255) DEFAULT NULL,
-  `formula_operators` text DEFAULT NULL,
-  `input_method` varchar(100) DEFAULT NULL,
-  `formula_display` varchar(255) DEFAULT NULL,
-  `last_source_value` text DEFAULT NULL,
-  `last_processed_amount` decimal(18,4) DEFAULT 0.0000,
-  `source_percent` varchar(255) DEFAULT '0',
-  `enable_source_percent` tinyint(1) DEFAULT 1,
-  `enable_input_method` tinyint(1) DEFAULT 0,
-  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `backup_created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '备份创建时间，用于自动清理'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- Table structure for table `day`
 --
 
@@ -570,23 +481,6 @@ CREATE TABLE `deleted_logs` (
   `ip_address` varchar(45) DEFAULT NULL,
   `deleted_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`deleted_data`)),
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `description`
---
-
-CREATE TABLE `description` (
-  `id` int(11) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `company_id` int(10) UNSIGNED NOT NULL COMMENT '公司ID'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Table structure for table `description_backup`
---
-
-CREATE TABLE `description_backup` (
-  `id` int(11) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `company_id` int(10) UNSIGNED NOT NULL COMMENT '公司ID',
-  `company_name` varchar(255) DEFAULT NULL COMMENT 'company.company_id，与其它 *_backup 一致'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- Table structure for table `domain_list_fee_settings`
 --
@@ -690,6 +584,17 @@ CREATE TABLE `password_reset_tac_owner` (
   `expires_at` datetime NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Table structure for table `process_accounting_posted`
+--
+
+CREATE TABLE `process_accounting_posted` (
+  `id` int(11) NOT NULL,
+  `company_id` int(10) UNSIGNED NOT NULL,
+  `process_id` int(11) NOT NULL,
+  `posted_date` date NOT NULL,
+  `period_type` varchar(32) NOT NULL DEFAULT 'monthly' COMMENT 'monthly = full month; partial_first_month = pro-rated from day_start to end of that month',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Records which bank_process was posted to transaction on which date (for Accounting Due inbox)';
 -- Table structure for table `role`
 --
 
@@ -697,6 +602,221 @@ CREATE TABLE `role` (
   `id` int(11) NOT NULL,
   `code` varchar(50) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Table structure for table `submitted_processes`
+--
+
+CREATE TABLE `submitted_processes` (
+  `id` int(11) NOT NULL,
+  `company_id` int(10) UNSIGNED NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `user_type` enum('user','owner') NOT NULL DEFAULT 'user',
+  `process_id` int(11) NOT NULL,
+  `date_submitted` date NOT NULL,
+  `capture_date` date NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='记录用户提交process的简单历史记录';
+-- Table structure for table `submitted_processes_backup`
+--
+
+CREATE TABLE `submitted_processes_backup` (
+  `id` int(11) NOT NULL,
+  `company_id` int(10) UNSIGNED NOT NULL COMMENT '公司ID',
+  `company_name` varchar(255) DEFAULT NULL COMMENT 'company.name',
+  `user_id` int(11) DEFAULT NULL COMMENT 'user.id 或 owner.id（由 user_type 决定）',
+  `user_name` varchar(255) DEFAULT NULL COMMENT 'user.login_id 或 owner.owner_code',
+  `user_type` enum('user','owner') NOT NULL DEFAULT 'user' COMMENT 'submitted_processes.user_type',
+  `process_id` int(11) NOT NULL COMMENT 'process.id',
+  `process_name` varchar(255) DEFAULT NULL COMMENT 'process.process_id 流程代号',
+  `date_submitted` datetime NOT NULL COMMENT '提交日期',
+  `capture_date` datetime DEFAULT NULL COMMENT '抓取/账务日',
+  `created_at` datetime NOT NULL COMMENT '创建时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Table structure for table `transactions`
+--
+
+CREATE TABLE `transactions` (
+  `id` int(11) NOT NULL,
+  `company_id` int(11) DEFAULT NULL,
+  `transaction_type` enum('WIN','LOSE','PAYMENT','RECEIVE','CONTRA','CLAIM','RATE','CLEAR','ADJUSTMENT') NOT NULL,
+  `account_id` int(11) DEFAULT NULL,
+  `from_account_id` int(11) DEFAULT NULL,
+  `currency_id` int(11) DEFAULT NULL COMMENT 'Currency ID - 交易所属的货币',
+  `amount` decimal(25,8) NOT NULL,
+  `transaction_date` date NOT NULL COMMENT '交易日期',
+  `description` varchar(500) DEFAULT NULL COMMENT '描述/备注',
+  `sms` varchar(500) DEFAULT NULL COMMENT 'SMS 备注',
+  `created_by` int(11) DEFAULT NULL COMMENT '创建者用户ID',
+  `created_by_owner` int(10) UNSIGNED DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp() COMMENT '更新时间',
+  `approval_status` enum('APPROVED','PENDING') NOT NULL DEFAULT 'APPROVED',
+  `approved_by` int(11) DEFAULT NULL,
+  `approved_by_owner` int(10) UNSIGNED DEFAULT NULL,
+  `approved_at` timestamp NULL DEFAULT NULL,
+  `source_bank_process_id` int(11) DEFAULT NULL COMMENT 'Bank 流程入账来源：bank_process.id',
+  `source_bank_process_period_type` varchar(32) DEFAULT NULL COMMENT 'Bank 入账类型：monthly / partial_first_month / manual_inactive'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='交易记录表 - 记录所有 WIN/LOSE/PAYMENT/RECEIVE/CONTRA 操作';
+-- Table structure for table `transactions_backup`
+--
+
+CREATE TABLE `transactions_backup` (
+  `backup_id` int(11) NOT NULL COMMENT '备份记录自增ID',
+  `id` int(11) NOT NULL COMMENT '原表记录ID',
+  `company_id` int(11) DEFAULT NULL,
+  `transaction_type` enum('WIN','LOSE','PAYMENT','RECEIVE','CONTRA','CLAIM','RATE','ADJUSTMENT') NOT NULL,
+  `account_id` int(11) DEFAULT NULL,
+  `from_account_id` int(11) DEFAULT NULL,
+  `currency_id` int(11) DEFAULT NULL COMMENT 'Currency ID - 交易所属的货币',
+  `amount` decimal(15,2) NOT NULL COMMENT '交易金额',
+  `transaction_date` date NOT NULL COMMENT '交易日期',
+  `description` varchar(500) DEFAULT NULL COMMENT '描述/备注',
+  `sms` varchar(500) DEFAULT NULL COMMENT 'SMS 备注',
+  `created_by` int(11) DEFAULT NULL COMMENT '创建者用户ID',
+  `created_by_owner` int(10) UNSIGNED DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp() COMMENT '更新时间',
+  `backup_created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '备份创建时间，用于自动清理'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='交易记录备份表';
+-- Table structure for table `transactions_deleted`
+--
+
+CREATE TABLE `transactions_deleted` (
+  `id` int(11) NOT NULL,
+  `transaction_id` int(11) NOT NULL,
+  `company_id` int(11) NOT NULL,
+  `transaction_type` enum('WIN','LOSE','PAYMENT','RECEIVE','CONTRA','RATE','ADJUSTMENT') NOT NULL,
+  `account_id` int(11) NOT NULL COMMENT 'To Account - 接收方账户',
+  `from_account_id` int(11) DEFAULT NULL COMMENT 'From Account - 发送方账户',
+  `amount` decimal(25,8) NOT NULL,
+  `currency_id` int(11) DEFAULT NULL,
+  `transaction_date` date NOT NULL COMMENT '交易日期',
+  `description` varchar(500) DEFAULT NULL COMMENT '描述/备注',
+  `sms` varchar(500) DEFAULT NULL COMMENT 'SMS 备注',
+  `created_by` int(11) DEFAULT NULL COMMENT '创建者用户ID',
+  `created_by_owner` int(11) DEFAULT NULL COMMENT '创建者 Owner ID',
+  `created_at` timestamp NULL DEFAULT NULL COMMENT '创建时间',
+  `deleted_by_user_id` int(11) DEFAULT NULL COMMENT '删除者用户ID',
+  `deleted_by_owner_id` int(11) DEFAULT NULL COMMENT '删除者 Owner ID',
+  `deleted_at` timestamp NULL DEFAULT NULL COMMENT '删除时间',
+  `source_bank_process_id` int(11) DEFAULT NULL,
+  `source_bank_process_period_type` varchar(64) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Payment Maintenance 已删除交易记录日志表';
+-- Table structure for table `transactions_rate`
+--
+
+CREATE TABLE `transactions_rate` (
+  `id` int(11) NOT NULL,
+  `transaction_id` int(11) NOT NULL COMMENT '关联到 transactions 表的主记录',
+  `company_id` int(11) DEFAULT NULL,
+  `rate_group_id` varchar(50) NOT NULL COMMENT 'RATE 交易组 ID（同一笔 RATE 交易的所有记录共享）',
+  `rate_from_account_id` int(11) NOT NULL COMMENT '第一行 From Account ID (account1)',
+  `rate_to_account_id` int(11) NOT NULL COMMENT '第一行 To Account ID (account2)',
+  `rate_from_currency_id` int(11) NOT NULL COMMENT '第一个 Currency ID (SGD)',
+  `rate_from_amount` decimal(15,2) NOT NULL COMMENT '第一个 Currency Amount (100)',
+  `rate_to_currency_id` int(11) NOT NULL COMMENT '第二个 Currency ID (MYR)',
+  `rate_to_amount` decimal(15,2) NOT NULL COMMENT '第二个 Currency Amount (320，扣除 middle-man 后)',
+  `exchange_rate` decimal(15,6) NOT NULL COMMENT 'Exchange Rate (3.3)',
+  `rate_transfer_from_account_id` int(11) DEFAULT NULL COMMENT '第二行 From Account ID (account3)',
+  `rate_transfer_to_account_id` int(11) DEFAULT NULL COMMENT '第二行 To Account ID (account4)',
+  `rate_transfer_from_amount` decimal(15,2) DEFAULT NULL COMMENT 'Transfer From Amount (330，原价 = from_amount × exchange_rate)',
+  `rate_transfer_to_amount` decimal(15,2) DEFAULT NULL COMMENT 'Transfer To Amount (320，扣除 middle-man 后)',
+  `rate_middleman_account_id` int(11) DEFAULT NULL COMMENT 'Middle-Man Account ID (account5)',
+  `rate_middleman_rate` decimal(15,6) DEFAULT NULL COMMENT 'Middle-Man Rate Multiplier (0.1)',
+  `rate_middleman_amount` decimal(15,2) DEFAULT NULL COMMENT 'Middle-Man Amount (10)',
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RATE 交易扩展表 - 存储 RATE 类型的详细信息';
+-- Table structure for table `transactions_rate_backup`
+--
+
+CREATE TABLE `transactions_rate_backup` (
+  `backup_id` int(11) NOT NULL COMMENT '备份记录自增ID',
+  `id` int(11) NOT NULL COMMENT '原表记录ID',
+  `transaction_id` int(11) NOT NULL COMMENT '关联到 transactions 表的主记录',
+  `company_id` int(11) DEFAULT NULL,
+  `rate_group_id` varchar(50) NOT NULL COMMENT 'RATE 交易组 ID（同一笔 RATE 交易的所有记录共享）',
+  `rate_from_account_id` int(11) NOT NULL COMMENT '第一行 From Account ID (account1)',
+  `rate_to_account_id` int(11) NOT NULL COMMENT '第一行 To Account ID (account2)',
+  `rate_from_currency_id` int(11) NOT NULL COMMENT '第一个 Currency ID (SGD)',
+  `rate_from_amount` decimal(15,2) NOT NULL COMMENT '第一个 Currency Amount (100)',
+  `rate_to_currency_id` int(11) NOT NULL COMMENT '第二个 Currency ID (MYR)',
+  `rate_to_amount` decimal(15,2) NOT NULL COMMENT '第二个 Currency Amount (320，扣除 middle-man 后)',
+  `exchange_rate` decimal(15,6) NOT NULL COMMENT 'Exchange Rate (3.3)',
+  `rate_transfer_from_account_id` int(11) DEFAULT NULL COMMENT '第二行 From Account ID (account3)',
+  `rate_transfer_to_account_id` int(11) DEFAULT NULL COMMENT '第二行 To Account ID (account4)',
+  `rate_transfer_from_amount` decimal(15,2) DEFAULT NULL COMMENT 'Transfer From Amount (330，原价 = from_amount × exchange_rate)',
+  `rate_transfer_to_amount` decimal(15,2) DEFAULT NULL COMMENT 'Transfer To Amount (320，扣除 middle-man 后)',
+  `rate_middleman_account_id` int(11) DEFAULT NULL COMMENT 'Middle-Man Account ID (account5)',
+  `rate_middleman_rate` decimal(15,6) DEFAULT NULL COMMENT 'Middle-Man Rate Multiplier (0.1)',
+  `rate_middleman_amount` decimal(15,2) DEFAULT NULL COMMENT 'Middle-Man Amount (10)',
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `backup_created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '备份创建时间，用于自动清理'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RATE 交易扩展备份表';
+-- Table structure for table `transactions_rate_details`
+--
+
+CREATE TABLE `transactions_rate_details` (
+  `id` int(11) NOT NULL,
+  `rate_group_id` varchar(50) NOT NULL COMMENT 'RATE 交易组 ID',
+  `transaction_id` int(11) NOT NULL COMMENT '关联到 transactions 表的记录',
+  `company_id` int(11) DEFAULT NULL,
+  `record_type` enum('first_from','first_to','transfer_from','transfer_to','middleman') NOT NULL,
+  `account_id` int(11) NOT NULL COMMENT 'Account ID',
+  `from_account_id` int(11) DEFAULT NULL COMMENT 'From Account ID（用于关联扣除）',
+  `amount` decimal(15,2) NOT NULL COMMENT 'Amount（正数，符号由 record_type 决定）',
+  `currency_id` int(11) NOT NULL COMMENT 'Currency ID',
+  `description` varchar(500) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RATE 交易详细记录表 - 存储 RATE 交易的每条详细记录';
+-- Table structure for table `transactions_rate_details_backup`
+--
+
+CREATE TABLE `transactions_rate_details_backup` (
+  `backup_id` int(11) NOT NULL COMMENT '备份记录自增ID',
+  `id` int(11) NOT NULL COMMENT '原表记录ID',
+  `rate_group_id` varchar(50) NOT NULL COMMENT 'RATE 交易组 ID',
+  `transaction_id` int(11) NOT NULL COMMENT '关联到 transactions 表的记录',
+  `company_id` int(11) DEFAULT NULL,
+  `record_type` enum('first_from','first_to','transfer_from','transfer_to','middleman') NOT NULL,
+  `account_id` int(11) NOT NULL COMMENT 'Account ID',
+  `from_account_id` int(11) DEFAULT NULL COMMENT 'From Account ID（用于关联扣除）',
+  `amount` decimal(15,2) NOT NULL COMMENT 'Amount（正数，符号由 record_type 决定）',
+  `currency_id` int(11) NOT NULL COMMENT 'Currency ID',
+  `description` varchar(500) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `backup_created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '备份创建时间，用于自动清理'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RATE 交易详细记录备份表';
+-- Table structure for table `transaction_entry`
+--
+
+CREATE TABLE `transaction_entry` (
+  `id` int(11) NOT NULL,
+  `header_id` int(11) NOT NULL,
+  `company_id` int(11) DEFAULT NULL,
+  `account_id` int(11) NOT NULL,
+  `currency_id` int(11) NOT NULL,
+  `amount` decimal(25,8) NOT NULL,
+  `entry_type` enum('NORMAL_FROM','NORMAL_TO','RATE_FIRST_FROM','RATE_FIRST_TO','RATE_TRANSFER_FROM','RATE_TRANSFER_TO','RATE_MIDDLEMAN','RATE_FEE') NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+-- Table structure for table `transaction_entry_backup`
+--
+
+CREATE TABLE `transaction_entry_backup` (
+  `backup_id` int(11) NOT NULL COMMENT '备份记录自增ID',
+  `id` int(11) NOT NULL COMMENT '原表记录ID',
+  `header_id` int(11) NOT NULL,
+  `company_id` int(11) DEFAULT NULL,
+  `account_id` int(11) NOT NULL,
+  `currency_id` int(11) NOT NULL,
+  `amount` decimal(18,2) NOT NULL,
+  `entry_type` enum('NORMAL_FROM','NORMAL_TO','RATE_FIRST_FROM','RATE_FIRST_TO','RATE_TRANSFER_FROM','RATE_TRANSFER_TO','RATE_MIDDLEMAN','RATE_FEE') NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `backup_created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '备份创建时间，用于自动清理'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 -- Table structure for table `user`
 --
 
@@ -869,6 +989,62 @@ ALTER TABLE `auto_login_credentials`
   ADD KEY `fk_auto_login_created_by` (`created_by`);
 
 --
+-- Indexes for table `bank_process`
+--
+ALTER TABLE `bank_process`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_bank_process_company` (`company_id`),
+  ADD KEY `idx_bank_process_status` (`status`),
+  ADD KEY `idx_bank_process_card_merchant` (`card_merchant_id`),
+  ADD KEY `idx_bank_process_customer` (`customer_id`),
+  ADD KEY `idx_bank_process_modified_by` (`modified_by`),
+  ADD KEY `idx_bank_process_created_by` (`created_by`),
+  ADD KEY `idx_bank_process_profit_account` (`profit_account_id`);
+
+--
+-- Indexes for table `bank_process_accounting_resend_daily_guard`
+--
+ALTER TABLE `bank_process_accounting_resend_daily_guard`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_bp_resend_daily_guard` (`company_id`,`bank_process_id`,`resend_day_start`,`guard_date`);
+
+--
+-- Indexes for table `bank_process_accounting_resend_daily_guard_backup`
+--
+ALTER TABLE `bank_process_accounting_resend_daily_guard_backup`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_company_id` (`company_id`),
+  ADD KEY `idx_bank_process_id` (`bank_process_id`),
+  ADD KEY `idx_resend_day_start` (`resend_day_start`),
+  ADD KEY `idx_guard_date` (`guard_date`);
+
+--
+-- Indexes for table `bank_process_backup`
+--
+ALTER TABLE `bank_process_backup`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_company_id` (`company_id`),
+  ADD KEY `idx_card_merchant_id` (`card_merchant_id`),
+  ADD KEY `idx_customer_id` (`customer_id`),
+  ADD KEY `idx_profit_account_id` (`profit_account_id`);
+
+--
+-- Indexes for table `bank_process_maintenance_resend_pending`
+--
+ALTER TABLE `bank_process_maintenance_resend_pending`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_bmp_resend_pap` (`process_accounting_posted_id`),
+  ADD UNIQUE KEY `uq_bmp_resend_fallback` (`company_id`,`bank_process_id`,`period_type`,`transaction_date`);
+
+--
+-- Indexes for table `bank_process_maintenance_resend_pending_backup`
+--
+ALTER TABLE `bank_process_maintenance_resend_pending_backup`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_company_id` (`company_id`),
+  ADD KEY `idx_bank_process_id` (`bank_process_id`);
+
+--
 -- Indexes for table `company`
 --
 ALTER TABLE `company`
@@ -965,114 +1141,6 @@ ALTER TABLE `currency_backup`
   ADD KEY `company_id` (`company_id`);
 
 --
--- Indexes for table `data_captures`
---
-ALTER TABLE `data_captures`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_process` (`process_id`),
-  ADD KEY `idx_currency` (`currency_id`),
-  ADD KEY `idx_capture_date` (`capture_date`),
-  ADD KEY `idx_user_type_created_by` (`user_type`,`created_by`),
-  ADD KEY `idx_company_id` (`company_id`);
-
---
--- Indexes for table `data_captures_backup`
---
-ALTER TABLE `data_captures_backup`
-  ADD PRIMARY KEY (`backup_id`),
-  ADD KEY `idx_id` (`id`),
-  ADD KEY `idx_backup_created_at` (`backup_created_at`),
-  ADD KEY `idx_process` (`process_id`),
-  ADD KEY `idx_currency` (`currency_id`),
-  ADD KEY `idx_capture_date` (`capture_date`),
-  ADD KEY `idx_user_type_created_by` (`user_type`,`created_by`),
-  ADD KEY `idx_company_id` (`company_id`);
-
---
--- Indexes for table `data_captures_deleted`
---
-ALTER TABLE `data_captures_deleted`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_company_date` (`company_id`,`capture_date`),
-  ADD KEY `idx_capture_id` (`capture_id`),
-  ADD KEY `idx_deleted_at` (`deleted_at`);
-
---
--- Indexes for table `data_capture_details`
---
-ALTER TABLE `data_capture_details`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_capture` (`capture_id`),
-  ADD KEY `idx_account` (`account_id`),
-  ADD KEY `idx_product_type` (`product_type`),
-  ADD KEY `idx_formula_variant` (`capture_id`,`id_product`,`account_id`,`formula_variant`),
-  ADD KEY `idx_company_id` (`company_id`);
-
---
--- Indexes for table `data_capture_details_backup`
---
-ALTER TABLE `data_capture_details_backup`
-  ADD PRIMARY KEY (`backup_id`),
-  ADD KEY `idx_id` (`id`),
-  ADD KEY `idx_backup_created_at` (`backup_created_at`),
-  ADD KEY `idx_capture` (`capture_id`),
-  ADD KEY `idx_account` (`account_id`),
-  ADD KEY `idx_product_type` (`product_type`),
-  ADD KEY `idx_formula_variant` (`capture_id`,`id_product`,`account_id`,`formula_variant`),
-  ADD KEY `idx_company_id` (`company_id`);
-
---
--- Indexes for table `data_capture_submit_queue`
---
-ALTER TABLE `data_capture_submit_queue`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_company_status` (`company_id`,`status`),
-  ADD KEY `idx_created_at` (`created_at`);
-
---
--- Indexes for table `data_capture_submit_queue_backup`
---
-ALTER TABLE `data_capture_submit_queue_backup`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_company_status` (`company_id`,`status`),
-  ADD KEY `idx_created_at` (`created_at`);
-
---
--- Indexes for table `data_capture_summary_state`
---
-ALTER TABLE `data_capture_summary_state`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uk_company_process` (`company_id`,`process_key`);
-
---
--- Indexes for table `data_capture_summary_state_backup`
---
-ALTER TABLE `data_capture_summary_state_backup`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uk_company_process` (`company_id`,`process_key`);
-
---
--- Indexes for table `data_capture_templates`
---
-ALTER TABLE `data_capture_templates`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `template_unique` (`process_id`,`product_type`,`data_capture_id`,`id_product`,`account_id`,`formula_variant`),
-  ADD KEY `idx_data_capture_id` (`data_capture_id`),
-  ADD KEY `idx_company_id` (`company_id`),
-  ADD KEY `idx_process_id` (`process_id`);
-
---
--- Indexes for table `data_capture_templates_backup`
---
-ALTER TABLE `data_capture_templates_backup`
-  ADD PRIMARY KEY (`backup_id`),
-  ADD KEY `idx_id` (`id`),
-  ADD KEY `idx_backup_created_at` (`backup_created_at`),
-  ADD KEY `idx_data_capture_id` (`data_capture_id`),
-  ADD KEY `idx_company_id` (`company_id`),
-  ADD KEY `idx_process_id` (`process_id`);
-
---
 -- Indexes for table `day`
 --
 ALTER TABLE `day`
@@ -1085,20 +1153,6 @@ ALTER TABLE `deleted_logs`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_deleted_logs_company_created` (`company_id`,`created_at`),
   ADD KEY `idx_deleted_logs_table` (`table_name`);
-
---
--- Indexes for table `description`
---
-ALTER TABLE `description`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_description_company` (`company_id`);
-
---
--- Indexes for table `description_backup`
---
-ALTER TABLE `description_backup`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `company_id` (`company_id`);
 
 --
 -- Indexes for table `domain_list_fee_settings`
@@ -1157,11 +1211,165 @@ ALTER TABLE `password_reset_tac_owner`
   ADD PRIMARY KEY (`email`,`owner_id`);
 
 --
+-- Indexes for table `process_accounting_posted`
+--
+ALTER TABLE `process_accounting_posted`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_company_process_date_type` (`company_id`,`process_id`,`posted_date`,`period_type`),
+  ADD KEY `idx_posted_date` (`posted_date`),
+  ADD KEY `idx_company_date` (`company_id`,`posted_date`);
+
+--
 -- Indexes for table `role`
 --
 ALTER TABLE `role`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `code` (`code`);
+
+--
+-- Indexes for table `submitted_processes`
+--
+ALTER TABLE `submitted_processes`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_user_date` (`user_id`,`date_submitted`),
+  ADD KEY `idx_process` (`process_id`),
+  ADD KEY `idx_user_type_id` (`user_type`,`user_id`),
+  ADD KEY `idx_company_id` (`company_id`),
+  ADD KEY `idx_capture_date` (`capture_date`);
+
+--
+-- Indexes for table `submitted_processes_backup`
+--
+ALTER TABLE `submitted_processes_backup`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_submitted_processes_backup_company_id` (`company_id`),
+  ADD KEY `idx_submitted_processes_backup_user_id` (`user_id`),
+  ADD KEY `idx_submitted_processes_backup_process_id` (`process_id`);
+
+--
+-- Indexes for table `transactions`
+--
+ALTER TABLE `transactions`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_account_date` (`account_id`,`transaction_date`),
+  ADD KEY `idx_from_account_date` (`from_account_id`,`transaction_date`),
+  ADD KEY `idx_transaction_date` (`transaction_date`),
+  ADD KEY `idx_transaction_type` (`transaction_type`),
+  ADD KEY `idx_created_by` (`created_by`),
+  ADD KEY `idx_created_by_owner` (`created_by_owner`),
+  ADD KEY `idx_currency_id` (`currency_id`),
+  ADD KEY `idx_transactions_company` (`company_id`),
+  ADD KEY `idx_contra_approval` (`company_id`,`transaction_type`,`approval_status`,`transaction_date`),
+  ADD KEY `idx_source_bank_process` (`source_bank_process_id`),
+  ADD KEY `idx_company_account_date` (`company_id`,`account_id`,`transaction_date`),
+  ADD KEY `idx_company_from_account_date` (`company_id`,`from_account_id`,`transaction_date`);
+
+--
+-- Indexes for table `transactions_backup`
+--
+ALTER TABLE `transactions_backup`
+  ADD PRIMARY KEY (`backup_id`),
+  ADD KEY `idx_id` (`id`),
+  ADD KEY `idx_backup_created_at` (`backup_created_at`),
+  ADD KEY `idx_account_date` (`account_id`,`transaction_date`),
+  ADD KEY `idx_from_account_date` (`from_account_id`,`transaction_date`),
+  ADD KEY `idx_transaction_date` (`transaction_date`),
+  ADD KEY `idx_transaction_type` (`transaction_type`),
+  ADD KEY `idx_created_by` (`created_by`),
+  ADD KEY `idx_created_by_owner` (`created_by_owner`),
+  ADD KEY `idx_currency_id` (`currency_id`),
+  ADD KEY `idx_transactions_company` (`company_id`);
+
+--
+-- Indexes for table `transactions_deleted`
+--
+ALTER TABLE `transactions_deleted`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_company_date` (`company_id`,`transaction_date`),
+  ADD KEY `idx_transaction_id` (`transaction_id`),
+  ADD KEY `idx_deleted_at` (`deleted_at`);
+
+--
+-- Indexes for table `transactions_rate`
+--
+ALTER TABLE `transactions_rate`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `rate_transfer_from_account_id` (`rate_transfer_from_account_id`),
+  ADD KEY `rate_transfer_to_account_id` (`rate_transfer_to_account_id`),
+  ADD KEY `rate_middleman_account_id` (`rate_middleman_account_id`),
+  ADD KEY `rate_from_currency_id` (`rate_from_currency_id`),
+  ADD KEY `rate_to_currency_id` (`rate_to_currency_id`),
+  ADD KEY `idx_transaction_id` (`transaction_id`),
+  ADD KEY `idx_rate_group_id` (`rate_group_id`),
+  ADD KEY `idx_rate_from_account` (`rate_from_account_id`),
+  ADD KEY `idx_rate_to_account` (`rate_to_account_id`),
+  ADD KEY `idx_rate_company` (`company_id`);
+
+--
+-- Indexes for table `transactions_rate_backup`
+--
+ALTER TABLE `transactions_rate_backup`
+  ADD PRIMARY KEY (`backup_id`),
+  ADD KEY `idx_id` (`id`),
+  ADD KEY `idx_backup_created_at` (`backup_created_at`),
+  ADD KEY `rate_transfer_from_account_id` (`rate_transfer_from_account_id`),
+  ADD KEY `rate_transfer_to_account_id` (`rate_transfer_to_account_id`),
+  ADD KEY `rate_middleman_account_id` (`rate_middleman_account_id`),
+  ADD KEY `rate_from_currency_id` (`rate_from_currency_id`),
+  ADD KEY `rate_to_currency_id` (`rate_to_currency_id`),
+  ADD KEY `idx_transaction_id` (`transaction_id`),
+  ADD KEY `idx_rate_group_id` (`rate_group_id`),
+  ADD KEY `idx_rate_from_account` (`rate_from_account_id`),
+  ADD KEY `idx_rate_to_account` (`rate_to_account_id`),
+  ADD KEY `idx_rate_company` (`company_id`);
+
+--
+-- Indexes for table `transactions_rate_details`
+--
+ALTER TABLE `transactions_rate_details`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `from_account_id` (`from_account_id`),
+  ADD KEY `currency_id` (`currency_id`),
+  ADD KEY `idx_rate_group_id` (`rate_group_id`),
+  ADD KEY `idx_transaction_id` (`transaction_id`),
+  ADD KEY `idx_account_id` (`account_id`),
+  ADD KEY `idx_rate_details_company` (`company_id`);
+
+--
+-- Indexes for table `transactions_rate_details_backup`
+--
+ALTER TABLE `transactions_rate_details_backup`
+  ADD PRIMARY KEY (`backup_id`),
+  ADD KEY `idx_id` (`id`),
+  ADD KEY `idx_backup_created_at` (`backup_created_at`),
+  ADD KEY `from_account_id` (`from_account_id`),
+  ADD KEY `currency_id` (`currency_id`),
+  ADD KEY `idx_rate_group_id` (`rate_group_id`),
+  ADD KEY `idx_transaction_id` (`transaction_id`),
+  ADD KEY `idx_account_id` (`account_id`),
+  ADD KEY `idx_rate_details_company` (`company_id`);
+
+--
+-- Indexes for table `transaction_entry`
+--
+ALTER TABLE `transaction_entry`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_header` (`header_id`),
+  ADD KEY `idx_account_currency_date` (`account_id`,`currency_id`,`created_at`),
+  ADD KEY `fk_entry_currency` (`currency_id`),
+  ADD KEY `idx_entry_company` (`company_id`);
+
+--
+-- Indexes for table `transaction_entry_backup`
+--
+ALTER TABLE `transaction_entry_backup`
+  ADD PRIMARY KEY (`backup_id`),
+  ADD KEY `idx_id` (`id`),
+  ADD KEY `idx_backup_created_at` (`backup_created_at`),
+  ADD KEY `idx_header` (`header_id`),
+  ADD KEY `idx_account_currency_date` (`account_id`,`currency_id`,`created_at`),
+  ADD KEY `fk_entry_currency` (`currency_id`),
+  ADD KEY `idx_entry_company` (`company_id`);
 
 --
 -- Indexes for table `user`
@@ -1274,6 +1482,42 @@ ALTER TABLE `auto_login_credentials`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
+-- AUTO_INCREMENT for table `bank_process`
+--
+ALTER TABLE `bank_process`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=430;
+
+--
+-- AUTO_INCREMENT for table `bank_process_accounting_resend_daily_guard`
+--
+ALTER TABLE `bank_process_accounting_resend_daily_guard`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=111;
+
+--
+-- AUTO_INCREMENT for table `bank_process_accounting_resend_daily_guard_backup`
+--
+ALTER TABLE `bank_process_accounting_resend_daily_guard_backup`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=111;
+
+--
+-- AUTO_INCREMENT for table `bank_process_backup`
+--
+ALTER TABLE `bank_process_backup`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=428;
+
+--
+-- AUTO_INCREMENT for table `bank_process_maintenance_resend_pending`
+--
+ALTER TABLE `bank_process_maintenance_resend_pending`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=695;
+
+--
+-- AUTO_INCREMENT for table `bank_process_maintenance_resend_pending_backup`
+--
+ALTER TABLE `bank_process_maintenance_resend_pending_backup`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=678;
+
+--
 -- AUTO_INCREMENT for table `company`
 --
 ALTER TABLE `company`
@@ -1310,88 +1554,10 @@ ALTER TABLE `currency_backup`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=244;
 
 --
--- AUTO_INCREMENT for table `data_captures`
---
-ALTER TABLE `data_captures`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9829;
-
---
--- AUTO_INCREMENT for table `data_captures_backup`
---
-ALTER TABLE `data_captures_backup`
-  MODIFY `backup_id` int(11) NOT NULL AUTO_INCREMENT COMMENT '备份记录自增ID', AUTO_INCREMENT=7367;
-
---
--- AUTO_INCREMENT for table `data_captures_deleted`
---
-ALTER TABLE `data_captures_deleted`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2586;
-
---
--- AUTO_INCREMENT for table `data_capture_details`
---
-ALTER TABLE `data_capture_details`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61292;
-
---
--- AUTO_INCREMENT for table `data_capture_details_backup`
---
-ALTER TABLE `data_capture_details_backup`
-  MODIFY `backup_id` int(11) NOT NULL AUTO_INCREMENT COMMENT '备份记录自增ID', AUTO_INCREMENT=54583;
-
---
--- AUTO_INCREMENT for table `data_capture_submit_queue`
---
-ALTER TABLE `data_capture_submit_queue`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1514;
-
---
--- AUTO_INCREMENT for table `data_capture_submit_queue_backup`
---
-ALTER TABLE `data_capture_submit_queue_backup`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1514;
-
---
--- AUTO_INCREMENT for table `data_capture_summary_state`
---
-ALTER TABLE `data_capture_summary_state`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3519;
-
---
--- AUTO_INCREMENT for table `data_capture_summary_state_backup`
---
-ALTER TABLE `data_capture_summary_state_backup`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3513;
-
---
--- AUTO_INCREMENT for table `data_capture_templates`
---
-ALTER TABLE `data_capture_templates`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29289;
-
---
--- AUTO_INCREMENT for table `data_capture_templates_backup`
---
-ALTER TABLE `data_capture_templates_backup`
-  MODIFY `backup_id` int(11) NOT NULL AUTO_INCREMENT COMMENT '备份记录自增ID', AUTO_INCREMENT=41768;
-
---
 -- AUTO_INCREMENT for table `deleted_logs`
 --
 ALTER TABLE `deleted_logs`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `description`
---
-ALTER TABLE `description`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1937;
-
---
--- AUTO_INCREMENT for table `description_backup`
---
-ALTER TABLE `description_backup`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1937;
 
 --
 -- AUTO_INCREMENT for table `group_ownership`
@@ -1424,10 +1590,82 @@ ALTER TABLE `owner_backup`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=140;
 
 --
+-- AUTO_INCREMENT for table `process_accounting_posted`
+--
+ALTER TABLE `process_accounting_posted`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1145;
+
+--
 -- AUTO_INCREMENT for table `role`
 --
 ALTER TABLE `role`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+
+--
+-- AUTO_INCREMENT for table `submitted_processes`
+--
+ALTER TABLE `submitted_processes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7041;
+
+--
+-- AUTO_INCREMENT for table `submitted_processes_backup`
+--
+ALTER TABLE `submitted_processes_backup`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7041;
+
+--
+-- AUTO_INCREMENT for table `transactions`
+--
+ALTER TABLE `transactions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8405;
+
+--
+-- AUTO_INCREMENT for table `transactions_backup`
+--
+ALTER TABLE `transactions_backup`
+  MODIFY `backup_id` int(11) NOT NULL AUTO_INCREMENT COMMENT '备份记录自增ID', AUTO_INCREMENT=7773;
+
+--
+-- AUTO_INCREMENT for table `transactions_deleted`
+--
+ALTER TABLE `transactions_deleted`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3895;
+
+--
+-- AUTO_INCREMENT for table `transactions_rate`
+--
+ALTER TABLE `transactions_rate`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=225;
+
+--
+-- AUTO_INCREMENT for table `transactions_rate_backup`
+--
+ALTER TABLE `transactions_rate_backup`
+  MODIFY `backup_id` int(11) NOT NULL AUTO_INCREMENT COMMENT '备份记录自增ID', AUTO_INCREMENT=190;
+
+--
+-- AUTO_INCREMENT for table `transactions_rate_details`
+--
+ALTER TABLE `transactions_rate_details`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1036;
+
+--
+-- AUTO_INCREMENT for table `transactions_rate_details_backup`
+--
+ALTER TABLE `transactions_rate_details_backup`
+  MODIFY `backup_id` int(11) NOT NULL AUTO_INCREMENT COMMENT '备份记录自增ID', AUTO_INCREMENT=840;
+
+--
+-- AUTO_INCREMENT for table `transaction_entry`
+--
+ALTER TABLE `transaction_entry`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=828;
+
+--
+-- AUTO_INCREMENT for table `transaction_entry_backup`
+--
+ALTER TABLE `transaction_entry_backup`
+  MODIFY `backup_id` int(11) NOT NULL AUTO_INCREMENT COMMENT '备份记录自增ID', AUTO_INCREMENT=2309;
 
 --
 -- AUTO_INCREMENT for table `user`
@@ -1510,6 +1748,23 @@ ALTER TABLE `auto_login_credentials`
 
 
 --
+-- Constraints for table `bank_process`
+--
+ALTER TABLE `bank_process`
+    ADD CONSTRAINT `fk_bank_process_card_merchant` FOREIGN KEY (`card_merchant_id`) REFERENCES `account` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+
+    ADD CONSTRAINT `fk_bank_process_company` FOREIGN KEY (`company_id`) REFERENCES `company` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+
+    ADD CONSTRAINT `fk_bank_process_created_by` FOREIGN KEY (`created_by`) REFERENCES `user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+
+    ADD CONSTRAINT `fk_bank_process_customer` FOREIGN KEY (`customer_id`) REFERENCES `account` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+
+    ADD CONSTRAINT `fk_bank_process_modified_by` FOREIGN KEY (`modified_by`) REFERENCES `user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+
+    ADD CONSTRAINT `fk_bank_process_profit_account` FOREIGN KEY (`profit_account_id`) REFERENCES `account` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+
+--
 -- Constraints for table `company`
 --
 ALTER TABLE `company`
@@ -1524,24 +1779,63 @@ ALTER TABLE `currency`
 
 
 --
--- Constraints for table `data_capture_details`
+-- Constraints for table `transactions`
 --
-ALTER TABLE `data_capture_details`
-    ADD CONSTRAINT `fk_data_capture_details_capture` FOREIGN KEY (`capture_id`) REFERENCES `data_captures` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `transactions`
+    ADD CONSTRAINT `fk_transactions_created_by_owner` FOREIGN KEY (`created_by_owner`) REFERENCES `owner` (`id`),
+
+    ADD CONSTRAINT `fk_transactions_currency` FOREIGN KEY (`currency_id`) REFERENCES `currency` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+
+    ADD CONSTRAINT `transactions_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `account` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+
+    ADD CONSTRAINT `transactions_ibfk_2` FOREIGN KEY (`from_account_id`) REFERENCES `account` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+
+    ADD CONSTRAINT `transactions_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `user` (`id`);
 
 
 --
--- Constraints for table `data_capture_templates`
+-- Constraints for table `transactions_rate`
 --
-ALTER TABLE `data_capture_templates`
-    ADD CONSTRAINT `fk_data_capture_templates_data_capture` FOREIGN KEY (`data_capture_id`) REFERENCES `data_captures` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `transactions_rate`
+    ADD CONSTRAINT `transactions_rate_ibfk_1` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE CASCADE,
+
+    ADD CONSTRAINT `transactions_rate_ibfk_2` FOREIGN KEY (`rate_from_account_id`) REFERENCES `account` (`id`),
+
+    ADD CONSTRAINT `transactions_rate_ibfk_3` FOREIGN KEY (`rate_to_account_id`) REFERENCES `account` (`id`),
+
+    ADD CONSTRAINT `transactions_rate_ibfk_4` FOREIGN KEY (`rate_transfer_from_account_id`) REFERENCES `account` (`id`),
+
+    ADD CONSTRAINT `transactions_rate_ibfk_5` FOREIGN KEY (`rate_transfer_to_account_id`) REFERENCES `account` (`id`),
+
+    ADD CONSTRAINT `transactions_rate_ibfk_6` FOREIGN KEY (`rate_middleman_account_id`) REFERENCES `account` (`id`),
+
+    ADD CONSTRAINT `transactions_rate_ibfk_7` FOREIGN KEY (`rate_from_currency_id`) REFERENCES `currency` (`id`),
+
+    ADD CONSTRAINT `transactions_rate_ibfk_8` FOREIGN KEY (`rate_to_currency_id`) REFERENCES `currency` (`id`);
 
 
 --
--- Constraints for table `description`
+-- Constraints for table `transactions_rate_details`
 --
-ALTER TABLE `description`
-    ADD CONSTRAINT `fk_description_company` FOREIGN KEY (`company_id`) REFERENCES `company` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `transactions_rate_details`
+    ADD CONSTRAINT `transactions_rate_details_ibfk_1` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE CASCADE,
+
+    ADD CONSTRAINT `transactions_rate_details_ibfk_2` FOREIGN KEY (`account_id`) REFERENCES `account` (`id`),
+
+    ADD CONSTRAINT `transactions_rate_details_ibfk_3` FOREIGN KEY (`from_account_id`) REFERENCES `account` (`id`),
+
+    ADD CONSTRAINT `transactions_rate_details_ibfk_4` FOREIGN KEY (`currency_id`) REFERENCES `currency` (`id`);
+
+
+--
+-- Constraints for table `transaction_entry`
+--
+ALTER TABLE `transaction_entry`
+    ADD CONSTRAINT `fk_entry_account` FOREIGN KEY (`account_id`) REFERENCES `account` (`id`),
+
+    ADD CONSTRAINT `fk_entry_currency` FOREIGN KEY (`currency_id`) REFERENCES `currency` (`id`),
+
+    ADD CONSTRAINT `fk_entry_header` FOREIGN KEY (`header_id`) REFERENCES `transactions` (`id`);
 
 
 --

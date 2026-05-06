@@ -19,6 +19,8 @@ import DomainFormModal from "./components/DomainFormModal.jsx";
 
 export default function DomainPage() {
   const navigate = useNavigate();
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const isZh = lang === "zh";
 
   // ── Session / auth ─────────────────────────────────────────────────────────
   const [me, setMe] = useState(null);
@@ -27,6 +29,14 @@ export default function DomainPage() {
   const [loadError, setLoadError] = useState("");
   // Keep legacy modal css available during migration
   const assetVersion = useMemo(() => Date.now(), []);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -128,7 +138,7 @@ export default function DomainPage() {
       .then((res) => {
         if (res.success && res.data) {
           const p2 = formatDomainFeeDisplay2(res.data.price);
-          setFeeInlineSummary(p2 !== "—" ? `Display: Price ${p2}` : "");
+          setFeeInlineSummary(p2 !== "—" ? (isZh ? `显示：价格 ${p2}` : `Display: Price ${p2}`) : "");
           setDomainFeePrice(Number(res.data.price) || 0);
         }
       })
@@ -172,21 +182,28 @@ export default function DomainPage() {
   }
 
   function handleDeleteSelected() {
-    if (checkedIds.size === 0) { showDomainAlert("Please select owners to delete first", "danger"); return; }
+    if (checkedIds.size === 0) { showDomainAlert(isZh ? "请先选择要删除的拥有者" : "Please select owners to delete first", "danger"); return; }
 
     const invalid = domains.filter((d) => checkedIds.has(d.id) && hasProtectedCompany(d.companies_full));
     const valid = domains.filter((d) => checkedIds.has(d.id) && !hasProtectedCompany(d.companies_full));
 
     if (invalid.length > 0 && valid.length === 0) {
-      showDomainAlert("Cannot delete owners linked to company C168", "danger"); return;
+      showDomainAlert(isZh ? "无法删除关联 C168 公司的拥有者" : "Cannot delete owners linked to company C168", "danger"); return;
     }
     if (invalid.length > 0 && valid.length > 0) {
-      showDomainAlert(`Owners linked to company C168 cannot be deleted. ${valid.length} other owner(s) will be deleted.`, "danger");
+      showDomainAlert(
+        isZh
+          ? `关联 C168 公司的拥有者无法删除。其余 ${valid.length} 位拥有者将被删除。`
+          : `Owners linked to company C168 cannot be deleted. ${valid.length} other owner(s) will be deleted.`,
+        "danger"
+      );
     }
 
     const names = valid.map((d) => d.name).join(", ");
     setConfirmModal({
-      message: `Are you sure you want to delete the following ${valid.length} owner(s)?\n\n${names}`,
+      message: isZh
+        ? `确定要删除以下 ${valid.length} 位拥有者吗？\n\n${names}`
+        : `Are you sure you want to delete the following ${valid.length} owner(s)?\n\n${names}`,
       onConfirm: async () => {
         setConfirmModal(null);
         try {
@@ -201,13 +218,13 @@ export default function DomainPage() {
           );
           const ok = results.filter((r) => r.success).length;
           const fail = results.length - ok;
-          if (fail === 0) showDomainAlert(`Successfully deleted ${ok} owners!`);
-          else showDomainAlert(`Deletion completed: ${ok} succeeded, ${fail} failed`, "danger");
+          if (fail === 0) showDomainAlert(isZh ? `成功删除 ${ok} 位拥有者！` : `Successfully deleted ${ok} owners!`);
+          else showDomainAlert(isZh ? `删除完成：成功 ${ok}，失败 ${fail}` : `Deletion completed: ${ok} succeeded, ${fail} failed`, "danger");
           const deletedIds = new Set(valid.map((d) => d.id));
           setDomains((prev) => prev.filter((d) => !deletedIds.has(d.id)));
           setCheckedIds(new Set());
         } catch {
-          showDomainAlert("An error occurred during batch deletion", "danger");
+          showDomainAlert(isZh ? "批量删除时发生错误" : "An error occurred during batch deletion", "danger");
         }
       },
     });
@@ -247,7 +264,7 @@ export default function DomainPage() {
   return (
     <>
       <div className="container domain-react-page">
-        <h1>Domain List</h1>
+        <h1>{isZh ? "域名列表" : "Domain List"}</h1>
         {loadError && (
           <div style={{ marginBottom: 10, color: "#b91c1c", fontWeight: 600 }}>{loadError}</div>
         )}
@@ -255,7 +272,7 @@ export default function DomainPage() {
         <div className="action-buttons">
           <div className="domain-toolbar-left">
             <button type="button" className="btn-add" onClick={openAddModal}>
-              Add Domain
+              {isZh ? "新增域名" : "Add Domain"}
             </button>
             <div className="search-container">
               <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -264,14 +281,14 @@ export default function DomainPage() {
               <input
                 type="text"
                 id="searchInput"
-                placeholder="Search by Owner Name/Company"
+                placeholder={isZh ? "按拥有者名称/公司搜索" : "Search by Owner Name/Company"}
                 className="search-input"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(forceSearchValue(e.target.value))}
               />
             </div>
             <button type="button" className="btn-fee-settings" id="domainFeeSettingsBtn" onClick={() => setFeeModal(true)}>
-              Price
+              {isZh ? "价格" : "Price"}
             </button>
             <span id="domainFeeInlineSummary" className="domain-fee-inline-summary" aria-live="polite">
               {feeInlineSummary}
@@ -285,7 +302,9 @@ export default function DomainPage() {
               disabled={checkedIds.size === 0}
               onClick={handleDeleteSelected}
             >
-              {checkedIds.size > 0 ? `Delete (${checkedIds.size})` : "Delete"}
+              {checkedIds.size > 0
+                ? (isZh ? `删除（${checkedIds.size}）` : `Delete (${checkedIds.size})`)
+                : (isZh ? "删除" : "Delete")}
             </button>
           </div>
         </div>
@@ -294,14 +313,14 @@ export default function DomainPage() {
 
         <div className="table-container">
           <div className="table-header">
-            <div>No:</div>
-            <div>Owner Code:</div>
-            <div>Name:</div>
-            <div>Email:</div>
+            <div>{isZh ? "序号:" : "No:"}</div>
+            <div>{isZh ? "拥有者代码:" : "Owner Code:"}</div>
+            <div>{isZh ? "名称:" : "Name:"}</div>
+            <div>{isZh ? "邮箱:" : "Email:"}</div>
             <div>GroupID:</div>
-            <div>Companies:</div>
-            <div>Created By:</div>
-            <div>Action:</div>
+            <div>{isZh ? "公司:" : "Companies:"}</div>
+            <div>{isZh ? "创建者:" : "Created By:"}</div>
+            <div>{isZh ? "操作:" : "Action:"}</div>
           </div>
           <div className="domain-cards" id="domainTableBody">
             {pagedDomains.map((domain, idx) => {
@@ -365,8 +384,8 @@ export default function DomainPage() {
                   </div>
                   <div className="card-item uppercase-text">{String(domain.created_by || "-").toUpperCase()}</div>
                   <div className="card-item" style={{ display: "flex", alignItems: "center" }}>
-                    <button type="button" className="btn-edit" onClick={() => openEditModal(domain)} aria-label="Edit">
-                      <img src="/images/edit.svg" alt="Edit" />
+                    <button type="button" className="btn-edit" onClick={() => openEditModal(domain)} aria-label={isZh ? "编辑" : "Edit"}>
+                      <img src="/images/edit.svg" alt={isZh ? "编辑" : "Edit"} />
                     </button>
                     {!isProtected && domain.owner_code !== "K" && (
                       <input
@@ -396,7 +415,7 @@ export default function DomainPage() {
               ◀
             </button>
             <span className="pagination-info" id="paginationInfo">
-              {safePage} of {totalPages}
+              {isZh ? `${safePage} / ${totalPages}` : `${safePage} of ${totalPages}`}
             </span>
             <button
               type="button"
@@ -415,6 +434,7 @@ export default function DomainPage() {
 
       {showDomainForm && (
         <DomainFormModal
+          lang={lang}
           isEditMode={isEditMode}
           editingDomain={editingDomain}
           hasC168Context={!!me?.has_c168_domain_page_access}
@@ -429,6 +449,7 @@ export default function DomainPage() {
 
       {confirmModal && (
         <DomainConfirmModal
+          lang={lang}
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
           onClose={() => setConfirmModal(null)}
@@ -437,10 +458,11 @@ export default function DomainPage() {
 
       {feeModal && (
         <DomainFeeModal
+          lang={lang}
           onClose={() => setFeeModal(false)}
           onFeeSaved={(data) => {
             const p2 = formatDomainFeeDisplay2(data.price);
-            setFeeInlineSummary(p2 !== "—" ? `Display: Price ${p2}` : "");
+            setFeeInlineSummary(p2 !== "—" ? (isZh ? `显示：价格 ${p2}` : `Display: Price ${p2}`) : "");
             setDomainFeePrice(Number(data.price) || 0);
           }}
         />
@@ -448,6 +470,7 @@ export default function DomainPage() {
 
       {expModal && (
         <CompanyExpirationModal
+          lang={lang}
           companies={expModal}
           onClose={() => setExpModal(null)}
         />
