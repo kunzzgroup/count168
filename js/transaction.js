@@ -2975,8 +2975,8 @@
         let filteredLeft = rawLeft;
         let filteredRight = rawRight;
 
-        if (showPaymentOnly) {
-            const eps = 0.00001;
+        if (showPaymentOnly || showWinLossOnly) {
+            const eps = '0.00001';
             const hasCrdr = row => {
                 const byFlag = (typeof row.has_crdr_transactions === 'boolean')
                     ? row.has_crdr_transactions
@@ -2989,22 +2989,25 @@
                 return byFlag || byValue;
             };
             const hasWinLoss = row => {
-                const byFlag = (typeof row.has_win_loss_transactions === 'boolean')
-                    ? row.has_win_loss_transactions
-                    : ((typeof row.has_win_loss_transactions === 'number')
-                        ? row.has_win_loss_transactions !== 0
-                        : parseInt(row.has_win_loss_transactions || '0', 10) !== 0);
-                const wl = parseBalanceValue(row.win_loss);
-                const byValue = wl !== null && MoneyDecimal.toDecimal(wl).abs().gt('0.00001');
-                return byFlag || byValue;
+                // Show Win/Loss Only 以实际金额是否非 0 为准，避免后端标记为真但金额为 0 的行混入。
+                const rawWinLoss = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
+                    ? String(row.win_loss_full).replace(/,/g, '').trim()
+                    : row.win_loss;
+                const wl = parseBalanceValue(rawWinLoss);
+                return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(eps);
             };
-            const shouldShow = showWinLossOnly
-                ? (row) => hasCrdr(row) || hasWinLoss(row)
-                : hasCrdr;
+            let shouldShow = () => true;
+            if (showPaymentOnly && showWinLossOnly) {
+                shouldShow = (row) => hasCrdr(row) || hasWinLoss(row);
+            } else if (showPaymentOnly) {
+                shouldShow = hasCrdr;
+            } else if (showWinLossOnly) {
+                shouldShow = hasWinLoss;
+            }
             filteredLeft = rawLeft.filter(shouldShow);
             filteredRight = rawRight.filter(shouldShow);
 
-            // 不做回退：Show Payment Only 为空时应保持空结果，避免误判为筛选失效
+            // 不做回退：过滤后为空时应保持空结果，避免误判为筛选失效
         }
 
         // 再应用 Show 0 balance 过滤
