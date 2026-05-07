@@ -1,6 +1,6 @@
 import React from "react";
 
-export function EditAnnouncementModal({ open, draft, setDraft, onClose, onSave }) {
+export function EditAnnouncementModal({ t, open, draft, setDraft, onClose, onSave }) {
   if (!open) return null;
   return (
     <div
@@ -11,14 +11,14 @@ export function EditAnnouncementModal({ open, draft, setDraft, onClose, onSave }
     >
       <div className="edit-modal-content">
         <div className="edit-modal-header">
-          <h2>Edit Announcement</h2>
-          <span className="edit-modal-close" onClick={onClose} role="button" aria-label="Close">
+          <h2>{t("editAnnouncement")}</h2>
+          <span className="edit-modal-close" onClick={onClose} role="button" aria-label={t("close")}>
             &times;
           </span>
         </div>
         <form id="editAnnouncementForm" onSubmit={(e) => { e.preventDefault(); onSave(); }}>
           <div className="form-group">
-            <label htmlFor="editAnnouncementTitle">Title *</label>
+            <label htmlFor="editAnnouncementTitle">{t("titleRequired")}</label>
             <input
               id="editAnnouncementTitle"
               type="text"
@@ -29,7 +29,7 @@ export function EditAnnouncementModal({ open, draft, setDraft, onClose, onSave }
             />
           </div>
           <div className="form-group">
-            <label htmlFor="editAnnouncementContent">Content *</label>
+            <label htmlFor="editAnnouncementContent">{t("contentRequired")}</label>
             <textarea
               id="editAnnouncementContent"
               required
@@ -39,10 +39,10 @@ export function EditAnnouncementModal({ open, draft, setDraft, onClose, onSave }
           </div>
           <div className="edit-modal-actions">
             <button type="button" className="edit-modal-btn edit-modal-btn-cancel" onClick={onClose}>
-              Cancel
+              {t("cancel")}
             </button>
             <button type="submit" className="edit-modal-btn edit-modal-btn-save">
-              Save Changes
+              {t("saveChanges")}
             </button>
           </div>
         </form>
@@ -51,7 +51,7 @@ export function EditAnnouncementModal({ open, draft, setDraft, onClose, onSave }
   );
 }
 
-export function EditMaintenanceModal({ open, draft, setDraft, onClose, onSave }) {
+export function EditMaintenanceModal({ t, open, draft, setDraft, onClose, onSave }) {
   if (!open) return null;
   return (
     <div
@@ -62,14 +62,14 @@ export function EditMaintenanceModal({ open, draft, setDraft, onClose, onSave })
     >
       <div className="edit-modal-content">
         <div className="edit-modal-header">
-          <h2>Edit Maintenance Content</h2>
-          <span className="edit-modal-close" onClick={onClose} role="button" aria-label="Close">
+          <h2>{t("editMaintenanceContent")}</h2>
+          <span className="edit-modal-close" onClick={onClose} role="button" aria-label={t("close")}>
             &times;
           </span>
         </div>
         <form id="editMaintenanceForm" onSubmit={(e) => { e.preventDefault(); onSave(); }}>
           <div className="form-group">
-            <label htmlFor="editMaintenanceContent">Content *</label>
+            <label htmlFor="editMaintenanceContent">{t("contentRequired")}</label>
             <textarea
               id="editMaintenanceContent"
               required
@@ -79,10 +79,10 @@ export function EditMaintenanceModal({ open, draft, setDraft, onClose, onSave })
           </div>
           <div className="edit-modal-actions">
             <button type="button" className="edit-modal-btn edit-modal-btn-cancel" onClick={onClose}>
-              Cancel
+              {t("cancel")}
             </button>
             <button type="submit" className="edit-modal-btn edit-modal-btn-save">
-              Save Changes
+              {t("saveChanges")}
             </button>
           </div>
         </form>
