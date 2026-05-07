@@ -2330,8 +2330,17 @@ try {
 
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
     $balance_by_currency = [];
-    if ($bfCurrency !== null && $bfCurrency !== '') {
-        // Payment History：累加用更高精度（8dp）保存，展示时再统一 HALF_UP 到 2dp
+    // 未指定 currency 时：B/F 按 bf_per_currency 多行展示，running balance 必须为每个币别分别带入对应 opening，否则会只见第一币别 B/F（其余从 0 累加）
+    if (is_array($bf_per_currency) && count($bf_per_currency) > 0) {
+        foreach ($bf_per_currency as $code => $bfAmt) {
+            $ck = trim((string) $code);
+            if ($ck === '') {
+                continue;
+            }
+            $balance_by_currency[$ck] = money_normalize($bfAmt, 6);
+        }
+    } elseif ($bfCurrency !== null && $bfCurrency !== '') {
+        // 指定单一 currency 或 legacy 单笔 B/F：累加用更高精度（8dp）保存，展示时再统一 HALF_UP 到 2dp
         $balance_by_currency[$bfCurrency] = money_normalize($bf, 6);
     }
 
