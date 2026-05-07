@@ -3064,10 +3064,7 @@
                 return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(eps);
             };
             let shouldShow = () => true;
-            // Show 0 balance：勿再用「非零 Cr/Dr / WinLoss」筛掉整行，否则与勾选意图冲突（后端已按 EXISTS 缩账户范围）。
-            if (showZero) {
-                shouldShow = () => true;
-            } else if (showPaymentOnly && showWinLossOnly) {
+            if (showPaymentOnly && showWinLossOnly) {
                 shouldShow = (row) => hasCrdr(row) || hasWinLoss(row);
             } else if (showPaymentOnly) {
                 shouldShow = hasCrdr;
@@ -3159,11 +3156,9 @@
         };
         const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
         const showZeroEarly = document.getElementById('show_zero_balance')?.checked || false;
-        const shouldShow = showZeroEarly
-            ? () => true
-            : (showWinLossOnly
-                ? (row) => hasCrdr(row) || hasWinLoss(row)
-                : hasCrdr);
+        const shouldShow = showWinLossOnly
+            ? (row) => hasCrdr(row) || hasWinLoss(row)
+            : hasCrdr;
 
         let filteredLeft = lastSearchData.left_table.filter(shouldShow);
         let filteredRight = lastSearchData.right_table.filter(shouldShow);
