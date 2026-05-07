@@ -14,6 +14,7 @@ import {
   forceNumericValue,
 } from "../domainHelpers.js";
 import { getDomainText } from "../../../translateFile/domainTranslate.js";
+import DomainModalPortal from "./DomainModalPortal.jsx";
 
 /**
  * Domain Add/Edit Modal
@@ -320,7 +321,7 @@ export default function DomainFormModal({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <>
+    <DomainModalPortal>
       <div className="fixed inset-0 z-[10001] bg-black/50 backdrop-blur-[4px]" style={{ display: "block" }}>
         <div className="relative mx-auto my-[1.5%] flex w-[96%] max-w-[1100px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
           <div className="flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
@@ -500,6 +501,6 @@ export default function DomainFormModal({
           onClose={() => setCsModalCompanyId(null)}
         />
       )}
-    </>
+    </DomainModalPortal>
   );
 }

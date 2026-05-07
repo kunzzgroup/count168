@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import { getDomainText } from "../../../translateFile/domainTranslate.js";
+import DomainModalPortal from "./DomainModalPortal.jsx";
 
 const ALERT_TYPE_OPTIONS = [
   "weekly", "monthly",
@@ -177,8 +178,9 @@ export default function AddAccountModal({ companyId, companyCode, preferredRole,
   const visibleCurrencies = currencies.filter((c) => !deletedCurrencyIds.includes(c.id));
 
   return (
-    <div className="account-modal" style={{ display: "block", zIndex: 10010 }}>
-      <div className="account-modal-content">
+    <DomainModalPortal>
+      <div className="account-modal" style={{ display: "block", zIndex: 10010 }}>
+        <div className="account-modal-content">
         <div className="account-modal-header">
           <h2>{t("addAccountTitle")}</h2>
           <span className="account-close" onClick={onClose}>&times;</span>
@@ -307,7 +309,8 @@ export default function AddAccountModal({ companyId, companyCode, preferredRole,
             </div>
           </form>
         </div>
+        </div>
       </div>
-    </div>
+    </DomainModalPortal>
   );
 }
