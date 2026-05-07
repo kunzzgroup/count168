@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node ./scripts/warn-dist-css-edits.mjs",
     "build": "vite build",
+    "prebuild:site": "node ./scripts/warn-dist-css-edits.mjs",
     "build:site": "vite build",
+    "prebuild:watch": "node ./scripts/warn-dist-css-edits.mjs",
     "build:watch": "vite build --watch",
     "preview": "vite preview"
   },
