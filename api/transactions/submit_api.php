@@ -151,6 +151,15 @@ function submitRateRound2($value): string
     return money_normalize(bcadd($normalized, $adjustment, MONEY_CALC_SCALE), 2);
 }
 
+function submitDecimalPlaces($value): int
+{
+    $clean = money_clean($value);
+    if ($clean === '' || strpos($clean, '.') === false) {
+        return 0;
+    }
+    return strlen(rtrim(substr(strrchr($clean, '.'), 1), " \t\n\r\0\x0B"));
+}
+
 /**
  * 基于 session 的轻量幂等缓存（防止同一次点击重复提交）
  */
@@ -530,7 +539,11 @@ try {
             
             $transaction_ids = [];
             
-            $rate_exchange_rate = money_normalize($_POST['rate_exchange_rate'] ?? '0');
+            $rawRateExchangeRate = $_POST['rate_exchange_rate'] ?? '0';
+            if (submitDecimalPlaces($rawRateExchangeRate) > 8) {
+                throw new Exception('Exchange Rate 小数位最多 8 位');
+            }
+            $rate_exchange_rate = money_normalize($rawRateExchangeRate);
             if (money_cmp($rate_exchange_rate, '0') <= 0) {
                 throw new Exception('Exchange Rate 必须大于 0');
             }

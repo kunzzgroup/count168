@@ -98,6 +98,14 @@ function historyDisplayDecimal($value, int $scale = 6): string
     return money_out($value, $scale);
 }
 
+function historyFormatRateMax6($value): string
+{
+    if ($value === null || trim((string) $value) === '') {
+        return '';
+    }
+    return historyDisplayDecimal($value, 6);
+}
+
 /** Payment History：业务日 Y-m-d，按日历旧→新排序（与 Date 列同一业务含义） */
 function historySortDateYmdFromRaw($raw): string
 {
@@ -251,6 +259,9 @@ function formatExchangeRateDescription(string $description, ?string $fromCurrenc
     $rateText = $rateOverride !== null && $rateOverride !== ''
         ? trim((string) $rateOverride)
         : trim($matches[3]);
+    if ($rateText !== '' && money_is_valid($rateText)) {
+        $rateText = historyFormatRateMax6($rateText);
+    }
 
     $formatted = 'EXCH RATE ' . $rateText;
     if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
@@ -2232,8 +2243,8 @@ try {
             if ($exchangeRate !== null && $middlemanRate !== null) {
                 $netRate = money_sub($exchangeRate, $middlemanRate, 8);
                 if (money_cmp($netRate, '0') > 0) {
-                    // 保留最多 4 位小数，并去掉多余的 0
-                    $displayRateForSuffix = money_out($netRate, 4);
+                    // 保留最多 6 位小数，并去掉多余的 0
+                    $displayRateForSuffix = money_out($netRate, 6);
                 }
             }
         }

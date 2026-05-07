@@ -116,6 +116,51 @@
         return str ? str.toUpperCase() : '-';
     }
 
+    const RATE_MAX_DECIMALS = 8;
+    const RATE_HISTORY_MAX_DECIMALS = 6;
+
+    function countDecimalPlaces(value) {
+        const str = String(value ?? '').trim();
+        if (!str.includes('.')) return 0;
+        return str.split('.')[1].length;
+    }
+
+    function truncateDecimalString(value, scale) {
+        const str = String(value ?? '').trim();
+        if (!str || !str.includes('.')) return str || '0';
+        const negative = str.startsWith('-');
+        const unsigned = negative ? str.slice(1) : str;
+        const [intPartRaw, fracRaw = ''] = unsigned.split('.');
+        const intPart = intPartRaw === '' ? '0' : intPartRaw;
+        const frac = fracRaw.slice(0, Math.max(0, scale));
+        if (!frac) return negative ? `-${intPart}` : intPart;
+        return negative ? `-${intPart}.${frac}` : `${intPart}.${frac}`;
+    }
+
+    function formatRateForHistoryDisplay(value) {
+        try {
+            const normalized = MoneyDecimal.toDecimal(value || '0').toString();
+            const truncated = truncateDecimalString(normalized, RATE_HISTORY_MAX_DECIMALS);
+            if (!truncated.includes('.')) return truncated;
+            return truncated.replace(/(\.\d*?[1-9])0+$/u, '$1').replace(/\.0+$/u, '');
+        } catch (_) {
+            return String(value ?? '').trim();
+        }
+    }
+
+    function normalizeRateForSubmit(value) {
+        try {
+            const normalized = MoneyDecimal.toDecimal(value || '0').toString();
+            return truncateDecimalString(normalized, RATE_MAX_DECIMALS);
+        } catch (_) {
+            return '0';
+        }
+    }
+
+    function hasTokenExceedingRateDecimals(token) {
+        return countDecimalPlaces(token) > RATE_MAX_DECIMALS;
+    }
+
     // ==================== RATE 计算（支持乘法/除法） ====================
     function parseRateExpression(rawValue) {
         const raw = String(rawValue ?? '').trim();
@@ -130,6 +175,9 @@
 
         // 兼容 "/3" 语法，表示除以 3（即乘以 1/3）
         if (/^\/\d*\.?\d+$/.test(normalized)) {
+            if (hasTokenExceedingRateDecimals(normalized.slice(1))) {
+                return { valid: false, value: 0 };
+            }
             let divisor;
             try {
                 divisor = MoneyDecimal.toDecimal(normalized.slice(1));
@@ -156,6 +204,9 @@
         if (!/^\d*\.?\d+$/.test(tokens[0])) {
             return { valid: false, value: 0 };
         }
+        if (hasTokenExceedingRateDecimals(tokens[0])) {
+            return { valid: false, value: 0 };
+        }
 
         let result;
         try {
@@ -169,6 +220,9 @@
             const op = tokens[i];
             const numToken = tokens[i + 1];
             if (!numToken || !/^\d*\.?\d+$/.test(numToken)) {
+                return { valid: false, value: 0 };
+            }
+            if (hasTokenExceedingRateDecimals(numToken)) {
                 return { valid: false, value: 0 };
             }
             let value;
@@ -192,7 +246,7 @@
         if (result.lte(0)) {
             return { valid: false, value: 0 };
         }
-        return { valid: true, value: result.toString() };
+        return { valid: true, value: normalizeRateForSubmit(result.toString()) };
     }
 
     function formatRateAmount(value) {
@@ -3257,7 +3311,7 @@
                 return;
             }
             if (!parsedRateExchange.valid) {
-                showNotification('Please enter a valid rate value (supports * and /)', 'error');
+                showNotification('Please enter a valid rate value (supports * and /, max 8 decimal places)', 'error');
                 return;
             }
 
@@ -3698,7 +3752,7 @@
                         <td class="transaction-history-col-date">${row.date}</td>
                         <td class="transaction-history-col-product">${String(idProductDisplay).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</td>
                         <td class="transaction-history-col-currency">${row.currency || '-'}</td>
-                        <td class="transaction-history-col-rate">${row.rate || '-'}</td>
+                        <td class="transaction-history-col-rate">${(row.rate && row.rate !== '-') ? formatRateForHistoryDisplay(row.rate) : '-'}</td>
                         <td class="transaction-history-col-winloss">${winLoss}</td>
                         <td class="transaction-history-col-crdr">${crDr}</td>
                         <td class="transaction-history-col-balance">${balance}</td>
