@@ -2002,6 +2002,9 @@
         // 若仍在后端启用 show_inactive=1（Show Payment Only 的账户级 EXISTS），会把“无 payment 但 balance=0”账号直接过滤掉。
         // 因此：Show Payment Only + Show 0 balance 时，后端按 show_inactive=0 拉全量，再由前端按规则筛选。
         const showInactiveForQuery = (showZero === '1' && showInactive === '1') ? '0' : showInactive;
+        // 同理：Show Win/Loss Only + Show 0 balance 时，后端若启用 show_capture_only=1 的 EXISTS 会过滤掉「无 win/loss 但 balance=0」账号；
+        // 必须拉全量，再由前端按「有 Win/Loss 或 Balance=0」规则筛选。
+        const showCaptureOnlyForQuery = (showZero === '1' && showCaptureOnly === '1') ? '0' : showCaptureOnly;
 
         // 验证日期
         if (!dateFrom || !dateTo) {
@@ -2020,7 +2023,7 @@
         }
 
         // 构建 URL，处理多选分类
-        let url = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactiveForQuery}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+        let url = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactiveForQuery}&show_capture_only=${showCaptureOnlyForQuery}&hide_zero_balance=${hideZero}`;
 
         // 处理分类参数：如果是全选则不传参数，否则传递多个分类
         if (selectedCategories.length > 0 && !selectedCategories.includes('')) {
@@ -2035,7 +2038,7 @@
             url += `&currency=${selectedCurrencies.join(',')}`;
         }
 
-        console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showInactiveForQuery, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies, debugWlTotal: !!(typeof window !== 'undefined' && window.DEBUG_TRANSACTION_WL_TOTAL === true) });
+        console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showInactiveForQuery, showCaptureOnly, showCaptureOnlyForQuery, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies, debugWlTotal: !!(typeof window !== 'undefined' && window.DEBUG_TRANSACTION_WL_TOTAL === true) });
 
         // 添加时间戳防止缓存
         url = transactionsApiAppendWlDebug(url);
@@ -2188,7 +2191,7 @@
 
                     // 兜底修复：单选币别时若后端返回空行，则自动重查全部币别并在前端按该币别过滤
                     if (singleSelectedCurrency && totalAccounts === 0) {
-                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactiveForQuery}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactiveForQuery}&show_capture_only=${showCaptureOnlyForQuery}&hide_zero_balance=${hideZero}`;
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
                         }
@@ -3069,13 +3072,23 @@
                 return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(eps);
             };
             let shouldShow = () => true;
+            // 需求（统一规则）：
+            // - Show 0 balance 勾选时：任何 Balance=0 的行都必须展示
+            // - Show Payment Only：仍展示有 Cr/Dr 的行
+            // - Show Win/Loss Only：仍展示有 Win/Loss 的行
+            // 三者可组合：最终为「勾选项对应条件的 OR」，且若未勾 Show 0 balance 则不额外放行 0 balance。
             if (showPaymentOnly && showWinLossOnly) {
-                shouldShow = (row) => hasCrdr(row) || hasWinLoss(row);
+                shouldShow = showZero
+                    ? (row) => isZeroBalance(row) || hasCrdr(row) || hasWinLoss(row)
+                    : (row) => hasCrdr(row) || hasWinLoss(row);
             } else if (showPaymentOnly) {
-                // 需求：Show Payment + Show 0 balance 时，除有 Cr/Dr 外也要展示 Balance=0 的账号行
-                shouldShow = showZero ? (row) => hasCrdr(row) || isZeroBalance(row) : hasCrdr;
+                shouldShow = showZero
+                    ? (row) => isZeroBalance(row) || hasCrdr(row)
+                    : hasCrdr;
             } else if (showWinLossOnly) {
-                shouldShow = hasWinLoss;
+                shouldShow = showZero
+                    ? (row) => isZeroBalance(row) || hasWinLoss(row)
+                    : hasWinLoss;
             }
             filteredLeft = rawLeft.filter(shouldShow);
             filteredRight = rawRight.filter(shouldShow);
