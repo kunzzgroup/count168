@@ -1,4 +1,4 @@
-body {
+body.user-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
@@ -26,7 +26,7 @@ body.user-page:not(.user-page--show-all) {
     height: 100vh !important;
 }
 
-.container {
+.user-page .container {
     max-width: none;
     margin: 0;
     padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
@@ -93,7 +93,7 @@ body.user-page.user-page--show-all .user-cards {
     overflow-y: visible;
 }
 
-h1 {
+.user-page h1 {
     color: #002C49;
     text-align: left;
     margin-top: clamp(12px, 1.04vw, 20px);
@@ -141,20 +141,20 @@ h1 {
     overflow-y: visible;
 }
 
-.btn:hover {
+.user-page .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.btn:active {
+.user-page .btn:active {
     transform: translateY(0);
 }
 
-.btn:hover::after {
+.user-page .btn:hover::after {
     transform: translateX(120%);
 }
 
-.btn-add {
+.user-page .btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
@@ -172,13 +172,13 @@ h1 {
     text-align: center;
 }
 
-.btn-add:hover {
+.user-page .btn-add:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-edit {
+.user-page .btn-edit {
     background-color: transparent;
     color: black;
     padding: clamp(2px, 0.31vw, 6px) 0;
@@ -187,12 +187,12 @@ h1 {
     cursor: pointer;
 }
 
-.btn-edit:hover {
+.user-page .btn-edit:hover {
     background-color: transparent;
     box-shadow: none;
 }
 
-.btn-edit img {
+.user-page .btn-edit img {
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(10px, 0.83vw, 16px);
     display: block;
@@ -201,7 +201,7 @@ h1 {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
-.btn-delete {
+.user-page .btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: 'Amaranth';
@@ -220,19 +220,19 @@ h1 {
     text-align: center;
 }
 
-.btn-delete:hover {
+.user-page .btn-delete:hover {
     background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-delete.active {
+.user-page .btn-delete.active {
     background: linear-gradient(180deg, #49a70bff 0%, #15581aff 100%) !important;
     color: white !important;
     box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3) !important;
 }
 
-.btn-cancel {
+.user-page .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
     font-family: 'Amaranth';
@@ -250,7 +250,7 @@ h1 {
     text-align: center;
 }
 
-.btn-cancel:hover {
+.user-page .btn-cancel:hover {
     background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
     box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
     transform: translateY(-1px);
@@ -351,7 +351,7 @@ h1 {
    ============================================================ */
 
 /* Modal base: hidden by default */
-.modal {
+.user-page .modal {
     display: none;
     position: fixed;
     z-index: 2000;
@@ -382,7 +382,7 @@ h1 {
 }
 
 /* Modal content: fills the full modal area */
-.modal-content {
+.user-page .modal-content {
     background: linear-gradient(180deg, #eef4ff 0%, #f7faff 100%);
     width: 100%;
     height: 100%;
@@ -392,7 +392,7 @@ h1 {
 }
 
 /* ── Header Bar ────────────────────────────────────────────── */
-.modal-header-bar {
+.user-page .modal-header-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -402,7 +402,7 @@ h1 {
     flex-shrink: 0;
 }
 
-.modal-header-bar h2 {
+.user-page .modal-header-bar h2 {
     margin: 0;
     font-size: clamp(22px, 1.45vw, 30px);
     font-weight: 700;
@@ -440,7 +440,7 @@ h1 {
 }
 
 /* ── Modal Body：淺灰底 + 內嵌白卡片（三等欄，對齊原版 Add User） ── */
-.modal-body {
+.user-page .modal-body {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -649,8 +649,8 @@ label.user-modal-col-title.acc-proc-label {
     }
 }
 
-.modal-content .user-modal-footer .btn-save,
-.modal-content .user-modal-footer .btn-cancel {
+.user-page .modal-content .user-modal-footer .btn-save,
+.user-page .modal-content .user-modal-footer .btn-cancel {
     border-radius: 8px;
     min-width: clamp(108px, 7.8vw, 140px);
     min-height: 36px;
@@ -658,11 +658,11 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 /* ── Form fields ── */
-.form-group {
+.user-page .form-group {
     margin-bottom: clamp(8px, 0.625vw, 12px);
 }
 
-.form-group label {
+.user-page .form-group label {
     display: block;
     margin-bottom: clamp(2px, 0.21vw, 4px);
     font-weight: 600;
@@ -670,8 +670,8 @@ label.user-modal-col-title.acc-proc-label {
     font-size: clamp(12px, 0.8vw, 15px);
 }
 
-.form-group input,
-.form-group select {
+.user-page .form-group input,
+.user-page .form-group select {
     width: 100%;
     padding: clamp(7px, 0.45vw, 10px) clamp(10px, 0.73vw, 14px);
     border: 1px solid #d1d5db;
@@ -682,8 +682,8 @@ label.user-modal-col-title.acc-proc-label {
     background: white;
 }
 
-.form-group input:focus,
-.form-group select:focus {
+.user-page .form-group input:focus,
+.user-page .form-group select:focus {
     outline: none;
     border-color: #6366f1;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
@@ -932,7 +932,7 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 /* ── .close button (kept for any remaining usage) ──────────── */
-.close {
+.user-page .close {
     position: absolute;
     right: 20px;
     top: 16px;
@@ -949,7 +949,7 @@ label.user-modal-col-title.acc-proc-label {
     transition: all 0.2s;
 }
 
-.close:hover {
+.user-page .close:hover {
     background-color: #f1f5f9;
     color: #334155;
 }
@@ -985,7 +985,7 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 /* ── btn-save (shared with sidebar area) ───────────────────── */
-.btn-save {
+.user-page .btn-save {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1002,15 +1002,15 @@ label.user-modal-col-title.acc-proc-label {
     text-align: center;
 }
 
-.btn-save:hover {
+.user-page .btn-save:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(1, 59, 153, 0.4);
     transform: translateY(-1px);
 }
 
 
-.btn-secondary,
-.btn-account-control {
+.user-page .btn-secondary,
+.user-page .btn-account-control {
     background: linear-gradient(180deg, #44e44d 0%, #227426 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1028,14 +1028,14 @@ label.user-modal-col-title.acc-proc-label {
     text-align: center;
 }
 
-.btn-secondary:hover,
-.btn-account-control:hover {
+.user-page .btn-secondary:hover,
+.user-page .btn-account-control:hover {
     background: linear-gradient(180deg, #227426 0%, #44e44d 100%);
     box-shadow: 0 4px 8px rgba(0, 141, 28, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-clearall {
+.user-page .btn-clearall {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1053,13 +1053,13 @@ label.user-modal-col-title.acc-proc-label {
     text-align: center;
 }
 
-.btn-clearall:hover {
+.user-page .btn-clearall:hover {
     background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-secondary:first-child {
+.user-page .btn-secondary:first-child {
     margin-left: 0;
 }
 
