@@ -1254,7 +1254,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 /* Status Badges */
 /* Badges - match accountlist style */
-.role-badge {
+.process-page .role-badge {
     display: inline-flex;
     align-items: center;
     padding: clamp(0px, 0.1vw, 2px) clamp(4px, 0.42vw, 8px);
@@ -1265,37 +1265,37 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     letter-spacing: 0.025em;
 }
 
-.status-active {
+.process-page .status-active {
     background-color: #beffd4;
     color: #000000ff;
     border: 0.0625rem solid #beffd4;
 }
 
-.status-inactive {
+.process-page .status-inactive {
     background-color: #ffc3c3;
     color: #000000ff;
     border: 0.0625rem solid #ffc3c3;
 }
 
-.status-waiting {
+.process-page .status-waiting {
     background-color: #fff3c3;
     color: #000000ff;
     border: 0.0625rem solid #fff3c3;
 }
 
-.status-clickable {
+.process-page .status-clickable {
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
 }
 
-.status-clickable:hover {
+.process-page .status-clickable:hover {
     opacity: 0.8;
     transform: scale(1.05);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.status-clickable:active {
+.process-page .status-clickable:active {
     transform: scale(0.95);
 }
 
