@@ -164,9 +164,20 @@ function buildChartRows(data, startYmd, endYmd) {
   const groupEquityPercentage = parseFloat(data?.group_equity_percentage) || 0;
   const groupAccountPercentage = parseFloat(data?.group_account_percentage) || 0;
   const hasGroupOwnership = !!data?.has_group_ownership;
-  const earningsMultiplier = hasGroupOwnership
-    ? ownershipPercentage / 100 + (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
-    : ownershipPercentage / 100;
+  const linkMul = parseFloat(data?._link_multiplier || 0) || 0;
+  const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
+  const directPct = ownershipPercentage / 100;
+  let earningsMultiplier;
+  if (hasLinkOwnership) {
+    const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
+    earningsMultiplier = linkMul * viewerGroupShare;
+  } else if (directPct > 0) {
+    earningsMultiplier = directPct;
+  } else if (hasGroupOwnership) {
+    earningsMultiplier = (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
+  } else {
+    earningsMultiplier = 0;
+  }
 
   const dates = eachDateInRange(startYmd, endYmd);
   return dates.map((date) => {
@@ -212,6 +223,7 @@ export default function TransactionDashboardPage() {
   const [hoverDate, setHoverDate] = useState(null);
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const [companyAccessModal, setCompanyAccessModal] = useState({ open: false, message: "" });
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -355,8 +367,34 @@ export default function TransactionDashboardPage() {
     });
     const j = await res.json();
     if (!res.ok || !j.success) {
-      setLoadError(j.message || j.error || i18n.couldNotSwitchCompany);
+      const reason = String(j?.data?.reason || "").toLowerCase();
+      const msg = String(j?.message || j?.error || "");
+      const lower = msg.toLowerCase();
+      const shouldShowModal =
+        reason === "expired" ||
+        reason === "no_set" ||
+        lower.includes("company has expired") ||
+        lower.includes("group has expired") ||
+        lower.includes("company expiration date is not set") ||
+        lower.includes("date is not set");
+      if (shouldShowModal) {
+        const modalMessage =
+          reason === "expired"
+            ? "This company since login has expired. Please contact the Customer Service."
+            : reason === "no_set"
+              ? "Please contact the Customer Service to set the expiration date."
+              : lower.includes("not set")
+                ? "Please contact the Customer Service to set the expiration date."
+                : "This company since login has expired. Please contact the Customer Service.";
+        setCompanyAccessModal({ open: true, message: modalMessage });
+        setLoadError(modalMessage);
+      } else {
+        setLoadError(j.message || j.error || i18n.couldNotSwitchCompany);
+      }
       return false;
+    }
+    if (typeof window.updateSidebarDataCaptureVisibility === "function" && j?.data) {
+      window.updateSidebarDataCaptureVisibility(j.data.has_gambling, j.data.has_bank);
     }
     setCompanyId(parseInt(id, 10));
     if (clearGroupAll) setGroupAllMode(false);
@@ -410,12 +448,25 @@ export default function TransactionDashboardPage() {
       company_id: String(cid),
     });
     if (currencyCode) q.append("currency", currencyCode);
+    if (selectedGroup) q.append("view_group", selectedGroup);
     const res = await fetch(buildApiUrl(`${DASHBOARD_API}?${q}`), { credentials: "include" });
     const json = await res.json();
     if (!res.ok || !json.success || !json.data) {
       throw new Error(json.message || json.error || i18n.dashboardApiError);
     }
-    return json.data;
+    if (!selectedGroup) return json.data;
+    const gf = String(selectedGroup).toUpperCase();
+    const row = companies.find(
+      (c) =>
+        parseInt(c.id, 10) === parseInt(cid, 10) &&
+        c.group_id &&
+        String(c.group_id).toUpperCase() === gf
+    );
+    const pct = row && row.link_percentage !== undefined && row.link_percentage !== null
+      ? parseFloat(row.link_percentage)
+      : NaN;
+    const linkMultiplier = Number.isFinite(pct) && pct >= 0 ? pct / 100 : 1;
+    return linkMultiplier !== 1 ? { ...json.data, _link_multiplier: linkMultiplier } : json.data;
   };
 
   const loadDashboard = useCallback(async () => {
@@ -483,11 +534,23 @@ export default function TransactionDashboardPage() {
     const groupEquityPercentage = parseFloat(dashboardData?.group_equity_percentage) || 0;
     const groupAccountPercentage = parseFloat(dashboardData?.group_account_percentage) || 0;
     const hasGroupOwnership = !!dashboardData?.has_group_ownership;
-    const effectivePct = hasGroupOwnership
-      ? ownershipPercentage / 100 + (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
-      : ownershipPercentage / 100;
+    const linkMul = parseFloat(dashboardData?._link_multiplier || 0) || 0;
+    const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
+    const inGroupView = !!selectedGroup;
+    const directPct = ownershipPercentage / 100;
+    let effectivePct;
+    if (hasLinkOwnership) {
+      const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
+      effectivePct = linkMul * viewerGroupShare;
+    } else if (directPct > 0) {
+      effectivePct = directPct;
+    } else if (hasGroupOwnership) {
+      effectivePct = (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
+    } else {
+      effectivePct = directPct === 0 && inGroupView ? 1 : 0;
+    }
     const earningsDisplay = netProfitDisplay * effectivePct;
-    const showEarnings = !!dashboardData?.has_ownership_setup;
+    const showEarnings = !!dashboardData?.has_ownership_setup || hasLinkOwnership || inGroupView;
     return {
       profit: displayProfitNum,
       expenses: displayExpensesNum,
@@ -495,7 +558,7 @@ export default function TransactionDashboardPage() {
       earnings: earningsDisplay,
       showEarnings,
     };
-  }, [dashboardData]);
+  }, [dashboardData, selectedGroup]);
 
   const chartRows = useMemo(
     () => (dashboardData ? buildChartRows(dashboardData, dateFrom, dateTo) : []),
@@ -747,6 +810,26 @@ export default function TransactionDashboardPage() {
   return (
     <>
       <div className="dashboard-container">
+        {companyAccessModal.open && (
+          <div className="dashboard-alert-modal-overlay" aria-hidden="false">
+            <div className="dashboard-alert-modal-box" role="dialog" aria-labelledby="dashboardAlertModalTitle">
+              <div className="dashboard-alert-modal-icon-wrap">
+                <i className="fas fa-exclamation-triangle dashboard-alert-modal-icon" aria-hidden="true" />
+              </div>
+              <h3 id="dashboardAlertModalTitle" className="dashboard-alert-modal-title">Notice</h3>
+              <p className="dashboard-alert-modal-message">{companyAccessModal.message}</p>
+              <div className="dashboard-alert-modal-actions">
+                <button
+                  type="button"
+                  className="dashboard-alert-modal-btn dashboard-alert-modal-btn-primary"
+                  onClick={() => setCompanyAccessModal({ open: false, message: "" })}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <header className="dashboard-page-header">
           <h1 className="dashboard-title">{i18n.transactionDashboard}</h1>
         </header>

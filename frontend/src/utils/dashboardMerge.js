@@ -60,8 +60,21 @@ export function mergeGroupData(dataList, dateRange) {
     const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
     const displayE = rawE > 0 ? -rawE : rawE;
     const netProfit = rawP + displayE;
-    const effectivePct = hasGrp ? pct / 100 + (grpPct / 100) * (grpAccPct / 100) : pct / 100;
+    const linkMul = parseFloat(d?._link_multiplier || 0) || 0;
+    const hasLink = linkMul > 0 && linkMul !== 1;
+    const directPct = pct / 100;
+    let effectivePct;
+    if (hasLink) {
+      const viewerGroupShare = grpAccPct > 0 ? grpAccPct / 100 : 1;
+      effectivePct = linkMul * viewerGroupShare;
+    } else if (directPct > 0) {
+      effectivePct = directPct;
+    } else {
+      const chainPct = hasGrp ? (grpPct / 100) * (grpAccPct / 100) : 0;
+      effectivePct = chainPct === 0 ? 1 : chainPct;
+    }
     const earningsVal = netProfit * effectivePct;
+    hasOwnershipSetup = true;
     companyEarnings.push({ netProfit, pct, grpPct, grpAccPct, hasGrp, earnings: earningsVal });
   });
 
