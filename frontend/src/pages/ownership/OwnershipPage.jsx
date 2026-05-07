@@ -22,9 +22,10 @@ export default function OwnershipPage() {
   useEffect(() => {
     // Force body classes for correct background (SPA parity)
     document.body.classList.remove("bg");
-    document.body.classList.add("dashboard-page");
+    document.body.classList.add("dashboard-page", "ownership-page");
     setCssReady(true);
     return () => {
+      document.body.classList.remove("ownership-page");
       setCssReady(false);
     };
   }, []);

@@ -25,7 +25,7 @@
     overflow: visible;
 }
 
-h1 {
+.domain-react-page h1 {
     color: #002C49;
     text-align: left;
     margin-top: clamp(12px, 1.04vw, 20px);
@@ -77,7 +77,7 @@ h1 {
     margin-top: 0;
 }
 
-.table-container {
+.domain-react-page .table-container {
     overflow-x: visible;
     overflow-y: auto;
     margin-top: 20px;
@@ -87,20 +87,20 @@ h1 {
     /* 添加这行，限制最大高度 */
 }
 
-.btn:hover {
+.domain-react-page .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.btn:active {
+.domain-react-page .btn:active {
     transform: translateY(0);
 }
 
-.btn:hover::after {
+.domain-react-page .btn:hover::after {
     transform: translateX(120%);
 }
 
-.btn-add {
+.domain-react-page .btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
@@ -118,13 +118,13 @@ h1 {
     text-align: center;
 }
 
-.btn-add:hover {
+.domain-react-page .btn-add:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-fee-settings {
+.domain-react-page .btn-fee-settings {
     background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
     color: white;
     font-family: 'Amaranth', sans-serif;
@@ -137,7 +137,7 @@ h1 {
     white-space: nowrap;
 }
 
-.btn-fee-settings:hover {
+.domain-react-page .btn-fee-settings:hover {
     background: linear-gradient(180deg, #64748b 0%, #334155 100%);
     box-shadow: 0 4px 8px rgba(51, 65, 85, 0.4);
     transform: translateY(-1px);
@@ -1265,7 +1265,7 @@ h1 {
     color: #b45309;
 }
 
-.btn-edit {
+.domain-react-page .btn-edit {
     background-color: transparent;
     color: black;
     padding: clamp(2px, 0.31vw, 6px) 0;
@@ -1274,12 +1274,12 @@ h1 {
     cursor: pointer;
 }
 
-.btn-edit:hover {
+.domain-react-page .btn-edit:hover {
     background-color: transparent;
     box-shadow: none;
 }
 
-.btn-edit img {
+.domain-react-page .btn-edit img {
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(10px, 0.83vw, 16px);
     display: block;
@@ -1288,7 +1288,7 @@ h1 {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
-.btn-delete {
+.domain-react-page .btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1307,26 +1307,26 @@ h1 {
     text-align: center;
 }
 
-.btn-delete:hover {
+.domain-react-page .btn-delete:hover {
     background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-delete:disabled {
+.domain-react-page .btn-delete:disabled {
     opacity: 0.45;
     cursor: not-allowed;
     transform: none;
     box-shadow: 0 1px 2px rgba(220, 53, 69, 0.2);
 }
 
-.btn-delete.active {
+.domain-react-page .btn-delete.active {
     background: linear-gradient(180deg, #49a70bff 0%, #15581aff 100%) !important;
     color: white !important;
     box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3) !important;
 }
 
-.btn-cancel {
+.domain-react-page .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1340,13 +1340,13 @@ h1 {
     cursor: pointer;
 }
 
-.btn-cancel:hover {
+.domain-react-page .btn-cancel:hover {
     background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
     box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-access {
+.domain-react-page .btn-access {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1360,7 +1360,7 @@ h1 {
     cursor: pointer;
 }
 
-.btn-access:hover {
+.domain-react-page .btn-access:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
@@ -1505,7 +1505,7 @@ h1 {
     border-top: 1px solid #e2e8f0;
 }
 
-.btn-save {
+.domain-react-page .btn-save {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1519,17 +1519,17 @@ h1 {
     cursor: pointer;
 }
 
-.btn-save:hover {
+.domain-react-page .btn-save:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(1, 59, 153, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-save:hover::after {
+.domain-react-page .btn-save:hover::after {
     transform: translateX(120%);
 }
 
-.btn-primary {
+.domain-react-page .btn-primary {
     background: linear-gradient(180deg, #6fd4c6 0%, #2ea89b 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1542,7 +1542,7 @@ h1 {
     cursor: pointer;
 }
 
-.btn-primary:hover {
+.domain-react-page .btn-primary:hover {
     background: linear-gradient(180deg, #2ea89b 0%, #6fd4c6 100%);
     box-shadow: 0 4px 8px rgba(14, 116, 106, 0.4);
     transform: translateY(-1px);
@@ -2034,7 +2034,7 @@ h1 {
 }
 
 /* 新的卡片式表格样式：纵向滚动由 .domain-cards 承担，避免双滚动条 */
-.table-container {
+.domain-react-page .table-container {
     overflow-x: visible;
     overflow-y: visible;
     margin-top: 20px;
@@ -2043,7 +2043,7 @@ h1 {
     max-height: none;
 }
 
-.table-header {
+.domain-react-page .table-header {
     display: grid;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
@@ -2096,7 +2096,7 @@ h1 {
     transform: translateY(-1px);
 }
 
-.card-item {
+.domain-react-page .card-item {
     font-size: clamp(9px, 0.78vw, 15px);
     font-weight: bold;
     color: #374151;
@@ -2575,7 +2575,7 @@ h1 {
     border-right: none !important;
 }
 
-.btn-inline-add {
+.domain-react-page .btn-inline-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     border: none;
@@ -2589,7 +2589,7 @@ h1 {
     transition: all 0.2s;
 }
 
-.btn-inline-add:hover {
+.domain-react-page .btn-inline-add:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
 }
 
@@ -2689,7 +2689,7 @@ h1 {
     background-color: white;
 }
 
-.btn-wide {
+.domain-react-page .btn-wide {
     padding: 12px 36px;
     border-radius: 22px;
     font-size: 15px;
@@ -2701,26 +2701,26 @@ h1 {
     transition: all 0.2s;
 }
 
-.btn-wide:hover {
+.domain-react-page .btn-wide:hover {
     transform: translateY(-1px);
 }
 
-.btn-wide-confirm {
+.domain-react-page .btn-wide-confirm {
     background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
-.btn-wide-confirm:hover {
+.domain-react-page .btn-wide-confirm:hover {
     background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
-.btn-wide-cancel {
+.domain-react-page .btn-wide-cancel {
     background: linear-gradient(180deg, #9ca3af 0%, #6b7280 100%);
     box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
 }
 
-.btn-wide-cancel:hover {
+.domain-react-page .btn-wide-cancel:hover {
     background: linear-gradient(180deg, #6b7280 0%, #9ca3af 100%);
     box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
 }

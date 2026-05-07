@@ -49,7 +49,10 @@ export default function DomainPage() {
 
   useEffect(() => {
     document.body.classList.remove("bg");
-    document.body.classList.add("dashboard-page");
+    document.body.classList.add("dashboard-page", "domain-page");
+    return () => {
+      document.body.classList.remove("domain-page");
+    };
   }, []);
 
 
