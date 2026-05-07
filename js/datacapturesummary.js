@@ -2,10 +2,6 @@
 
 // Notification functions
 function showNotification(title, message, type = 'success') {
-    if (typeof window.__DCS_SHOW_NOTIFICATION === 'function') {
-        window.__DCS_SHOW_NOTIFICATION(title, message, type);
-        return;
-    }
     const popup = document.getElementById('notificationPopup');
     const titleEl = document.getElementById('notificationTitle');
     const messageEl = document.getElementById('notificationMessage');
@@ -76,10 +72,6 @@ function findColumnIndexByValue(processValue, numericValue) {
 }
 
 function hideNotification() {
-    if (typeof window.__DCS_HIDE_NOTIFICATION === 'function') {
-        window.__DCS_HIDE_NOTIFICATION();
-        return;
-    }
     const popup = document.getElementById('notificationPopup');
     popup.classList.remove('show');
     setTimeout(() => {
@@ -89,8 +81,7 @@ function hideNotification() {
 
 
 // Initialize page
-function bootstrapDataCaptureSummaryPage(options = {}) {
-    const { handleUrlParams = true, runInitialLoad = true } = options;
+document.addEventListener('DOMContentLoaded', function () {
     try {
         // 确保页面可以滚动（覆盖 accountCSS.css 中的 overflow: hidden）
         document.body.style.overflowY = 'auto';
@@ -116,47 +107,30 @@ function bootstrapDataCaptureSummaryPage(options = {}) {
         // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
         window.__summaryFreshFromCapture = urlParams.get('success') === '1';
-        if (handleUrlParams) {
-            if (urlParams.get('success') === '1') {
-                showNotification('Success', 'Data captured and summary generated successfully!', 'success');
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-            } else if (urlParams.get('error') === '1') {
-                showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
+        if (urlParams.get('success') === '1') {
+            showNotification('Success', 'Data captured and summary generated successfully!', 'success');
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (urlParams.get('error') === '1') {
+            showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-        if (runInitialLoad) {
-            // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
-            // IMPORTANT: 必须在 __summaryFreshFromCapture 设置后执行，避免首屏误走旧缓存恢复分支。
-            loadAndRenderCapturedTable().catch(function (e) {
-                console.warn('loadAndRenderCapturedTable error:', e);
-                hideLoadingState();
-                showEmptyState();
-            });
-        }
+        // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
+        // IMPORTANT: 必须在 __summaryFreshFromCapture 设置后执行，避免首屏误走旧缓存恢复分支。
+        loadAndRenderCapturedTable().catch(function (e) {
+            console.warn('loadAndRenderCapturedTable error:', e);
+            hideLoadingState();
+            showEmptyState();
+        });
     } catch (error) {
         console.error('Error in DOMContentLoaded:', error);
         // Ensure loading state is hidden even if there's an error
         hideLoadingState();
         showEmptyState();
     }
-}
-
-window.__bootstrapDataCaptureSummaryPage = bootstrapDataCaptureSummaryPage;
-window.loadAndRenderCapturedTable = loadAndRenderCapturedTable;
-window.submitSummaryData = submitSummaryData;
-window.showNotification = showNotification;
-window.hideLoadingState = hideLoadingState;
-window.showEmptyState = showEmptyState;
-
-if (!window.__DCS_REACT_BOOTSTRAP__) {
-    document.addEventListener('DOMContentLoaded', function () {
-        bootstrapDataCaptureSummaryPage({ handleUrlParams: true });
-    });
-}
+});
 
 // 从 bfcache 返回（浏览器后退等）时 DOM 不会重新跑 DOMContentLoaded，页脚合计可能仍为旧值；此处按当前表格强制对齐
 window.addEventListener('pageshow', function (ev) {
@@ -1284,10 +1258,6 @@ function restoreRateValuesFromRefresh() {
 // Go back to datacapture page, preserving localStorage data
 // 离开前先保存当前 Rate/Formula/行顺序，以便用户再次进入 Summary 时能恢复（不清除缓存）
 function goBackToDataCapture() {
-    if (typeof window.__DCS_GO_BACK === 'function') {
-        window.__DCS_GO_BACK();
-        return;
-    }
     if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
     if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
@@ -1296,10 +1266,6 @@ function goBackToDataCapture() {
 
 // Refresh page function: save rate values and formula/source so they are restored after reload
 function refreshPage() {
-    if (typeof window.__DCS_REFRESH_PAGE === 'function') {
-        window.__DCS_REFRESH_PAGE();
-        return;
-    }
     saveRateValuesForRefresh();
     saveFormulaSourceForRefresh();
     window.location.reload();
@@ -1402,10 +1368,6 @@ async function loadAndRenderCapturedTable() {
 
 // Display process information
 function displayProcessInfo(processData) {
-    if (typeof window.__DCS_DISPLAY_PROCESS_INFO === 'function') {
-        window.__DCS_DISPLAY_PROCESS_INFO(processData);
-        return;
-    }
     const processInfoContainer = document.getElementById('processInfoContainer');
     if (!processInfoContainer || !processData) {
         return;
@@ -1452,10 +1414,6 @@ function displayProcessInfo(processData) {
 
 // 根据 Summary 表首行货币更新页头 Currency；若 Data Capture 已选货币则优先显示该货币（与外面选择一致）
 function updateHeaderCurrencyFromSummaryTable() {
-    if (typeof window.__DCS_UPDATE_PROCESS_CURRENCY_FROM_TABLE === 'function') {
-        window.__DCS_UPDATE_PROCESS_CURRENCY_FROM_TABLE();
-        return;
-    }
     const currencyEl = document.getElementById('processInfoCurrency');
     if (!currencyEl) return;
     const processData = window.capturedProcessData;
@@ -1481,10 +1439,6 @@ function updateHeaderCurrencyFromSummaryTable() {
 
 // Hide loading state and show content
 function hideLoadingState() {
-    if (typeof window.__DCS_HIDE_LOADING_STATE === 'function') {
-        window.__DCS_HIDE_LOADING_STATE();
-        return;
-    }
     const loadingState = document.getElementById('loadingState');
     const actionButtons = document.getElementById('actionButtons');
     const summaryTableContainer = document.getElementById('summaryTableContainer');
@@ -1733,22 +1687,11 @@ function populateOriginalTableWithColumnAData(tableData) {
         window._summaryColumnAOrder = columnAData.map(v => (v || '').trim().replace(/\s+/g, '')).filter(Boolean);
     } catch (e) { }
 
-    const seedRows = columnAData
-        .map((value, index) => ({
-            value,
-            originalRowIndex: rowIndexMap[index] !== undefined ? rowIndexMap[index] : index
-        }))
-        .filter(item => item.value && String(item.value).trim() !== '');
-
-    // React bridge: let React render summary row skeletons first.
-    if (typeof window.__DCS_SEED_SUMMARY_ROWS === 'function') {
-        window.__DCS_SEED_SUMMARY_ROWS(seedRows);
-    } else {
-        // 每个 Id Product 均为独立的 Main（如 ALLBET95MS(SV)MYR、ALLBET95MS(KM)MYR、GAMS(SV)MYR 等），不按 base 分组为 MAIN+SUB
-        // Create rows for the original table
-        // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
-        seedRows.forEach((item) => {
-            const value = item.value;
+    // 每个 Id Product 均为独立的 Main（如 ALLBET95MS(SV)MYR、ALLBET95MS(KM)MYR、GAMS(SV)MYR 等），不按 base 分组为 MAIN+SUB
+    // Create rows for the original table
+    // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
+    columnAData.forEach((value, index) => {
+        if (value && value.trim() !== '') { // Only add non-empty values
             const row = document.createElement('tr');
 
             // Set data-row-index to match Data Capture Table row position
@@ -1757,7 +1700,7 @@ function populateOriginalTableWithColumnAData(tableData) {
             // 设置 data-row-index 以匹配 Data Capture Table 行位置
             // 对于 D 行（索引 3）有多个条目的情况，所有拆分的行都应使用行索引 3
             // 这确保 Summary Table 顺序与 Data Capture Table 顺序匹配
-            const originalRowIndex = item.originalRowIndex;
+            const originalRowIndex = rowIndexMap[index] !== undefined ? rowIndexMap[index] : index;
             row.setAttribute('data-row-index', String(originalRowIndex));
             row.setAttribute('data-product-type', 'main');
 
@@ -1866,8 +1809,8 @@ function populateOriginalTableWithColumnAData(tableData) {
 
             // Attach double-click event listeners for formula and source percent cells
             // Note: These cells are empty initially, listeners will be attached when cells are populated
-        });
-    }
+        }
+    });
 
     console.log(`Populated ${columnAData.filter(v => v && v.trim() !== '').length} rows in original table`);
 
@@ -8411,8 +8354,7 @@ function saveFormula() {
     }
 
     // Calculate processed amount
-    // IMPORTANT: Save raw value (no rounding) to database, but display rounded value on page
-    // 重要：保存原始值（不四舍五入）到数据库，但页面显示时使用四舍五入的值
+    // 页面 Processed Amount 为展示用四舍五入 2 位；保存 processedAmount 与展示一致（合计另按 6 位截断逐行累加，见 updateProcessedAmountTotal）。
     let processedAmount = 0;
     // If formula is empty, keep processedAmount as 0
     if (!formulaValue || formulaValue.trim() === '' || formulaDisplay === 'formula') {
@@ -8421,7 +8363,7 @@ function saveFormula() {
     } else {
         // 不再根据公式中是否包含 *0.1 之类来决定是否应用 Source Percent，
         // 一律走统一的计算函数，由 enableSourcePercent 和 sourcePercentValue 控制是否乘以百分比
-        // 计算原始值后按「第三位小数≥5则进位」舍入再保存，与页面显示一致
+        // 计算原始值后按展示口径四舍五入到 2 位再保存，与页面 Processed Amount 一致
         const rawAmount = calculateFormulaResultFromExpression(
             formulaValue,
             sourcePercentValue,
@@ -9620,7 +9562,8 @@ function evaluateFormulaExpression(formula, processValueOverride = null, clicked
             sanitized = sanitized.replace(/\u2212/g, '-'); // Unicode minus -> ASCII minus
             if (/^[0-9+\-*/().]+$/.test(sanitized)) {
                 const result = evaluateExpression(sanitized);
-                console.log('Formula expression evaluated (pure numeric, direct):', formula, '->', sanitized, '=', result);
+                const resultForLog = typeof truncateProcessedAmountTo6Decimals === 'function' ? truncateProcessedAmountTo6Decimals(result) : result;
+                console.log('Formula expression evaluated (pure numeric, direct):', formula, '->', sanitized, '=', resultForLog);
                 return result;
             }
         }
@@ -9639,14 +9582,15 @@ function evaluateFormulaExpression(formula, processValueOverride = null, clicked
         // If so, evaluate directly without additional parsing
         if (/^[0-9+\-*/().]+$/.test(sanitized)) {
             const result = evaluateExpression(sanitized);
-            console.log('Formula expression evaluated (direct):', formula, '->', sanitized, '=', result);
+            const resultForLog = typeof truncateProcessedAmountTo6Decimals === 'function' ? truncateProcessedAmountTo6Decimals(result) : result;
+            console.log('Formula expression evaluated (direct):', formula, '->', sanitized, '=', resultForLog);
             return result;
         }
 
         // For formulas with references, use evaluateExpression after parsing
         const result = evaluateExpression(sanitized);
-
-        console.log('Formula expression evaluated:', formula, '->', parsedFormula, '=', result);
+        const resultForLog = typeof truncateProcessedAmountTo6Decimals === 'function' ? truncateProcessedAmountTo6Decimals(result) : result;
+        console.log('Formula expression evaluated:', formula, '->', parsedFormula, '=', resultForLog);
         return result;
     } catch (error) {
         console.error('Error evaluating formula expression:', error, 'formula:', formula);
@@ -9969,13 +9913,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
     }
 
     if (cells[8]) {
-        const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
-            ? roundProcessedAmountTo2Decimals(finalProcessedAmount)
-            : finalProcessedAmount;
-        cells[8].textContent = typeof formatNumberWithThousands === 'function'
-            ? formatNumberWithThousands(rounded)
-            : String(finalProcessedAmount);
-        cells[8].style.color = MoneyDecimal.cmp(finalProcessedAmount, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(finalProcessedAmount, '0') < 0 ? '#A91215' : '#000000');
+        setRowProcessedAmountDisplay(row, finalProcessedAmount, cells[8]);
     }
 
     if (options.updateTotal !== false && typeof updateProcessedAmountTotal === 'function') {
@@ -10002,8 +9940,7 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
         const formulaText = (formulaCell.querySelector('.formula-text')?.textContent || formulaCell.textContent || '').trim()
         if (!formulaText || formulaText === 'Formula') {
             row.setAttribute('data-base-processed-amount', '0')
-            processedAmountCell.textContent = '0.00'
-            processedAmountCell.style.color = '#000000'
+            setRowProcessedAmountDisplay(row, '0', processedAmountCell)
             return
         }
 
@@ -10034,8 +9971,7 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
             ? applyRateToProcessedAmount(row, processedAmount)
             : processedAmount
 
-        processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalProcessedAmount))
-        processedAmountCell.style.color = MoneyDecimal.cmp(finalProcessedAmount, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(finalProcessedAmount, '0') < 0 ? '#A91215' : '#000000')
+        setRowProcessedAmountDisplay(row, finalProcessedAmount, processedAmountCell)
     })
 
     updateProcessedAmountTotal()
@@ -11162,11 +11098,28 @@ function applyInputMethodTransformation(result, inputMethod) {
     }
 }
 
-// Processed Amount：固定展示 2 位小数，向 0 截断（不四舍五入）。例：-2.089 -> -2.08，2.089 -> 2.08
-// 说明：少数二进制浮点（如语义为 -2.07 但乘 100 略小于 -207）截断后可能显示 -2.06，与「仅截断」规则一致
+// 合计 / 校验用：每行贡献金额向 0 截断到 6 位小数（不四舍五入），再累加。不参与单元格展示。
+function truncateProcessedAmountTo6Decimals(value) {
+    try {
+        return MoneyDecimal.formatFixed(value, 6);
+    } catch (_) {
+        return '0.000000';
+    }
+}
+
+// Rate 运算结果默认保留 8 位小数（向 0 截断，不四舍五入）。
+function truncateRateAmountTo8Decimals(value) {
+    try {
+        return MoneyDecimal.formatFixed(value, 8);
+    } catch (_) {
+        return '0.00000000';
+    }
+}
+
+// 兼容旧调用：仍保留 2 位四舍五入函数，避免其它流程报错。
 function roundProcessedAmountTo2Decimals(value) {
     try {
-        return MoneyDecimal.formatFixed(value, 2);
+        return MoneyDecimal.formatFixedHalfUp(value, 2);
     } catch (_) {
         return '0.00';
     }
@@ -11179,6 +11132,42 @@ function formatNumberWithThousands(value) {
     } catch (_) {
         return '0.00';
     }
+}
+
+// Processed Amount 展示统一为 6 位小数（向 0 截断，不四舍五入）。
+function formatNumberWithThousandsTrunc6(value) {
+    try {
+        const quant6 = truncateProcessedAmountTo6Decimals(value);
+        return MoneyDecimal.formatThousands(quant6, 6);
+    } catch (_) {
+        return '0.000000';
+    }
+}
+
+// 统一写入 Processed Amount：
+// 1) data-final-processed-amount 保存统计使用的 raw 值
+// 2) 单元格仅用于 2 位四舍五入展示（展示值不参与统计）
+function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = null) {
+    let normalized = '0';
+    try {
+        normalized = MoneyDecimal.toDecimal(finalAmount, 0).toString();
+    } catch (_) {
+        normalized = '0';
+    }
+    const normalizedForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
+        ? truncateProcessedAmountTo6Decimals(normalized)
+        : normalized;
+
+    if (row) {
+        row.setAttribute('data-final-processed-amount', normalizedForTotal);
+    }
+
+    if (processedAmountCell) {
+        processedAmountCell.textContent = formatNumberWithThousands(normalized);
+        processedAmountCell.style.color = MoneyDecimal.cmp(normalized, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(normalized, '0') < 0 ? '#A91215' : '#000000');
+    }
+
+    return normalizedForTotal;
 }
 
 function removeThousandsSeparators(value) {
@@ -12068,13 +12057,13 @@ function applyRateToProcessedAmount(row, processedAmount) {
         try {
             if (value.startsWith('*')) {
                 const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
-                if (!rateValue.isZero()) return MoneyDecimal.mul(processedAmount, rateValue).toString();
+                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.mul(processedAmount, rateValue).toString());
             } else if (value.startsWith('/')) {
                 const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
-                if (!rateValue.isZero()) return MoneyDecimal.div(processedAmount, rateValue).toString();
+                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.div(processedAmount, rateValue).toString());
             } else {
                 const rateValue = MoneyDecimal.toDecimal(value, 0);
-                if (!rateValue.isZero()) return MoneyDecimal.mul(processedAmount, rateValue).toString();
+                if (!rateValue.isZero()) return truncateRateAmountTo8Decimals(MoneyDecimal.mul(processedAmount, rateValue).toString());
             }
         } catch (_) { /* ignore invalid rate */ }
         return null;
@@ -19173,8 +19162,7 @@ function updateProcessedAmountCell(processValue, processedAmount) {
                 let val = MoneyDecimal.toDecimal(processedAmount || '0', 0).toString();
                 // Apply rate multiplication if checkbox is checked
                 val = applyRateToProcessedAmount(row, val);
-                processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                processedAmountCell.style.color = MoneyDecimal.cmp(val, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(val, '0') < 0 ? '#A91215' : '#000000');
+                setRowProcessedAmountDisplay(row, val, processedAmountCell);
                 // processedAmountCell.style.backgroundColor = '#e8f5e8'; // Removed
                 updateProcessedAmountTotal();
             }
@@ -19184,7 +19172,6 @@ function updateProcessedAmountCell(processValue, processedAmount) {
 }
 
 function getSummaryRowFinalAmount(row, cells) {
-    const safeCells = cells || row.querySelectorAll('td');
     const baseAmountText = row.getAttribute('data-base-processed-amount');
     const hasBaseAmount = baseAmountText !== null && String(baseAmountText).trim() !== '';
 
@@ -19195,14 +19182,18 @@ function getSummaryRowFinalAmount(row, cells) {
                 return applyRateToProcessedAmount(row, baseAmount);
             }
             return baseAmount;
-        } catch (_) { /* fallback to cell text */ }
+        } catch (_) { /* ignore and try final raw attr */ }
     }
 
-    const processedAmountCell = safeCells[8];
-    if (!processedAmountCell) return '0';
-    const fallbackText = (processedAmountCell.textContent || '').trim().replace(/,/g, '');
+    const finalAmountText = row.getAttribute('data-final-processed-amount');
+    if (finalAmountText !== null && String(finalAmountText).trim() !== '') {
+        try {
+            return MoneyDecimal.toDecimal(finalAmountText, 0).toString();
+        } catch (_) { /* ignore invalid final raw attr */ }
+    }
+    // 不再从单元格展示文本反推统计金额，避免 2 位展示值参与汇总。
     try {
-        return MoneyDecimal.toDecimal(fallbackText, 0).toString();
+        return MoneyDecimal.toDecimal('0', 0).toString();
     } catch (_) {
         return '0';
     }
@@ -19220,6 +19211,7 @@ function updateProcessedAmountTotal() {
     let total = MoneyDecimal.toDecimal('0');
     let hasValue = false;
     let allRowsHaveCurrencyAndFormula = true; // 有 Account 的行必须都有 Currency 和 Formula 才能 Submit
+    const totalDebugRows = [];
 
     summaryTableBody.querySelectorAll('tr').forEach(row => {
         const selectCheckbox = row.querySelector('.summary-select-checkbox');
@@ -19244,46 +19236,46 @@ function updateProcessedAmountTotal() {
         }
 
         const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+        const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
+            ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
+            : String(rowFinalAmount);
+        totalDebugRows.push({
+            process: (cells[0] && cells[0].textContent ? String(cells[0].textContent).trim() : ''),
+            raw: String(rowFinalAmount),
+            quant6: String(rowForTotal)
+        });
         try {
-            total = total.plus(MoneyDecimal.toDecimal(rowFinalAmount, 0));
+            total = total.plus(MoneyDecimal.toDecimal(rowForTotal, 0));
             hasValue = true;
         } catch (_) { /* ignore invalid row amount */ }
     });
 
     const finalTotalRaw = hasValue ? total.toString() : '0';
-    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 只在显示时截断到 2 位
-    const totalText = formatNumberWithThousands(finalTotal);
-    const isWithinRange = MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0;
-    const totalColor = isWithinRange ? '#0D60FF' : '#A91215';
+    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
+    console.log('Processed Amount total (UI):', {
+        rows: totalDebugRows,
+        sumQuant6Raw: finalTotalRaw,
+        sumDisplay2: finalTotal
+    });
+    totalCell.textContent = formatNumberWithThousands(finalTotal);
+    if (MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0) {
+        totalCell.style.color = '#0D60FF';
+    } else {
+        totalCell.style.color = '#A91215';
+    }
 
     // Submit 按钮：合计在范围内 且 每行有 Account 的都有 Currency 和 Formula 才可点，否则变灰
     if (submitBtn) {
+        const isWithinRange = MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0;
         const canSubmit = isWithinRange && allRowsHaveCurrencyAndFormula;
-        const submitTitle = !isWithinRange
-            ? `Total must be between -0.05 and 0.05. Current total: ${totalText}`
-            : (!allRowsHaveCurrencyAndFormula ? '请为每一行选择 Currency 并填写 Formula 后再提交。' : '');
-        if (typeof window.__DCS_UPDATE_TOTAL_AND_SUBMIT === 'function') {
-            window.__DCS_UPDATE_TOTAL_AND_SUBMIT({
-                totalText: totalText,
-                totalColor: totalColor,
-                canSubmit: canSubmit,
-                submitTitle: submitTitle
-            });
+        submitBtn.disabled = !canSubmit;
+
+        if (!isWithinRange) {
+            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${formatNumberWithThousands(finalTotal)}`;
+        } else if (!allRowsHaveCurrencyAndFormula) {
+            submitBtn.title = '请为每一行选择 Currency 并填写 Formula 后再提交。';
         } else {
-            totalCell.textContent = totalText;
-            totalCell.style.color = totalColor;
-            submitBtn.disabled = !canSubmit;
-            submitBtn.title = submitTitle;
-        }
-    } else {
-        if (typeof window.__DCS_UPDATE_TOTAL_AND_SUBMIT === 'function') {
-            window.__DCS_UPDATE_TOTAL_AND_SUBMIT({
-                totalText: totalText,
-                totalColor: totalColor
-            });
-        } else {
-            totalCell.textContent = totalText;
-            totalCell.style.color = totalColor;
+            submitBtn.title = '';
         }
     }
 }
@@ -19328,10 +19320,6 @@ function updateIdProductWithDescription(processValue, descriptionValue, targetRo
 
 // Show empty state when no data is available
 function showEmptyState() {
-    if (typeof window.__DCS_SHOW_EMPTY_STATE === 'function') {
-        window.__DCS_SHOW_EMPTY_STATE();
-        return;
-    }
     // Create a new container for the empty state message
     const emptyStateHTML = `
         <div class="summary-table-container empty-state-container">
@@ -19527,16 +19515,11 @@ function deleteSelectedRows() {
 let deleteCallback = null;
 
 function showConfirmDelete(message, callback) {
-    if (typeof window.__DCS_SHOW_CONFIRM_DELETE === 'function') {
-        window.__DCS_SHOW_CONFIRM_DELETE(message, callback);
-        return;
-    }
     const modal = document.getElementById('confirmDeleteModal');
     const messageEl = document.getElementById('confirmDeleteMessage');
 
     messageEl.textContent = message;
     deleteCallback = callback;
-    window.__summaryDeleteCallback = callback;
 
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -19547,7 +19530,6 @@ function closeConfirmDeleteModal() {
     modal.style.display = 'none';
     document.body.style.overflow = '';
     deleteCallback = null;
-    window.__summaryDeleteCallback = null;
 }
 
 function confirmDelete() {
@@ -19847,14 +19829,6 @@ function extractOperatorsSequence(expression) {
 // Submit summary data
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
-function navigateAfterSummarySubmit() {
-    if (typeof window.__DCS_NAVIGATE_DATACAPTURE_SUBMITTED === 'function') {
-        window.__DCS_NAVIGATE_DATACAPTURE_SUBMITTED();
-    } else {
-        window.location.href = 'datacapture.php?submitted=1';
-    }
-}
-
 async function submitSummaryData() {
     // Prevent duplicate submissions
     if (isSubmitting) {
@@ -19878,6 +19852,7 @@ async function submitSummaryData() {
     if (summaryTableBody && totalCell) {
         let totalAmount = MoneyDecimal.toDecimal('0', 0);
         let hasValue = false;
+        const totalDebugRows = [];
 
         summaryTableBody.querySelectorAll('tr').forEach(row => {
             // 如果 Select 被勾选，则这行不参与合计/校验
@@ -19888,14 +19863,27 @@ async function submitSummaryData() {
 
             const cells = row.querySelectorAll('td');
             const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+            const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
+                ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
+                : String(rowFinalAmount);
+            totalDebugRows.push({
+                process: (cells[0] && cells[0].textContent ? String(cells[0].textContent).trim() : ''),
+                raw: String(rowFinalAmount),
+                quant6: String(rowForTotal)
+            });
             try {
-                totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowFinalAmount), 0));
+                totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
                 hasValue = true;
             } catch (_) { /* ignore invalid amount */ }
         });
 
-        const finalTotalRaw = hasValue ? totalAmount : '0';
+        const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
         const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
+        console.log('Processed Amount total (submit validation):', {
+            rows: totalDebugRows,
+            sumQuant6Raw: finalTotalRaw,
+            sumDisplay2: finalTotal
+        });
         if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
             // Re-enable button on validation error
             if (submitBtn) {
@@ -20474,7 +20462,7 @@ async function submitSummaryData() {
                     try { localStorage.removeItem('capturedCaptureId'); } catch (e) { }
                     localStorage.removeItem('capturedTableData');
                     localStorage.removeItem('capturedProcessData');
-                    navigateAfterSummarySubmit();
+                    window.location.href = 'datacapture.php?submitted=1';
                 }, 600);
                 return;
             }
@@ -20661,7 +20649,7 @@ async function submitSummaryData() {
                 localStorage.removeItem('capturedProcessData');
 
                 // Redirect to data capture page
-                navigateAfterSummarySubmit();
+                window.location.href = 'datacapture.php?submitted=1';
             }, 2000);
         }
 
@@ -20829,7 +20817,3 @@ document.addEventListener('keydown', function (event) {
         }
     }
 });
-
-window.deleteSelectedRows = deleteSelectedRows;
-window.__summaryToggleAllRate = toggleAllRate;
-window.__summarySubmitRateValues = submitRateValues;

@@ -70,6 +70,12 @@ try {
         $status = $current['status'];
         // Bank：不再限制 INACTIVE → ACTIVE 的切换，也不依赖 Transaction 记录
         if ($status === 'inactive') {
+            // 只有 manager 及以上（manager / admin / owner）可以将 inactive 切回 active
+            $sessionRole = isset($_SESSION['role']) ? (string) $_SESSION['role'] : '';
+            if (!isManagerOrAboveRole($sessionRole)) {
+                api_error('Only manager or above can change Bank Process from INACTIVE to ACTIVE', 403);
+                exit;
+            }
             $newStatus = 'active';
         } else {
             $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');

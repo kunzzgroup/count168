@@ -16,7 +16,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['list', 'create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
+if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
@@ -2158,50 +2158,6 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 
 try {
     switch($action) {
-        case 'list':
-            if (!$hasC168Context || !$canUseC168DomainActions) {
-                jsonResponse(false, 'Forbidden', null, 403);
-                exit;
-            }
-            try {
-                $stmt = $pdo->query("
-                    SELECT 
-                        o.id,
-                        o.owner_code,
-                        o.name,
-                        o.email,
-                        o.created_by,
-                        o.created_at,
-                        GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
-                        GROUP_CONCAT(NULLIF(TRIM(c.company_id), '') ORDER BY c.company_id SEPARATOR ', ') as companies
-                    FROM owner o
-                    LEFT JOIN company c ON o.id = c.owner_id
-                    GROUP BY o.id
-                    ORDER BY o.owner_code ASC
-                ");
-                $domains = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
-                foreach ($domains as &$domain) {
-                    $stmt2 = $pdo->prepare("SELECT company_id, expiration_date FROM company WHERE owner_id = ? ORDER BY company_id");
-                    $stmt2->execute([$domain['id']]);
-                    $domain['companies_full'] = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-                }
-                unset($domain);
-
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'OK',
-                    'data' => ['domains' => $domains]
-                ]);
-            } catch (Exception $e) {
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Error: ' . $e->getMessage(),
-                    'data' => null
-                ]);
-            }
-            break;
-
         case 'create':
             if (!$hasC168Context || !$canUseC168DomainActions) {
                 jsonResponse(false, 'Forbidden', null, 403);

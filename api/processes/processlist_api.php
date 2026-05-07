@@ -163,6 +163,51 @@ function checkCompanyAccess(PDO $pdo, int $requestedCompanyId): bool
 }
 
 /**
+ * 获取与指定 process 同组的其它流程（双向）。
+ * 组规则：
+ * - 若当前是 copy_from 子流程，则锚点为其 sync_source_process_id；
+ * - 否则锚点为当前流程 id；
+ * - 组成员为：锚点本身 + 所有 sync_source_process_id=锚点 的流程，排除当前流程。
+ */
+function getLinkedProcessIdsForSync(PDO $pdo, int $companyId, int $processId): array
+{
+    $currentStmt = $pdo->prepare("
+        SELECT id, sync_source_process_id
+        FROM process
+        WHERE id = ? AND company_id = ?
+        LIMIT 1
+    ");
+    $currentStmt->execute([$processId, $companyId]);
+    $current = $currentStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$current) {
+        return [];
+    }
+
+    $anchorId = !empty($current['sync_source_process_id'])
+        ? (int)$current['sync_source_process_id']
+        : (int)$current['id'];
+
+    $targetsStmt = $pdo->prepare("
+        SELECT id
+        FROM process
+        WHERE company_id = ?
+          AND (id = ? OR sync_source_process_id = ?)
+          AND id <> ?
+    ");
+    $targetsStmt->execute([$companyId, $anchorId, $anchorId, $processId]);
+    $rows = $targetsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $ids = [];
+    foreach ($rows as $row) {
+        $pid = isset($row['id']) ? (int)$row['id'] : 0;
+        if ($pid > 0) {
+            $ids[] = $pid;
+        }
+    }
+    return array_values(array_unique($ids));
+}
+
+/**
  * Parse profit_sharing text like "STAFF - 50, AA - 10.5" and return total amount.
  */
 function parseProfitSharingTotal(?string $profitSharing): string
@@ -546,6 +591,9 @@ function updateProcess() {
         $pdo->beginTransaction();
         
         try {
+            $targetProcessId = (int)$id;
+            $linkedProcessIds = getLinkedProcessIdsForSync($pdo, (int)$currentCompanyId, $targetProcessId);
+
             // 检查是否是 owner 登录
             $isOwner = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner';
             $modifiedByType = 'user';
@@ -591,8 +639,40 @@ function updateProcess() {
                 $id,
                 $currentCompanyId
             ]);
+
+            if (!empty($linkedProcessIds)) {
+                $syncSql = "UPDATE process SET
+                                currency_id = ?,
+                                remove_word = ?,
+                                replace_word_from = ?,
+                                replace_word_to = ?,
+                                remark = ?,
+                                status = ?,
+                                dts_modified = NOW(),
+                                modified_by = ?,
+                                modified_by_type = ?,
+                                modified_by_owner_id = ?
+                            WHERE id = ? AND company_id = ?";
+                $syncStmt = $pdo->prepare($syncSql);
+                foreach ($linkedProcessIds as $linkedId) {
+                    $syncStmt->execute([
+                        $currencyId,
+                        $removeWord,
+                        $replaceWordFrom,
+                        $replaceWordTo,
+                        $remark,
+                        $status,
+                        $currentUserId,
+                        $modifiedByType,
+                        $modifiedByOwnerId,
+                        $linkedId,
+                        $currentCompanyId
+                    ]);
+                }
+            }
             
             // 处理选中的描述 - 只取第一个描述
+            $descriptionId = null;
             if (!empty($selectedDescriptions)) {
                 $selectedDescriptionsArray = json_decode($selectedDescriptions, true);
                 if (is_array($selectedDescriptionsArray) && !empty($selectedDescriptionsArray)) {
@@ -609,26 +689,51 @@ function updateProcess() {
                         $updateDescSql = "UPDATE process SET description_id = ? WHERE id = ?";
                         $stmt = $pdo->prepare($updateDescSql);
                         $stmt->execute([$descriptionId, $id]);
+
+                        if (!empty($linkedProcessIds)) {
+                            $updateLinkedDescSql = "UPDATE process SET description_id = ? WHERE id = ? AND company_id = ?";
+                            $updateLinkedDescStmt = $pdo->prepare($updateLinkedDescSql);
+                            foreach ($linkedProcessIds as $linkedId) {
+                                $updateLinkedDescStmt->execute([$descriptionId, $linkedId, $currentCompanyId]);
+                            }
+                        }
                     }
                 }
             }
             
             // 更新day关联
             // 先删除现有的day关联
+            $dayIds = !empty($dayUse) ? array_filter(array_map('trim', explode(',', $dayUse))) : [];
             $deleteDaySql = "DELETE FROM process_day WHERE process_id = ?";
             $stmt = $pdo->prepare($deleteDaySql);
             $stmt->execute([$id]);
             
             // 添加新的day关联
-            if (!empty($dayUse)) {
-                $dayIds = explode(',', $dayUse);
+            if (!empty($dayIds)) {
                 $insertDaySql = "INSERT INTO process_day (process_id, day_id) VALUES (?, ?)";
                 $stmt = $pdo->prepare($insertDaySql);
                 
                 foreach ($dayIds as $dayId) {
-                    $dayId = trim($dayId);
                     if (!empty($dayId)) {
                         $stmt->execute([$id, $dayId]);
+                    }
+                }
+            }
+
+            if (!empty($linkedProcessIds)) {
+                $deleteLinkedDayStmt = $pdo->prepare("DELETE FROM process_day WHERE process_id = ?");
+                $insertLinkedDayStmt = null;
+                if (!empty($dayIds)) {
+                    $insertLinkedDayStmt = $pdo->prepare("INSERT INTO process_day (process_id, day_id) VALUES (?, ?)");
+                }
+                foreach ($linkedProcessIds as $linkedId) {
+                    $deleteLinkedDayStmt->execute([$linkedId]);
+                    if ($insertLinkedDayStmt) {
+                        foreach ($dayIds as $dayId) {
+                            if (!empty($dayId)) {
+                                $insertLinkedDayStmt->execute([$linkedId, $dayId]);
+                            }
+                        }
                     }
                 }
             }

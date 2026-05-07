@@ -16,7 +16,11 @@ function redirectToDashboardIfUnauthorizedCategory(errorMessage) {
     const normalized = errorMessage.toLowerCase();
     const isUnauthorizedCategory = normalized.includes('unauthorized category permission') || normalized.includes('games required');
     if (!isUnauthorizedCategory) return false;
-    window.location.href = buildApiUrl('dashboard.php');
+    const currentRole = String(window.DATACAPTURE_USER_ROLE || '').toLowerCase();
+    const canGoDashboard = currentRole === 'admin' || currentRole === 'owner';
+    window.location.href = canGoDashboard
+        ? buildApiUrl('dashboard.php')
+        : buildApiUrl('processlist.php');
     return true;
 }
 
@@ -991,13 +995,6 @@ document.addEventListener('keydown', function (e) {
 
 // Store submitted processes
 let submittedProcesses = [];
-function setSelectedDescriptions(nextDescriptions) {
-    const normalized = Array.isArray(nextDescriptions) ? nextDescriptions : [];
-    window.selectedDescriptions = normalized;
-    if (typeof window.__setDataCaptureDescriptions === 'function') {
-        window.__setDataCaptureDescriptions(normalized);
-    }
-}
 
 // Process data storage for searchable dropdown
 let processDataMap = new Map(); // 存储 process display_text -> {id, process_id, description_name}
@@ -1013,9 +1010,6 @@ function getLocalDateString(date = null) {
 
 // Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交时刻 created_at（含日期）
 async function loadSubmittedProcesses() {
-    if (window.__DC_REACT_DATE_SUBMITTED__) {
-        return;
-    }
     try {
         const dateInput = document.getElementById('capture_date');
         const selectedDate = (dateInput && dateInput.value) ? dateInput.value : getLocalDateString();
@@ -2344,10 +2338,6 @@ function getProcessId(buttonElement) {
 
 // ==================== 初始化 Process 自定义下拉选单 ====================
 function initProcessInput() {
-    // React SPA 使用自己的 Process 下拉与状态；避免重复绑定导致无法选择或重复请求
-    if (window.__DC_REACT_PROCESS_DROPDOWN__) {
-        return;
-    }
     const processButton = document.getElementById('capture_process');
     const processDropdown = document.getElementById('capture_process_dropdown');
     const searchInput = processDropdown?.querySelector('.custom-select-search input');
@@ -2513,9 +2503,6 @@ function initProcessInput() {
     processButton.addEventListener('change', function () {
         console.log('Process selection changed to:', this.textContent);
         updateSubmitButtonState();
-        if (window.__DC_REACT_PROCESS_DETAIL__) {
-            return;
-        }
         const processId = getProcessId(this);
         if (processId) {
             loadProcessData(processId);
@@ -2646,7 +2633,7 @@ async function loadProcessData(processId) {
                 }
 
                 // Update the selected descriptions array
-                setSelectedDescriptions([processData.description_names]);
+                window.selectedDescriptions = [processData.description_names];
             }
 
             // Populate remark field
@@ -2654,12 +2641,6 @@ async function loadProcessData(processId) {
             if (remarkInput && processData.remarks) {
                 remarkInput.value = processData.remarks;
             }
-            window.__setDataCaptureLinkedFields?.({
-                removeWord: processData.remove_word || '',
-                replaceWordFrom: processData.replace_word_from || '',
-                replaceWordTo: processData.replace_word_to || '',
-                remark: processData.remarks || ''
-            });
 
             // Update submit button state
             updateSubmitButtonState();
@@ -2704,12 +2685,6 @@ function clearProcessData() {
     if (remarkInput) {
         remarkInput.value = '';
     }
-    window.__setDataCaptureLinkedFields?.({
-        removeWord: '',
-        replaceWordFrom: '',
-        replaceWordTo: '',
-        remark: ''
-    });
 
     // Clear description field
     const descriptionInput = document.getElementById('capture_description');
@@ -2718,7 +2693,7 @@ function clearProcessData() {
     }
 
     // Clear selected descriptions array
-    setSelectedDescriptions([]);
+    window.selectedDescriptions = [];
 
     // Update submit button state
     updateSubmitButtonState();
@@ -2726,9 +2701,6 @@ function clearProcessData() {
 
 // Generate date options (today ± 6 days, newest first)
 function generateDateOptions() {
-    if (window.__DC_REACT_DATE_SUBMITTED__) {
-        return;
-    }
     const dateSelect = document.getElementById('capture_date');
     const today = new Date();
     const options = [];
@@ -2770,9 +2742,6 @@ function generateDateOptions() {
 
 // Load form data on page load
 async function loadFormData() {
-    if (window.__DC_REACT_FORM_DATA__) {
-        return;
-    }
     try {
         // Generate date options first
         generateDateOptions();
@@ -2810,9 +2779,6 @@ async function loadFormData() {
 
 // Load processes based on selected date
 async function loadProcessesByDate() {
-    if (window.__DC_REACT_FORM_DATA__) {
-        return;
-    }
     try {
         const dateInput = document.getElementById('capture_date');
         const selectedDate = dateInput.value || getLocalDateString();
@@ -3056,12 +3022,11 @@ function moveDescriptionToSelected(checkbox) {
 
     // Add to selected descriptions array
     if (!window.selectedDescriptions) {
-        setSelectedDescriptions([]);
+        window.selectedDescriptions = [];
     }
 
     if (!window.selectedDescriptions.includes(descriptionName)) {
         window.selectedDescriptions.push(descriptionName);
-        setSelectedDescriptions(window.selectedDescriptions);
     }
 
     // Move the item to selected list
@@ -3085,7 +3050,6 @@ function moveDescriptionBackToAvailable(descriptionName, descriptionId) {
         const index = window.selectedDescriptions.indexOf(descriptionName);
         if (index > -1) {
             window.selectedDescriptions.splice(index, 1);
-            setSelectedDescriptions(window.selectedDescriptions);
         }
     }
 
@@ -3156,7 +3120,6 @@ function moveDescriptionToAvailable(checkbox) {
         const index = window.selectedDescriptions.indexOf(descriptionName);
         if (index > -1) {
             window.selectedDescriptions.splice(index, 1);
-            setSelectedDescriptions(window.selectedDescriptions);
         }
     }
 
@@ -3192,7 +3155,7 @@ async function deleteDescription(descriptionId, descriptionName, itemElement) {
             }
 
             if (Array.isArray(window.selectedDescriptions)) {
-                setSelectedDescriptions(window.selectedDescriptions.filter(desc => desc !== descriptionName));
+                window.selectedDescriptions = window.selectedDescriptions.filter(desc => desc !== descriptionName);
             }
 
             updateSelectedDescriptionsInModal();
@@ -3247,10 +3210,10 @@ function displaySelectedDescriptions(descriptions) {
         document.getElementById('capture_description').value = descriptions.join(', ');
 
         // Store selected descriptions for form submission
-        setSelectedDescriptions(descriptions);
+        window.selectedDescriptions = descriptions;
     } else {
         document.getElementById('capture_description').value = '';
-        setSelectedDescriptions([]);
+        window.selectedDescriptions = [];
     }
 }
 
@@ -22146,7 +22109,6 @@ function handleCellKeydown(e) {
 function removeDescription(index) {
     if (window.selectedDescriptions) {
         window.selectedDescriptions.splice(index, 1);
-        setSelectedDescriptions(window.selectedDescriptions);
         displaySelectedDescriptions(window.selectedDescriptions);
 
         // Update submit button state
@@ -22187,10 +22149,9 @@ document.getElementById('addDescriptionForm').addEventListener('submit', async f
             showNotification('Description added successfully!', 'success');
             // Add the new description to selected list
             if (!window.selectedDescriptions) {
-                setSelectedDescriptions([]);
+                window.selectedDescriptions = [];
             }
             window.selectedDescriptions.push(descriptionName);
-            setSelectedDescriptions(window.selectedDescriptions);
 
             // Create and add to selected list
             const selectedList = document.getElementById('selectedDescriptionsInModal');
@@ -22222,25 +22183,6 @@ document.getElementById('addDescriptionForm').addEventListener('submit', async f
 
 // 2.Format：是否已经成功解析并填充到网格表
 let isFormatGridReady = false;
-
-function notifyReactFormatGridReady() {
-    if (typeof window !== 'undefined' && typeof window.__DC_REACT_SET_FORMAT_GRID_READY__ === 'function') {
-        window.__DC_REACT_SET_FORMAT_GRID_READY__(!!isFormatGridReady, currentDataCaptureType || '1.Text');
-    }
-}
-
-function restoreFormatPreviewFromStorage() {
-    if (currentDataCaptureType !== '2.Format') return false;
-    let previewHtml = '';
-    try {
-        previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
-    } catch (_) { }
-    if (!previewHtml) return false;
-    renderFormatPreview(previewHtml);
-    isFormatGridReady = true;
-    toggleTableDisplayForFormat();
-    return true;
-}
 
 // Clear 2.Format mode styles from table cells
 function clearFormatStyles() {
@@ -22316,18 +22258,15 @@ function toggleTableDisplayForFormat() {
     const dataTable = document.getElementById('dataTable');
     const tablePreviewFormat = document.getElementById('tablePreviewFormat');
     const pasteAreaFormat = document.getElementById('pasteAreaFormat');
-    const reactControlsVisibility = !!window.__DC_REACT_FORMAT_VISIBILITY__;
 
     console.log('Format: toggleTableDisplayForFormat called, isFormatGridReady:', isFormatGridReady, 'currentDataCaptureType:', currentDataCaptureType);
 
     if (currentDataCaptureType === '2.Format') {
         // 首先检查是否有保存的预览数据（即使 isFormatGridReady 为 false，也可能有数据）
         let previewHtml = '';
-        if (!reactControlsVisibility) {
-            try {
-                previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
-            } catch (_) { }
-        }
+        try {
+            previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
+        } catch (_) { }
 
         // 如果有预览数据（无论是 isFormatGridReady 为 true 还是 localStorage 中有数据），都显示预览
         if (previewHtml && !isFormatGridReady) {
@@ -22338,55 +22277,48 @@ function toggleTableDisplayForFormat() {
         // 如果有预览数据（无论是 isFormatGridReady 为 true 还是 localStorage 中有数据），都显示预览
         if (isFormatGridReady || previewHtml) {
             console.log('Format: Showing Excel table, hiding paste area and iframe preview');
-            if (!reactControlsVisibility) {
-                // 显示Excel表格（像其他选项一样）
-                if (dataTable) {
-                    dataTable.style.display = 'table';
-                    console.log('Format: dataTable displayed');
-                }
-                // 隐藏粘贴区
-                if (pasteAreaFormat) {
-                    pasteAreaFormat.style.display = 'none';
-                    console.log('Format: pasteAreaFormat hidden');
-                }
-                // 隐藏iframe预览
-                if (tablePreviewFormat) {
-                    tablePreviewFormat.style.display = 'none';
-                    console.log('Format: tablePreviewFormat hidden');
-                }
-            }
-        } else {
-            if (!reactControlsVisibility) {
-                // 如果没有保存的数据，显示粘贴区
-                if (dataTable) dataTable.style.display = 'none';
-                if (pasteAreaFormat) {
-                    pasteAreaFormat.style.display = 'block';
-                    pasteAreaFormat.innerHTML = '';
-                    setTimeout(() => {
-                        pasteAreaFormat.focus();
-                    }, 100);
-                }
-                if (tablePreviewFormat) {
-                    tablePreviewFormat.style.display = 'none';
-                    tablePreviewFormat.innerHTML = '';
-                }
-            }
-        }
-    } else {
-        if (!reactControlsVisibility) {
-            // 显示表格，隐藏空白粘贴区域
+            // 显示Excel表格（像其他选项一样）
             if (dataTable) {
                 dataTable.style.display = 'table';
+                console.log('Format: dataTable displayed');
             }
+            // 隐藏粘贴区
             if (pasteAreaFormat) {
                 pasteAreaFormat.style.display = 'none';
+                console.log('Format: pasteAreaFormat hidden');
+            }
+            // 隐藏iframe预览
+            if (tablePreviewFormat) {
+                tablePreviewFormat.style.display = 'none';
+                console.log('Format: tablePreviewFormat hidden');
+            }
+        } else {
+            // 如果没有保存的数据，显示粘贴区
+            if (dataTable) dataTable.style.display = 'none';
+            if (pasteAreaFormat) {
+                pasteAreaFormat.style.display = 'block';
+                pasteAreaFormat.innerHTML = '';
+                setTimeout(() => {
+                    pasteAreaFormat.focus();
+                }, 100);
             }
             if (tablePreviewFormat) {
                 tablePreviewFormat.style.display = 'none';
+                tablePreviewFormat.innerHTML = '';
             }
         }
+    } else {
+        // 显示表格，隐藏空白粘贴区域
+        if (dataTable) {
+            dataTable.style.display = 'table';
+        }
+        if (pasteAreaFormat) {
+            pasteAreaFormat.style.display = 'none';
+        }
+        if (tablePreviewFormat) {
+            tablePreviewFormat.style.display = 'none';
+        }
     }
-    notifyReactFormatGridReady();
 }
 
 function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
@@ -22441,34 +22373,8 @@ function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
     return false;
 }
 
-function tryParseFormatPasteAreaFromDom() {
-    if (currentDataCaptureType !== '2.Format') return false;
-    const area = document.getElementById('pasteAreaFormat');
-    if (!area) return false;
-    try {
-        const pastedHTML = area.innerHTML || '';
-        if (!pastedHTML || !/<table\b/i.test(pastedHTML)) return false;
-        const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(pastedHTML);
-        const sanitized = sanitizePastedHTML(pastedHTML);
-        if (!previewFragment) return false;
-        renderFormatPreview(previewFragment);
-        parseAndFillHTMLTableForFormat(sanitized || previewFragment);
-        isFormatGridReady = true;
-        area.innerHTML = '';
-        setTimeout(() => {
-            toggleTableDisplayForFormat();
-        }, 0);
-        return true;
-    } catch (_) {
-        return false;
-    }
-}
-
 // 为2.Format模式的粘贴区域添加paste事件监听（支持直接粘贴整张表格）
 function initFormatPasteArea() {
-    if (window.__DC_REACT_FORMAT_PASTE__) {
-        return;
-    }
     const pasteAreaFormat = document.getElementById('pasteAreaFormat');
     if (!pasteAreaFormat) {
         console.log('Format: pasteAreaFormat element not found');
@@ -22575,7 +22481,29 @@ function initFormatPasteArea() {
         // 4) 读不到HTML/TSV时：让浏览器先默认粘贴进容器（很多情况下会自动生成<table>）
         // 然后我们再从DOM里抓出<table>并清洗成表格显示/填表，避免变成一行一行的纯文字
         setTimeout(() => {
-            tryParseFormatPasteAreaFromDom();
+            try {
+                const pastedHTML = area.innerHTML || '';
+                if (pastedHTML && /<table\b/i.test(pastedHTML)) {
+                    const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(pastedHTML);
+                    const sanitized = sanitizePastedHTML(pastedHTML);
+                    if (previewFragment) {
+                        console.log('Format: Rendering preview from pasted HTML (setTimeout)');
+                        renderFormatPreview(previewFragment);
+
+                        parseAndFillHTMLTableForFormat(sanitized || previewFragment);
+                        // 只要预览渲染成功，就显示预览，不依赖于数据填充的返回值
+                        isFormatGridReady = true;
+                        console.log('Format: Preview rendered (setTimeout), isFormatGridReady set to true');
+                        area.innerHTML = '';
+                        // 确保预览立即显示
+                        setTimeout(() => {
+                            toggleTableDisplayForFormat();
+                        }, 0);
+                        return;
+                    }
+                }
+                // 没有table就保留默认粘贴结果（可能就是纯文本）
+            } catch (_) { }
         }, 0);
     });
 }
@@ -22613,7 +22541,7 @@ function resetForm() {
         remarkInput.value = '';
     }
 
-    setSelectedDescriptions([]);
+    window.selectedDescriptions = [];
 
     // Reset process button (custom select)
     const processButton = document.getElementById('capture_process');
@@ -22747,26 +22675,6 @@ function resetForm() {
     updateSubmitButtonState();
 }
 
-function resetFormatStateForReact() {
-    clearFormatStyles();
-    const pasteAreaFormat = document.getElementById('pasteAreaFormat');
-    if (pasteAreaFormat) {
-        pasteAreaFormat.innerHTML = '';
-    }
-    const tablePreviewFormat = document.getElementById('tablePreviewFormat');
-    if (tablePreviewFormat) {
-        tablePreviewFormat.innerHTML = '';
-        tablePreviewFormat.style.display = 'none';
-    }
-    renderFormatPreview('');
-    try {
-        localStorage.removeItem('capturedFormatPreviewHtml');
-        localStorage.removeItem('captured655PreviewHtml');
-    } catch (_) { }
-    isFormatGridReady = false;
-    toggleTableDisplayForFormat();
-}
-
 // Validate form before submission
 function validateForm() {
     const processInput = document.getElementById('capture_process');
@@ -22813,10 +22721,6 @@ function validateForm() {
 
 // Update submit button state based on validation
 function updateSubmitButtonState() {
-    // React SPA：Submit 可用状态由 React 计算（见 DataCapturePage + useDataCaptureSubmitGate）
-    if (typeof window !== 'undefined' && window.__DC_REACT_SUBMIT_BUTTON__) {
-        return;
-    }
     // 只控制主页面的 Submit 按钮，避免误操作弹窗里的 .btn-save
     const submitBtn = document.getElementById('dataCaptureSubmitBtn');
     if (!submitBtn) return;
@@ -24395,18 +24299,18 @@ async function restoreFromLocalStorage() {
             dateInput.value = processData.date;
         }
 
-            // Reload processes for the selected date
-            await loadProcessesByDate();
+        // Reload processes for the selected date
+        await loadProcessesByDate();
 
-            // Submitted Processes：按当前恢复的 capture_date 筛选
-            await loadSubmittedProcesses();
+        // Submitted Processes：按当前恢复的 capture_date 筛选
+        await loadSubmittedProcesses();
 
-            // Wait a bit for process dropdown to populate, then restore process selection
-            await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait a bit for process dropdown to populate, then restore process selection
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-            // Restore process selection with improved matching logic
-            const processInput = document.getElementById('capture_process');
-            if (processInput && processData.process) {
+        // Restore process selection with improved matching logic
+        const processInput = document.getElementById('capture_process');
+        if (processInput && processData.process) {
             let processDisplayText = null;
 
             // Try multiple matching strategies
@@ -24460,56 +24364,50 @@ async function restoreFromLocalStorage() {
                     processCode: data.process_id
                 })));
             }
-            }
+        }
 
-            // Wait for process data to load
-            await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for process data to load
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-            // Restore currency (may have been set by loadProcessData, but ensure it's correct)
-            const currencySelect = document.getElementById('capture_currency');
-            if (currencySelect && processData.currency) {
-                const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === processData.currency);
-                if (currencyOption) {
-                    currencySelect.value = processData.currency;
-                }
+        // Restore currency (may have been set by loadProcessData, but ensure it's correct)
+        const currencySelect = document.getElementById('capture_currency');
+        if (currencySelect && processData.currency) {
+            const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === processData.currency);
+            if (currencyOption) {
+                currencySelect.value = processData.currency;
             }
+        }
 
-            // Restore descriptions
-            if (processData.descriptions && Array.isArray(processData.descriptions)) {
-                setSelectedDescriptions(processData.descriptions);
-                const descriptionInput = document.getElementById('capture_description');
-                if (descriptionInput) {
-                    descriptionInput.value = processData.descriptions.join(', ');
-                }
+        // Restore descriptions
+        if (processData.descriptions && Array.isArray(processData.descriptions)) {
+            window.selectedDescriptions = processData.descriptions;
+            const descriptionInput = document.getElementById('capture_description');
+            if (descriptionInput) {
+                descriptionInput.value = processData.descriptions.join(', ');
             }
+        }
 
-            // Restore remove word
-            const removeWordInput = document.getElementById('capture_remove_word');
-            if (removeWordInput && processData.removeWord) {
-                removeWordInput.value = processData.removeWord;
-            }
+        // Restore remove word
+        const removeWordInput = document.getElementById('capture_remove_word');
+        if (removeWordInput && processData.removeWord) {
+            removeWordInput.value = processData.removeWord;
+        }
 
-            // Restore replace words
-            const replaceFromInput = document.getElementById('capture_replace_word_from');
-            const replaceToInput = document.getElementById('capture_replace_word_to');
-            if (replaceFromInput && processData.replaceWordFrom) {
-                replaceFromInput.value = processData.replaceWordFrom;
-            }
-            if (replaceToInput && processData.replaceWordTo) {
-                replaceToInput.value = processData.replaceWordTo;
-            }
+        // Restore replace words
+        const replaceFromInput = document.getElementById('capture_replace_word_from');
+        const replaceToInput = document.getElementById('capture_replace_word_to');
+        if (replaceFromInput && processData.replaceWordFrom) {
+            replaceFromInput.value = processData.replaceWordFrom;
+        }
+        if (replaceToInput && processData.replaceWordTo) {
+            replaceToInput.value = processData.replaceWordTo;
+        }
 
-            // Restore remark
-            const remarkInput = document.getElementById('capture_remark');
-            if (remarkInput && processData.remark) {
-                remarkInput.value = processData.remark;
-            }
-        window.__setDataCaptureLinkedFields?.({
-            removeWord: processData.removeWord || '',
-            replaceWordFrom: processData.replaceWordFrom || '',
-            replaceWordTo: processData.replaceWordTo || '',
-            remark: processData.remark || ''
-        });
+        // Restore remark
+        const remarkInput = document.getElementById('capture_remark');
+        if (remarkInput && processData.remark) {
+            remarkInput.value = processData.remark;
+        }
 
         // Restore table data
         if (tableData && tableData.rows && tableData.rows.length > 0) {
@@ -24642,12 +24540,8 @@ async function restoreFromLocalStorage() {
     }
 }
 
-let __dataCapturePageInitPromise = null;
-
-// Initialize page (supports both classic PHP load and React SPA manual boot)
-async function initializeDataCapturePage() {
-    if (__dataCapturePageInitPromise) return __dataCapturePageInitPromise;
-    __dataCapturePageInitPromise = (async () => {
+// Initialize page
+document.addEventListener('DOMContentLoaded', async function () {
     // 加载权限按钮
     await loadPermissionButtons();
     // Mark page as ready after a brief delay to ensure CSS is loaded
@@ -24665,7 +24559,18 @@ async function initializeDataCapturePage() {
 
     if (typeSelect) {
         currentDataCaptureType = typeSelect.value || '1.Text';
-        const syncTypeChange = () => {
+        // CITIBET 模式：为表格容器添加 class，用于完整显示数据（避免字母被裁剪）
+        if (excelTableContainer) {
+            if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
+            else excelTableContainer.classList.remove('citibet-mode');
+        }
+        // 初始化显示状态
+        toggleTableDisplayForFormat();
+
+        // 初始化2.Format模式的粘贴区域监听（仅影响2.Format）
+        initFormatPasteArea();
+
+        typeSelect.addEventListener('change', () => {
             const previousType = currentDataCaptureType;
             currentDataCaptureType = typeSelect.value || '1.Text';
             // CITIBET 模式：为表格容器添加/移除 class，用于完整显示数据（避免字母被裁剪）
@@ -24674,25 +24579,22 @@ async function initializeDataCapturePage() {
                 else excelTableContainer.classList.remove('citibet-mode');
             }
             // 切到2.Format时：检查是否有保存的预览数据，如果有则恢复显示
-            // React 接管可见性/恢复触发时，不在 legacy 这里重复恢复。
             if (currentDataCaptureType === '2.Format') {
-                if (!window.__DC_REACT_FORMAT_VISIBILITY__) {
-                    let previewHtml = '';
-                    try {
-                        previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
-                    } catch (_) { }
+                let previewHtml = '';
+                try {
+                    previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
+                } catch (_) { }
 
-                    if (previewHtml) {
-                        // 如果有保存的预览数据，恢复显示
-                        renderFormatPreview(previewHtml);
-                        isFormatGridReady = true;
-                    } else {
-                        // 如果没有保存的数据，显示粘贴区
-                        // 但是不要重置 isFormatGridReady，因为用户可能刚刚粘贴了数据
-                        // 如果 isFormatGridReady 已经是 true（刚刚粘贴），保持它
-                        if (!isFormatGridReady) {
-                            isFormatGridReady = false;
-                        }
+                if (previewHtml) {
+                    // 如果有保存的预览数据，恢复显示
+                    renderFormatPreview(previewHtml);
+                    isFormatGridReady = true;
+                } else {
+                    // 如果没有保存的数据，显示粘贴区
+                    // 但是不要重置 isFormatGridReady，因为用户可能刚刚粘贴了数据
+                    // 如果 isFormatGridReady 已经是 true（刚刚粘贴），保持它
+                    if (!isFormatGridReady) {
+                        isFormatGridReady = false;
                     }
                 }
             } else {
@@ -24705,42 +24607,12 @@ async function initializeDataCapturePage() {
                 }
             }
 
-            // 切换表格和输入区域的显示（React 接管可见性时仅同步状态，不做 DOM 显隐）
-            if (window.__DC_REACT_FORMAT_VISIBILITY__) {
-                notifyReactFormatGridReady();
-            } else {
-                toggleTableDisplayForFormat();
-            }
+            // 切换表格和输入区域的显示
+            toggleTableDisplayForFormat();
 
             // 切换类型时，重新刷新 Submit 按钮的可用状态
             updateSubmitButtonState();
-        };
-        // CITIBET 模式：为表格容器添加 class，用于完整显示数据（避免字母被裁剪）
-        if (excelTableContainer) {
-            if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
-            else excelTableContainer.classList.remove('citibet-mode');
-        }
-        // 初始化显示状态（React 接管可见性时仅同步状态，不做 DOM 显隐）
-        if (window.__DC_REACT_FORMAT_VISIBILITY__) {
-            notifyReactFormatGridReady();
-        } else {
-            toggleTableDisplayForFormat();
-        }
-
-        // 初始化2.Format模式的粘贴区域监听（仅影响2.Format）
-        // React SPA 模式下由 DataCapturePage 自己接管 paste 入口，不再走 legacy 初始化。
-        if (!window.__DC_REACT_FORMAT_PASTE__) {
-            initFormatPasteArea();
-        }
-
-        if (window.__DC_REACT_CAPTURE_TYPE__) {
-            window.__dcSetCaptureType = function (nextType) {
-                typeSelect.value = nextType || '1.Text';
-                syncTypeChange();
-            };
-        } else {
-            typeSelect.addEventListener('change', syncTypeChange);
-        }
+        });
     }
 
     // 初始化 Process 输入框事件
@@ -24765,15 +24637,13 @@ async function initializeDataCapturePage() {
     // Add event listeners for form validation
     setupFormValidationListeners();
 
-    // Enforce uppercase on relevant text inputs (React SPA handles this in controlled inputs)
-    if (!window.__DC_REACT_UPPERCASE__) {
-        addUppercaseConversion('capture_remove_word');
-        addUppercaseConversion('capture_replace_word_from');
-        addUppercaseConversion('capture_replace_word_to');
-        addUppercaseConversion('capture_remark');
-        addUppercaseConversion('new_description_name');
-        addUppercaseConversion('descriptionSearch');
-    }
+    // Enforce uppercase on relevant text inputs
+    addUppercaseConversion('capture_remove_word');
+    addUppercaseConversion('capture_replace_word_from');
+    addUppercaseConversion('capture_replace_word_to');
+    addUppercaseConversion('capture_remark');
+    addUppercaseConversion('new_description_name');
+    addUppercaseConversion('descriptionSearch');
 
     // Check for URL parameters and show notifications
     if (urlParams.get('success') === '1') {
@@ -24788,12 +24658,7 @@ async function initializeDataCapturePage() {
         // Restore data from localStorage
         await restoreFromLocalStorage();
     }
-    })().catch((error) => {
-        __dataCapturePageInitPromise = null;
-        throw error;
-    });
-    return __dataCapturePageInitPromise;
-}
+});
 
 // 切换 data capture 的 company
 // 当前选择的权限
@@ -24801,9 +24666,6 @@ let selectedPermission = null;
 
 // 加载权限按钮
 async function loadPermissionButtons() {
-    if (window.__DC_REACT_PERMISSION_FILTER__) {
-        return;
-    }
     const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
     const currentCompanyCode = (typeof window.DATACAPTURE_COMPANY_CODE !== 'undefined' ? window.DATACAPTURE_COMPANY_CODE : '');
 
@@ -24909,9 +24771,6 @@ async function switchDataCaptureCompany(companyId) {
 
 // Setup form validation listeners
 function setupFormValidationListeners() {
-    if (window.__DC_REACT_FORM_DATA__ && window.__DC_REACT_DATE_SUBMITTED__ && window.__DC_REACT_SUBMIT_BUTTON__) {
-        return;
-    }
     // Listen for date changes
     const dateInput = document.getElementById('capture_date');
     if (dateInput) {
@@ -25007,43 +24866,4 @@ function addUppercaseConversion(inputId) {
         }, 0);
     });
 }
-
-function syncProcessDataMapFromReact(options) {
-    processDataMap.clear();
-    if (!Array.isArray(options)) return;
-    options.forEach((item) => {
-        if (!item || !item.displayText) return;
-        processDataMap.set(item.displayText, {
-            id: item.id,
-            process_id: item.process_id || item.processCode || '',
-            description_name: item.description_name || item.descriptionName || null
-        });
-    });
-}
 window.switchDataCaptureCompany = switchDataCaptureCompany;
-window.switchDataCapturePermission = switchPermission;
-window.__syncDataCaptureProcessMap = syncProcessDataMapFromReact;
-window.__dcHandleFormatPasteFromClipboard = handleFormatPasteFromClipboard;
-window.__dcTryParseFormatPasteAreaFromDom = tryParseFormatPasteAreaFromDom;
-window.__dcResetFormatState = resetFormatStateForReact;
-window.__dcRestoreFormatPreviewFromStorage = restoreFormatPreviewFromStorage;
-window.__initDataCapturePage = initializeDataCapturePage;
-window.updateSubmitButtonState = updateSubmitButtonState;
-window.__resetDataCapturePageInitPromise = function () {
-    __dataCapturePageInitPromise = null;
-};
-
-// React SPA：在加载本脚本前设置 window.__DC_REACT_BOOT__，由页面在表格挂载后调用 __initDataCapturePage()，避免脚本执行时 #tableBody 尚未渲染
-if (!window.__DC_REACT_BOOT__) {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeDataCapturePage().catch((error) => {
-                console.error('Failed to initialize data capture page:', error);
-            });
-        }, { once: true });
-    } else {
-        initializeDataCapturePage().catch((error) => {
-            console.error('Failed to initialize data capture page:', error);
-        });
-    }
-}

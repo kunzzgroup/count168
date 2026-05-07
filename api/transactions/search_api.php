@@ -19,6 +19,17 @@ require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
+ * WIN/LOSE/ADJUSTMENT 行对 Win/Loss 的贡献：与 data_capture processed_amount 相同，
+ * 按「向 0 截断到分 + ε」逐行量化后再 SUM，避免与 DCD 混用原始 DECIMAL 产生 Σ 残差。
+ *
+ * @param string $signedContributionExpr 带符号的 SQL 表达式，如 t.amount、-t.amount、e.amount
+ */
+function searchApiWlTxnAmountSqlQuant2(string $signedContributionExpr): string
+{
+    return dcd_processed_amount_sql_quant2('(' . $signedContributionExpr . ')');
+}
+
+/**
  * 审批过滤：过滤未批准交易（向后兼容：若无字段则不过滤）
  */
 function hasContraApprovalColumns(PDO $pdo): bool
@@ -115,20 +126,45 @@ function searchApiHasAccountCurrencyTable(PDO $pdo): bool
     return $v;
 }
 
+/**
+ * 统计口径统一为 6 位小数（展示仍在前端按 2 位处理）。
+ */
 function searchMoney2($value): string
 {
     if ($value === null || trim((string)$value) === '') {
-        return money_normalize('0', 2);
+        return money_normalize('0', 6);
     }
-    return money_normalize($value ?? '0', 2);
+    return money_normalize($value ?? '0', 6);
 }
 
 /**
- * 截断到2位小数（不四舍五入），返回字符串金额。
+ * 兼容旧调用名：此函数现在用于“统计口径量化”，统一到 6 位。
  */
 function trunc2($value): string
 {
     return searchMoney2($value);
+}
+
+/**
+ * Bulk SQL 聚合结果先入 8 位精度（勿 trunc2），再参与 money_add；否则会系统性漏水，
+ * 全公司 Σ Win/Loss/B/F 与逐账户高精度口径不一致。
+ */
+function searchBulkAgg8($value): string
+{
+    $v = $value ?? '0';
+    if (!money_is_valid($v)) {
+        return money_normalize('0', 8);
+    }
+    return money_normalize($v, 8);
+}
+
+/** Transaction 列表 Win/Loss 列：对高精度金额四舍五入到分（HALF_UP）再展示 */
+function searchMoneyHalfUp2($value): string
+{
+    if ($value === null || trim((string) $value) === '') {
+        return money_round_half_up('0', 2);
+    }
+    return money_round_half_up((string) $value, 2);
 }
 
 function searchMoneyNeg($value): string
@@ -379,6 +415,7 @@ function searchApiAppendDomainNetProfitVirtualRows(
             'currency_id_debug' => $cid,
             'bf' => '0',
             'win_loss' => '0',
+            'win_loss_full' => '0',
             'cr_dr' => $amt,
             'balance' => $amt,
             'has_crdr_transactions' => 1,
@@ -584,6 +621,7 @@ function searchApiAppendDomainListFeeVirtualRows(
             'currency_id_debug' => $cid,
             'bf' => '0',
             'win_loss' => '0',
+            'win_loss_full' => '0',
             'cr_dr' => searchMoneyNeg($amt),
             'balance' => searchMoneyNeg($amt),
             'has_crdr_transactions' => 1,
@@ -723,16 +761,24 @@ function searchApiApplyDomainSourceCompanyRows(
         $aid = (int) ($row['account_db_id'] ?? 0);
         $cur = strtoupper((string) ($row['currency'] ?? ''));
         if ($aid > 0 && $cur !== '') {
+            $touched = false;
             if (isset($poolBfAdjust[$aid][$cur])) {
                 $bd = $poolBfAdjust[$aid][$cur];
                 $row['bf'] = trunc2(money_add($row['bf'] ?? '0', $bd, 8));
-                $row['balance'] = trunc2(money_add($row['balance'] ?? '0', $bd, 8));
+                $touched = true;
             }
             if (isset($poolAdjust[$aid][$cur])) {
                 $delta = $poolAdjust[$aid][$cur];
                 $row['cr_dr'] = trunc2(money_add($row['cr_dr'] ?? '0', $delta, 8));
-                $row['balance'] = trunc2(money_add($row['balance'] ?? '0', $delta, 8));
                 $row['has_crdr_transactions'] = searchMoneyNonZero($row['cr_dr'] ?? '0') ? 1 : (int) $row['has_crdr_transactions'];
+                $touched = true;
+            }
+            if ($touched) {
+                $bf_d = trunc2($row['bf'] ?? '0');
+                $wl6 = trunc2($row['win_loss_full'] ?? ($row['win_loss'] ?? '0'));
+                $cr_d = trunc2($row['cr_dr'] ?? '0');
+                $balance6 = trunc2(money_add(money_add($bf_d, $wl6, 8), $cr_d, 8));
+                $row['balance'] = searchMoneyHalfUp2($balance6);
             }
         }
     }
@@ -782,6 +828,8 @@ try {
     $show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] === '1';
     $show_capture_only = isset($_GET['show_capture_only']) && $_GET['show_capture_only'] === '1';
     $hide_zero_balance = isset($_GET['hide_zero_balance']) && $_GET['hide_zero_balance'] === '1';
+    /** 诊断用：附带 Win/Loss 按来源桶汇总与非零明细（与列表Σ win_loss_full 对齐）；不传或!=1 则无此字段且不写入缓存键 */
+    $debug_wl_total = isset($_GET['debug_wl_total']) && (string) $_GET['debug_wl_total'] === '1';
 
     // 解析目标账户：优先使用请求中的 target_account_id（保证 member 切换账户后显示所选账户数据），否则 member 用 session
     $target_account_ids = [];
@@ -882,7 +930,7 @@ try {
     if (!is_dir($cache_dir)) {
         @mkdir($cache_dir, 0777, true);
     }
-    if (is_dir($cache_dir)) {
+    if (!$debug_wl_total && is_dir($cache_dir)) {
         $cache_key_payload = [
             'user_id' => (int) ($_SESSION['user_id'] ?? 0),
             'user_type' => strtolower((string) ($_SESSION['user_type'] ?? '')),
@@ -1439,7 +1487,10 @@ try {
         $account_currency_ids = [];
         $acc_str = trim((string) $account_id);
 
-        if (!$hide_zero_balance && $has_account_currency_table) {
+        // 账户 × 币别组合：只要存在 account_currency 表就始终走「现代路径」枚举 active + 交易币别。
+        // 切勿在 hide_zero_balance=1 时改走 Legacy（仅从 DCD 推币别）：会漏掉大量组合行，
+        // 前端再隐藏零余额后合计永远少半边账（典型 ±0.37 级尾差）。
+        if ($has_account_currency_table) {
             // === 现代路径：从 bulk_ac 批量数据读取，无需逐账户查询 ===
             foreach ($bulk_ac[$account_id] ?? [] as $cid => $code) {
                 addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
@@ -1554,22 +1605,28 @@ try {
         $contra_where_t = contraApprovedWhere($pdo, 't');
 
         $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
+        // wl_count / up_to_count 只统计「量化后金额非 0」的明细行，避免空占位 DCD 让 has_win_loss_* 虚高，
+        // 进而在未勾选 Show 0 balance 时仍被前端 rowPassesHideZeroBalanceFilter 保留。
         $sql = "SELECT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str, dcd.currency_id, 
                        SUM(CASE WHEN dc.capture_date < ? THEN {$dcdQ} ELSE 0 END) AS bf_total,
                        SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN {$dcdQ} ELSE 0 END) AS wl_total,
-                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
-                       COUNT(*) AS up_to_count
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? AND ABS({$dcdQ}) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? 
+                                AND (TRIM(COALESCE(dcd.id_product_main,'')) <> '' OR TRIM(COALESCE(dcd.id_product_sub,'')) <> '')
+                                THEN 1 ELSE 0 END) AS id_product_rows_period,
+                       SUM(CASE WHEN ABS({$dcdQ}) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_count
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
                 WHERE dcd.company_id = ? AND dc.company_id = ? AND dc.capture_date <= ? AND dcd.currency_id IS NOT NULL
                 GROUP BY TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')), dcd.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['dcd'][$r['acc_str']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_total'] ?? '0'),
-                'wl' => trunc2($r['wl_total'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_total'] ?? '0'),
+                'wl' => searchBulkAgg8($r['wl_total'] ?? '0'),
                 'wl_count' => (int) $r['wl_count'],
+                'id_product_rows_period' => (int) ($r['id_product_rows_period'] ?? 0),
                 'up_to_count' => (int) ($r['up_to_count'] ?? 0)
             ];
         }
@@ -1601,62 +1658,70 @@ try {
             }
         }
 
+        // 与 SUM(wl_total) 同行口径：笔数只计「该行对 Win/Loss 的贡献非 0」，避免 0 金额 WIN/LOSE 仍令 has_win_loss_* 为真（Payment History 无实质行但列表仍显示）。
+        // 与 DCD 一致：每笔 transaction 金额先 quant2 再 SUM（dcd_processed_amount_sql_quant2）。
+        $txnWlRowContributionSql = '(CASE 
+                        WHEN t.transaction_type = \'WIN\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
+                        WHEN t.transaction_type = \'LOSE\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN ' . searchApiWlTxnAmountSqlQuant2('-t.amount') . '
+                        WHEN t.transaction_type = \'WIN\' AND ((t.description NOT LIKE \'Process: %\' AND t.description NOT LIKE \'Inactive Compensation %\' AND t.description NOT LIKE \'Compensation %\') OR t.description IS NULL) THEN ' . searchApiWlTxnAmountSqlQuant2('-t.amount') . '
+                        WHEN t.transaction_type = \'LOSE\' AND ((t.description NOT LIKE \'Process: %\' AND t.description NOT LIKE \'Inactive Compensation %\' AND t.description NOT LIKE \'Compensation %\') OR t.description IS NULL) THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
+                        WHEN t.transaction_type = \'ADJUSTMENT\' THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
+                        ELSE 0 
+                    END)';
+        $txnWlRowWinLoseAdj = $txnWlRowContributionSql;
+
         $sql = "SELECT t.account_id, IFNULL(t.currency_id, 0) AS currency_id,
                  SUM(CASE WHEN $wlDateExpr < ? THEN (
-                    CASE 
-                        WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
-                        WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
-                        WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
-                        WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
-                        ELSE 0 
-                    END
+                    $txnWlRowContributionSql
                  ) ELSE 0 END) AS bf_total,
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
-                    CASE 
-                        WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
-                        WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
-                        WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
-                        WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
-                        ELSE 0 
-                    END
+                    $txnWlRowContributionSql
                  ) ELSE 0 END) AS wl_total,
-                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
-                 SUM(CASE WHEN $wlDateExpr <= ? THEN 1 ELSE 0 END) AS up_to_count
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlRowWinLoseAdj) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                 SUM(CASE WHEN $wlDateExpr <= ? THEN 
+                    CASE WHEN ABS((CASE 
+                      WHEN $wlDateExpr < ? THEN $txnWlRowWinLoseAdj
+                      WHEN $wlDateExpr BETWEEN ? AND ? THEN $txnWlRowWinLoseAdj
+                      ELSE 0 
+                    END)) > 0.0000001 THEN 1 ELSE 0 END
+                 ELSE 0 END) AS up_to_count
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ?
                   AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   $contra_where_t $wlFutureGuard
                 GROUP BY t.account_id, IFNULL(t.currency_id, 0)";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $company_id]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_win_lose'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_total'] ?? '0'),
-                'wl' => trunc2($r['wl_total'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_total'] ?? '0'),
+                'wl' => searchBulkAgg8($r['wl_total'] ?? '0'),
                 'wl_count' => (int) $r['wl_count'],
                 'up_to_count' => (int) ($r['up_to_count'] ?? 0)
             ];
         }
 
+        $txnWlFromInner = '(CASE
+                        WHEN t.transaction_type = \'WIN\' THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
+                        WHEN t.transaction_type = \'LOSE\' THEN ' . searchApiWlTxnAmountSqlQuant2('-t.amount') . '
+                        ELSE 0
+                    END)';
+
         $sql = "SELECT t.from_account_id AS account_id, IFNULL(t.currency_id, 0) AS currency_id,
                  SUM(CASE WHEN $wlDateExpr < ? THEN (
-                    CASE
-                        WHEN t.transaction_type = 'WIN' THEN t.amount
-                        WHEN t.transaction_type = 'LOSE' THEN -t.amount
-                        ELSE 0
-                    END
+                    $txnWlFromInner
                  ) ELSE 0 END) AS bf_total,
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
-                    CASE
-                        WHEN t.transaction_type = 'WIN' THEN t.amount
-                        WHEN t.transaction_type = 'LOSE' THEN -t.amount
-                        ELSE 0
-                    END
+                    $txnWlFromInner
                  ) ELSE 0 END) AS wl_total,
-                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
-                 SUM(CASE WHEN $wlDateExpr <= ? THEN 1 ELSE 0 END) AS up_to_count
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlFromInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                 SUM(CASE WHEN $wlDateExpr <= ? THEN 
+                    CASE WHEN ABS((CASE 
+                      WHEN $wlDateExpr < ? THEN $txnWlFromInner
+                      WHEN $wlDateExpr BETWEEN ? AND ? THEN $txnWlFromInner
+                      ELSE 0 
+                    END)) > 0.0000001 THEN 1 ELSE 0 END
+                 ELSE 0 END) AS up_to_count
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ?
                   AND t.from_account_id IS NOT NULL
@@ -1665,18 +1730,37 @@ try {
                   $contra_where_t $wlFutureGuard
                 GROUP BY t.from_account_id, IFNULL(t.currency_id, 0)";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $company_id]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $aid = (int) $r['account_id'];
             $cid = (int) $r['currency_id'];
             $existing = $bulk['txn_win_lose'][$aid][$cid] ?? ['bf' => '0', 'wl' => '0', 'wl_count' => 0, 'up_to_count' => 0];
             $bulk['txn_win_lose'][$aid][$cid] = [
-                'bf' => trunc2(money_add($existing['bf'] ?? '0', $r['bf_total'] ?? '0', 8)),
-                'wl' => trunc2(money_add($existing['wl'] ?? '0', $r['wl_total'] ?? '0', 8)),
+                'bf' => searchBulkAgg8(money_add($existing['bf'] ?? '0', $r['bf_total'] ?? '0', 8)),
+                'wl' => searchBulkAgg8(money_add($existing['wl'] ?? '0', $r['wl_total'] ?? '0', 8)),
                 'wl_count' => (int) ($existing['wl_count'] ?? 0) + (int) $r['wl_count'],
                 'up_to_count' => (int) ($existing['up_to_count'] ?? 0) + (int) ($r['up_to_count'] ?? 0)
             ];
         }
+
+        $crdrToPeriodInner = '(CASE 
+                        WHEN transaction_type IN (\'RECEIVE\', \'CLAIM\') THEN -t.amount
+                        WHEN transaction_type = \'CONTRA\' THEN -t.amount
+                        WHEN transaction_type = \'CLEAR\' THEN -t.amount
+                        WHEN transaction_type = \'PAYMENT\' AND t.sms LIKE \'[DOMAIN_SHARE_COMMISSION|%\' THEN t.amount
+                        WHEN transaction_type = \'PAYMENT\' AND t.sms LIKE \'[DOMAIN_NET_PROFIT|%\' THEN 0
+                        WHEN transaction_type = \'PAYMENT\' AND (t.sms LIKE \'[DOMAIN_LIST_FEE|%\' OR UPPER(TRIM(COALESCE(t.description, \'\'))) LIKE \'DOMAIN LIST FEE FROM %\') THEN t.amount
+                        WHEN transaction_type = \'PAYMENT\' THEN -t.amount
+                        ELSE 0 
+                    END)';
+        $crdrFromPeriodInner = '(CASE 
+                        WHEN transaction_type = \'CONTRA\' THEN t.amount
+                        WHEN transaction_type = \'CLEAR\' THEN t.amount
+                        WHEN transaction_type = \'PAYMENT\' AND t.sms LIKE \'[DOMAIN_NET_PROFIT|%\' THEN 0
+                        WHEN transaction_type = \'PAYMENT\' AND (t.sms LIKE \'[DOMAIN_LIST_FEE|%\' OR UPPER(TRIM(COALESCE(t.description, \'\'))) LIKE \'DOMAIN LIST FEE FROM %\') THEN -t.amount
+                        WHEN transaction_type IN (\'PAYMENT\', \'RECEIVE\', \'CLAIM\') THEN t.amount
+                        ELSE 0 
+                    END)';
 
         $sql = "SELECT t.account_id, t.currency_id,
                  SUM(CASE WHEN t.transaction_date < ? THEN (
@@ -1703,7 +1787,7 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_cr_dr,
-                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? AND ABS($crdrToPeriodInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_txn_count
                 FROM transactions t
                 WHERE t.company_id = ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
@@ -1714,8 +1798,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_to'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_cr_dr'] ?? '0'),
-                'cr_dr' => trunc2($r['wl_cr_dr'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_cr_dr'] ?? '0'),
+                'cr_dr' => searchBulkAgg8($r['wl_cr_dr'] ?? '0'),
                 'count' => (int) $r['wl_txn_count']
             ];
         }
@@ -1743,7 +1827,7 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_cr_dr,
-                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? AND ABS($crdrFromPeriodInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_txn_count
                 FROM transactions t
                 WHERE t.company_id = ? AND t.from_account_id IS NOT NULL
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
@@ -1757,24 +1841,32 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_from'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_cr_dr'] ?? '0'),
-                'cr_dr' => trunc2($r['wl_cr_dr'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_cr_dr'] ?? '0'),
+                'cr_dr' => searchBulkAgg8($r['wl_cr_dr'] ?? '0'),
                 'count' => (int) $r['wl_txn_count']
             ];
         }
+
+        $rateNonMmRowAmt = '(CASE
+                      WHEN e.entry_type IN (\'RATE_FIRST_FROM\',\'RATE_TRANSFER_FROM\') THEN -e.amount
+                      WHEN e.entry_type IN (\'RATE_FIRST_TO\',\'RATE_TRANSFER_TO\') THEN -e.amount
+                      ELSE e.amount
+                    END)';
+
+        $rateMmAmtQuant2 = searchApiWlTxnAmountSqlQuant2('e.amount');
 
         $sql = "SELECT e.account_id, e.currency_id,
                  SUM(CASE WHEN h.transaction_date < ? THEN (
                     CASE
                       WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
                       WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-                      WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
+                      WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN $rateMmAmtQuant2
                       ELSE e.amount
                     END
                  ) ELSE 0 END) AS bf_total,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount ELSE 0 END) AS wl_rate_mm,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_rate_mm_count,
-                 SUM(CASE WHEN h.transaction_date <= ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS up_to_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN $rateMmAmtQuant2 ELSE 0 END) AS wl_rate_mm,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS($rateMmAmtQuant2) > 0.0000001 THEN 1 ELSE 0 END) AS wl_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date <= ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS($rateMmAmtQuant2) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_rate_mm_count,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN (
                     CASE
                       WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
@@ -1782,7 +1874,7 @@ try {
                       ELSE e.amount
                     END
                  ) ELSE 0 END) AS wl_cr_dr_other,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_cr_dr_other_count
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' AND ABS($rateNonMmRowAmt) > 0.0000001 THEN 1 ELSE 0 END) AS wl_cr_dr_other_count
             FROM transaction_entry e
             JOIN transactions h ON e.header_id = h.id
             WHERE h.company_id = ?
@@ -1793,11 +1885,11 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['entry'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_total'] ?? '0'),
-                'wl_mm' => trunc2($r['wl_rate_mm'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_total'] ?? '0'),
+                'wl_mm' => searchBulkAgg8($r['wl_rate_mm'] ?? '0'),
                 'wl_mm_count' => (int) $r['wl_rate_mm_count'],
                 'wl_mm_up_to_count' => (int) ($r['up_to_rate_mm_count'] ?? 0),
-                'cr_dr' => trunc2($r['wl_cr_dr_other'] ?? '0'),
+                'cr_dr' => searchBulkAgg8($r['wl_cr_dr_other'] ?? '0'),
                 'cr_dr_count' => (int) $r['wl_cr_dr_other_count']
             ];
         }
@@ -1818,33 +1910,47 @@ try {
         $win_loss = $wlPack['win_loss'];
         $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions']);
         $has_win_loss_history = !empty($wlPack['has_win_loss_history']);
+        $has_period_id_product_rows = !empty($wlPack['has_period_id_product_rows']);
 
         // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
         $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
-        // Layer 2 过滤：(账户 + 货币) 组合级别。两者互相对称：
-        // 情况A：仅 Show Win/Loss Only —— 跳过该货币“本期没有任何 Win/Loss 相关记录”的行
+        // Layer 2：(账户+币种) 级筛选。
+        // 勿仅因「本期无 Win/Loss 动账」就整行丢弃——否则仅剩 B/F 或 Cr/Dr 轧差的户被藏起来，
+        // 合计缺少对家，左右脚 Win/Loss/Balance 永不平。
         if ($show_capture_only && !$show_inactive) {
             if (!$has_win_loss_transactions) {
-                continue;
+                $bf_near = trunc2($bf);
+                $cr_near = trunc2($cr_dr);
+                $wl_full_chk = $wlPack['win_loss_full'] ?? '0';
+                if (!searchMoneyNonZero($bf_near) && !searchMoneyNonZero($cr_near) && !searchMoneyNonZero($wl_full_chk)) {
+                    continue;
+                }
             }
         }
-        // 情况B：仅 Show Payment Only —— 跳过该货币没有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 的行
-        // 注意：$has_crdr_transactions 已在 calculateCrDrByCurrency 中修正，
-        // 不再受 RATE 分录（transaction_entry）count 污染。
+        // 对称：勿仅因本期无 PAYMENT 类 Cr/Dr 动账就丢弃——无 Cr/Dr 交易但仍承担 Win/Loss 或期初轧差的户要保留。
         if ($show_inactive && !$show_capture_only) {
             if (!$has_crdr_transactions) {
-                continue;
+                $bf_near = trunc2($bf);
+                $cr_near = trunc2($cr_dr);
+                $wl_full_chk = $wlPack['win_loss_full'] ?? '0';
+                if (!searchMoneyNonZero($bf_near) && !searchMoneyNonZero($cr_near) && !searchMoneyNonZero($wl_full_chk)) {
+                    continue;
+                }
             }
         }
 
-        // 4. 计算 Balance（显示口径）：金额保持字符串，经 BC Math 逐项相加后截到 2 位。
-        $bf_display = trunc2($bf);
-        $win_loss_display = trunc2($win_loss);
-        $cr_dr_display = trunc2($cr_dr);
-        $balance = trunc2(money_add(money_add($bf_display, $win_loss_display, 8), $cr_dr_display, 8));
+        // 4. 计算 Balance：先按 6 位统计口径运算，再在展示层 half-up 到 2 位。
+        $bf_stat = trunc2($bf);
+        $win_loss_stat = trunc2($wlPack['win_loss_full'] ?? $win_loss);
+        $cr_dr_stat = trunc2($cr_dr);
+        $balance_full = trunc2(money_add(money_add($bf_stat, $win_loss_stat, 8), $cr_dr_stat, 8));
+        $bf_display = searchMoneyHalfUp2($bf_stat);
+        $win_loss_display = searchMoneyHalfUp2($win_loss_stat);
+        $cr_dr_display = searchMoneyHalfUp2($cr_dr_stat);
+        $balance = searchMoneyHalfUp2($balance_full);
 
         // 4b. 本期是否有 RATE Middle-Man 分录（与 Win/Loss 内 RATE_MIDDLEMAN 查询合并，避免每条组合多一次 EXISTS）
         $is_rate_middleman = !empty($wlPack['has_rate_middleman']);
@@ -1964,11 +2070,14 @@ try {
             // 与 history_api 显示口径保持一致：统一在后端保留 2 位小数再返回
             'bf' => $bf_display,
             'win_loss' => $win_loss_display,
+            'win_loss_full' => $wlPack['win_loss_full'] ?? $win_loss_display,
             'cr_dr' => $cr_dr_display,
             'balance' => $balance,
+            'balance_full' => $balance_full,
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
             'has_win_loss_history' => $has_win_loss_history ? 1 : 0,
+            'has_period_id_product_rows' => $has_period_id_product_rows ? 1 : 0,
             'is_alert' => $is_alert ? 1 : 0,
             'is_rate_middleman' => $is_rate_middleman ? 1 : 0
         ];
@@ -2036,7 +2145,17 @@ try {
     // 计算总和
     $left_totals = calculateTotals($left_table);
     $right_totals = calculateTotals($right_table);
-    $summary_totals = addMoneyFields($left_totals, $right_totals);
+    $summary_totals = calculateTotals($results);
+
+    $debug_win_loss_payload = null;
+    if ($debug_wl_total) {
+        $codeByDbId = [];
+        foreach ($accounts as $a) {
+            $codeByDbId[(int) ($a['id'] ?? 0)] = trim((string) ($a['account_id'] ?? ''));
+        }
+        $debug_win_loss_payload = searchApiBuildWinLossDebugPayload($bulk, $results, $codeByDbId, $summary_totals, $date_from_db, $date_to_db, $filter_currency_codes);
+    }
+
     $left_table = normalizeMoneyRows($left_table);
     $right_table = normalizeMoneyRows($right_table);
 
@@ -2054,8 +2173,11 @@ try {
             'active_currency_codes' => $active_currency_codes
         ]
     ];
+    if ($debug_win_loss_payload !== null) {
+        $payload['data']['debug_win_loss'] = $debug_win_loss_payload;
+    }
     $json = json_encode($payload);
-    if (!empty($cache_file) && $json !== false) {
+    if (!$debug_wl_total && !empty($cache_file) && $json !== false) {
         @file_put_contents($cache_file, $json, LOCK_EX);
     }
     echo $json;
@@ -2251,24 +2373,194 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to)
 }
 
 /**
- * 计算表格总和
+ * Transaction List Win/Loss 诊断：与本请求 bulk 路径下 calculateWinLossByCurrency 同口径拆分三桶。
+ * @return array{wl_dcd:string, wl_txn_win_lose:string, wl_rate_middleman:string, wl_rebuilt:string}|null bulk 不可用（旧库无 currency）时返回 null。
+ */
+function searchApiWlDebugBucketsFromBulk(?array $bulk, int $account_db_id, int $currency_id, string $account_code): ?array
+{
+    if ($bulk === null) {
+        return null;
+    }
+    $acc_str = trim((string) $account_db_id);
+    $code_str = trim((string) $account_code);
+
+    $dcd = '0';
+    $dcd = money_add($dcd, $bulk['dcd'][$acc_str][$currency_id]['wl'] ?? '0', 8);
+    if ($code_str !== '' && $code_str !== $acc_str) {
+        $dcd = money_add($dcd, $bulk['dcd'][$code_str][$currency_id]['wl'] ?? '0', 8);
+    }
+
+    $txn = '0';
+    $txn_row = $bulk['txn_win_lose'][$account_db_id][$currency_id] ?? null;
+    if ($txn_row !== null) {
+        $txn = money_add($txn, $txn_row['wl'] ?? '0', 8);
+    }
+    $txn_null = $bulk['txn_win_lose'][$account_db_id][0] ?? null;
+    if ($txn_null !== null &&
+        (isset($bulk['dcd'][$acc_str][$currency_id]) ||
+            ($code_str !== '' && isset($bulk['dcd'][$code_str][$currency_id])))) {
+        $txn = money_add($txn, $txn_null['wl'] ?? '0', 8);
+    }
+
+    $mm = $bulk['entry'][$account_db_id][$currency_id]['wl_mm'] ?? '0';
+
+    $rebuilt = '0';
+    $rebuilt = money_add($rebuilt, $dcd, 8);
+    $rebuilt = money_add($rebuilt, $txn, 8);
+    $rebuilt = money_add($rebuilt, $mm, 8);
+
+    return [
+        'wl_dcd' => money_normalize($dcd, 8),
+        'wl_txn_win_lose' => money_normalize($txn, 8),
+        'wl_rate_middleman' => money_normalize($mm, 8),
+        'wl_rebuilt' => money_normalize($rebuilt, 8),
+    ];
+}
+
+/**
+ * @param array<int, string> $codeByDbId account.id => account.account_id（编码）
+ */
+function searchApiBuildWinLossDebugPayload(
+    ?array $bulk,
+    array $results,
+    array $codeByDbId,
+    array $summary_totals,
+    string $date_from_db,
+    string $date_to_db,
+    array $filter_currency_codes
+): array {
+    $sumDcd = '0';
+    $sumTxn = '0';
+    $sumMm = '0';
+    $sumRebuild = '0';
+    $sumWlFull = '0';
+
+    $nonZeroRows = [];
+    $bucketMismatches = [];
+
+    foreach ($results as $row) {
+        $aid = (int) ($row['account_db_id'] ?? 0);
+        $cid = (int) ($row['currency_id_debug'] ?? 0);
+        $code = $codeByDbId[$aid] ?? '';
+
+        $wlFull = money_normalize((string) ($row['win_loss_full'] ?? ($row['win_loss'] ?? '0')), 8);
+        $sumWlFull = money_add($sumWlFull, $wlFull, 8);
+
+        $item = [
+            'account_display' => (string) ($row['account_id'] ?? ''),
+            'account_db_id' => $aid,
+            'account_code_raw' => $code,
+            'currency' => (string) ($row['currency'] ?? ''),
+            'currency_id' => $cid,
+            'win_loss_full' => $wlFull,
+            'win_loss_half_up' => searchMoneyHalfUp2($wlFull),
+        ];
+
+        $bk = searchApiWlDebugBucketsFromBulk($bulk, $aid, $cid, $code);
+        if ($bk !== null) {
+            $sumDcd = money_add($sumDcd, $bk['wl_dcd'], 8);
+            $sumTxn = money_add($sumTxn, $bk['wl_txn_win_lose'], 8);
+            $sumMm = money_add($sumMm, $bk['wl_rate_middleman'], 8);
+            $sumRebuild = money_add($sumRebuild, $bk['wl_rebuilt'], 8);
+
+            $item['wl_dcd'] = $bk['wl_dcd'];
+            $item['wl_txn_win_lose'] = $bk['wl_txn_win_lose'];
+            $item['wl_rate_middleman'] = $bk['wl_rate_middleman'];
+            $item['wl_rebuilt'] = $bk['wl_rebuilt'];
+
+            $delta = money_sub($bk['wl_rebuilt'], $wlFull, 8);
+            if (money_cmp(money_abs($delta), '0.0000001', 8) > 0) {
+                $item['rebuild_minus_row'] = money_normalize($delta, 8);
+                $bucketMismatches[] = $item;
+            }
+        } else {
+            $item['note'] = 'no_bulk_debug_breakdown_legacy_txn_currency';
+        }
+
+        if (money_cmp($wlFull, '0', 8) !== 0) {
+            $nonZeroRows[] = $item;
+        }
+    }
+
+    $deltaBucketVsSumRows = money_sub($sumRebuild, $sumWlFull, 8);
+
+    usort($nonZeroRows, function ($a, $b) {
+        $absA = money_abs($a['win_loss_full'] ?? '0');
+        $absB = money_abs($b['win_loss_full'] ?? '0');
+        $c = money_cmp($absA, $absB, 8);
+        if ($c !== 0) {
+            return $c;
+        }
+        return strcmp((string) ($a['account_display'] ?? ''), (string) ($b['account_display'] ?? ''));
+    });
+
+    $smallestByAbs = array_slice($nonZeroRows, 0, 80);
+
+    $nzCopy = $nonZeroRows;
+    usort($nzCopy, function ($a, $b) {
+        $absA = money_abs($a['win_loss_full'] ?? '0');
+        $absB = money_abs($b['win_loss_full'] ?? '0');
+        $c = money_cmp($absB, $absA, 8);
+        if ($c !== 0) {
+            return $c;
+        }
+        return strcmp((string) ($a['account_display'] ?? ''), (string) ($b['account_display'] ?? ''));
+    });
+    $largestAbsWinLoss = array_slice($nzCopy, 0, 25);
+
+    return [
+        '_hint' => 'GET debug_wl_total=1：桶合计与Σ win_loss_full 应对齐；差额通常来自 Domain 校正行或未入 bulk 的虚拟行。',
+        'range' => ['date_from' => $date_from_db, 'date_to' => $date_to_db],
+        'currency_filters' => $filter_currency_codes,
+        'bulk_available' => $bulk !== null,
+        'totals_summary_from_api' => $summary_totals,
+        'bucket_sums_hp' => [
+            'sum_wl_dcd' => money_normalize($sumDcd, 8),
+            'sum_wl_txn_win_lose' => money_normalize($sumTxn, 8),
+            'sum_wl_rate_middleman' => money_normalize($sumMm, 8),
+            'sum_wl_rebuilt' => money_normalize($sumRebuild, 8),
+            'sum_win_loss_full_rows' => money_normalize($sumWlFull, 8),
+            'delta_rebuilt_minus_sum_win_loss_full' => money_normalize($deltaBucketVsSumRows, 8),
+        ],
+        'bucket_sums_display_win_loss_half_up_total' => searchMoneyHalfUp2($sumRebuild),
+        'nonzero_rows_count' => count($nonZeroRows),
+        'nonzero_sorted_smallest_abs' => $smallestByAbs,
+        'nonzero_sorted_largest_abs' => $largestAbsWinLoss,
+        'bucket_mismatch_vs_row_count' => count($bucketMismatches),
+        'bucket_mismatch_rows' => $bucketMismatches,
+    ];
+}
+
+/**
+ * 计算表格总和（Win/Loss：必须先累加 win_loss_full，最后再 half-up 一次，勿累加已展示的 win_loss）
  */
 function calculateTotals($data)
 {
-    $totals = ['bf' => '0', 'win_loss' => '0', 'cr_dr' => '0', 'balance' => '0'];
+    $bf = '0';
+    $wl = '0';
+    $cr = '0';
 
     foreach ($data as $row) {
-        $totals['bf'] = money_add($totals['bf'], $row['bf'] ?? '0', 2);
-        $totals['win_loss'] = money_add($totals['win_loss'], $row['win_loss'] ?? '0', 2);
-        $totals['cr_dr'] = money_add($totals['cr_dr'], $row['cr_dr'] ?? '0', 2);
-        $totals['balance'] = money_add($totals['balance'], $row['balance'] ?? '0', 2);
+        $bf = money_add($bf, $row['bf'] ?? '0', 8);
+        $wlFull = $row['win_loss_full'] ?? ($row['win_loss'] ?? '0');
+        $wl = money_add($wl, $wlFull, 8);
+        $cr = money_add($cr, $row['cr_dr'] ?? '0', 8);
     }
 
+    // 统计先统一到 6 位，再输出展示值（2 位 half-up）
+    $bf6 = searchMoney2($bf);
+    $wl6 = searchMoney2($wl);
+    $cr6 = searchMoney2($cr);
+    $bf2 = searchMoneyHalfUp2($bf6);
+    $wl2 = searchMoneyHalfUp2($wl6);
+    $cr2 = searchMoneyHalfUp2($cr6);
+    $balance2 = searchMoneyHalfUp2(searchMoney2(money_add(money_add($bf6, $wl6, 8), $cr6, 8)));
+
     return [
-        'bf' => searchMoney2($totals['bf']),
-        'win_loss' => searchMoney2($totals['win_loss']),
-        'cr_dr' => searchMoney2($totals['cr_dr']),
-        'balance' => searchMoney2($totals['balance']),
+        'bf' => $bf2,
+        'win_loss' => $wl2,
+        'cr_dr' => $cr2,
+        'balance' => $balance2,
     ];
 }
 
@@ -2359,11 +2651,11 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
-                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
-                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
-                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
+                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2386,8 +2678,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2436,11 +2728,11 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
-                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
-                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
-                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
+                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2456,8 +2748,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                  WHEN t.transaction_type = 'LOSE' THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2509,6 +2801,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     COALESCE(SUM(CASE 
                         WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -2529,6 +2822,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     COALESCE(SUM(CASE 
                         WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -2555,12 +2849,13 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     }
     $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
-    // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算）
+    // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算；MIDDLEMAN 与 Win/Loss bulk 口径 quant2 对齐）
+    $rateMmBfQuant = searchApiWlTxnAmountSqlQuant2('e.amount');
     $rateStmt = $pdo->prepare("
         SELECT COALESCE(SUM(CASE
           WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
           WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
+          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN $rateMmBfQuant
           ELSE e.amount
         END), 0) AS total
         FROM transaction_entry e
@@ -2584,7 +2879,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
  *          + 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）
  *          + RATE Middle-Man 手续费（RATE_MIDDLEMAN）
  *
- * @return array{win_loss: float, has_rate_middleman: bool, has_win_loss_transactions: bool, has_win_loss_history: bool}
+ * @return array{win_loss: float, has_rate_middleman: bool, has_win_loss_transactions: bool, has_win_loss_history: bool, has_period_id_product_rows: bool}
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $account_code = '', &$bulk = null)
 {
@@ -2598,10 +2893,12 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $win_loss = money_add($win_loss, $bulk['dcd'][$acc_str][$currency_id]['wl'] ?? '0', 8);
         $wl_row_count += (int) ($bulk['dcd'][$acc_str][$currency_id]['wl_count'] ?? 0);
         $wl_up_to_count += (int) ($bulk['dcd'][$acc_str][$currency_id]['up_to_count'] ?? 0);
+        $id_product_rows_period = (int) ($bulk['dcd'][$acc_str][$currency_id]['id_product_rows_period'] ?? 0);
         if ($code_str !== '' && $code_str !== $acc_str) {
             $win_loss = money_add($win_loss, $bulk['dcd'][$code_str][$currency_id]['wl'] ?? '0', 8);
             $wl_row_count += (int) ($bulk['dcd'][$code_str][$currency_id]['wl_count'] ?? 0);
             $wl_up_to_count += (int) ($bulk['dcd'][$code_str][$currency_id]['up_to_count'] ?? 0);
+            $id_product_rows_period += (int) ($bulk['dcd'][$code_str][$currency_id]['id_product_rows_period'] ?? 0);
         }
 
         $txn_wl = $bulk['txn_win_lose'][$account_id][$currency_id] ?? ['bf' => '0', 'wl' => '0'];
@@ -2626,11 +2923,14 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $has_rate_mm_up_to = ($bulk['entry'][$account_id][$currency_id]['wl_mm_up_to_count'] ?? 0) > 0;
         $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm;
         $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to;
+        $win_loss_full = money_normalize($win_loss, 8);
         return [
-            'win_loss' => trunc2($win_loss),
+            'win_loss' => searchMoneyHalfUp2($win_loss_full),
+            'win_loss_full' => $win_loss_full,
             'has_rate_middleman' => $has_rate_mm,
             'has_win_loss_transactions' => $has_win_loss_transactions,
             'has_win_loss_history' => $has_win_loss_history,
+            'has_period_id_product_rows' => $id_product_rows_period > 0,
         ];
     }
 
@@ -2665,7 +2965,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
     $dcdQwl = dcd_processed_amount_sql_quant2('dcd.processed_amount');
-    $sql = "SELECT COALESCE(SUM({$dcdQwl}), 0) as total, COUNT(*) AS cnt
+    $sql = "SELECT COALESCE(SUM({$dcdQwl}), 0) as total,
+                   SUM(CASE WHEN ABS({$dcdQwl}) > 0.0000001 THEN 1 ELSE 0 END) AS cnt
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
@@ -2684,10 +2985,10 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
     // 2. 所有 Bank Process 的 WIN/LOSE（Cost/Sell Price/Profit，Remaining days 与 1号/Monthly 均计入 Win/Loss）
     if (searchApiTxnHasCurrencyId($pdo)) {
-        // 与 history_api 的事件口径一致：每条 transaction 金额先 round(2) 再求和
+        // 与 DCD / Payment History 一致：每笔 amount 先 quant2（向 0 截断到分）再 SUM
         $sql = "SELECT COALESCE(SUM(CASE
-                    WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
-                    WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
+                    WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . "
+                    WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . "
                     ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
@@ -2701,7 +3002,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $wl_row_count += (int) ($txnBankRow['cnt'] ?? 0);
 
         // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）+ ADJUSTMENT
-        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN -t.amount WHEN t.transaction_type = 'LOSE' THEN t.amount WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount ELSE 0 END), 0) as total, COUNT(*) AS cnt
+        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . " WHEN t.transaction_type = 'LOSE' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . " WHEN t.transaction_type = 'ADJUSTMENT' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . " ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
                   AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
@@ -2713,7 +3014,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $win_loss = money_add($win_loss, $txnManualRow['total'] ?? '0', 8);
         $wl_row_count += (int) ($txnManualRow['cnt'] ?? 0);
 
-        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN t.amount WHEN t.transaction_type = 'LOSE' THEN -t.amount ELSE 0 END), 0) as total, COUNT(*) AS cnt
+        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN " . searchApiWlTxnAmountSqlQuant2('t.amount') . " WHEN t.transaction_type = 'LOSE' THEN " . searchApiWlTxnAmountSqlQuant2('-t.amount') . " ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.from_account_id = ? AND $wlDateExpr BETWEEN ? AND ?
                   AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
@@ -2726,8 +3027,9 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $wl_row_count += (int) ($txnManualFromRow['cnt'] ?? 0);
 
         // 4. RATE Middle-Man：手续费应显示在 Win/Loss，而不是 Cr/Dr（一次查询同时得到金额与是否存在）
+        $mmAmtQuant = searchApiWlTxnAmountSqlQuant2('e.amount');
         $rateStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(e.amount), 0) AS total, COUNT(*) AS cnt
+            SELECT COALESCE(SUM($mmAmtQuant), 0) AS total, COUNT(*) AS cnt
             FROM transaction_entry e
             JOIN transactions h ON e.header_id = h.id
             WHERE h.company_id = ?
@@ -2744,11 +3046,45 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $has_rate_middleman = ((int) ($mmRow['cnt'] ?? 0)) > 0;
     }
 
+    $has_period_id_product_rows = false;
+    try {
+        $ipStmt = $pdo->prepare("
+            SELECT COUNT(*) AS c
+            FROM data_capture_details dcd
+            INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+            WHERE dcd.company_id = ?
+              AND dc.company_id = ?
+              AND dcd.currency_id = ?
+              AND dc.capture_date BETWEEN ? AND ?
+              AND (
+                  CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                  OR (? <> '' AND TRIM(COALESCE(dcd.account_id, '')) = TRIM(?))
+              )
+              AND (TRIM(COALESCE(dcd.id_product_main,'')) <> '' OR TRIM(COALESCE(dcd.id_product_sub,'')) <> '')
+        ");
+        $ipStmt->execute([
+            $company_id,
+            $company_id,
+            $currency_id,
+            $date_from,
+            $date_to,
+            $account_id,
+            (string) $account_code,
+            (string) $account_code
+        ]);
+        $has_period_id_product_rows = ((int) $ipStmt->fetchColumn()) > 0;
+    } catch (PDOException $e) {
+        $has_period_id_product_rows = false;
+    }
+
+    $win_loss_full = money_normalize($win_loss, 8);
     return [
-        'win_loss' => trunc2($win_loss),
+        'win_loss' => searchMoneyHalfUp2($win_loss_full),
+        'win_loss_full' => $win_loss_full,
         'has_rate_middleman' => $has_rate_middleman,
         'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman),
         'has_win_loss_history' => ($wl_row_count > 0 || $has_rate_middleman),
+        'has_period_id_product_rows' => $has_period_id_product_rows,
     ];
 }
 
@@ -2813,9 +3149,11 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         // 因为它统计的是非 RATE_MIDDLEMAN 的 RATE 分录（如 RATE_FIRST_FROM/TO），
         // 这些不属于 PAYMENT 类型，不应使 has_transactions 为 true。
 
+        $cr_dr_disp = trunc2($cr_dr);
         return [
-            'value' => trunc2($cr_dr),
-            'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr),
+            'value' => $cr_dr_disp,
+            // 与展示口径一致：截断后全 0 则不计入 has（避免分录累加浮点余量导致「仅 OPENING BALANCE」账号仍被认为有 Cr/Dr 流水）
+            'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr_disp),
         ];
     }
 

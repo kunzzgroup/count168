@@ -13,6 +13,7 @@ import {
   forceLowercaseValue,
   forceNumericValue,
 } from "../domainHelpers.js";
+import { getDomainText } from "../../../translateFile/domainTranslate.js";
 
 /**
  * Domain Add/Edit Modal
@@ -34,6 +35,7 @@ export default function DomainFormModal({
   onClose, onSaved,
 }) {
   const isZh = lang === "zh";
+  const t = (key, params) => getDomainText(lang, key, params);
   // Basic fields
   const [ownerCode, setOwnerCode] = useState("");
   const [name, setName] = useState("");
@@ -103,9 +105,9 @@ export default function DomainFormModal({
 
   function addCompany() {
     const cid = companyInput.trim().toUpperCase();
-    if (!cid) { showDomainAlert(isZh ? "请输入公司 ID" : "Please enter a company ID", "danger"); return; }
+    if (!cid) { showDomainAlert(t("pleaseEnterCompanyId"), "danger"); return; }
     if (tempCompanies.some((c) => c.company_id === cid)) {
-      showDomainAlert(isZh ? "该公司 ID 已添加" : "Company ID already added", "danger"); return;
+      showDomainAlert(t("companyIdAlreadyAdded"), "danger"); return;
     }
     const isC168 = cid === "C168";
     const today = new Date().toISOString().split("T")[0];
@@ -130,23 +132,23 @@ export default function DomainFormModal({
 
   function addGroup() {
     const gid = groupInput.trim().toUpperCase();
-    if (!gid) { showDomainAlert(isZh ? "请输入 Group ID" : "Please enter a Group ID", "danger"); return; }
-    if (tempGroups.includes(gid)) { showDomainAlert(isZh ? "Group ID 已存在" : "Group ID already exists", "danger"); return; }
+    if (!gid) { showDomainAlert(t("pleaseEnterGroupId"), "danger"); return; }
+    if (tempGroups.includes(gid)) { showDomainAlert(t("groupIdAlreadyExists"), "danger"); return; }
     setTempGroups((prev) => [...prev, gid]);
     setGroupInput("");
-    showDomainAlert(isZh ? `分组 "${gid}" 已添加！` : `Group "${gid}" added!`);
+    showDomainAlert(t("groupAdded", { gid }));
   }
 
   function removeGroup(gid) {
     const count = tempCompanies.filter((c) => c.group_id === gid).length;
     const msg = count > 0
-      ? (isZh ? `确定删除分组 "${gid}" 吗？\n\n此分组内 ${count} 家公司将被取消分组。` : `Are you sure you want to delete group "${gid}"?\n\n${count} company(ies) in this group will become ungrouped.`)
-      : (isZh ? `确定删除分组 "${gid}" 吗？` : `Are you sure you want to delete group "${gid}"?`);
+      ? t("confirmDeleteGroupWithCount", { gid, count })
+      : t("confirmDeleteGroup", { gid });
     if (!confirm(msg)) return;
     setTempCompanies((prev) => prev.map((c) => c.group_id === gid ? { ...c, group_id: null } : c));
     setTempGroups((prev) => prev.filter((g) => g !== gid));
     if (selectedGroupId === gid) { setSelectedGroupId(null); setIsMultipleChoiceMode(false); }
-    showDomainAlert(isZh ? `分组 "${gid}" 已删除` : `Group "${gid}" removed`);
+    showDomainAlert(t("groupRemoved", { gid }));
   }
 
   function selectGroup(gid) {
@@ -155,7 +157,7 @@ export default function DomainFormModal({
   }
 
   function toggleMultipleChoice() {
-    if (!selectedGroupId) { showDomainAlert(isZh ? "请先选择分组" : "Please select a Group first", "danger"); return; }
+    if (!selectedGroupId) { showDomainAlert(t("pleaseSelectGroupFirst"), "danger"); return; }
     setIsMultipleChoiceMode((prev) => !prev);
   }
 
@@ -204,7 +206,7 @@ export default function DomainFormModal({
   async function handleSubmit(e) {
     e.preventDefault();
     if (!email.toLowerCase().endsWith("@gmail.com")) {
-      showDomainAlert(isZh ? "仅允许 @gmail.com 邮箱" : "Only @gmail.com addresses are allowed", "danger"); return;
+      showDomainAlert(t("onlyGmailAllowed"), "danger"); return;
     }
     const data = {
       action: isEditMode ? "update" : "create",
@@ -233,14 +235,14 @@ export default function DomainFormModal({
       });
       const json = await res.json();
       if (json.success) {
-        showDomainAlert(isZh ? (isEditMode ? "拥有者更新成功！" : "拥有者创建成功！") : (isEditMode ? "Owner updated successfully!" : "Owner created successfully!"));
+        showDomainAlert(isEditMode ? t("ownerUpdated") : t("ownerCreated"));
         onSaved(json.data);
         onClose();
       } else {
-        showDomainAlert(json.message || (isZh ? "操作失败" : "Operation failed"), "danger");
+        showDomainAlert(json.message || t("operationFailed"), "danger");
       }
     } catch {
-      showDomainAlert(isZh ? "保存拥有者时发生错误" : "An error occurred while saving owner", "danger");
+      showDomainAlert(t("saveOwnerError"), "danger");
     }
   }
 
@@ -262,7 +264,7 @@ export default function DomainFormModal({
         .sort((a, b) => a.company_id.localeCompare(b.company_id));
 
       if (candidates.length === 0) {
-        return <span style={{ color: "#94a3b8", fontSize: 12 }}>{isZh ? "暂无未分组公司" : "No ungrouped companies available"}</span>;
+        return <span style={{ color: "#94a3b8", fontSize: 12 }}>{t("noUngroupedCompaniesAvailable")}</span>;
       }
       return (
         <div className="grid grid-cols-2 gap-1">
@@ -284,8 +286,8 @@ export default function DomainFormModal({
     const sorted = [...filtered].sort((a, b) => a.company_id.localeCompare(b.company_id));
     if (sorted.length === 0) {
       const msg = selectedGroupId
-        ? (isZh ? `分组 "${selectedGroupId}" 中没有公司，点击“多选分配”进行分配。` : `No companies in group "${selectedGroupId}". Click "Multiple Choice" to assign.`)
-        : (isZh ? "暂无未分组公司" : "No ungrouped companies");
+        ? t("noCompaniesInGroup", { gid: selectedGroupId })
+        : t("noUngroupedCompanies");
       return <span style={{ color: "#94a3b8", fontSize: 12 }}>{msg}</span>;
     }
 
@@ -294,18 +296,18 @@ export default function DomainFormModal({
         <div className="flex min-w-0 items-center gap-1"><span className="text-sm font-bold text-slate-700">{c.company_id}</span></div>
         <div className="flex items-center gap-1.5">
           <span className="mr-2 whitespace-nowrap text-xs text-slate-500">
-            {c.expiration_date ? formatDate(c.expiration_date) : (isZh ? "未设置" : "Not set")}
+            {c.expiration_date ? formatDate(c.expiration_date) : t("notSet")}
           </span>
           <button
             type="button" className="h-7 cursor-pointer rounded-[3px] border-0 px-2.5 text-[10px] text-white transition-colors hover:brightness-95"
             onClick={() => openCompanySettings(c.company_id)}
-            title={isZh ? "设置到期日" : "Set expiration date"}
+            title={t("setExpirationDate")}
             style={{ background: "linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%)" }}
           >
-            {isZh ? "设置" : "Set"}
+            {t("set")}
           </button>
           <button type="button" className="h-7 cursor-pointer rounded-[3px] border-0 bg-red-500 px-2.5 text-[10px] text-white transition-colors hover:bg-red-600" onClick={() => removeCompany(c.company_id)}>
-            {isZh ? "移除" : "Remove"}
+            {t("remove")}
           </button>
         </div>
       </div>
@@ -322,22 +324,22 @@ export default function DomainFormModal({
       <div className="fixed inset-0 z-[10001] bg-black/50 backdrop-blur-[4px]" style={{ display: "block" }}>
         <div className="relative mx-auto my-[1.5%] flex w-[96%] max-w-[1100px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
           <div className="flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
-            <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? (isZh ? "编辑域名" : "EDIT DOMAIN") : (isZh ? "新增域名" : "ADD DOMAIN")}</h2>
+            <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
             <button className="flex h-9 w-9 items-center justify-center rounded-full border-0 bg-transparent text-[26px] text-black transition-colors hover:bg-gray-200" onClick={onClose}>&times;</button>
           </div>
           <form onSubmit={handleSubmit}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />
             <div className="px-9 py-6">
               <div className="mb-2.5 grid grid-cols-2 gap-12">
-                <div className="text-[15px] font-bold tracking-[0.5px] text-gray-900">{isZh ? "域名信息" : "DOMAIN INFORMATION"}</div>
-                <div className="text-[15px] font-bold tracking-[0.5px] text-gray-900">{isZh ? "公司信息" : "COMPANY INFORMATION"}</div>
+                <div className="text-[15px] font-bold tracking-[0.5px] text-gray-900">{t("domainInformation")}</div>
+                <div className="text-[15px] font-bold tracking-[0.5px] text-gray-900">{t("companyInformation")}</div>
               </div>
               <div className="mb-5 h-[2.5px] w-full bg-blue-900" />
               <div className="grid grid-cols-2 gap-12">
                 {/* Left: Domain info */}
                 <div>
                   <div className="mb-3.5">
-                    <label htmlFor="df_owner_code">{isZh ? "拥有者代码" : "Owner Code"} *</label>
+                    <label htmlFor="df_owner_code">{t("ownerCode")} *</label>
                     <input
                       type="text" id="df_owner_code" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                       value={ownerCode}
@@ -346,7 +348,7 @@ export default function DomainFormModal({
                     />
                   </div>
                   <div className="mb-3.5">
-                    <label htmlFor="df_name">{isZh ? "名称" : "Name"} *</label>
+                    <label htmlFor="df_name">{t("name")} *</label>
                     <input
                       type="text" id="df_name" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                       value={name}
@@ -354,7 +356,7 @@ export default function DomainFormModal({
                     />
                   </div>
                   <div className="mb-3.5">
-                    <label htmlFor="df_email">{isZh ? "邮箱" : "Email"} *</label>
+                    <label htmlFor="df_email">{t("email")} *</label>
                     <input
                       type="email" id="df_email" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                       pattern=".*@gmail\.com$"
@@ -363,7 +365,7 @@ export default function DomainFormModal({
                     />
                   </div>
                   <div className="mb-3.5">
-                    <label htmlFor="df_password">{isZh ? "密码" : "Password"} {!isEditMode && "*"}</label>
+                    <label htmlFor="df_password">{t("password")} {!isEditMode && "*"}</label>
                     <input
                       type="password" id="df_password" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                       required={!isEditMode}
@@ -374,18 +376,18 @@ export default function DomainFormModal({
                   {showSecondaryPwd && (
                     <div className="mb-3.5">
                       <label htmlFor="df_secondary_pwd">
-                        {isZh ? "二级密码" : "Secondary Password"} {!isEditMode && "*"}
+                        {t("secondaryPassword")} {!isEditMode && "*"}
                       </label>
                       <input
                         type="password" id="df_secondary_pwd" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                         maxLength={6}
                         pattern="[0-9]{6}"
-                        placeholder={isEditMode ? (isZh ? "留空则保持当前密码" : "Leave empty to keep current password") : (isZh ? "仅限6位数字" : "6 digits only")}
+                        placeholder={isEditMode ? t("leaveEmptyKeepCurrentPassword") : t("sixDigitsOnly")}
                         required={!isEditMode}
                         value={secondaryPassword}
                         onChange={(e) => setSecondaryPassword(forceNumericValue(e.target.value))}
                       />
-                      <small className="mt-1 block text-xs text-slate-500">{isZh ? "必须为 6 位数字（0-9）" : "Must be exactly 6 digits (0-9)"}</small>
+                      <small className="mt-1 block text-xs text-slate-500">{t("secondaryPwdRequirement")}</small>
                     </div>
                   )}
                 </div>
@@ -399,12 +401,12 @@ export default function DomainFormModal({
                       <div className="flex">
                         <input
                           type="text" id="df_group_input"
-                          placeholder={isZh ? "分组ID" : "GROUP ID"} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          placeholder={t("groupIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={groupInput}
                           onChange={(e) => setGroupInput(forceUppercaseValue(e.target.value))}
                           onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
                         />
-                        <button type="button" className="rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)]" onClick={addGroup}>{isZh ? "添加" : "Add"}</button>
+                        <button type="button" className="rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)]" onClick={addGroup}>{t("add")}</button>
                       </div>
                     </div>
                     {/* Company input */}
@@ -413,22 +415,22 @@ export default function DomainFormModal({
                       <div className="flex">
                         <input
                           type="text" id="df_company_input"
-                          placeholder={isZh ? "公司ID" : "COMPANY ID"} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          placeholder={t("companyIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={companyInput}
                           onChange={(e) => setCompanyInput(forceUppercaseValue(e.target.value))}
                           onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
                         />
-                        <button type="button" className="rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)]" onClick={addCompany}>{isZh ? "添加" : "Add"}</button>
+                        <button type="button" className="rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)]" onClick={addCompany}>{t("add")}</button>
                       </div>
                     </div>
                   </div>
 
                   {/* Group pills */}
                   <div className="mb-3.5" id="groupPillsSection">
-                    <label>{isZh ? "分组：" : "Group :"}</label>
+                    <label>{t("groupLabel")}</label>
                     <div className="flex min-h-[34px] flex-wrap items-center gap-2 py-1">
                       {tempGroups.length === 0
-                        ? <span style={{ color: "#94a3b8", fontSize: 12 }}>{isZh ? "尚未创建分组" : "No groups created"}</span>
+                        ? <span style={{ color: "#94a3b8", fontSize: 12 }}>{t("noGroupsCreated")}</span>
                         : tempGroups.map((gid) => {
                           const count = tempCompanies.filter((c) => c.group_id === gid).length;
                           return (
@@ -453,7 +455,7 @@ export default function DomainFormModal({
                   {/* Selected Companies */}
                   <div className="mb-3.5 flex flex-1 flex-col">
                     <div className="mb-2 flex items-center justify-between">
-                      <label>{isZh ? "已选公司：" : "Selected Companies :"}</label>
+                      <label>{t("selectedCompanies")}</label>
                       {selectedGroupId && (
                         <button
                           type="button"
@@ -464,13 +466,13 @@ export default function DomainFormModal({
                           }`}
                           onClick={toggleMultipleChoice}
                         >
-                          {isMultipleChoiceMode ? (isZh ? "完成 ✓" : "Done ✓") : (isZh ? "多选分配" : "Multiple Choice")}
+                          {isMultipleChoiceMode ? t("done") : t("multipleChoice")}
                         </button>
                       )}
                     </div>
                     <div className="min-h-[120px] max-h-[300px] flex-1 overflow-y-auto rounded-lg border border-gray-300 bg-[#fafafa] p-2.5">
                       {tempCompanies.length === 0
-                        ? <span style={{ color: "#94a3b8", fontSize: 12 }}>{isZh ? "尚未添加公司" : "No companies added yet"}</span>
+                        ? <span style={{ color: "#94a3b8", fontSize: 12 }}>{t("noCompaniesAddedYet")}</span>
                         : renderCompanyList()
                       }
                     </div>
@@ -479,8 +481,8 @@ export default function DomainFormModal({
               </div>
             </div>
             <div className="flex justify-center gap-4 border-t-[2.5px] border-blue-900 bg-white px-9 py-[18px]">
-              <button type="submit" className="min-w-[130px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#60a5fa_0%,#3b82f6_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(59,130,246,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#3b82f6_0%,#60a5fa_100%)] hover:shadow-[0_4px_12px_rgba(59,130,246,0.4)]">{isZh ? "确认" : "Confirm"}</button>
-              <button type="button" className="min-w-[130px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#9ca3af_0%,#6b7280_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(107,114,128,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#6b7280_0%,#9ca3af_100%)] hover:shadow-[0_4px_12px_rgba(107,114,128,0.4)]" onClick={onClose}>{isZh ? "取消" : "Cancel"}</button>
+              <button type="submit" className="min-w-[130px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#60a5fa_0%,#3b82f6_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(59,130,246,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#3b82f6_0%,#60a5fa_100%)] hover:shadow-[0_4px_12px_rgba(59,130,246,0.4)]">{t("confirm")}</button>
+              <button type="button" className="min-w-[130px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#9ca3af_0%,#6b7280_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(107,114,128,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#6b7280_0%,#9ca3af_100%)] hover:shadow-[0_4px_12px_rgba(107,114,128,0.4)]" onClick={onClose}>{t("cancel")}</button>
             </div>
           </form>
         </div>
