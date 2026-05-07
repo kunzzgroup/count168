@@ -3224,7 +3224,7 @@
         let transferFromAccountDescription = '';
         let transferToAccountDescription = '';
         let middlemanDescription = '';
-        let transferToAmount = 0;
+        let transferFromNetAmount = 0;
         let middlemanAmount = 0;
 
         if (isRate) {
@@ -3327,12 +3327,20 @@
                         showNotification('Please enter Middle-Man rate multiplier', 'error');
                         return;
                     }
-                    // 根据用户需求：第四条记录（PROFIT）使用完整金额 318.40，不扣除手续费
-                    // 手续费通过第五条记录单独处理
-                    transferToAmount = transferAmount.toString(); // 使用完整金额，不扣除手续费
+                    // 第二行规则：
+                    // - Select To（左边）拿原始金额（gross）
+                    // - Select From（右边）承担手续费，使用扣后净额（gross - middle-man）
+                    let netTransferAmount = transferAmount;
+                    if (MoneyDecimal.cmp(middlemanAmount, '0') > 0) {
+                        netTransferAmount = transferAmount.minus(MoneyDecimal.toDecimal(middlemanAmount, 0));
+                        if (netTransferAmount.lte(0)) {
+                            showNotification('Middle-Man amount must be less than second-row transfer amount', 'error');
+                            return;
+                        }
+                    }
+                    transferFromNetAmount = netTransferAmount.toString();
                 } else {
-                    // 如果没有 middle-man，transferToAmount 等于 transferAmount
-                    transferToAmount = transferAmount.toString();
+                    transferFromNetAmount = transferAmount.toString();
                     middlemanAmount = '0';
                 }
 
@@ -3398,7 +3406,8 @@
                     rateTransferFromAccount,
                     rateTransferToAccount,
                     rateTransferAmount,
-                    transferToAmount: MoneyDecimal.formatFixed(transferToAmount || '0', 2),
+                    transferToAmount: MoneyDecimal.formatFixed(rateCurrencyToAmount || '0', 2),
+                    transferFromNetAmount: MoneyDecimal.formatFixed(transferFromNetAmount || '0', 2),
                     middlemanAmount: MoneyDecimal.formatFixed(middlemanAmount || '0', 2),
                     transferFromAccountDescription,
                     transferToAccountDescription,
@@ -3457,21 +3466,29 @@
                     }
                 }
 
-                // 🔧 修复：Transfer To Account 使用完整金额，不扣除手续费
-                // 根据用户需求：第四条记录（PROFIT）应该增加完整金额 318.40，手续费通过第五条记录单独处理
-                let transferToAmountValue = transferAmountValue; // 使用完整金额，不扣除手续费
+                // 第二行规则：
+                // - Select To（rate_transfer_from_account_id）拿原始金额（gross）
+                // - Select From（rate_transfer_to_account_id）扣 middle-man 后净额
+                let transferToAccountAmountValue = transferAmountValue;
+                let transferFromAccountAmountValue = transferAmountValue;
+                if (rateMiddlemanAccountId && MoneyDecimal.cmp(middlemanAmount || '0', '0') > 0) {
+                    transferFromAccountAmountValue = transferAmountValue.minus(MoneyDecimal.toDecimal(middlemanAmount, 0));
+                    if (transferFromAccountAmountValue.lte(0)) {
+                        showNotification('Middle-Man amount must be less than second-row transfer amount', 'error');
+                        return;
+                    }
+                }
 
-                const originalTransferFromAmount = MoneyDecimal.mul(rateCurrencyFromAmount || '0', rateExchangeRate || '0');
                 formData.append('rate_transfer_from_account_id', rateTransferFromAccountId);
                 formData.append('rate_transfer_from_currency', rateCurrencyToSelect?.value || '');
-                formData.append('rate_transfer_from_amount', formatRateAmount(originalTransferFromAmount));
+                formData.append('rate_transfer_from_amount', formatRateAmount(transferToAccountAmountValue));
                 formData.append('rate_transfer_from_description', transferFromAccountDescription);
 
-                // Transfer To Account 记录：增加完整金额（不扣除手续费）
+                // Transfer To Account 记录：使用扣 middle-man 后的净额
                 // 第二个 account 行使用转换后的货币（rate_to_currency，即 MYR）
                 formData.append('rate_transfer_to_account_id', rateTransferToAccountId);
                 formData.append('rate_transfer_to_currency', rateCurrencyToSelect?.value || '');
-                formData.append('rate_transfer_to_amount', formatRateAmount(transferToAmountValue));
+                formData.append('rate_transfer_to_amount', formatRateAmount(transferFromAccountAmountValue));
                 formData.append('rate_transfer_to_description', transferToAccountDescription);
 
                 // Middle-Man Account 记录：如果有 middle-man，增加手续费金额
