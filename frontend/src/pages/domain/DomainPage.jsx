@@ -269,7 +269,13 @@ export default function DomainPage() {
 
         <div className="action-buttons">
           <div className="domain-toolbar-left">
-            <button type="button" className="btn-add" onClick={openAddModal}>
+            <button
+              type="button"
+              className="btn-add"
+              style={{ position: "relative", zIndex: 5, pointerEvents: "auto" }}
+              onMouseDown={(e) => { e.stopPropagation(); }}
+              onClick={openAddModal}
+            >
               {t("addDomainBtn")}
             </button>
             <div className="search-container">
@@ -285,7 +291,14 @@ export default function DomainPage() {
                 onChange={(e) => setSearchTerm(forceSearchValue(e.target.value))}
               />
             </div>
-            <button type="button" className="btn-fee-settings" id="domainFeeSettingsBtn" onClick={() => setFeeModal(true)}>
+            <button
+              type="button"
+              className="btn-fee-settings"
+              id="domainFeeSettingsBtn"
+              style={{ position: "relative", zIndex: 5, pointerEvents: "auto" }}
+              onMouseDown={(e) => { e.stopPropagation(); }}
+              onClick={() => setFeeModal(true)}
+            >
               {t("price")}
             </button>
             <span id="domainFeeInlineSummary" className="domain-fee-inline-summary" aria-live="polite">
@@ -382,7 +395,14 @@ export default function DomainPage() {
                   </div>
                   <div className="card-item uppercase-text">{String(domain.created_by || "-").toUpperCase()}</div>
                   <div className="card-item" style={{ display: "flex", alignItems: "center" }}>
-                    <button type="button" className="btn-edit" onClick={() => openEditModal(domain)} aria-label={t("edit")}>
+                    <button
+                      type="button"
+                      className="btn-edit"
+                      style={{ position: "relative", zIndex: 5, pointerEvents: "auto" }}
+                      onMouseDown={(e) => { e.stopPropagation(); }}
+                      onClick={() => openEditModal(domain)}
+                      aria-label={t("edit")}
+                    >
                       <img src="/images/edit.svg" alt={t("edit")} />
                     </button>
                     {!isProtected && domain.owner_code !== "K" && (
