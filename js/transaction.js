@@ -3401,14 +3401,11 @@
                     }
                     // 第二行规则：
                     // - Select To（左边）拿原始金额（gross）
-                    // - Select From（右边）承担手续费，使用扣后净额（gross - middle-man）
+                    // - Select From（右边）承担手续费，使用差额（gross - middle-man）
+                    //   允许为 0 或负数，不做拦截
                     let netTransferAmount = transferAmount;
                     if (MoneyDecimal.cmp(middlemanAmount, '0') > 0) {
                         netTransferAmount = transferAmount.minus(MoneyDecimal.toDecimal(middlemanAmount, 0));
-                        if (netTransferAmount.lte(0)) {
-                            showNotification('Middle-Man amount must be less than second-row transfer amount', 'error');
-                            return;
-                        }
                     }
                     transferFromNetAmount = netTransferAmount.toString();
                 } else {
@@ -3540,15 +3537,12 @@
 
                 // 第二行规则：
                 // - Select To（rate_transfer_from_account_id）拿原始金额（gross）
-                // - Select From（rate_transfer_to_account_id）扣 middle-man 后净额
+                // - Select From（rate_transfer_to_account_id）扣 middle-man 后差额
+                //   允许为 0 或负数，不做拦截
                 let transferToAccountAmountValue = transferAmountValue;
                 let transferFromAccountAmountValue = transferAmountValue;
                 if (rateMiddlemanAccountId && MoneyDecimal.cmp(middlemanAmount || '0', '0') > 0) {
                     transferFromAccountAmountValue = transferAmountValue.minus(MoneyDecimal.toDecimal(middlemanAmount, 0));
-                    if (transferFromAccountAmountValue.lte(0)) {
-                        showNotification('Middle-Man amount must be less than second-row transfer amount', 'error');
-                        return;
-                    }
                 }
 
                 formData.append('rate_transfer_from_account_id', rateTransferFromAccountId);
@@ -3556,7 +3550,7 @@
                 formData.append('rate_transfer_from_amount', formatRateAmount(transferToAccountAmountValue));
                 formData.append('rate_transfer_from_description', transferFromAccountDescription);
 
-                // Transfer To Account 记录：使用扣 middle-man 后的净额
+                // Transfer To Account 记录：使用扣 middle-man 后的差额（可为 0 或负数）
                 // 第二个 account 行使用转换后的货币（rate_to_currency，即 MYR）
                 formData.append('rate_transfer_to_account_id', rateTransferToAccountId);
                 formData.append('rate_transfer_to_currency', rateCurrencyToSelect?.value || '');
