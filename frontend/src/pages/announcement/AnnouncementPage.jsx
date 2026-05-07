@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { getAnnouncementText } from "../../translateFile/announcementTranslate.js";
 
 // Components
 import { AnnouncementToast, AnnouncementConfirmModal } from "./components/AnnouncementCommon.jsx";
@@ -10,6 +11,8 @@ import { AnnouncementPanel, MaintenancePanel } from "./components/AnnouncementPa
 export default function AnnouncementPage() {
   const navigate = useNavigate();
   const assetVersion = useMemo(() => Date.now(), []);
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params) => getAnnouncementText(lang, key, params), [lang]);
 
   const [ready, setReady] = useState(false);
   const [activeTab, setActiveTab] = useState("announcement");
@@ -27,6 +30,22 @@ export default function AnnouncementPage() {
   const [confirmModal, setConfirmModal] = useState(null);
 
   const toastTimerRef = useRef(null);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    const onLangUpdated = (e) => {
+      const nextLang = e?.detail?.lang;
+      setLang(nextLang === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
+    };
+  }, []);
 
   const showNotice = useCallback((message, type = "success") => {
     const id = Date.now() + Math.random();
@@ -64,16 +83,16 @@ export default function AnnouncementPage() {
       const res = await fetch(buildApiUrl("api/announcements/announcement_list_api.php"), { credentials: "include" });
       const json = await res.json();
       setAnnouncements(json.success && Array.isArray(json.data) ? json.data : []);
-    } catch (err) { showNotice(`Failed to load announcements: ${err.message}`, "error"); }
-  }, [showNotice]);
+    } catch (err) { showNotice(t("loadAnnouncementsFailed", { message: err.message }), "error"); }
+  }, [showNotice, t]);
 
   const loadMaintenance = useCallback(async () => {
     try {
       const res = await fetch(buildApiUrl("api/maintenance/list_api.php"), { credentials: "include" });
       const json = await res.json();
       setMaintenanceList(json.success && Array.isArray(json.data) ? json.data : []);
-    } catch (err) { showNotice(`Failed to load maintenance content: ${err.message}`, "error"); }
-  }, [showNotice]);
+    } catch (err) { showNotice(t("loadMaintenanceFailed", { message: err.message }), "error"); }
+  }, [showNotice, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,23 +114,23 @@ export default function AnnouncementPage() {
 
   // Handlers
   function handleAnnouncementEdit(item) {
-    if (!item) { loadAnnouncements(); showNotice("Announcement published successfully"); return; }
+    if (!item) { loadAnnouncements(); showNotice(t("announcementPublishedSuccess")); return; }
     setEditAnnouncement({ id: item.id, title: item.title || "", content: item.content || "" });
     setAnnouncementModalOpen(true);
   }
 
   function handleAnnouncementDelete(item) {
     setConfirmModal({
-      message: `Are you sure you want to delete announcement "${item.title}"?\nThis action cannot be undone.`,
+      message: t("confirmDeleteAnnouncement", { title: item.title }),
       onConfirm: async () => {
         setConfirmModal(null);
         try {
           const fd = new FormData(); fd.append("id", item.id);
           const res = await fetch(buildApiUrl("api/announcements/announcement_delete_api.php"), { method: "POST", body: fd, credentials: "include" });
           const json = await res.json();
-          if (json.success) { showNotice("Announcement deleted successfully"); loadAnnouncements(); }
-          else showNotice(`Delete failed: ${json.message || "Unknown error"}`, "error");
-        } catch (err) { showNotice(`Failed to delete: ${err.message}`, "error"); }
+          if (json.success) { showNotice(t("announcementDeletedSuccess")); loadAnnouncements(); }
+          else showNotice(t("deleteFailed", { message: json.message || "Unknown error" }), "error");
+        } catch (err) { showNotice(t("failedToDelete", { message: err.message }), "error"); }
       },
     });
   }
@@ -122,29 +141,29 @@ export default function AnnouncementPage() {
       fd.append("id", editAnnouncement.id); fd.append("title", editAnnouncement.title.trim()); fd.append("content", editAnnouncement.content.trim());
       const res = await fetch(buildApiUrl("api/announcements/announcement_update_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (json.success) { showNotice("Announcement updated successfully"); setAnnouncementModalOpen(false); loadAnnouncements(); }
-      else showNotice(`Update failed: ${json.message || "Unknown error"}`, "error");
-    } catch (err) { showNotice(`Update failed: ${err.message}`, "error"); }
+      if (json.success) { showNotice(t("announcementUpdatedSuccess")); setAnnouncementModalOpen(false); loadAnnouncements(); }
+      else showNotice(t("updateFailed", { message: json.message || "Unknown error" }), "error");
+    } catch (err) { showNotice(t("updateFailed", { message: err.message }), "error"); }
   }
 
   function handleMaintenanceEdit(item) {
-    if (!item) { loadMaintenance(); showNotice("Maintenance content published successfully"); return; }
+    if (!item) { loadMaintenance(); showNotice(t("maintenancePublishedSuccess")); return; }
     setEditMaintenance({ id: item.id, content: item.content || "" });
     setMaintenanceModalOpen(true);
   }
 
   function handleMaintenanceDelete(item) {
     setConfirmModal({
-      message: "Are you sure you want to delete this maintenance content?\nThis action cannot be undone.",
+      message: t("confirmDeleteMaintenance"),
       onConfirm: async () => {
         setConfirmModal(null);
         try {
           const fd = new FormData(); fd.append("id", item.id);
           const res = await fetch(buildApiUrl("api/maintenance/delete_api.php"), { method: "POST", body: fd, credentials: "include" });
           const json = await res.json();
-          if (json.success) { showNotice("Maintenance content deleted successfully"); loadMaintenance(); }
-          else showNotice(`Delete failed: ${json.message || "Unknown error"}`, "error");
-        } catch (err) { showNotice(`Delete failed: ${err.message}`, "error"); }
+          if (json.success) { showNotice(t("maintenanceDeletedSuccess")); loadMaintenance(); }
+          else showNotice(t("deleteFailed", { message: json.message || "Unknown error" }), "error");
+        } catch (err) { showNotice(t("deleteFailed", { message: err.message }), "error"); }
       },
     });
   }
@@ -155,29 +174,29 @@ export default function AnnouncementPage() {
       fd.append("id", editMaintenance.id); fd.append("content", editMaintenance.content.trim());
       const res = await fetch(buildApiUrl("api/maintenance/update_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (json.success) { showNotice("Maintenance content updated successfully"); setMaintenanceModalOpen(false); loadMaintenance(); }
-      else showNotice(`Update failed: ${json.message || "Unknown error"}`, "error");
-    } catch (err) { showNotice(`Update failed: ${err.message}`, "error"); }
+      if (json.success) { showNotice(t("maintenanceUpdatedSuccess")); setMaintenanceModalOpen(false); loadMaintenance(); }
+      else showNotice(t("updateFailed", { message: json.message || "Unknown error" }), "error");
+    } catch (err) { showNotice(t("updateFailed", { message: err.message }), "error"); }
   }
 
   return (
     <>
       <div className="container announcement-page-container">
         <div className="page-header">
-          <h1>Announcement and Maintenance Management</h1>
+          <h1>{t("pageTitle")}</h1>
           <div className="page-tabs">
-            <button type="button" className={`page-tab${activeTab === "announcement" ? " active" : ""}`} onClick={() => setActiveTab("announcement")}>Announcement</button>
-            <button type="button" className={`page-tab${activeTab === "maintenance" ? " active" : ""}`} onClick={() => setActiveTab("maintenance")}>Maintenance</button>
+            <button type="button" className={`page-tab${activeTab === "announcement" ? " active" : ""}`} onClick={() => setActiveTab("announcement")}>{t("announcementTab")}</button>
+            <button type="button" className={`page-tab${activeTab === "maintenance" ? " active" : ""}`} onClick={() => setActiveTab("maintenance")}>{t("maintenanceTab")}</button>
           </div>
         </div>
         <div className="separator-line" />
-        {activeTab === "announcement" && <AnnouncementPanel announcements={announcements} onEdit={handleAnnouncementEdit} onDelete={handleAnnouncementDelete} />}
-        {activeTab === "maintenance" && <MaintenancePanel maintenanceList={maintenanceList} onEdit={handleMaintenanceEdit} onDelete={handleMaintenanceDelete} />}
+        {activeTab === "announcement" && <AnnouncementPanel t={t} announcements={announcements} onEdit={handleAnnouncementEdit} onDelete={handleAnnouncementDelete} />}
+        {activeTab === "maintenance" && <MaintenancePanel t={t} maintenanceList={maintenanceList} onEdit={handleMaintenanceEdit} onDelete={handleMaintenanceDelete} />}
       </div>
       <AnnouncementToast notices={notices} />
-      <EditAnnouncementModal open={announcementModalOpen} draft={editAnnouncement} setDraft={setEditAnnouncement} onClose={() => setAnnouncementModalOpen(false)} onSave={saveEditedAnnouncement} />
-      <EditMaintenanceModal open={maintenanceModalOpen} draft={editMaintenance} setDraft={setEditMaintenance} onClose={() => setMaintenanceModalOpen(false)} onSave={saveEditedMaintenance} />
-      {confirmModal && <AnnouncementConfirmModal message={confirmModal.message} onConfirm={confirmModal.onConfirm} onClose={() => setConfirmModal(null)} />}
+      <EditAnnouncementModal t={t} open={announcementModalOpen} draft={editAnnouncement} setDraft={setEditAnnouncement} onClose={() => setAnnouncementModalOpen(false)} onSave={saveEditedAnnouncement} />
+      <EditMaintenanceModal t={t} open={maintenanceModalOpen} draft={editMaintenance} setDraft={setEditMaintenance} onClose={() => setMaintenanceModalOpen(false)} onSave={saveEditedMaintenance} />
+      {confirmModal && <AnnouncementConfirmModal t={t} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onClose={() => setConfirmModal(null)} />}
     </>
   );
 }
