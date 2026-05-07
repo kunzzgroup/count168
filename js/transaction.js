@@ -1998,6 +1998,10 @@
         const showCaptureOnly = document.getElementById('show_capture_only').checked ? '1' : '0';
         const showZero = document.getElementById('show_zero_balance').checked ? '1' : '0';
         const hideZero = showZero === '1' ? '0' : '1';
+        // 勾选 Show 0 balance 时，必须返回“全体 0 balance 账号行”供前端展示；
+        // 若仍在后端启用 show_inactive=1（Show Payment Only 的账户级 EXISTS），会把“无 payment 但 balance=0”账号直接过滤掉。
+        // 因此：Show Payment Only + Show 0 balance 时，后端按 show_inactive=0 拉全量，再由前端按规则筛选。
+        const showInactiveForQuery = (showZero === '1' && showInactive === '1') ? '0' : showInactive;
 
         // 验证日期
         if (!dateFrom || !dateTo) {
@@ -2016,7 +2020,7 @@
         }
 
         // 构建 URL，处理多选分类
-        let url = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+        let url = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactiveForQuery}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
 
         // 处理分类参数：如果是全选则不传参数，否则传递多个分类
         if (selectedCategories.length > 0 && !selectedCategories.includes('')) {
@@ -2031,7 +2035,7 @@
             url += `&currency=${selectedCurrencies.join(',')}`;
         }
 
-        console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies, debugWlTotal: !!(typeof window !== 'undefined' && window.DEBUG_TRANSACTION_WL_TOTAL === true) });
+        console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showInactiveForQuery, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies, debugWlTotal: !!(typeof window !== 'undefined' && window.DEBUG_TRANSACTION_WL_TOTAL === true) });
 
         // 添加时间戳防止缓存
         url = transactionsApiAppendWlDebug(url);
@@ -2184,7 +2188,7 @@
 
                     // 兜底修复：单选币别时若后端返回空行，则自动重查全部币别并在前端按该币别过滤
                     if (singleSelectedCurrency && totalAccounts === 0) {
-                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactiveForQuery}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
                         }
@@ -2243,7 +2247,7 @@
 
                     // 兜底修复：勾选 Show Win/Loss Only 且无明细时，保留空表行，但 totals 使用“同条件去掉 Win/Loss 过滤”结果
                     if (showCaptureOnly && totalAccounts === 0) {
-                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactiveForQuery}&show_capture_only=0&hide_zero_balance=${hideZero}`;
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
                         }
@@ -2405,11 +2409,8 @@
                 currencies.push(code);
             }
         });
-        // Show 0 balance 勾选时，只显示 Edit Account 里勾选为 active 的货币
-        if (options.showZero && options.activeCurrencyCodes && options.activeCurrencyCodes.length > 0) {
-            const activeSet = new Set(options.activeCurrencyCodes.map(c => (c || '').toUpperCase()));
-            currencies = currencies.filter(code => activeSet.has((code || '').toUpperCase()));
-        }
+        // Show 0 balance：展示 0 balance 账号行需覆盖所有币别组合；
+        // 不在此处再按 Edit Account 的 active 货币裁剪，否则会让部分 0 balance 行“看起来消失”。
 
         let totalSummary = { bf: 0, win_loss: 0, cr_dr: 0, balance: 0 };
 
