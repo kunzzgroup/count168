@@ -53,6 +53,15 @@ function formatHistoryMoney(value) {
   return formatMoney(cleaned);
 }
 
+function parseMoneyToCents(value) {
+  if (value === "-" || value === null || value === undefined) return 0;
+  const cleaned = String(value).replace(/,/g, "").trim();
+  if (!cleaned || cleaned === "-") return 0;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
+}
+
 function parseJsonResponse(text) {
   const raw = String(text || "").trim();
   try {
@@ -154,6 +163,7 @@ export default function MemberPage() {
   const quickSelectRef = useRef(null);
   const dateRangeInputRef = useRef(null);
   const flatpickrRef = useRef(null);
+  const lastRangeRef = useRef({ from: "", to: "" });
   const summaryAbortRef = useRef(null);
   const historyAbortRef = useRef(null);
   const searchSeqRef = useRef(0);
@@ -215,7 +225,7 @@ export default function MemberPage() {
   }, [navigate, monday, today]);
 
   useEffect(() => {
-    if (loading || !me) return;
+    if (loading || !me || !dateFrom || !dateTo) return;
     let cancelled = false;
     (async () => {
       await Promise.all([
@@ -237,6 +247,15 @@ export default function MemberPage() {
               setDateTo(dmy(dates[1]));
             }
           },
+          onClose: (dates) => {
+            // Keep legacy behavior: single picked day becomes from/to same day.
+            if (dates.length === 1) {
+              const single = dmy(dates[0]);
+              setDateFrom(single);
+              setDateTo(single);
+              if (flatpickrRef.current) flatpickrRef.current.setDate([dates[0], dates[0]], false);
+            }
+          },
         });
       }
     })();
@@ -246,7 +265,20 @@ export default function MemberPage() {
         flatpickrRef.current.destroy();
       }
     };
-  }, [loading, me, dateFrom, dateTo]);
+  }, [loading, me]);
+
+  useEffect(() => {
+    const fp = flatpickrRef.current;
+    if (!fp || !dateFrom || !dateTo) return;
+    const last = lastRangeRef.current;
+    if (last.from === dateFrom && last.to === dateTo) return;
+    const fromDate = parseDmy(dateFrom);
+    const toDate = parseDmy(dateTo);
+    if (fromDate && toDate) {
+      fp.setDate([fromDate, toDate], false);
+      lastRangeRef.current = { from: dateFrom, to: dateTo };
+    }
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -758,9 +790,9 @@ export default function MemberPage() {
               <p className="member-currency-empty" style={{ margin: 0 }}>No data in the selected date range.</p>
             ) : (
               groupedRows.map(([currency, rows]) => {
-                const totalWinLoss = rows.reduce((sum, r) => sum + Number(String(r.win_loss || 0).replace(/,/g, "")), 0);
-                const totalCrDr = rows.reduce((sum, r) => sum + Number(String(r.cr_dr || 0).replace(/,/g, "")), 0);
-                const closing = rows.length ? Number(String(rows[rows.length - 1].balance || 0).replace(/,/g, "")) : 0;
+                const totalWinLossCents = rows.reduce((sum, r) => sum + parseMoneyToCents(r.win_loss), 0);
+                const totalCrDrCents = rows.reduce((sum, r) => sum + parseMoneyToCents(r.cr_dr), 0);
+                const closingCents = rows.length ? parseMoneyToCents(rows[rows.length - 1].balance) : 0;
                 return (
                   <div className="member-currency-table-wrapper" key={currency}>
                     <h3 className="member-currency-table-title">{`Currency: ${currency}`}</h3>
@@ -803,9 +835,9 @@ export default function MemberPage() {
                           <td className="transaction-history-col-product">-</td>
                           <td className="transaction-history-col-currency">-</td>
                           <td className="transaction-history-col-rate">-</td>
-                          <td className="transaction-history-col-winloss">{formatHistoryMoney(totalWinLoss)}</td>
-                          <td className="transaction-history-col-crdr">{formatHistoryMoney(totalCrDr)}</td>
-                          <td className="transaction-history-col-balance">{formatHistoryMoney(closing)}</td>
+                          <td className="transaction-history-col-winloss">{formatHistoryMoney((totalWinLossCents / 100).toFixed(2))}</td>
+                          <td className="transaction-history-col-crdr">{formatHistoryMoney((totalCrDrCents / 100).toFixed(2))}</td>
+                          <td className="transaction-history-col-balance">{formatHistoryMoney((closingCents / 100).toFixed(2))}</td>
                           <td className="transaction-history-col-description">-</td>
                           <td className="transaction-history-col-remark">-</td>
                         </tr>

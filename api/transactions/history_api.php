@@ -2330,8 +2330,17 @@ try {
 
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
     $balance_by_currency = [];
-    if ($bfCurrency !== null && $bfCurrency !== '') {
-        // Payment History：累加用更高精度（8dp）保存，展示时再统一 HALF_UP 到 2dp
+    // 未指定 currency 时：B/F 按 bf_per_currency 多行展示，running balance 必须为每个币别分别带入对应 opening，否则会只见第一币别 B/F（其余从 0 累加）
+    if (is_array($bf_per_currency) && count($bf_per_currency) > 0) {
+        foreach ($bf_per_currency as $code => $bfAmt) {
+            $ck = trim((string) $code);
+            if ($ck === '') {
+                continue;
+            }
+            $balance_by_currency[$ck] = money_normalize($bfAmt, 6);
+        }
+    } elseif ($bfCurrency !== null && $bfCurrency !== '') {
+        // 指定单一 currency 或 legacy 单笔 B/F：累加用更高精度（8dp）保存，展示时再统一 HALF_UP 到 2dp
         $balance_by_currency[$bfCurrency] = money_normalize($bf, 6);
     }
 
@@ -2389,22 +2398,47 @@ try {
                         $finalDescription = 'Markup';
                     }
                 } else {
-                    // 汇率兑换本身：显示 Currency Exchange (FROM amount > TO) Rate x
+                    // 汇率兑换本身：Currency Exchange (FROM amount > TO)；Rate 按分录类型区分（Member）
+                    // - RATE_FIRST_FROM / RATE_FIRST_TO：不展示 Rate
+                    // - RATE_TRANSFER_FROM（第二币种 Select To）：原始 exchange_rate
+                    // - RATE_TRANSFER_TO（第二币种 Select From）：exchange_rate - middleman_rate（净汇率，无效则回退原始）
                     $fromCode = $event['from_currency_code'] ?? null;
                     $toCode = $event['to_currency_code'] ?? null;
                     $fromAmount = $event['rate_from_amount'] ?? null;
                     $exchangeRate = $event['exchange_rate'] ?? null;
+                    $middlemanRate = $event['rate_middleman_rate'] ?? null;
+
+                    $rateForSuffix = null;
+                    if (!in_array($entryType, ['RATE_FIRST_FROM', 'RATE_FIRST_TO'], true)) {
+                        if ($entryType === 'RATE_TRANSFER_TO') {
+                            $displayNet = null;
+                            if ($exchangeRate !== null && $exchangeRate !== ''
+                                && $middlemanRate !== null && (string) $middlemanRate !== '') {
+                                $netRate = money_sub($exchangeRate, $middlemanRate, 8);
+                                if (money_cmp($netRate, '0') > 0) {
+                                    $displayNet = money_out($netRate, 6);
+                                }
+                            }
+                            $rateForSuffix = ($displayNet !== null && $displayNet !== '')
+                                ? $displayNet
+                                : (($exchangeRate !== null && $exchangeRate !== '') ? $exchangeRate : null);
+                        } else {
+                            // RATE_TRANSFER_FROM、RATE_FEE 等：与原先一致，使用原始汇率
+                            $rateForSuffix = ($exchangeRate !== null && $exchangeRate !== '') ? $exchangeRate : null;
+                        }
+                    }
+
                     if ($fromCode && $toCode) {
                         $finalDescription = 'Currency Exchange (' . $fromCode;
                         if ($fromAmount !== null && $fromAmount !== '') {
-                        $formattedAmount = historyDisplayDecimal($fromAmount, 6);
+                            $formattedAmount = historyDisplayDecimal($fromAmount, 6);
                             if ($formattedAmount !== '') {
                                 $finalDescription .= ' ' . $formattedAmount;
                             }
                         }
                         $finalDescription .= ' > ' . $toCode . ')';
-                        if ($exchangeRate !== null && $exchangeRate !== '') {
-                        $formattedRate = historyDisplayDecimal($exchangeRate, 6);
+                        if ($rateForSuffix !== null && $rateForSuffix !== '') {
+                            $formattedRate = historyDisplayDecimal($rateForSuffix, 6);
                             if ($formattedRate !== '') {
                                 $finalDescription .= ' Rate ' . $formattedRate;
                             }

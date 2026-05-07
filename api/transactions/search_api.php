@@ -1874,7 +1874,8 @@ try {
                       ELSE e.amount
                     END
                  ) ELSE 0 END) AS wl_cr_dr_other,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' AND ABS($rateNonMmRowAmt) > 0.0000001 THEN 1 ELSE 0 END) AS wl_cr_dr_other_count
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' AND ABS($rateNonMmRowAmt) > 0.0000001 THEN 1 ELSE 0 END) AS wl_cr_dr_other_count,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_cr_dr_other_rows
             FROM transaction_entry e
             JOIN transactions h ON e.header_id = h.id
             WHERE h.company_id = ?
@@ -1882,7 +1883,15 @@ try {
               AND h.transaction_type = 'RATE'
             GROUP BY e.account_id, e.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id]);
+        $stmt_bulk->execute([
+            $date_from_db, $date_from_db, $date_to_db,
+            $date_from_db, $date_to_db,
+            $date_to_db,
+            $date_from_db, $date_to_db,
+            $date_from_db, $date_to_db,
+            $date_from_db, $date_to_db,
+            $company_id, $company_id
+        ]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['entry'][$r['account_id']][$r['currency_id']] = [
                 'bf' => searchBulkAgg8($r['bf_total'] ?? '0'),
@@ -1890,7 +1899,8 @@ try {
                 'wl_mm_count' => (int) $r['wl_rate_mm_count'],
                 'wl_mm_up_to_count' => (int) ($r['up_to_rate_mm_count'] ?? 0),
                 'cr_dr' => searchBulkAgg8($r['wl_cr_dr_other'] ?? '0'),
-                'cr_dr_count' => (int) $r['wl_cr_dr_other_count']
+                'cr_dr_count' => (int) $r['wl_cr_dr_other_count'],
+                'cr_dr_rows_period' => (int) ($r['wl_cr_dr_other_rows'] ?? 0)
             ];
         }
     }
@@ -1920,7 +1930,9 @@ try {
         // Layer 2：(账户+币种) 级筛选。
         // 勿仅因「本期无 Win/Loss 动账」就整行丢弃——否则仅剩 B/F 或 Cr/Dr 轧差的户被藏起来，
         // 合计缺少对家，左右脚 Win/Loss/Balance 永不平。
-        if ($show_capture_only && !$show_inactive) {
+        // 勾选 Show 0 balance（hide_zero_balance=0）时不做此处裁剪：否则与前端「展示零余额」冲突，
+        // 典型如 RATE 轧差后 cr_dr/has_crdr 均为 0 的组合行会被误删。
+        if ($hide_zero_balance && $show_capture_only && !$show_inactive) {
             if (!$has_win_loss_transactions) {
                 $bf_near = trunc2($bf);
                 $cr_near = trunc2($cr_dr);
@@ -1931,7 +1943,7 @@ try {
             }
         }
         // 对称：勿仅因本期无 PAYMENT 类 Cr/Dr 动账就丢弃——无 Cr/Dr 交易但仍承担 Win/Loss 或期初轧差的户要保留。
-        if ($show_inactive && !$show_capture_only) {
+        if ($hide_zero_balance && $show_inactive && !$show_capture_only) {
             if (!$has_crdr_transactions) {
                 $bf_near = trunc2($bf);
                 $cr_near = trunc2($cr_dr);
@@ -3130,9 +3142,6 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
 {
     if ($bulk !== null) {
         $cr_dr = '0';
-        // has_transactions 只统计真实的 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 笔数。
-        // 修复：不计入 transaction_entry（RATE 分录）的 cr_dr_count，
-        // 因为那些是 RATE 汇率交易，不是 Payment，会污染 Show Payment Only 过滤。
         $payment_txn_count = 0;
 
         $to = $bulk['txn_crdr_to'][$account_id][$currency_id] ?? ['cr_dr' => '0', 'count' => 0];
@@ -3143,17 +3152,15 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $cr_dr = money_add($cr_dr, $from['cr_dr'], 8);
         $payment_txn_count += $from['count']; // 纯 PAYMENT 类型计数
 
-        $entry = $bulk['entry'][$account_id][$currency_id] ?? ['cr_dr' => '0', 'cr_dr_count' => 0];
+        $entry = $bulk['entry'][$account_id][$currency_id] ?? ['cr_dr' => '0', 'cr_dr_count' => 0, 'cr_dr_rows_period' => 0];
         $cr_dr = money_add($cr_dr, $entry['cr_dr'], 8); // RATE 分录金额仍纳入 cr_dr 计算（影响 Cr/Dr 列显示）
-        // 注意：$entry['cr_dr_count'] 故意不加入 $payment_txn_count，
-        // 因为它统计的是非 RATE_MIDDLEMAN 的 RATE 分录（如 RATE_FIRST_FROM/TO），
-        // 这些不属于 PAYMENT 类型，不应使 has_transactions 为 true。
+        // Show Payment Only：本期若有换汇 Cr/Dr 分录（RATE_*，不含 RATE_MIDDLEMAN），含金额为 0 仍视为有流水。
 
         $cr_dr_disp = trunc2($cr_dr);
+        $rateCrDrRows = (int) ($entry['cr_dr_rows_period'] ?? 0);
         return [
             'value' => $cr_dr_disp,
-            // 与展示口径一致：截断后全 0 则不计入 has（避免分录累加浮点余量导致「仅 OPENING BALANCE」账号仍被认为有 Cr/Dr 流水）
-            'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr_disp),
+            'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr_disp) || $rateCrDrRows > 0,
         ];
     }
 
