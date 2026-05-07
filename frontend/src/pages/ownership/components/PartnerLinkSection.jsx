@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function PartnerLinkSection({ inputId, onLink }) {
+export default function PartnerLinkSection({ inputId, onLink, disabled = false }) {
   const [val, setVal] = useState("");
   const [busy, setBusy] = useState(false);
   return (
@@ -17,12 +17,13 @@ export default function PartnerLinkSection({ inputId, onLink }) {
               autoComplete="off"
               autoCapitalize="characters"
               value={val}
+              disabled={disabled}
               onChange={(e) => setVal(e.target.value.toUpperCase())}
             />
             <button
               type="button"
               className="own-partner-link-btn"
-              disabled={busy}
+              disabled={busy || disabled}
               onClick={async () => {
                 const login = val.trim();
                 if (!login) return;

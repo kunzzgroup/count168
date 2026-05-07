@@ -21,6 +21,7 @@ export default function AccountEditorRow({
   onDragEnd,
   dragContextRef,
   enableDrag = true,
+  readOnlyMode = false,
 }) {
   const sliderRef = useRef(null);
   const rowRef = useRef(null);
@@ -54,7 +55,7 @@ export default function AccountEditorRow({
       className="own-account-row"
       data-index={idx}
       data-group-entry={String(row.account_id || "").startsWith("G_") ? "true" : undefined}
-      draggable={enableDrag && dragEnabled}
+      draggable={!readOnlyMode && enableDrag && dragEnabled}
       onDragStart={(e) => {
         if (!enableDrag || !dragEnabled) {
           e.preventDefault();
@@ -109,9 +110,10 @@ export default function AccountEditorRow({
     >
       <div
         className="own-drag-handle"
+        style={{ display: readOnlyMode ? "none" : "" }}
         onMouseDown={(e) => {
           e.stopPropagation();
-          if (enableDrag) setDragEnabled(true);
+          if (!readOnlyMode && enableDrag) setDragEnabled(true);
         }}
         onMouseLeave={() => setDragEnabled(false)}
       >
@@ -120,6 +122,7 @@ export default function AccountEditorRow({
       <select
         className="own-account-select"
         value={row.account_id}
+        disabled={readOnlyMode}
         onChange={(e) => onUpdate(idx, "account_id", e.target.value)}
       >
         <option value="">-- SELECT ACCOUNT --</option>
@@ -144,6 +147,7 @@ export default function AccountEditorRow({
           id={`input-${companyId}-${idx}`}
           key={`pi-${companyId}-${idx}-${row.percentage}`}
           defaultValue={`${row.percentage}%`}
+          disabled={readOnlyMode}
           onBlur={(e) => onUpdate(idx, "percent_input", e.target.value)}
         />
         <div className="own-slider-container">
@@ -156,6 +160,7 @@ export default function AccountEditorRow({
             max={100}
             step={1}
             value={row.percentage}
+            disabled={readOnlyMode}
             onInput={(e) => onUpdate(idx, "slider", e.target.value)}
           />
           <div className="own-slider-labels">
@@ -172,13 +177,13 @@ export default function AccountEditorRow({
             <input
               type="checkbox"
               checked={row.read_only === 1}
-              disabled={!showRo}
+              disabled={readOnlyMode || !showRo}
               onChange={(e) => onUpdate(idx, "read_only", e.target.checked ? 1 : 0)}
             />
             <span className="own-ro-slider" />
           </label>
         </div>
-        <button type="button" className="own-btn-square own-btn-delete" title="Remove" onClick={() => onRemove(idx)}>
+        <button type="button" className="own-btn-square own-btn-delete" title="Remove" disabled={readOnlyMode} onClick={() => onRemove(idx)}>
           <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
             <path
               fillRule="evenodd"

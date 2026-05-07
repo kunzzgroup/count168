@@ -27,14 +27,16 @@ export default function CompanyCard({
   onConfirm,
   onCancel,
   calcTotal,
+  readOnlyMode,
+  fmtPct,
 }) {
   const id = Number(comp.id);
   const gid = comp.group_id || null;
   const alloc = parseFloat(comp.allocated_percentage) || 0;
   const st = companyState;
   const totalLive = st ? calcTotal(st.rows) : alloc;
-  const headerRemain = totalLive > 100 ? "Over limit!" : `${(100 - totalLive).toFixed(2)}% Remaining`;
-  const headerPct = `${totalLive}%`;
+  const headerRemain = totalLive > 100 ? "Over limit!" : `${fmtPct(100 - totalLive)} Remaining`;
+  const headerPct = fmtPct(totalLive);
   const barW = Math.min(totalLive, 100);
   const selectable = allGroupIds.length > 0 && (!gid || groupFilter !== null);
 
@@ -47,11 +49,11 @@ export default function CompanyCard({
     const rem = 100 - t;
     if (t > 100) {
       warn = { show: true, err: true, icon: "❌", msg: "Total exceeds 100%!" };
-      footerText = `${Math.abs(rem).toFixed(2)}% Over Allocated`;
+      footerText = `${fmtPct(Math.abs(rem))} Over Allocated`;
       confirmDisabled = true;
     } else if (t < 100) {
       warn = { show: true, err: false, icon: "⚠️", msg: "Total is less than 100%" };
-      footerText = `${rem.toFixed(2)}% Unallocated`;
+      footerText = `${fmtPct(rem)} Unallocated`;
     } else {
       footerText = "Fully Allocated";
     }
@@ -120,7 +122,7 @@ export default function CompanyCard({
           </div>
         </div>
         <div className="own-card-header-right">
-          {allGroupIds.length > 0 && !gid ? (
+          {!readOnlyMode && allGroupIds.length > 0 && !gid ? (
             <div className="own-group-btn-wrap">
               <button
                 type="button"
@@ -150,7 +152,7 @@ export default function CompanyCard({
               </div>
             </div>
           ) : null}
-          {allGroupIds.length > 0 && gid ? (
+          {!readOnlyMode && allGroupIds.length > 0 && gid ? (
             <button type="button" className="own-group-ungroup-btn" onClick={(e) => { e.stopPropagation(); onUngroup(id, comp.name); }}>
               Ungroup
             </button>
@@ -189,6 +191,7 @@ export default function CompanyCard({
                     dragContextRef={dragRef}
                     onUpdate={(i, f, v) => onUpdateRow(id, i, f, v)}
                     onRemove={(i) => onRemoveRow(id, i)}
+                    readOnlyMode={readOnlyMode}
                     onDragStart={() => {
                       dragRef.current = { companyId: id, idx };
                     }}
@@ -206,11 +209,12 @@ export default function CompanyCard({
                   />
                 ))}
               </div>
-              <button type="button" className="own-btn-add-account" onClick={(e) => { e.stopPropagation(); onAddRow(id); }}>
+              <button type="button" className="own-btn-add-account" disabled={readOnlyMode} onClick={(e) => { e.stopPropagation(); onAddRow(id); }}>
                 + Add Account
               </button>
               <PartnerLinkSection
                 inputId={`partner-login-${id}`}
+                disabled={readOnlyMode}
                 onLink={async (login) => onLinkPartner(id, login)}
               />
               <div className="own-card-footer">
@@ -227,7 +231,7 @@ export default function CompanyCard({
                   <button type="button" className="own-footer-btn own-btn-cancel" onClick={(e) => { e.stopPropagation(); onCancel(); }}>
                     Cancel
                   </button>
-                  <button type="button" className="own-footer-btn own-btn-confirm" id={`confirm-btn-${id}`} disabled={confirmDisabled || savingCompanyId === id} onClick={(e) => { e.stopPropagation(); onConfirm(id); }}>
+                  <button type="button" className="own-footer-btn own-btn-confirm" id={`confirm-btn-${id}`} disabled={readOnlyMode || confirmDisabled || savingCompanyId === id} onClick={(e) => { e.stopPropagation(); onConfirm(id); }}>
                     {savingCompanyId === id ? "Saving..." : "Confirm"}
                   </button>
                 </div>
