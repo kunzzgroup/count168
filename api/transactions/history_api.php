@@ -2389,22 +2389,47 @@ try {
                         $finalDescription = 'Markup';
                     }
                 } else {
-                    // 汇率兑换本身：显示 Currency Exchange (FROM amount > TO) Rate x
+                    // 汇率兑换本身：Currency Exchange (FROM amount > TO)；Rate 按分录类型区分（Member）
+                    // - RATE_FIRST_FROM / RATE_FIRST_TO：不展示 Rate
+                    // - RATE_TRANSFER_FROM（第二币种 Select To）：原始 exchange_rate
+                    // - RATE_TRANSFER_TO（第二币种 Select From）：exchange_rate - middleman_rate（净汇率，无效则回退原始）
                     $fromCode = $event['from_currency_code'] ?? null;
                     $toCode = $event['to_currency_code'] ?? null;
                     $fromAmount = $event['rate_from_amount'] ?? null;
                     $exchangeRate = $event['exchange_rate'] ?? null;
+                    $middlemanRate = $event['rate_middleman_rate'] ?? null;
+
+                    $rateForSuffix = null;
+                    if (!in_array($entryType, ['RATE_FIRST_FROM', 'RATE_FIRST_TO'], true)) {
+                        if ($entryType === 'RATE_TRANSFER_TO') {
+                            $displayNet = null;
+                            if ($exchangeRate !== null && $exchangeRate !== ''
+                                && $middlemanRate !== null && (string) $middlemanRate !== '') {
+                                $netRate = money_sub($exchangeRate, $middlemanRate, 8);
+                                if (money_cmp($netRate, '0') > 0) {
+                                    $displayNet = money_out($netRate, 6);
+                                }
+                            }
+                            $rateForSuffix = ($displayNet !== null && $displayNet !== '')
+                                ? $displayNet
+                                : (($exchangeRate !== null && $exchangeRate !== '') ? $exchangeRate : null);
+                        } else {
+                            // RATE_TRANSFER_FROM、RATE_FEE 等：与原先一致，使用原始汇率
+                            $rateForSuffix = ($exchangeRate !== null && $exchangeRate !== '') ? $exchangeRate : null;
+                        }
+                    }
+
                     if ($fromCode && $toCode) {
                         $finalDescription = 'Currency Exchange (' . $fromCode;
                         if ($fromAmount !== null && $fromAmount !== '') {
-                        $formattedAmount = historyDisplayDecimal($fromAmount, 6);
+                            $formattedAmount = historyDisplayDecimal($fromAmount, 6);
                             if ($formattedAmount !== '') {
                                 $finalDescription .= ' ' . $formattedAmount;
                             }
                         }
                         $finalDescription .= ' > ' . $toCode . ')';
-                        if ($exchangeRate !== null && $exchangeRate !== '') {
-                        $formattedRate = historyDisplayDecimal($exchangeRate, 6);
+                        if ($rateForSuffix !== null && $rateForSuffix !== '') {
+                            $formattedRate = historyDisplayDecimal($rateForSuffix, 6);
                             if ($formattedRate !== '') {
                                 $finalDescription .= ' Rate ' . $formattedRate;
                             }
