@@ -67,16 +67,14 @@ export default function OwnershipPage() {
   const fetchCompanies = useCallback(async () => {
     setLoadingList(true);
     try {
-      const [res, meRes] = await Promise.all([
-        fetch(buildApiUrl("api/ownership/get_companies_api.php?all=1"), { credentials: "include" }),
-        fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-      ]);
+      const res = await fetch(buildApiUrl("api/ownership/get_companies_api.php?all=1"), {
+        credentials: "include",
+      });
       const json = await res.json();
-      const meJson = await meRes.json();
       if (isApiSuccess(json)) setAllCompanies(json.data || []);
       else showToast(getApiMessage(json, "Failed to load companies"), "error");
-      const role = String(meJson?.data?.role || "").toLowerCase();
-      setReadOnlyMode(role !== "owner");
+      // Keep frontend interactive; backend remains source of truth for write permissions.
+      setReadOnlyMode(false);
     } catch {
       showToast("Server error", "error");
     } finally {
