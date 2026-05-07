@@ -105,35 +105,35 @@ if (isset($_SESSION['user_id'])) {
             if (!headers_sent()) {
                 header('Content-Type: application/json');
             }
-            echo json_encode(['status' => 'error', 'message' => 'Session expired. Please login again.', 'redirect' => 'index.php']);
+            echo json_encode(['status' => 'error', 'message' => 'Session expired. Please login again.', 'redirect' => '/login']);
             exit();
         }
         
         // 重定向到登录页
-        header("Location: index.php");
+        header("Location: /login");
         exit();
     }
     
     // 检查owner是否已通过二级密码验证（排除二级密码验证页面本身）
     $currentFile = basename($_SERVER['PHP_SELF']);
-    if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' && $currentFile !== 'owner_secondary_password.php') {
+    if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner') {
         if (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true) {
             // Owner未通过二级密码验证，重定向到二级密码验证页面
             if ($isApiRequest) {
                 if (!headers_sent()) {
                     header('Content-Type: application/json');
                 }
-                echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => 'owner_secondary_password.php']);
+                echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => '/owner-secondary-password']);
                 exit();
             }
             
-            header("Location: owner_secondary_password.php");
+            header("Location: /owner-secondary-password");
             exit();
         }
     }
     
     // 检查user（c168公司）是否已通过二级密码验证（排除二级密码验证页面本身）
-    if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'user' && $currentFile !== 'user_secondary_password.php') {
+    if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'user') {
         // 检查是否是c168公司的用户
         $company_code = $_SESSION['company_code'] ?? null;
         $company_id = $_SESSION['company_id'] ?? null;
@@ -169,11 +169,11 @@ if (isset($_SESSION['user_id'])) {
                             if (!headers_sent()) {
                                 header('Content-Type: application/json');
                             }
-                            echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => 'user_secondary_password.php']);
+                            echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => '/user-secondary-password']);
                             exit();
                         }
                         
-                        header("Location: user_secondary_password.php");
+                        header("Location: /user-secondary-password");
                         exit();
                     }
                 }
@@ -209,10 +209,10 @@ if (isset($_SESSION['user_id'])) {
                         if (!headers_sent()) {
                             header('Content-Type: application/json');
                         }
-                        echo json_encode(['status' => 'error', 'message' => 'Account is inactive.', 'redirect' => 'index.php']);
+                        echo json_encode(['status' => 'error', 'message' => 'Account is inactive.', 'redirect' => '/login']);
                         exit();
                     }
-                    header("Location: index.php");
+                    header("Location: /login");
                     exit();
                 }
             }
@@ -263,12 +263,12 @@ if (isset($_SESSION['user_id'])) {
         if (!headers_sent()) {
             header('Content-Type: application/json');
         }
-        echo json_encode(['status' => 'error', 'message' => 'Please login first.', 'redirect' => 'index.php']);
+        echo json_encode(['status' => 'error', 'message' => 'Please login first.', 'redirect' => '/login']);
         exit();
     }
     
     // 重定向到登录页
-    header("Location: index.php");
+    header("Location: /login");
     exit();
 }
 
