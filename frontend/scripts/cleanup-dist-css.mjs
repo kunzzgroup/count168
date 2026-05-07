@@ -6,10 +6,10 @@ const distCssDir = resolve(process.cwd(), "dist", "css");
 
 if (existsSync(distIndexHtml)) {
   const html = readFileSync(distIndexHtml, "utf8");
-  const patched = html.replaceAll("/frontend/dist/css/", "/css/");
+  const patched = html.replaceAll("/frontend/dist/css/", "/frontend/public/css/");
   if (patched !== html) {
     writeFileSync(distIndexHtml, patched, "utf8");
-    console.log("[cleanup] Rewrote dist/index.html CSS links to /css/.");
+    console.log("[cleanup] Rewrote dist/index.html CSS links to /frontend/public/css/.");
   }
 }
 
