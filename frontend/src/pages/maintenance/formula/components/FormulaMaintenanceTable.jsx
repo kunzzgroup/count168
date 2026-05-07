@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { toUpperDisplay, INPUT_METHOD_OPTIONS } from "../formulaMaintenanceLogic.js";
+import { assetUrl } from "../../../../utils/apiUrl.js";
 
 export default function FormulaMaintenanceTable({
   data,
@@ -223,7 +224,7 @@ export default function FormulaMaintenanceTable({
                     ) : (
                       <>
                         <button type="button" className="maintenance-edit-btn" onClick={() => handleEdit(row)} title="Edit">
-                          <img src="images/edit.svg" alt="Edit" className="edit-icon" style={{ width: "16px", height: "16px" }} />
+                          <img src={assetUrl("images/edit.svg")} alt="Edit" className="edit-icon" style={{ width: "16px", height: "16px" }} />
                         </button>
                         <input 
                           type="checkbox" 

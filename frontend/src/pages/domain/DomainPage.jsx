@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/domain.css";
 import "../../../public/css/accountCSS.css";
 import {
@@ -383,7 +383,7 @@ export default function DomainPage() {
                       onClick={() => openEditModal(domain)}
                       aria-label={t("edit")}
                     >
-                      <img src="/images/edit.svg" alt={t("edit")} />
+                      <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
                     </button>
                     {!isProtected && domain.owner_code !== "K" && (
                       <input

@@ -12,7 +12,7 @@ import {
   parseDisplayAmountToNumber,
   parseLooseNumericInput,
 } from "./utils/summaryNumberUtils.js";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 
 import "./styles/datacapturesummary.css";
 
@@ -485,7 +485,7 @@ export default function DataCaptureSummaryPage() {
               Back
             </button>
             <button type="button" className="btn btn-refresh" onClick={refreshPage} title="Refresh page">
-              <img src="images/refresh.svg" alt="Refresh" style={{ width: "clamp(23px, 1.8vw, 35px)", height: "clamp(23px, 1.8vw, 35px)" }} />
+              <img src={assetUrl("images/refresh.svg")} alt="Refresh" style={{ width: "clamp(23px, 1.8vw, 35px)", height: "clamp(23px, 1.8vw, 35px)" }} />
             </button>
           </div>
         </>

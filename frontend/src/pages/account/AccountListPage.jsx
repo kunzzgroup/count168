@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 
@@ -416,7 +416,7 @@ export default function AccountListPage() {
                     <div className="account-card-item">{toUpper(a.last_login)}</div>
                     <div className="account-card-item">{toUpper(a.remark)}</div>
                     <div className="account-card-item">
-                      <button className="account-edit-btn" onClick={() => openEdit(a.id)}><img src="/images/edit.svg" alt="Edit" /></button>
+                      <button className="account-edit-btn" onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
                       {isInactive && <input type="checkbox" style={{ marginLeft: 10 }} checked={selectedDeleteIds.has(Number(a.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })} />}
                     </div>
                   </div>
