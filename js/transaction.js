@@ -3252,7 +3252,8 @@
         const rateTransferFromAccount = getAccountId(rateTransferFromAccountInput);
         const rateTransferToAccount = getAccountId(rateTransferToAccountInput);
         const rateMiddlemanAccount = getAccountId(rateMiddlemanAccountInput);
-        const rateMiddlemanRate = document.getElementById('rate_middleman_rate')?.value || '';
+        const rateMiddlemanRateRaw = document.getElementById('rate_middleman_rate')?.value || '';
+        const normalizedMiddlemanRate = normalizeRateForSubmit(rateMiddlemanRateRaw);
         const rateMiddlemanAmount = document.getElementById('rate_middleman_amount')?.value || '';
 
         // 验证
@@ -3384,14 +3385,18 @@
                 }
 
                 // 如果有填写 middle-man 信息，验证是否完整
-                if (rateMiddlemanAccount || rateMiddlemanRate) {
+                if (rateMiddlemanAccount || rateMiddlemanRateRaw) {
                     // 如果填写了其中一个，必须填写完整
                     if (!rateMiddlemanAccount) {
                         showNotification('Please select Middle-Man account', 'error');
                         return;
                     }
-                    if (!rateMiddlemanRate || rateMiddlemanRate <= 0) {
+                    if (!rateMiddlemanRateRaw || Number(rateMiddlemanRateRaw) <= 0) {
                         showNotification('Please enter Middle-Man rate multiplier', 'error');
+                        return;
+                    }
+                    if (countDecimalPlaces(normalizedMiddlemanRate) > RATE_MAX_DECIMALS) {
+                        showNotification('Middle-Man rate supports max 8 decimal places', 'error');
                         return;
                     }
                     // 第二行规则：
@@ -3420,7 +3425,7 @@
                 if (MoneyDecimal.cmp(middlemanAmount, '0') > 0) {
                     const currencyFromAmount = MoneyDecimal.toDecimal(rateCurrencyFromAmount, 0).toString();
                     const currencyFromCode = rateCurrencyFromSelect?.value || '';
-                    middlemanDescription = `Rate charge (x${rateMiddlemanRate}) from ${currencyFromCode} ${MoneyDecimal.formatFixed(currencyFromAmount, 2)}`;
+                    middlemanDescription = `Rate charge (x${normalizedMiddlemanRate}) from ${currencyFromCode} ${MoneyDecimal.formatFixed(currencyFromAmount, 2)}`;
                 }
             }
 
@@ -3480,7 +3485,7 @@
                     transferToAccountDescription,
                     middlemanDescription,
                     rateMiddlemanAccount,
-                    rateMiddlemanRate,
+                    rateMiddlemanRate: normalizedMiddlemanRate,
                     rateMiddlemanAmount
                 } : undefined
             } : undefined
@@ -3581,7 +3586,7 @@
             formData.append('rate_account_from_amount', rateTransferAmount);
             formData.append('rate_account_to_amount', rateTransferAmount);
             formData.append('rate_middleman_account', rateMiddlemanAccountId);
-            formData.append('rate_middleman_rate', rateMiddlemanRate);
+            formData.append('rate_middleman_rate', normalizedMiddlemanRate);
             formData.append('rate_middleman_amount', rateMiddlemanAmount ? formatRateAmount(rateMiddlemanAmount) : '');
         }
         if (currentCompanyId) {
