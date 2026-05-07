@@ -1920,7 +1920,9 @@ try {
         // Layer 2：(账户+币种) 级筛选。
         // 勿仅因「本期无 Win/Loss 动账」就整行丢弃——否则仅剩 B/F 或 Cr/Dr 轧差的户被藏起来，
         // 合计缺少对家，左右脚 Win/Loss/Balance 永不平。
-        if ($show_capture_only && !$show_inactive) {
+        // 勾选 Show 0 balance（hide_zero_balance=0）时不做此处裁剪：否则与前端「展示零余额」冲突，
+        // 典型如 RATE 轧差后 cr_dr/has_crdr 均为 0 的组合行会被误删。
+        if ($hide_zero_balance && $show_capture_only && !$show_inactive) {
             if (!$has_win_loss_transactions) {
                 $bf_near = trunc2($bf);
                 $cr_near = trunc2($cr_dr);
@@ -1931,7 +1933,7 @@ try {
             }
         }
         // 对称：勿仅因本期无 PAYMENT 类 Cr/Dr 动账就丢弃——无 Cr/Dr 交易但仍承担 Win/Loss 或期初轧差的户要保留。
-        if ($show_inactive && !$show_capture_only) {
+        if ($hide_zero_balance && $show_inactive && !$show_capture_only) {
             if (!$has_crdr_transactions) {
                 $bf_near = trunc2($bf);
                 $cr_near = trunc2($cr_dr);

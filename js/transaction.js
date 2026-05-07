@@ -3064,7 +3064,10 @@
                 return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(eps);
             };
             let shouldShow = () => true;
-            if (showPaymentOnly && showWinLossOnly) {
+            // Show 0 balance：勿再用「非零 Cr/Dr / WinLoss」筛掉整行，否则与勾选意图冲突（后端已按 EXISTS 缩账户范围）。
+            if (showZero) {
+                shouldShow = () => true;
+            } else if (showPaymentOnly && showWinLossOnly) {
                 shouldShow = (row) => hasCrdr(row) || hasWinLoss(row);
             } else if (showPaymentOnly) {
                 shouldShow = hasCrdr;
@@ -3155,15 +3158,18 @@
             return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt('0.00001');
         };
         const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
-        const shouldShow = showWinLossOnly
-            ? (row) => hasCrdr(row) || hasWinLoss(row)
-            : hasCrdr;
+        const showZeroEarly = document.getElementById('show_zero_balance')?.checked || false;
+        const shouldShow = showZeroEarly
+            ? () => true
+            : (showWinLossOnly
+                ? (row) => hasCrdr(row) || hasWinLoss(row)
+                : hasCrdr);
 
         let filteredLeft = lastSearchData.left_table.filter(shouldShow);
         let filteredRight = lastSearchData.right_table.filter(shouldShow);
 
         // 再应用 show_zero_balance 过滤（如果启用）
-        const showZero = document.getElementById('show_zero_balance')?.checked || false;
+        const showZero = showZeroEarly;
         if (!showZero) {
             const filterFn = (row) => rowPassesHideZeroBalanceFilter(showZero, row);
             filteredLeft = filteredLeft.filter(filterFn);
