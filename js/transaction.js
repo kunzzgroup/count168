@@ -199,6 +199,19 @@
         return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
     }
 
+    function getRateCurrencyToGrossAmount() {
+        const currencyToAmountInput = document.getElementById('rate_currency_to_amount');
+        if (!currencyToAmountInput) return '0';
+        if (String(currencyToAmountInput.value || '').trim() === '') {
+            return '0';
+        }
+        const storedGross = currencyToAmountInput.dataset.grossAmount;
+        if (storedGross !== undefined && storedGross !== null && String(storedGross).trim() !== '') {
+            return String(storedGross);
+        }
+        return String(currencyToAmountInput.value || '0');
+    }
+
     /** 合计列 Win/Loss：只累加高精度 win_loss_full（勿累加已 half-up 的 win_loss），最后再 formatFixedHalfUp 一次 */
     function winLossFullRawForTotals(row) {
         const raw = row && row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ''
@@ -583,7 +596,6 @@
 
         // 绑定 Middle-Man Amount 自动计算
         initMiddleManAmountCalculation();
-        initRateTransferPreviewDisplay();
 
         // 🆕 加载分类列表和 company 列表 → 先加载 currency（再搜，保证带 currency 参数）→ 账户与搜索
         Promise.all([
@@ -3175,7 +3187,7 @@
         const rateCurrencyFromSelect = document.getElementById('rate_currency_from');
         const rateCurrencyToSelect = document.getElementById('rate_currency_to');
         const rateCurrencyFromAmount = rateCurrencyFromAmountInput ? rateCurrencyFromAmountInput.value : '';
-        const rateCurrencyToAmount = document.getElementById('rate_currency_to_amount')?.value || '';
+        const rateCurrencyToAmount = getRateCurrencyToGrossAmount();
         const rateExchangeRateRaw = document.getElementById('rate_exchange_rate')?.value || '';
         const parsedRateExchange = parseRateExpression(rateExchangeRateRaw);
         const rateExchangeRate = parsedRateExchange.valid ? parsedRateExchange.value : 0;
@@ -3909,6 +3921,9 @@
                 const tmpCurrencyAmount = rateCurrencyFromAmount.value;
                 rateCurrencyFromAmount.value = rateCurrencyToAmount.value;
                 rateCurrencyToAmount.value = tmpCurrencyAmount;
+                const tmpGross = rateCurrencyToAmount.dataset.grossAmount || '';
+                rateCurrencyToAmount.dataset.grossAmount = rateCurrencyFromAmount.dataset.grossAmount || '';
+                rateCurrencyFromAmount.dataset.grossAmount = tmpGross;
             }
 
             // 交换第二个账户行的按钮
@@ -4024,7 +4039,7 @@
             return;
         }
 
-        // 计算 Middle-Man Amount 函数
+            // 计算 Middle-Man Amount 函数
         function calculateMiddleManAmount() {
             const currencyFromAmount = MoneyDecimal.toDecimal(currencyFromAmountInput.value || '0', 0);
             const middleManRate = MoneyDecimal.toDecimal(middleManRateInput.value || '0', 0);
@@ -4039,7 +4054,6 @@
 
             // 计算完成后，触发 Currency To Amount 的计算
             calculateCurrencyToAmount();
-            updateRateTransferPreview();
         }
 
         // 计算 Currency To Amount 函数
@@ -4048,14 +4062,29 @@
             const parsedRate = parseRateExpression(exchangeRateInput.value);
             const exchangeRate = parsedRate.valid ? MoneyDecimal.toDecimal(parsedRate.value) : MoneyDecimal.toDecimal('0');
 
-            // 与提交入账保持一致：换算金额显示完整 from * rate，middle-man fee 另行显示并单独入账。
+            // 与提交入账保持一致：提交逻辑使用 gross（from * rate）；
+            // UI 的 rate_currency_to_amount 仅显示扣 middle-man 后的预览值（不参与提交）。
             if (currencyFromAmount.gt(0) && exchangeRate.gt(0)) {
-                const result = currencyFromAmount.times(exchangeRate);
-                currencyToAmountInput.value = formatRateAmount(result);
+                const gross = currencyFromAmount.times(exchangeRate);
+                const grossDisplay = formatRateAmount(gross);
+                currencyToAmountInput.dataset.grossAmount = grossDisplay;
+
+                let displayValue = gross;
+                const middleManAmountRaw = middleManAmountInput.value || '0';
+                let fee = MoneyDecimal.toDecimal('0');
+                try {
+                    fee = MoneyDecimal.toDecimal(middleManAmountRaw, 0);
+                } catch (_) {
+                    fee = MoneyDecimal.toDecimal('0');
+                }
+                if (fee.gt(0)) {
+                    displayValue = gross.minus(fee);
+                }
+                currencyToAmountInput.value = formatRateAmount(displayValue);
             } else {
+                currencyToAmountInput.dataset.grossAmount = '';
                 currencyToAmountInput.value = '';
             }
-            updateRateTransferPreview();
         }
 
         // 绑定事件监听器 - Middle-Man Amount 计算
@@ -4066,78 +4095,6 @@
         exchangeRateInput.addEventListener('change', calculateMiddleManAmount);
         middleManRateInput.addEventListener('input', calculateMiddleManAmount);
         middleManRateInput.addEventListener('change', calculateMiddleManAmount);
-    }
-
-    function initRateTransferPreviewDisplay() {
-        const transferSection = document.getElementById('rate_transfer_from_account')?.closest('.rate-section');
-        if (!transferSection) return;
-
-        let previewEl = document.getElementById('rate_transfer_preview');
-        if (!previewEl) {
-            previewEl = document.createElement('div');
-            previewEl.id = 'rate_transfer_preview';
-            previewEl.style.fontSize = '12px';
-            previewEl.style.color = '#334155';
-            previewEl.style.marginTop = '6px';
-            previewEl.style.paddingLeft = '2px';
-            transferSection.appendChild(previewEl);
-        }
-
-        const middleManAmountInput = document.getElementById('rate_middleman_amount');
-        const currencyToAmountInput = document.getElementById('rate_currency_to_amount');
-        const typeSel = document.getElementById('transaction_type');
-        if (middleManAmountInput) {
-            middleManAmountInput.addEventListener('input', updateRateTransferPreview);
-            middleManAmountInput.addEventListener('change', updateRateTransferPreview);
-        }
-        if (currencyToAmountInput) {
-            currencyToAmountInput.addEventListener('input', updateRateTransferPreview);
-            currencyToAmountInput.addEventListener('change', updateRateTransferPreview);
-        }
-        if (typeSel) {
-            typeSel.addEventListener('change', updateRateTransferPreview);
-        }
-        updateRateTransferPreview();
-    }
-
-    function updateRateTransferPreview() {
-        const previewEl = document.getElementById('rate_transfer_preview');
-        if (!previewEl) return;
-
-        const typeSel = document.getElementById('transaction_type');
-        if (!typeSel || typeSel.value !== RATE_TYPE_VALUE) {
-            previewEl.textContent = '';
-            return;
-        }
-
-        const grossRaw = document.getElementById('rate_currency_to_amount')?.value || '';
-        const feeRaw = document.getElementById('rate_middleman_amount')?.value || '';
-
-        let gross = MoneyDecimal.toDecimal('0');
-        let fee = MoneyDecimal.toDecimal('0');
-        try { gross = MoneyDecimal.toDecimal(grossRaw || '0', 0); } catch (_) { gross = MoneyDecimal.toDecimal('0'); }
-        try { fee = MoneyDecimal.toDecimal(feeRaw || '0', 0); } catch (_) { fee = MoneyDecimal.toDecimal('0'); }
-
-        if (gross.lte(0)) {
-            previewEl.textContent = '';
-            return;
-        }
-
-        if (fee.lte(0)) {
-            previewEl.style.color = '#334155';
-            previewEl.textContent = `Display only: Select To = ${formatRateAmount(gross)}, Select From = ${formatRateAmount(gross)} (no Middle-Man deduction)`;
-            return;
-        }
-
-        const net = gross.minus(fee);
-        if (net.lte(0)) {
-            previewEl.style.color = '#b91c1c';
-            previewEl.textContent = `Display only: Select To stays ${formatRateAmount(gross)}, but Select From would be ${formatRateAmount(net)} after fee ${formatRateAmount(fee)} (invalid: <= 0)`;
-            return;
-        }
-
-        previewEl.style.color = '#334155';
-        previewEl.textContent = `Display only: Select To = ${formatRateAmount(gross)}, Select From = ${formatRateAmount(net)} (deduct ${formatRateAmount(fee)} Middle-Man fee)`;
     }
 
     // ==================== 复制表格到 Excel 时保留样式 ====================
