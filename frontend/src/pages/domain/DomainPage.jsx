@@ -35,8 +35,16 @@ export default function DomainPage() {
     const onStorage = (e) => {
       if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
     };
+    const onLangUpdated = (e) => {
+      const nextLang = e?.detail?.lang;
+      setLang(nextLang === "zh" ? "zh" : "en");
+    };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
+    };
   }, []);
 
   useEffect(() => {
