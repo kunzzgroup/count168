@@ -3055,6 +3055,10 @@
                 const byValue = crdr !== null && MoneyDecimal.toDecimal(crdr).abs().gt('0.00001');
                 return byFlag || byValue;
             };
+            const isZeroBalance = row => {
+                const bal = parseBalanceValue(row.balance);
+                return bal !== null && MoneyDecimal.toDecimal(bal).abs().lte(eps);
+            };
             const hasWinLoss = row => {
                 // Show Win/Loss Only 以实际金额是否非 0 为准，避免后端标记为真但金额为 0 的行混入。
                 const rawWinLoss = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
@@ -3067,7 +3071,8 @@
             if (showPaymentOnly && showWinLossOnly) {
                 shouldShow = (row) => hasCrdr(row) || hasWinLoss(row);
             } else if (showPaymentOnly) {
-                shouldShow = hasCrdr;
+                // 需求：Show Payment + Show 0 balance 时，除有 Cr/Dr 外也要展示 Balance=0 的账号行
+                shouldShow = showZero ? (row) => hasCrdr(row) || isZeroBalance(row) : hasCrdr;
             } else if (showWinLossOnly) {
                 shouldShow = hasWinLoss;
             }
@@ -3150,6 +3155,11 @@
             const byValue = crdr !== null && MoneyDecimal.toDecimal(crdr).abs().gt('0.00001');
             return byFlag || byValue;
         };
+        const isZeroBalance = row => {
+            const eps = '0.00001';
+            const bal = parseBalanceValue(row.balance);
+            return bal !== null && MoneyDecimal.toDecimal(bal).abs().lte(eps);
+        };
         const hasWinLoss = row => {
             const wl = parseBalanceValue(row.win_loss);
             return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt('0.00001');
@@ -3158,7 +3168,7 @@
         const showZeroEarly = document.getElementById('show_zero_balance')?.checked || false;
         const shouldShow = showWinLossOnly
             ? (row) => hasCrdr(row) || hasWinLoss(row)
-            : hasCrdr;
+            : (showZeroEarly ? (row) => hasCrdr(row) || isZeroBalance(row) : hasCrdr);
 
         let filteredLeft = lastSearchData.left_table.filter(shouldShow);
         let filteredRight = lastSearchData.right_table.filter(shouldShow);
