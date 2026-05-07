@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
-import { injectStylesheet, stylesheetPathKey } from "../../utils/injectStylesheet.js";
+import "../../../public/css/ownership.css";
 import {
   getApiMessage,
   isApiConflict,
@@ -23,18 +23,9 @@ export default function OwnershipPage() {
     // Force body classes for correct background (SPA parity)
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page");
-
-    const href = assetUrl("css/ownership.css");
-    const pathKey = stylesheetPathKey(href);
-    injectStylesheet(href).then(() => setCssReady(true));
+    setCssReady(true);
     return () => {
-      document.querySelectorAll('link[rel="stylesheet"]').forEach((el) => {
-        try {
-          if (stylesheetPathKey(el.href) === pathKey) el.remove();
-        } catch {
-          /* ignore */
-        }
-      });
+      setCssReady(false);
     };
   }, []);
 

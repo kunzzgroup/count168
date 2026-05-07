@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
+import "../../../public/css/accountCSS.css";
+import "../../../public/css/transaction.css";
+import "../../../public/css/customer_report.css";
+import "../../../public/css/date-range-picker.css";
 import {
   fetchAccounts,
   fetchCurrencies,
@@ -61,10 +65,6 @@ export default function CustomerReportPage() {
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-      assetUrl("css/accountCSS.css"),
-      assetUrl("css/transaction.css"),
-      assetUrl("css/customer_report.css"),
-      assetUrl("css/date-range-picker.css"),
     ];
 
     const waitForStylesheet = (href) =>

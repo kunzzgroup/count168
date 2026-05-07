@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/payment_maintenance.css";
 import { 
   fetchCompanyPermissions, 
   fetchCompanyCurrencies,
@@ -45,8 +48,6 @@ export default function PaymentMaintenancePage() {
   const [dateFrom, setDateFrom] = useState(todayDmy);
   const [dateTo, setDateTo] = useState(todayDmy);
   const [cssReady, setCssReady] = useState(false);
-  /** Bust cache for `public/css/payment_maintenance.css` so deploys pick up latest rules. */
-  const paymentMaintenanceCssQuery = useMemo(() => `v=${Date.now()}`, []);
 
   // -- Data State --
   const [paymentData, setPaymentData] = useState([]);
@@ -122,9 +123,7 @@ export default function PaymentMaintenancePage() {
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-      assetUrl("css/accountCSS.css"),
-      assetUrl("css/date-range-picker.css"),
-      assetUrl(`css/payment_maintenance.css?${paymentMaintenanceCssQuery}`),
+      // local styles are imported statically so only external stylesheets need runtime loading
     ];
 
     Promise.all(links.map(waitForStylesheet)).then(() => {

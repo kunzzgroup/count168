@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
-import { injectStylesheet, stylesheetPathKey } from "../../utils/injectStylesheet.js";
+import "../../../public/css/userlist.css";
 import {
   ALL_ROLE_OPTIONS,
   PAGE_SIZE,
@@ -123,26 +123,10 @@ export default function UserListPage() {
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("user-page");
-    const href = assetUrl("css/userlist.css");
-    const pathKey = stylesheetPathKey(href);
-    let cancelled = false;
-    injectStylesheet(href).then(() => {
-      if (!cancelled) setCssReady(true);
-    });
-    requestAnimationFrame(() => {
-      if (!cancelled) setCssReady(true);
-    });
+    setCssReady(true);
     return () => {
-      cancelled = true;
       document.body.classList.remove("user-page", "user-page--show-all", "bg");
       document.body.classList.add("dashboard-page");
-      document.querySelectorAll('link[rel="stylesheet"]').forEach((el) => {
-        try {
-          if (stylesheetPathKey(el.href) === pathKey) el.remove();
-        } catch {
-          /* ignore */
-        }
-      });
       setCssReady(false);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };

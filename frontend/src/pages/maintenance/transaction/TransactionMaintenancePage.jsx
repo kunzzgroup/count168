@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/transaction.css";
+import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/transaction_maintenance.css";
 import { 
   fetchCompanyPermissions, 
   fetchProcesses, 
@@ -101,10 +105,6 @@ export default function TransactionMaintenancePage() {
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-      assetUrl("css/accountCSS.css"),
-      assetUrl("css/transaction.css"),
-      assetUrl("css/date-range-picker.css"),
-      assetUrl("css/transaction_maintenance.css"),
     ];
 
     Promise.all(links.map(waitForStylesheet)).then(() => {

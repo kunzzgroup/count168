@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import "../../../public/css/member.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 
 function loadScriptOnce(src, key) {
@@ -230,7 +231,6 @@ export default function MemberPage() {
     let cancelled = false;
     (async () => {
       await Promise.all([
-        injectStylesheet(assetUrl("css/member.css")),
         injectStylesheet("https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"),
         injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
       ]);

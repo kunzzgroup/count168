@@ -2,8 +2,12 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import AccountAddModalSameAsList from "../../components/AccountAddModalSameAsList.jsx";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { ensureMaintenanceDateRangePicker } from "../../utils/maintenanceDateRangePicker.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
-import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
+import "../../../public/css/processCSS.css";
+import "../../../public/css/processlist.css";
+import "../../../public/css/accountCSS.css";
+import "../../../public/css/account-list.css";
+import "../../../public/css/date-range-picker.css";
 
 // Helper imports
 import {
@@ -118,19 +122,9 @@ export default function BankProcessListPage() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const hrefs = [
-      assetUrl("css/processCSS.css"),
-      assetUrl("css/processlist.css"),
-      assetUrl("css/accountCSS.css"),
-      assetUrl("css/account-list.css"),
-      assetUrl("css/date-range-picker.css"),
-    ];
-    Promise.all(hrefs.map((href) => injectStylesheet(href))).then(() => {
-      if (!cancelled) setCssReady(true);
-    });
+    setCssReady(true);
     return () => {
-      cancelled = true;
+      setCssReady(false);
     };
   }, []);
 

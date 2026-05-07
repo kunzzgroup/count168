@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { injectStylesheet } from "../../../utils/injectStylesheet.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/bankprocess_maintenance.css";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
 import BankprocessMaintenanceTable from "./components/BankprocessMaintenanceTable.jsx";
 import BankprocessDeleteModal from "./components/BankprocessDeleteModal.jsx";
@@ -93,9 +96,6 @@ export default function BankprocessMaintenancePage() {
         "https://fonts.googleapis.com/css?family=Amaranth",
         "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-        assetUrl("css/accountCSS.css"),
-        assetUrl("css/date-range-picker.css"),
-        assetUrl("css/bankprocess_maintenance.css"),
       ];
       await Promise.all(links.map((href) => injectStylesheet(href, { promoteToEnd: true }).catch(() => null)));
       ensureMaintenanceDateRangePicker();

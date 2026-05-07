@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
 import { getAnnouncementText } from "../../translateFile/announcementTranslate.js";
+import "../../../public/css/accountCSS.css";
+import "../../../public/css/announcement.css";
 
 // Components
 import { AnnouncementToast, AnnouncementConfirmModal } from "./components/AnnouncementCommon.jsx";
@@ -10,7 +12,6 @@ import { AnnouncementPanel, MaintenancePanel } from "./components/AnnouncementPa
 
 export default function AnnouncementPage() {
   const navigate = useNavigate();
-  const assetVersion = useMemo(() => Date.now(), []);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getAnnouncementText(lang, key, params), [lang]);
 
@@ -62,21 +63,11 @@ export default function AnnouncementPage() {
   useEffect(() => {
     document.body.classList.remove("bg", "dashboard-page");
     document.body.classList.add("announcement-page");
-    const links = [];
-    const addCss = (href) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet"; link.href = href;
-      document.head.appendChild(link);
-      links.push(link);
-    };
-    addCss(assetUrl(`css/accountCSS.css?v=${assetVersion}`));
-    addCss(assetUrl(`css/announcement.css?v=${assetVersion}`));
     return () => {
       document.body.classList.remove("announcement-page", "bg");
       document.body.classList.add("dashboard-page");
-      links.forEach((l) => l.parentNode?.removeChild(l));
     };
-  }, [assetVersion]);
+  }, []);
 
   const loadAnnouncements = useCallback(async () => {
     try {

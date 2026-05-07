@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import flatpickr from "flatpickr";
-import { assetUrl } from "../../../utils/apiUrl.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
-import { injectStylesheet, parseDmyToDate } from "../transactionPaymentPageUtils.js";
+import { parseDmyToDate } from "../transactionPaymentPageUtils.js";
+import "../../../../public/css/date-range-picker.css";
 
 export function useTransactionDateRange({
   loading,
@@ -41,7 +41,6 @@ export function useTransactionDateRange({
     let cancelled = false;
 
     (async () => {
-      await injectStylesheet(assetUrl("css/date-range-picker.css"));
       if (cancelled) return;
       ensureMaintenanceDateRangePicker();
       if (cancelled || txDateRangePickerReadyRef.current) return;

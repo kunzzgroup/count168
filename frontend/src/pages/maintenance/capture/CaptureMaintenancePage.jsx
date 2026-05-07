@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 /* 与 DataCapture 相同：打进 Vite 产物，避免 dynamic import 在生产包中被拆成空 chunk、样式从未加载 */
 import "../../../../public/css/capture_maintenance.css";
-import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/transaction.css";
+import "../../../../public/css/date-range-picker.css";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { formatYmd } from "../../../utils/dateUtils.js";
@@ -108,9 +111,6 @@ export default function CaptureMaintenancePage() {
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-      assetUrl("css/accountCSS.css"),
-      assetUrl("css/transaction.css"),
-      assetUrl("css/date-range-picker.css"),
     ];
 
     Promise.all(links.map(waitForStylesheet)).then(() => {

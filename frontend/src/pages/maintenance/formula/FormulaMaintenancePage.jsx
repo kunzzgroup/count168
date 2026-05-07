@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/transaction.css";
+import "../../../../public/css/formula_maintenance.css";
 import { 
   fetchCompanyPermissions, 
   fetchProcesses,
@@ -48,7 +51,6 @@ export default function FormulaMaintenancePage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const toastTimerRef = useRef(null);
   const searchDebounceRef = useRef(null);
-  const formulaMaintenanceCssQuery = useMemo(() => `v=${Date.now()}`, []);
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -105,9 +107,6 @@ export default function FormulaMaintenancePage() {
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-      assetUrl("css/accountCSS.css"),
-      assetUrl("css/transaction.css"),
-      assetUrl(`css/formula_maintenance.css?${formulaMaintenanceCssQuery}`),
     ];
 
     links.forEach(ensureStylesheetLast);

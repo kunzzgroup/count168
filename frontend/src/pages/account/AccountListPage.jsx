@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
-import { injectStylesheet, stylesheetPathKey } from "../../utils/injectStylesheet.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
+import "../../../public/css/account-list.css";
+import "../../../public/css/accountCSS.css";
 
 // Logic & Constants
 import {
@@ -21,7 +22,6 @@ import CurrencySettingModal from "./components/CurrencySettingModal.jsx";
 export default function AccountListPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const assetVersion = useMemo(() => Date.now(), []);
 
   // -- Status --
   const [bootLoading, setBootLoading] = useState(true);
@@ -77,29 +77,14 @@ export default function AccountListPage() {
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("account-page");
-
-    const hrefs = [
-      assetUrl(`css/account-list.css?v=${assetVersion}`),
-      assetUrl(`css/accountCSS.css?v=${assetVersion}`),
-    ];
-    const pathKeys = hrefs.map(stylesheetPathKey);
-    Promise.all(hrefs.map((href) => injectStylesheet(href))).then(() => setCssReady(true));
+    setCssReady(true);
 
     return () => {
       document.body.classList.remove("account-page", "bg");
       document.body.classList.add("dashboard-page");
-      pathKeys.forEach((key) => {
-        document.querySelectorAll('link[rel="stylesheet"]').forEach((el) => {
-          try {
-            if (stylesheetPathKey(el.href) === key) el.remove();
-          } catch {
-            /* ignore */
-          }
-        });
-      });
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
-  }, [assetVersion]);
+  }, []);
 
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);

@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
+import "../../../public/css/domain.css";
+import "../../../public/css/accountCSS.css";
 import {
   ROWS_PER_PAGE,
   MAX_VISIBLE_CHIPS,
@@ -27,10 +29,7 @@ export default function DomainPage() {
   // ── Session / auth ─────────────────────────────────────────────────────────
   const [me, setMe] = useState(null);
   const [ready, setReady] = useState(false);
-  const [cssReady, setCssReady] = useState(false);
   const [loadError, setLoadError] = useState("");
-  // Keep legacy modal css available during migration
-  const assetVersion = useMemo(() => Date.now(), []);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -43,34 +42,7 @@ export default function DomainPage() {
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page");
-
-    const hrefs = [
-      assetUrl(`css/domain.css?v=${assetVersion}`),
-      assetUrl(`css/accountCSS.css?v=${assetVersion}`),
-    ];
-    let loaded = 0;
-    const links = [];
-
-    const onLoad = () => {
-      loaded += 1;
-      if (loaded >= hrefs.length) setCssReady(true);
-    };
-
-    hrefs.forEach((href) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = href;
-      link.onload = onLoad;
-      link.onerror = onLoad;
-      document.head.appendChild(link);
-      links.push(link);
-    });
-
-    return () => {
-      links.forEach((l) => l.parentNode?.removeChild(l));
-      setCssReady(false);
-    };
-  }, [assetVersion]);
+  }, []);
 
 
   // ── Domain list ────────────────────────────────────────────────────────────
@@ -255,7 +227,7 @@ export default function DomainPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (!ready || !cssReady) return null;
+  if (!ready) return null;
 
   const isOwnerOrAdmin = ["owner", "admin"].includes(String(me?.role || "").toLowerCase());
 

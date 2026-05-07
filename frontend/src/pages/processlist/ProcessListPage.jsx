@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
-import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
+import "../../../public/css/processCSS.css";
+import "../../../public/css/processlist.css";
+import "../../../public/css/accountCSS.css";
 import { PAGE_SIZE, EMPTY_FORM, normalizeRows, notifyTransactionDataChanged } from "./processListHelpers.js";
 import ProcessTable from "./components/ProcessTable.jsx";
 import ProcessFormModal from "./components/ProcessFormModal.jsx";
@@ -58,15 +60,10 @@ export default function ProcessListPage() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
     document.body.classList.remove("bg", "account-page", "announcement-page");
     document.body.classList.add("process-page");
-    const hrefs = [assetUrl("css/processCSS.css"), assetUrl("css/processlist.css"), assetUrl("css/accountCSS.css")];
-    Promise.all(hrefs.map((href) => injectStylesheet(href))).then(() => {
-      if (!cancelled) setCssReady(true);
-    });
+    setCssReady(true);
     return () => {
-      cancelled = true;
       document.body.classList.remove("process-page");
       document.body.classList.add("dashboard-page");
     };
