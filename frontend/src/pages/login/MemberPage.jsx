@@ -315,7 +315,7 @@ export default function MemberPage() {
   }, [accountId, companyId]);
 
   useEffect(() => {
-    if (!accountId) {
+    if (!accountId || !companyId) {
       setAccountCurrencies([]);
       return;
     }
@@ -323,15 +323,16 @@ export default function MemberPage() {
     (async () => {
       try {
         const res = await fetch(
-          buildApiUrl(`api/accounts/account_currency_api.php?action=get_available_currencies&account_id=${accountId}`),
+          buildApiUrl(
+            `api/accounts/account_currency_api.php?action=get_account_currencies&account_id=${accountId}&company_id=${companyId}`,
+          ),
           { credentials: "include", cache: "no-store" },
         );
         const json = await res.json();
         if (!cancelled) {
           const linkedCodes = Array.isArray(json?.data)
             ? json.data
-                .filter((c) => c?.is_linked)
-                .map((c) => String(c.code || "").trim())
+                .map((c) => String(c.currency_code || c.code || "").trim().toUpperCase())
                 .filter(Boolean)
             : [];
           setAccountCurrencies(linkedCodes);
@@ -343,7 +344,7 @@ export default function MemberPage() {
     return () => {
       cancelled = true;
     };
-  }, [accountId]);
+  }, [accountId, companyId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -578,6 +579,9 @@ export default function MemberPage() {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), { credentials: "include" });
       const json = await res.json();
       if (json?.success) {
+        if (typeof window.updateSidebarDataCaptureVisibility === "function" && json?.data) {
+          window.updateSidebarDataCaptureVisibility(json.data.has_gambling, json.data.has_bank);
+        }
         setCompanyId(Number(nextCompanyId));
         setMe((prev) => (prev ? { ...prev, company_id: Number(nextCompanyId) } : prev));
         showNotification(`Switched to company ${nextCompanyId}`, "success");
