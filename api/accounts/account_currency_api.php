@@ -77,6 +77,15 @@ function resolveCompanyId($pdo) {
 /**
  * 获取账户关联的货币列表（当前公司）
  */
+function accountCurrencyTableExists(PDO $pdo): bool {
+    try {
+        $st = $pdo->query("SHOW TABLES LIKE 'account_currency'");
+        return $st && $st->rowCount() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
 function dbGetAccountCurrencies($pdo, $account_id, $company_id) {
     $sql = "SELECT ac.id, ac.account_id, ac.currency_id, c.code AS currency_code
             FROM account_currency ac
@@ -86,6 +95,43 @@ function dbGetAccountCurrencies($pdo, $account_id, $company_id) {
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$account_id, $company_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Member Win/Loss 等：返回账户在当前公司下拥有的全部币别（含无 account_currency 行时的 account.currency_id 兜底）
+ */
+function dbGetAccountOwnedCurrenciesResolved(PDO $pdo, int $account_id, int $company_id): array {
+    if (accountCurrencyTableExists($pdo)) {
+        $rows = dbGetAccountCurrencies($pdo, $account_id, $company_id);
+        if (!empty($rows)) {
+            return $rows;
+        }
+    }
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM account LIKE 'currency_id'");
+        if ($check && $check->rowCount() > 0) {
+            $stmt = $pdo->prepare("
+                SELECT c.id AS currency_id, c.code AS currency_code
+                FROM account a
+                INNER JOIN currency c ON a.currency_id = c.id
+                WHERE a.id = ? AND c.company_id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$account_id, $company_id]);
+            $one = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($one && !empty($one['currency_code'])) {
+                return [[
+                    'id' => null,
+                    'account_id' => $account_id,
+                    'currency_id' => (int) $one['currency_id'],
+                    'currency_code' => $one['currency_code'],
+                ]];
+            }
+        }
+    } catch (PDOException $e) {
+        // ignore
+    }
+    return [];
 }
 
 /**
@@ -179,7 +225,7 @@ try {
                 jsonResponse(false, '账户不存在或无权限访问', null, 403);
                 exit;
             }
-            $currencies = dbGetAccountCurrencies($pdo, $account_id, $company_id);
+            $currencies = dbGetAccountOwnedCurrenciesResolved($pdo, $account_id, $company_id);
             jsonResponse(true, '', $currencies);
             exit;
         }

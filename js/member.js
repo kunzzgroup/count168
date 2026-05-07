@@ -13,6 +13,45 @@ let memberIsAllSelected = true;
 let memberSearchSeq = 0;
 let memberSummaryAbortController = null;
 let memberHistoryAbortController = null;
+/** 账户在当前公司下拥有的全部币别（与日期区间无关），来自 account_currency_api */
+let memberOwnedCurrencies = [];
+
+function loadMemberOwnedCurrencies() {
+    const accountId = memberConfig.accountId;
+    const companyId = memberConfig.companyId;
+    if (!accountId || !companyId) {
+        memberOwnedCurrencies = [];
+        return Promise.resolve();
+    }
+    const qs = new URLSearchParams({
+        action: 'get_account_currencies',
+        account_id: String(accountId),
+        company_id: String(companyId),
+        _t: String(Date.now())
+    });
+    return fetch(`api/accounts/account_currency_api.php?${qs}`, { cache: 'no-cache' })
+        .then(res => res.text())
+        .then(text => parseJsonResponse(text))
+        .then(data => {
+            if (!data.success || !Array.isArray(data.data)) {
+                memberOwnedCurrencies = [];
+                return;
+            }
+            memberOwnedCurrencies = data.data.map(row => ({
+                code: String(row.currency_code || row.code || '').trim().toUpperCase(),
+                currency_id: row.currency_id != null ? Number(row.currency_id) : null
+            })).filter(o => o.code);
+            memberOwnedCurrencies.forEach(o => {
+                if (o.currency_id && !memberCurrencySortOrder.has(o.code)) {
+                    memberCurrencySortOrder.set(o.code, o.currency_id);
+                }
+            });
+        })
+        .catch(err => {
+            console.error('Failed to load account currencies:', err);
+            memberOwnedCurrencies = [];
+        });
+}
 
 /** Currency 筛选条与表格区域始终占用布局，避免换日期 / Period 时出现空白或被 display:none 收起 */
 function ensureMemberCurrencyChromeVisible() {
@@ -36,8 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initDatePickers();
     setupCompanyButtons();
     loadMemberLinkedAccounts();
-    // 立即发起数据请求，不等待 150ms，缩短首屏加载时间
-    performMemberSearch();
+    // 先拉齐账户拥有的全部币别（与区间内是否有余额无关），再搜报表，Currency 按钮列表始终完整
+    loadMemberOwnedCurrencies().finally(() => performMemberSearch());
 });
 
 function performMemberSearch() {
@@ -226,7 +265,7 @@ function setupCompanyButtons() {
 
                 showNotification(`Switched to company ${label || companyId}`, 'success');
                 loadMemberLinkedAccounts();
-                performMemberSearch();
+                loadMemberOwnedCurrencies().finally(() => performMemberSearch());
             })
             .catch(err => {
                 console.error('Failed to switch company:', err);
@@ -322,7 +361,7 @@ function setupAccountButtons() {
                     container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     showNotification(`Switched to account ${code || name || accountId}`, 'success');
-                    performMemberSearch();
+                    loadMemberOwnedCurrencies().finally(() => performMemberSearch());
                 })
                 .catch(err => {
                     console.error('Failed to switch account:', err);
@@ -567,7 +606,8 @@ function updateCurrencySelection() {
     }
 }
 
-function getAvailableCurrencies() {
+/** 仅根据区间内 search summary 推断币别（API 失败或无 account_currency 时的兜底） */
+function getAvailableCurrenciesFromSummaryOnly() {
     const codes = [];
     memberCurrencySummary.forEach(row => {
         const code = (row.currency || '').trim();
@@ -603,6 +643,45 @@ function getAvailableCurrencies() {
         if (orderA !== orderB) {
             return orderA - orderB;
         }
+        return a.localeCompare(b);
+    });
+}
+
+/** Win/Loss Currency 按钮：优先固定为账户拥有的全部币别，与区间内是否有数据无关 */
+function getAvailableCurrencies() {
+    const seen = new Set();
+    const baseOrder = [];
+    memberOwnedCurrencies.forEach(o => {
+        const c = (o.code || '').trim();
+        if (!c || seen.has(c)) return;
+        seen.add(c);
+        baseOrder.push(c);
+    });
+    if (baseOrder.length === 0) {
+        return getAvailableCurrenciesFromSummaryOnly();
+    }
+    if (memberCurrencyDisplayOrder && memberCurrencyDisplayOrder.length > 0) {
+        const orderSet = new Set(memberCurrencyDisplayOrder);
+        const inOrder = [];
+        memberCurrencyDisplayOrder.forEach(c => {
+            if (baseOrder.includes(c)) inOrder.push(c);
+        });
+        const notInOrder = baseOrder.filter(c => !orderSet.has(c));
+        notInOrder.sort((a, b) => {
+            const orderA = memberCurrencySortOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
+            const orderB = memberCurrencySortOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.localeCompare(b);
+        });
+        return [...inOrder, ...notInOrder];
+    }
+    return baseOrder.sort((a, b) => {
+        const orderA = memberCurrencySortOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
+        const orderB = memberCurrencySortOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) return orderA - orderB;
+        const ia = memberOwnedCurrencies.findIndex(o => (o.code || '').trim() === a);
+        const ib = memberOwnedCurrencies.findIndex(o => (o.code || '').trim() === b);
+        if (ia !== ib) return ia - ib;
         return a.localeCompare(b);
     });
 }
