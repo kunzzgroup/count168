@@ -137,6 +137,7 @@ export default function MemberPage() {
   const [companies, setCompanies] = useState([]);
   const [linkedAccounts, setLinkedAccounts] = useState([]);
   const [currencySummary, setCurrencySummary] = useState([]);
+  const [accountCurrencies, setAccountCurrencies] = useState([]);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [isAllSelected, setIsAllSelected] = useState(true);
   const [currencyOrder, setCurrencyOrder] = useState([]);
@@ -314,6 +315,37 @@ export default function MemberPage() {
   }, [accountId, companyId]);
 
   useEffect(() => {
+    if (!accountId) {
+      setAccountCurrencies([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          buildApiUrl(`api/accounts/account_currency_api.php?action=get_available_currencies&account_id=${accountId}`),
+          { credentials: "include", cache: "no-store" },
+        );
+        const json = await res.json();
+        if (!cancelled) {
+          const linkedCodes = Array.isArray(json?.data)
+            ? json.data
+                .filter((c) => c?.is_linked)
+                .map((c) => String(c.code || "").trim())
+                .filter(Boolean)
+            : [];
+          setAccountCurrencies(linkedCodes);
+        }
+      } catch {
+        if (!cancelled) setAccountCurrencies([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
@@ -417,15 +449,16 @@ export default function MemberPage() {
   }, [performMemberSearch]);
 
   const availableCurrencies = useMemo(() => {
+    const accountCodes = accountCurrencies.map((c) => String(c || "").trim()).filter(Boolean);
     const summaryCodes = currencySummary.map((r) => String(r.currency || "").trim()).filter(Boolean);
     const historyCodes = historyRows.map((r) => String(r.currency || "").trim()).filter(Boolean);
-    const merged = [...new Set([...summaryCodes, ...historyCodes, ...currencyOrder.filter(Boolean)])];
+    const merged = [...new Set([...accountCodes, ...summaryCodes, ...historyCodes, ...currencyOrder.filter(Boolean)])];
     if (!currencyOrder.length) return merged;
     const orderSet = new Set(currencyOrder);
     const ordered = currencyOrder.filter((c) => merged.includes(c));
     const rest = merged.filter((c) => !orderSet.has(c));
     return [...ordered, ...rest];
-  }, [currencySummary, historyRows, currencyOrder]);
+  }, [accountCurrencies, currencySummary, historyRows, currencyOrder]);
 
   useEffect(() => {
     if (!availableCurrencies.length) {
@@ -736,7 +769,7 @@ export default function MemberPage() {
             <div className="transaction-company-filter member-currency-filter" id="member_currency_filter" style={{ display: "flex", visibility: "visible" }}>
               <span className="transaction-company-label">Currency:</span>
               <div id="member_currency_buttons" className="transaction-company-buttons member-currency-buttons">
-                {availableCurrencies.length > 1 && (
+                {availableCurrencies.length > 0 && (
                   <button
                     type="button"
                     className={`transaction-company-btn member-currency-all ${isAllSelected ? "active" : ""}`}
