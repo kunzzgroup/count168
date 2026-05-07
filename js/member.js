@@ -14,10 +14,10 @@ let memberSearchSeq = 0;
 let memberSummaryAbortController = null;
 let memberHistoryAbortController = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+/** Currency 筛选条与表格区域始终占用布局，避免换日期 / Period 时出现空白或被 display:none 收起 */
+function ensureMemberCurrencyChromeVisible() {
     const filterEl = document.getElementById('member_currency_filter');
     const sectionEl = document.getElementById('member_currency_tables_section');
-    console.log('Member page: currency_filter exists=', !!filterEl, 'tables_section exists=', !!sectionEl);
     if (filterEl) {
         filterEl.style.setProperty('display', 'flex', 'important');
         filterEl.style.setProperty('visibility', 'visible', 'important');
@@ -26,8 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
         sectionEl.style.setProperty('display', 'flex', 'important');
         sectionEl.style.setProperty('visibility', 'visible', 'important');
     }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const filterEl = document.getElementById('member_currency_filter');
+    const sectionEl = document.getElementById('member_currency_tables_section');
+    console.log('Member page: currency_filter exists=', !!filterEl, 'tables_section exists=', !!sectionEl);
+    ensureMemberCurrencyChromeVisible();
     initDatePickers();
-    setupFormListeners();
     setupCompanyButtons();
     loadMemberLinkedAccounts();
     // 立即发起数据请求，不等待 150ms，缩短首屏加载时间
@@ -35,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function performMemberSearch() {
+    ensureMemberCurrencyChromeVisible();
     const seq = ++memberSearchSeq;
     fetchMemberSummary(seq)
         .then(() => fetchMemberHistory(undefined, seq))
@@ -183,13 +190,6 @@ function initDatePickers() {
             if (quickDropdown) quickDropdown.classList.remove('show');
         });
     }
-}
-
-function setupFormListeners() {
-    const handleChange = () => {
-        performMemberSearch();
-    };
-    document.addEventListener('flatpickr:onChange', handleChange);
 }
 
 function setupCompanyButtons() {
@@ -468,7 +468,7 @@ function fetchMemberSummary(seq = memberSearchSeq) {
 
         if (!dateFrom || !dateTo) {
             showNotification('Please select date range', 'error');
-            if (filterWrapper) filterWrapper.style.display = 'none';
+            ensureMemberCurrencyChromeVisible();
             return reject(new Error('Missing date'));
         }
 
@@ -536,8 +536,8 @@ function fetchMemberSummary(seq = memberSearchSeq) {
                 console.error('Summary fetch failed:', err);
                 memberCurrencySummary = [];
                 memberCurrencySortOrder.clear();
-                const buttons = document.getElementById('member_currency_buttons');
-                if (buttons) buttons.innerHTML = '';
+                ensureMemberCurrencyChromeVisible();
+                renderCurrencyFilters();
                 setMemberTablesPlaceholder(err.message || 'Failed to load currency data.');
                 showNotification(err.message || 'Failed to load currency data', 'error');
                 reject(err);
@@ -723,9 +723,13 @@ function renderCurrencyFilters() {
         return;
     }
 
+    ensureMemberCurrencyChromeVisible();
     buttonsContainer.innerHTML = '';
     const currencies = getAvailableCurrencies();
+    // Summary 在该区间无余额行时币别列表为空，但 history 仍可能按币别有明细：至少保留「All」避免 Currency 一行空白
     if (currencies.length === 0) {
+        buttonsContainer.appendChild(createCurrencyButton('ALL', 'All', true));
+        initCurrencyDragDrop();
         return;
     }
     const shouldShowAll = currencies.length > 1;
