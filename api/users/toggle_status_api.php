@@ -54,6 +54,8 @@ try {
         exit;
     }
     $companyId = (int)$_SESSION['company_id'];
+    $currentUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+    $currentUserRole = strtolower(trim((string)($_SESSION['role'] ?? '')));
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) {
         api_error('无效的用户ID', 400);
@@ -61,12 +63,50 @@ try {
     }
 
     $current = getUserStatus($pdo, $id, $companyId);
+    $isOwnerShadow = false;
+    $targetRole = '';
     if (!$current) {
         $current = getOwnerStatus($pdo, $id, $companyId);
         if (!$current) {
             api_error('无权限操作此用户', 403);
             exit;
         }
+        $isOwnerShadow = true;
+        $targetRole = 'owner';
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT u.role
+            FROM user u
+            INNER JOIN user_company_map ucm ON u.id = ucm.user_id
+            WHERE u.id = ? AND ucm.company_id = ? LIMIT 1
+        ");
+        $stmt->execute([$id, $companyId]);
+        $target = $stmt->fetch(PDO::FETCH_ASSOC);
+        $targetRole = strtolower(trim((string)($target['role'] ?? '')));
+    }
+
+    if ($currentUserId > 0 && $currentUserId === $id) {
+        api_error('You cannot toggle your own status', 403);
+        exit;
+    }
+
+    if ($isOwnerShadow && $currentUserRole !== 'owner') {
+        api_error('Only owner can toggle owner records', 403);
+        exit;
+    }
+
+    $lowPrivilegeRoles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service', 'partnership'];
+    if (in_array($currentUserRole, $lowPrivilegeRoles, true) && in_array($targetRole, ['admin', 'owner'], true)) {
+        api_error('You do not have permission to toggle status of admin or owner accounts', 403);
+        exit;
+    }
+
+    if ($currentUserRole === 'admin' && $targetRole === 'admin') {
+        api_error('Admin accounts cannot toggle status of other admin accounts', 403);
+        exit;
+    }
+
+    if ($isOwnerShadow) {
         $newStatus = $current['status'] === 'active' ? 'inactive' : 'active';
         updateOwnerStatus($pdo, $newStatus, $id);
     } else {

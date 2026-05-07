@@ -127,7 +127,7 @@ export function computeRowCapabilities(row, currentUserId, currentUserRole) {
   const isSelf = currentUserId && targetUserId === Number(currentUserId);
   const isSameLevel = currentLevel === targetLevel && !isSelf;
   const isHigherLevel = targetLevel < currentLevel;
-  const lowPrivilegeRoles = ["manager", "supervisor", "accountant", "audit", "customer service"];
+  const lowPrivilegeRoles = ["manager", "supervisor", "accountant", "audit", "customer service", "partnership"];
   const isLowPrivilegeUser = lowPrivilegeRoles.includes(normRole(currentUserRole));
   const isAdminUser = targetRole === "admin";
   const isOwnerUser = targetRole === "owner";
@@ -151,6 +151,9 @@ export function computeRowCapabilities(row, currentUserId, currentUserRole) {
   }
 
   canToggleStatus = canEditDelete && !isSelf;
+  if (normRole(currentUserRole) === "admin" && targetRole === "admin" && !isSelf) {
+    canToggleStatus = false;
+  }
 
   return { canEditDelete, canDelete, canToggleStatus, isSelf, isSameLevel, isHigherLevel, isOwnerShadow };
 }
@@ -177,7 +180,7 @@ export function applyUserFilters(users, { search, showInactive, showAll, viewerR
   }
   const q = search.trim().toLowerCase();
   if (q) {
-    rows = rows.filter((u) => `${u.login_id || ""} ${u.name || ""}`.toLowerCase().includes(q));
+    rows = rows.filter((u) => `${u.login_id || ""} ${u.name || ""} ${u.email || ""}`.toLowerCase().includes(q));
   }
   if (showAll) return rows;
   if (showInactive) {
@@ -212,8 +215,8 @@ export function sortUsers(rows, sortColumn, sortDirection) {
     copy.sort((a, b) => {
       if (a.is_owner_shadow && !b.is_owner_shadow) return -1;
       if (!a.is_owner_shadow && b.is_owner_shadow) return 1;
-      const aKey = normRole(a.role);
-      const bKey = normRole(b.role);
+      const aKey = ROLE_HIERARCHY[normRole(a.role)] ?? 999;
+      const bKey = ROLE_HIERARCHY[normRole(b.role)] ?? 999;
       let result = 0;
       if (aKey < bKey) result = -1;
       else if (aKey > bKey) result = 1;

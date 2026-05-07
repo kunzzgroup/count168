@@ -34,7 +34,7 @@ function canCreateUserByRole($role): bool {
     ];
     $normalized = strtolower(trim((string)$role));
     $level = $hierarchy[$normalized] ?? 999;
-    return $level < 5;
+    return $level < 4;
 }
 
 function userlistRoleLevel(string $role): int {

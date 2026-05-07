@@ -200,7 +200,7 @@ export default function UserListPage() {
     try {
       const [accRes, procRes] = await Promise.all([
         fetch(buildApiUrl(`api/accounts/accountlistapi.php?company_id=${cid}`), { credentials: "include" }),
-        fetch(buildApiUrl(`api/processes/processlist_api.php?permission=Games&company_id=${cid}&showAll=1`), { credentials: "include" }),
+        fetch(buildApiUrl(`api/processes/processlist_api.php?company_id=${cid}&showAll=1`), { credentials: "include" }),
       ]);
       const accJ = await accRes.json(); const procJ = await procRes.json();
       const accs = (accJ?.data?.accounts || []).filter((a) => String(a.status || "").toLowerCase() === "active").map((a) => ({ id: a.id, account_id: a.account_id }));
