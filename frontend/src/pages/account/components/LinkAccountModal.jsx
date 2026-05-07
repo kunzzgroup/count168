@@ -28,7 +28,7 @@ export default function LinkAccountModal({
   }, [accounts, currentAccountId, searchTerm]);
 
   return (
-    <div className="account-modal" style={{ display: "block" }}>
+    <div id="linkAccountModal" className="account-modal" style={{ display: "block" }}>
       <div className="account-modal-content">
         <div className="account-modal-header">
           <h2>Link Account</h2>
@@ -93,6 +93,7 @@ export default function LinkAccountModal({
                 <label key={id} className={`link-account-item ${checked ? "selected" : ""}`}>
                   <input
                     type="checkbox"
+                    className="link-account-checkbox"
                     checked={checked}
                     onChange={(e) =>
                       setSelectedIds((prev) => {

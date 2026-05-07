@@ -38,7 +38,8 @@
 #linkAccountModal .account-modal-content {
     display: flex;
     flex-direction: column;
-    max-height: 70vh;
+    width: clamp(860px, 72vw, 1080px);
+    max-height: 82vh;
     overflow: hidden;
 }
 
@@ -72,10 +73,38 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px 12px;
-    border: 1px solid #ddd;
+    border: 1px solid #e5e7eb;
     border-radius: 6px;
     background-color: #ffffff;
     padding: 12px 14px;
+}
+
+.link-account-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #3f3f46;
+    font-family: 'Amaranth', sans-serif;
+    cursor: pointer;
+    user-select: none;
+}
+
+.link-account-item:hover {
+    background: #f8fafc;
+}
+
+.link-account-item.selected {
+    color: #1e3a8a;
+}
+
+.link-account-checkbox {
+    margin: 0;
+    width: 14px;
+    height: 14px;
 }
 
 /* Link Account: pill buttons + description (comfortable spacing & size) */
@@ -152,7 +181,7 @@
     flex-shrink: 0;
     margin-top: 0;
     margin-bottom: 0;
-    min-width: 260px;
+    min-width: 280px;
     margin-right: 20px;
     margin-top: 32px;
 }
