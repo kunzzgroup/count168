@@ -8,6 +8,9 @@ export function buildApiUrl(pathAndQuery) {
 /** Static assets (css/js) under Vite base URL / asset folder — stable across SPA routes. */
 export function assetUrl(path) {
   const clean = String(path || "").replace(/^\//, "");
+  if (clean.startsWith("images/")) {
+    return new URL(`/${clean}`, window.location.origin).href;
+  }
   try {
     if (typeof import.meta !== "undefined" && import.meta.env?.BASE_URL != null && import.meta.env.BASE_URL !== "") {
       const baseHref = new URL(import.meta.env.BASE_URL, window.location.origin).href;
