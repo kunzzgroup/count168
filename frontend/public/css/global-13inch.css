@@ -9,7 +9,7 @@
        1. Base Typography & Hierarchy
        ---------------------------------------------------- */
     /* Page title hierarchy - Must be the most obvious element */
-    h1,
+    body.ec-auth-shell h1,
     .account-page-title,
     .transaction-title,
     .datacapture-title,
@@ -19,8 +19,8 @@
     }
 
     /* Container / Margins - 保留左侧 sidebar 的空间 */
-    .container,
-    .transaction-container {
+    body.ec-auth-shell .container,
+    body.ec-auth-shell .transaction-container {
         padding-right: clamp(16px, 2.5vw, 40px) !important;
     }
 
@@ -28,17 +28,17 @@
        2. Controls & Interactions (Buttons, Inputs, Checkboxes)
        ---------------------------------------------------- */
     /* Make them easy to click and identify */
-    .btn,
-    .btn-add,
-    .btn-delete,
-    .btn-save,
-    .btn-cancel,
-    .btn-secondary,
-    .btn-account-control,
-    .btn-clearall,
-    .account-btn,
-    .transaction-submit-btn,
-    .transaction-search-btn {
+    body.ec-auth-shell .btn,
+    body.ec-auth-shell .btn-add,
+    body.ec-auth-shell .btn-delete,
+    body.ec-auth-shell .btn-save,
+    body.ec-auth-shell .btn-cancel,
+    body.ec-auth-shell .btn-secondary,
+    body.ec-auth-shell .btn-account-control,
+    body.ec-auth-shell .btn-clearall,
+    body.ec-auth-shell .account-btn,
+    body.ec-auth-shell .transaction-submit-btn,
+    body.ec-auth-shell .transaction-search-btn {
         font-size: 12px !important;
         padding: 8px 12px !important;
         height: auto !important;
@@ -56,22 +56,22 @@
         padding: 6px 14px !important;
     }
 
-    input:not([type="checkbox"]):not([type="radio"]),
-    select,
-    textarea,
-    .search-input,
-    .account-search-input,
-    .transaction-input,
-    .transaction-select,
-    .custom-select-button {
+    body.ec-auth-shell input:not([type="checkbox"]):not([type="radio"]),
+    body.ec-auth-shell select,
+    body.ec-auth-shell textarea,
+    body.ec-auth-shell .search-input,
+    body.ec-auth-shell .account-search-input,
+    body.ec-auth-shell .transaction-input,
+    body.ec-auth-shell .transaction-select,
+    body.ec-auth-shell .custom-select-button {
         font-size: 11px !important;
         padding-top: 8px !important;
         padding-bottom: 8px !important;
     }
 
-    .search-input,
-    .account-search-input,
-    #searchInput {
+    body.ec-auth-shell .search-input,
+    body.ec-auth-shell .account-search-input,
+    body.ec-auth-shell #searchInput {
         padding-left: 32px !important;
         /* Prevent text from overlapping the magnifying glass icon */
         width: 100% !important;
@@ -80,14 +80,14 @@
     }
 
     /* Checkboxes and Labels */
-    label,
-    .account-checkbox-section label,
-    .checkbox-section label,
-    .transaction-label {
+    body.ec-auth-shell label,
+    body.ec-auth-shell .account-checkbox-section label,
+    body.ec-auth-shell .checkbox-section label,
+    body.ec-auth-shell .transaction-label {
         font-size: 14px !important;
     }
 
-    input[type="checkbox"] {
+    body.ec-auth-shell input[type="checkbox"] {
         width: 16px !important;
         height: 16px !important;
     }
@@ -95,31 +95,31 @@
     /* ----------------------------------------------------
        3. Table Headers (Div-based & native tables)
        ---------------------------------------------------- */
-    .table-header,
-    .account-table-header,
-    .transaction-table-header,
-    .contract-table-header,
-    .datacapture-table-header,
-    .member-table-header {
+    body.ec-auth-shell .table-header,
+    body.ec-auth-shell .account-table-header,
+    body.ec-auth-shell .transaction-table-header,
+    body.ec-auth-shell .contract-table-header,
+    body.ec-auth-shell .datacapture-table-header,
+    body.ec-auth-shell .member-table-header {
         font-size: 14px !important;
         padding-top: 4px !important;
         padding-bottom: 4px !important;
     }
 
-    .table-header .header-item,
-    .account-table-header .header-item,
-    .card-item,
-    .account-card-item,
-    .contract-card-item,
-    .member-card-item {
+    body.ec-auth-shell .table-header .header-item,
+    body.ec-auth-shell .account-table-header .header-item,
+    body.ec-auth-shell .card-item,
+    body.ec-auth-shell .account-card-item,
+    body.ec-auth-shell .contract-card-item,
+    body.ec-auth-shell .member-card-item {
         padding: 0 10px !important;
         box-sizing: border-box !important;
     }
 
     /* For native tables th */
-    table th,
-    .transaction-table th,
-    .datacapture-table th {
+    body.ec-auth-shell table th,
+    body.ec-auth-shell .transaction-table th,
+    body.ec-auth-shell .datacapture-table th {
         font-size: 14px !important;
         padding: 10px 14px !important;
     }
@@ -128,18 +128,18 @@
        4. Table Rows & Data (Smart Density)
        ---------------------------------------------------- */
     /* Div-based Rows (Cards) */
-    .user-card,
-    .account-card,
-    .contract-card,
-    .member-card {
+    body.ec-auth-shell .user-card,
+    body.ec-auth-shell .account-card,
+    body.ec-auth-shell .contract-card,
+    body.ec-auth-shell .member-card {
         padding: 10px 22px !important;
         min-height: 20px !important;
     }
 
-    .card-item,
-    .account-card-item,
-    .contract-card-item,
-    .member-card-item {
+    body.ec-auth-shell .card-item,
+    body.ec-auth-shell .account-card-item,
+    body.ec-auth-shell .contract-card-item,
+    body.ec-auth-shell .member-card-item {
         font-size: 14px !important;
         line-height: 1.5 !important;
         letter-spacing: 0.015em !important;
@@ -199,14 +199,14 @@
     /* ----------------------------------------------------
        6. Edit Action Buttons Sizing
        ---------------------------------------------------- */
-    .btn-edit svg,
-    .btn-edit img,
-    .account-edit-btn svg,
-    .account-edit-btn img,
-    .contract-edit-btn svg,
-    .contract-edit-btn img,
-    .member-edit-btn svg,
-    .member-edit-btn img {
+    body.ec-auth-shell .btn-edit svg,
+    body.ec-auth-shell .btn-edit img,
+    body.ec-auth-shell .account-edit-btn svg,
+    body.ec-auth-shell .account-edit-btn img,
+    body.ec-auth-shell .contract-edit-btn svg,
+    body.ec-auth-shell .contract-edit-btn img,
+    body.ec-auth-shell .member-edit-btn svg,
+    body.ec-auth-shell .member-edit-btn img {
         width: 18px !important;
         height: 18px !important;
     }
@@ -214,13 +214,13 @@
     /* ----------------------------------------------------
        7. Account Grid Synchronization
        ---------------------------------------------------- */
-    .account-table-header,
-    .account-card {
+    body.ec-auth-shell .account-table-header,
+    body.ec-auth-shell .account-card {
         grid-template-columns: 0.5fr 1.4fr 1.4fr 0.8fr 0.6fr 0.8fr 2fr 1.2fr 0.45fr !important;
     }
 
-    .table-header,
-    .user-card {
+    body.ec-auth-shell .table-header,
+    body.ec-auth-shell .user-card {
         grid-template-columns: 0.5fr 1.6fr 1.8fr 2.5fr 1.8fr 1.2fr 1.8fr 1.5fr 0.8fr !important;
     }
 
@@ -276,10 +276,10 @@
    Global Hover UI Polish (Applies to all screens for better UX)
    - Improves eye-tracking and highlights the specific row clearly.
    ========================================================================== */
-.user-card:hover,
-.account-card:hover,
-.contract-card:hover,
-.member-card:hover {
+body.ec-auth-shell .user-card:hover,
+body.ec-auth-shell .account-card:hover,
+body.ec-auth-shell .contract-card:hover,
+body.ec-auth-shell .member-card:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
     transform: translateY(-1px) !important;
     background-color: #ebf5ff !important;
@@ -289,8 +289,8 @@
 }
 
 /* For native table rows */
-.transaction-table tbody tr:hover td,
-.datacapture-table tbody tr:hover td {
+body.ec-auth-shell .transaction-table tbody tr:hover td,
+body.ec-auth-shell .datacapture-table tbody tr:hover td {
     background-color: #ebf5ff !important;
     transition: background-color 0.15s ease;
 }
@@ -338,29 +338,29 @@
 
 /* 3. Interactive Polish (Micro-animations) */
     /* Checkbox snap animation */
-    input[type="checkbox"] {
+    body.ec-auth-shell input[type="checkbox"] {
         cursor: pointer;
         transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    input[type="checkbox"]:active {
+    body.ec-auth-shell input[type="checkbox"]:active {
         transform: scale(0.85);
     }
 
     /* Buttons click effect */
-    .btn:active,
-    .transaction-search-btn:active,
-    .transaction-submit-btn:active,
-    button:not(.fc-button):active {
+    body.ec-auth-shell .btn:active,
+    body.ec-auth-shell .transaction-search-btn:active,
+    body.ec-auth-shell .transaction-submit-btn:active,
+    body.ec-auth-shell button:not(.fc-button):active {
         transform: translateY(1px) scale(0.98) !important;
         transition: all 0.1s;
     }
 
     /* Better glowing focus ring for inputs */
-    input:focus,
-    select:focus,
-    textarea:focus,
-    .search-input:focus {
+    body.ec-auth-shell input:focus,
+    body.ec-auth-shell select:focus,
+    body.ec-auth-shell textarea:focus,
+    body.ec-auth-shell .search-input:focus {
         box-shadow: 0 0 0 3px rgba(15, 97, 255, 0.15) !important;
         border-color: #0F61FF !important;
         transition: all 0.2s ease-in-out;
@@ -388,10 +388,10 @@
         }
     }
 
-    .container,
-    .transaction-container,
-    .modal-content,
-    .datacapture-container {
+    body.ec-auth-shell .container,
+    body.ec-auth-shell .transaction-container,
+    body.ec-auth-shell .modal-content,
+    body.ec-auth-shell .datacapture-container {
         animation: premiumEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
@@ -403,34 +403,34 @@
     }
 
     /* 6. Glowing Action Buttons on Hover */
-    .btn-save:hover,
-    .btn-add:hover,
-    .transaction-submit-btn:hover {
+    body.ec-auth-shell .btn-save:hover,
+    body.ec-auth-shell .btn-add:hover,
+    body.ec-auth-shell .transaction-submit-btn:hover {
         box-shadow: 0 0 15px rgba(15, 97, 255, 0.4) !important;
         -webkit-filter: brightness(1.05);
         filter: brightness(1.05);
     }
 
-    .btn-delete:hover {
+    body.ec-auth-shell .btn-delete:hover {
         box-shadow: 0 0 15px rgba(220, 53, 69, 0.3) !important;
         -webkit-filter: brightness(1.05);
         filter: brightness(1.05);
     }
 
     /* 7. Chrome Autofill Premium Override (Removes the ugly yellow background) */
-    input:-webkit-autofill,
-    input:-webkit-autofill:hover,
-    input:-webkit-autofill:focus,
-    input:-webkit-autofill:active {
+    body.ec-auth-shell input:-webkit-autofill,
+    body.ec-auth-shell input:-webkit-autofill:hover,
+    body.ec-auth-shell input:-webkit-autofill:focus,
+    body.ec-auth-shell input:-webkit-autofill:active {
         -webkit-box-shadow: 0 0 0 30px white inset !important;
         -webkit-text-fill-color: #333 !important;
         transition: background-color 5000s ease-in-out 0s;
     }
 
     /* 8. Table Headers Sticky Drop-Shadow for 13-inch scrolling */
-    .table-header,
-    .account-table-header,
-    .datacapture-table-header {
+    body.ec-auth-shell .table-header,
+    body.ec-auth-shell .account-table-header,
+    body.ec-auth-shell .datacapture-table-header {
         position: sticky !important;
         top: 0;
         z-index: 10;
@@ -439,17 +439,17 @@
 
     /* 9. Smart Text Truncation for Responsive Data Rows */
     /* Prevents long unspaced text (like emails or hashes) from blowing out the table width */
-    td,
-    .card-item,
-    .account-card-item,
-    .contract-card-item,
-    .member-card-item {
+    body.ec-auth-shell td,
+    body.ec-auth-shell .card-item,
+    body.ec-auth-shell .account-card-item,
+    body.ec-auth-shell .contract-card-item,
+    body.ec-auth-shell .member-card-item {
         word-break: break-word;
         overflow-wrap: anywhere;
     }
 
     /* 10. Forms / Textareas Max-Height Constraints */
-    textarea {
+    body.ec-auth-shell textarea {
         max-height: 120px !important;
     }
 
@@ -463,7 +463,7 @@
     body.transaction-page,
     body.datacapture-page,
     body.dashboard-page,
-    body {
+    body.ec-auth-shell {
         height: auto !important;
         min-height: 100vh !important;
         max-height: none !important;
@@ -471,11 +471,11 @@
         overflow-x: hidden !important;
     }
 
-    .container,
-    .content,
-    .transaction-container,
-    .datacapture-container,
-    .dashboard-container {
+    body.ec-auth-shell .container,
+    body.ec-auth-shell .content,
+    body.ec-auth-shell .transaction-container,
+    body.ec-auth-shell .datacapture-container,
+    body.ec-auth-shell .dashboard-container {
         height: auto !important;
         min-height: 100vh !important;
         max-height: none !important;
@@ -507,14 +507,14 @@
     }
 
     /* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
-    .table-container,
-    .account-cards,
-    .process-cards,
-    .process-table-wrapper,
-    .dashboard-content,
-    .transaction-main-content,
-    .transaction-table-wrapper,
-    .datacapture-table-wrapper {
+    body.ec-auth-shell .table-container,
+    body.ec-auth-shell .account-cards,
+    body.ec-auth-shell .process-cards,
+    body.ec-auth-shell .process-table-wrapper,
+    body.ec-auth-shell .dashboard-content,
+    body.ec-auth-shell .transaction-main-content,
+    body.ec-auth-shell .transaction-table-wrapper,
+    body.ec-auth-shell .datacapture-table-wrapper {
         height: auto !important;
         min-height: 0 !important;
         max-height: none !important;
@@ -528,7 +528,7 @@
     }
 
     /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
-    body {
+    body.ec-auth-shell {
         background-attachment: fixed !important;
         background-size: cover !important;
     }
