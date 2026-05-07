@@ -417,13 +417,15 @@ export default function MemberPage() {
   }, [performMemberSearch]);
 
   const availableCurrencies = useMemo(() => {
-    const codes = [...new Set(currencySummary.map((r) => String(r.currency || "").trim()).filter(Boolean))];
-    if (!currencyOrder.length) return codes;
+    const summaryCodes = currencySummary.map((r) => String(r.currency || "").trim()).filter(Boolean);
+    const historyCodes = historyRows.map((r) => String(r.currency || "").trim()).filter(Boolean);
+    const merged = [...new Set([...summaryCodes, ...historyCodes, ...currencyOrder.filter(Boolean)])];
+    if (!currencyOrder.length) return merged;
     const orderSet = new Set(currencyOrder);
-    const ordered = currencyOrder.filter((c) => codes.includes(c));
-    const rest = codes.filter((c) => !orderSet.has(c));
+    const ordered = currencyOrder.filter((c) => merged.includes(c));
+    const rest = merged.filter((c) => !orderSet.has(c));
     return [...ordered, ...rest];
-  }, [currencySummary, currencyOrder]);
+  }, [currencySummary, historyRows, currencyOrder]);
 
   useEffect(() => {
     if (!availableCurrencies.length) {
