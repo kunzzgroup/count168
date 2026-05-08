@@ -183,8 +183,8 @@ export default function CaptureMaintenancePage() {
         const hasFull = perms.length === 0;
         const canMaintenance = hasFull || perms.includes("maintenance");
         
-        // Sidebar visibility and gambling check
-        if (!canMaintenance || !u.company_has_gambling) {
+        // Sidebar visibility check
+        if (!canMaintenance) {
           navigate("/dashboard", { replace: true });
           return;
         }
@@ -203,6 +203,17 @@ export default function CaptureMaintenancePage() {
         const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
           setCompanyCode(currentComp.company_id || "");
+          const companyPerms = await fetchCompanyPermissions(currentComp.company_id || "");
+          const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
+          const bankOnly = companyPerms.includes("Bank") && !hasGames;
+          if (bankOnly) {
+            navigate("/process-list", { replace: true });
+            return;
+          }
+          if (!hasGames) {
+            navigate("/dashboard", { replace: true });
+            return;
+          }
           
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
@@ -292,9 +303,9 @@ export default function CaptureMaintenancePage() {
     try {
       const sessionData = await updateSessionCompany(c.id);
       
-      // Redirect if no gambling permission (parity with legacy js switchCompany)
+      // Redirect to process list for bank-only companies (legacy parity).
       if (sessionData && sessionData.has_gambling === false) {
-        navigate("/dashboard", { replace: true });
+        navigate("/process-list", { replace: true });
         return;
       }
 

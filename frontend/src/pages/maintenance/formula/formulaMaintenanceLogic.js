@@ -1,9 +1,9 @@
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 
 /**
- * Fetch permissions for a specific company (filtering out Bank)
+ * Fetch raw permissions for a specific company
  */
-export async function fetchCompanyPermissions(companyCode) {
+export async function fetchCompanyPermissionsRaw(companyCode) {
   if (!companyCode) return [];
   try {
     const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
@@ -16,12 +16,26 @@ export async function fetchCompanyPermissions(companyCode) {
     if (result.success && result.data && Array.isArray(result.data.permissions)) {
       permissions = result.data.permissions;
     }
-    // Formula maintenance excludes Bank category
-    return permissions.filter(p => p !== 'Bank');
+    return permissions;
   } catch (err) {
     console.error("Error fetching company permissions:", err);
     return ['Games', 'Loan', 'Rate', 'Money'];
   }
+}
+
+/**
+ * Fetch permissions for formula category buttons (Bank excluded)
+ */
+export async function fetchCompanyPermissions(companyCode) {
+  const permissions = await fetchCompanyPermissionsRaw(companyCode);
+  return permissions.filter(p => p !== 'Bank');
+}
+
+export function isBankOnlyCategoryCompany(permissions) {
+  if (!Array.isArray(permissions) || permissions.length === 0) return false;
+  const hasBank = permissions.includes("Bank");
+  const hasGames = permissions.includes("Games") || permissions.includes("Gambling");
+  return hasBank && !hasGames;
 }
 
 /**

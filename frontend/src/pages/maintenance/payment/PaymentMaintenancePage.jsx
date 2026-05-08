@@ -209,14 +209,7 @@ export default function PaymentMaintenancePage() {
           return;
         }
 
-        // Permissions check
-        const perms = Array.isArray(u.permissions) ? u.permissions : [];
-        const hasFull = perms.length === 0;
-        const canMaintenance = hasFull || perms.includes("maintenance");
-        if (!canMaintenance) {
-          navigate("/dashboard", { replace: true });
-          return;
-        }
+        // Legacy parity: payment_maintenance.php only enforced logged-in session.
         setMe(u);
 
         // Load Companies

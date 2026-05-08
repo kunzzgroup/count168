@@ -176,7 +176,7 @@ export default function TransactionMaintenancePage() {
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
         const hasFull = perms.length === 0;
         const canMaintenance = hasFull || perms.includes("maintenance");
-        if (!canMaintenance || !u.company_has_gambling) {
+        if (!canMaintenance) {
           navigate("/dashboard", { replace: true });
           return;
         }
@@ -203,6 +203,17 @@ export default function TransactionMaintenancePage() {
         const currentComp = filtered.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
           setCompanyCode(currentComp.company_id || "");
+          const companyPerms = await fetchCompanyPermissions(currentComp.company_id || "");
+          const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
+          const bankOnly = companyPerms.includes("Bank") && !hasGames;
+          if (bankOnly) {
+            navigate("/process-list", { replace: true });
+            return;
+          }
+          if (!hasGames) {
+            navigate("/dashboard", { replace: true });
+            return;
+          }
           
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(filtered.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
@@ -293,14 +304,14 @@ export default function TransactionMaintenancePage() {
       
       // Legacy Redirect logic
       if (res.has_gambling === false) {
-        navigate("/dashboard", { replace: true });
+        navigate("/process-list", { replace: true });
         return;
       }
       
       // Fetch permissions for the new company to check Bank-only category
       const perms = await fetchCompanyPermissions(c.company_id);
       if (isBankOnlyCategoryCompany(perms)) {
-        navigate("/dashboard", { replace: true });
+        navigate("/process-list", { replace: true });
         return;
       }
 

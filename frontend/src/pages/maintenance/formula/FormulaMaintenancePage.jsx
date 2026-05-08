@@ -8,12 +8,14 @@ import "../../../../public/css/transaction.css";
 import "../../../../public/css/formula_maintenance.css";
 import { 
   fetchCompanyPermissions, 
+  fetchCompanyPermissionsRaw,
   fetchProcesses,
   fetchAccounts,
   listFormulaTemplates,
   updateFormulaTemplate,
   deleteFormulaTemplates,
-  updateSessionCompany
+  updateSessionCompany,
+  isBankOnlyCategoryCompany
 } from "./formulaMaintenanceLogic.js";
 
 // Components
@@ -170,6 +172,17 @@ export default function FormulaMaintenancePage() {
         const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
           setCompanyCode(currentComp.company_id || "");
+          const companyPerms = await fetchCompanyPermissionsRaw(currentComp.company_id || "");
+          const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
+          const bankOnly = companyPerms.includes("Bank") && !hasGames;
+          if (bankOnly) {
+            navigate("/process-list", { replace: true });
+            return;
+          }
+          if (!hasGames) {
+            navigate("/dashboard", { replace: true });
+            return;
+          }
           
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
@@ -253,18 +266,24 @@ export default function FormulaMaintenancePage() {
     if (!bootLoading && companyId) {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
       searchDebounceRef.current = setTimeout(() => {
-        if (searchFilter || selectedProcess || activePermission) {
+        // Legacy behavior: only search when user enters search text or selects process.
+        if (searchFilter || selectedProcess) {
           performSearch();
         }
       }, 300);
     }
-  }, [bootLoading, companyId, searchFilter, selectedProcess, activePermission, performSearch]);
+  }, [bootLoading, companyId, searchFilter, selectedProcess, performSearch]);
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
     try {
       await updateSessionCompany(c.id);
+      const perms = await fetchCompanyPermissionsRaw(c.company_id || "");
+      if (isBankOnlyCategoryCompany(perms)) {
+        navigate("/process-list", { replace: true });
+        return;
+      }
       setCompanyId(Number(c.id));
       setCompanyCode(c.company_id || "");
       
@@ -298,6 +317,12 @@ export default function FormulaMaintenancePage() {
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
+    // Legacy parity: permission switch resets list and filters.
+    setSearchFilter("");
+    setSelectedProcess("");
+    setFormulaData([]);
+    setSelectedIds([]);
+    setConfirmDelete(false);
   };
 
   const handleClearFilters = () => {
