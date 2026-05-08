@@ -620,6 +620,12 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
+/* 防止后面的通用 .modal-content 覆盖 Price 弹窗宽度，导致图五横向过宽 */
+body.domain-page .domain-fee-react-modal.modal-content {
+    width: min(440px, 92vw) !important;
+    max-width: 440px !important;
+}
+
 .domain-fee-react-modal > .close {
     position: absolute;
     right: 20px;
