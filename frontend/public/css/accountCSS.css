@@ -1232,6 +1232,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 /* Remove large side empty space by allowing form to fill container */
 #account-addModal .account-form {
     max-width: 100%;
+    width: 100%;
+    margin: 0;
     min-height: 0;
     flex: 1;
     display: flex;
@@ -1240,11 +1242,11 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-form-columns {
     gap: clamp(0.75rem, 1.2vw, 1rem);
-    padding: clamp(0.75rem, 1.1vw, 0.95rem) clamp(1.25rem, 2.2vw, 1.85rem);
+    padding: clamp(0.7rem, 1vw, 0.9rem) clamp(0.65rem, 1.1vw, 0.95rem);
 }
 
 #account-addModal .account-form-section {
-    padding: 0 clamp(0.875rem, 1.6vw, 1.35rem);
+    padding: 0 clamp(0.55rem, 0.95vw, 0.85rem);
     margin-bottom: 0;
     padding-bottom: clamp(0.15rem, 0.4vw, 0.35rem);
 }
@@ -1267,7 +1269,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-form-actions {
     margin-top: auto;
-    padding: clamp(0.7rem, 1.2vw, 0.95rem) clamp(1.35rem, 2.2vw, 2rem);
+    padding: clamp(0.7rem, 1.2vw, 0.95rem) clamp(0.75rem, 1.2vw, 1rem);
     padding-bottom: clamp(0.25rem, 0.55vw, 0.45rem);
     border-radius: 0 0 0.875rem 0.875rem;
     gap: clamp(0.75rem, 1.4vw, 1rem);
@@ -1276,6 +1278,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-modal-body {
     display: flex;
     flex-direction: column;
+    padding-left: 0;
+    padding-right: 0;
     padding-bottom: 0 !important;
 }
 
