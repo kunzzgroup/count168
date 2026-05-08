@@ -19,11 +19,11 @@ import { getDomainText } from "../../../translateFile/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 
 const PERMISSION_LIST = [
-  { value: "Games", id: "permGambling" },
-  { value: "Bank",  id: "permBank" },
-  { value: "Loan",  id: "permLoan" },
-  { value: "Rate",  id: "permRate" },
-  { value: "Money", id: "permMoney" },
+  { value: "Games", id: "permGambling", labelSuffix: "Gambling" },
+  { value: "Bank", id: "permBank", labelSuffix: "Bank" },
+  { value: "Loan", id: "permLoan", labelSuffix: "Loan" },
+  { value: "Rate", id: "permRate", labelSuffix: "Rate" },
+  { value: "Money", id: "permMoney", labelSuffix: "Money" },
 ];
 
 const SHARE_ROLES = ["profit", "sales", "cs", "it"];
@@ -280,44 +280,40 @@ export default function CompanySettingsModal({
         }}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
-        <div className="relative mx-auto mt-[2%] w-[min(1120px,96vw)] max-w-[min(1120px,96vw)] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
+        <div className="company-settings-react-modal modal-content company-settings-modal-content--split relative mx-auto mt-[2%] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
         <button type="button" className="absolute right-5 top-[clamp(10px,1.04vw,20px)] z-[10001] flex h-[clamp(26px,1.88vw,36px)] w-[clamp(26px,1.88vw,36px)] items-center justify-center rounded-full text-[clamp(20px,1.46vw,28px)] font-normal leading-none text-slate-500 transition-all hover:scale-110 hover:bg-slate-100 hover:text-slate-700" onClick={onClose}>&times;</button>
         <h2 className="m-0 w-full border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)] text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">{t("companySettings")}</h2>
-        <div className="flex min-h-0 flex-col items-stretch gap-0 px-[clamp(16px,1.35vw,28px)] pb-[clamp(12px,1vw,20px)] pt-[clamp(8px,0.78vw,14px)]">
-          <div className="flex min-h-[min(52vh,420px)] flex-row items-stretch gap-0">
+        <div className="company-settings-modal-body">
+          <div className="company-settings-split">
             {/* ── Left: General ── */}
-            <div className="min-w-0 flex-[1_1_46%] pr-[clamp(14px,1.25vw,22px)]">
-              <h3 className="mb-3 border-b-2 border-slate-200 pb-2 text-[clamp(13px,1vw,16px)] font-bold tracking-[-0.02em] text-slate-900">{t("companySettingsLower")}</h3>
+            <div id="companySettingsPanelGeneral" className="company-settings-split-left">
+              <h3 className="company-settings-column-title">{t("companySettingsLower")}</h3>
               <div className="mb-[clamp(6px,0.625vw,12px)]">
-                <label style={{ fontWeight: "bold", fontSize: "clamp(12px,1.04vw,16px)", color: "#1e293b", marginBottom: 15 }}>
+                <label id="expDateCompanyName" className="company-settings-company-name-label">
                   {t("companyPrefix")}{company.company_id}
                 </label>
               </div>
               {/* Start Date + Period */}
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                <div className="mb-[clamp(6px,0.625vw,12px)]" style={{ flex: 1, minWidth: 140 }}>
-                  <label htmlFor="expDateStartDate">{t("startDate")}</label>
+              <div className="company-settings-date-row">
+                <div className="form-group company-settings-field-half">
+                  <label className="cs-company-field-label" htmlFor="expDateStartDate">{t("startDate")}</label>
                   <input
                     type="date"
                     id="expDateStartDate"
-                    className="w-full rounded-[clamp(4px,0.42vw,8px)] border border-gray-300 px-[clamp(6px,0.63vw,12px)] py-[clamp(4px,0.31vw,6px)] text-[clamp(9px,0.73vw,14px)] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                     value={startDate}
                     disabled={company.isExtending}
                     onChange={(e) => setStartDate(e.target.value)}
-                    style={{ width: "100%", padding: "clamp(4px,0.31vw,6px) clamp(6px,0.63vw,12px)", border: "1px solid #d1d5db", borderRadius: "clamp(4px,0.42vw,8px)", fontSize: "clamp(9px,0.73vw,14px)" }}
                   />
-                  <small style={{ color: company.isExtending ? "#ef4444" : "#64748b", fontSize: "clamp(7px,0.52vw,10px)", marginTop: 4, display: "block" }}>
+                  <small id="expDateStartDateHelp" className={`company-settings-start-hint${company.isExtending ? " company-settings-start-hint--warn" : ""}`}>
                     {company.isExtending ? t("cannotModifyStartDateWhenExtending") : t("selectStartDateHint")}
                   </small>
                 </div>
-                <div className="mb-[clamp(6px,0.625vw,12px)]" style={{ flex: 1, minWidth: 140 }}>
-                  <label htmlFor="expDatePeriod">{t("period")}</label>
+                <div className="form-group company-settings-field-half">
+                  <label className="cs-company-field-label" htmlFor="expDatePeriod">{t("period")}</label>
                   <select
                     id="expDatePeriod"
-                    className="w-full rounded-[clamp(4px,0.42vw,8px)] border border-gray-300 px-[clamp(6px,0.63vw,12px)] py-[clamp(5px,0.42vw,8px)] text-[clamp(9px,0.73vw,14px)] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                     value={period}
                     onChange={(e) => setPeriod(e.target.value)}
-                    style={{ width: "100%", padding: "clamp(5px,0.42vw,8px) clamp(6px,0.63vw,12px)", border: "1px solid #d1d5db", borderRadius: "clamp(4px,0.42vw,8px)", fontSize: "clamp(9px,0.73vw,14px)" }}
                   >
                     <option value="">{t("selectPeriod")}</option>
                     <option value="7days">{t("sevenDays")}</option>
@@ -330,17 +326,22 @@ export default function CompanySettingsModal({
               </div>
               {/* Expiration Date display */}
               <div className="mb-2.5">
-                <label style={{ fontSize: "clamp(9px,0.73vw,13px)" }}>{t("expirationDate")}</label>
-                <div style={{ padding: "clamp(5px,0.5vw,8px)", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: "clamp(4px,0.42vw,6px)", fontSize: "clamp(10px,0.78vw,14px)", fontWeight: 600, color: expDisplay === t("notSet") ? "#94a3b8" : "#1e293b", textAlign: "center" }}>
+                <label className="cs-company-field-label">{t("expirationDate")}</label>
+                <div id="expDateDisplay" className={`company-settings-exp-display${expDisplay === t("notSet") ? " is-muted" : ""}`}>
                   {expDisplay}
                 </div>
               </div>
               {/* Permissions */}
               <div className="mb-2">
-                <label style={{ marginBottom: 2 }}>{t("permissionsLabel")}</label>
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
-                  {PERMISSION_LIST.map(({ value, id }) => (
-                    <label key={value} className={`inline-flex cursor-pointer items-center justify-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-400 hover:bg-gray-200 has-[:checked]:border-blue-600 has-[:checked]:bg-[linear-gradient(180deg,#7eb8ff_0%,#2563eb_100%)] has-[:checked]:text-white`} id={`permissionLabel${value}`}>
+                <label className="cs-company-field-label company-settings-permissions-label">{t("permissionsLabel")}</label>
+                <div className="permission-toggle-row">
+                  {PERMISSION_LIST.map(({ value, id, labelSuffix }) => (
+                    <label
+                      key={value}
+                      className="permission-toggle-btn"
+                      id={`permissionLabel${labelSuffix}`}
+                      htmlFor={id}
+                    >
                       <input
                         type="checkbox"
                         id={id}
@@ -353,30 +354,33 @@ export default function CompanySettingsModal({
                     </label>
                   ))}
                 </div>
+                <p className="company-settings-permissions-hint">{t("permissionsHintLine")}</p>
               </div>
             </div>
 
-            <div className="my-1 w-px flex-[0_0_1px] self-stretch rounded-[1px] bg-[linear-gradient(180deg,transparent_0%,#cbd5e1_8%,#94a3b8_50%,#cbd5e1_92%,transparent_100%)]" role="separator" aria-orientation="vertical" aria-hidden="true" />
+            <div className="company-settings-split-divider" role="separator" aria-orientation="vertical" aria-hidden="true" />
 
             {/* ── Right: Share % ── */}
-            <div className="min-w-0 flex-[1_1_54%] pl-[clamp(14px,1.25vw,22px)]">
-              <div className="mb-3 flex items-center justify-between gap-3 border-b-2 border-slate-200 pb-2">
-                <h3 className="m-0 flex-1 border-0 p-0 text-[clamp(13px,1vw,16px)] font-bold tracking-[-0.02em] text-slate-900">{t("share")}</h3>
-                <div className="flex items-center gap-2">
+            <div className="company-settings-split-right">
+              <div className="company-settings-share-header">
+                <h3 className="company-settings-column-title company-settings-share-title">{t("share")}</h3>
+                <div className="company-share-charge-on-save">
                   <span className={`company-share-charge-on-save__state${chargeOnSave ? " company-share-charge-on-save__state--on" : ""}`} aria-hidden="true">
                     {chargeOnSave ? t("on") : t("off")}
                   </span>
-                  <label className="relative m-0 inline-flex cursor-pointer">
+                  <label className="company-share-charge-switch">
                     <input
                       type="checkbox"
-                      className="absolute z-[2] m-0 h-[22px] w-10 cursor-pointer opacity-0"
+                      className="company-share-charge-switch__input"
+                      id="companyShareChargeToggle"
                       role="switch"
+                      aria-label={t("companyShareChargeAria")}
                       aria-checked={chargeOnSave}
                       checked={chargeOnSave}
                       onChange={(e) => setChargeOnSave(e.target.checked)}
                     />
-                    <span className={`relative block h-[22px] w-10 rounded-[11px] shadow-[inset_0_1px_2px_rgba(15,23,42,0.12)] transition-colors ${chargeOnSave ? "bg-[linear-gradient(180deg,#60C1FE_0%,#0F61FF_100%)]" : "bg-slate-300"}`} aria-hidden="true">
-                      <span className={`absolute left-[3px] top-[3px] h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.2)] transition-transform ${chargeOnSave ? "translate-x-[18px]" : ""}`} />
+                    <span className="company-share-charge-switch__track" aria-hidden="true">
+                      <span className="company-share-charge-switch__thumb" />
                     </span>
                   </label>
                 </div>
@@ -387,7 +391,7 @@ export default function CompanySettingsModal({
                 <span>{totals.grand.toFixed(2)}%</span>
               </div>
 
-              <div className="max-h-[min(58vh,520px)] min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="company-share-scroll">
                 {SHARE_ROLES.map((role) => {
                   const isProfit = role === "profit";
                   const total = roleTotals[role];
@@ -525,11 +529,10 @@ export default function CompanySettingsModal({
             </div>
           </div>
 
-          {/* Footer actions */}
-          <div className="mt-[clamp(16px,1.25vw,22px)] flex justify-center gap-3 border-t border-slate-200 pt-[clamp(12px,1vw,18px)]">
-            <button type="button" className="cursor-pointer rounded-md border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 py-[clamp(6px,0.42vw,8px)] font-['Amaranth'] text-[clamp(10px,0.83vw,16px)] text-white shadow-[0_2px_4px_rgba(0,123,255,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] hover:shadow-[0_4px_8px_rgba(1,59,153,0.4)]" onClick={handleSave}>{t("save")}</button>
-            <button type="button" className="cursor-pointer rounded-md border-0 bg-[linear-gradient(180deg,#bcbcbc_0%,#585858_100%)] px-5 py-[clamp(6px,0.42vw,8px)] font-['Amaranth'] text-[clamp(10px,0.83vw,16px)] text-white shadow-[0_2px_4px_rgba(88,88,88,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#585858_0%,#bcbcbc_100%)] hover:shadow-[0_4px_8px_rgba(84,84,84,0.4)]" onClick={() => {
-              // Reset: today, no period, no expiry
+          {/* Footer actions — 与量测图：Save 蓝 / Reset 红 / Cancel 灰 */}
+          <div className="form-actions company-settings-form-actions">
+            <button type="button" className="btn btn-save" onClick={handleSave}>{t("save")}</button>
+            <button type="button" className="btn btn-reset-company" onClick={() => {
               const today = new Date().toISOString().split("T")[0];
               setStartDate(today);
               setPeriod("");
@@ -543,7 +546,7 @@ export default function CompanySettingsModal({
                 setPermissions(["Games", "Bank", "Loan", "Rate", "Money"]);
               }
             }}>{t("reset")}</button>
-            <button type="button" className="cursor-pointer rounded-md border-0 bg-[linear-gradient(180deg,#bcbcbc_0%,#585858_100%)] px-5 py-[clamp(6px,0.42vw,8px)] font-['Amaranth'] text-[clamp(10px,0.83vw,16px)] text-white shadow-[0_2px_4px_rgba(88,88,88,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#585858_0%,#bcbcbc_100%)] hover:shadow-[0_4px_8px_rgba(84,84,84,0.4)]" onClick={onClose}>{t("cancel")}</button>
+            <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
           </div>
         </div>
       </div>
