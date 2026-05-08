@@ -1221,8 +1221,10 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 /* Add Account modal: rectangular and full-looking layout */
 #account-addModal .account-modal-content {
-    width: clamp(980px, 88vw, 1140px);
+    width: clamp(840px, 78vw, 980px);
     border-radius: 0.875rem;
+    min-height: clamp(580px, 74vh, 760px);
+    max-height: 92vh;
     transform: translateY(-50%);
     transform-origin: center center;
 }
@@ -1233,32 +1235,32 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 #account-addModal .account-form-columns {
-    gap: clamp(0.875rem, 1.5vw, 1.25rem);
-    padding: clamp(0.75rem, 1.2vw, 1rem) clamp(1.5rem, 2.8vw, 2.25rem);
+    gap: clamp(0.75rem, 1.2vw, 1rem);
+    padding: clamp(0.75rem, 1.1vw, 0.95rem) clamp(1.25rem, 2.2vw, 1.85rem);
 }
 
 #account-addModal .account-form-section {
-    padding: 0 clamp(1rem, 2vw, 1.75rem);
+    padding: 0 clamp(0.875rem, 1.6vw, 1.35rem);
 }
 
 /* Make fields/readability closer to reference */
 #account-addModal .account-form-group label {
-    font-size: clamp(14px, 0.95vw, 16px);
+    font-size: clamp(13px, 0.9vw, 15px);
 }
 
 #account-addModal .account-form-group input,
 #account-addModal .account-form-group select,
 #account-addModal .account-form-group textarea {
-    font-size: clamp(14px, 0.95vw, 16px);
-    min-height: 2.85rem;
+    font-size: clamp(13px, 0.9vw, 15px);
+    min-height: 2.65rem;
 }
 
 #account-addModal .account-advance-section h3 {
-    font-size: clamp(30px, 2vw, 36px);
+    font-size: clamp(26px, 1.75vw, 32px);
 }
 
 #account-addModal .account-form-actions {
-    padding: clamp(0.875rem, 1.6vw, 1.125rem) clamp(1.75rem, 3vw, 2.5rem);
+    padding: clamp(0.9rem, 1.5vw, 1.15rem) clamp(1.5rem, 2.4vw, 2.1rem);
 }
 
 .account-modal-header {
