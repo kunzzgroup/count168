@@ -1015,6 +1015,33 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
     box-sizing: border-box;
 }
 
+/* 关闭按钮：与图二 DevTools 量测一致（父级已 position: relative） */
+.company-settings-react-modal > .close {
+    position: absolute;
+    right: 20px;
+    top: clamp(10px, 1.48vw, 20px);
+    color: #64748b;
+    font-size: clamp(20px, 2.08vw, 28px);
+    font-weight: 100;
+    cursor: pointer;
+    width: clamp(26px, 2.66vw, 36px);
+    height: clamp(26px, 2.66vw, 36px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+    z-index: 10001;
+    line-height: 1;
+}
+
+.company-settings-react-modal > .close:hover,
+.company-settings-react-modal > .close:focus {
+    background-color: #f1f5f9;
+    color: #334155;
+    transform: scale(1.1);
+}
+
 .company-settings-react-modal .company-settings-date-row {
     display: flex;
     flex-wrap: wrap;
