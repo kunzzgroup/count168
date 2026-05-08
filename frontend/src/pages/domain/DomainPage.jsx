@@ -288,6 +288,7 @@ export default function DomainPage() {
               type="button"
               className="btn-fee-settings"
               id="domainFeeSettingsBtn"
+              onPointerDown={(ev) => ev.stopPropagation()}
               onClick={() => setFeeModal(true)}
             >
               {t("price")}
