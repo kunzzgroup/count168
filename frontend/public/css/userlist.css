@@ -654,8 +654,8 @@ body.user-page.user-page--show-all .user-cards {
     flex-direction: row;
     align-items: stretch;
     background: #ffffff;
-    border-radius: clamp(14px, 1.2vw, 20px);
-    box-shadow: 0 10px 32px rgba(15, 23, 42, 0.1);
+    border-radius: 10px;
+    box-shadow: none;
     border: 1px solid rgba(148, 163, 184, 0.25);
     overflow: hidden;
 }
@@ -715,8 +715,8 @@ label.user-modal-col-title.acc-proc-label {
 
 /* ── Left Panel: User Info + Permissions ───────────────────── */
 .user-info-panel {
-    flex: 0 0 clamp(300px, 31.09vw, 420px);
-    max-width: clamp(300px, 31.09vw, 420px);
+    flex: 0 0 clamp(300px, 24.9vw, 420px);
+    max-width: clamp(300px, 24.9vw, 420px);
     background: transparent;
     padding: 19.968px;
     display: flex;
@@ -894,6 +894,7 @@ label.user-modal-col-title.acc-proc-label {
     align-items: flex-start;
     width: 100%;
     margin: 0 0 12px 0;
+    min-height: 52.39px;
 }
 
 .password-field-wrapper {
@@ -913,10 +914,11 @@ label.user-modal-col-title.acc-proc-label {
 
 .password-field-wrapper input {
     width: 100%;
-    padding: clamp(7px, 0.45vw, 10px) clamp(10px, 0.73vw, 14px);
+    min-height: 29.89px;
+    padding: 5.952px 12px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    font-size: clamp(12px, 0.8vw, 15px);
+    font-size: 14px;
     box-sizing: border-box;
     transition: all 0.2s;
     background: white;
@@ -958,6 +960,7 @@ label.user-modal-col-title.acc-proc-label {
 .sidebar-permissions-section .permissions-container {
     flex: 1;
     min-height: 0;
+    max-height: 163.65px;
     overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
