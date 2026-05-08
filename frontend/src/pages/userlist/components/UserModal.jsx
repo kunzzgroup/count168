@@ -232,7 +232,25 @@ export default function UserModal({
                         />
                         <span className="permission-name">
                           <svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d={PERMISSION_ICONS[key]} /></svg>
-                          {key === "datacapture" ? t("dataCapture") : key === "payment" ? t("transactionPayment") : key.charAt(0).toUpperCase() + key.slice(1)}
+                          {key === "home"
+                            ? t("permHome")
+                            : key === "admin"
+                              ? t("permAdmin")
+                              : key === "ownership"
+                                ? t("permOwnership")
+                                : key === "datacapture"
+                                  ? t("dataCapture")
+                                  : key === "payment"
+                                    ? t("transactionPayment")
+                                    : key === "report"
+                                      ? t("permReport")
+                                      : key === "maintenance"
+                                        ? t("permMaintenance")
+                                        : key === "account"
+                                          ? t("account")
+                                          : key === "process"
+                                            ? t("process")
+                                            : key.charAt(0).toUpperCase() + key.slice(1)}
                         </span>
                       </label>
                     </div>
