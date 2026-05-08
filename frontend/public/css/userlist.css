@@ -799,7 +799,7 @@ label.user-modal-col-title.acc-proc-label {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 40px;
+    min-height: 60px;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 8px 10px;
@@ -832,6 +832,9 @@ label.user-modal-col-title.acc-proc-label {
     font-weight: 400;
     font-size: 12px;
     color: #64748b;
+    white-space: pre-line;
+    margin-top: 2px;
+    font-weight: 500;
 }
 
 /* Add / Edit 共用底欄（置中 Save / Cancel） */
