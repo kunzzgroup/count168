@@ -1678,12 +1678,12 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page #addModal #day_checkboxes.day-checkboxes,
 .process-page #addModal #edit_day_checkboxes.day-checkboxes {
     display: flex !important;
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     align-items: center !important;
     gap: 0.6rem !important;
     justify-content: flex-start !important;
     overflow: visible !important;
-    white-space: nowrap !important;
+    white-space: normal !important;
 }
 
 /* Edit Modal - 与Add Modal保持一致的响应式设置 */
@@ -1723,10 +1723,11 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 /* Apply same one-row day layout to edit modal explicitly */
 .process-page #editModal #edit_day_checkboxes.day-checkboxes {
     display: flex !important;
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     align-items: center !important;
     gap: 0.75rem !important;
-    overflow-x: auto;
+    overflow: visible !important;
+    white-space: normal !important;
 }
 
 .process-page #editModal .day-checkboxes .checkbox-item {
@@ -3456,12 +3457,12 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 #addModal #day_checkboxes.day-checkboxes,
 #addModal #edit_day_checkboxes.day-checkboxes {
     display: flex !important;
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     align-items: center !important;
     gap: 0.6rem !important;
     justify-content: flex-start !important;
     overflow: visible !important;
-    white-space: nowrap !important;
+    white-space: normal !important;
 }
 
 #addModal .day-checkboxes .checkbox-item label {
