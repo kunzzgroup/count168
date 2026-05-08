@@ -607,6 +607,138 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
     align-self: center;
 }
 
+/* Price modal (Domain fee settings): match measured legacy layout */
+.domain-fee-react-modal {
+    position: relative;
+    margin: 2% auto;
+    width: min(440px, 92vw);
+    max-width: 440px;
+    overflow: hidden;
+    border-radius: 14px;
+    border: 0;
+    background: #fff;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.domain-fee-react-modal > .close {
+    position: absolute;
+    right: 20px;
+    top: clamp(10px, 1.04vw, 20px);
+    color: #64748b;
+    font-size: clamp(20px, 1.46vw, 28px);
+    font-weight: 400;
+    cursor: pointer;
+    width: clamp(26px, 1.88vw, 36px);
+    height: clamp(26px, 1.88vw, 36px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+    z-index: 10001;
+    line-height: 1;
+}
+
+.domain-fee-react-modal > .close:hover,
+.domain-fee-react-modal > .close:focus {
+    background-color: #f1f5f9;
+    color: #334155;
+    transform: scale(1.1);
+}
+
+.domain-fee-react-modal > h2 {
+    margin: 0;
+    width: 100%;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+    padding: 19.968px 32px;
+    color: #1e293b;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.domain-fee-react-modal .modal-body {
+    padding: 19.968px 32px;
+}
+
+.domain-fee-react-modal .domain-fee-description {
+    margin: 0 0 10px 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.domain-fee-react-modal .domain-fee-summary-display {
+    margin-bottom: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f1f5f9;
+    padding: 12px 14px;
+    color: #1e293b;
+    font-size: 15px;
+    line-height: 1.45;
+}
+
+.domain-fee-react-modal .domain-fee-summary-display strong {
+    color: #0f172a;
+    font-size: 15px;
+}
+
+.domain-fee-react-modal .domain-fee-decimals-hint {
+    color: #94a3b8;
+    font-size: 11.96px;
+    font-weight: 400;
+}
+
+.domain-fee-react-modal .domain-fee-edit-hint {
+    margin: 0 0 12px 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.domain-fee-react-modal .form-group {
+    margin-bottom: 0;
+}
+
+.domain-fee-react-modal .form-group label {
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.domain-fee-react-modal #domainFeePrice.form-group-input {
+    width: 100%;
+    height: 40.31px;
+    box-sizing: border-box;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    padding: 0 12px;
+    font-size: 16px;
+    color: #111827;
+}
+
+.domain-fee-react-modal .form-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.domain-fee-react-modal .btn-save,
+.domain-fee-react-modal .btn-cancel {
+    width: 120px;
+    min-height: 35.5px;
+    padding: 8px 20px;
+    font-family: 'Amaranth', sans-serif;
+    font-size: 15.936px;
+    line-height: 1;
+    border-radius: 6px;
+}
+
 /* Domain Accounting Due (toolbar + modal) */
 .domain-accounting-due-wrap {
     display: flex;
