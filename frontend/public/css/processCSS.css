@@ -1642,7 +1642,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page #addModal .process-form.add-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr) !important;
     column-gap: 1rem !important;
     row-gap: 0.45rem !important;
 }
@@ -1650,6 +1650,14 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page #addModal .process-form.add-grid .add-col {
     padding: 0.8rem 0.95rem !important;
     min-width: 0 !important;
+}
+
+.process-page #addModal .process-form.add-grid .add-col:first-child {
+    padding-top: 1.45rem !important;
+}
+
+.process-page #addModal .process-form.add-grid .add-col:last-child {
+    padding-top: 0.7rem !important;
 }
 
 .process-page #addModal .process-form .form-group label {
@@ -3341,7 +3349,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #addModal .process-form.add-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr) !important;
     column-gap: 1rem !important;
     row-gap: 0.45rem !important;
     max-width: 100% !important;
@@ -3350,6 +3358,14 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 #addModal .process-form.add-grid .add-col {
     padding: 0.8rem 0.95rem !important;
     min-width: 0 !important;
+}
+
+#addModal .process-form.add-grid .add-col:first-child {
+    padding-top: 1.45rem !important;
+}
+
+#addModal .process-form.add-grid .add-col:last-child {
+    padding-top: 0.7rem !important;
 }
 
 #addModal .process-form .form-group label {
