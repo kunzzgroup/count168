@@ -662,7 +662,7 @@ body.user-page.user-page--show-all .user-cards {
 
 /* Give more usable horizontal space to the form column */
 .user-modal-col--info {
-    flex: 1.2 1 0 !important;
+    flex: 0 0 clamp(300px, 22vw, 340px) !important;
 }
 
 .user-modal-col--account,
@@ -715,8 +715,8 @@ label.user-modal-col-title.acc-proc-label {
 
 /* ── Left Panel: User Info + Permissions ───────────────────── */
 .user-info-panel {
-    flex: 0 0 clamp(300px, 24.9vw, 420px);
-    max-width: clamp(300px, 24.9vw, 420px);
+    flex: 0 0 clamp(300px, 22vw, 340px);
+    max-width: clamp(300px, 22vw, 340px);
     background: transparent;
     padding: 19.968px;
     display: flex;
