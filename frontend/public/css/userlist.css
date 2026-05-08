@@ -600,6 +600,7 @@ body.user-page.user-page--show-all .user-cards {
 
 .user-page .modal-header-bar h2 {
     margin: 0;
+    padding: clamp(6px, 0.42vw, 8px) 0;
     font-size: 39.984px;
     font-weight: 700;
     color: #1e293b;
