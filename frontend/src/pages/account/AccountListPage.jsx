@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 
@@ -18,6 +18,7 @@ import {
 import AccountFormModal from "./components/AccountFormModal.jsx";
 import AccountConfirmModal from "./components/AccountConfirmModal.jsx";
 import CurrencySettingModal from "./components/CurrencySettingModal.jsx";
+import LinkAccountModal from "./components/LinkAccountModal.jsx";
 
 export default function AccountListPage() {
   const navigate = useNavigate();
@@ -52,8 +53,16 @@ export default function AccountListPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [currencySettingOpen, setCurrencySettingOpen] = useState(false);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [initialEditCurrencyIds, setInitialEditCurrencyIds] = useState([]);
+  const [linkingAccountId, setLinkingAccountId] = useState(null);
+  const [linkAccountsPool, setLinkAccountsPool] = useState([]);
+  const [selectedLinkedIds, setSelectedLinkedIds] = useState(new Set());
+  const [linkType, setLinkType] = useState("bidirectional");
+  const [linkTypeMap, setLinkTypeMap] = useState({});
+  const [linkSearchTerm, setLinkSearchTerm] = useState("");
 
   // -- Child states --
   const [selectedCurrencyIds, setSelectedCurrencyIds] = useState([]);
@@ -237,7 +246,11 @@ export default function AccountListPage() {
       const curJ = await curRes.json(); const compJ = await compRes.json();
       if (curJ.success) {
         setCurrencies(curJ.data.map(c => ({ id: c.id, code: c.code, is_linked: !!c.is_linked })));
-        if (isEdit) setSelectedCurrencyIds(curJ.data.filter(c => c.is_linked).map(c => Number(c.id)));
+        if (isEdit) {
+          const ids = curJ.data.filter(c => c.is_linked).map(c => Number(c.id));
+          setSelectedCurrencyIds(ids);
+          setInitialEditCurrencyIds(ids);
+        }
       }
       if (compJ.success) {
         const linked = compJ.data.filter(c => c.is_linked).map(c => Number(c.id));
@@ -249,6 +262,7 @@ export default function AccountListPage() {
   const openAdd = () => {
     setIsEditMode(false); setForm({ ...DEFAULT_FORM, payment_alert: "0" });
     setSelectedCurrencyIds([]); setCurrencyInput("");
+    setInitialEditCurrencyIds([]);
     setAddModalOpen(true); loadSelectionMeta(null, false);
   };
 
@@ -269,7 +283,8 @@ export default function AccountListPage() {
     try {
       const fd = new FormData();
       selectedDeleteIds.forEach(id => fd.append("ids[]", id));
-      const res = await fetch(buildApiUrl("api/accounts/delete_api.php"), { method: "POST", body: fd, credentials: "include" });
+      if (companyId) fd.append("company_id", String(companyId));
+      const res = await fetch(buildApiUrl("api/accounts/delete_accounts_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notify(json.message || "Delete failed", "danger");
       setConfirmDeleteOpen(false);
@@ -281,6 +296,10 @@ export default function AccountListPage() {
 
   const saveForm = async (e) => {
     e.preventDefault();
+    if (form.payment_alert === "1" && (!form.alert_type || !form.alert_start_date)) {
+      notify("When Payment Alert is enabled, both Alert Type and Start Date are required", "danger");
+      return;
+    }
     const amount = normalizeAlertAmount(form.alert_amount);
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => fd.append(k, k === "alert_amount" ? amount : (v ?? "")));
@@ -294,6 +313,28 @@ export default function AccountListPage() {
       const res = await fetch(buildApiUrl(ep), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notify(json.message || "Save failed", "danger");
+      if (isEditMode && form.id) {
+        const before = new Set(initialEditCurrencyIds.map(Number));
+        const after = new Set(selectedCurrencyIds.map(Number));
+        const toAdd = [...after].filter((id) => !before.has(id));
+        const toRemove = [...before].filter((id) => !after.has(id));
+        for (const cid of toAdd) {
+          await fetch(buildApiUrl("api/accounts/account_currency_api.php?action=add_currency"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ account_id: Number(form.id), currency_id: Number(cid) }),
+            credentials: "include",
+          });
+        }
+        for (const cid of toRemove) {
+          await fetch(buildApiUrl("api/accounts/account_currency_api.php?action=remove_currency"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ account_id: Number(form.id), currency_id: Number(cid) }),
+            credentials: "include",
+          });
+        }
+      }
       setAddModalOpen(false); setEditModalOpen(false);
       notify("Account saved successfully");
       fetchAccounts();
@@ -328,6 +369,104 @@ export default function AccountListPage() {
       const res = await fetch(buildApiUrl("api/accounts/bulk_account_currency_api.php?action=bulk_update"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
       if (res.ok) { setCurrencySettingOpen(false); notify("Currency settings saved"); fetchAccounts(); }
     } catch { notify("Save failed", "danger"); }
+  };
+
+  const openLink = async (id) => {
+    try {
+      if (!companyId) return notify("Please select a company first", "danger");
+      setLinkingAccountId(Number(id));
+      setLinkType("bidirectional");
+      setLinkSearchTerm("");
+      const [allRes, linkedRes] = await Promise.all([
+        fetch(buildApiUrl(`api/accounts/accountlistapi.php?company_id=${companyId}&showAll=1`), { credentials: "include" }),
+        fetch(buildApiUrl(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${id}&company_id=${companyId}`), { credentials: "include" }),
+      ]);
+      const allJson = await allRes.json();
+      const linkedJson = await linkedRes.json();
+      const pool = Array.isArray(allJson?.data?.accounts) ? allJson.data.accounts : [];
+      setLinkAccountsPool(pool);
+      const types = linkedJson?.data?.link_types_map || {};
+      setLinkTypeMap(types);
+      const initial = new Set(
+        (Array.isArray(linkedJson?.data?.accounts) ? linkedJson.data.accounts : [])
+          .filter((a) => types[a.id] === "bidirectional")
+          .map((a) => Number(a.id))
+      );
+      setSelectedLinkedIds(initial);
+      setLinkModalOpen(true);
+    } catch {
+      notify("Failed to open link account modal", "danger");
+    }
+  };
+
+  useEffect(() => {
+    if (!linkModalOpen) return;
+    const next = new Set(
+      Object.entries(linkTypeMap)
+        .filter(([, type]) => type === linkType)
+        .map(([id]) => Number(id))
+    );
+    setSelectedLinkedIds(next);
+  }, [linkType, linkTypeMap, linkModalOpen]);
+
+  const saveLinks = async () => {
+    if (!linkingAccountId || !companyId) return;
+    try {
+      const refRes = await fetch(buildApiUrl(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${linkingAccountId}&company_id=${companyId}`), { credentials: "include" });
+      const refJson = await refRes.json();
+      const typesMap = refJson?.data?.link_types_map || {};
+      const currentTypeIds = new Set(
+        (Array.isArray(refJson?.data?.accounts) ? refJson.data.accounts : [])
+          .filter((a) => typesMap[a.id] === linkType)
+          .map((a) => Number(a.id))
+      );
+      const desiredIds = new Set([...selectedLinkedIds]);
+      const toAdd = [...desiredIds].filter((id) => !currentTypeIds.has(id));
+      const toRemove = [...currentTypeIds].filter((id) => !desiredIds.has(id));
+
+      for (const linkedId of toRemove) {
+        await fetch(buildApiUrl("api/accounts/account_link_api.php?action=unlink_accounts"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ account_id_1: Number(linkingAccountId), account_id_2: Number(linkedId), company_id: Number(companyId) }),
+          credentials: "include",
+        });
+      }
+      for (const linkedId of toAdd) {
+        await fetch(buildApiUrl("api/accounts/account_link_api.php?action=link_accounts"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            account_id_1: Number(linkingAccountId),
+            account_id_2: Number(linkedId),
+            company_id: Number(companyId),
+            link_type: linkType,
+            source_account_id: linkType === "unidirectional" ? Number(linkingAccountId) : null,
+          }),
+          credentials: "include",
+        });
+      }
+      if (toAdd.length === 0 && toRemove.length === 0 && desiredIds.size > 0) {
+        for (const linkedId of desiredIds) {
+          await fetch(buildApiUrl("api/accounts/account_link_api.php?action=update_link_type"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              account_id_1: Number(linkingAccountId),
+              account_id_2: Number(linkedId),
+              company_id: Number(companyId),
+              link_type: linkType,
+              source_account_id: linkType === "unidirectional" ? Number(linkingAccountId) : null,
+            }),
+            credentials: "include",
+          });
+        }
+      }
+      setLinkModalOpen(false);
+      notify("Account links saved successfully");
+    } catch {
+      notify("Failed to save account links", "danger");
+    }
   };
 
   if (bootLoading || !cssReady) return null;
@@ -416,7 +555,12 @@ export default function AccountListPage() {
                     <div className="account-card-item">{toUpper(a.last_login)}</div>
                     <div className="account-card-item">{toUpper(a.remark)}</div>
                     <div className="account-card-item">
-                      <button className="account-edit-btn" onClick={() => openEdit(a.id)}><img src="/images/edit.svg" alt="Edit" /></button>
+                      <button className="account-edit-btn" onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
+                      <button className="account-edit-btn" onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title="Link Account">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </button>
                       {isInactive && <input type="checkbox" style={{ marginLeft: 10 }} checked={selectedDeleteIds.has(Number(a.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })} />}
                     </div>
                   </div>
@@ -433,6 +577,7 @@ export default function AccountListPage() {
       <AccountFormModal open={addModalOpen || editModalOpen} isEditMode={isEditMode} form={form} setForm={setForm} roles={roles} currencies={currencies} companies={companies} selectedCurrencyIds={selectedCurrencyIds} setSelectedCurrencyIds={setSelectedCurrencyIds} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} onRemoveCurrency={() => {}} onSave={saveForm} onClose={() => { setAddModalOpen(false); setEditModalOpen(false); }} />
       <AccountConfirmModal open={confirmDeleteOpen} message={`Are you sure you want to delete ${selectedDeleteIds.size} selected account(s)?`} onConfirm={confirmDelete} onClose={() => setConfirmDeleteOpen(false)} />
       <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onSave={saveCurrencySetting} accounts={accounts} roles={roles} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} />
+      <LinkAccountModal open={linkModalOpen} accounts={linkAccountsPool} currentAccountId={linkingAccountId} selectedIds={selectedLinkedIds} setSelectedIds={setSelectedLinkedIds} linkType={linkType} setLinkType={setLinkType} searchTerm={linkSearchTerm} setSearchTerm={setLinkSearchTerm} onSave={saveLinks} onClose={() => setLinkModalOpen(false)} />
     </>
   );
 }

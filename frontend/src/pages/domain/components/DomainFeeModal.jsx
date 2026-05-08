@@ -58,7 +58,7 @@ export default function DomainFeeModal({ onClose, onFeeSaved, lang = "en" }) {
 
   return (
     <DomainModalPortal>
-      <div className="fixed inset-0 z-[10004] bg-black/50 backdrop-blur-[4px]" style={{ display: "block" }}
+      <div className="fixed inset-0 z-[50004] bg-black/50 backdrop-blur-[4px]" style={{ display: "block" }}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div className="relative mx-auto mt-[2%] w-[clamp(400px,36.46vw,700px)] max-w-[440px] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
         <button type="button" className="absolute right-5 top-[clamp(10px,1.04vw,20px)] z-[10001] flex h-[clamp(26px,1.88vw,36px)] w-[clamp(26px,1.88vw,36px)] items-center justify-center rounded-full text-[clamp(20px,1.46vw,28px)] font-normal leading-none text-slate-500 transition-all hover:scale-110 hover:bg-slate-100 hover:text-slate-700" onClick={onClose}>&times;</button>

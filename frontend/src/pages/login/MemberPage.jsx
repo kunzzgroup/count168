@@ -111,24 +111,24 @@ function readCookie(name) {
 }
 
 const AVATAR_MAP = {
-  male1: "/images/avatar1.png",
-  male2: "/images/avatar2.png",
-  male3: "/images/avatar3.png",
-  male4: "/images/avatar4.png",
-  male5: "/images/avatar5.png",
-  male6: "/images/avatar6.png",
-  male7: "/images/avatar7.png",
-  male8: "/images/avatar8.png",
-  male9: "/images/avatar9.png",
-  female1: "/images/female1.png",
-  female2: "/images/female2.png",
-  female3: "/images/female3.png",
-  female4: "/images/female4.png",
-  female5: "/images/female5.png",
-  female6: "/images/female6.png",
-  female7: "/images/female7.png",
-  female8: "/images/female8.png",
-  female9: "/images/female9.png",
+  male1: assetUrl("images/avatar1.png"),
+  male2: assetUrl("images/avatar2.png"),
+  male3: assetUrl("images/avatar3.png"),
+  male4: assetUrl("images/avatar4.png"),
+  male5: assetUrl("images/avatar5.png"),
+  male6: assetUrl("images/avatar6.png"),
+  male7: assetUrl("images/avatar7.png"),
+  male8: assetUrl("images/avatar8.png"),
+  male9: assetUrl("images/avatar9.png"),
+  female1: assetUrl("images/female1.png"),
+  female2: assetUrl("images/female2.png"),
+  female3: assetUrl("images/female3.png"),
+  female4: assetUrl("images/female4.png"),
+  female5: assetUrl("images/female5.png"),
+  female6: assetUrl("images/female6.png"),
+  female7: assetUrl("images/female7.png"),
+  female8: assetUrl("images/female8.png"),
+  female9: assetUrl("images/female9.png"),
 };
 
 export default function MemberPage() {
@@ -646,7 +646,7 @@ export default function MemberPage() {
       <div className="informationmenu">
         <div className="informationmenu-header">
           <div className="header-logo-section">
-            <img src="/images/count_whitelogo.png" alt="EAZYCOUNT Logo" className="header-logo" />
+            <img src={assetUrl("images/count_whitelogo.png")} alt="EAZYCOUNT Logo" className="header-logo" />
             <div className="notification-bell" title="Notifications" onClick={toggleNotifications}>
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
@@ -667,14 +667,14 @@ export default function MemberPage() {
                 <div className={`avatar-list ${selectedGender === "male" ? "show" : ""}`}>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <div key={`male-${num}`} className={`avatar-option ${selectedAvatarId === `male${num}` ? "selected" : ""}`} onClick={() => handleSelectAvatar(`male${num}`)}>
-                      <img src={`/images/avatar${num}.png`} alt={`Male Avatar ${num}`} className="avatar-option-img" />
+                      <img src={assetUrl(`images/avatar${num}.png`)} alt={`Male Avatar ${num}`} className="avatar-option-img" />
                     </div>
                   ))}
                 </div>
                 <div className={`avatar-list ${selectedGender === "female" ? "show" : ""}`}>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <div key={`female-${num}`} className={`avatar-option ${selectedAvatarId === `female${num}` ? "selected" : ""}`} onClick={() => handleSelectAvatar(`female${num}`)}>
-                      <img src={`/images/female${num}.png`} alt={`Female Avatar ${num}`} className="avatar-option-img" />
+                      <img src={assetUrl(`images/female${num}.png`)} alt={`Female Avatar ${num}`} className="avatar-option-img" />
                     </div>
                   ))}
                 </div>

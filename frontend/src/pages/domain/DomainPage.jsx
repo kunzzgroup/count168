@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useLayoutEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/domain.css";
 import "../../../public/css/accountCSS.css";
 import {
@@ -47,9 +47,12 @@ export default function DomainPage() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.body.classList.remove("bg");
-    document.body.classList.add("dashboard-page");
+    document.body.classList.add("dashboard-page", "domain-page");
+    return () => {
+      document.body.classList.remove("domain-page");
+    };
   }, []);
 
 
@@ -252,8 +255,6 @@ export default function DomainPage() {
             <button
               type="button"
               className="btn-add"
-              style={{ position: "relative", zIndex: 5, pointerEvents: "auto" }}
-              onMouseDown={(e) => { e.stopPropagation(); }}
               onClick={openAddModal}
             >
               {t("addDomainBtn")}
@@ -275,8 +276,6 @@ export default function DomainPage() {
               type="button"
               className="btn-fee-settings"
               id="domainFeeSettingsBtn"
-              style={{ position: "relative", zIndex: 5, pointerEvents: "auto" }}
-              onMouseDown={(e) => { e.stopPropagation(); }}
               onClick={() => setFeeModal(true)}
             >
               {t("price")}
@@ -374,16 +373,14 @@ export default function DomainPage() {
                     )}
                   </div>
                   <div className="card-item uppercase-text">{String(domain.created_by || "-").toUpperCase()}</div>
-                  <div className="card-item" style={{ display: "flex", alignItems: "center" }}>
+                  <div className="card-item" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <button
                       type="button"
                       className="btn-edit"
-                      style={{ position: "relative", zIndex: 5, pointerEvents: "auto" }}
-                      onMouseDown={(e) => { e.stopPropagation(); }}
                       onClick={() => openEditModal(domain)}
                       aria-label={t("edit")}
                     >
-                      <img src="/images/edit.svg" alt={t("edit")} />
+                      <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
                     </button>
                     {!isProtected && domain.owner_code !== "K" && (
                       <input

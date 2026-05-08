@@ -22,9 +22,10 @@ export default function OwnershipPage() {
   useEffect(() => {
     // Force body classes for correct background (SPA parity)
     document.body.classList.remove("bg");
-    document.body.classList.add("dashboard-page");
+    document.body.classList.add("dashboard-page", "ownership-page");
     setCssReady(true);
     return () => {
+      document.body.classList.remove("ownership-page");
       setCssReady(false);
     };
   }, []);
@@ -53,6 +54,7 @@ export default function OwnershipPage() {
   const [toast, setToast] = useState(null);
   const [conflict, setConflict] = useState(null);
   const [openGroupForCompanyId, setOpenGroupForCompanyId] = useState(null);
+  const [readOnlyMode, setReadOnlyMode] = useState(false);
 
   const dragRef = useRef({ companyId: null, idx: null });
   const toastTimerRef = useRef(null);
@@ -72,6 +74,8 @@ export default function OwnershipPage() {
       const json = await res.json();
       if (isApiSuccess(json)) setAllCompanies(json.data || []);
       else showToast(getApiMessage(json, "Failed to load companies"), "error");
+      // Keep frontend interactive; backend remains source of truth for write permissions.
+      setReadOnlyMode(false);
     } catch {
       showToast("Server error", "error");
     } finally {
@@ -121,13 +125,29 @@ export default function OwnershipPage() {
   const allGroupIds = useMemo(() => rebuildGroupIds(allCompanies), [allCompanies]);
 
   const companiesData = useMemo(() => {
-    if (groupFilter === null) return allCompanies.filter((c) => !c.group_id);
+    if (groupFilter !== null) {
+      return allCompanies.filter(
+        (c) => c.group_id && String(c.group_id).toLowerCase() === String(groupFilter).toLowerCase()
+      );
+    }
+    const independent = allCompanies.filter((c) => !c.group_id);
+    if (independent.length > 0) return independent;
+    if (allGroupIds.length === 0) return independent;
+    const firstGroup = allGroupIds[0];
     return allCompanies.filter(
-      (c) => c.group_id && String(c.group_id).toLowerCase() === String(groupFilter).toLowerCase()
+      (c) => c.group_id && String(c.group_id).toLowerCase() === String(firstGroup).toLowerCase()
     );
-  }, [allCompanies, groupFilter]);
+  }, [allCompanies, groupFilter, allGroupIds]);
+
+  useEffect(() => {
+    if (groupFilter !== null) return;
+    const independent = allCompanies.filter((c) => !c.group_id);
+    if (independent.length > 0 || allGroupIds.length === 0) return;
+    setGroupFilter(allGroupIds[0]);
+  }, [groupFilter, allCompanies, allGroupIds]);
 
   const calcTotal = (rows) => rows.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
+  const fmtPct = (n) => `${(parseFloat(n) || 0).toFixed(2)}%`;
 
   if (boot || !cssReady) return null;
 
@@ -217,6 +237,7 @@ export default function OwnershipPage() {
   };
 
   const addRow = (cid) => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     setCompanyStates((prev) => {
       const st = prev[cid];
       if (!st) return prev;
@@ -231,6 +252,7 @@ export default function OwnershipPage() {
   };
 
   const removeRow = (cid, idx) => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     setCompanyStates((prev) => {
       const st = prev[cid];
       if (!st) return prev;
@@ -255,6 +277,10 @@ export default function OwnershipPage() {
   };
 
   const linkPartner = async (cid, loginId, forceType = "") => {
+    if (readOnlyMode) {
+      showToast("Read-only: only owner can modify ownership", "error");
+      return false;
+    }
     try {
       const res = await fetch(buildApiUrl("api/ownership/add_external_partner_api.php"), {
         method: "POST",
@@ -282,6 +308,7 @@ export default function OwnershipPage() {
   };
 
   const confirmCompany = async (cid) => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     const st = companyStates[cid];
     if (!st) return;
     const { rows } = st;
@@ -328,8 +355,9 @@ export default function OwnershipPage() {
   };
 
   const joinGroup = async (cid, gid, companyName) => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     try {
-      const res = await fetch(buildApiUrl("api/ownership/join_group_api.php"), {
+      const res = await fetch(buildApiUrl("api/ownership/update_company_group_api.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -346,8 +374,9 @@ export default function OwnershipPage() {
   };
 
   const ungroupCompany = async (cid, companyName) => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     try {
-      const res = await fetch(buildApiUrl("api/ownership/ungroup_api.php"), {
+      const res = await fetch(buildApiUrl("api/ownership/update_company_group_api.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -364,6 +393,7 @@ export default function OwnershipPage() {
   };
 
   const toggleSelectionMode = () => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     setSelectionMode(!selectionMode);
     setSelectedCompanyIds(new Set());
   };
@@ -385,44 +415,56 @@ export default function OwnershipPage() {
   };
 
   const bulkJoin = async (gid) => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     if (!gid) {
       showToast("Please select a group", "error");
       return;
     }
     try {
-      const res = await fetch(buildApiUrl("api/ownership/bulk_join_group_api.php"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ company_ids: Array.from(selectedCompanyIds), group_id: gid }),
-      });
-      const json = await res.json();
-      if (isApiSuccess(json)) {
+      const ids = Array.from(selectedCompanyIds);
+      const results = await Promise.all(
+        ids.map((cid) =>
+          fetch(buildApiUrl("api/ownership/update_company_group_api.php"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ company_id: cid, group_id: gid }),
+          }).then((r) => r.json())
+        )
+      );
+      const failed = results.filter((r) => !isApiSuccess(r));
+      if (failed.length === 0) {
         showToast(`Added ${selectedCompanyIds.size} companies to ${gid}`, "success");
         setSelectedCompanyIds(new Set());
         setSelectionMode(false);
         void fetchCompanies();
-      } else showToast(getApiMessage(json, "Bulk join failed"), "error");
+      } else showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, "error");
     } catch {
       showToast("Server error", "error");
     }
   };
 
   const bulkUngroup = async () => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     try {
-      const res = await fetch(buildApiUrl("api/ownership/bulk_ungroup_api.php"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ company_ids: Array.from(selectedCompanyIds) }),
-      });
-      const json = await res.json();
-      if (isApiSuccess(json)) {
+      const ids = Array.from(selectedCompanyIds);
+      const results = await Promise.all(
+        ids.map((cid) =>
+          fetch(buildApiUrl("api/ownership/update_company_group_api.php"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ company_id: cid, group_id: null }),
+          }).then((r) => r.json())
+        )
+      );
+      const failed = results.filter((r) => !isApiSuccess(r));
+      if (failed.length === 0) {
         showToast(`Removed ${selectedCompanyIds.size} companies from group`, "success");
         setSelectedCompanyIds(new Set());
         setSelectionMode(false);
         void fetchCompanies();
-      } else showToast(getApiMessage(json, "Bulk ungroup failed"), "error");
+      } else showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, "error");
     } catch {
       showToast("Server error", "error");
     }
@@ -498,6 +540,7 @@ export default function OwnershipPage() {
   };
 
   const geAddRow = (gid) => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     setGeStates((prev) => {
       const st = prev[gid];
       if (!st) return prev;
@@ -512,6 +555,7 @@ export default function OwnershipPage() {
   };
 
   const geRemoveRow = (gid, idx) => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     setGeStates((prev) => {
       const st = prev[gid];
       if (!st) return prev;
@@ -522,6 +566,7 @@ export default function OwnershipPage() {
   };
 
   const geConfirm = async (groupId) => {
+    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     const st = geStates[groupId];
     if (!st) return;
     const { rows } = st;
@@ -564,6 +609,10 @@ export default function OwnershipPage() {
   };
 
   const geLinkPartner = async (groupId, loginId, forceType = "") => {
+    if (readOnlyMode) {
+      showToast("Read-only: only owner can modify ownership", "error");
+      return false;
+    }
     try {
       const res = await fetch(buildApiUrl("api/ownership/add_group_external_partner_api.php"), {
         method: "POST",
@@ -655,6 +704,7 @@ export default function OwnershipPage() {
               <button
                 type="button"
                 className={`own-select-mode-btn${selectionMode ? " active" : ""}`}
+                style={{ display: readOnlyMode ? "none" : "" }}
                 onClick={toggleSelectionMode}
               >
                 {selectionMode ? (
@@ -713,6 +763,8 @@ export default function OwnershipPage() {
                   onConfirm={confirmCompany}
                   onCancel={() => setExpandedCompanyId(null)}
                   calcTotal={calcTotal}
+                  readOnlyMode={readOnlyMode}
+                  fmtPct={fmtPct}
                 />
               ))
             )}
@@ -746,6 +798,8 @@ export default function OwnershipPage() {
                   onCancel={() => setGeExpanded(null)}
                   onLinkPartner={(login) => geLinkPartner(grp.group_id, login)}
                   calcTotal={calcTotal}
+                  readOnlyMode={readOnlyMode}
+                  fmtPct={fmtPct}
                 />
               ))
             )}

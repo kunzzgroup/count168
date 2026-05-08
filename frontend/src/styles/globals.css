@@ -50,4 +50,20 @@
     line-height: 1.5;
     font-variant-numeric: tabular-nums;
   }
+
+  /*
+   * Login shell: body.bg uses display:flex + centered #root (see public/css/style.css).
+   * If dashboard-page is ever combined with bg for a frame, or flex wins in cascade,
+   * #root stays narrow and clicks miss the main content. Force block + full-width root for SPA.
+   */
+  body.dashboard-page {
+    display: block !important;
+  }
+
+  body.dashboard-page #root {
+    width: 100%;
+    max-width: none;
+    min-height: 100vh;
+    pointer-events: auto;
+  }
 }

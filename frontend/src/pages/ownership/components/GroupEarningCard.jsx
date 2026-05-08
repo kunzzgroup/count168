@@ -16,6 +16,8 @@ export default function GroupEarningCard({
   onCancel,
   onLinkPartner,
   calcTotal,
+  readOnlyMode,
+  fmtPct,
 }) {
   const gid = grp.group_id;
   const alloc = parseFloat(grp.allocated_percentage) || 0;
@@ -61,7 +63,7 @@ export default function GroupEarningCard({
             <div className="own-company-date" style={{ marginTop: 2 }}>
               {grp.companies.map((c) => {
                 const eq = parseFloat(c.group_equity) || 0;
-                return eq > 0 ? `${c.name} (${eq}%)` : c.name;
+                return eq > 0 ? `${c.name} (${fmtPct(eq)})` : c.name;
               }).join(", ")}
             </div>
           )}
@@ -69,9 +71,9 @@ export default function GroupEarningCard({
         <div className="own-card-header-middle">
           <div className="own-allocation-info">
             <span className="own-allocation-label">Total Allocation</span>
-            <span className="own-allocation-percentage">{totalLive}%</span>
+            <span className="own-allocation-percentage">{fmtPct(totalLive)}</span>
             <span className={`own-allocation-remaining${totalLive > 100 ? " own-over-limit" : ""}`}>
-              {totalLive > 100 ? "Over limit!" : `${(100 - totalLive).toFixed(2)}% Remaining`}
+              {totalLive > 100 ? "Over limit!" : `${fmtPct(100 - totalLive)} Remaining`}
             </span>
           </div>
           <div className="own-progress-bar-container">
@@ -116,13 +118,14 @@ export default function GroupEarningCard({
                     enableDrag={false}
                     onUpdate={(i, f, v) => onUpdateRow(gid, i, f, v)}
                     onRemove={(i) => onRemoveRow(gid, i)}
+                    readOnlyMode={readOnlyMode}
                   />
                 ))}
               </div>
-              <button type="button" className="own-btn-add-account" data-action="add-row">
+              <button type="button" className="own-btn-add-account" data-action="add-row" disabled={readOnlyMode}>
                 + Add Account
               </button>
-              <GePartnerSection groupId={gid} onLink={(login) => onLinkPartner(login)} />
+              <GePartnerSection groupId={gid} disabled={readOnlyMode} onLink={(login) => onLinkPartner(login)} />
               <div className="own-card-footer">
                 <div className="own-footer-left">
                   <div className={`own-warning-badge${warn.err ? " own-warning-error" : ""}`} style={{ display: warn.show ? "flex" : "none" }}>
@@ -139,7 +142,7 @@ export default function GroupEarningCard({
                     type="button"
                     className="own-footer-btn own-btn-confirm"
                     data-action="confirm"
-                    disabled={confirmDisabled || geSavingGid === gid}
+                    disabled={readOnlyMode || confirmDisabled || geSavingGid === gid}
                   >
                     {geSavingGid === gid ? "Saving..." : "Confirm"}
                   </button>

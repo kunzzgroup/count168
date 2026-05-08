@@ -185,7 +185,7 @@
                 return { valid: false, value: 0 };
             }
             if (divisor.lte(0)) return { valid: false, value: 0 };
-            return { valid: true, value: MoneyDecimal.div('1', divisor).toString() };
+            return { valid: true, value: normalizeRateForSubmit(MoneyDecimal.div('1', divisor).toString()) };
         }
 
         // 仅允许数字、小数点、*、/；不允许其他字符

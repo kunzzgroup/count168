@@ -179,7 +179,7 @@ export default function AddAccountModal({ companyId, companyCode, preferredRole,
 
   return (
     <DomainModalPortal>
-      <div className="account-modal" style={{ display: "block", zIndex: 10010 }}>
+      <div className="account-modal" style={{ display: "block", zIndex: 50010 }}>
         <div className="account-modal-content">
         <div className="account-modal-header">
           <h2>{t("addAccountTitle")}</h2>

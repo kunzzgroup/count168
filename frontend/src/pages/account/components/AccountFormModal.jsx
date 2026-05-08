@@ -140,6 +140,18 @@ export default function AccountFormModal({
                     </div>
                   </div>
                 )}
+                {form.payment_alert === "1" && (
+                  <div className="account-form-group">
+                    <label>Alert (Amount)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Enter amount (auto-converted to negative)"
+                      value={form.alert_amount || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, alert_amount: e.target.value }))}
+                    />
+                  </div>
+                )}
 
                 <div className="account-form-group">
                   <label>Remark</label>
