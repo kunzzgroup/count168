@@ -344,11 +344,11 @@ export default function DomainFormModal({
           <form className="domain-form-modal-form flex flex-col bg-white" onSubmit={handleSubmit}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />
             <div className="domain-form-modal-body px-9 py-6">
-              <div className="dfm-grid-two mb-2.5">
+              <div className="dfm-grid-two dfm-section-row">
                 <div className="dfm-section-heading">{t("domainInformation")}</div>
                 <div className="dfm-section-heading">{t("companyInformation")}</div>
               </div>
-              <div className="mb-5 h-[2.5px] w-full bg-blue-900" />
+              <div className="dfm-section-divider h-[2.5px] w-full bg-blue-900" />
               <div className="dfm-grid-two">
                 {/* Left: Domain info */}
                 <div className="dfm-col-left min-w-0">
