@@ -1642,7 +1642,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page #addModal .process-form.add-grid {
-    grid-template-columns: minmax(0, 0.38fr) minmax(0, 0.62fr) !important;
+    grid-template-columns: minmax(0, 0.46fr) minmax(0, 0.54fr) !important;
     column-gap: 1rem !important;
     row-gap: 0.45rem !important;
     align-items: start !important;
@@ -3406,7 +3406,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #addModal .process-form.add-grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.38fr) minmax(0, 0.62fr) !important;
+    grid-template-columns: minmax(0, 0.46fr) minmax(0, 0.54fr) !important;
     column-gap: 1rem !important;
     row-gap: 0.45rem !important;
     max-width: 100% !important;
@@ -3458,11 +3458,33 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 #addModal #edit_day_checkboxes.day-checkboxes {
     display: flex !important;
     flex-wrap: wrap !important;
+    flex-direction: row !important;
     align-items: center !important;
+    align-content: flex-start !important;
     gap: 0.6rem !important;
     justify-content: flex-start !important;
     overflow: visible !important;
     white-space: normal !important;
+}
+
+.process-page #addModal #day_checkboxes.day-checkboxes,
+.process-page #addModal #edit_day_checkboxes.day-checkboxes {
+    flex-direction: row !important;
+    align-content: flex-start !important;
+}
+
+#addModal .day-checkboxes .checkbox-item,
+.process-page #addModal .day-checkboxes .checkbox-item {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+}
+
+#addModal .day-checkboxes .checkbox-item label,
+.process-page #addModal .day-checkboxes .checkbox-item label {
+    display: inline !important;
+    margin: 0 !important;
 }
 
 #addModal .day-checkboxes .checkbox-item label {
