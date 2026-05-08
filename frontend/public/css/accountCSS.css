@@ -1220,7 +1220,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 /* Add Account modal: rectangular and full-looking layout */
-#account-addModal .account-modal-content {
+#account-addModal .account-modal-content,
+#account-editModal .account-modal-content {
     width: clamp(780px, 74vw, 910px);
     border-radius: 0.9rem;
     min-height: clamp(560px, 71vh, 700px);
@@ -1231,7 +1232,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 /* Remove large side empty space by allowing form to fill container */
-#account-addModal .account-form {
+#account-addModal .account-form,
+#account-editModal .account-form {
     max-width: 100%;
     width: 100%;
     margin: 0;
@@ -1241,20 +1243,23 @@ body.account-page:not(.account-page--show-all) .account-card {
     flex-direction: column;
 }
 
-#account-addModal .account-form-columns {
+#account-addModal .account-form-columns,
+#account-editModal .account-form-columns {
     gap: clamp(0.95rem, 1.4vw, 1.25rem);
     padding: clamp(0.85rem, 1.2vw, 1.1rem) clamp(1.2rem, 2vw, 1.65rem);
     border-bottom: 1px solid #e5e7eb;
 }
 
-#account-addModal .account-form-section {
+#account-addModal .account-form-section,
+#account-editModal .account-form-section {
     padding: 0 clamp(1.15rem, 1.9vw, 1.55rem);
     margin-bottom: 0;
     padding-bottom: clamp(0.45rem, 0.75vw, 0.65rem);
 }
 
 /* Make fields/readability closer to reference */
-#account-addModal .account-form-group label {
+#account-addModal .account-form-group label,
+#account-editModal .account-form-group label {
     font-size: clamp(12px, 0.85vw, 14px);
     color: #334155;
     letter-spacing: 0.015em;
@@ -1262,7 +1267,10 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-form-group input,
 #account-addModal .account-form-group select,
-#account-addModal .account-form-group textarea {
+#account-addModal .account-form-group textarea,
+#account-editModal .account-form-group input,
+#account-editModal .account-form-group select,
+#account-editModal .account-form-group textarea {
     font-size: clamp(13px, 0.9vw, 14px);
     min-height: 2.55rem;
     border: 1px solid #dbe3ee;
@@ -1270,18 +1278,21 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
-#account-addModal .account-advance-section h3 {
+#account-addModal .account-advance-section h3,
+#account-editModal .account-advance-section h3 {
     font-size: clamp(18px, 1.35vw, 24px);
     margin-bottom: clamp(0.45rem, 0.85vw, 0.7rem);
     padding-bottom: clamp(0.2rem, 0.45vw, 0.3rem);
     border-bottom: 1px solid #e5e7eb;
 }
 
-#account-addModal .account-advance-section {
+#account-addModal .account-advance-section,
+#account-editModal .account-advance-section {
     padding-top: clamp(0.4rem, 0.75vw, 0.65rem);
 }
 
-#account-addModal .account-other-currency {
+#account-addModal .account-other-currency,
+#account-editModal .account-other-currency {
     gap: clamp(0.55rem, 1vw, 0.8rem);
     padding: clamp(0.5rem, 0.9vw, 0.72rem) clamp(0.65rem, 1.2vw, 1rem);
     margin-bottom: clamp(0.5rem, 0.9vw, 0.75rem);
@@ -1290,18 +1301,21 @@ body.account-page:not(.account-page--show-all) .account-card {
     background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
-#account-addModal .account-other-currency label {
+#account-addModal .account-other-currency label,
+#account-editModal .account-other-currency label {
     font-size: clamp(12px, 0.85vw, 13px);
     min-width: 6.8rem;
     color: #334155;
 }
 
-#account-addModal .account-other-currency input {
+#account-addModal .account-other-currency input,
+#account-editModal .account-other-currency input {
     min-height: 2.25rem;
     font-size: clamp(12px, 0.85vw, 13px);
 }
 
-#account-addModal .account-btn-add-currency {
+#account-addModal .account-btn-add-currency,
+#account-editModal .account-btn-add-currency {
     min-height: 2.15rem;
     padding: 0.45rem 0.9rem;
     font-size: clamp(11px, 0.82vw, 12px);
@@ -1309,12 +1323,15 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: 0 2px 6px rgba(13, 96, 255, 0.28);
 }
 
-#account-addModal .account-currency-list {
+#account-addModal .account-currency-list,
+#account-editModal .account-currency-list {
     gap: clamp(0.35rem, 0.7vw, 0.5rem);
 }
 
 #account-addModal .account-currency-item,
-#account-addModal .account-company-btn {
+#account-addModal .account-company-btn,
+#account-editModal .account-currency-item,
+#account-editModal .account-company-btn {
     font-size: clamp(11px, 0.82vw, 12px);
     padding: clamp(0.28rem, 0.56vw, 0.42rem) clamp(0.62rem, 0.95vw, 0.82rem);
     min-height: 1.72rem;
@@ -1323,7 +1340,8 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: none;
 }
 
-#account-addModal .account-form-actions {
+#account-addModal .account-form-actions,
+#account-editModal .account-form-actions {
     margin-top: auto;
     padding: clamp(0.8rem, 1.25vw, 1rem) clamp(1.2rem, 2vw, 1.55rem);
     padding-bottom: clamp(0.55rem, 0.85vw, 0.75rem);
@@ -1333,7 +1351,8 @@ body.account-page:not(.account-page--show-all) .account-card {
     border-top: 1px solid #e5e7eb;
 }
 
-#account-addModal .account-modal-body {
+#account-addModal .account-modal-body,
+#account-editModal .account-modal-body {
     display: flex;
     flex-direction: column;
     padding-left: clamp(0.56rem, 0.9vw, 0.78rem);
@@ -1343,45 +1362,53 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 #account-addModal .account-btn-save,
-#account-addModal .account-btn-cancel {
+#account-addModal .account-btn-cancel,
+#account-editModal .account-btn-save,
+#account-editModal .account-btn-cancel {
     min-width: clamp(126px, 9.5vw, 156px);
     min-height: 2.72rem;
     font-size: clamp(14px, 1vw, 16px);
     padding: clamp(0.58rem, 0.86vw, 0.8rem) clamp(1.35rem, 2vw, 1.85rem);
 }
 
-#account-addModal .account-modal-header h2 {
+#account-addModal .account-modal-header h2,
+#account-editModal .account-modal-header h2 {
     font-size: clamp(34px, 2.25vw, 40px);
     padding-left: clamp(1.35rem, 2.05vw, 1.95rem);
     color: #1f2937;
 }
 
-#account-addModal .account-close {
+#account-addModal .account-close,
+#account-editModal .account-close {
     right: 0.95rem;
     top: 0.9rem;
     color: #94a3b8;
 }
 
-#account-addModal .account-form-column .account-section-header {
+#account-addModal .account-form-column .account-section-header,
+#account-editModal .account-form-column .account-section-header {
     font-size: clamp(13px, 0.92vw, 15px);
     color: #111827;
     border-bottom-color: #e5e7eb;
 }
 
-#account-addModal .account-radio-label {
+#account-addModal .account-radio-label,
+#account-editModal .account-radio-label {
     border-radius: 0.44rem;
     font-size: clamp(11px, 0.8vw, 12px);
     border-color: #dbe4f0;
     background: #f8fafc;
 }
 
-#account-addModal .account-radio-label:has(input:checked) {
+#account-addModal .account-radio-label:has(input:checked),
+#account-editModal .account-radio-label:has(input:checked) {
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
     border-color: transparent;
     box-shadow: 0 3px 8px rgba(13, 96, 255, 0.3);
 }
 
-#account-addModal .account-other-currency>div:not(.account-currency-list) {
+#account-addModal .account-other-currency>div:not(.account-currency-list),
+#account-editModal .account-other-currency>div:not(.account-currency-list) {
     display: flex;
     align-items: center;
     gap: 0.5rem;
