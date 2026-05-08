@@ -10,6 +10,7 @@ export default function AccountingDueModal({
   onPostToTransaction,
   onDismissRows,
   onClose,
+  t,
 }) {
   const postableRows = accountingRows.filter((r) => !r.already_posted_today);
   const postAllChecked = postableRows.length > 0 && postableRows.every((r) => accountingSelected.has(Number(r.id)));
@@ -20,7 +21,7 @@ export default function AccountingDueModal({
       <div className="modal-content accounting-due-modal-content">
         <div className="modal-header">
           <h2>
-            Accounting Due
+            {t("accountingDue")}
             <span className="process-accounting-inbox-badge">{postableRows.length}</span>
           </h2>
           <div className="modal-header-actions">
@@ -35,7 +36,7 @@ export default function AccountingDueModal({
                   <th style={{ width: "36px" }}>
                     <input
                       type="checkbox"
-                      title="Select all"
+                      title={t("selectAll")}
                       className="process-accounting-inbox-cb"
                       checked={postAllChecked}
                       onChange={(e) => {
@@ -52,16 +53,16 @@ export default function AccountingDueModal({
                       }}
                     />
                   </th>
-                  <th>No</th>
-                  <th>Start Date</th>
-                  <th>Card Owner</th>
-                  <th>Bank</th>
-                  <th>Contract</th>
+                  <th>{t("no")}</th>
+                  <th>{t("startDate")}</th>
+                  <th>{t("cardOwner")}</th>
+                  <th>{t("bank")}</th>
+                  <th>{t("contract")}</th>
                   <th style={{ width: "80px" }}>
-                    Delete{" "}
+                    {t("deleteCol")}{" "}
                     <input
                       type="checkbox"
-                      title="Select all for delete"
+                      title={t("selectAllForDelete")}
                       className="process-accounting-inbox-delete-cb"
                       checked={deleteAllChecked}
                       onChange={(e) => {
@@ -76,8 +77,8 @@ export default function AccountingDueModal({
                 </tr>
               </thead>
               <tbody>
-                {accountingLoading && <tr><td colSpan={7}>Loading...</td></tr>}
-                {!accountingLoading && accountingRows.length === 0 && <tr><td colSpan={7}>No process due for accounting today.</td></tr>}
+                {accountingLoading && <tr><td colSpan={7}>{t("loading")}</td></tr>}
+                {!accountingLoading && accountingRows.length === 0 && <tr><td colSpan={7}>{t("noDueToday")}</td></tr>}
                 {!accountingLoading && accountingRows.map((r, idx) => {
                   const id = Number(r.id);
                   const checked = accountingSelected.has(id);
@@ -98,9 +99,9 @@ export default function AccountingDueModal({
             </table>
           </div>
           <div className="process-accounting-inbox-actions">
-            <button type="button" className="btn btn-primary" onClick={onPostToTransaction} disabled={accountingLoading || accountingSelected.size === 0}>Transaction</button>
-            <button type="button" className="btn btn-delete" onClick={onDismissRows} disabled={accountingLoading || accountingDeleteSelected.size === 0}>Delete</button>
-            <button type="button" className="btn btn-cancel" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={onPostToTransaction} disabled={accountingLoading || accountingSelected.size === 0}>{t("transaction")}</button>
+            <button type="button" className="btn btn-delete" onClick={onDismissRows} disabled={accountingLoading || accountingDeleteSelected.size === 0}>{t("delete")}</button>
+            <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
           </div>
         </div>
       </div>

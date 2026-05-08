@@ -53,6 +53,7 @@ export default function BankProcessTable({
   supplierSortDir,
   setSupplierSortDir,
   showHeaderSelectAll,
+  t,
 }) {
   const deletableRows = pageRows.filter(
     (r) => normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions
@@ -101,38 +102,38 @@ export default function BankProcessTable({
   }, [pageRows.length, showAll, supplierSortDir]);
 
   const bankHeaders = [
-    { key: "no", label: "No" },
+    { key: "no", label: t("no") },
     {
       key: "supplier",
       label: (
         <span className="bank-header-sortable" onClick={() => setSupplierSortDir((d) => (d === "asc" ? "desc" : "asc"))} role="presentation">
-          Supplier <span className="bank-sort-indicator">{supplierSortDir === "asc" ? "▲" : "▼"}</span>
+          {t("supplier")} <span className="bank-sort-indicator">{supplierSortDir === "asc" ? "▲" : "▼"}</span>
         </span>
       ),
     },
-    { key: "ccy", label: "Country" },
-    { key: "bank", label: "Bank" },
-    { key: "types", label: "Types" },
-    { key: "owner", label: "Card Owner" },
-    { key: "contract", label: "Contract" },
-    { key: "insurance", label: "Insurance" },
-    { key: "customer", label: "Customer" },
-    { key: "cost", label: "Cost" },
-    { key: "price", label: "Price" },
-    { key: "profit", label: "Profit" },
-    { key: "status", label: "Status" },
-    { key: "date", label: "Date" },
+    { key: "ccy", label: t("country") },
+    { key: "bank", label: t("bank") },
+    { key: "types", label: t("types") },
+    { key: "owner", label: t("cardOwner") },
+    { key: "contract", label: t("contract") },
+    { key: "insurance", label: t("insurance") },
+    { key: "customer", label: t("customer") },
+    { key: "cost", label: t("cost") },
+    { key: "price", label: t("price") },
+    { key: "profit", label: t("profit") },
+    { key: "status", label: t("status") },
+    { key: "date", label: t("date") },
     {
       key: "action",
       label: (
         <>
-          Action
+          {t("action")}
           {showHeaderSelectAll && deletableRows.length > 0 ? (
             <input
               type="checkbox"
               className="header-action-checkbox"
-              title="Select all"
-              aria-label="Select all deletable bank processes on this page"
+              title={t("selectAll")}
+              aria-label={t("selectAllDeletableOnPage")}
               checked={allDeletableSelected}
               onChange={(e) => toggleHeaderSelectAll(e.target.checked)}
               style={{ marginLeft: 10, cursor: "pointer" }}
@@ -155,13 +156,13 @@ export default function BankProcessTable({
       <div ref={cardsRef} className="process-cards bank-mode">
         {tableLoading && (
           <div className="process-card">
-            <div className="card-item" style={{ gridColumn: "1 / -1" }}>Load the Data...</div>
+            <div className="card-item" style={{ gridColumn: "1 / -1" }}>{t("loadData")}</div>
           </div>
         )}
         {!tableLoading && pageRows.length === 0 && (
           <div className="process-card">
             <div className="card-item" style={{ textAlign: "left", padding: 20, gridColumn: "1 / -1" }}>
-              No process data found
+              {t("noProcessDataFound")}
             </div>
           </div>
         )}
@@ -184,6 +185,7 @@ export default function BankProcessTable({
                 row={r}
                 notify={notify}
                 buildApiUrl={buildApiUrl}
+                t={t}
                 onUpdated={() => {
                   notifyTransactionDataChanged("bank-process-list-react");
                   void fetchRows();
@@ -193,14 +195,14 @@ export default function BankProcessTable({
             <div className="card-item">{r.date || "-"}</div>
             <div className="card-item">
               <span className="bank-action-tools">
-                <button type="button" className="edit-btn" aria-label="Edit" title="Edit" onClick={() => openEdit(r.id)}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
-                <button type="button" className="edit-btn remark-action-btn" aria-label="Remark" title="Remark" onClick={() => openRemarkModal(r)} style={{ marginLeft: 6 }}>
+                <button type="button" className="edit-btn" aria-label={t("edit")} title={t("edit")} onClick={() => openEdit(r.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
+                <button type="button" className="edit-btn remark-action-btn" aria-label={t("remark")} title={t("remark")} onClick={() => openRemarkModal(r)} style={{ marginLeft: 6 }}>
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 14, height: 14 }}>
                     <path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
                 {canShowBankResend(r) ? (
-                  <button type="button" className="bank-resend-btn" aria-label="Resend to Accounting Due" title="Resend" onClick={() => openResendModal(r)} style={{ marginLeft: 6 }}>
+                  <button type="button" className="bank-resend-btn" aria-label={t("resendToAccountingDue")} title={t("resend")} onClick={() => openResendModal(r)} style={{ marginLeft: 6 }}>
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 16, height: 16 }}>
                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
                       <path d="M3 3v5h5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
@@ -209,7 +211,7 @@ export default function BankProcessTable({
                 ) : null}
               </span>
               {normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions ? (
-                <input type="checkbox" className="row-checkbox bank-checkbox" style={{ marginLeft: 10 }} checked={selectedIds.has(r.id)} title="Select for deletion" onChange={() => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />
+                <input type="checkbox" className="row-checkbox bank-checkbox" style={{ marginLeft: 10 }} checked={selectedIds.has(r.id)} title={t("selectForDeletion")} onChange={() => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />
               ) : null}
             </div>
           </div>

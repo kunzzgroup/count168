@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-export default function BankSearchableAccountPick({ value, onChange, accounts, disabled }) {
+export default function BankSearchableAccountPick({ value, onChange, accounts, disabled, t }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const wrapRef = useRef(null);
@@ -22,12 +22,12 @@ export default function BankSearchableAccountPick({ value, onChange, accounts, d
   return (
     <div className="custom-select-wrapper" ref={wrapRef}>
       <button type="button" className="custom-select-button" disabled={disabled} onClick={() => !disabled && setOpen((o) => !o)}>
-        {selected ? selected.account_id : "Select Account"}
+        {selected ? selected.account_id : t("selectAccount")}
       </button>
       {open ? (
         <div className="custom-select-dropdown" style={{ display: "block" }}>
           <div className="custom-select-search">
-            <input type="text" placeholder="Search account..." autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input type="text" placeholder={t("searchAccount")} autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <div className="custom-select-options">
             {filtered.map((a) => (
