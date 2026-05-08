@@ -579,7 +579,7 @@ body.user-page.user-page--show-all .user-cards {
 
 /* Modal content: fills the full modal area */
 .user-page .modal-content {
-    background: linear-gradient(180deg, #eef4ff 0%, #f7faff 100%);
+    background: #ffffff;
     width: 100%;
     height: 100%;
     display: flex;
