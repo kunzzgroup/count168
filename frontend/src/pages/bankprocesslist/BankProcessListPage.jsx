@@ -44,7 +44,16 @@ import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
 
 export default function BankProcessListPage() {
-  const [lang, setLang] = useState(() => (localStorage.getItem("language") === "zh" ? "zh" : "en"));
+  const resolveLang = useCallback(
+    (next) => {
+      if (next === "zh") return "zh";
+      if (next === "en") return "en";
+      // Prefer the same key used by AuthenticatedLayout; keep fallback for older persisted value.
+      return localStorage.getItem("login_lang") === "zh" || localStorage.getItem("language") === "zh" ? "zh" : "en";
+    },
+    []
+  );
+  const [lang, setLang] = useState(() => resolveLang());
   const t = useCallback((key, params = {}) => getBankProcessText(lang, key, params), [lang]);
   const tAccount = useCallback((key, params = {}) => getAccountText(lang, key, params), [lang]);
   const [cssReady, setCssReady] = useState(false);
@@ -250,14 +259,17 @@ export default function BankProcessListPage() {
   }, []);
 
   useEffect(() => {
-    const syncLang = () => setLang(localStorage.getItem("language") === "zh" ? "zh" : "en");
+    const syncLang = (event) => {
+      const nextLang = event?.detail?.lang;
+      setLang(resolveLang(nextLang));
+    };
     window.addEventListener("storage", syncLang);
     window.addEventListener("eazycount:language-updated", syncLang);
     return () => {
       window.removeEventListener("storage", syncLang);
       window.removeEventListener("eazycount:language-updated", syncLang);
     };
-  }, []);
+  }, [resolveLang]);
 
   useEffect(() => {
     setCssReady(true);
