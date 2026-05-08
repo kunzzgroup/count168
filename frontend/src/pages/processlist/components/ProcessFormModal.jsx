@@ -34,6 +34,7 @@ export default function ProcessFormModal({
   onClose,
   onSubmit,
   onOpenDescriptionPicker,
+  t,
 }) {
   const [copyOpen, setCopyOpen] = useState(false);
   const [copySearch, setCopySearch] = useState("");
@@ -60,16 +61,18 @@ export default function ProcessFormModal({
   }, []);
 
   const descSummary =
-    form.selected_descriptions?.length > 0 ? `${form.selected_descriptions.length} description(s) selected` : "";
+    form.selected_descriptions?.length > 0
+      ? t("descriptionsSelectedCount", { count: form.selected_descriptions.length })
+      : "";
 
-  const placeholderBtn = "Select Process to Copy From";
+  const placeholderBtn = t("selectProcessToCopyFrom");
   const selectedCopyRow = copyOptions.find((p) => String(p.process_id) === String(form.copy_from));
 
   return (
     <div id={editMode ? "editModal" : "addModal"} className="modal" style={{ display: "block" }}>
       <div className="modal-content">
         <div className="modal-header">
-          <h2>{editMode ? "Edit Process" : "Add Process"}</h2>
+          <h2>{editMode ? t("editProcess") : t("addProcess")}</h2>
           <span className="close" onClick={onClose} role="presentation">
             &times;
           </span>
@@ -80,7 +83,7 @@ export default function ProcessFormModal({
               {!editMode && (
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Copy From</label>
+                    <label>{t("copyFrom")}</label>
                     <div className="custom-select-wrapper" ref={copyWrapRef}>
                       <button
                         type="button"
@@ -88,7 +91,7 @@ export default function ProcessFormModal({
                         onClick={() => setCopyOpen((o) => !o)}
                       >
                         {selectedCopyRow
-                          ? `${selectedCopyRow.process_name || "Unknown"} - ${selectedCopyRow.description_name || "No Description"}`
+                          ? `${selectedCopyRow.process_name || t("unknown")} - ${selectedCopyRow.description_name || t("noDescription")}`
                           : placeholderBtn}
                       </button>
                       {copyOpen && (
@@ -96,7 +99,7 @@ export default function ProcessFormModal({
                           <div className="custom-select-search">
                             <input
                               type="text"
-                              placeholder="Search process..."
+                              placeholder={t("searchProcess")}
                               autoComplete="off"
                               value={copySearch}
                               onChange={(e) => setCopySearch(e.target.value)}
@@ -120,7 +123,7 @@ export default function ProcessFormModal({
                                 }
                               }}
                             >
-                              — Clear —
+                              {t("clear")}
                             </div>
                             {filteredCopy.map((p) => (
                               <div
@@ -134,7 +137,7 @@ export default function ProcessFormModal({
                                   setCopySearch("");
                                 }}
                               >
-                                {`${p.process_name || "Unknown"} - ${p.description_name || "No Description"}`}
+                                {`${p.process_name || t("unknown")} - ${p.description_name || t("noDescription")}`}
                               </div>
                             ))}
                           </div>
@@ -148,7 +151,7 @@ export default function ProcessFormModal({
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor={editMode ? "edit_process_name" : "add_process_id"}>
-                    {editMode ? "Process Name *" : "Process ID *"}
+                    {editMode ? t("processNameRequired") : t("processIdRequired")}
                   </label>
                   <div className={!editMode ? "input-with-checkbox" : ""}>
                     <input
@@ -158,7 +161,7 @@ export default function ProcessFormModal({
                       required={!form.is_multi_process}
                       readOnly={editMode || form.is_multi_process}
                       style={editMode || form.is_multi_process ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" } : undefined}
-                      placeholder="Enter Process ID"
+                      placeholder={t("enterProcessId")}
                     />
                     {!editMode && (
                       <div className="checkbox-container">
@@ -177,7 +180,7 @@ export default function ProcessFormModal({
                             }));
                           }}
                         />
-                        <label htmlFor="add_multi_use">Multi-Process</label>
+                        <label htmlFor="add_multi_use">{t("multiProcess")}</label>
                       </div>
                     )}
                   </div>
@@ -187,7 +190,7 @@ export default function ProcessFormModal({
               {!editMode && form.is_multi_process && form.show_multi_process_selection !== false && (
                 <div className="form-row" id="multi_use_processes">
                   <div className="form-group">
-                    <label>Select Multi-use Processes</label>
+                    <label>{t("selectMultiUseProcesses")}</label>
                     <div className="process-checkboxes" id="process_checkboxes">
                       {multiUseRows.map((p) => (
                         <div key={p.process_name} className="checkbox-item">
@@ -215,7 +218,7 @@ export default function ProcessFormModal({
                         className="btn btn-save btn-small"
                         onClick={() => setForm((prev) => ({ ...prev, show_multi_process_selection: false }))}
                       >
-                        Confirm
+                        {t("confirm")}
                       </button>
                     </div>
                   </div>
@@ -225,7 +228,7 @@ export default function ProcessFormModal({
               {!editMode && form.is_multi_process && form.show_multi_process_selection === false && (
                 <div className="form-row" id="selected_processes_display">
                   <div className="form-group">
-                    <label>Selected Multi-use Processes</label>
+                    <label>{t("selectedMultiUseProcesses")}</label>
                     <div className="selected-processes" id="selected_processes_list">
                       {form.selected_processes?.map((name) => (
                         <div key={name} className="selected-process-item">
@@ -256,7 +259,7 @@ export default function ProcessFormModal({
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor={editMode ? "edit_description" : "add_description"}>
-                    {editMode ? "Description" : "Description *"}
+                    {editMode ? t("description") : t("descriptionRequired")}
                   </label>
                   <div className="input-with-icon">
                     <input
@@ -264,10 +267,10 @@ export default function ProcessFormModal({
                       readOnly
                       required={!editMode}
                       value={descSummary}
-                      placeholder="Click + to select descriptions"
+                      placeholder={t("clickToSelectDescriptions")}
                       style={{ backgroundColor: "#f5f5f5" }}
                     />
-                    <button type="button" className="add-icon" aria-label="Choose description" onClick={onOpenDescriptionPicker}>
+                    <button type="button" className="add-icon" aria-label={t("chooseDescription")} onClick={onOpenDescriptionPicker}>
                       +
                     </button>
                   </div>
@@ -276,7 +279,7 @@ export default function ProcessFormModal({
 
               <div className="form-row" style={{ display: form.selected_descriptions?.length > 0 ? "block" : "none" }}>
                 <div className="form-group">
-                  <label>Selected Descriptions</label>
+                  <label>{t("selectedDescriptions")}</label>
                   <div className="selected-descriptions" id="selected_descriptions_list">
                     {form.selected_descriptions?.map((desc) => (
                       <span key={desc.id} className="selected-description-tag">
@@ -289,13 +292,13 @@ export default function ProcessFormModal({
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Currency</label>
+                  <label>{t("currency")}</label>
                   <select
                     value={form.currency_id}
                     onChange={(e) => setForm((prev) => ({ ...prev, currency_id: e.target.value }))}
                     required
                   >
-                    <option value="">Select Currency</option>
+                    <option value="">{t("selectCurrency")}</option>
                     {currencies.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.code}
@@ -309,7 +312,7 @@ export default function ProcessFormModal({
                 <>
                   <div className="form-row">
                     <div className="form-group">
-                      <label style={{ fontWeight: 600, color: "#666" }}>DTS Modified:</label>
+                      <label style={{ fontWeight: 600, color: "#666" }}>{t("dtsModified")}</label>
                       <div
                         id="edit_dts_modified"
                         style={{
@@ -336,7 +339,7 @@ export default function ProcessFormModal({
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label style={{ fontWeight: 600, color: "#666" }}>DTS Created:</label>
+                      <label style={{ fontWeight: 600, color: "#666" }}>{t("dtsCreated")}</label>
                       <div
                         id="edit_dts_created"
                         style={{
@@ -367,20 +370,20 @@ export default function ProcessFormModal({
             <div className="add-col">
               <div className="form-row">
                 <div className="form-group">
-                  <label>Remove Words</label>
+                  <label>{t("removeWords")}</label>
                   <input
                     value={form.remove_word}
                     onChange={(e) => setForm((prev) => ({ ...prev, remove_word: e.target.value }))}
-                    placeholder="Enter words to remove"
+                    placeholder={t("enterWordsToRemove")}
                   />
-                  <small className="field-help">(Use semicolon to separate multiple words, e.g. abc;cde;efg)</small>
+                  <small className="field-help">{t("removeWordsHelp")}</small>
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <div className="day-use-header">
-                    <label>Day Use</label>
+                    <label>{t("dayUse")}</label>
                     <div className="all-day-checkbox">
                       <input
                         id={editMode ? "edit_all_day" : "add_all_day"}
@@ -391,7 +394,7 @@ export default function ProcessFormModal({
                           else setForm((prev) => ({ ...prev, day_use: [] }));
                         }}
                       />
-                      <label htmlFor={editMode ? "edit_all_day" : "add_all_day"}>All Day</label>
+                      <label htmlFor={editMode ? "edit_all_day" : "add_all_day"}>{t("allDay")}</label>
                     </div>
                   </div>
                   <div className="day-checkboxes" id={editMode ? "edit_day_checkboxes" : "day_checkboxes"}>
@@ -422,33 +425,33 @@ export default function ProcessFormModal({
 
               <div className="form-row row-two-cols">
                 <div className="form-group">
-                  <label>Replace From</label>
+                  <label>{t("replaceFrom")}</label>
                   <input
                     value={form.replace_word_from}
                     onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))}
-                    placeholder="Old word"
+                    placeholder={t("oldWord")}
                   />
-                  <small className="field-help">(Word to be replaced)</small>
+                  <small className="field-help">{t("wordToBeReplaced")}</small>
                 </div>
                 <div className="form-group">
-                  <label>Replace To</label>
+                  <label>{t("replaceTo")}</label>
                   <input
                     value={form.replace_word_to}
                     onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))}
-                    placeholder="New word"
+                    placeholder={t("newWord")}
                   />
-                  <small className="field-help">(Replacement word)</small>
+                  <small className="field-help">{t("replacementWord")}</small>
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Remarks</label>
+                  <label>{t("remarks")}</label>
                   <textarea
                     rows={5}
                     value={form.remark}
                     onChange={(e) => setForm((prev) => ({ ...prev, remark: e.target.value }))}
-                    placeholder="Enter remarks..."
+                    placeholder={t("enterRemarks")}
                   />
                 </div>
               </div>
@@ -456,10 +459,10 @@ export default function ProcessFormModal({
 
             <div className="form-actions add-actions">
               <button type="submit" className="btn btn-save">
-                {editMode ? "Update Process" : "Add Process"}
+                {editMode ? t("updateProcess") : t("addProcess")}
               </button>
               <button type="button" className="btn btn-cancel" onClick={onClose}>
-                Cancel
+                {t("cancel")}
               </button>
             </div>
           </form>

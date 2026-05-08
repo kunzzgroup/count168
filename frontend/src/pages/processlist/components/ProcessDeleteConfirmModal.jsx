@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function ProcessDeleteConfirmModal({ open, count, onCancel, onConfirm, deleting }) {
+export default function ProcessDeleteConfirmModal({ open, count, onCancel, onConfirm, deleting, t }) {
   if (!open) return null;
   return (
     <div className="process-modal" style={{ display: "block" }} role="dialog" aria-modal="true">
@@ -15,16 +15,16 @@ export default function ProcessDeleteConfirmModal({ open, count, onCancel, onCon
             />
           </svg>
         </div>
-        <h2 className="process-confirm-title">Confirm Delete</h2>
+        <h2 className="process-confirm-title">{t("confirmDeleteTitle")}</h2>
         <p className="process-confirm-message">
-          {`Are you sure you want to delete ${count} process(es)? This action cannot be undone.`}
+          {t("confirmDeleteMessage", { count })}
         </p>
         <div className="process-confirm-actions">
           <button type="button" className="process-btn process-btn-cancel confirm-cancel" onClick={onCancel} disabled={deleting}>
-            Cancel
+            {t("cancel")}
           </button>
           <button type="button" className="process-btn process-btn-delete confirm-delete" onClick={onConfirm} disabled={deleting}>
-            {deleting ? "Deleting..." : "Delete"}
+            {deleting ? t("deleting") : t("delete")}
           </button>
         </div>
       </div>

@@ -7,6 +7,7 @@ export default function DescriptionPickerModal({
   onClose,
   onAddDescription,
   onDeleteDescription,
+  t,
 }) {
   const [search, setSearch] = useState("");
   const [newDescName, setNewDescName] = useState("");
@@ -50,7 +51,7 @@ export default function DescriptionPickerModal({
     <div className="modal" style={{ display: "block", zIndex: 10050 }} role="dialog" aria-modal="true">
       <div className="modal-content description-selection-modal">
         <div className="modal-header">
-          <h2>Select or Add Description</h2>
+          <h2>{t("selectOrAddDescription")}</h2>
           <span className="close" onClick={onClose} role="presentation">
             &times;
           </span>
@@ -58,11 +59,11 @@ export default function DescriptionPickerModal({
         <div className="modal-body">
           <div className="description-selection-container">
             <div className="selected-descriptions-section">
-              <h3>Selected Descriptions</h3>
+              <h3>{t("selectedDescriptions")}</h3>
               <div className="selected-descriptions-list" id="selectedDescriptionsInModal">
                 {localSelected.length === 0 ? (
                   <div style={{ padding: "20px", textAlign: "center", color: "#999", fontStyle: "italic" }}>
-                    No descriptions selected
+                    {t("noDescriptionsSelected")}
                   </div>
                 ) : (
                   localSelected.map((item) => (
@@ -79,28 +80,28 @@ export default function DescriptionPickerModal({
 
             <div className="available-descriptions-section">
               <div className="add-description-bar">
-                <h3>Add New Description</h3>
+                <h3>{t("addNewDescription")}</h3>
                 <form className="add-description-form" onSubmit={handleAdd}>
                   <div className="add-description-input-group">
                     <input
                       type="text"
-                      placeholder="Enter new description name..."
+                      placeholder={t("enterNewDescriptionName")}
                       value={newDescName}
                       onChange={(e) => setNewDescName(e.target.value)}
                       required
                     />
                     <button type="submit" className="btn btn-save">
-                      Add
+                      {t("add")}
                     </button>
                   </div>
                 </form>
               </div>
 
-              <h3>Available Descriptions</h3>
+              <h3>{t("availableDescriptions")}</h3>
               <div className="description-search">
                 <input
                   type="text"
-                  placeholder="Search descriptions..."
+                  placeholder={t("searchDescriptions")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -125,7 +126,7 @@ export default function DescriptionPickerModal({
                           e.stopPropagation();
                           setDeleteConfirmId(d.id);
                         }}
-                        title="Delete Description"
+                        title={t("deleteDescription")}
                       >
                         &times;
                       </button>
@@ -138,10 +139,10 @@ export default function DescriptionPickerModal({
         </div>
         <div className="modal-footer">
           <button type="button" className="btn btn-cancel" onClick={onClose}>
-            Cancel
+            {t("cancel")}
           </button>
           <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={() => onConfirm(localSelected)}>
-            Confirm Selection
+            {t("confirmSelection")}
           </button>
         </div>
       </div>
@@ -149,14 +150,14 @@ export default function DescriptionPickerModal({
       {deleteConfirmId != null && (
         <div className="process-modal" style={{ display: "block", zIndex: 10060 }} role="dialog" aria-modal="true">
           <div className="process-confirm-modal-content" style={{ maxWidth: 420 }}>
-            <h2 className="process-confirm-title">Delete description</h2>
-            <p className="process-confirm-message">Are you sure you want to delete this description?</p>
+            <h2 className="process-confirm-title">{t("deleteDescriptionTitle")}</h2>
+            <p className="process-confirm-message">{t("deleteDescriptionConfirm")}</p>
             <div className="process-confirm-actions">
               <button type="button" className="process-btn process-btn-cancel" onClick={() => setDeleteConfirmId(null)}>
-                Cancel
+                {t("cancel")}
               </button>
               <button type="button" className="process-btn process-btn-delete" onClick={() => void runDelete()}>
-                Delete
+                {t("delete")}
               </button>
             </div>
           </div>

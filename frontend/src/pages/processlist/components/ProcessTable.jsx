@@ -18,6 +18,7 @@ export default function ProcessTable({
   openEdit,
   toggleSelectId,
   toggleSelectAll,
+  t,
 }) {
   const deletableRows = pageRows.filter(
     (r) => String(r.status || "").toLowerCase() === "inactive" && !r.has_transactions
@@ -35,19 +36,19 @@ export default function ProcessTable({
       style={showAll ? { overflow: "visible" } : undefined}
     >
       <div className="table-header" id="tableHeader" style={headerStyle}>
-        <div className="header-item gambling-header">No</div>
-        <div className="header-item gambling-header">Process ID</div>
-        <div className="header-item gambling-header">Description</div>
-        <div className="header-item gambling-header">Status</div>
-        <div className="header-item gambling-header">Currency</div>
-        <div className="header-item gambling-header">Day Use</div>
+        <div className="header-item gambling-header">{t("noColumn")}</div>
+        <div className="header-item gambling-header">{t("processId")}</div>
+        <div className="header-item gambling-header">{t("description")}</div>
+        <div className="header-item gambling-header">{t("status")}</div>
+        <div className="header-item gambling-header">{t("currency")}</div>
+        <div className="header-item gambling-header">{t("dayUse")}</div>
         <div className="header-item gambling-header">
-          Action
+          {t("action")}
           {deletableRows.length > 0 ? (
             <input
               type="checkbox"
-              title="Select all"
-              aria-label="Select all inactive processes on this page"
+              title={t("selectAll")}
+              aria-label={t("selectAllInactiveOnPage")}
               checked={allDeletableSelected}
               onChange={(e) => toggleSelectAll(e.target.checked)}
               style={{ marginLeft: 10, cursor: "pointer", display: "inline-block" }}
@@ -67,14 +68,14 @@ export default function ProcessTable({
         {tableLoading && (
           <div className="process-card">
             <div className="card-item" style={{ gridColumn: "1 / -1" }}>
-              Load the Data...
+              {t("loadingData")}
             </div>
           </div>
         )}
         {!tableLoading && pageRows.length === 0 && (
           <div className="process-card">
             <div className="card-item" style={{ textAlign: "left", padding: 20, gridColumn: "1 / -1" }}>
-              No process data found
+              {t("noProcessData")}
             </div>
           </div>
         )}
@@ -100,7 +101,7 @@ export default function ProcessTable({
                   className={`role-badge ${
                     row.status === "active" ? "status-active" : "status-inactive"
                   } status-clickable`}
-                  title="Click to toggle status"
+                  title={t("clickToggleStatus")}
                   onClick={() => toggleStatus(row)}
                   role="button"
                 >
@@ -114,16 +115,16 @@ export default function ProcessTable({
                   type="button"
                   className="edit-btn"
                   onClick={() => openEdit(row.id)}
-                  aria-label="Edit"
-                  title="Edit"
+                  aria-label={t("edit")}
+                  title={t("edit")}
                 >
-                  <img src={assetUrl("images/edit.svg")} alt="Edit" />
+                  <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
                 </button>
                 {String(row.status || "").toLowerCase() === "inactive" && !row.has_transactions && (
                   <input
                     type="checkbox"
                     className="row-checkbox"
-                    title="Select for deletion"
+                    title={t("selectForDeletion")}
                     style={{ marginLeft: 10, cursor: "pointer" }}
                     checked={selectedIds.has(row.id)}
                     onChange={() => toggleSelectId(row.id)}
