@@ -322,7 +322,20 @@ export default function DomainFormModal({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <DomainModalPortal>
-      <div className="fixed inset-0 z-[50001] bg-black/50 backdrop-blur-[4px]" style={{ display: "block" }}>
+      {/* z-index fixed inline: production Tailwind 若未抽出 arbitrary z-[50001]，弹窗可能在 #root/sidebar 下不可见 */}
+      <div
+        className="domain-form-modal-backdrop"
+        style={{
+          display: "block",
+          position: "fixed",
+          inset: 0,
+          zIndex: 2147483000,
+          overflowY: "auto",
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
+        }}
+      >
         <div className="relative mx-auto my-[1.5%] flex w-[96%] max-w-[1100px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
           <div className="flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
             <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>

@@ -212,7 +212,11 @@ export default function DomainPage() {
   }
 
   // ── Open modals ────────────────────────────────────────────────────────────
-  function openAddModal() {
+  function openAddModal(ev) {
+    if (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
     setIsEditMode(false);
     setEditingDomain(null);
     setShowDomainForm(true);
@@ -254,8 +258,12 @@ export default function DomainPage() {
           <div className="domain-toolbar-left">
             <button
               type="button"
+              id="domainAddDomainBtn"
               className="btn-add"
               onClick={openAddModal}
+              onPointerDown={(ev) => {
+                ev.stopPropagation();
+              }}
             >
               {t("addDomainBtn")}
             </button>
@@ -429,6 +437,7 @@ export default function DomainPage() {
 
       {showDomainForm && (
         <DomainFormModal
+          key={isEditMode ? `e-${editingDomain?.id ?? ""}` : "add"}
           lang={lang}
           isEditMode={isEditMode}
           editingDomain={editingDomain}

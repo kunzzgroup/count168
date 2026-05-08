@@ -33,6 +33,8 @@ body.domain-page .domain-react-page {
 }
 
 body.domain-page .domain-react-page>h1 {
+    position: relative;
+    z-index: 400;
     color: #002C49;
     text-align: left;
     margin-top: clamp(12px, 1.04vw, 20px);
@@ -46,7 +48,7 @@ body.domain-page .domain-react-page>h1 {
 body.domain-page .domain-react-page .action-buttons {
     /* 整块工具栏叠在下方 table 之上，避免兄弟层 late-paint 盖住 Add/Price 等按钮点击区 */
     position: relative;
-    z-index: 30;
+    z-index: 400;
     margin-bottom: 24px;
     display: flex;
     justify-content: space-between;
@@ -79,6 +81,7 @@ body.domain-page .domain-react-page .separator-line {
     background-color: #939393;
     margin: 5px 0 -10px 0;
     position: relative;
+    z-index: 399;
     left: 50%;
     right: 50%;
     margin-left: -50vw;
@@ -86,6 +89,9 @@ body.domain-page .domain-react-page .separator-line {
 }
 
 body.domain-page .domain-react-page .table-container {
+    position: relative;
+    z-index: 0;
+    isolation: isolate;
     overflow-x: visible;
     overflow-y: auto;
     margin-top: 20px;
