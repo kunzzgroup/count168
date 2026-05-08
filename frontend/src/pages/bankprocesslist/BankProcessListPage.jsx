@@ -24,7 +24,9 @@ import {
   EMPTY_BANK_FORM,
   parseBankContractTermMonths,
   contractBillingEndYmdForBankForm,
+  matchesCurrentBankFilters,
 } from "./bankProcessHelpers.js";
+import ProcessDeleteConfirmModal from "../processlist/components/ProcessDeleteConfirmModal.jsx";
 
 // Component imports
 import BankProcessTable from "./components/BankProcessTable.jsx";
@@ -53,6 +55,8 @@ export default function BankProcessListPage() {
   const [showOfficial, setShowOfficial] = useState(false);
   const [showEInvoice, setShowEInvoice] = useState(false);
   const [showBlock, setShowBlock] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [toast, setToast] = useState(null);
@@ -348,6 +352,8 @@ export default function BankProcessListPage() {
     window.history.replaceState({}, document.title, url.toString());
   }, [companyId, search, dateFrom, dateTo, showAll, showInactive, showOfficial, showEInvoice, showBlock]);
 
+  // Bank list always fetches the full dataset, then filters client-side
+  // (matches legacy bank_process_list.js: prevents stale issue_flag/inactive splits).
   const fetchRows = useCallback(async () => {
     if (!companyId) return;
     listAbortRef.current?.abort();
@@ -359,11 +365,7 @@ export default function BankProcessListPage() {
       url.searchParams.set("permission", "Bank");
       url.searchParams.set("company_id", String(companyId));
       if (search.trim()) url.searchParams.set("search", search.trim());
-      if (showAll) url.searchParams.set("showAll", "1");
-      if (showInactive) url.searchParams.set("showInactive", "1");
-      if (showOfficial) url.searchParams.set("showOfficial", "1");
-      if (showEInvoice) url.searchParams.set("showEInvoice", "1");
-      if (showBlock) url.searchParams.set("showBlock", "1");
+      url.searchParams.set("showAll", "1");
       const res = await fetch(url.toString(), { credentials: "include", signal: ac.signal });
       const json = await res.json();
       if (ac.signal.aborted) return;
@@ -378,13 +380,21 @@ export default function BankProcessListPage() {
     } finally {
       if (!ac.signal.aborted) setTableLoading(false);
     }
-  }, [companyId, search, showAll, showInactive, showOfficial, showEInvoice, showBlock, notify, syncUrl]);
+  }, [companyId, search, notify, syncUrl]);
 
   useEffect(() => {
     if (!companyId || loading) return;
     const t = window.setTimeout(() => { void fetchRows(); }, 180);
     return () => window.clearTimeout(t);
-  }, [companyId, loading, search, showAll, showInactive, showOfficial, showEInvoice, showBlock, fetchRows, dateFrom, dateTo]);
+  }, [companyId, loading, search, fetchRows]);
+
+  // URL still reflects active filters even though they're applied client-side.
+  useEffect(() => {
+    if (!companyId || loading) return;
+    syncUrl();
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, [companyId, loading, showAll, showInactive, showOfficial, showEInvoice, showBlock, dateFrom, dateTo, syncUrl]);
 
   const loadAccountingInbox = useCallback(async () => {
     if (!companyId) return;
@@ -689,8 +699,17 @@ export default function BankProcessListPage() {
     } catch { notify("Resend failed", "danger"); }
   };
 
-  const deleteSelected = async () => {
-    if (!selectedIds.size || !window.confirm("Delete selected inactive bank processes?")) return;
+  const deleteSelected = () => {
+    if (!selectedIds.size) return;
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteProcesses = async () => {
+    if (!selectedIds.size) {
+      setDeleteConfirmOpen(false);
+      return;
+    }
+    setDeleteSubmitting(true);
     try {
       const res = await fetch(buildApiUrl("api/processes/delete_processes_api.php"), {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
@@ -698,10 +717,14 @@ export default function BankProcessListPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Delete failed", "danger");
-      notify("Deleted successfully");
+      const n = json?.data?.deleted ?? selectedIds.size;
+      notify(n === 1 ? "1 process deleted successfully" : `${n} processes deleted successfully`, "success");
       notifyTransactionDataChanged("bank-process-list-react");
+      setDeleteConfirmOpen(false);
+      setSelectedIds(new Set());
       fetchRows();
     } catch { notify("Delete failed", "danger"); }
+    finally { setDeleteSubmitting(false); }
   };
 
   const allCompanyButtons = useMemo(() => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""), [companies]);
@@ -720,18 +743,20 @@ export default function BankProcessListPage() {
   }, [rows, supplierSortDir]);
 
   const visibleRows = useMemo(() => {
-    if (!dateFrom && !dateTo) return supplierSortedRows;
+    const filterState = { showAll, showInactive, showOfficial, showEInvoice, showBlock };
+    const filtered = supplierSortedRows.filter((r) => matchesCurrentBankFilters(r, filterState));
+    if (!dateFrom && !dateTo) return filtered;
     const fromMs = dateFrom ? parseRowDateMs(dateFrom) : null;
     const toMs = dateTo ? parseRowDateMs(dateTo) : null;
     const toEnd = toMs != null ? toMs + 86400000 - 1 : null;
-    return supplierSortedRows.filter((r) => {
+    return filtered.filter((r) => {
       const ts = parseRowDateMs(r.date || r.day_start);
       if (ts == null) return false;
       if (fromMs !== null && ts < fromMs) return false;
       if (toEnd !== null && ts > toEnd) return false;
       return true;
     });
-  }, [supplierSortedRows, dateFrom, dateTo]);
+  }, [supplierSortedRows, dateFrom, dateTo, showAll, showInactive, showOfficial, showEInvoice, showBlock]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE)), [visibleRows]);
   const pageRows = useMemo(() => {
@@ -783,11 +808,76 @@ export default function BankProcessListPage() {
                 </svg>
                 <input type="text" className="search-input" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-              <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /><label htmlFor="showAll">Show All</label></div>
-              <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /><label htmlFor="showInactive">Show Inactive</label></div>
-              <div className="checkbox-section"><input type="checkbox" id="showOfficial" checked={showOfficial} onChange={(e) => setShowOfficial(e.target.checked)} /><label htmlFor="showOfficial">Show Official</label></div>
-              <div className="checkbox-section"><input type="checkbox" id="showEInvoice" checked={showEInvoice} onChange={(e) => setShowEInvoice(e.target.checked)} /><label htmlFor="showEInvoice">Show E-Invoice</label></div>
-              <div className="checkbox-section"><input type="checkbox" id="showBlock" checked={showBlock} onChange={(e) => setShowBlock(e.target.checked)} /><label htmlFor="showBlock">Show Block</label></div>
+              <div className="checkbox-section">
+                <input
+                  type="checkbox"
+                  id="showAll"
+                  checked={showAll}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setShowAll(v);
+                    if (v) {
+                      setShowInactive(false);
+                      setShowOfficial(false);
+                      setShowEInvoice(false);
+                      setShowBlock(false);
+                    }
+                  }}
+                />
+                <label htmlFor="showAll">Show All</label>
+              </div>
+              <div className="checkbox-section">
+                <input
+                  type="checkbox"
+                  id="showInactive"
+                  checked={showInactive}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setShowInactive(v);
+                    if (v) setShowAll(false);
+                  }}
+                />
+                <label htmlFor="showInactive">Show Inactive</label>
+              </div>
+              <div className="checkbox-section">
+                <input
+                  type="checkbox"
+                  id="showOfficial"
+                  checked={showOfficial}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setShowOfficial(v);
+                    if (v) setShowAll(false);
+                  }}
+                />
+                <label htmlFor="showOfficial">Show Official</label>
+              </div>
+              <div className="checkbox-section">
+                <input
+                  type="checkbox"
+                  id="showEInvoice"
+                  checked={showEInvoice}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setShowEInvoice(v);
+                    if (v) setShowAll(false);
+                  }}
+                />
+                <label htmlFor="showEInvoice">Show E-Invoice</label>
+              </div>
+              <div className="checkbox-section">
+                <input
+                  type="checkbox"
+                  id="showBlock"
+                  checked={showBlock}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setShowBlock(v);
+                    if (v) setShowAll(false);
+                  }}
+                />
+                <label htmlFor="showBlock">Show Block</label>
+              </div>
             </div>
             <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title="Only inactive processes can be deleted" onClick={deleteSelected}>Delete</button>
           </div>
@@ -798,6 +888,7 @@ export default function BankProcessListPage() {
         <BankProcessTable
           tableLoading={tableLoading} showAll={showAll} pageRows={pageRows} currentPage={currentPage}
           PAGE_SIZE={PAGE_SIZE} selectedIds={selectedIds} setSelectedIds={setSelectedIds}
+          showHeaderSelectAll={showInactive || showOfficial || showEInvoice || showBlock}
           notify={notify} fetchRows={fetchRows} openEdit={openEdit} openRemarkModal={(row) => { setRemarkRow(row); setRemarkDraft(String(row.remark || "")); setRemarkModalOpen(true); }}
           openResendModal={(row) => {
             setResendInlineError("");
@@ -884,6 +975,14 @@ export default function BankProcessListPage() {
       {remarkModalOpen && (
         <BankRemarkModal remarkDraft={remarkDraft} setRemarkDraft={setRemarkDraft} onSave={saveRemarkModal} onClose={() => setRemarkModalOpen(false)} />
       )}
+
+      <ProcessDeleteConfirmModal
+        open={deleteConfirmOpen}
+        count={selectedIds.size}
+        deleting={deleteSubmitting}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={confirmDeleteProcesses}
+      />
 
       <AccountAddModalSameAsList
         open={addAccountModalOpen} onClose={() => { setAddAccountModalOpen(false); setAccountPlusTarget(null); }}

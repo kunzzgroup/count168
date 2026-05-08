@@ -43,6 +43,35 @@ export function isBankInactiveLike(status, issueFlag) {
   return s === "inactive" || f === "official" || f === "e_invoice" || f === "block";
 }
 
+/**
+ * Bank list client-side row filter (legacy bank_process_list.js matchesCurrentBankFilters).
+ * - showAll: keep everything (date-range still applied by caller)
+ * - any of showInactive/showOfficial/showEInvoice/showBlock: union of those exact buckets
+ * - none: only "default visible" rows = active AND issue_flag NOT IN (official, e_invoice, block)
+ *
+ * "Plain inactive" means status==='inactive' AND issue_flag NOT IN (official, e_invoice, block).
+ */
+export function matchesCurrentBankFilters(row, filters) {
+  if (!row) return false;
+  const { showAll, showInactive, showOfficial, showEInvoice, showBlock } = filters || {};
+  if (showAll) return true;
+  const status = normalizeBankProcessStatus(row.status);
+  const issueFlag = normalizeBankIssueFlag(row.issue_flag);
+  const isPlainInactive =
+    status === "inactive" && issueFlag !== "official" && issueFlag !== "e_invoice" && issueFlag !== "block";
+  const matches = [];
+  if (showInactive) matches.push(isPlainInactive);
+  if (showOfficial) matches.push(issueFlag === "official");
+  if (showEInvoice) matches.push(issueFlag === "e_invoice");
+  if (showBlock) matches.push(issueFlag === "block");
+  if (matches.length === 0) {
+    return (
+      status === "active" && issueFlag !== "official" && issueFlag !== "e_invoice" && issueFlag !== "block"
+    );
+  }
+  return matches.some(Boolean);
+}
+
 export function canShowBankResend(row) {
   const s = normalizeBankProcessStatus(row?.status);
   return s === "active" && !isBankInactiveLike(row?.status, row?.issue_flag);
