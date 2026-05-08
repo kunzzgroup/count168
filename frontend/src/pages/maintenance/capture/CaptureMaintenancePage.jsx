@@ -27,7 +27,7 @@ import ConfirmDeleteModal from "./components/ConfirmDeleteModal.jsx";
 export default function CaptureMaintenancePage() {
   const navigate = useNavigate();
 
-  // -- Boot State --
+  // -- Boot State ---
   const [bootLoading, setBootLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
