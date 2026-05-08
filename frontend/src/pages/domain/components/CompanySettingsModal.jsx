@@ -441,11 +441,16 @@ export default function CompanySettingsModal({
                             onClick={(e) => { e.stopPropagation(); toggleCard(role); }}>
                             {t("manage")}
                           </button>
+                          <span className="company-share-icon-chevron" aria-hidden="true">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                          </span>
                         </div>
                       </div>
 
                       {isExpanded && (
-                        <div className="company-share-role-body">
+                        <div className={`company-share-role-body${isProfit ? " profit-pool company-share-role-body--profit-pool" : ""}`}>
                           <div className={`company-share-column-labels${isProfit ? " company-share-column-labels--profit-pool" : ""}`}>
                             <span>{t("account")}</span>
                             {!isProfit && <span>{t("share")}</span>}
