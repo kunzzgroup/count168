@@ -1350,13 +1350,6 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding: clamp(0.58rem, 0.86vw, 0.8rem) clamp(1.35rem, 2vw, 1.85rem);
 }
 
-#account-addModal .account-btn-save {
-    min-width: clamp(102px, 7.3vw, 122px);
-    min-height: 2.32rem;
-    font-size: clamp(12px, 0.85vw, 13px);
-    padding: clamp(0.42rem, 0.66vw, 0.56rem) clamp(0.95rem, 1.35vw, 1.2rem);
-}
-
 #account-addModal .account-modal-header h2 {
     font-size: clamp(34px, 2.25vw, 40px);
     padding-left: clamp(1.35rem, 2.05vw, 1.95rem);
