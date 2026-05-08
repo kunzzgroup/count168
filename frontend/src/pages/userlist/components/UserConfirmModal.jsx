@@ -3,7 +3,7 @@ import React from "react";
 export default function UserConfirmModal({ open, message, onConfirm, onClose, t }) {
   if (!open) return null;
   return (
-    <div id="confirmModal" className="modal" style={{ display: "block" }}>
+    <div id="confirmModal" className="modal" style={{ display: "flex" }}>
       <div className="confirm-modal-content">
         <div className="confirm-icon-container">
           <svg className="confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
