@@ -50,6 +50,9 @@ export default function UserListPage() {
   const [usersRaw, setUsersRaw] = useState([]);
   const [tableLoading, setTableLoading] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
+  const [gcPopoverOpen, setGcPopoverOpen] = useState(false);
+  const [popoverActiveGroup, setPopoverActiveGroup] = useState("");
+  const [gcDraftCompanyId, setGcDraftCompanyId] = useState(null);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -64,6 +67,7 @@ export default function UserListPage() {
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
   const pendingDeleteRef = useRef([]);
+  const gcPopoverRef = useRef(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -95,6 +99,25 @@ export default function UserListPage() {
   }, [companies, companyId]);
 
   const allCompanyButtons = useMemo(() => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""), [companies]);
+  const groupIds = useMemo(
+    () =>
+      [...new Set(allCompanyButtons
+        .map((c) => String(c.group_id || "").trim().toUpperCase())
+        .filter(Boolean))]
+        .sort(),
+    [allCompanyButtons]
+  );
+  const selectedCompany = useMemo(
+    () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
+    [allCompanyButtons, companyId]
+  );
+  const selectedGroupLabel = String(selectedCompany?.group_id || "-").toUpperCase();
+  const selectedCompanyLabel = String(selectedCompany?.company_id || "").toUpperCase();
+  const gcSummary = `${selectedGroupLabel} - ${selectedCompanyLabel}`;
+  const companiesInGroup = useMemo(() => {
+    if (!popoverActiveGroup) return allCompanyButtons;
+    return allCompanyButtons.filter((c) => String(c.group_id || "").toUpperCase() === popoverActiveGroup);
+  }, [allCompanyButtons, popoverActiveGroup]);
 
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
@@ -141,6 +164,16 @@ export default function UserListPage() {
       window.removeEventListener("eazycount:language-updated", onLangUpdated);
     };
   }, []);
+
+  useEffect(() => {
+    if (!gcPopoverOpen) return;
+    const onDocPointerDown = (e) => {
+      if (!gcPopoverRef.current) return;
+      if (!gcPopoverRef.current.contains(e.target)) setGcPopoverOpen(false);
+    };
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, [gcPopoverOpen]);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -211,6 +244,19 @@ export default function UserListPage() {
       setCompanyId(Number(c.id));
       notifyCompanySessionUpdated();
     } catch { notify(t("companySwitchFailed"), "danger"); } finally { setSwitchingCompany(false); }
+  };
+
+  const openGcPopover = () => {
+    const currentGroup = String(selectedCompany?.group_id || "").trim().toUpperCase();
+    setPopoverActiveGroup(currentGroup || groupIds[0] || "");
+    setGcDraftCompanyId(Number(companyId) || null);
+    setGcPopoverOpen((v) => !v);
+  };
+
+  const confirmGcPopover = async () => {
+    const picked = allCompanyButtons.find((c) => Number(c.id) === Number(gcDraftCompanyId));
+    if (picked) await onSwitchCompany(picked);
+    setGcPopoverOpen(false);
   };
 
   const fetchModalAccountsProcesses = async (cid) => {
@@ -375,25 +421,53 @@ export default function UserListPage() {
                 {t("deleteWithCount", { count: selectedDeleteIds.size })}
               </button>
             </div>
-            <div className="user-group-company-row">
-              <label className="user-group-company-label" htmlFor="userGroupCompanySelect">Group / Company</label>
-              <select
-                id="userGroupCompanySelect"
-                className="user-group-company-select"
-                value={companyId ?? ""}
-                onChange={(e) => {
-                  const pickedId = Number(e.target.value);
-                  const picked = allCompanyButtons.find((c) => Number(c.id) === pickedId);
-                  if (picked) onSwitchCompany(picked);
-                }}
-                disabled={switchingCompany}
-              >
-                {allCompanyButtons.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {`${String(c.group_id || "-").toUpperCase()} - ${String(c.company_id || "").toUpperCase()}`}
-                  </option>
-                ))}
-              </select>
+            <div className="user-group-company-row" ref={gcPopoverRef}>
+              <button type="button" className="user-gc-trigger" onClick={openGcPopover} disabled={switchingCompany}>
+                <span className="user-gc-trigger__label">Group / Company</span>
+                <span className="user-gc-trigger__chips" title={gcSummary}>{gcSummary}</span>
+                <span className="user-gc-trigger__caret" aria-hidden>▼</span>
+              </button>
+              {gcPopoverOpen && (
+                <div className="user-gc-popover" role="dialog">
+                  {groupIds.length > 0 && (
+                    <div className="user-gc-popover__groups">
+                      <div className="user-gc-popover__title">Select Group</div>
+                      {groupIds.map((gid) => (
+                        <button
+                          key={gid}
+                          type="button"
+                          className={`user-gc-group-item${popoverActiveGroup === gid ? " is-active" : ""}`}
+                          onClick={() => setPopoverActiveGroup(gid)}
+                        >
+                          <span>{gid} Group</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="user-gc-popover__companies">
+                    <div className="user-gc-popover__title">Select Company</div>
+                    <div className="user-gc-company-pills">
+                      {companiesInGroup.map((c) => {
+                        const cid = Number(c.id);
+                        const active = Number(gcDraftCompanyId) === cid;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className={`user-gc-company-pill${active ? " is-on" : ""}`}
+                            onClick={() => setGcDraftCompanyId(cid)}
+                          >
+                            {String(c.company_id || "").toUpperCase()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="user-gc-popover__footer">
+                      <button type="button" className="user-gc-confirm-btn" onClick={confirmGcPopover}>Confirm</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="user-table-wrapper">
