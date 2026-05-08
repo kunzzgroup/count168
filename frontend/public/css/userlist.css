@@ -593,7 +593,7 @@ body.user-page.user-page--show-all .user-cards {
     align-items: center;
     justify-content: space-between;
     padding: 3px 32px;
-    background: #ffffff;
+    background: #e5e7eb;
     border-bottom: 2px solid #e2e8f0;
     flex-shrink: 0;
 }
