@@ -1,7 +1,10 @@
-.domain-react-page {
+body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    margin: 0;
+    padding: 0;
     min-height: 100vh;
-    height: auto;
+    height: 100vh;
+    /* 添加这行 */
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -12,20 +15,23 @@
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
+    /* 添加这行，禁止垂直滚动 */
 }
 
-.domain-react-page {
+.container {
     max-width: none;
     margin: 0;
     padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    height: auto;
+    height: 100vh;
+    /* 添加这行 */
     box-sizing: border-box;
-    overflow: visible;
+    overflow: hidden;
+    /* 添加这行 */
 }
 
-.domain-react-page h1 {
+h1 {
     color: #002C49;
     text-align: left;
     margin-top: clamp(12px, 1.04vw, 20px);
@@ -37,19 +43,12 @@
 }
 
 .action-buttons {
-    margin-bottom: 0;
+    margin-bottom: 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
     padding-bottom: clamp(10px, 1.04vw, 20px);
-}
-
-.domain-toolbar-left,
-.domain-toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
 }
 
 /* 横线样式 - 超出container */
@@ -65,19 +64,7 @@
     margin-right: -50vw;
 }
 
-/* Domain List：分隔线在工具栏与列标题之间（与 domain.php / 图二一致） */
-.domain-react-page > .separator-line {
-    margin-top: clamp(6px, 0.65vw, 14px);
-    margin-bottom: clamp(8px, 0.78vw, 16px);
-    margin-left: -50vw;
-    margin-right: -50vw;
-}
-
-.domain-react-page .table-container {
-    margin-top: 0;
-}
-
-.domain-react-page .table-container {
+.table-container {
     overflow-x: visible;
     overflow-y: auto;
     margin-top: 20px;
@@ -87,20 +74,20 @@
     /* 添加这行，限制最大高度 */
 }
 
-.domain-react-page .btn:hover {
+.btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.domain-react-page .btn:active {
+.btn:active {
     transform: translateY(0);
 }
 
-.domain-react-page .btn:hover::after {
+.btn:hover::after {
     transform: translateX(120%);
 }
 
-.domain-react-page .btn-add {
+.btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
@@ -108,36 +95,32 @@
     padding: clamp(6px, 0.42vw, 8px) 0px;
     font-size: clamp(10px, 0.83vw, 16px);
     border: none;
-    border-radius: 9999px;
+    border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
 }
 
-.domain-react-page .btn-add:hover {
+.btn-add:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
 }
 
-.domain-react-page .btn-fee-settings {
+.btn-fee-settings {
     background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
     color: white;
     font-family: 'Amaranth', sans-serif;
     padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1vw, 18px);
     font-size: clamp(10px, 0.83vw, 16px);
     border: none;
-    border-radius: 9999px;
+    border-radius: 6px;
     box-shadow: 0 2px 4px rgba(71, 85, 105, 0.35);
     cursor: pointer;
     white-space: nowrap;
 }
 
-.domain-react-page .btn-fee-settings:hover {
+.btn-fee-settings:hover {
     background: linear-gradient(180deg, #64748b 0%, #334155 100%);
     box-shadow: 0 4px 8px rgba(51, 65, 85, 0.4);
     transform: translateY(-1px);
@@ -1265,7 +1248,7 @@
     color: #b45309;
 }
 
-.domain-react-page .btn-edit {
+.btn-edit {
     background-color: transparent;
     color: black;
     padding: clamp(2px, 0.31vw, 6px) 0;
@@ -1274,12 +1257,12 @@
     cursor: pointer;
 }
 
-.domain-react-page .btn-edit:hover {
+.btn-edit:hover {
     background-color: transparent;
     box-shadow: none;
 }
 
-.domain-react-page .btn-edit img {
+.btn-edit img {
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(10px, 0.83vw, 16px);
     display: block;
@@ -1288,45 +1271,34 @@
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
-.domain-react-page .btn-delete {
+.btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: 'Amaranth';
     width: clamp(90px, 6.25vw, 120px);
-    padding: clamp(6px, 0.42vw, 8px) 0px;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
     margin-left: 10px;
     border: none;
-    border-radius: 9999px;
+    border-radius: 6px;
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
 }
 
-.domain-react-page .btn-delete:hover {
+.btn-delete:hover {
     background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
 }
 
-.domain-react-page .btn-delete:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: 0 1px 2px rgba(220, 53, 69, 0.2);
-}
-
-.domain-react-page .btn-delete.active {
+.btn-delete.active {
     background: linear-gradient(180deg, #49a70bff 0%, #15581aff 100%) !important;
     color: white !important;
     box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3) !important;
 }
 
-.domain-react-page .btn-cancel {
+.btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1340,13 +1312,13 @@
     cursor: pointer;
 }
 
-.domain-react-page .btn-cancel:hover {
+.btn-cancel:hover {
     background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
     box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
     transform: translateY(-1px);
 }
 
-.domain-react-page .btn-access {
+.btn-access {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1360,7 +1332,7 @@
     cursor: pointer;
 }
 
-.domain-react-page .btn-access:hover {
+.btn-access:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
@@ -1505,7 +1477,7 @@
     border-top: 1px solid #e2e8f0;
 }
 
-.domain-react-page .btn-save {
+.btn-save {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1519,17 +1491,17 @@
     cursor: pointer;
 }
 
-.domain-react-page .btn-save:hover {
+.btn-save:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(1, 59, 153, 0.4);
     transform: translateY(-1px);
 }
 
-.domain-react-page .btn-save:hover::after {
+.btn-save:hover::after {
     transform: translateX(120%);
 }
 
-.domain-react-page .btn-primary {
+.btn-primary {
     background: linear-gradient(180deg, #6fd4c6 0%, #2ea89b 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1542,7 +1514,7 @@
     cursor: pointer;
 }
 
-.domain-react-page .btn-primary:hover {
+.btn-primary:hover {
     background: linear-gradient(180deg, #2ea89b 0%, #6fd4c6 100%);
     box-shadow: 0 4px 8px rgba(14, 116, 106, 0.4);
     transform: translateY(-1px);
@@ -1892,45 +1864,6 @@
     text-decoration: underline;
 }
 
-/* Domain 列表：公司芯片 — 浅灰 pill，与 count168 一致 */
-.domain-company-chip {
-    cursor: pointer;
-    display: inline-block;
-    border-radius: 9999px;
-    border: 1px solid #d1d5db;
-    background: #f1f5f9;
-    color: #334155;
-    padding: clamp(2px, 0.2vw, 5px) clamp(8px, 0.65vw, 12px);
-    font-size: clamp(9px, 0.72vw, 12px);
-    font-weight: 600;
-    transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.domain-company-chip:hover {
-    background: #e2e8f0;
-    border-color: #94a3b8;
-    color: #0f172a;
-}
-
-.domain-company-more {
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 9999px;
-    padding: clamp(2px, 0.2vw, 4px) clamp(7px, 0.55vw, 10px);
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-    color: #fff;
-    font-size: clamp(9px, 0.72vw, 12px);
-    font-weight: 700;
-    border: none;
-    box-shadow: 0 1px 3px rgba(0, 123, 255, 0.35);
-}
-
-.domain-company-more:hover {
-    filter: brightness(1.05);
-}
-
 /* Company Expiration Modal Styles */
 .company-exp-item {
     display: flex;
@@ -2010,7 +1943,7 @@
     width: clamp(165px, 13vw, 250px);
     padding: 7px 2px clamp(6px, 0.42vw, 8px) clamp(20px, 2.08vw, 32px) !important;
     border: 1px solid rgba(148, 163, 184, 0.35);
-    border-radius: 9999px;
+    border-radius: 6px;
     font-size: clamp(10px, 0.8vw, 15px);
     background: rgba(255, 255, 255, 1);
     color: #000000ff;
@@ -2033,29 +1966,27 @@
     display: none !important;
 }
 
-/* 新的卡片式表格样式：纵向滚动由 .domain-cards 承担，避免双滚动条 */
-.domain-react-page .table-container {
+/* 新的卡片式表格样式 */
+.table-container {
     overflow-x: visible;
-    overflow-y: visible;
     margin-top: 20px;
     border: none;
     border-radius: 0;
-    max-height: none;
 }
 
-.domain-react-page .table-header {
+.table-header {
     display: grid;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
-    padding: clamp(10px, 0.85vw, 14px) 22px;
-    /* background: linear-gradient(180deg, #c5e3fc 0%, #9dc8f0 100%); */
-    /* border-radius: 9999px; */
-    margin-bottom: 8px;
-    font-weight: 700;
-    color: #002C49;
+    padding: clamp(0px, 0.78vw, 15px) 20px 15px;
+    background-color: transparent;
+    border-radius: 8px;
+    margin-bottom: 0px;
+    font-weight: bold;
+    color: #374151;
     font-size: clamp(10px, 0.74vw, 14px);
     min-width: 0;
-    /* box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); */
+    /* 允许内容收缩 */
 }
 
 .domain-cards {
@@ -2074,15 +2005,15 @@
     display: none;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
-    padding: clamp(8px, 0.65vw, 12px) 22px;
+    padding: clamp(4px, 0.52vw, 10px) 22px;
     background: white;
     border: 1px solid #e5e7eb;
-    border-radius: 9999px;
+    border-radius: 22px;
     align-items: center;
     transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     min-width: 0;
-    /* 允许内容收缩；圆角与线上 pill 行一致 */
+    /* 允许内容收缩 */
 }
 
 .domain-card.show-card {
@@ -2096,7 +2027,7 @@
     transform: translateY(-1px);
 }
 
-.domain-react-page .card-item {
+.card-item {
     font-size: clamp(9px, 0.78vw, 15px);
     font-weight: bold;
     color: #374151;
@@ -2575,7 +2506,7 @@
     border-right: none !important;
 }
 
-.domain-react-page .btn-inline-add {
+.btn-inline-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     border: none;
@@ -2589,7 +2520,7 @@
     transition: all 0.2s;
 }
 
-.domain-react-page .btn-inline-add:hover {
+.btn-inline-add:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
 }
 
@@ -2689,7 +2620,7 @@
     background-color: white;
 }
 
-.domain-react-page .btn-wide {
+.btn-wide {
     padding: 12px 36px;
     border-radius: 22px;
     font-size: 15px;
@@ -2701,26 +2632,26 @@
     transition: all 0.2s;
 }
 
-.domain-react-page .btn-wide:hover {
+.btn-wide:hover {
     transform: translateY(-1px);
 }
 
-.domain-react-page .btn-wide-confirm {
+.btn-wide-confirm {
     background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
-.domain-react-page .btn-wide-confirm:hover {
+.btn-wide-confirm:hover {
     background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
-.domain-react-page .btn-wide-cancel {
+.btn-wide-cancel {
     background: linear-gradient(180deg, #9ca3af 0%, #6b7280 100%);
     box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
 }
 
-.domain-react-page .btn-wide-cancel:hover {
+.btn-wide-cancel:hover {
     background: linear-gradient(180deg, #6b7280 0%, #9ca3af 100%);
     box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
 }
