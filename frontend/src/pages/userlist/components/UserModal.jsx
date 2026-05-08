@@ -65,6 +65,7 @@ export default function UserModal({
   setSelectedProcessIds,
   applyPermTemplate,
   onSave,
+  t,
 }) {
   const cardRef = useRef(null);
   const modalBodyRef = useRef(null);
@@ -93,22 +94,22 @@ export default function UserModal({
     <div id="userModal" className="modal" style={{ display: "block" }}>
       <div className={`modal-content user-modal-content${isEditMode ? " edit-mode" : ""}`}>
         <div className="modal-header-bar">
-          <h2 id="modalTitle">{isEditMode ? (editingRow?.is_owner_shadow ? "Edit Owner" : "Edit User") : "Add User"}</h2>
+          <h2 id="modalTitle">{isEditMode ? (editingRow?.is_owner_shadow ? t("editOwner") : t("editUser")) : t("addUser")}</h2>
           <button type="button" className="btn-back" onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Back
+            {t("back")}
           </button>
         </div>
         <div ref={modalBodyRef} className="modal-body" style={modalBodyStyle}>
           <div ref={cardRef} className="user-modal-card" style={userModalCardStyle}>
             <div className="user-modal-col user-modal-col--info user-info-panel" style={userModalColStyle}>
-              <h3 className="user-modal-col-title">User Information</h3>
+              <h3 className="user-modal-col-title">{t("userInformation")}</h3>
               <form id="userForm" onSubmit={onSave}>
               <div className="user-info-grid">
                 <div className="form-group user-info-field">
-                  <label htmlFor="login_id">Login ID *</label>
+                  <label htmlFor="login_id">{t("loginId")} *</label>
                   <input
                     id="login_id"
                     required
@@ -120,17 +121,17 @@ export default function UserModal({
                 {isC168Company ? (
                   <div className="form-group user-info-field password-row-container password-row-container--split">
                     <div className="password-field-wrapper">
-                      <label htmlFor="password">{isEditMode ? "Password" : "Password *"}</label>
+                      <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
                       <input id="password" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
                     </div>
                     <div className="password-field-wrapper">
-                      <label htmlFor="secondary_password">Secondary Password (6 digits)</label>
+                      <label htmlFor="secondary_password">{t("secondaryPassword6Digits")}</label>
                       <input
                         id="secondary_password"
                         type="password"
                         maxLength={6}
                         pattern="[0-9]{6}"
-                        placeholder="Enter 6-digit password"
+                        placeholder={t("secondaryPasswordPlaceholder")}
                         value={form.secondary_password}
                         onChange={(e) => setForm((f) => ({ ...f, secondary_password: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
                       />
@@ -138,22 +139,22 @@ export default function UserModal({
                   </div>
                 ) : (
                   <div className="form-group user-info-field">
-                    <label htmlFor="password">{isEditMode ? "Password" : "Password *"}</label>
+                    <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
                     <input id="password" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
                   </div>
                 )}
                 <div className="form-group user-info-field">
-                  <label htmlFor="name">Name *</label>
+                  <label htmlFor="name">{t("nameRequired")}</label>
                   <input id="name" required disabled={fieldLocks.name} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value.toUpperCase() }))} />
                 </div>
                 <div className="form-group user-info-field">
-                  <label htmlFor="role">Role *</label>
+                  <label htmlFor="role">{t("roleRequired")}</label>
                   <select id="role" required disabled={roleSelectDisabled || fieldLocks.role} value={form.role} onChange={(e) => {
                     const v = e.target.value;
                     setForm((f) => ({ ...f, role: v }));
                     applyPermTemplate(v, true);
                   }}>
-                    <option value="">Select Role</option>
+                    <option value="">{t("selectRole")}</option>
                     {editingRow?.is_owner_shadow ? (
                       <option value="owner">Owner</option>
                     ) : (
@@ -169,12 +170,12 @@ export default function UserModal({
                   </select>
                 </div>
                 <div className="form-group user-info-field">
-                  <label htmlFor="email">Email *</label>
+                  <label htmlFor="email">{t("emailRequired")}</label>
                   <input id="email" type="email" required disabled={fieldLocks.email} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.toLowerCase() }))} />
                 </div>
                 {isEditMode && (currentUserRole === "admin" || currentUserRole === "owner" || currentUserRole === "partnership") && (
                   <div className="form-group user-info-field company-field-group">
-                    <label>Company *</label>
+                    <label>{t("companyRequired")}</label>
                     <div className="transaction-company-buttons user-modal-company-buttons">
                       {modalCompanies.map((c) => (
                         <button
@@ -200,10 +201,10 @@ export default function UserModal({
 
               <div className="sidebar-permissions-section">
                 <h3 className="sidebar-permissions-title user-modal-permissions-title">
-                  Permissions
+                  {t("permissions")}
                   {normRole(currentUserRole) === "owner" && (normRole(form.role) === "partnership" || normRole(editingRow?.role) === "partnership") && (
                     <span className="read-only-toggle-inline read-only-toggle-after-title">
-                      <span className="read-only-label">Read Only</span>
+                      <span className="read-only-label">{t("readOnly")}</span>
                       <label className="toggle-switch">
                         <input type="checkbox" checked={form.read_only} onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))} />
                         <span className="toggle-slider" />
@@ -231,7 +232,7 @@ export default function UserModal({
                         />
                         <span className="permission-name">
                           <svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d={PERMISSION_ICONS[key]} /></svg>
-                          {key === "datacapture" ? "Data Capture" : key === "payment" ? "Transaction Payment" : key.charAt(0).toUpperCase() + key.slice(1)}
+                          {key === "datacapture" ? t("dataCapture") : key === "payment" ? t("transactionPayment") : key.charAt(0).toUpperCase() + key.slice(1)}
                         </span>
                       </label>
                     </div>
@@ -247,20 +248,20 @@ export default function UserModal({
                       PERMISSION_KEYS.forEach(k => { if (!permDisabledMap[k]) n.add(k); });
                       setPermSelected(n);
                     }}
-                  >Select All</button>
+                  >{t("selectAll")}</button>
                   <button
                     type="button"
                     className="btn-clearall"
                     disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow}
                     onClick={() => setPermSelected(new Set())}
-                  >Clear All</button>
+                  >{t("clearAll")}</button>
                 </div>
               </div>
               </form>
             </div>
 
             <div className="user-modal-col user-modal-col--account account-process-col" style={userModalColStyle}>
-                <label className="acc-proc-label user-modal-col-title">Account</label>
+                <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
                 <div className="account-grid account-grid--four">
                   {modalAccounts.map((a) => (
                     <div key={a.id} className="account-item-compact">
@@ -282,13 +283,13 @@ export default function UserModal({
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set(modalAccounts.map(x => Number(x.id))))}>Select All</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set())}>Clear All</button>
+                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set(modalAccounts.map(x => Number(x.id))))}>{t("selectAll")}</button>
+                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set())}>{t("clearAll")}</button>
                 </div>
               </div>
 
             <div className="user-modal-col user-modal-col--process account-process-col" style={userModalColStyle}>
-                <label className="acc-proc-label user-modal-col-title">Process</label>
+                <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
                 <div className="account-grid account-grid--four account-grid--process">
                   {modalProcesses.map((p) => (
                     <div key={p.id} className="account-item-compact account-item-compact--process">
@@ -312,15 +313,15 @@ export default function UserModal({
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set(modalProcesses.map(x => Number(x.id))))}>Select All</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set())}>Clear All</button>
+                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set(modalProcesses.map(x => Number(x.id))))}>{t("selectAll")}</button>
+                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set())}>{t("clearAll")}</button>
                 </div>
               </div>
           </div>
         </div>
         <div className="user-modal-footer">
-          <button type="submit" form="userForm" className="btn btn-save">Save</button>
-          <button type="button" className="btn btn-cancel" onClick={onClose}>Cancel</button>
+          <button type="submit" form="userForm" className="btn btn-save">{t("save")}</button>
+          <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
         </div>
       </div>
     </div>

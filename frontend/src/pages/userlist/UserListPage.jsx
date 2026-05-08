@@ -24,6 +24,7 @@ import {
 // Components
 import UserModal from "./components/UserModal.jsx";
 import UserConfirmModal from "./components/UserConfirmModal.jsx";
+import { getUserListText } from "../../translateFile/userListTranslate.js";
 
 function roleBadgeClass(role) {
   return `role-${String(role || "").toLowerCase().replace(/\s+/g, "-")}`;
@@ -40,6 +41,8 @@ function normalizeCompanyRow(row) {
 
 export default function UserListPage() {
   const navigate = useNavigate();
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params) => getUserListText(lang, key, params), [lang]);
   const [bootLoading, setBootLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -134,6 +137,22 @@ export default function UserListPage() {
   useEffect(() => { if (!bootLoading) syncUrl(); }, [bootLoading, syncUrl]);
 
   useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    const onLangUpdated = (e) => {
+      const nextLang = e?.detail?.lang;
+      setLang(nextLang === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("user-page");
     setCssReady(true);
@@ -151,7 +170,7 @@ export default function UserListPage() {
     try {
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ action: "get" }) });
       const json = await res.json();
-      if (!res.ok || !json.success) { notify(json.message || "Failed to load users", "danger"); setUsersRaw([]); return; }
+      if (!res.ok || !json.success) { notify(json.message || t("failedToLoadUsers"), "danger"); setUsersRaw([]); return; }
       let list = Array.isArray(json.data) ? json.data.map((u) => ({ ...u, is_owner_shadow: false })) : [];
       if (normRole(me.role) === "owner" && me.user_id) {
         try {
@@ -161,8 +180,8 @@ export default function UserListPage() {
         } catch { /* ignore */ }
       }
       setUsersRaw(list); setCurrentPage(1); setSelectedDeleteIds(new Set()); setSelectAllUsers(false);
-    } catch { notify("Failed to load users", "danger"); } finally { setTableLoading(false); }
-  }, [companyId, me, notify]);
+    } catch { notify(t("failedToLoadUsers"), "danger"); } finally { setTableLoading(false); }
+  }, [companyId, me, notify, t]);
 
   useEffect(() => {
     (async () => {
@@ -202,11 +221,11 @@ export default function UserListPage() {
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
-      if (!json.success) { notify(json.error || json.message || "Could not switch company", "danger"); return; }
+      if (!json.success) { notify(json.error || json.message || t("couldNotSwitchCompany"), "danger"); return; }
       setCompanyId(Number(c.id));
       setSelectedGroup(c.group_id ? String(c.group_id).trim().toUpperCase() : null);
       notifyCompanySessionUpdated();
-    } catch { notify("Company switch failed", "danger"); } finally { setSwitchingCompany(false); }
+    } catch { notify(t("companySwitchFailed"), "danger"); } finally { setSwitchingCompany(false); }
   };
 
   const fetchModalAccountsProcesses = async (cid) => {
@@ -234,7 +253,7 @@ export default function UserListPage() {
   const openAdd = async () => {
     if (!companyId) return;
     const avail = getAvailableRolesForCreation(currentUserRole);
-    if (avail.length === 0) { notify("You do not have permission to create new accounts", "danger"); return; }
+    if (avail.length === 0) { notify(t("noPermissionCreateAccounts"), "danger"); return; }
     setIsEditMode(false); setEditingRow(null);
     setForm({ id: "", login_id: "", name: "", email: "", role: "", password: "", secondary_password: "", status: "active", read_only: true });
     setRoleSelectDisabled(false); setLoginDisabled(false);
@@ -253,7 +272,7 @@ export default function UserListPage() {
 
   const openEdit = async (row) => {
     if (!companyId) return;
-    if (row.is_owner_shadow && currentUserRole !== "owner") { notify("Only the owner can edit owner records", "danger"); return; }
+    if (row.is_owner_shadow && currentUserRole !== "owner") { notify(t("onlyOwnerCanEditOwner"), "danger"); return; }
     setIsEditMode(true); setEditingRow(row);
     setForm({ id: String(row.id), login_id: row.login_id || "", name: row.name || "", email: row.email || "", role: normRole(row.role), password: "", secondary_password: "", status: normRole(row.status) || "active", read_only: true });
     const { accounts: accList, processes: procList } = await fetchModalAccountsProcesses(companyId);
@@ -265,7 +284,7 @@ export default function UserListPage() {
     setFieldLocks({ name: isSame || isLower, email: isSame || isLower, role: isSame || isLower, password: false, sidebar: isSelf || isSame || isLower, company: isSelf || isSame || isLower || !(currentUserRole === "admin" || currentUserRole === "owner") });
     try {
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ action: "get", id: row.id }) });
-      const json = await res.json(); if (!json.success || !json.data) { notify(json.message || "Load user failed", "danger"); setModalOpen(false); return; }
+      const json = await res.json(); if (!json.success || !json.data) { notify(json.message || t("loadUserFailed"), "danger"); setModalOpen(false); return; }
       const d = json.data; let perms = []; try { perms = d.permissions ? JSON.parse(d.permissions) : []; } catch { perms = []; }
       setPermSelected(new Set(perms.map((p) => String(p).toLowerCase())));
       setForm((f) => ({ ...f, read_only: d.read_only !== undefined ? parseInt(d.read_only, 10) === 1 : true }));
@@ -275,7 +294,7 @@ export default function UserListPage() {
       setSelectedProcessIds(pp === null ? new Set(procList.map(p => Number(p.id))) : new Set((Array.isArray(pp) ? pp : []).map(x => Number(x.id || x))));
       if (Array.isArray(d.company_ids) && (currentUserRole === "admin" || currentUserRole === "owner")) { setSelectedCompanyIds(d.company_ids.map(Number)); } else { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
       if (row.is_owner_shadow) { setPermSelected(new Set(PERMISSION_KEYS)); setSelectedAccountIds(new Set(accList.map(a => Number(a.id)))); setSelectedProcessIds(new Set(procList.map(p => Number(p.id)))); setSelectedCompanyIds([]); }
-    } catch { notify("Load user failed", "danger"); setModalOpen(false); }
+    } catch { notify(t("loadUserFailed"), "danger"); setModalOpen(false); }
     setModalOpen(true);
   };
 
@@ -288,9 +307,9 @@ export default function UserListPage() {
       const fd = new FormData(); fd.append("id", String(row.id));
       const res = await fetch(buildApiUrl("api/users/toggle_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json(); const newStatus = json?.data?.newStatus || json?.newStatus;
-      if (!json.success || !newStatus) { notify(json.message || "Toggle failed", "danger"); return; }
-      setUsersRaw((prev) => prev.map((u) => (Number(u.id) === Number(row.id) ? { ...u, status: newStatus } : u))); notify("Status updated", "success");
-    } catch { notify("Toggle failed", "danger"); }
+      if (!json.success || !newStatus) { notify(json.message || t("toggleFailed"), "danger"); return; }
+      setUsersRaw((prev) => prev.map((u) => (Number(u.id) === Number(row.id) ? { ...u, status: newStatus } : u))); notify(t("statusUpdated"), "success");
+    } catch { notify(t("toggleFailed"), "danger"); }
   };
 
   const confirmDelete = async () => {
@@ -298,18 +317,18 @@ export default function UserListPage() {
     if (!ids.length) return;
     const results = await Promise.all(ids.map((id) => fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ action: "delete", id }) }).then((r) => r.json().catch(() => ({ success: false })))));
     const ok = results.filter((r) => r.success).length;
-    if (ok === ids.length) notify(`Successfully deleted ${ok} users!`, "success"); else notify(`Deletion: ${ok} succeeded, ${ids.length - ok} failed`, "danger");
+    if (ok === ids.length) notify(t("deletedUsersSuccess", { count: ok }), "success"); else notify(t("deletionResult", { ok, fail: ids.length - ok }), "danger");
     setUsersRaw((prev) => prev.filter((u) => !ids.includes(Number(u.id)))); setSelectedDeleteIds(new Set()); setSelectAllUsers(false);
   };
 
   const saveUser = async (e) => {
     e.preventDefault();
-    if (!isEditMode && !form.password.trim()) { notify("Password is required", "danger"); return; }
+    if (!isEditMode && !form.password.trim()) { notify(t("passwordRequired"), "danger"); return; }
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
     let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: form.email.trim().toLowerCase(), role: form.role, status: form.status };
     if (form.password.trim()) payload.password = form.password;
-    if (isC168Company && form.secondary_password.trim()) { if (!/^\d{6}$/.test(form.secondary_password.trim())) { notify("Secondary password must be 6 digits", "danger"); return; } payload.secondary_password = form.secondary_password.trim(); }
+    if (isC168Company && form.secondary_password.trim()) { if (!/^\d{6}$/.test(form.secondary_password.trim())) { notify(t("secondaryPasswordMustBe6Digits"), "danger"); return; } payload.secondary_password = form.secondary_password.trim(); }
     if (normRole(form.role) === "partnership" || normRole(editingRow?.role) === "partnership") payload.read_only = form.read_only ? 1 : 0;
     if (editingRow?.is_owner_shadow) { delete payload.role; } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = selectedCompanyIds; } else {
       const caps = computeRowCapabilities(editingRow, currentUserId, currentUserRole);
@@ -325,12 +344,12 @@ export default function UserListPage() {
     }
     try {
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(payload) });
-      const json = await res.json(); if (!json.success) { notify(json.message || "Save failed", "danger"); return; }
-      notify(json.message || "Saved", "success"); closeModal();
+      const json = await res.json(); if (!json.success) { notify(json.message || t("saveFailed"), "danger"); return; }
+      notify(json.message || t("saved"), "success"); closeModal();
       if (isEditMode && json.data?.will_lose_access) { setUsersRaw((prev) => prev.filter((u) => Number(u.id) !== Number(form.id))); }
       else if (json.data) { setUsersRaw((prev) => isEditMode ? prev.map((u) => (Number(u.id) === Number(json.data.id) ? { ...u, ...json.data, is_owner_shadow: u.is_owner_shadow } : u)) : [...prev, { ...json.data, is_owner_shadow: false }]); }
       else { void fetchUsers(); }
-    } catch { notify("Save failed", "danger"); }
+    } catch { notify(t("saveFailed"), "danger"); }
   };
 
   if (bootLoading || !me || !cssReady) return null;
@@ -339,25 +358,25 @@ export default function UserListPage() {
     <>
       <div className="container">
         <div className="content">
-          <h1>User List</h1>
+          <h1>{t("userList")}</h1>
           <div className="separator-line" />
           <div className="action-buttons-container" style={{ marginBottom: 20 }}>
             <div className="action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <button type="button" className="btn btn-add" onClick={openAdd}>Add User</button>
+                <button type="button" className="btn btn-add" onClick={openAdd}>{t("addUser")}</button>
                 <div className="search-container">
                   <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
-                  <input type="text" className="search-input" placeholder="Search ID/Name" value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <input type="text" className="search-input" placeholder={t("searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
-                <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label htmlFor="showInactive">Inactive</label></div>
-                <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label htmlFor="showAll">Show All</label></div>
+                <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label htmlFor="showInactive">{t("inactive")}</label></div>
+                <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label htmlFor="showAll">{t("showAll")}</label></div>
               </div>
-              <button type="button" className="btn btn-delete" disabled={!selectedDeleteIds.size} onClick={() => { pendingDeleteRef.current = Array.from(selectedDeleteIds); setConfirmMessage(`Delete ${selectedDeleteIds.size} user(s)?`); setConfirmOpen(true); }}>Delete ({selectedDeleteIds.size})</button>
+              <button type="button" className="btn btn-delete" disabled={!selectedDeleteIds.size} onClick={() => { pendingDeleteRef.current = Array.from(selectedDeleteIds); setConfirmMessage(t("deleteConfirmWithCount", { count: selectedDeleteIds.size })); setConfirmOpen(true); }}>{t("deleteWithCount", { count: selectedDeleteIds.size })}</button>
             </div>
             <div style={{ padding: "0 20px 15px 20px" }}>
               {groupIds.length > 0 && (
                 <div className="transaction-company-filter" style={{ marginBottom: "8px" }}>
-                  <span>GroupID:</span>
+                  <span>{t("groupId")}</span>
                   <div className="transaction-company-buttons">
                     {groupIds.map(g => (
                       <button
@@ -372,7 +391,7 @@ export default function UserListPage() {
                 </div>
               )}
               <div className="transaction-company-filter">
-                <span>Company:</span>
+                <span>{t("company")}</span>
                 <div className="transaction-company-buttons">
                   {companyButtons.map(c => (
                     <button
@@ -390,18 +409,18 @@ export default function UserListPage() {
           </div>
           <div className="user-table-wrapper">
             <div className="table-header">
-              <div className="header-item">No</div>
-              <div className="header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("loginId"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>Login ID {sortColumn === "loginId" && (sortDirection === "asc" ? "▲" : "▼")}</div>
-              <div className="header-item">Name</div>
-              <div className="header-item">Email</div>
-              <div className="header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("role"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>Role {sortColumn === "role" && (sortDirection === "asc" ? "▲" : "▼")}</div>
-              <div className="header-item">Status</div>
-              <div className="header-item">Last Login</div>
-              <div className="header-item">Created By</div>
-              <div className="header-item">Action <input type="checkbox" checked={selectAllUsers} onChange={(e) => { const on = e.target.checked; const eligible = pageRows.filter(r => { const c = computeRowCapabilities(r, currentUserId, currentUserRole); return getDeleteCheckboxState(r, c).show; }).map(r => Number(r.id)); setSelectedDeleteIds(on ? new Set(eligible) : new Set()); setSelectAllUsers(on); }} /></div>
+              <div className="header-item">{t("no")}</div>
+              <div className="header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("loginId"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("loginId")} {sortColumn === "loginId" && (sortDirection === "asc" ? "▲" : "▼")}</div>
+              <div className="header-item">{t("name")}</div>
+              <div className="header-item">{t("email")}</div>
+              <div className="header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("role"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("role")} {sortColumn === "role" && (sortDirection === "asc" ? "▲" : "▼")}</div>
+              <div className="header-item">{t("status")}</div>
+              <div className="header-item">{t("lastLogin")}</div>
+              <div className="header-item">{t("createdBy")}</div>
+              <div className="header-item">{t("action")} <input type="checkbox" checked={selectAllUsers} onChange={(e) => { const on = e.target.checked; const eligible = pageRows.filter(r => { const c = computeRowCapabilities(r, currentUserId, currentUserRole); return getDeleteCheckboxState(r, c).show; }).map(r => Number(r.id)); setSelectedDeleteIds(on ? new Set(eligible) : new Set()); setSelectAllUsers(on); }} /></div>
             </div>
             <div className="user-cards">
-              {(tableLoading || switchingCompany) ? <div className="user-card show-card">Loading...</div> : pageRows.map((r, idx) => {
+              {(tableLoading || switchingCompany) ? <div className="user-card show-card">{t("loading")}</div> : pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
                 return (
@@ -426,15 +445,15 @@ export default function UserListPage() {
           {!showAll && (
             <div className="pagination-container">
               <button className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>◀</button>
-              <span className="pagination-info">{currentPage} of {totalPages}</span>
+            <span className="pagination-info">{t("paginationOf", { page: currentPage, total: totalPages })}</span>
               <button className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>▶</button>
             </div>
           )}
         </div>
       </div>
       {toast && <div id="notificationContainer" className="notification-container"><div className={`notification notification-${toast.type} show`}>{toast.message}</div></div>}
-      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} />
-      <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} />
+      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} t={t} />
+      <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} t={t} />
     </>
   );
 }
