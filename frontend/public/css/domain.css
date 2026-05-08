@@ -157,27 +157,20 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-heading {
     padding: 0 !important;
     font-size: 15px !important;
     font-weight: 700 !important;
-    letter-spacing: 0.06em !important;
+    letter-spacing: 0.04em !important;
     line-height: 1.35 !important;
-    color: #111827 !important;
-    text-transform: uppercase;
+    color: #1f2937 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label {
     display: block !important;
     margin: 0 0 6px 0 !important;
     font-weight: 700 !important;
-    color: #111827 !important;
+    color: #374151 !important;
     font-size: 13px !important;
     line-height: 1.3 !important;
-    letter-spacing: 0.02em !important;
-}
-
-/* 英文环境下与图二一致：栏位标签全大写 */
-body.lang-en.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label {
-    text-transform: uppercase;
-    letter-spacing: 0.04em !important;
-    font-size: 12px !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel .dfm-field {
@@ -243,11 +236,8 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input::p
     color: #94a3b8 !important;
     opacity: 1 !important;
     font-size: 14px !important;
-}
-
-body.lang-en.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input::placeholder {
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input:focus {
@@ -284,10 +274,10 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn {
     min-height: 42px !important;
     padding-left: 18px !important;
     padding-right: 18px !important;
-    font-size: 14px !important;
+    font-size: 15px !important;
     font-weight: 700 !important;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
     border-radius: 0 6px 6px 0 !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     cursor: pointer;
