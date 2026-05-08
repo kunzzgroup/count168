@@ -1267,6 +1267,43 @@ body.account-page:not(.account-page--show-all) .account-card {
     font-size: clamp(26px, 1.75vw, 32px);
 }
 
+#account-addModal .account-advance-section {
+    padding-top: clamp(0.35rem, 0.7vw, 0.6rem);
+}
+
+#account-addModal .account-other-currency {
+    gap: clamp(0.6rem, 1.1vw, 0.9rem);
+    padding: clamp(0.45rem, 0.9vw, 0.7rem) clamp(0.65rem, 1.2vw, 0.95rem);
+    margin-bottom: clamp(0.45rem, 0.9vw, 0.7rem);
+}
+
+#account-addModal .account-other-currency label {
+    font-size: clamp(13px, 0.95vw, 15px);
+    min-width: 8.25rem;
+}
+
+#account-addModal .account-other-currency input {
+    min-height: 2.45rem;
+    font-size: clamp(13px, 0.95vw, 15px);
+}
+
+#account-addModal .account-btn-add-currency {
+    min-height: 2.35rem;
+    padding: 0.55rem 1.05rem;
+    font-size: clamp(12px, 0.88vw, 14px);
+}
+
+#account-addModal .account-currency-list {
+    gap: clamp(0.45rem, 0.8vw, 0.6rem);
+}
+
+#account-addModal .account-currency-item,
+#account-addModal .account-company-btn {
+    font-size: clamp(12px, 0.9vw, 14px);
+    padding: clamp(0.4rem, 0.75vw, 0.55rem) clamp(0.75rem, 1.2vw, 1rem);
+    min-height: 2rem;
+}
+
 #account-addModal .account-form-actions {
     margin-top: auto;
     padding: clamp(0.85rem, 1.4vw, 1.1rem) clamp(1rem, 1.8vw, 1.45rem);
@@ -1289,6 +1326,13 @@ body.account-page:not(.account-page--show-all) .account-card {
     min-height: 2.72rem;
     font-size: clamp(14px, 1vw, 16px);
     padding: clamp(0.58rem, 0.86vw, 0.8rem) clamp(1.35rem, 2vw, 1.85rem);
+}
+
+#account-addModal .account-btn-save {
+    min-width: clamp(108px, 8vw, 130px);
+    min-height: 2.45rem;
+    font-size: clamp(13px, 0.92vw, 15px);
+    padding: clamp(0.48rem, 0.72vw, 0.65rem) clamp(1.1rem, 1.6vw, 1.45rem);
 }
 
 #account-addModal .account-modal-header h2 {
