@@ -10,6 +10,7 @@ import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../u
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { formatYmd } from "../../../utils/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
 import { 
   fetchCompanyPermissions, 
   fetchProcesses, 
@@ -326,14 +327,15 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  const handleGroupClick = (gid) => {
-    if (selectedGroup === gid) {
-      setSelectedGroup(null);
-      sessionStorage.removeItem("dashboard_group_filter");
-    } else {
-      setSelectedGroup(gid);
-      sessionStorage.setItem("dashboard_group_filter", gid);
-    }
+  const handleGroupClick = async (gid) => {
+    await applySharedGroupClickWithCompanySwitch({
+      clickedGroupId: gid,
+      currentSelectedGroup: selectedGroup,
+      companies,
+      currentCompanyId: companyId,
+      setSelectedGroup,
+      switchCompany: handleSwitchCompany,
+    });
   };
 
   const handlePermissionSwitch = (p) => {

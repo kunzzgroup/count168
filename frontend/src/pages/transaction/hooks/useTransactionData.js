@@ -4,6 +4,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import {
+  applySharedGroupButtonClick,
+  persistDashboardGroupFilter,
+  resolveInitialSelectedGroupFromSession,
+} from "../../../utils/sharedCompanyFilter.js";
+import {
   getAccounts,
   getCategories,
   getCompanyCurrencies,
@@ -25,6 +30,11 @@ export function useTransactionData({
   const [currencyOptions, setCurrencyOptions] = useState([]);
   const [currencyRowsOrdered, setCurrencyRowsOrdered] = useState([]);
   const currencyInitCompanyRef = useRef(null);
+  const filterSnapshotRef = useRef(null);
+
+  useEffect(() => {
+    filterSnapshotRef.current = filterSnapshot;
+  }, [filterSnapshot]);
 
   // Initial authentication and company list loading
   useEffect(() => {
@@ -74,18 +84,7 @@ export function useTransactionData({
         }
 
         const current = rows.find((c) => Number(c.id) === Number(effective));
-        const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-        const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-        let selGroup = null;
-        if (savedGroup && groups.includes(savedGroup) && current?.group_id && String(current.group_id).toUpperCase().trim() === savedGroup) {
-          selGroup = savedGroup;
-        } else if (savedGroup && !groups.includes(savedGroup)) {
-          sessionStorage.removeItem("dashboard_group_filter");
-        }
-        if (!selGroup && current?.group_id?.trim()) {
-          selGroup = String(current.group_id).toUpperCase().trim();
-          sessionStorage.setItem("dashboard_group_filter", selGroup);
-        }
+        const selGroup = resolveInitialSelectedGroupFromSession(rows, current);
 
         if (!cancelled) {
           const snapRows = rows.filter((c) => c.company_id && String(c.company_id).trim() !== "");
@@ -93,7 +92,9 @@ export function useTransactionData({
             companyId: effective,
             selectedGroup: selGroup,
             snapCompanies: snapRows,
-            snapGroupIds: [...new Set(snapRows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort(),
+            snapGroupIds: [
+              ...new Set(snapRows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim())),
+            ].sort(),
             viewerRole: String(u.role || "").toLowerCase(),
           });
         }
@@ -177,16 +178,6 @@ export function useTransactionData({
     setCurrencyRowsOrdered,
   ]);
 
-  const onGroupButtonClick = useCallback((gid) => {
-    setFilterSnapshot((prev) => {
-      if (!prev) return prev;
-      const next = prev.selectedGroup === gid ? null : gid;
-      if (next) sessionStorage.setItem("dashboard_group_filter", next);
-      else sessionStorage.removeItem("dashboard_group_filter");
-      return { ...prev, selectedGroup: next };
-    });
-  }, []);
-
   const onCompanyButtonClick = useCallback(
     async (comp) => {
       const cid = comp.id;
@@ -229,6 +220,24 @@ export function useTransactionData({
       }
     },
     [queryClient],
+  );
+
+  const onGroupButtonClick = useCallback(
+    async (gid) => {
+      const snap = filterSnapshotRef.current;
+      if (!snap) return;
+      const { selectedGroup, companyToActivate } = applySharedGroupButtonClick({
+        clickedGroupId: gid,
+        currentSelectedGroup: snap.selectedGroup,
+        companies: snap.snapCompanies,
+      });
+      persistDashboardGroupFilter(selectedGroup);
+      setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup } : prev));
+      if (companyToActivate && Number(companyToActivate.id) !== Number(snap.companyId)) {
+        await onCompanyButtonClick(companyToActivate);
+      }
+    },
+    [onCompanyButtonClick],
   );
 
   return {

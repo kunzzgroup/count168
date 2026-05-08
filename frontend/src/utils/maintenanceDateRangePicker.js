@@ -1,3 +1,7 @@
+/**
+ * Bundled ES module port of legacy `js/date-range-picker.js` — attaches `window.MaintenanceDateRangePicker`,
+ * `window.changeMonth`, `window.selectQuickRange`, `window.toggleQuickSelectDropdown` for DOM markup (#date-range-picker, #calendar-popup, …).
+ */
 let initialized = false;
 
 export function ensureMaintenanceDateRangePicker() {
@@ -39,6 +43,74 @@ export function ensureMaintenanceDateRangePicker() {
     const toEl = document.getElementById(config.dateToId);
     if (fromEl) fromEl.value = calendarStartDate ? formatDateDisplay(calendarStartDate) : "";
     if (toEl) toEl.value = calendarEndDate ? formatDateDisplay(calendarEndDate) : "";
+  }
+
+  function parseDmy(val) {
+    const m = String(val || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return null;
+    const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    if (Number.isNaN(d.getTime())) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  /** Same as legacy: refresh internal range from hidden #date_from / #date_to when opening the popup. */
+  function syncRangeStateFromHiddenInputs() {
+    const fromEl = document.getElementById(config.dateFromId);
+    const toEl = document.getElementById(config.dateToId);
+    const fromDate = fromEl ? parseDmy(fromEl.value) : null;
+    const toDate = toEl ? parseDmy(toEl.value) : null;
+    if (fromDate && toDate) {
+      calendarStartDate = new Date(fromDate);
+      calendarEndDate = new Date(toDate);
+    } else if (fromDate) {
+      calendarStartDate = new Date(fromDate);
+      calendarEndDate = new Date(fromDate);
+    } else if (!config.allowEmpty) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      calendarStartDate = new Date(today);
+      calendarEndDate = new Date(today);
+    } else {
+      calendarStartDate = null;
+      calendarEndDate = null;
+    }
+    if (calendarStartDate) calendarStartDate.setHours(0, 0, 0, 0);
+    if (calendarEndDate) calendarEndDate.setHours(0, 0, 0, 0);
+    isSelectingRange = false;
+  }
+
+  function highlightPreviewRange(hoverDate) {
+    const days = document.querySelectorAll("#calendar-popup .calendar-day");
+    if (!calendarStartDate || calendarEndDate) return;
+    const startTime = calendarStartDate.getTime();
+    const hoverTime = hoverDate.getTime();
+    const yearSelect = document.getElementById("calendar-year-select");
+    const monthSelect = document.getElementById("calendar-month-select");
+    if (!yearSelect || !monthSelect) return;
+    const year = Number(yearSelect.value);
+    const month = Number(monthSelect.value);
+    days.forEach((day) => {
+      day.classList.remove("preview-range", "preview-end");
+      const dayText = parseInt(day.textContent, 10);
+      if (!dayText) return;
+      let dayDate;
+      if (day.classList.contains("other-month")) {
+        if (dayText > 20) {
+          dayDate = new Date(year, month - 1, dayText);
+        } else {
+          dayDate = new Date(year, month + 1, dayText);
+        }
+      } else {
+        dayDate = new Date(year, month, dayText);
+      }
+      dayDate.setHours(0, 0, 0, 0);
+      const dayTime = dayDate.getTime();
+      const minTime = Math.min(startTime, hoverTime);
+      const maxTime = Math.max(startTime, hoverTime);
+      if (dayTime > minTime && dayTime < maxTime) day.classList.add("preview-range");
+      else if (dayTime === hoverTime && dayTime !== startTime) day.classList.add("preview-end");
+    });
   }
 
   function initCalendar() {
@@ -117,6 +189,9 @@ export function ensureMaintenanceDateRangePicker() {
         e.stopPropagation();
         selectDate(date);
       });
+      dayElement.addEventListener("mouseenter", () => {
+        if (isSelectingRange && calendarStartDate && !calendarEndDate) highlightPreviewRange(date);
+      });
       return dayElement;
     }
 
@@ -170,10 +245,26 @@ export function ensureMaintenanceDateRangePicker() {
     const picker = document.getElementById("date-range-picker");
     if (!popup || !picker) return;
     if (popup.style.display === "none" || !popup.style.display) {
+      syncRangeStateFromHiddenInputs();
       const rect = picker.getBoundingClientRect();
+      let barWidth = rect.width;
+      const parent = picker.parentElement;
+      if (parent) {
+        const parentRect = parent.getBoundingClientRect();
+        if (
+          parent.classList &&
+          (parent.classList.contains("transaction-capture-date-row") ||
+            parent.classList.contains("transaction-date-range-group"))
+        ) {
+          barWidth = parentRect.width;
+        } else if (parentRect.width > barWidth) {
+          barWidth = parentRect.width;
+        }
+      }
       popup.style.top = `${rect.bottom + 8}px`;
       popup.style.left = `${rect.left}px`;
-      popup.style.width = `${rect.width}px`;
+      popup.style.width = `${barWidth}px`;
+      popup.style.boxSizing = "border-box";
       popup.style.display = "block";
       initCalendar();
       renderCalendar();
@@ -259,14 +350,6 @@ export function ensureMaintenanceDateRangePicker() {
       }
       const fromEl = document.getElementById(config.dateFromId);
       const toEl = document.getElementById(config.dateToId);
-      const parseDmy = (val) => {
-        const m = String(val || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if (!m) return null;
-        const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-        if (Number.isNaN(d.getTime())) return null;
-        d.setHours(0, 0, 0, 0);
-        return d;
-      };
       const fromDate = parseDmy(fromEl?.value);
       const toDate = parseDmy(toEl?.value);
       if (fromDate) {
@@ -311,7 +394,8 @@ export function ensureMaintenanceDateRangePicker() {
     document.addEventListener("click", (e) => {
       const calendar = document.getElementById("date-range-picker");
       const popup = document.getElementById("calendar-popup");
-      if (calendar && popup && !calendar.contains(e.target) && !popup.contains(e.target)) {
+      const bankPick = e.target.closest && e.target.closest(".bank-form-day-picker");
+      if (calendar && popup && !calendar.contains(e.target) && !popup.contains(e.target) && !bankPick) {
         popup.style.display = "none";
       }
       const dropdown = document.getElementById("quick-select-dropdown");

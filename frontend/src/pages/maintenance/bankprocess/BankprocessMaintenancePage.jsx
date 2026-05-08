@@ -5,6 +5,7 @@ import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceSty
 import { injectStylesheet } from "../../../utils/injectStylesheet.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/bankprocess_maintenance.css";
@@ -277,14 +278,15 @@ export default function BankprocessMaintenancePage() {
     }
   }, [notify]);
 
-  const onGroupClick = (gid) => {
-    if (selectedGroup === gid) {
-      setSelectedGroup(null);
-      sessionStorage.removeItem("dashboard_group_filter");
-      return;
-    }
-    setSelectedGroup(gid);
-    sessionStorage.setItem("dashboard_group_filter", gid);
+  const onGroupClick = async (gid) => {
+    await applySharedGroupClickWithCompanySwitch({
+      clickedGroupId: gid,
+      currentSelectedGroup: selectedGroup,
+      companies,
+      currentCompanyId: companyId,
+      setSelectedGroup,
+      switchCompany: handleSwitchCompany,
+    });
   };
 
   const visibleCompanies = useMemo(() => {

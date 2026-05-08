@@ -1,24 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import flatpickr from "flatpickr";
+import "flatpickr/dist/flatpickr.min.css";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import "../../../public/css/member.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
-
-function loadScriptOnce(src, key) {
-  return new Promise((resolve, reject) => {
-    const marker = key || src;
-    const existing = document.querySelector(`script[data-member-script="${marker}"]`);
-    if (existing) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = false;
-    s.dataset.memberScript = marker;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.body.appendChild(s);
-  });
-}
 
 function dmy(date) {
   const d = String(date.getDate()).padStart(2, "0");
@@ -230,18 +217,16 @@ export default function MemberPage() {
     if (loading || !me || !dateFrom || !dateTo) return;
     let cancelled = false;
     (async () => {
-      await Promise.all([
-        injectStylesheet("https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"),
-        injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
-      ]);
+      await injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css");
       if (cancelled) return;
-      await loadScriptOnce("https://cdn.jsdelivr.net/npm/flatpickr", "flatpickr-cdn");
       const inputEl = dateRangeInputRef.current;
-      if (inputEl && window.flatpickr) {
-        flatpickrRef.current = window.flatpickr(inputEl, {
+      const fromDate = parseDmy(dateFrom);
+      const toDate = parseDmy(dateTo);
+      if (inputEl && fromDate && toDate) {
+        flatpickrRef.current = flatpickr(inputEl, {
           mode: "range",
           dateFormat: "d/m/Y",
-          defaultDate: [parseDmy(dateFrom), parseDmy(dateTo)],
+          defaultDate: [fromDate, toDate],
           onChange: (dates) => {
             if (dates.length === 2) {
               setDateFrom(dmy(dates[0]));
@@ -264,6 +249,7 @@ export default function MemberPage() {
       cancelled = true;
       if (flatpickrRef.current && typeof flatpickrRef.current.destroy === "function") {
         flatpickrRef.current.destroy();
+        flatpickrRef.current = null;
       }
     };
   }, [loading, me]);

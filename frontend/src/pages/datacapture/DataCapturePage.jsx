@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import {
+  applySharedGroupClickWithCompanySwitch,
+  resolveInitialSelectedGroupFromSession,
+} from "../../utils/sharedCompanyFilter.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { useDataCaptureSubmit } from "./hooks/useDataCaptureSubmit.js";
 import { useDataCaptureSubmitGate } from "./hooks/useDataCaptureSubmitGate.js";
@@ -120,6 +124,12 @@ export default function DataCapturePage() {
   const [tableDataSnapshot, setTableDataSnapshot] = useState(() => captureTableDataFromDom());
   /** Frozen after first load so React re-renders do not clobber vanilla `display` on company pills */
   const [filterSnapshot, setFilterSnapshot] = useState(null);
+  const filterSnapshotRef = useRef(null);
+
+  useEffect(() => {
+    filterSnapshotRef.current = filterSnapshot;
+  }, [filterSnapshot]);
+
   const isPageReady = !loading && !forbidden && companyId != null;
   const { submit } = useDataCaptureSubmit({ selectedDescriptions: selectedDescriptionsState, navigate });
   const submitGate = useDataCaptureSubmitGate({
@@ -274,18 +284,7 @@ export default function DataCapturePage() {
         }
 
         const current = rows.find((c) => Number(c.id) === Number(effective));
-        const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-        const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-        let selGroup = null;
-        if (savedGroup && groups.includes(savedGroup) && current?.group_id && String(current.group_id).toUpperCase().trim() === savedGroup) {
-          selGroup = savedGroup;
-        } else if (savedGroup && !groups.includes(savedGroup)) {
-          sessionStorage.removeItem("dashboard_group_filter");
-        }
-        if (!selGroup && current?.group_id?.trim()) {
-          selGroup = String(current.group_id).toUpperCase().trim();
-          sessionStorage.setItem("dashboard_group_filter", selGroup);
-        }
+        const selGroup = resolveInitialSelectedGroupFromSession(rows, current);
 
         if (!cancelled) {
           const snapRows = rows.filter((c) => c.company_id && String(c.company_id).trim() !== "");
@@ -307,14 +306,6 @@ export default function DataCapturePage() {
       cancelled = true;
     };
   }, [navigate]);
-
-  const handleGroupChange = useCallback((gid) => {
-    setFilterSnapshot((prev) => {
-      if (!prev) return prev;
-      sessionStorage.setItem("dashboard_group_filter", gid);
-      return { ...prev, selectedGroup: gid };
-    });
-  }, []);
 
   const handleCompanyChange = useCallback(
     async (nextCompanyId) => {
@@ -348,6 +339,26 @@ export default function DataCapturePage() {
       }
     },
     [navigate]
+  );
+
+  const handleGroupChange = useCallback(
+    async (gid) => {
+      const snap = filterSnapshotRef.current;
+      if (!snap) return;
+      await applySharedGroupClickWithCompanySwitch({
+        clickedGroupId: gid,
+        currentSelectedGroup: snap.selectedGroup,
+        companies: snap.snapCompanies,
+        currentCompanyId: snap.companyId,
+        setSelectedGroup: (next) => {
+          setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup: next } : prev));
+        },
+        switchCompany: async (comp) => {
+          await handleCompanyChange(comp.id);
+        },
+      });
+    },
+    [handleCompanyChange],
   );
 
   useDataCaptureRestore({
