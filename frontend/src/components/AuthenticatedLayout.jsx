@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
@@ -59,7 +59,8 @@ export default function AuthenticatedLayout() {
   const prevSidebarLangRef = useRef(lang);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
 
-  useEffect(() => {
+  /* useLayoutEffect: before paint — body.bg uses display:flex and centers #root (login shell); leaving it for one frame breaks full-width hit targets on Domain, etc. */
+  useLayoutEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page", "ec-auth-shell");
     return () => {
