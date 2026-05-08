@@ -129,9 +129,9 @@ export default function AccountEditorRow({
         <option value="">{t("selectAccountPlaceholder")}</option>
         {accounts.map((acc) => {
           const mainStr = parseInt(acc.is_main_owner, 10) === 1 ? t("mainOwnerSuffix") : "";
-          const t = String(acc.type || "").toLowerCase();
+          const accountType = String(acc.type || "").toLowerCase();
           const label =
-            t === "group"
+            accountType === "group"
               ? `${acc.account_name}${mainStr}`
               : `${acc.account_name} (${acc.name})${mainStr}`;
           return (
