@@ -35,6 +35,7 @@ export default function AccountModal({
   if (!open) return null;
 
   const text = (key, params) => (typeof t === "function" ? t(key, params) : key);
+  const modalId = isEditMode ? "account-editModal" : "account-addModal";
 
   const companyButtons = Array.isArray(companies)
     ? companies.filter((c) => c?.company_id && String(c.company_id).trim() !== "")
@@ -89,7 +90,7 @@ export default function AccountModal({
   };
 
   return (
-    <div className="account-modal" style={{ display: "block" }}>
+    <div id={modalId} className="account-modal" style={{ display: "block" }}>
       <div className="account-modal-content">
         <div className="account-modal-header">
           <h2>{title}</h2>
