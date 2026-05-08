@@ -371,7 +371,24 @@ export default function UserListPage() {
                 <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label htmlFor="showInactive">{t("inactive")}</label></div>
                 <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label htmlFor="showAll">{t("showAll")}</label></div>
               </div>
-              <button type="button" className="btn btn-delete" disabled={!selectedDeleteIds.size} onClick={() => { pendingDeleteRef.current = Array.from(selectedDeleteIds); setConfirmMessage(t("deleteConfirmWithCount", { count: selectedDeleteIds.size })); setConfirmOpen(true); }}>{t("deleteWithCount", { count: selectedDeleteIds.size })}</button>
+              <button
+                type="button"
+                className="btn btn-delete"
+                disabled={!selectedDeleteIds.size}
+                onClick={() => {
+                  const ids = Array.from(selectedDeleteIds);
+                  pendingDeleteRef.current = ids;
+                  const selectedUserNames = usersRaw
+                    .filter((u) => ids.includes(Number(u.id)))
+                    .map((u) => String(u.login_id || u.name || u.email || u.id || "").trim())
+                    .filter(Boolean);
+                  const details = selectedUserNames.length ? `\n\n${selectedUserNames.join("\n")}` : "";
+                  setConfirmMessage(`${t("deleteConfirmWithCount", { count: ids.length })}${details}`);
+                  setConfirmOpen(true);
+                }}
+              >
+                {t("deleteWithCount", { count: selectedDeleteIds.size })}
+              </button>
             </div>
             <div style={{ padding: "0 20px 15px 20px" }}>
               {groupIds.length > 0 && (
