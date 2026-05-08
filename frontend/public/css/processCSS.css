@@ -3450,7 +3450,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 #addModal .process-form .form-group input,
 #addModal .process-form .form-group select,
 #addModal .process-form .form-group textarea {
-    font-size: clamp(14px, 0.98vw, 16px) !important;
+    font-size: clamp(11px, 0.8vw, 12px) !important;
     line-height: 1.35 !important;
     padding: 0.5rem 0.8rem !important;
     min-height: 2.45rem !important;
@@ -3470,19 +3470,19 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #addModal .day-use-header {
     display: block !important;
-    margin-bottom: 0.35rem !important;
+    margin-bottom: 0.2rem !important;
 }
 
 #addModal .day-use-header > label {
     display: block !important;
-    margin-bottom: 0.35rem !important;
+    margin-bottom: 0.2rem !important;
 }
 
 #addModal .day-use-header .all-day-checkbox {
     display: inline-flex !important;
     align-items: center !important;
-    gap: 0.35rem !important;
-    margin-bottom: 0.25rem !important;
+    gap: 0.25rem !important;
+    margin-bottom: 0.15rem !important;
 }
 
 #addModal #day_checkboxes.day-checkboxes,
@@ -3491,7 +3491,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     flex-direction: row !important;
     flex-wrap: wrap !important;
     align-items: center !important;
-    gap: 0.28rem 0.6rem !important;
+    gap: 0.14rem 0.4rem !important;
     justify-content: start !important;
     overflow: visible !important;
     white-space: normal !important;
@@ -3513,6 +3513,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     flex: 0 0 auto !important;
     min-width: 0 !important;
     width: auto !important;
+    gap: 0.22rem !important;
 }
 
 #addModal .day-checkboxes .checkbox-item label,
