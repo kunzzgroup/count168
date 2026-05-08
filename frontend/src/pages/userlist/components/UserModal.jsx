@@ -173,7 +173,7 @@ export default function UserModal({
                   <label htmlFor="email">{t("emailRequired")}</label>
                   <input id="email" type="email" required disabled={fieldLocks.email} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.toLowerCase() }))} />
                 </div>
-                {isEditMode && (currentUserRole === "admin" || currentUserRole === "owner" || currentUserRole === "partnership") && (
+                {(currentUserRole === "admin" || currentUserRole === "owner" || currentUserRole === "partnership") && (
                   <div className="form-group user-info-field company-field-group">
                     <label>{t("companyRequired")}</label>
                     <div className="transaction-company-buttons user-modal-company-buttons">
