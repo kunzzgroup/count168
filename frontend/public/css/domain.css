@@ -100,6 +100,82 @@ body.domain-page .domain-react-page .table-container {
     max-height: calc(100vh - 200px);
 }
 
+/*
+ * DomainFormModal（portal 挂在 body）：抵消 global-13inch 对 input 的 font-size/padding !important，
+ * 并重置 label 为块级（Tailwind preflight 关闭时 label 默认为 inline，易与输入框挤在同一行/重叠）。
+ */
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel {
+    box-sizing: border-box;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-grid-two {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(1.25rem, 2.8vw, 2.75rem);
+    align-items: start;
+}
+
+@media (max-width: 760px) {
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-grid-two {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label {
+    display: block !important;
+    margin: 0 0 8px 0 !important;
+    font-weight: 600 !important;
+    color: #111827 !important;
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel .dfm-field {
+    min-width: 0;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[type="text"],
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[type="email"],
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[type="password"] {
+    box-sizing: border-box !important;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 !important;
+    font-size: 15px !important;
+    line-height: 1.45 !important;
+    padding: 10px 14px !important;
+    min-height: 42px !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-input-with-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-input-with-btn input[type="text"] {
+    flex: 1 1 auto;
+    min-width: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    border-radius: 8px 0 0 8px !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn {
+    flex: 0 0 auto;
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    min-height: 42px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
 .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

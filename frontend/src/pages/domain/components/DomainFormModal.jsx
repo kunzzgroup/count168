@@ -336,23 +336,23 @@ export default function DomainFormModal({
           WebkitBackdropFilter: "blur(4px)",
         }}
       >
-        <div className="relative mx-auto my-[1.5%] flex w-[96%] max-w-[1100px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
+        <div className="domain-form-modal-panel relative mx-auto my-[1.5%] flex w-[96%] max-w-[1100px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
           <div className="flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
             <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
             <button className="flex h-9 w-9 items-center justify-center rounded-full border-0 bg-transparent text-[26px] text-black transition-colors hover:bg-gray-200" onClick={onClose}>&times;</button>
           </div>
-          <form onSubmit={handleSubmit}>
+          <form className="domain-form-modal-form" onSubmit={handleSubmit}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />
-            <div className="px-9 py-6">
-              <div className="mb-2.5 grid grid-cols-2 gap-12">
+            <div className="domain-form-modal-body px-9 py-6">
+              <div className="dfm-grid-two mb-2.5">
                 <div className="text-[15px] font-bold tracking-[0.5px] text-gray-900">{t("domainInformation")}</div>
                 <div className="text-[15px] font-bold tracking-[0.5px] text-gray-900">{t("companyInformation")}</div>
               </div>
               <div className="mb-5 h-[2.5px] w-full bg-blue-900" />
-              <div className="grid grid-cols-2 gap-12">
+              <div className="dfm-grid-two">
                 {/* Left: Domain info */}
-                <div>
-                  <div className="mb-3.5">
+                <div className="dfm-col-left min-w-0">
+                  <div className="dfm-field mb-3.5">
                     <label htmlFor="df_owner_code">{t("ownerCode")} *</label>
                     <input
                       type="text" id="df_owner_code" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
@@ -361,7 +361,7 @@ export default function DomainFormModal({
                       onChange={(e) => setOwnerCode(forceUppercaseValue(e.target.value))}
                     />
                   </div>
-                  <div className="mb-3.5">
+                  <div className="dfm-field mb-3.5">
                     <label htmlFor="df_name">{t("name")} *</label>
                     <input
                       type="text" id="df_name" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
@@ -369,7 +369,7 @@ export default function DomainFormModal({
                       onChange={(e) => setName(forceUppercaseValue(e.target.value))}
                     />
                   </div>
-                  <div className="mb-3.5">
+                  <div className="dfm-field mb-3.5">
                     <label htmlFor="df_email">{t("email")} *</label>
                     <input
                       type="email" id="df_email" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
@@ -378,7 +378,7 @@ export default function DomainFormModal({
                       onChange={(e) => setEmail(forceLowercaseValue(e.target.value))}
                     />
                   </div>
-                  <div className="mb-3.5">
+                  <div className="dfm-field mb-3.5">
                     <label htmlFor="df_password">{t("password")} {!isEditMode && "*"}</label>
                     <input
                       type="password" id="df_password" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
@@ -388,7 +388,7 @@ export default function DomainFormModal({
                     />
                   </div>
                   {showSecondaryPwd && (
-                    <div className="mb-3.5">
+                    <div className="dfm-field mb-3.5">
                       <label htmlFor="df_secondary_pwd">
                         {t("secondaryPassword")} {!isEditMode && "*"}
                       </label>
@@ -407,12 +407,12 @@ export default function DomainFormModal({
                 </div>
 
                 {/* Right: Company info */}
-                <div className="flex flex-col">
-                  <div className="flex gap-3.5">
+                <div className="dfm-col-right flex min-w-0 flex-col">
+                  <div className="dfm-company-inputs-row mb-1 flex flex-wrap gap-3.5">
                     {/* Group input */}
-                    <div className="mb-3.5 flex-1">
+                    <div className="dfm-field mb-3.5 min-w-0 flex-1">
                       <label htmlFor="df_group_input">Group ID</label>
-                      <div className="flex">
+                      <div className="dfm-input-with-btn flex min-w-0">
                         <input
                           type="text" id="df_group_input"
                           placeholder={t("groupIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
@@ -420,13 +420,13 @@ export default function DomainFormModal({
                           onChange={(e) => setGroupInput(forceUppercaseValue(e.target.value))}
                           onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
                         />
-                        <button type="button" className="rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)]" onClick={addGroup}>{t("add")}</button>
+                        <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addGroup}>{t("add")}</button>
                       </div>
                     </div>
                     {/* Company input */}
-                    <div className="mb-3.5 flex-1">
+                    <div className="dfm-field mb-3.5 min-w-0 flex-1">
                       <label htmlFor="df_company_input">Company ID</label>
-                      <div className="flex">
+                      <div className="dfm-input-with-btn flex min-w-0">
                         <input
                           type="text" id="df_company_input"
                           placeholder={t("companyIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
@@ -434,13 +434,13 @@ export default function DomainFormModal({
                           onChange={(e) => setCompanyInput(forceUppercaseValue(e.target.value))}
                           onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
                         />
-                        <button type="button" className="rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)]" onClick={addCompany}>{t("add")}</button>
+                        <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addCompany}>{t("add")}</button>
                       </div>
                     </div>
                   </div>
 
                   {/* Group pills */}
-                  <div className="mb-3.5" id="groupPillsSection">
+                  <div className="dfm-field mb-3.5" id="groupPillsSection">
                     <label>{t("groupLabel")}</label>
                     <div className="flex min-h-[34px] flex-wrap items-center gap-2 py-1">
                       {tempGroups.length === 0
@@ -467,8 +467,8 @@ export default function DomainFormModal({
                   </div>
 
                   {/* Selected Companies */}
-                  <div className="mb-3.5 flex flex-1 flex-col">
-                    <div className="mb-2 flex items-center justify-between">
+                  <div className="dfm-field mb-3.5 flex flex-1 flex-col">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <label>{t("selectedCompanies")}</label>
                       {selectedGroupId && (
                         <button
@@ -494,9 +494,9 @@ export default function DomainFormModal({
                 </div>
               </div>
             </div>
-            <div className="flex justify-center gap-4 border-t-[2.5px] border-blue-900 bg-white px-9 py-[18px]">
-              <button type="submit" className="min-w-[130px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#60a5fa_0%,#3b82f6_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(59,130,246,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#3b82f6_0%,#60a5fa_100%)] hover:shadow-[0_4px_12px_rgba(59,130,246,0.4)]">{t("confirm")}</button>
-              <button type="button" className="min-w-[130px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#9ca3af_0%,#6b7280_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(107,114,128,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#6b7280_0%,#9ca3af_100%)] hover:shadow-[0_4px_12px_rgba(107,114,128,0.4)]" onClick={onClose}>{t("cancel")}</button>
+            <div className="dfm-footer-actions flex flex-wrap items-center justify-center gap-4 border-t-[2.5px] border-blue-900 bg-white px-9 py-[18px] sm:gap-8">
+              <button type="submit" className="min-h-[46px] min-w-[140px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#60a5fa_0%,#3b82f6_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(59,130,246,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#3b82f6_0%,#60a5fa_100%)] hover:shadow-[0_4px_12px_rgba(59,130,246,0.4)]">{t("confirm")}</button>
+              <button type="button" className="min-h-[46px] min-w-[140px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#9ca3af_0%,#6b7280_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(107,114,128,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#6b7280_0%,#9ca3af_100%)] hover:shadow-[0_4px_12px_rgba(107,114,128,0.4)]" onClick={onClose}>{t("cancel")}</button>
             </div>
           </form>
         </div>
