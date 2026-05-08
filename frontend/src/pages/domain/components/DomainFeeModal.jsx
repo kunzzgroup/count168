@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
-import { formatDomainFeeDisplay2, formatDomainFeeEdit2 } from "../domainHelpers.js";
+import { formatDomainFeeEdit2 } from "../domainHelpers.js";
 import { getDomainText } from "../../../translateFile/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 
@@ -29,7 +29,7 @@ export default function DomainFeeModal({ onClose, onFeeSaved, lang = "en" }) {
       .then((r) => r.json())
       .then((res) => {
         if (res.success && res.data) {
-          const p2 = formatDomainFeeDisplay2(res.data.price);
+          const p2 = formatDomainFeeEdit2(res.data.price);
           setSummary(t("feeSummary", { price: p2 }));
           setPrice(formatDomainFeeEdit2(res.data.price));
         } else {
