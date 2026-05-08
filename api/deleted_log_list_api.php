@@ -117,7 +117,7 @@ if ($searchQ !== '') {
     $params[] = $like;
 }
 
-$whereSql = implode(' AND ', $where);
+$whereSql = $where === [] ? '1=1' : implode(' AND ', $where);
 
 $rows = [];
 $total = 0;
