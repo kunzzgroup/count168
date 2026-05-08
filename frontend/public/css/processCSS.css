@@ -3721,7 +3721,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .modal-content.description-selection-modal .selected-descriptions-section h3,
 .modal-content.description-selection-modal .available-descriptions-section h3 {
     margin: 0 0 8px 0 !important;
-    font-size: 14px !important;
+    font-size: 15px !important;
     font-weight: 700 !important;
 }
 
@@ -3732,7 +3732,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 .modal-content.description-selection-modal .add-description-bar h3 {
     margin: 0 0 6px 0 !important;
-    font-size: 13px !important;
+    font-size: 14px !important;
     font-weight: 700 !important;
 }
 
@@ -3745,7 +3745,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .modal-content.description-selection-modal .add-description-input-group input,
 .modal-content.description-selection-modal .description-search input {
     padding: 7px 10px !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
     border-radius: 4px !important;
 }
 
@@ -3755,7 +3755,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     min-height: 28px !important;
     height: 28px !important;
     padding: 0 8px !important;
-    font-size: 11px !important;
+    font-size: 12px !important;
     border-radius: 4px !important;
 }
 
@@ -3769,7 +3769,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 .modal-content.description-selection-modal .description-item label,
 .modal-content.description-selection-modal .selected-description-modal-item span {
-    font-size: 13px !important;
+    font-size: 14px !important;
 }
 
 .modal-content.description-selection-modal .description-item .remove-description {
@@ -3798,7 +3798,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     min-height: 34px !important;
     height: 34px !important;
     padding: 0 12px !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
     border-radius: 5px !important;
 }
 
