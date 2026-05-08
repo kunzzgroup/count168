@@ -732,7 +732,7 @@ label.user-modal-col-title.acc-proc-label {
     max-width: none;
     width: auto;
     border-right: none;
-    padding: 0 10px;
+    padding: 0 10px !important;
 }
 
 .user-info-panel h3.user-modal-col-title {
@@ -1024,7 +1024,7 @@ label.user-modal-col-title.acc-proc-label {
     flex: 1;
     min-width: 0;
     background: transparent;
-    padding: 0 10px;
+    padding: 0 10px !important;
     display: flex;
     flex-direction: column;
     overflow: hidden;
