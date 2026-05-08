@@ -2613,7 +2613,7 @@ body.domain-page .domain-confirm-modal-content .confirm-actions {
     margin-top: 52px !important;
     display: flex !important;
     justify-content: center !important;
-    gap: 4px !important;
+    gap: 12px !important;
     padding: 39.93px 0 !important;
     background: #ffffff00 !important;
 }
