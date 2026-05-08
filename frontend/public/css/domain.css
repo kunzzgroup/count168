@@ -332,6 +332,93 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item 
     background: #dc2626 !important;
 }
 
+/* Group 胶囊：未选中灰底，仅选中蓝渐变（与量测图 span.group-pill / .active 一致） */
+body.ec-auth-shell .domain-form-modal-backdrop .group-pills {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 4px 0 !important;
+    min-height: 34px !important;
+    align-items: center !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .group-pill {
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    min-height: 46px !important;
+    padding: 6px 14px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    border-radius: 999px !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .group-pill:not(.active) {
+    background: #f1f5f9 !important;
+    color: #1f2937 !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .group-pill:not(.active):hover {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .group-pill.active {
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid transparent !important;
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3) !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .group-pill .remove-x {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    margin-left: 2px !important;
+    color: #dc2626 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .group-pill.active .remove-x {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .group-pill.active .remove-x:hover {
+    color: #fca5a5 !important;
+}
+
+/* Multiple Choice：仅进入多选模式时高亮（未开启为中性灰） */
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn {
+    box-sizing: border-box !important;
+    border-style: solid !important;
+    border-width: 1px !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--off {
+    background: #f1f5f9 !important;
+    color: #1f2937 !important;
+    border-color: #e2e8f0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--off:hover {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--on {
+    background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%) !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35) !important;
+}
+
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-inputs-row {
     gap: 16px !important;
 }

@@ -444,7 +444,7 @@ export default function DomainFormModal({
                   {/* Group pills */}
                   <div className="dfm-field" id="groupPillsSection">
                     <label>{t("groupLabel")}</label>
-                    <div className="flex min-h-[34px] flex-wrap items-center gap-2 py-1">
+                    <div className="group-pills">
                       {tempGroups.length === 0
                         ? <span className="dfm-empty-hint">{t("noGroupsCreated")}</span>
                         : tempGroups.map((gid) => {
@@ -452,15 +452,27 @@ export default function DomainFormModal({
                           return (
                             <span
                               key={gid}
-                              className={`inline-flex h-8 min-w-14 cursor-pointer select-none items-center justify-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-all ${
-                                selectedGroupId === gid
-                                  ? "border-transparent bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] text-white shadow-[0_2px_6px_rgba(0,123,255,0.3)]"
-                                  : "border-slate-300 bg-slate-100 text-slate-800 hover:border-indigo-300 hover:bg-slate-200"
-                              }`}
+                              role="button"
+                              tabIndex={0}
+                              className={`group-pill ${selectedGroupId === gid ? "active" : ""}`}
                               onClick={() => selectGroup(gid)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  selectGroup(gid);
+                                }
+                              }}
                             >
                               {gid} ({count})
-                              <span className={`ml-0.5 inline-flex items-center text-[15px] font-bold leading-none ${selectedGroupId === gid ? "text-white/70 hover:text-red-300" : "text-red-600 hover:text-red-800"}`} onClick={(e) => { e.stopPropagation(); removeGroup(gid); }}>&times;</span>
+                              <span
+                                className="remove-x"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeGroup(gid);
+                                }}
+                              >
+                                &times;
+                              </span>
                             </span>
                           );
                         })
@@ -475,10 +487,8 @@ export default function DomainFormModal({
                       {selectedGroupId && (
                         <button
                           type="button"
-                          className={`cursor-pointer rounded-[10px] border-0 px-3 py-1.5 text-[11px] font-semibold text-white transition-all ${
-                            isMultipleChoiceMode
-                              ? "bg-[linear-gradient(180deg,#fbbf24_0%,#f59e0b_100%)] shadow-[0_0_0_2px_rgba(245,158,11,0.4)]"
-                              : "bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)]"
+                          className={`dfm-multi-choice-btn cursor-pointer rounded-[10px] border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                            isMultipleChoiceMode ? "dfm-multi-choice-btn--on" : "dfm-multi-choice-btn--off"
                           }`}
                           onClick={toggleMultipleChoice}
                         >
