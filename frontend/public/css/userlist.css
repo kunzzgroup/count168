@@ -1221,7 +1221,7 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .user-page .btn-save:hover {
-    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%) !important;
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
 }
