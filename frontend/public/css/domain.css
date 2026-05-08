@@ -2580,9 +2580,9 @@ body.domain-page .domain-confirm-modal-content .confirm-icon-container {
 }
 
 body.domain-page .domain-confirm-modal-content .confirm-icon {
-    width: 55px !important;
-    height: 55px !important;
-    padding: 10px !important;
+    width: 76px !important;
+    height: 76px !important;
+    padding: 8px !important;
     border-radius: 9999px !important;
     color: #dc2626 !important;
 }
