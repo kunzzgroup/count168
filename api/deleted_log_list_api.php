@@ -1,6 +1,6 @@
 <?php
 /**
- * Deleted Log 列表（JSON），与 deleted-log.php 原页面筛选 / 分页 / 行展示逻辑一致。
+ * Deleted Log 列表（JSON），与历史 PHP 页面筛选 / 分页 / 行展示逻辑一致（前端为 SPA /deleted-log）。
  */
 header('Content-Type: application/json; charset=utf-8');
 

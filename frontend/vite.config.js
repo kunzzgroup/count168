@@ -6,13 +6,30 @@ export default defineConfig(({ mode }) => {
   const phpTarget = env.VITE_PHP_PROXY_TARGET || "http://127.0.0.1:8000";
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        name: "legacy-deleted-log-redirect",
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            const raw = req.url || "";
+            const pathname = raw.split("?")[0] || "";
+            if (pathname === "/deleted-log.php" || pathname === "/deleted_log.php") {
+              const q = raw.includes("?") ? raw.slice(raw.indexOf("?")) : "";
+              res.statusCode = 302;
+              res.setHeader("Location", `/deleted-log${q}`);
+              res.end();
+              return;
+            }
+            next();
+          });
+        },
+      },
+    ],
     base: mode === "production" ? "/frontend/dist/" : "/",
     server: {
       proxy: {
         "/dashboard.php": { target: phpTarget, changeOrigin: true },
-        "/deleted-log.php": { target: phpTarget, changeOrigin: true },
-        "/deleted_log.php": { target: phpTarget, changeOrigin: true },
         "/member.php": { target: phpTarget, changeOrigin: true },
         "/owner_secondary_password.php": { target: phpTarget, changeOrigin: true },
         "/api": { target: phpTarget, changeOrigin: true },
