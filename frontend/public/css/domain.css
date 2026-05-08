@@ -2164,7 +2164,7 @@ body.domain-page .domain-react-page .btn-delete.active {
 
 .modal-content {
     background-color: #ffffff;
-    margin: 2% auto;
+    margin: 2% auto !important;
     padding: 0;
     border: none;
     border-radius: 16px;
