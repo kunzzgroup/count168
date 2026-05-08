@@ -649,7 +649,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     width: 100%;
     padding: 0.4rem 0.625rem;
     border: 1px solid #d8dee8;
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 12px;
     background: #ffffff;
     color: #374151;
@@ -1746,68 +1746,64 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 /* ========================================================
-   Add/Edit Account modal: align closer to original (compact)
+   Add/Edit Account modal: align with original (spacious)
    ======================================================== */
 .account-modal .account-modal-content {
-    width: clamp(760px, 66vw, 980px);
+    width: clamp(860px, 72vw, 1080px);
     max-width: calc(100vw - 48px);
+    border-radius: 20px;
+}
+
+.account-modal .account-modal-header {
+    border-radius: 20px 20px 0 0;
 }
 
 .account-modal .account-modal-header h2 {
     font-size: 32px;
     line-height: 1.1;
+    padding: 1.25rem 0 0 1.5rem;
 }
 
-/* Keep form compact (original is tighter, less "card" feel) */
+/* More breathing room like original screenshot */
 .account-modal .account-form-columns {
-    padding: 0.5rem 1rem 0.25rem;
-    gap: 0.75rem;
+    padding: 0.75rem 1.5rem 0.5rem;
+    gap: 1.25rem;
 }
 
 .account-modal .account-form-group {
-    margin-bottom: 0.625rem;
+    margin-bottom: 0.9rem;
 }
 
-.account-modal .account-form-group label,
-.account-modal .account-other-currency label {
-    font-size: 0.875rem;
-}
-
+/* Rounded inputs (not square) */
 .account-modal .account-form-group input,
 .account-modal .account-form-group select,
 .account-modal .account-form-group textarea {
-    font-size: 12px;
-    min-height: 30px;
-    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 13px;
+    min-height: 36px;
+    padding: 8px 12px;
+}
+
+.account-modal .account-form-group textarea {
+    min-height: 38px;
 }
 
 .account-modal .account-radio-label,
 .account-modal .account-currency-item,
 .account-modal .account-company-btn {
-    font-size: 11px;
-    min-height: 24px;
+    border-radius: 14px;
 }
 
-.account-modal .account-btn-save,
-.account-modal .account-btn-cancel,
-.account-modal .account-btn-add-currency {
-    font-size: 12px;
-    min-height: 28px;
-    padding-top: 5px;
-    padding-bottom: 5px;
+.account-modal .account-form-actions {
+    border-radius: 0 0 20px 20px;
 }
 
-/* Advanced Account: remove heavy grey container look */
+/* Advanced section containers should have soft rounded corners */
 .account-modal .account-other-currency {
-    background: transparent;
-    border: none;
-    padding: 0;
-    border-radius: 0;
-}
-
-.account-modal .account-other-currency:hover {
-    border-color: transparent;
-    box-shadow: none;
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+    background: #f7f9fc;
+    border: 1px solid #e3e8f0;
 }
 
 /* --- Global Date Range & Quick Select Restoration --- */
