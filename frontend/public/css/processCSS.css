@@ -3910,3 +3910,36 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     margin: 0 !important;
     text-transform: uppercase !important;
 }
+
+/* Final polish: Edit Process subtitle readability + tighter Day Use spacing */
+.process-page #editModal .process-form .form-row small,
+.process-page #editModal .process-form .form-group .field-help,
+#editModal .process-form .form-row small,
+#editModal .process-form .form-group .field-help {
+    font-size: clamp(12px, 0.9vw, 14px) !important;
+    line-height: 1.4 !important;
+    color: #5b6472 !important;
+}
+
+.process-page #editModal .day-use-header,
+#editModal .day-use-header {
+    gap: 0.3rem !important;
+    margin-bottom: 0.25rem !important;
+}
+
+.process-page #editModal #edit_day_checkboxes.day-checkboxes,
+#editModal #edit_day_checkboxes.day-checkboxes {
+    gap: 0.2rem 0.45rem !important;
+}
+
+.process-page #editModal #edit_day_checkboxes.day-checkboxes .checkbox-item,
+#editModal #edit_day_checkboxes.day-checkboxes .checkbox-item {
+    gap: 0.25rem !important;
+}
+
+.process-page #editModal #edit_day_checkboxes.day-checkboxes .checkbox-item label,
+#editModal #edit_day_checkboxes.day-checkboxes .checkbox-item label {
+    font-size: clamp(12px, 0.86vw, 13px) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.01em !important;
+}
