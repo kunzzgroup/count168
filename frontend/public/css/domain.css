@@ -117,12 +117,12 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-form {
 
 /* 图二：头部左右留白更宽，标题位置下沉一点 */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-header {
-    padding: 18px 22px !important;
+    padding: 18px 36px !important;
 }
 
 /* 图二：内容与按钮栏之间留白；整段白底 */
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-body {
-    padding: 16px 22px clamp(26px, 4.6vw, 40px) !important;
+    padding: 24px 36px !important;
     background-color: #ffffff;
 }
 
@@ -130,7 +130,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions {
     flex-shrink: 0;
     gap: clamp(16px, 3vw, 32px);
     margin-top: 0 !important;
-    padding: clamp(14px, 2vw, 20px) 22px clamp(20px, 3vw, 30px) !important;
+    padding: 18px 36px !important;
     background-color: #ffffff !important;
 }
 
@@ -138,7 +138,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions {
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-grid-two {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: clamp(1.25rem, 2.8vw, 2.75rem);
+    gap: 20px;
     align-items: stretch;
 }
 
@@ -149,7 +149,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-row {
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-divider {
-    height: 3px !important;
+    height: 2.5px !important;
     margin-bottom: 20px !important;
     background-color: #1e3a8a !important;
 }
@@ -171,7 +171,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-col-right {
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-heading {
     margin: 0 !important;
     padding: 0 !important;
-    font-size: 17px !important;
+    font-size: 15px !important;
     font-weight: 700 !important;
     letter-spacing: 0.04em !important;
     line-height: 1.35 !important;
@@ -216,11 +216,11 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-empty-hint {
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list {
     box-sizing: border-box;
-    min-height: 120px;
+    min-height: 220px;
     max-height: 300px;
     flex: 1 1 auto;
     overflow-y: auto;
-    padding: 10px 12px !important;
+    padding: 10px !important;
     border: 1px solid #d1d5db !important;
     border-radius: 6px !important;
     background-color: #fafafa !important;
@@ -241,7 +241,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[ty
     font-size: 15px !important;
     line-height: 1.4 !important;
     padding: 9px 12px !important;
-    min-height: 42px !important;
+    min-height: 43px !important;
     border: 1px solid #d1d5db !important;
     border-radius: 6px !important;
     background-color: #ffffff !important;
@@ -287,9 +287,10 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn {
     align-items: center;
     justify-content: center;
     white-space: nowrap;
-    min-height: 42px !important;
-    padding-left: 18px !important;
-    padding-right: 18px !important;
+    width: 73px;
+    min-width: 73px;
+    min-height: 43px !important;
+    padding: 10px 2px !important;
     font-size: 15px !important;
     font-weight: 700 !important;
     letter-spacing: 0 !important;
@@ -312,9 +313,9 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn:active {
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn {
     box-sizing: border-box !important;
     margin: 0 !important;
-    min-height: 44px !important;
-    min-width: 148px !important;
-    padding: 10px 28px !important;
+    min-height: 41px !important;
+    min-width: 130px !important;
+    padding: 12px 30px !important;
     border: none !important;
     border-radius: 9999px !important;
     font-size: 15px !important;
