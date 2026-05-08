@@ -285,7 +285,14 @@ export default function UserListPage() {
     try {
       const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
       const json = await res.json();
-      const list = Array.isArray(json.data) ? json.data : [];
+      const raw = Array.isArray(json.data) ? json.data : [];
+      const seen = new Set();
+      const list = raw.filter((c) => {
+        const key = String(c?.company_id || "").trim().toUpperCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       setModalCompanies(list); return list;
     } catch { setModalCompanies([]); return []; }
   };
