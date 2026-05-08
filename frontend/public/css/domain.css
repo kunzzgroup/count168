@@ -1001,9 +1001,9 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
     gap: 12px;
-    margin-top: 28px;
+    margin-top: clamp(10px, 1.46vw, 28px);
     padding-top: 20px;
     border-top: 1px solid #e2e8f0;
 }
@@ -1149,11 +1149,6 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
     box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
 }
 
-.company-settings-react-modal .company-share-role-header {
-    padding: 14px 16px;
-    min-height: 0;
-}
-
 .company-settings-split-right .company-share-scroll {
     flex: 1;
     min-height: 0;
@@ -1228,9 +1223,9 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: clamp(8px, 1vw, 14px);
-    padding: clamp(10px, 0.9vw, 14px) clamp(12px, 1vw, 16px);
-    min-height: 64px;
+    gap: clamp(8px, 1vw, 12px);
+    padding: 14px 16px;
+    min-height: 0;
     cursor: pointer;
     user-select: none;
     background: #fff;
