@@ -12,10 +12,11 @@ import {
   roleSortOrder,
   PAGE_SIZE,
   DEFAULT_FORM,
+  getOrderedRoles,
 } from "./accountLogic.js";
 
 // Components
-import AccountFormModal from "./components/AccountFormModal.jsx";
+import AccountModal from "../../components/AccountModal.jsx";
 import AccountConfirmModal from "./components/AccountConfirmModal.jsx";
 import CurrencySettingModal from "./components/CurrencySettingModal.jsx";
 import LinkAccountModal from "./components/LinkAccountModal.jsx";
@@ -205,6 +206,8 @@ export default function AccountListPage() {
     });
     return arr;
   }, [accounts, sortColumn, sortDirection, roles]);
+
+  const orderedRoles = useMemo(() => getOrderedRoles(roles), [roles]);
 
   const filteredForMode = useMemo(() => {
     if (showAll) return sortedAccounts.filter(a => a.status === "active");
@@ -592,7 +595,33 @@ export default function AccountListPage() {
 
       {toast && <div id="accountNotificationContainer" className="account-notification-container"><div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div></div>}
 
-      <AccountFormModal open={addModalOpen || editModalOpen} isEditMode={isEditMode} form={form} setForm={setForm} roles={roles} currencies={currencies} companies={companies} selectedCurrencyIds={selectedCurrencyIds} setSelectedCurrencyIds={setSelectedCurrencyIds} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} onRemoveCurrency={() => {}} onSave={saveForm} onClose={() => { setAddModalOpen(false); setEditModalOpen(false); }} t={t} />
+      <AccountModal
+        open={addModalOpen || editModalOpen}
+        title={isEditMode ? t("editAccount") : t("addAccount")}
+        isEditMode={isEditMode}
+        form={form}
+        setForm={setForm}
+        orderedRoles={orderedRoles}
+        currencies={currencies}
+        companies={companies}
+        selectedCurrencyIds={selectedCurrencyIds}
+        setSelectedCurrencyIds={setSelectedCurrencyIds}
+        selectedCompanyIds={selectedCompanyIds}
+        setSelectedCompanyIds={setSelectedCompanyIds}
+        currencyInput={currencyInput}
+        setCurrencyInput={setCurrencyInput}
+        onCreateCurrency={(e) => {
+          // Allow UI reuse without forcing event handling conventions.
+          if (e?.preventDefault) e.preventDefault();
+          createCurrency();
+        }}
+        onSubmit={saveForm}
+        onClose={() => {
+          setAddModalOpen(false);
+          setEditModalOpen(false);
+        }}
+        t={t}
+      />
       <AccountConfirmModal open={confirmDeleteOpen} message={t("deleteConfirmMessage", { count: selectedDeleteIds.size })} onConfirm={confirmDelete} onClose={() => setConfirmDeleteOpen(false)} t={t} />
       <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onSave={saveCurrencySetting} accounts={accounts} roles={roles} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} t={t} />
       <LinkAccountModal open={linkModalOpen} accounts={linkAccountsPool} currentAccountId={linkingAccountId} selectedIds={selectedLinkedIds} setSelectedIds={setSelectedLinkedIds} linkType={linkType} setLinkType={setLinkType} searchTerm={linkSearchTerm} setSearchTerm={setLinkSearchTerm} onSave={saveLinks} onClose={() => setLinkModalOpen(false)} t={t} />
