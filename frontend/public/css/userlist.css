@@ -732,7 +732,7 @@ label.user-modal-col-title.acc-proc-label {
     max-width: none;
     width: auto;
     border-right: none;
-    padding: 19.968px;
+    padding: 0 10px;
 }
 
 .user-info-panel h3.user-modal-col-title {
@@ -768,6 +768,12 @@ label.user-modal-col-title.acc-proc-label {
 
 .user-modal-company-buttons {
     margin-top: 8px;
+}
+
+.user-page .user-modal-company-buttons .transaction-company-btn {
+    padding: clamp(2px, 0.22vw, 4px) clamp(8px, 0.62vw, 12px);
+    font-size: clamp(8px, 0.53vw, 10px);
+    font-weight: 600;
 }
 
 /* Account / Process：四欄格線（對齊原版） */
@@ -1018,7 +1024,7 @@ label.user-modal-col-title.acc-proc-label {
     flex: 1;
     min-width: 0;
     background: transparent;
-    padding: clamp(14px, 1.04vw, 20px);
+    padding: 0 10px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
