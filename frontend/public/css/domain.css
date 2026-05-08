@@ -2772,8 +2772,8 @@ body.domain-page .domain-react-page .domain-toolbar-left .search-container {
     position: relative;
     flex: 0 0 180px;
     width: 180px;
-    min-width: 200px;
-    max-width: 200px;
+    min-width: 280px;
+    max-width: 280px;
 }
 
 body.domain-page .domain-react-page .search-icon {
