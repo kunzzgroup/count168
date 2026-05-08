@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import { applySharedGroupClickWithCompanySwitch } from "../../utils/sharedCompanyFilter.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/transaction.css";
@@ -255,14 +256,15 @@ export default function CustomerReportPage() {
     } catch { notify("Switch failed", "danger"); }
   };
 
-  const onGroupClick = (gid) => {
-    if (selectedGroup === gid) {
-      setSelectedGroup(null);
-      sessionStorage.removeItem("dashboard_group_filter");
-    } else {
-      setSelectedGroup(gid);
-      sessionStorage.setItem("dashboard_group_filter", gid);
-    }
+  const onGroupClick = async (gid) => {
+    await applySharedGroupClickWithCompanySwitch({
+      clickedGroupId: gid,
+      currentSelectedGroup: selectedGroup,
+      companies,
+      currentCompanyId: companyId,
+      setSelectedGroup,
+      switchCompany: onSwitchCompany,
+    });
   };
 
   const toggleCurrency = (code) => {

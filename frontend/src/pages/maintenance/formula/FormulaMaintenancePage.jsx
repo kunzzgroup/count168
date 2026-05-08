@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
 import "../../../../public/css/formula_maintenance.css";
@@ -304,14 +305,15 @@ export default function FormulaMaintenancePage() {
     }
   };
 
-  const handleGroupClick = (gid) => {
-    if (selectedGroup === gid) {
-      setSelectedGroup(null);
-      sessionStorage.removeItem("dashboard_group_filter");
-    } else {
-      setSelectedGroup(gid);
-      sessionStorage.setItem("dashboard_group_filter", gid);
-    }
+  const handleGroupClick = async (gid) => {
+    await applySharedGroupClickWithCompanySwitch({
+      clickedGroupId: gid,
+      currentSelectedGroup: selectedGroup,
+      companies,
+      currentCompanyId: companyId,
+      setSelectedGroup,
+      switchCompany: handleSwitchCompany,
+    });
   };
 
   const handlePermissionSwitch = (p) => {
