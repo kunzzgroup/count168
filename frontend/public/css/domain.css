@@ -44,6 +44,9 @@ body.domain-page .domain-react-page>h1 {
 }
 
 body.domain-page .domain-react-page .action-buttons {
+    /* 整块工具栏叠在下方 table 之上，避免兄弟层 late-paint 盖住 Add/Price 等按钮点击区 */
+    position: relative;
+    z-index: 30;
     margin-bottom: 24px;
     display: flex;
     justify-content: space-between;
