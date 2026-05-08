@@ -10,8 +10,10 @@ import {
   fetchAccounts,
   fetchCurrencies,
   fetchCustomerReport,
+  fetchCompanyPermissions,
+  isBankOnlyCategoryCompany,
 } from "./customerReportLogic.js";
-import { formatDmy, formatYmd, parseYmd, quickRangeToDates } from "../../utils/dateUtils.js";
+import { formatYmd, quickRangeToDates } from "../../utils/dateUtils.js";
 
 // Components
 import CustomerReportFilters from "./components/CustomerReportFilters.jsx";
@@ -194,7 +196,7 @@ export default function CustomerReportPage() {
       const comp = companies.find(c => Number(c.id) === Number(compId));
       const perms = await fetchCompanyPermissions(comp?.company_id || "");
       if (isBankOnlyCategoryCompany(perms)) {
-        window.location.assign(new URL("/dashboard", window.location.origin).href);
+        window.location.assign(new URL("/process-list", window.location.origin).href);
       }
     } catch (err) {
       console.error("Bank only check error:", err);

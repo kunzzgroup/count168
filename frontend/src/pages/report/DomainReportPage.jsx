@@ -187,7 +187,7 @@ export default function DomainReportPage() {
       const comp = companies.find(c => Number(c.id) === Number(compId));
       const perms = await fetchCompanyPermissions(comp?.company_id || "");
       if (isBankOnlyCategoryCompany(perms)) {
-        window.location.assign(new URL("/dashboard", window.location.origin).href);
+        window.location.assign(new URL("/process-list", window.location.origin).href);
       }
     } catch (err) {
       console.error("Bank only check error:", err);
@@ -229,6 +229,7 @@ export default function DomainReportPage() {
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
+      await checkBankOnly(c.id);
       notifyCompanySessionUpdated();
     } catch { notify("Switch failed", "danger"); }
   };
