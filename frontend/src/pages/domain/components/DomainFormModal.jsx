@@ -293,21 +293,23 @@ export default function DomainFormModal({
     }
 
     return sorted.map((c) => (
-      <div key={c.company_id} className="mb-2 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3.5 py-2.5">
-        <div className="flex min-w-0 items-center gap-1"><span className="text-sm font-bold text-slate-700">{c.company_id}</span></div>
-        <div className="flex items-center gap-1.5">
-          <span className="mr-2 whitespace-nowrap text-xs text-slate-500">
+      <div key={c.company_id} className="company-item">
+        <div className="company-item-left">
+          <span>{c.company_id}</span>
+        </div>
+        <div className="company-item-right">
+          <span className="exp-date-display">
             {c.expiration_date ? formatDate(c.expiration_date) : t("notSet")}
           </span>
           <button
-            type="button" className="h-7 cursor-pointer rounded-[3px] border-0 px-2.5 text-[10px] text-white transition-colors hover:brightness-95"
+            type="button"
+            className="company-reset-btn"
             onClick={() => openCompanySettings(c.company_id)}
             title={t("setExpirationDate")}
-            style={{ background: "linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%)" }}
           >
             {t("set")}
           </button>
-          <button type="button" className="h-7 cursor-pointer rounded-[3px] border-0 bg-red-500 px-2.5 text-[10px] text-white transition-colors hover:bg-red-600" onClick={() => removeCompany(c.company_id)}>
+          <button type="button" className="company-remove-btn" onClick={() => removeCompany(c.company_id)}>
             {t("remove")}
           </button>
         </div>

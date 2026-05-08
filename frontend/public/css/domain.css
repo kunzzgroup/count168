@@ -222,8 +222,114 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list {
     overflow-y: auto;
     padding: 10px !important;
     border: 1px solid #d1d5db !important;
-    border-radius: 6px !important;
+    border-radius: 8px !important;
     background-color: #fafafa !important;
+    color: #334155 !important;
+    font-size: 16px !important;
+}
+
+/* Selected Companies 行（与 legacy companies-list-box 量测对齐，防 Set/Remove 叠字） */
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list>.company-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: 50px !important;
+    margin: 0 0 8px 0 !important;
+    padding: 10px 14px !important;
+    gap: 8px !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    background-color: #ffffff !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list>.company-item:last-child {
+    margin-bottom: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item-left {
+    display: flex !important;
+    align-items: center !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    margin-right: auto !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item-left>span {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item-right {
+    display: flex !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item .exp-date-display {
+    font-size: 13px !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+    color: #334155 !important;
+    margin: 0 8px 0 12px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    line-height: 1.35 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item .company-reset-btn {
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    margin: 0 0 0 8px !important;
+    padding: 4px 14px !important;
+    min-width: 46px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    font-family: Arial, sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 5px !important;
+    cursor: pointer !important;
+    background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%) !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item .company-remove-btn {
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    padding: 4px 12px !important;
+    min-height: 28px !important;
+    height: 28px !important;
+    font-family: Arial, sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 5px !important;
+    cursor: pointer !important;
+    background: #EF4444 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item .company-reset-btn:hover {
+    filter: brightness(1.05) !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item .company-remove-btn:hover {
+    background: #dc2626 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-inputs-row {
