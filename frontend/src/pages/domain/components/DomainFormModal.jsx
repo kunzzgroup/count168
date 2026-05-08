@@ -341,7 +341,7 @@ export default function DomainFormModal({
             <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
             <button className="flex h-9 w-9 items-center justify-center rounded-full border-0 bg-transparent text-[26px] text-black transition-colors hover:bg-gray-200" onClick={onClose}>&times;</button>
           </div>
-          <form className="domain-form-modal-form" onSubmit={handleSubmit}>
+          <form className="domain-form-modal-form flex flex-col bg-white" onSubmit={handleSubmit}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />
             <div className="domain-form-modal-body px-9 py-6">
               <div className="dfm-grid-two mb-2.5">

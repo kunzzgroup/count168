@@ -106,13 +106,42 @@ body.domain-page .domain-react-page .table-container {
  */
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel {
     box-sizing: border-box;
+    background-color: #ffffff;
 }
 
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-form {
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+}
+
+/* 图二：内容与按钮栏之间留白；整段白底 */
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-body {
+    padding-bottom: clamp(28px, 5vw, 42px) !important;
+    background-color: #ffffff;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions {
+    flex-shrink: 0;
+    margin-top: 0 !important;
+    padding-top: clamp(18px, 2.4vw, 22px) !important;
+    padding-bottom: clamp(24px, 3.5vw, 36px) !important;
+    background-color: #ffffff !important;
+}
+
+/* 两栏同高拉伸，避免左列较矮时中部露出「灰底」视感 */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-grid-two {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: clamp(1.25rem, 2.8vw, 2.75rem);
-    align-items: start;
+    align-items: stretch;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-col-left,
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-col-right {
+    min-width: 0;
+    min-height: 100%;
+    background-color: #ffffff;
 }
 
 @media (max-width: 760px) {
