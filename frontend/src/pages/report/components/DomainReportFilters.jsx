@@ -11,6 +11,11 @@ export default function DomainReportFilters({
   processId,
   setProcessId,
   processes,
+  currencyList,
+  selectedCurrencies,
+  toggleCurrency,
+  showAllCurrencies,
+  toggleAllCurrencies,
   dateFrom,
   dateTo,
   onRangeChange,
@@ -168,9 +173,7 @@ export default function DomainReportFilters({
             <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
               {snapCompanies.map((comp) => {
                 const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-                let visible = true;
-                if (selectedGroup) visible = cGid === selectedGroup;
-                else visible = !cGid;
+                const visible = selectedGroup ? cGid === selectedGroup : true;
 
                 return (
                   <button
@@ -184,6 +187,32 @@ export default function DomainReportFilters({
                   </button>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Currency Buttons */}
+        {currencyList.length > 0 && (
+          <div className="transaction-company-filter" style={{ marginTop: 10 }}>
+            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>Currency:</span>
+            <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
+              <button
+                type="button"
+                className={`transaction-company-btn ${showAllCurrencies ? "active" : ""}`}
+                onClick={toggleAllCurrencies}
+              >
+                All
+              </button>
+              {currencyList.map(c => (
+                <button
+                  key={c.code}
+                  type="button"
+                  className={`transaction-company-btn ${selectedCurrencies.includes(c.code) ? "active" : ""}`}
+                  onClick={() => toggleCurrency(c.code)}
+                >
+                  {c.code}
+                </button>
+              ))}
             </div>
           </div>
         )}

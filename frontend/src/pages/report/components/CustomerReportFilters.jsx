@@ -199,9 +199,7 @@ export default function CustomerReportFilters({
             <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
               {snapCompanies.map((comp) => {
                 const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-                let visible = true;
-                if (selectedGroup) visible = cGid === selectedGroup;
-                else visible = !cGid;
+                const visible = selectedGroup ? cGid === selectedGroup : true;
 
                 return (
                   <button

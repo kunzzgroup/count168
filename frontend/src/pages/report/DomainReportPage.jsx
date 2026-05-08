@@ -9,6 +9,7 @@ import "../../../public/css/date-range-picker.css";
 import {
   fetchDomainReport,
   fetchProcesses,
+  fetchCurrencies,
   fetchCompanyPermissions,
   isBankOnlyCategoryCompany
 } from "./domainReportLogic.js";
@@ -30,6 +31,8 @@ export default function DomainReportPage() {
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [processId, setProcessId] = useState("");
+  const [selectedCurrencies, setSelectedCurrencies] = useState([]);
+  const [showAllCurrencies, setShowAllCurrencies] = useState(false);
 
   // Date Range
   const today = useMemo(() => new Date(), []);
@@ -38,6 +41,7 @@ export default function DomainReportPage() {
 
   // -- State: Data --
   const [processes, setProcesses] = useState([]);
+  const [currencyList, setCurrencyList] = useState([]);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -171,6 +175,8 @@ export default function DomainReportPage() {
         dateFrom,
         dateTo,
         companyId,
+        selectedCurrencies,
+        showAllCurrencies,
       });
       setReportData(data);
     } catch (err) {
@@ -179,7 +185,7 @@ export default function DomainReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, processId, dateFrom, dateTo]);
+  }, [companyId, processId, dateFrom, dateTo, selectedCurrencies, showAllCurrencies]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;
@@ -197,12 +203,21 @@ export default function DomainReportPage() {
   const loadMetaData = useCallback(async () => {
     if (!companyId) return;
     try {
-      const procs = await fetchProcesses(companyId);
+      const [procs, curs] = await Promise.all([
+        fetchProcesses(companyId),
+        fetchCurrencies(companyId),
+      ]);
       setProcesses(procs);
+      setCurrencyList(curs);
+      if (curs.length > 0 && selectedCurrencies.length === 0 && !showAllCurrencies) {
+        const myr = curs.find((c) => c.code === "MYR");
+        const def = myr || curs[0];
+        setSelectedCurrencies([def.code]);
+      }
     } catch (err) {
       console.error("Meta data load error:", err);
     }
-  }, [companyId]);
+  }, [companyId, selectedCurrencies.length, showAllCurrencies]);
 
   useEffect(() => {
     if (!bootLoading && companyId) loadMetaData();
@@ -215,7 +230,7 @@ export default function DomainReportPage() {
       }, 300);
       return () => clearTimeout(handler);
     }
-  }, [bootLoading, companyId, processId, dateFrom, dateTo, loadReport]);
+  }, [bootLoading, companyId, processId, dateFrom, dateTo, selectedCurrencies, showAllCurrencies, loadReport]);
 
   // -- Handlers --
   const onSwitchCompany = async (c) => {
@@ -244,6 +259,19 @@ export default function DomainReportPage() {
     }
   };
 
+  const toggleCurrency = (code) => {
+    setShowAllCurrencies(false);
+    setSelectedCurrencies((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+  };
+
+  const toggleAllCurrencies = () => {
+    setShowAllCurrencies((prev) => {
+      const next = !prev;
+      if (next) setSelectedCurrencies([]);
+      return next;
+    });
+  };
+
   if (bootLoading || !me || !cssReady) return null;
 
   return (
@@ -263,6 +291,11 @@ export default function DomainReportPage() {
           processId={processId}
           setProcessId={setProcessId}
           processes={processes}
+          currencyList={currencyList}
+          selectedCurrencies={selectedCurrencies}
+          toggleCurrency={toggleCurrency}
+          showAllCurrencies={showAllCurrencies}
+          toggleAllCurrencies={toggleAllCurrencies}
           dateFrom={dateFrom}
           dateTo={dateTo}
           onRangeChange={(s, e) => { setDateFrom(s); setDateTo(e); }}

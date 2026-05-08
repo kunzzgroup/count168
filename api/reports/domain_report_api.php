@@ -102,7 +102,12 @@ function formatProcesses(array $processes) {
  * 查询 Domain 报表原始行（按 Process 汇总 Turnover / Win / Lose）
  * 以 process 为主表，无数据的 process 也显示（0）；过滤 dcd.company_id 保证 Win/Lose 只计当前公司
  */
-function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, string $date_to, ?int $process_id) {
+function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, string $date_to, ?int $process_id, array $currency_codes = []) {
+    $currency_codes = array_values(array_filter(array_map(
+        static fn($code) => strtoupper(trim((string)$code)),
+        $currency_codes
+    )));
+
     $sql = "
         SELECT 
             p.id AS process_pk,
@@ -118,9 +123,29 @@ function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, str
           AND dc.capture_date BETWEEN ? AND ?
         LEFT JOIN data_capture_details dcd ON dcd.capture_id = dc.id
           AND dcd.company_id = ?
+    ";
+    $params = [$company_id, $date_from, $date_to, $company_id];
+
+    if (!empty($currency_codes)) {
+        $placeholders = implode(',', array_fill(0, count($currency_codes), '?'));
+        $sql .= "
+          AND dcd.currency_id IN (
+              SELECT c.id
+              FROM currency c
+              WHERE c.company_id = ?
+                AND UPPER(c.code) IN ($placeholders)
+          )
+        ";
+        $params[] = $company_id;
+        foreach ($currency_codes as $code) {
+            $params[] = $code;
+        }
+    }
+
+    $sql .= "
         WHERE p.company_id = ?
     ";
-    $params = [$company_id, $date_from, $date_to, $company_id, $company_id];
+    $params[] = $company_id;
     if ($process_id !== null && $process_id > 0) {
         $sql .= " AND p.id = ? ";
         $params[] = $process_id;
@@ -197,6 +222,8 @@ try {
     $date_from = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
     $date_to = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
     $process_id = isset($_GET['process_id']) ? (int)$_GET['process_id'] : null;
+    $currency_raw = isset($_GET['currency']) ? trim((string)$_GET['currency']) : '';
+    $currency_codes = $currency_raw !== '' ? explode(',', $currency_raw) : [];
 
     if (empty($date_from) || empty($date_to)) {
         throw new Exception('开始日期和结束日期不能为空');
@@ -211,7 +238,7 @@ try {
         throw new Exception('开始日期不能大于结束日期');
     }
 
-    $rows = fetchDomainReportRows($pdo, $company_id, $date_from, $date_to, $process_id);
+    $rows = fetchDomainReportRows($pdo, $company_id, $date_from, $date_to, $process_id, $currency_codes);
     $result = buildReportResult($rows, $date_from, $date_to);
 
     echo json_encode([
