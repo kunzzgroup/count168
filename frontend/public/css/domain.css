@@ -53,7 +53,7 @@ body.domain-page .domain-react-page .action-buttons {
     margin-bottom: 0;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: start;
     flex-wrap: wrap;
     gap: 12px;
 }
