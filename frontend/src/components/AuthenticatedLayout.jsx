@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
+import { clearDataCaptureRoundLocalStorage } from "../utils/dataCaptureRoundStorage.js";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 
@@ -440,7 +441,12 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`}
-                onClick={() => navigate("/datacapture")}
+                onClick={() => {
+                  if (path === "/datacapturesummary") {
+                    clearDataCaptureRoundLocalStorage();
+                  }
+                  navigate("/datacapture");
+                }}
                 role="presentation"
               >
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">

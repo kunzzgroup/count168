@@ -4,6 +4,7 @@ import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-tabl
 import { useSummaryTableColumns } from "./hooks/useSummaryTableColumns.jsx";
 import { useDataCaptureSummarySubmit } from "./hooks/useDataCaptureSummarySubmit.js";
 import { useDataCaptureSummaryBootstrap } from "./hooks/useDataCaptureSummaryBootstrap.js";
+import { useSummaryServerState } from "./hooks/useSummaryServerState.js";
 import { extractSummaryRowsFromCapturedTable } from "./utils/summaryTableTransform.js";
 import {
   computeProcessedAmounts,
@@ -48,7 +49,15 @@ export default function DataCaptureSummaryPage() {
   const [accountOptions, setAccountOptions] = useState([]);
   const [currencyOptions, setCurrencyOptions] = useState([]);
   const [roleOptions, setRoleOptions] = useState([]);
-  const [processMeta, setProcessMeta] = useState({ captureDate: "", processId: null, currencyId: null, remark: "" });
+  const [processMeta, setProcessMeta] = useState({
+    captureDate: "",
+    processId: null,
+    currencyId: null,
+    remark: "",
+    processName: "",
+    processCode: "",
+    currencyName: "",
+  });
   const [processCurrencyCode, setProcessCurrencyCode] = useState("");
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -64,6 +73,8 @@ export default function DataCaptureSummaryPage() {
   });
   const [addCurrencyInput, setAddCurrencyInput] = useState("");
   const [selectedCurrencyIds, setSelectedCurrencyIds] = useState([]);
+  const [companyPickOptions, setCompanyPickOptions] = useState([]);
+  const [selectedCompanyIdsForAdd, setSelectedCompanyIdsForAdd] = useState([]);
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page");
@@ -173,6 +184,7 @@ export default function DataCaptureSummaryPage() {
   }, [showConfirmDelete, showNotification, summaryRows]);
 
   const { submitSummaryData, isSubmitting } = useDataCaptureSummarySubmit({
+    companyId,
     processMeta,
     summaryRows,
     parseDisplayAmountToNumber,
@@ -180,14 +192,47 @@ export default function DataCaptureSummaryPage() {
     navigate,
   });
 
+  const loadCompanyPickOptions = useCallback(async () => {
+    try {
+      const res = await fetch(buildApiUrl("api/accounts/account_company_api.php?action=get_available_companies"), { credentials: "include" });
+      const json = await res.json();
+      if (json?.success && Array.isArray(json.data)) setCompanyPickOptions(json.data);
+    } catch {
+      setCompanyPickOptions([]);
+    }
+  }, []);
+
   const closeAddModal = useCallback(() => {
     setAddModalVisible(false);
     setAddCurrencyInput("");
     setSelectedCurrencyIds([]);
+    setSelectedCompanyIdsForAdd([]);
   }, []);
 
   const openAddModal = useCallback(() => {
     setAddModalVisible(true);
+    loadCompanyPickOptions();
+  }, [loadCompanyPickOptions]);
+
+  useSummaryServerState({
+    enabled: contentVisible && !emptyVisible && summaryRows.length > 0,
+    companyId,
+    processMeta,
+    summaryRows,
+  });
+
+  useEffect(() => {
+    const onPageShow = (ev) => {
+      if (!ev.persisted) return;
+      setSummaryRows((prev) =>
+        prev.map((row) => ({
+          ...row,
+          ...computeProcessedAmounts(row.formula || "", row.source || "1", row.rateValue || ""),
+        })),
+      );
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
   const submitAddAccount = useCallback(
@@ -226,10 +271,33 @@ export default function DataCaptureSummaryPage() {
             ),
           );
         }
+        if (newAccountId && selectedCompanyIdsForAdd.length > 0) {
+          await Promise.all(
+            selectedCompanyIdsForAdd.map((cid) =>
+              fetch(buildApiUrl("api/accounts/account_company_api.php?action=add_company"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ account_id: newAccountId, company_id: cid }),
+                credentials: "include",
+              }),
+            ),
+          );
+        }
+
+        const optUrl = companyId
+          ? buildApiUrl(`api/datacapture_summary/summary_api.php?company_id=${encodeURIComponent(companyId)}`)
+          : buildApiUrl("api/datacapture_summary/summary_api.php");
+        const optRes = await fetch(optUrl, { credentials: "include" });
+        const optJson = await optRes.json();
+        if (optJson?.success && Array.isArray(optJson.accounts)) {
+          setAccountOptions(optJson.accounts);
+        }
+
         showNotification("Success", "Account added successfully!", "success");
         setAddModalVisible(false);
         setAddCurrencyInput("");
         setSelectedCurrencyIds([]);
+        setSelectedCompanyIdsForAdd([]);
         setAddForm({
           account_id: "",
           name: "",
@@ -245,7 +313,7 @@ export default function DataCaptureSummaryPage() {
         showNotification("Error", error?.message || "Failed to add account", "error");
       }
     },
-    [addForm, companyId, selectedCurrencyIds, showNotification],
+    [addForm, companyId, selectedCompanyIdsForAdd, selectedCurrencyIds, showNotification],
   );
 
   const addCurrencyFromInput = useCallback(async () => {
@@ -342,7 +410,9 @@ export default function DataCaptureSummaryPage() {
     if (!processCurrencyCode || !currencyOptions.length) return;
     const selectedCurrency = currencyOptions.find((c) => String(c.code || "").trim().toUpperCase() === processCurrencyCode.toUpperCase());
     if (!selectedCurrency) return;
-    setProcessMeta((prev) => (prev.currencyId ? prev : { ...prev, currencyId: selectedCurrency.id }));
+    setProcessMeta((prev) =>
+      prev.currencyId ? prev : { ...prev, currencyId: selectedCurrency.id, currencyName: selectedCurrency.code || prev.currencyName },
+    );
     setSummaryRows((prev) =>
       prev.map((row) => (row.currencyId ? row : { ...row, currencyId: selectedCurrency.id, currency: selectedCurrency.code })),
     );
@@ -396,7 +466,7 @@ export default function DataCaptureSummaryPage() {
               id="summaryDeleteSelectedBtn"
               onClick={deleteSelectedRows}
               title="Delete selected rows"
-              disabled
+              disabled={!summaryRows.some((row) => row.deleteChecked)}
               type="button"
             >
               Delete
@@ -677,7 +747,23 @@ export default function DataCaptureSummaryPage() {
                     </div>
                     <div className="account-other-currency" style={{ marginTop: 20 }}>
                       <label>Company:</label>
-                      <div className="account-currency-list" id="addCompanyList" />
+                      <div className="account-currency-list" id="addCompanyList">
+                        {companyPickOptions.map((c) => (
+                          <label key={c.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginRight: 10 }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedCompanyIdsForAdd.includes(c.id)}
+                              onChange={(e) => {
+                                const id = c.id;
+                                setSelectedCompanyIdsForAdd((prev) =>
+                                  e.target.checked ? [...new Set([...prev, id])] : prev.filter((x) => x !== id),
+                                );
+                              }}
+                            />
+                            {c.company_id || c.code || c.name || c.id}
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>

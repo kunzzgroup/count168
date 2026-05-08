@@ -257,8 +257,10 @@ export default function DataCapturePage() {
         }
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
         const hasFull = perms.length === 0;
-        const canDc = hasFull || perms.includes("datacapture");
-        if (!canDc || !u.company_has_gambling) {
+        const companyCats = Array.isArray(u.company_permissions) ? u.company_permissions : [];
+        const companyOk = companyCats.length > 0;
+        const canDc = (hasFull || perms.includes("datacapture")) && companyOk && u.company_has_gambling;
+        if (!canDc) {
           if (!cancelled) setForbidden(true);
           return;
         }
@@ -488,6 +490,16 @@ export default function DataCapturePage() {
       setTimeout(() => node.remove(), 300);
     }, 1500);
   }, []);
+
+  useEffect(() => {
+    if (loading || forbidden) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("submitted") !== "1") return;
+    notify("Data submitted successfully. Continue capturing when ready.", "success");
+    url.searchParams.delete("submitted");
+    const qs = url.searchParams.toString();
+    window.history.replaceState({}, document.title, url.pathname + (qs ? `?${qs}` : ""));
+  }, [loading, forbidden, notify]);
 
   useEffect(() => {
     if (loading || forbidden) return undefined;

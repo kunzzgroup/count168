@@ -78,6 +78,7 @@ $isCurrentCompanyC168 = false;
 $hasC168DomainPageAccess = false;
 $companyHasGambling = false;
 $companyHasBank = false;
+$companyPermissionsList = [];
 
 if ($companyId && $pdo instanceof PDO) {
     try {
@@ -109,6 +110,7 @@ if ($companyId && $pdo instanceof PDO) {
         $companyPermsRaw = $stmtCompanyPerm->fetchColumn();
         $companyPerms = $companyPermsRaw ? (json_decode((string) $companyPermsRaw, true) ?: []) : [];
         if (is_array($companyPerms)) {
+            $companyPermissionsList = array_values($companyPerms);
             $companyHasGambling = in_array('Games', $companyPerms, true) || in_array('Gambling', $companyPerms, true);
             $companyHasBank = in_array('Bank', $companyPerms, true);
         }
@@ -171,6 +173,7 @@ echo json_encode([
         'has_c168_domain_page_access' => $hasC168DomainPageAccess,
         'company_has_gambling' => $companyHasGambling,
         'company_has_bank' => $companyHasBank,
+        'company_permissions' => is_array($companyPermissionsList) ? $companyPermissionsList : [],
         'company_id' => $companyId ?: null,
         'needs_owner_secondary' => $needsOwnerSecondary,
         'needs_user_secondary' => $needsUserSecondary,
