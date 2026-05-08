@@ -3394,8 +3394,8 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 /* Hard fallback: ensure Add Process modal stays readable even if parent wrapper class changes */
 #addModal .modal-content {
-    width: clamp(820px, 78vw, 980px) !important;
-    max-width: 980px !important;
+    width: clamp(900px, 84vw, 1120px) !important;
+    max-width: 1120px !important;
     min-height: clamp(460px, 62vh, 600px) !important;
     max-height: 92vh !important;
 }
@@ -3406,7 +3406,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #addModal .process-form.add-grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.46fr) minmax(0, 0.54fr) !important;
+    grid-template-columns: minmax(0, 0.4fr) minmax(0, 0.6fr) !important;
     column-gap: 1rem !important;
     row-gap: 0.45rem !important;
     max-width: 100% !important;
@@ -3456,19 +3456,21 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #addModal #day_checkboxes.day-checkboxes,
 #addModal #edit_day_checkboxes.day-checkboxes {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(52px, max-content)) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 0.6rem !important;
+    gap: 0.5rem !important;
     justify-content: start !important;
     overflow: visible !important;
-    white-space: normal !important;
+    white-space: nowrap !important;
 }
 
 .process-page #addModal #day_checkboxes.day-checkboxes,
 .process-page #addModal #edit_day_checkboxes.day-checkboxes {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(52px, max-content)) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     justify-content: start !important;
 }
 
