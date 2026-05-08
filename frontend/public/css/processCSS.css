@@ -1629,8 +1629,10 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 /* Force Add Modal sizing and spacing (higher specificity) */
 .process-page #addModal .modal-content {
-    width: 86% !important;
-    max-width: 66rem !important;
+    width: clamp(820px, 78vw, 980px) !important;
+    max-width: 980px !important;
+    min-height: clamp(560px, 72vh, 760px);
+    max-height: 92vh;
     margin-left: auto !important;
     margin-right: auto !important;
 }
@@ -3240,19 +3242,15 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
         font-size: clamp(9px, 0.85vw, 14px) !important;
     }
 
-    .process-page .form-group input,
-    .process-page .form-group select,
-    .process-page .form-group textarea {
+    .process-page #editModal .form-group input,
+    .process-page #editModal .form-group select,
+    .process-page #editModal .form-group textarea {
         font-size: clamp(9px, 0.85vw, 14px);
     }
 
-    .process-page .form-group input,
-    .process-page .form-group select {
+    .process-page #editModal .form-group input,
+    .process-page #editModal .form-group select {
         padding: 8px 16px;
-    }
-
-    .process-page #addModal .day-checkboxes .checkbox-item label {
-        font-size: clamp(9px, 0.85vw, 14px) !important;
     }
 }
 
@@ -3263,31 +3261,27 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 @media (max-height: 800px),
 (max-width: 1200px) {
 
-    .process-page .process-form .form-group input,
-    .process-page .process-form .form-group select,
-    .process-page .process-form .form-group textarea {
+    .process-page #editModal .process-form .form-group input,
+    .process-page #editModal .process-form .form-group select,
+    .process-page #editModal .process-form .form-group textarea {
         padding: 0.4rem 0.75rem !important;
         font-size: 0.8125rem !important;
     }
 
-    .process-page #addModal .process-form .form-group label,
     .process-page #editModal .process-form .form-group label {
         font-size: 0.8125rem !important;
         margin-bottom: 0.25rem !important;
     }
 
-    .process-page #addModal .process-form .form-row,
     .process-page #editModal .process-form .form-row {
         margin-bottom: 0.625rem !important;
         gap: 0.875rem !important;
     }
 
-    .process-page #addModal .modal-body,
     .process-page #editModal .modal-body {
         padding: 1rem 1.25rem 1rem 1.25rem !important;
     }
 
-    .process-page #addModal .process-form.add-grid .add-col,
     .process-page #editModal .process-form.add-grid .add-col {
         padding: 0.75rem 0.9rem !important;
     }
@@ -3296,6 +3290,23 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
         padding-top: 0.75rem !important;
         padding-bottom: 0.75rem !important;
     }
+}
+
+/* Keep Add Process modal readable on smaller viewports */
+.process-page #addModal .process-form .form-group label {
+    font-size: clamp(12px, 0.95vw, 14px) !important;
+}
+
+.process-page #addModal .process-form .form-group input,
+.process-page #addModal .process-form .form-group select,
+.process-page #addModal .process-form .form-group textarea {
+    font-size: clamp(12px, 0.95vw, 14px) !important;
+    padding: 0.5rem 0.875rem !important;
+    min-height: 2.5rem;
+}
+
+.process-page #addModal .day-checkboxes .checkbox-item label {
+    font-size: 0.8125rem !important;
 }
 
 /* Bank list: keep pagination under table (not fixed at viewport corner) */
