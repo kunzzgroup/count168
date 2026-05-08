@@ -784,7 +784,7 @@ label.user-modal-col-title.acc-proc-label {
     overflow-y: auto;
     display: grid !important;
     /* Keep items readable inside 1/3-width modal columns */
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 10px;
     align-content: start;
     padding: 10px 0;
@@ -1055,7 +1055,7 @@ label.user-modal-col-title.acc-proc-label {
     background: transparent;
     padding: clamp(6px, 0.52vw, 10px);
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: clamp(4px, 0.42vw, 8px);
     align-content: start;
 }
