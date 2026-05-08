@@ -1629,10 +1629,10 @@ body.account-page:not(.account-page--show-all) .account-card {
     background: transparent;
     border: none;
     color: #007AFF;
-    font-size: clamp(12px, 0.83vw, 16px);
+    font-size: clamp(8px, 0.83vw, 16px);
     font-weight: 500;
-    width: clamp(24px, 1.46vw, 28px);
-    height: clamp(24px, 1.46vw, 28px);
+    width: clamp(20px, 1.46vw, 28px);
+    height: clamp(20px, 1.46vw, 28px);
     display: flex;
     align-items: center;
     justify-content: center;

@@ -589,7 +589,13 @@ export default function AccountListPage() {
               })}
             </div>
           </div>
-          {!showAll && <div className="account-pagination-container"><button className="account-pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>◀</button><span>{t("paginationOf", { page: currentPage, total: totalPages })}</span><button className="account-pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>▶</button></div>}
+          {!showAll && (
+            <div className="account-pagination-container">
+              <button className="account-pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>◀</button>
+              <span className="account-pagination-info">{t("paginationOf", { page: currentPage, total: totalPages })}</span>
+              <button className="account-pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>▶</button>
+            </div>
+          )}
         </div>
       </div>
 
