@@ -1117,6 +1117,7 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
     border-radius: 6px;
     cursor: pointer;
     color: #ffffff;
+    justify-content: center !important;
 }
 
 .company-settings-react-modal .btn-save {
@@ -2091,7 +2092,7 @@ body.domain-page .domain-react-page .btn-delete.active {
 
 .form-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-end !important;
     gap: 12px;
     margin-top: clamp(10px, 1.46vw, 28px);
     padding-top: 20px;
