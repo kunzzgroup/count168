@@ -18,7 +18,8 @@ export default function AccountFormModal({
   onCreateCurrency,
   onRemoveCurrency,
   onSave,
-  onClose
+  onClose,
+  t,
 }) {
   if (!open) return null;
 
@@ -28,7 +29,7 @@ export default function AccountFormModal({
     <div className="account-modal" style={{ display: "block" }}>
       <div className="account-modal-content">
         <div className="account-modal-header">
-          <h2>{isEditMode ? "Edit Account" : "Add Account"}</h2>
+          <h2>{isEditMode ? t("editAccount") : t("addAccount")}</h2>
           <span className="account-close" onClick={onClose}>&times;</span>
         </div>
         <div className="account-modal-body">
@@ -37,9 +38,9 @@ export default function AccountFormModal({
             <div className="account-form-columns">
               {/* 左列：Personal Information */}
               <div className="account-form-column">
-                <h3 className="account-section-header">Personal Information</h3>
+                <h3 className="account-section-header">{t("personalInformation")}</h3>
                 <div className="account-form-group">
-                  <label>Account ID *</label>
+                  <label>{t("accountIdRequired")}</label>
                   <input
                     type="text"
                     value={form.account_id}
@@ -49,7 +50,7 @@ export default function AccountFormModal({
                   />
                 </div>
                 <div className="account-form-group">
-                  <label>Name *</label>
+                  <label>{t("nameRequired")}</label>
                   <input
                     type="text"
                     value={form.name}
@@ -58,22 +59,22 @@ export default function AccountFormModal({
                   />
                 </div>
                 <div className="account-form-group">
-                  <label>Role *</label>
+                  <label>{t("roleRequired")}</label>
                   <select
                     value={form.role}
                     onChange={(e) => setForm(f => ({ ...f, role: e.target.value }))}
                     required
                   >
-                    <option value="">Select Role</option>
+                    <option value="">{t("selectRole")}</option>
                     {orderedRoles.map(r => (
                       <option key={r} value={r}>
-                        {toUpper(r) === "UPLINE" ? "SUPPLIER" : r}
+                        {toUpper(r) === "UPLINE" ? t("supplier") : r}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div className="account-form-group">
-                  <label>Password {isEditMode ? "*" : "*"}</label>
+                  <label>{t("passwordRequired")}</label>
                   <input
                     type="password"
                     value={form.password}
@@ -85,9 +86,9 @@ export default function AccountFormModal({
 
               {/* 右列：Payment */}
               <div className="account-form-column">
-                <h3 className="account-section-header">Payment</h3>
+                <h3 className="account-section-header">{t("payment")}</h3>
                 <div className="account-form-group">
-                  <label>Payment Alert</label>
+                  <label>{t("paymentAlert")}</label>
                   <div className="account-radio-group">
                     <label className="account-radio-label">
                       <input
@@ -97,7 +98,7 @@ export default function AccountFormModal({
                         checked={form.payment_alert === "1"}
                         onChange={() => setForm(f => ({ ...f, payment_alert: "1" }))}
                       />
-                      Yes
+                      {t("yes")}
                     </label>
                     <label className="account-radio-label">
                       <input
@@ -107,7 +108,7 @@ export default function AccountFormModal({
                         checked={form.payment_alert === "0"}
                         onChange={() => setForm(f => ({ ...f, payment_alert: "0", alert_type: "", alert_start_date: "", alert_amount: "" }))}
                       />
-                      No
+                      {t("noWord")}
                     </label>
                   </div>
                 </div>
@@ -115,23 +116,23 @@ export default function AccountFormModal({
                 {form.payment_alert === "1" && (
                   <div className="account-form-row">
                     <div className="account-form-group">
-                      <label>Alert Type</label>
+                      <label>{t("alertType")}</label>
                       <select
                         value={form.alert_type}
                         onChange={(e) => setForm(f => ({ ...f, alert_type: e.target.value }))}
                       >
-                        <option value="">Select Type</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
+                        <option value="">{t("selectType")}</option>
+                        <option value="weekly">{t("weekly")}</option>
+                        <option value="monthly">{t("monthly")}</option>
                         {Array.from({ length: 31 }, (_, i) => (
                           <option key={i + 1} value={String(i + 1)}>
-                            {i + 1} Days
+                            {t("days", { n: i + 1 })}
                           </option>
                         ))}
                       </select>
                     </div>
                     <div className="account-form-group">
-                      <label>Start Date</label>
+                      <label>{t("startDate")}</label>
                       <input
                         type="date"
                         value={form.alert_start_date}
@@ -142,11 +143,11 @@ export default function AccountFormModal({
                 )}
                 {form.payment_alert === "1" && (
                   <div className="account-form-group">
-                    <label>Alert (Amount)</label>
+                    <label>{t("alertAmount")}</label>
                     <input
                       type="text"
                       inputMode="decimal"
-                      placeholder="Enter amount (auto-converted to negative)"
+                      placeholder={t("enterAmountPlaceholder")}
                       value={form.alert_amount || ""}
                       onChange={(e) => setForm((f) => ({ ...f, alert_amount: e.target.value }))}
                     />
@@ -154,7 +155,7 @@ export default function AccountFormModal({
                 )}
 
                 <div className="account-form-group">
-                  <label>Remark</label>
+                  <label>{t("remark")}</label>
                   <textarea
                     rows="1"
                     value={form.remark}
@@ -168,13 +169,13 @@ export default function AccountFormModal({
             {/* Advanced Account Section */}
             <div className="account-form-section">
               <div className="account-advance-section">
-                <h3>Advanced Account</h3>
+                <h3>{t("advancedAccount")}</h3>
                 <div className="account-other-currency">
-                  <label>Other Currency:</label>
+                  <label>{t("otherCurrency")}</label>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <input
                       type="text"
-                      placeholder="Enter new currency code (e.g., EUR, JPY, GBP)"
+                      placeholder={t("newCurrencyPlaceholder")}
                       value={currencyInput}
                       onChange={(e) => setCurrencyInput(toUpper(e.target.value))}
                     />
@@ -186,7 +187,7 @@ export default function AccountFormModal({
                         onCreateCurrency();
                       }}
                     >
-                      Create Currency
+                      {t("createCurrency")}
                     </button>
                   </div>
                   <div className="account-currency-list">
@@ -207,7 +208,7 @@ export default function AccountFormModal({
                 </div>
 
                 <div className="account-other-currency" style={{ marginTop: "20px" }}>
-                  <label>Company:</label>
+                  <label>{t("company")}</label>
                   <div className="account-currency-list">
                     {companies.map(c => (
                       <button
@@ -229,10 +230,10 @@ export default function AccountFormModal({
 
             <div className="account-form-actions">
               <button type="submit" className="account-btn account-btn-save">
-                {isEditMode ? "Update Account" : "Add Account"}
+                {isEditMode ? t("updateAccount") : t("addAccount")}
               </button>
               <button type="button" className="account-btn account-btn-cancel" onClick={onClose}>
-                Cancel
+                {t("cancel")}
               </button>
             </div>
           </form>

@@ -13,6 +13,7 @@ export default function LinkAccountModal({
   setSearchTerm,
   onSave,
   onClose,
+  t,
 }) {
   if (!open) return null;
 
@@ -31,7 +32,7 @@ export default function LinkAccountModal({
     <div id="linkAccountModal" className="account-modal" style={{ display: "block" }}>
       <div className="account-modal-content">
         <div className="account-modal-header">
-          <h2>Link Account</h2>
+          <h2>{t("linkAccountTitle")}</h2>
           <span className="account-close" onClick={onClose}>&times;</span>
         </div>
         <div className="link-account-fixed-area">
@@ -47,7 +48,7 @@ export default function LinkAccountModal({
                   className="link-type-radio"
                 />
                 <span className="link-type-pill-check">&#10003;</span>
-                <span className="link-type-pill-text">Bidirectional</span>
+                <span className="link-type-pill-text">{t("bidirectional")}</span>
               </label>
               <label className="link-type-pill">
                 <input
@@ -59,13 +60,13 @@ export default function LinkAccountModal({
                   className="link-type-radio"
                 />
                 <span className="link-type-pill-check">&#10003;</span>
-                <span className="link-type-pill-text">Unidirectional</span>
+                <span className="link-type-pill-text">{t("unidirectional")}</span>
               </label>
             </div>
             <p className="link-type-desc">
               {linkType === "bidirectional"
-                ? "Bidirectional: Data syncs both ways."
-                : "Unidirectional flows from A to B."}
+                ? t("bidirectionalDesc")
+                : t("unidirectionalDesc")}
             </p>
           </div>
           <div className="link-account-search-wrap">
@@ -77,7 +78,7 @@ export default function LinkAccountModal({
               <input
                 type="text"
                 className="link-account-search-input"
-                placeholder="Search account..."
+                placeholder={t("searchAccount")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -109,13 +110,13 @@ export default function LinkAccountModal({
               );
             })}
             {rows.length === 0 && (
-              <div className="currency-toggle-note">No accounts available to link.</div>
+              <div className="currency-toggle-note">{t("noAccountsToLink")}</div>
             )}
           </div>
         </div>
         <div className="account-form-actions link-account-form-actions">
-          <button type="button" className="account-btn account-btn-save" onClick={onSave}>Save</button>
-          <button type="button" className="account-btn account-btn-cancel" onClick={onClose}>Cancel</button>
+          <button type="button" className="account-btn account-btn-save" onClick={onSave}>{t("save")}</button>
+          <button type="button" className="account-btn account-btn-cancel" onClick={onClose}>{t("cancel")}</button>
         </div>
       </div>
     </div>

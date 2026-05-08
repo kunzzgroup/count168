@@ -19,7 +19,8 @@ export default function CurrencySettingModal({
   roles,
   currencyInput,
   setCurrencyInput,
-  onCreateCurrency
+  onCreateCurrency,
+  t,
 }) {
   if (!open) return null;
 
@@ -35,12 +36,12 @@ export default function CurrencySettingModal({
       <div className="currency-fullscreen-modal-content">
         {/* Top Header Bar */}
         <div className="currency-fullscreen-modal-header-bar">
-          <h2>Currency Setting</h2>
+          <h2>{t("currencySetting")}</h2>
           <button type="button" className="currency-btn-back" onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
-            Back
+            {t("back")}
           </button>
         </div>
 
@@ -49,12 +50,12 @@ export default function CurrencySettingModal({
           {/* Left Panel: Currency Management */}
           <div className="currency-left-panel">
             <div className="currency-setting-add-row-stacked">
-              <label>Add Currency :</label>
+              <label>{t("addCurrency")}</label>
               <div style={{ display: "flex", gap: "10px", width: "100%" }}>
                 <input
                   type="text"
                   className="currency-setting-input"
-                  placeholder="Please enter new currency"
+                  placeholder={t("pleaseEnterNewCurrency")}
                   value={currencyInput}
                   onChange={(e) => setCurrencyInput(toUpper(e.target.value))}
                 />
@@ -63,7 +64,7 @@ export default function CurrencySettingModal({
                   className="account-btn account-btn-add currency-setting-add-btn"
                   onClick={onCreateCurrency}
                 >
-                  Add
+                  {t("add")}
                 </button>
               </div>
             </div>
@@ -71,7 +72,7 @@ export default function CurrencySettingModal({
             <div className="currency-setting-divider"></div>
 
             <div className="currency-setting-list-row-stacked">
-              <label>Currency :</label>
+              <label>{t("currency")}</label>
               <div className="currency-setting-pill-list">
                 {currencies.map(c => (
                   <button
@@ -101,7 +102,7 @@ export default function CurrencySettingModal({
                 <input
                   type="text"
                   className="currency-setting-search-input"
-                  placeholder="Search Bar"
+                  placeholder={t("searchBar")}
                   value={settingSearch}
                   onChange={(e) => setSettingSearch(e.target.value)}
                 />
@@ -112,7 +113,7 @@ export default function CurrencySettingModal({
                   value={settingRole}
                   onChange={(e) => setSettingRole(e.target.value)}
                 >
-                  <option value="">Filter Row</option>
+                  <option value="">{t("filterRow")}</option>
                   {roles.map(r => (
                     <option key={r} value={r}>{toUpper(r)}</option>
                   ))}
@@ -138,9 +139,9 @@ export default function CurrencySettingModal({
                   });
                 }}
               >
-                Select All
+                {t("selectAll")}
               </button>
-              <span className="currency-setting-selected-count">{settingLinked.size} selected</span>
+              <span className="currency-setting-selected-count">{t("selectedCount", { count: settingLinked.size })}</span>
             </div>
 
             <div className="currency-setting-account-list">
@@ -168,10 +169,10 @@ export default function CurrencySettingModal({
         {/* Fixed Bottom Bar */}
         <div className="currency-fullscreen-bottom-bar">
           <button type="button" className="account-btn account-btn-save currency-setting-submit-btn" onClick={onSave}>
-            Save
+            {t("save")}
           </button>
           <button type="button" className="account-btn account-btn-cancel currency-setting-cancel-btn" onClick={onClose}>
-            Cancel
+            {t("cancel")}
           </button>
         </div>
       </div>
