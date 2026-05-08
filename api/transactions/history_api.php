@@ -237,6 +237,25 @@ function mapEntryTypeToProduct($entryType)
 }
 
 /**
+ * Payment History：同一笔 RATE（同一 header）下，展示顺序固定为 FROM 侧先于 TO 侧，
+ * 避免同一账户多行分录仅因 e.id 交错而出现「先 To 后 From」与对手账不一致。
+ */
+function historyRateLegSortGroup(?string $entryType): int
+{
+    $t = trim((string) ($entryType ?? ''));
+    if (in_array($t, ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM'], true)) {
+        return 0;
+    }
+    if (in_array($t, ['RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
+        return 1;
+    }
+    if ($t === 'RATE_MIDDLEMAN' || $t === 'RATE_FEE') {
+        return 2;
+    }
+    return 3;
+}
+
+/**
  * 移除描述末尾的 "(Rate: xxx)" 后缀（大小写不敏感）
  */
 function stripTrailingRateSuffix(string $description): string
@@ -2315,17 +2334,32 @@ try {
         ];
     }
 
-    // 先按业务日历日升序（旧在上、新在下），同日再按 order_ts / 加入序
+    // 先按业务日历日升序（旧在上、新在下），同日再按 order_ts；同一 RATE header 下同秒则 FROM 先于 TO，否则按加入序
     usort($events, function ($a, $b) {
         $da = $a['sort_date_ymd'] ?? '9999-12-31';
         $db = $b['sort_date_ymd'] ?? '9999-12-31';
         if ($da !== $db) {
             return $da <=> $db;
         }
-        if (($a['order_ts'] ?? 0) === ($b['order_ts'] ?? 0)) {
-            return ($a['order_index'] ?? 0) <=> ($b['order_index'] ?? 0);
+        $tsA = (int) ($a['order_ts'] ?? 0);
+        $tsB = (int) ($b['order_ts'] ?? 0);
+        if ($tsA !== $tsB) {
+            return $tsA <=> $tsB;
         }
-        return ($a['order_ts'] ?? 0) <=> ($b['order_ts'] ?? 0);
+        $aRate = ($a['transaction_type'] ?? '') === 'RATE';
+        $bRate = ($b['transaction_type'] ?? '') === 'RATE';
+        if ($aRate && $bRate) {
+            $idA = $a['transaction_id'] ?? null;
+            $idB = $b['transaction_id'] ?? null;
+            if ($idA !== null && $idA !== '' && (string) $idA === (string) $idB) {
+                $legA = historyRateLegSortGroup($a['entry_type'] ?? null);
+                $legB = historyRateLegSortGroup($b['entry_type'] ?? null);
+                if ($legA !== $legB) {
+                    return $legA <=> $legB;
+                }
+            }
+        }
+        return ($a['order_index'] ?? 0) <=> ($b['order_index'] ?? 0);
     });
 
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
