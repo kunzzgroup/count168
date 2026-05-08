@@ -115,9 +115,14 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-form {
     background-color: #ffffff;
 }
 
+/* 图二：头部左右留白更宽，标题位置下沉一点 */
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-header {
+    padding: 18px 22px !important;
+}
+
 /* 图二：内容与按钮栏之间留白；整段白底 */
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-body {
-    padding-bottom: clamp(28px, 5vw, 42px) !important;
+    padding: 16px 22px clamp(26px, 4.6vw, 40px) !important;
     background-color: #ffffff;
 }
 
@@ -125,8 +130,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions {
     flex-shrink: 0;
     gap: clamp(16px, 3vw, 32px);
     margin-top: 0 !important;
-    padding-top: clamp(18px, 2.4vw, 22px) !important;
-    padding-bottom: clamp(24px, 3.5vw, 36px) !important;
+    padding: clamp(14px, 2vw, 20px) 22px clamp(20px, 3vw, 30px) !important;
     background-color: #ffffff !important;
 }
 
