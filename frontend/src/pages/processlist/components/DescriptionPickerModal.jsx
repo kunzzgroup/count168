@@ -10,8 +10,8 @@ export default function DescriptionPickerModal({
 }) {
   const [search, setSearch] = useState("");
   const [newDescName, setNewDescName] = useState("");
-  // localSelected holds the array of selected description objects: { id, name }
-  const [localSelected, setLocalSelected] = useState([...(form.selected_descriptions || [])]);
+  const [localSelected, setLocalSelected] = useState(() => [...(form.selected_descriptions || [])]);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   const filteredDescriptions = useMemo(() => {
     if (!search.trim()) return descriptions;
@@ -30,8 +30,20 @@ export default function DescriptionPickerModal({
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!newDescName.trim()) return;
-    await onAddDescription(newDescName.trim());
+    const added = await onAddDescription(newDescName.trim());
     setNewDescName("");
+    if (added?.id != null) {
+      setLocalSelected((prev) => {
+        if (prev.some((item) => String(item.id) === String(added.id))) return prev;
+        return [...prev, { id: added.id, name: added.name }];
+      });
+    }
+  };
+
+  const runDelete = async () => {
+    if (deleteConfirmId == null) return;
+    await onDeleteDescription(deleteConfirmId);
+    setDeleteConfirmId(null);
   };
 
   return (
@@ -39,14 +51,15 @@ export default function DescriptionPickerModal({
       <div className="modal-content description-selection-modal">
         <div className="modal-header">
           <h2>Select or Add Description</h2>
-          <span className="close" onClick={onClose} role="presentation">&times;</span>
+          <span className="close" onClick={onClose} role="presentation">
+            &times;
+          </span>
         </div>
         <div className="modal-body">
           <div className="description-selection-container">
-            {/* Left side - Selected descriptions */}
             <div className="selected-descriptions-section">
               <h3>Selected Descriptions</h3>
-              <div className="selected-descriptions-list">
+              <div className="selected-descriptions-list" id="selectedDescriptionsInModal">
                 {localSelected.length === 0 ? (
                   <div style={{ padding: "20px", textAlign: "center", color: "#999", fontStyle: "italic" }}>
                     No descriptions selected
@@ -54,15 +67,16 @@ export default function DescriptionPickerModal({
                 ) : (
                   localSelected.map((item) => (
                     <div key={item.id} className="selected-description-modal-item">
-                      <span>{item.name}</span>
-                      <button type="button" className="remove-description-modal" onClick={() => toggleSelect(item)}>&times;</button>
+                      <span>{String(item.name || "").toUpperCase()}</span>
+                      <button type="button" className="remove-description-modal" onClick={() => toggleSelect(item)}>
+                        &times;
+                      </button>
                     </div>
                   ))
                 )}
               </div>
             </div>
 
-            {/* Right side - Add new and available descriptions */}
             <div className="available-descriptions-section">
               <div className="add-description-bar">
                 <h3>Add New Description</h3>
@@ -70,12 +84,14 @@ export default function DescriptionPickerModal({
                   <div className="add-description-input-group">
                     <input
                       type="text"
-                      placeholder="ENTER NEW DESCRIPTION NAME..."
+                      placeholder="Enter new description name..."
                       value={newDescName}
                       onChange={(e) => setNewDescName(e.target.value)}
                       required
                     />
-                    <button type="submit" className="btn btn-save">Add</button>
+                    <button type="submit" className="btn btn-save">
+                      Add
+                    </button>
                   </div>
                 </form>
               </div>
@@ -89,7 +105,7 @@ export default function DescriptionPickerModal({
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <div className="description-list">
+              <div className="description-list" id="existingDescriptions">
                 {filteredDescriptions.map((d) => {
                   const isSelected = localSelected.some((item) => String(item.id) === String(d.id));
                   return (
@@ -101,15 +117,13 @@ export default function DescriptionPickerModal({
                         onChange={() => toggleSelect(d)}
                         style={{ margin: 0 }}
                       />
-                      <label htmlFor={`desc_checkbox_${d.id}`}>
-                        {d.name}
-                      </label>
+                      <label htmlFor={`desc_checkbox_${d.id}`}>{String(d.name || "").toUpperCase()}</label>
                       <button
                         type="button"
                         className="remove-description"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDeleteDescription(d.id);
+                          setDeleteConfirmId(d.id);
                         }}
                         title="Delete Description"
                       >
@@ -123,11 +137,32 @@ export default function DescriptionPickerModal({
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-cancel" onClick={onClose}>Cancel</button>
-            <button type="button" className="btn btn-save" onClick={() => onConfirm(localSelected)}>Confirm Selection</button>
+            <button type="button" className="btn btn-cancel" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={() => onConfirm(localSelected)}>
+              Confirm Selection
+            </button>
           </div>
         </div>
       </div>
+
+      {deleteConfirmId != null && (
+        <div className="process-modal" style={{ display: "block", zIndex: 10060 }} role="dialog" aria-modal="true">
+          <div className="process-confirm-modal-content" style={{ maxWidth: 420 }}>
+            <h2 className="process-confirm-title">Delete description</h2>
+            <p className="process-confirm-message">Are you sure you want to delete this description?</p>
+            <div className="process-confirm-actions">
+              <button type="button" className="process-btn process-btn-cancel" onClick={() => setDeleteConfirmId(null)}>
+                Cancel
+              </button>
+              <button type="button" className="process-btn process-btn-delete" onClick={() => void runDelete()}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
