@@ -46,13 +46,13 @@ export default function CompanyCard({
   let confirmDisabled = false;
 
   if (st) {
-    const t = calcTotal(st.rows);
-    const rem = 100 - t;
-    if (t > 100) {
+    const total = calcTotal(st.rows);
+    const rem = 100 - total;
+    if (total > 100) {
       warn = { show: true, err: true, icon: "❌", msg: t("totalExceeds100") };
       footerText = t("overAllocated", { value: fmtPct(Math.abs(rem)) });
       confirmDisabled = true;
-    } else if (t < 100) {
+    } else if (total < 100) {
       warn = { show: true, err: false, icon: "⚠️", msg: t("totalLessThan100") };
       footerText = t("unallocated", { value: fmtPct(rem) });
     } else {
