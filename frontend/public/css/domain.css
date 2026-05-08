@@ -729,11 +729,10 @@ body.domain-page .domain-fee-react-modal.modal-content {
 
 .domain-fee-react-modal .form-actions {
     display: flex;
-    justify-content: center !important;
     align-items: center;
     gap: 12px;
     margin-top: 24px !important;
-    padding: 32px 0 !important;
+    padding: 32px 0 0 0!important;
     border-top: 1px solid #e2e8f0 !important;
 }
 
@@ -749,6 +748,7 @@ body.domain-page .domain-fee-react-modal.modal-content {
     border: none !important;
     color: #ffffff !important;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+    justify-content: center !important;
 }
 
 .domain-fee-react-modal .btn-save {
