@@ -39,9 +39,17 @@ export function useTransactionUI() {
       setHistory({ open: true, title, rows: [], loading: true });
       try {
         const accountDbId = row.account_db_id ? String(row.account_db_id) : "";
+        const virtualCompanyCode = !accountDbId ? String(row.account_id || "").trim().toUpperCase() : "";
         const currency = String(row.currency || "").toUpperCase().trim();
         const res = await queryClient.fetchQuery({
-          queryKey: transactionQueryKeys.history({ companyId, accountDbId, dateFrom, dateTo, currency }),
+          queryKey: transactionQueryKeys.history({
+            companyId,
+            accountDbId,
+            dateFrom,
+            dateTo,
+            currency,
+            virtualCompanyCode,
+          }),
           queryFn: ({ signal }) =>
             getHistory({
               companyId,
@@ -49,6 +57,7 @@ export function useTransactionUI() {
               dateFrom,
               dateTo,
               currency,
+              virtualCompanyCode,
               signal,
             }),
           staleTime: 30_000,

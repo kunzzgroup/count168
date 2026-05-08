@@ -1722,3 +1722,18 @@ body.transaction-page .transaction-container * {
 .category-option:hover .category-checkbox-label {
     background-color: #f9fafb;
 }
+
+/* Protect Transaction route layout from Member page CSS collisions in SPA bundles. */
+body.transaction-page:not(.member-winloss-page) .transaction-main-content {
+    display: flex;
+    flex-direction: row;
+    gap: 24px;
+    margin-bottom: 0;
+    overflow: visible;
+}
+
+body.transaction-page:not(.member-winloss-page) .transaction-search-section,
+body.transaction-page:not(.member-winloss-page) .transaction-add-section {
+    flex: 1;
+    min-width: 0;
+}

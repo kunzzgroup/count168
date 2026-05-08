@@ -352,12 +352,17 @@ export function useTransactionSearch({
     const singleSelectedCurrency =
       !showAllCurrencies && selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase() : "";
 
+    const showInactiveForQuery =
+      searchState.showZeroBalance && searchState.showPaymentOnly ? false : searchState.showPaymentOnly;
+    const showCaptureOnlyForQuery =
+      searchState.showZeroBalance && searchState.showCaptureOnly ? false : searchState.showCaptureOnly;
+
     const requestKey = JSON.stringify({
       dateFrom: effectiveDateFrom,
       dateTo: effectiveDateTo,
       categoryParam,
-      showInactive: searchState.showPaymentOnly ? "1" : "0",
-      showCaptureOnly: searchState.showCaptureOnly ? "1" : "0",
+      showInactive: showInactiveForQuery ? "1" : "0",
+      showCaptureOnly: showCaptureOnlyForQuery ? "1" : "0",
       hideZero: searchState.showZeroBalance ? "0" : "1",
       companyId: cid || "",
       showAllCurrencies: !!showAllCurrencies,
@@ -378,8 +383,8 @@ export function useTransactionSearch({
       companyId: cid,
       dateFrom: effectiveDateFrom,
       dateTo: effectiveDateTo,
-      showInactive: searchState.showPaymentOnly,
-      showCaptureOnly: searchState.showCaptureOnly,
+      showInactive: showInactiveForQuery,
+      showCaptureOnly: showCaptureOnlyForQuery,
       hideZeroBalance: !searchState.showZeroBalance,
       categories: selectedCategories.length > 0 ? selectedCategories : undefined,
       currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
