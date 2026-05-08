@@ -402,72 +402,76 @@ export default function UserListPage() {
           <div className="separator-line" />
           <div className="action-buttons-container" style={{ marginBottom: 20 }}>
             <div className="action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <div className="user-group-company-row" ref={gcPopoverRef}>
-                  <button type="button" className="user-gc-trigger" onClick={openGcPopover} disabled={switchingCompany}>
-                    <span className="user-gc-trigger__label">Group / Company</span>
-                    <span className="user-gc-trigger__chips" title={gcSummary}>{gcSummary}</span>
-                    <span className="user-gc-trigger__caret" aria-hidden>▼</span>
-                  </button>
-                  {gcPopoverOpen && (
-                    <div className="user-gc-popover" role="dialog">
-                      {groupIds.length > 0 && (
-                        <div className="user-gc-popover__groups">
-                          <div className="user-gc-popover__title">SELECT GROUP</div>
-                          <ul className="user-gc-group-list">
-                            {groupIds.map((gid) => {
-                              const active = popoverActiveGroup === gid;
-                              const count = groupCompanyCountMap.get(gid) || 0;
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div className="user-group-company-row" ref={gcPopoverRef}>
+                    <button type="button" className="user-gc-trigger" onClick={openGcPopover} disabled={switchingCompany}>
+                      <span className="user-gc-trigger__label">Group / Company</span>
+                      <span className="user-gc-trigger__chips" title={gcSummary}>{gcSummary}</span>
+                      <span className="user-gc-trigger__caret" aria-hidden>▼</span>
+                    </button>
+                    {gcPopoverOpen && (
+                      <div className="user-gc-popover" role="dialog">
+                        {groupIds.length > 0 && (
+                          <div className="user-gc-popover__groups">
+                            <div className="user-gc-popover__title">SELECT GROUP</div>
+                            <ul className="user-gc-group-list">
+                              {groupIds.map((gid) => {
+                                const active = popoverActiveGroup === gid;
+                                const count = groupCompanyCountMap.get(gid) || 0;
+                                return (
+                                  <li key={gid}>
+                                    <button
+                                      type="button"
+                                      className={`user-gc-group-item${active ? " is-active" : ""}`}
+                                      onClick={() => setPopoverActiveGroup(gid)}
+                                    >
+                                      <span className="user-gc-group-item__dot" aria-hidden />
+                                      <span className="user-gc-group-item__label">{gid} Group</span>
+                                      <span className="user-gc-group-item__badge">{count}</span>
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        )}
+                        <div className="user-gc-popover__companies">
+                          <div className="user-gc-popover__title">SELECT COMPANY</div>
+                          <div className="user-gc-company-pills">
+                            {companiesInGroup.map((c) => {
+                              const cid = Number(c.id);
+                              const active = Number(gcDraftCompanyId) === cid;
                               return (
-                                <li key={gid}>
-                                  <button
-                                    type="button"
-                                    className={`user-gc-group-item${active ? " is-active" : ""}`}
-                                    onClick={() => setPopoverActiveGroup(gid)}
-                                  >
-                                    <span className="user-gc-group-item__dot" aria-hidden />
-                                    <span className="user-gc-group-item__label">{gid} Group</span>
-                                    <span className="user-gc-group-item__badge">{count}</span>
-                                  </button>
-                                </li>
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  className={`user-gc-company-pill${active ? " is-on" : ""}`}
+                                  onClick={() => setGcDraftCompanyId(cid)}
+                                >
+                                  {String(c.company_id || "").toUpperCase()}
+                                </button>
                               );
                             })}
-                          </ul>
-                        </div>
-                      )}
-                      <div className="user-gc-popover__companies">
-                        <div className="user-gc-popover__title">SELECT COMPANY</div>
-                        <div className="user-gc-company-pills">
-                          {companiesInGroup.map((c) => {
-                            const cid = Number(c.id);
-                            const active = Number(gcDraftCompanyId) === cid;
-                            return (
-                              <button
-                                key={c.id}
-                                type="button"
-                                className={`user-gc-company-pill${active ? " is-on" : ""}`}
-                                onClick={() => setGcDraftCompanyId(cid)}
-                              >
-                                {String(c.company_id || "").toUpperCase()}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="user-gc-popover__footer">
-                          <span className="user-gc-popover__count">1 selected</span>
-                          <button type="button" className="user-gc-confirm-btn" onClick={confirmGcPopover}>Confirm</button>
+                          </div>
+                          <div className="user-gc-popover__footer">
+                            <span className="user-gc-popover__count">1 selected</span>
+                            <button type="button" className="user-gc-confirm-btn" onClick={confirmGcPopover}>Confirm</button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <button type="button" className="btn btn-add" onClick={openAdd}>{t("addUser")}</button>
                 </div>
-                <button type="button" className="btn btn-add" onClick={openAdd}>{t("addUser")}</button>
-                <div className="search-container">
-                  <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
-                  <input type="text" className="search-input" placeholder={t("searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div className="search-container">
+                    <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
+                    <input type="text" className="search-input" placeholder={t("searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
+                  </div>
+                  <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label htmlFor="showInactive">{t("inactive")}</label></div>
+                  <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label htmlFor="showAll">{t("showAll")}</label></div>
                 </div>
-                <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label htmlFor="showInactive">{t("inactive")}</label></div>
-                <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label htmlFor="showAll">{t("showAll")}</label></div>
               </div>
               <button
                 type="button"
