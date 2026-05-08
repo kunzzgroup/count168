@@ -3456,21 +3456,20 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #addModal #day_checkboxes.day-checkboxes,
 #addModal #edit_day_checkboxes.day-checkboxes {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    flex-direction: row !important;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(52px, max-content)) !important;
     align-items: center !important;
-    align-content: flex-start !important;
     gap: 0.6rem !important;
-    justify-content: flex-start !important;
+    justify-content: start !important;
     overflow: visible !important;
     white-space: normal !important;
 }
 
 .process-page #addModal #day_checkboxes.day-checkboxes,
 .process-page #addModal #edit_day_checkboxes.day-checkboxes {
-    flex-direction: row !important;
-    align-content: flex-start !important;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(52px, max-content)) !important;
+    justify-content: start !important;
 }
 
 #addModal .day-checkboxes .checkbox-item,
@@ -3479,6 +3478,8 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     flex-direction: row !important;
     align-items: center !important;
     flex: 0 0 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
 }
 
 #addModal .day-checkboxes .checkbox-item label,
