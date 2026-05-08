@@ -858,6 +858,11 @@ label.user-modal-col-title.acc-proc-label {
     margin-bottom: 0;
 }
 
+.user-page .form-group.user-info-field {
+    min-height: 52.39px;
+    margin: 0 0 12px 0;
+}
+
 .user-page .form-group label {
     display: block;
     margin-bottom: 0;
