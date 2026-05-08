@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import AccountAddModalSameAsList from "../../components/AccountAddModalSameAsList.jsx";
+import AccountModal from "../../components/AccountModal.jsx";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { ensureMaintenanceDateRangePicker } from "../../utils/maintenanceDateRangePicker.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
@@ -8,6 +8,8 @@ import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/account-list.css";
 import "../../../public/css/date-range-picker.css";
+
+import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../account/accountLogic.js";
 
 // Helper imports
 import {
@@ -104,6 +106,12 @@ export default function BankProcessListPage() {
   const [accountPlusTarget, setAccountPlusTarget] = useState(null);
   const [rolesList, setRolesList] = useState([]);
   const [accountModalCurrencies, setAccountModalCurrencies] = useState([]);
+
+  // Add Account modal state (shared component)
+  const [accountModalForm, setAccountModalForm] = useState({ ...ACCOUNT_DEFAULT_FORM });
+  const [accountModalSelectedCurrencyIds, setAccountModalSelectedCurrencyIds] = useState([]);
+  const [accountModalSelectedCompanyIds, setAccountModalSelectedCompanyIds] = useState([]);
+  const [accountModalCurrencyInput, setAccountModalCurrencyInput] = useState("");
   
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
@@ -115,6 +123,117 @@ export default function BankProcessListPage() {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(null), 1800);
   }, []);
+
+  useEffect(() => {
+    if (!addAccountModalOpen) return;
+    setAccountModalForm({ ...ACCOUNT_DEFAULT_FORM, payment_alert: "0" });
+    setAccountModalSelectedCurrencyIds([]);
+    setAccountModalSelectedCompanyIds(companyId ? [Number(companyId)] : []);
+    setAccountModalCurrencyInput("");
+  }, [addAccountModalOpen, companyId]);
+
+  const accountModalOrderedRoles = useMemo(() => getOrderedRoles(rolesList), [rolesList]);
+
+  const createAccountModalCurrency = async (e) => {
+    if (e?.preventDefault) e.preventDefault();
+    const code = toUpper(accountModalCurrencyInput).trim();
+    if (!code) return;
+    const targetCompany = accountModalSelectedCompanyIds[0] || companyId;
+    if (!targetCompany) return notify("Please select a company first", "danger");
+    try {
+      const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, company_id: targetCompany }),
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!json.success || !json.data) return notify(json.message || json.error || "Failed to create currency", "danger");
+      setAccountModalCurrencies((prev) => [...prev, { id: json.data.id, code: json.data.code, is_linked: false }]);
+      setAccountModalCurrencyInput("");
+      notify(`Currency ${code} created`, "success");
+    } catch {
+      notify("Failed to create currency", "danger");
+    }
+  };
+
+  const removeAccountModalCurrency = async (cid) => {
+    try {
+      const res = await fetch(buildApiUrl("api/accounts/delete_currency_api.php"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: cid }),
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!json.success) return notify(json.error || "Failed to delete currency", "danger");
+      setAccountModalCurrencies((prev) => prev.filter((c) => Number(c.id) !== Number(cid)));
+      setAccountModalSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== Number(cid)));
+    } catch {
+      notify("Failed to delete currency", "danger");
+    }
+  };
+
+  const submitAccountModal = async (e) => {
+    e.preventDefault();
+    const alertAmount = normalizeAlertAmount(accountModalForm.alert_amount);
+    if (accountModalForm.payment_alert === "1" && (!accountModalForm.alert_type || !accountModalForm.alert_start_date)) {
+      return notify("When Payment Alert is Yes, Alert Type and Start Date are required.", "danger");
+    }
+    if (accountModalForm.payment_alert === "1" && alertAmount && Number(alertAmount) >= 0) {
+      return notify("Alert Amount must be negative.", "danger");
+    }
+
+    const fd = new FormData();
+    Object.entries(accountModalForm).forEach(([k, v]) => {
+      if (k === "alert_amount") fd.append(k, alertAmount);
+      else fd.append(k, v ?? "");
+    });
+    if (accountModalForm.payment_alert === "0") {
+      fd.set("alert_type", "");
+      fd.set("alert_start_date", "");
+      fd.set("alert_amount", "");
+    }
+    if (accountModalSelectedCompanyIds.length) fd.set("company_ids", JSON.stringify(accountModalSelectedCompanyIds));
+    if (companyId) fd.set("company_id", String(companyId));
+    if (accountModalSelectedCurrencyIds.length) fd.set("currency_ids", JSON.stringify(accountModalSelectedCurrencyIds));
+
+    try {
+      const res = await fetch(buildApiUrl("api/accounts/addaccountapi.php"), { method: "POST", body: fd, credentials: "include" });
+      const json = await res.json();
+      if (!json.success) return notify(json.message || json.error || "Save failed", "danger");
+
+      if (json?.data?.id && accountModalSelectedCompanyIds.length) {
+        await Promise.all(
+          accountModalSelectedCompanyIds.map((cid) =>
+            fetch(buildApiUrl("api/accounts/account_company_api.php?action=add_company"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ account_id: json.data.id, company_id: cid }),
+              credentials: "include",
+            })
+          )
+        );
+      }
+      if (json?.data?.id && accountModalSelectedCurrencyIds.length) {
+        await Promise.all(
+          accountModalSelectedCurrencyIds.map((cur) =>
+            fetch(buildApiUrl("api/accounts/account_currency_api.php?action=add_currency"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ account_id: json.data.id, currency_id: cur }),
+              credentials: "include",
+            })
+          )
+        );
+      }
+
+      notify("Account added successfully", "success");
+      await handleAccountModalSuccess?.(json.data);
+    } catch {
+      notify("Save failed", "danger");
+    }
+  };
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page");
@@ -984,10 +1103,63 @@ export default function BankProcessListPage() {
         onConfirm={confirmDeleteProcesses}
       />
 
-      <AccountAddModalSameAsList
-        open={addAccountModalOpen} onClose={() => { setAddAccountModalOpen(false); setAccountPlusTarget(null); }}
-        companyId={companyId} companies={companies} roles={rolesList} currencies={accountModalCurrencies} setCurrencies={setAccountModalCurrencies}
-        notify={notify} onSuccess={handleAccountModalSuccess}
+      <AccountModal
+        open={addAccountModalOpen}
+        title="Add Account"
+        isEditMode={false}
+        form={accountModalForm}
+        setForm={setAccountModalForm}
+        orderedRoles={accountModalOrderedRoles}
+        currencies={accountModalCurrencies}
+        companies={companies}
+        selectedCurrencyIds={accountModalSelectedCurrencyIds}
+        setSelectedCurrencyIds={setAccountModalSelectedCurrencyIds}
+        selectedCompanyIds={accountModalSelectedCompanyIds}
+        setSelectedCompanyIds={setAccountModalSelectedCompanyIds}
+        currencyInput={accountModalCurrencyInput}
+        setCurrencyInput={setAccountModalCurrencyInput}
+        onCreateCurrency={createAccountModalCurrency}
+        onRemoveCurrency={removeAccountModalCurrency}
+        onSubmit={submitAccountModal}
+        onClose={() => {
+          setAddAccountModalOpen(false);
+          setAccountPlusTarget(null);
+        }}
+        t={(key, params) => {
+          // Bank process page uses English-only labels for this modal.
+          switch (key) {
+            case "addAccount": return "Add Account";
+            case "updateAccount": return "Update Account";
+            case "editAccount": return "Edit Account";
+            case "cancel": return "Cancel";
+            case "personalInformation": return "Personal Information";
+            case "payment": return "Payment";
+            case "paymentAlert": return "Payment Alert";
+            case "yes": return "Yes";
+            case "noWord": return "No";
+            case "accountIdRequired": return "Account ID *";
+            case "nameRequired": return "Name *";
+            case "roleRequired": return "Role *";
+            case "passwordRequired": return "Password *";
+            case "selectRole": return "Select Role";
+            case "remark": return "Remark";
+            case "advancedAccount": return "Advanced Account";
+            case "otherCurrency": return "Other Currency:";
+            case "newCurrencyPlaceholder": return "Enter new currency code";
+            case "createCurrency": return "Create Currency";
+            case "company": return "Company:";
+            case "alertType": return "Alert Type";
+            case "selectType": return "Select Type";
+            case "weekly": return "Weekly";
+            case "monthly": return "Monthly";
+            case "startDate": return "Start Date";
+            case "alertAmount": return "Alert (Amount)";
+            case "days": return `${params?.n ?? ""} Days`;
+            case "enterAmountPlaceholder": return "";
+            case "supplier": return "SUPPLIER";
+            default: return key;
+          }
+        }}
       />
       <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
         <div className="calendar-header">
