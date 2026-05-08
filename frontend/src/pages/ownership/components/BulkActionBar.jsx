@@ -9,6 +9,7 @@ export default function BulkActionBar({
   onBulkUngroup,
   onBulkJoin,
   onExitSelectionMode,
+  t,
 }) {
   if (selectedCount === 0) return null;
 
@@ -19,16 +20,16 @@ export default function BulkActionBar({
     >
       <div className="own-bulk-bar-left">
         <span className="own-bulk-count">{selectedCount}</span>
-        <span className="own-bulk-label">selected</span>
+        <span className="own-bulk-label">{t("selected")}</span>
       </div>
       <div className="own-bulk-bar-right">
         {groupFilter !== null ? (
           <>
             <button type="button" className="own-bulk-ungroup-btn" onClick={onBulkUngroup}>
-              Ungroup
+              {t("ungroup")}
             </button>
             <button type="button" className="own-bulk-cancel-btn" onClick={onExitSelectionMode}>
-              ✕ Cancel
+              {t("bulkCancel")}
             </button>
           </>
         ) : (
@@ -39,7 +40,7 @@ export default function BulkActionBar({
                 value={bulkGroupSelect}
                 onChange={(e) => setBulkGroupSelect(e.target.value)}
               >
-                <option value="">-- Select Group --</option>
+                <option value="">{t("selectGroupPlaceholder")}</option>
                 {allGroupIds.map((g) => (
                   <option key={g} value={g}>
                     {g}
@@ -48,10 +49,10 @@ export default function BulkActionBar({
               </select>
             </div>
             <button type="button" className="own-bulk-join-btn" onClick={() => onBulkJoin(bulkGroupSelect)}>
-              Join Group
+              {t("joinGroupAction")}
             </button>
             <button type="button" className="own-bulk-cancel-btn" onClick={onExitSelectionMode}>
-              ✕ Cancel
+              {t("bulkCancel")}
             </button>
           </>
         )}

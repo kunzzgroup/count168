@@ -18,13 +18,14 @@ export default function GroupEarningCard({
   calcTotal,
   readOnlyMode,
   fmtPct,
+  t,
 }) {
   const gid = grp.group_id;
   const alloc = parseFloat(grp.allocated_percentage) || 0;
   const st = geState;
   const totalLive = st ? calcTotal(st.rows) : alloc;
 
-  let footerText = "100% Unallocated";
+  let footerText = t("unallocated", { value: "100%" });
   let warn = { show: false, err: false, icon: "⚠️", msg: "" };
   let confirmDisabled = false;
 
@@ -32,13 +33,13 @@ export default function GroupEarningCard({
     const t = calcTotal(st.rows);
     const r = 100 - t;
     if (t > 100) {
-      warn = { show: true, err: true, icon: "❌", msg: "Total exceeds 100%!" };
-      footerText = `${Math.abs(r).toFixed(2)}% Over Allocated`;
+      warn = { show: true, err: true, icon: "❌", msg: t("totalExceeds100") };
+      footerText = t("overAllocated", { value: `${Math.abs(r).toFixed(2)}%` });
       confirmDisabled = true;
     } else if (t < 100) {
-      warn = { show: true, err: false, icon: "⚠️", msg: "Total is less than 100%" };
-      footerText = `${r.toFixed(2)}% Unallocated`;
-    } else footerText = "Fully Allocated";
+      warn = { show: true, err: false, icon: "⚠️", msg: t("totalLessThan100") };
+      footerText = t("unallocated", { value: `${r.toFixed(2)}%` });
+    } else footerText = t("fullyAllocated");
   }
 
   return (
@@ -70,10 +71,10 @@ export default function GroupEarningCard({
         </div>
         <div className="own-card-header-middle">
           <div className="own-allocation-info">
-            <span className="own-allocation-label">Total Allocation</span>
+            <span className="own-allocation-label">{t("totalAllocation")}</span>
             <span className="own-allocation-percentage">{fmtPct(totalLive)}</span>
             <span className={`own-allocation-remaining${totalLive > 100 ? " own-over-limit" : ""}`}>
-              {totalLive > 100 ? "Over limit!" : `${fmtPct(100 - totalLive)} Remaining`}
+              {totalLive > 100 ? t("overLimit") : `${fmtPct(100 - totalLive)} ${t("remaining")}`}
             </span>
           </div>
           <div className="own-progress-bar-container">
@@ -85,7 +86,7 @@ export default function GroupEarningCard({
         </div>
         <div className="own-card-header-right">
           <button type="button" className="own-btn-outline" data-action="toggle">
-            Manage
+            {t("manage")}
           </button>
           <button type="button" className="own-icon-btn" data-action="toggle">
             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,8 +105,8 @@ export default function GroupEarningCard({
           {expanded && st ? (
             <>
               <div className="own-table-headers">
-                <div>Account</div>
-                <div>Ownership%</div>
+                <div>{t("account")}</div>
+                <div>{t("ownershipPercent")}</div>
               </div>
               <div id={`ge-rows-container-${gid}`}>
                 {st.rows.map((row, idx) => (
@@ -119,13 +120,14 @@ export default function GroupEarningCard({
                     onUpdate={(i, f, v) => onUpdateRow(gid, i, f, v)}
                     onRemove={(i) => onRemoveRow(gid, i)}
                     readOnlyMode={readOnlyMode}
+                    t={t}
                   />
                 ))}
               </div>
               <button type="button" className="own-btn-add-account" data-action="add-row" disabled={readOnlyMode}>
-                + Add Account
+                {t("addAccount")}
               </button>
-              <GePartnerSection groupId={gid} disabled={readOnlyMode} onLink={(login) => onLinkPartner(login)} />
+              <GePartnerSection groupId={gid} disabled={readOnlyMode} onLink={(login) => onLinkPartner(login)} t={t} />
               <div className="own-card-footer">
                 <div className="own-footer-left">
                   <div className={`own-warning-badge${warn.err ? " own-warning-error" : ""}`} style={{ display: warn.show ? "flex" : "none" }}>
@@ -136,7 +138,7 @@ export default function GroupEarningCard({
                 </div>
                 <div className="own-footer-right">
                   <button type="button" className="own-footer-btn own-btn-cancel" data-action="cancel">
-                    Cancel
+                    {t("cancel")}
                   </button>
                   <button
                     type="button"
@@ -144,7 +146,7 @@ export default function GroupEarningCard({
                     data-action="confirm"
                     disabled={readOnlyMode || confirmDisabled || geSavingGid === gid}
                   >
-                    {geSavingGid === gid ? "Saving..." : "Confirm"}
+                    {geSavingGid === gid ? t("saving") : t("confirm")}
                   </button>
                 </div>
               </div>

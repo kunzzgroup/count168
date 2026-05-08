@@ -1,17 +1,17 @@
 import React from "react";
 
-export default function ConflictModal({ conflict, onResolve, onCancel }) {
+export default function ConflictModal({ conflict, onResolve, onCancel, t }) {
   if (!conflict) return null;
 
   return (
     <div className="own-modal-overlay" role="presentation" onClick={onCancel}>
       <div className="own-modal" role="dialog" onClick={(e) => e.stopPropagation()}>
         <div className="own-modal-header">
-          <h3 className="own-modal-title">Multiple Matches Found</h3>
+          <h3 className="own-modal-title">{t("multipleMatchesFound")}</h3>
         </div>
         <div className="own-modal-body">
           <p className="own-modal-desc">
-            This ID is used by two different partners. Which one do you want to link?
+            {t("idUsedByTwoPartners")}
           </p>
           <div className="own-modal-options">
             <button
@@ -19,7 +19,7 @@ export default function ConflictModal({ conflict, onResolve, onCancel }) {
               className="own-btn-outline own-btn-conflict"
               onClick={() => onResolve("login")}
             >
-              Link as Login ID:
+              {t("linkAsLoginId")}
               <br />
               <strong>{conflict.data?.login_partner}</strong>
             </button>
@@ -28,7 +28,7 @@ export default function ConflictModal({ conflict, onResolve, onCancel }) {
               className="own-btn-outline own-btn-conflict"
               onClick={() => onResolve("group")}
             >
-              Join Group:
+              {t("joinAsGroup")}
               <br />
               <strong>{conflict.data?.group_partner}</strong>
             </button>
@@ -36,7 +36,7 @@ export default function ConflictModal({ conflict, onResolve, onCancel }) {
         </div>
         <div className="own-modal-footer">
           <button type="button" className="own-footer-btn own-btn-cancel" onClick={onCancel}>
-            Cancel
+            {t("cancel")}
           </button>
         </div>
       </div>
