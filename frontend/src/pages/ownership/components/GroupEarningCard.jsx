@@ -30,13 +30,13 @@ export default function GroupEarningCard({
   let confirmDisabled = false;
 
   if (st) {
-    const t = calcTotal(st.rows);
-    const r = 100 - t;
-    if (t > 100) {
+    const total = calcTotal(st.rows);
+    const r = 100 - total;
+    if (total > 100) {
       warn = { show: true, err: true, icon: "❌", msg: t("totalExceeds100") };
       footerText = t("overAllocated", { value: `${Math.abs(r).toFixed(2)}%` });
       confirmDisabled = true;
-    } else if (t < 100) {
+    } else if (total < 100) {
       warn = { show: true, err: false, icon: "⚠️", msg: t("totalLessThan100") };
       footerText = t("unallocated", { value: `${r.toFixed(2)}%` });
     } else footerText = t("fullyAllocated");
