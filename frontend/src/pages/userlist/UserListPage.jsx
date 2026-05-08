@@ -47,7 +47,6 @@ export default function UserListPage() {
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
   const [usersRaw, setUsersRaw] = useState([]);
   const [tableLoading, setTableLoading] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
@@ -96,15 +95,6 @@ export default function UserListPage() {
   }, [companies, companyId]);
 
   const allCompanyButtons = useMemo(() => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""), [companies]);
-  const groupIds = useMemo(
-    () =>
-      [...new Set(allCompanyButtons.filter((c) => c.group_id).map((c) => String(c.group_id).trim().toUpperCase()).filter(Boolean))].sort(),
-    [allCompanyButtons]
-  );
-  const companyButtons = useMemo(() => {
-    if (!selectedGroup) return allCompanyButtons;
-    return allCompanyButtons.filter((c) => String(c.group_id || "").toUpperCase() === selectedGroup);
-  }, [allCompanyButtons, selectedGroup]);
 
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
@@ -203,8 +193,6 @@ export default function UserListPage() {
         setCompanyId(effective ? Number(effective) : null);
         setSearch(url.searchParams.get("search") || "");
         setShowAll(url.searchParams.get("showAll") === "1");
-        const cur = rows.find((r) => Number(r.id) === Number(effective));
-        setSelectedGroup(cur?.group_id ? String(cur.group_id).trim().toUpperCase() : null);
       } catch { navigate("/login", { replace: true }); } finally { setBootLoading(false); }
     })();
   }, [navigate]);
@@ -213,8 +201,6 @@ export default function UserListPage() {
 
   const onSwitchCompany = async (c) => {
     if (!c?.id || (Number(c.id) === Number(companyId) && !switchingCompany)) {
-      // Even if company matches, ensure group filter is synced
-      if (c?.group_id) setSelectedGroup(String(c.group_id).trim().toUpperCase());
       return;
     }
     setSwitchingCompany(true);
@@ -223,7 +209,6 @@ export default function UserListPage() {
       const json = await res.json();
       if (!json.success) { notify(json.error || json.message || t("couldNotSwitchCompany"), "danger"); return; }
       setCompanyId(Number(c.id));
-      setSelectedGroup(c.group_id ? String(c.group_id).trim().toUpperCase() : null);
       notifyCompanySessionUpdated();
     } catch { notify(t("companySwitchFailed"), "danger"); } finally { setSwitchingCompany(false); }
   };
@@ -390,38 +375,25 @@ export default function UserListPage() {
                 {t("deleteWithCount", { count: selectedDeleteIds.size })}
               </button>
             </div>
-            <div style={{ padding: "0 20px 15px 20px" }}>
-              {groupIds.length > 0 && (
-                <div className="transaction-company-filter" style={{ marginBottom: "8px" }}>
-                  <span>{t("groupId")}</span>
-                  <div className="transaction-company-buttons">
-                    {groupIds.map(g => (
-                      <button
-                        key={g}
-                        className={`transaction-company-btn ${selectedGroup === g ? "active" : ""}`}
-                        onClick={() => setSelectedGroup(p => p === g ? null : g)}
-                      >
-                        {g}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="transaction-company-filter">
-                <span>{t("company")}</span>
-                <div className="transaction-company-buttons">
-                  {companyButtons.map(c => (
-                    <button
-                      key={c.id}
-                      className={`transaction-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`}
-                      onClick={() => onSwitchCompany(c)}
-                      disabled={switchingCompany}
-                    >
-                      {c.company_id}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="user-group-company-row">
+              <label className="user-group-company-label" htmlFor="userGroupCompanySelect">Group / Company</label>
+              <select
+                id="userGroupCompanySelect"
+                className="user-group-company-select"
+                value={companyId ?? ""}
+                onChange={(e) => {
+                  const pickedId = Number(e.target.value);
+                  const picked = allCompanyButtons.find((c) => Number(c.id) === pickedId);
+                  if (picked) onSwitchCompany(picked);
+                }}
+                disabled={switchingCompany}
+              >
+                {allCompanyButtons.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {`${String(c.group_id || "-").toUpperCase()} - ${String(c.company_id || "").toUpperCase()}`}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="user-table-wrapper">
