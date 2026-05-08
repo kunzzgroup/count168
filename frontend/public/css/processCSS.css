@@ -3517,6 +3517,8 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     max-height: 90vh !important;
     border-radius: 12px !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
 }
 
 .modal-content.description-selection-modal .modal-header {
@@ -3536,6 +3538,9 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     display: flex !important;
     flex-direction: column !important;
     min-height: 470px !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    overflow: hidden !important;
 }
 
 .modal-content.description-selection-modal .description-selection-container {
@@ -3616,8 +3621,8 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .modal-content.description-selection-modal .modal-footer {
-    margin-top: auto !important;
-    padding-top: 10px !important;
+    margin-top: 0 !important;
+    padding: 10px 16px 12px 16px !important;
     border-top: 1px solid #e5e7eb !important;
     display: flex !important;
     justify-content: flex-end !important;
@@ -3626,6 +3631,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     flex-wrap: nowrap !important;
     width: 100% !important;
     align-self: stretch !important;
+    flex: 0 0 auto !important;
 }
 
 .modal-content.description-selection-modal .modal-footer .btn {

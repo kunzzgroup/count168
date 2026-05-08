@@ -135,15 +135,14 @@ export default function DescriptionPickerModal({
               </div>
             </div>
           </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-cancel" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={() => onConfirm(localSelected)}>
-              Confirm Selection
-            </button>
-          </div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={() => onConfirm(localSelected)}>
+            Confirm Selection
+          </button>
         </div>
       </div>
 
