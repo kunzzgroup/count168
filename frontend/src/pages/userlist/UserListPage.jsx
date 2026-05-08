@@ -29,6 +29,15 @@ function roleBadgeClass(role) {
   return `role-${String(role || "").toLowerCase().replace(/\s+/g, "-")}`;
 }
 
+function normalizeCompanyRow(row) {
+  if (!row || typeof row !== "object") return row;
+  return {
+    ...row,
+    group_id: row.group_id ?? row.groupId ?? row.group ?? null,
+    company_id: row.company_id ?? row.companyId ?? row.code ?? "",
+  };
+}
+
 export default function UserListPage() {
   const navigate = useNavigate();
   const [bootLoading, setBootLoading] = useState(true);
@@ -84,9 +93,13 @@ export default function UserListPage() {
   }, [companies, companyId]);
 
   const allCompanyButtons = useMemo(() => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""), [companies]);
-  const groupIds = useMemo(() => [...new Set(allCompanyButtons.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase()))].sort(), [allCompanyButtons]);
+  const groupIds = useMemo(
+    () =>
+      [...new Set(allCompanyButtons.filter((c) => c.group_id).map((c) => String(c.group_id).trim().toUpperCase()).filter(Boolean))].sort(),
+    [allCompanyButtons]
+  );
   const companyButtons = useMemo(() => {
-    if (!selectedGroup) return allCompanyButtons.filter((c) => !c.group_id || String(c.group_id).trim() === "");
+    if (!selectedGroup) return allCompanyButtons;
     return allCompanyButtons.filter((c) => String(c.group_id || "").toUpperCase() === selectedGroup);
   }, [allCompanyButtons, selectedGroup]);
 
@@ -163,7 +176,7 @@ export default function UserListPage() {
         setMe(meJson.data);
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
-        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
+        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
         setCompanies(rows);
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id");
@@ -172,7 +185,7 @@ export default function UserListPage() {
         setSearch(url.searchParams.get("search") || "");
         setShowAll(url.searchParams.get("showAll") === "1");
         const cur = rows.find((r) => Number(r.id) === Number(effective));
-        setSelectedGroup(cur?.group_id ? String(cur.group_id).toUpperCase() : null);
+        setSelectedGroup(cur?.group_id ? String(cur.group_id).trim().toUpperCase() : null);
       } catch { navigate("/login", { replace: true }); } finally { setBootLoading(false); }
     })();
   }, [navigate]);
@@ -182,7 +195,7 @@ export default function UserListPage() {
   const onSwitchCompany = async (c) => {
     if (!c?.id || (Number(c.id) === Number(companyId) && !switchingCompany)) {
       // Even if company matches, ensure group filter is synced
-      if (c?.group_id) setSelectedGroup(String(c.group_id).toUpperCase());
+      if (c?.group_id) setSelectedGroup(String(c.group_id).trim().toUpperCase());
       return;
     }
     setSwitchingCompany(true);
@@ -191,7 +204,7 @@ export default function UserListPage() {
       const json = await res.json();
       if (!json.success) { notify(json.error || json.message || "Could not switch company", "danger"); return; }
       setCompanyId(Number(c.id));
-      setSelectedGroup(c.group_id ? String(c.group_id).toUpperCase() : null);
+      setSelectedGroup(c.group_id ? String(c.group_id).trim().toUpperCase() : null);
       notifyCompanySessionUpdated();
     } catch { notify("Company switch failed", "danger"); } finally { setSwitchingCompany(false); }
   };
