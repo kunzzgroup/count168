@@ -381,7 +381,7 @@ export default function DomainPage() {
                     )}
                   </div>
                   <div className="card-item uppercase-text">{String(domain.created_by || "-").toUpperCase()}</div>
-                  <div className="card-item" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className="card-item" style={{ display: "flex", alignItems: "center" }}>
                     <button
                       type="button"
                       className="btn-edit"
