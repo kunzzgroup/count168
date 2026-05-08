@@ -2261,11 +2261,13 @@ body.domain-page .domain-react-page .table-header {
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
     padding: 0 20px 15px;
-    background-color: transparent;
+    background: transparent !important;
+    background-image: none !important;
     border-radius: 8px;
+    margin-top: 0 !important;
     margin-bottom: 0px;
     font-weight: bold;
-    color: #374151;
+    color: #374151 !important;
     font-size: 14px;
     min-width: 0;
     /* 允许内容收缩 */
