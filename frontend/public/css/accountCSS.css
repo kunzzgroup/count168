@@ -1221,9 +1221,9 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 /* Add Account modal: rectangular and full-looking layout */
 #account-addModal .account-modal-content {
-    width: clamp(840px, 78vw, 980px);
+    width: clamp(780px, 72vw, 900px);
     border-radius: 0.875rem;
-    min-height: clamp(500px, 66vh, 660px);
+    min-height: clamp(560px, 72vh, 700px);
     max-height: 92vh;
     transform: translateY(-50%);
     transform-origin: center center;
@@ -1241,14 +1241,14 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 #account-addModal .account-form-columns {
-    gap: clamp(0.75rem, 1.2vw, 1rem);
-    padding: clamp(0.7rem, 1vw, 0.9rem) clamp(0.65rem, 1.1vw, 0.95rem);
+    gap: clamp(0.85rem, 1.3vw, 1.15rem);
+    padding: clamp(0.75rem, 1.1vw, 1rem) clamp(1rem, 1.7vw, 1.35rem);
 }
 
 #account-addModal .account-form-section {
-    padding: 0 clamp(0.55rem, 0.95vw, 0.85rem);
+    padding: 0 clamp(0.85rem, 1.45vw, 1.2rem);
     margin-bottom: 0;
-    padding-bottom: clamp(0.15rem, 0.4vw, 0.35rem);
+    padding-bottom: clamp(0.35rem, 0.65vw, 0.55rem);
 }
 
 /* Make fields/readability closer to reference */
@@ -1269,8 +1269,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-form-actions {
     margin-top: auto;
-    padding: clamp(0.7rem, 1.2vw, 0.95rem) clamp(0.75rem, 1.2vw, 1rem);
-    padding-bottom: clamp(0.25rem, 0.55vw, 0.45rem);
+    padding: clamp(0.85rem, 1.4vw, 1.1rem) clamp(1rem, 1.8vw, 1.45rem);
+    padding-bottom: clamp(0.45rem, 0.8vw, 0.7rem);
     border-radius: 0 0 0.875rem 0.875rem;
     gap: clamp(0.75rem, 1.4vw, 1rem);
 }
@@ -1278,17 +1278,27 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-modal-body {
     display: flex;
     flex-direction: column;
-    padding-left: 0;
-    padding-right: 0;
+    padding-left: clamp(0.35rem, 0.7vw, 0.55rem);
+    padding-right: clamp(0.35rem, 0.7vw, 0.55rem);
     padding-bottom: 0 !important;
 }
 
 #account-addModal .account-btn-save,
 #account-addModal .account-btn-cancel {
-    min-width: clamp(120px, 9vw, 150px);
-    min-height: 2.6rem;
-    font-size: clamp(13px, 0.95vw, 16px);
-    padding: clamp(0.55rem, 0.8vw, 0.75rem) clamp(1.25rem, 1.9vw, 1.75rem);
+    min-width: clamp(126px, 9.5vw, 156px);
+    min-height: 2.72rem;
+    font-size: clamp(14px, 1vw, 16px);
+    padding: clamp(0.58rem, 0.86vw, 0.8rem) clamp(1.35rem, 2vw, 1.85rem);
+}
+
+#account-addModal .account-modal-header h2 {
+    font-size: clamp(38px, 2.7vw, 46px);
+    padding-left: clamp(1.3rem, 2vw, 1.9rem);
+}
+
+#account-addModal .account-close {
+    right: 1rem;
+    top: 1rem;
 }
 
 .account-modal-header {
