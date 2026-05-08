@@ -3825,3 +3825,88 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page .bank-status-cell {
     overflow: visible !important;
 }
+
+/* Final restore: Edit Process should match reference (long rectangle + horizontal Day Use) */
+.process-page #editModal .modal-content,
+#editModal .modal-content {
+    width: clamp(960px, 84vw, 1120px) !important;
+    max-width: 1120px !important;
+    min-height: clamp(540px, 70vh, 680px) !important;
+    max-height: 92vh !important;
+    border-radius: 10px !important;
+}
+
+.process-page #editModal .modal-body,
+#editModal .modal-body {
+    padding: 1.2rem 1.6rem 1rem !important;
+}
+
+.process-page #editModal .process-form.add-grid,
+#editModal .process-form.add-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 0.44fr) minmax(0, 0.56fr) !important;
+    column-gap: 1.2rem !important;
+    row-gap: 0.45rem !important;
+    align-items: start !important;
+}
+
+.process-page #editModal .process-form.add-grid .add-col,
+#editModal .process-form.add-grid .add-col {
+    padding: 0.8rem 0.95rem !important;
+    min-width: 0 !important;
+}
+
+.process-page #editModal .process-form.add-grid .add-col:first-child,
+#editModal .process-form.add-grid .add-col:first-child {
+    padding-top: 0.8rem !important;
+}
+
+.process-page #editModal .process-form.add-grid .add-col:last-child,
+#editModal .process-form.add-grid .add-col:last-child {
+    padding-top: 0.55rem !important;
+}
+
+.process-page #editModal .day-use-header,
+#editModal .day-use-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    margin-bottom: 0.35rem !important;
+}
+
+.process-page #editModal .day-use-header > label,
+#editModal .day-use-header > label {
+    margin: 0 !important;
+}
+
+.process-page #editModal #edit_day_checkboxes.day-checkboxes,
+#editModal #edit_day_checkboxes.day-checkboxes {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    align-content: flex-start !important;
+    justify-content: flex-start !important;
+    gap: 0.3rem 0.6rem !important;
+    white-space: normal !important;
+    overflow: visible !important;
+}
+
+.process-page #editModal #edit_day_checkboxes.day-checkboxes .checkbox-item,
+#editModal #edit_day_checkboxes.day-checkboxes .checkbox-item {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+    white-space: nowrap !important;
+}
+
+.process-page #editModal #edit_day_checkboxes.day-checkboxes .checkbox-item label,
+#editModal #edit_day_checkboxes.day-checkboxes .checkbox-item label {
+    display: inline !important;
+    margin: 0 !important;
+    text-transform: uppercase !important;
+}
