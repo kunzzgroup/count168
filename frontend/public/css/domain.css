@@ -138,7 +138,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions {
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-grid-two {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 20px;
+    gap: 48px;
     align-items: stretch;
 }
 
@@ -293,6 +293,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn {
     padding: 10px 2px !important;
     font-size: 15px !important;
     font-weight: 700 !important;
+    color: #ffffff !important;
     letter-spacing: 0 !important;
     text-transform: none !important;
     border-radius: 0 6px 6px 0 !important;
