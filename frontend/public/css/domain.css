@@ -659,6 +659,8 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
 
 .domain-fee-react-modal .modal-body {
     padding: 19.968px 32px;
+    display: block;
+    min-height: 0;
 }
 
 .domain-fee-react-modal .domain-fee-description {
@@ -721,7 +723,8 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
 
 .domain-fee-react-modal .form-actions {
     display: flex;
-    justify-content: center;
+    justify-content: center !important;
+    align-items: center;
     gap: 12px;
     margin-top: 20px;
     padding-top: 20px;
