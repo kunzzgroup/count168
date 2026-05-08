@@ -147,15 +147,18 @@ export default function ProcessFormModal({
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Process ID *</label>
+                  <label htmlFor={editMode ? "edit_process_name" : "add_process_id"}>
+                    {editMode ? "Process Name *" : "Process ID *"}
+                  </label>
                   <div className={!editMode ? "input-with-checkbox" : ""}>
                     <input
+                      id={editMode ? "edit_process_name" : "add_process_id"}
                       value={form.process_name}
                       onChange={(e) => setForm((prev) => ({ ...prev, process_name: e.target.value }))}
                       required={!form.is_multi_process}
                       readOnly={editMode || form.is_multi_process}
                       style={editMode || form.is_multi_process ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" } : undefined}
-                      placeholder="ENTER PROCESS ID"
+                      placeholder="Enter Process ID"
                     />
                     {!editMode && (
                       <div className="checkbox-container">
@@ -252,9 +255,18 @@ export default function ProcessFormModal({
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Description *</label>
+                  <label htmlFor={editMode ? "edit_description" : "add_description"}>
+                    {editMode ? "Description" : "Description *"}
+                  </label>
                   <div className="input-with-icon">
-                    <input readOnly value={descSummary} placeholder="Click + to select descriptions" style={{ backgroundColor: "#f5f5f5" }} />
+                    <input
+                      id={editMode ? "edit_description" : "add_description"}
+                      readOnly
+                      required={!editMode}
+                      value={descSummary}
+                      placeholder="Click + to select descriptions"
+                      style={{ backgroundColor: "#f5f5f5" }}
+                    />
                     <button type="button" className="add-icon" aria-label="Choose description" onClick={onOpenDescriptionPicker}>
                       +
                     </button>
@@ -371,7 +383,7 @@ export default function ProcessFormModal({
                     <label>Day Use</label>
                     <div className="all-day-checkbox">
                       <input
-                        id="react_edit_all_day"
+                        id={editMode ? "edit_all_day" : "add_all_day"}
                         type="checkbox"
                         checked={days.length > 0 && form.day_use.length === days.length}
                         onChange={(e) => {
@@ -379,17 +391,19 @@ export default function ProcessFormModal({
                           else setForm((prev) => ({ ...prev, day_use: [] }));
                         }}
                       />
-                      <label htmlFor="react_edit_all_day">All Day</label>
+                      <label htmlFor={editMode ? "edit_all_day" : "add_all_day"}>All Day</label>
                     </div>
                   </div>
                   <div className="day-checkboxes" id={editMode ? "edit_day_checkboxes" : "day_checkboxes"}>
                     {days.map((d) => {
                       const id = String(d.id);
                       const checked = form.day_use.includes(id);
+                      const cbId = `${editMode ? "edit_day_" : "add_day_"}${id}`;
                       return (
-                        <label key={id} style={{ marginRight: 10 }}>
+                        <div key={id} className="checkbox-item">
                           <input
                             type="checkbox"
+                            id={cbId}
                             checked={checked}
                             onChange={() => {
                               setForm((prev) => ({
@@ -398,8 +412,8 @@ export default function ProcessFormModal({
                               }));
                             }}
                           />
-                          {String(d.day_name || "")}
-                        </label>
+                          <label htmlFor={cbId}>{String(d.day_name || "")}</label>
+                        </div>
                       );
                     })}
                   </div>
