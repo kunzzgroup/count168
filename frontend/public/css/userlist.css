@@ -799,10 +799,10 @@ label.user-modal-col-title.acc-proc-label {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 34px;
+    min-height: 40px;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 6px 8px;
+    padding: 8px 10px;
     background: #f8fbff;
     transition: all 0.2s ease;
 }
@@ -821,7 +821,9 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .account-label--process {
-    white-space: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     line-height: 1.2;
 }
 
