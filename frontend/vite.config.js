@@ -36,7 +36,6 @@ export default defineConfig(({ mode }) => {
         "/reset-password.php": { target: phpTarget, changeOrigin: true },
         "/images": { target: phpTarget, changeOrigin: true },
         "/js": { target: phpTarget, changeOrigin: true },
-        "/datacapturesummary.php": { target: phpTarget, changeOrigin: true },
       },
     },
     build: {
