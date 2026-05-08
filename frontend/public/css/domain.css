@@ -123,6 +123,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-body {
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions {
     flex-shrink: 0;
+    gap: clamp(16px, 3vw, 32px);
     margin-top: 0 !important;
     padding-top: clamp(18px, 2.4vw, 22px) !important;
     padding-bottom: clamp(24px, 3.5vw, 36px) !important;
@@ -150,17 +151,74 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-col-right {
     }
 }
 
+/* 图二：DOMAIN / COMPANY 栏目标题 */
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-heading {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    line-height: 1.35 !important;
+    color: #111827 !important;
+    text-transform: uppercase;
+}
+
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label {
     display: block !important;
-    margin: 0 0 8px 0 !important;
-    font-weight: 600 !important;
+    margin: 0 0 6px 0 !important;
+    font-weight: 700 !important;
     color: #111827 !important;
-    font-size: 14px !important;
-    line-height: 1.35 !important;
+    font-size: 13px !important;
+    line-height: 1.3 !important;
+    letter-spacing: 0.02em !important;
+}
+
+/* 英文环境下与图二一致：栏位标签全大写 */
+body.lang-en.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label {
+    text-transform: uppercase;
+    letter-spacing: 0.04em !important;
+    font-size: 12px !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel .dfm-field {
     min-width: 0;
+    margin-bottom: 18px !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel .dfm-field.dfm-field--stretch {
+    margin-bottom: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-helper-text {
+    display: block;
+    margin: 8px 0 0 0 !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    color: #64748b !important;
+    font-weight: 500 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-empty-hint {
+    color: #94a3b8 !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    font-weight: 500 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list {
+    box-sizing: border-box;
+    min-height: 120px;
+    max-height: 300px;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 10px 12px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    background-color: #fafafa !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-inputs-row {
+    gap: 16px !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[type="text"],
@@ -172,9 +230,30 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[ty
     max-width: 100%;
     margin: 0 !important;
     font-size: 15px !important;
-    line-height: 1.45 !important;
-    padding: 10px 14px !important;
+    line-height: 1.4 !important;
+    padding: 9px 12px !important;
     min-height: 42px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1 !important;
+    font-size: 14px !important;
+}
+
+body.lang-en.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input::placeholder {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input:focus {
+    outline: none !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12) !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-input-with-btn {
@@ -190,7 +269,9 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-input-with-btn input[type="t
     min-width: 0 !important;
     width: auto !important;
     max-width: none !important;
-    border-radius: 8px 0 0 8px !important;
+    border-radius: 6px 0 0 6px !important;
+    border-right-width: 0 !important;
+    box-shadow: none !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn {
@@ -201,8 +282,63 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn {
     justify-content: center;
     white-space: nowrap;
     min-height: 42px !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: 0 6px 6px 0 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn:hover {
+    filter: brightness(1.06);
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn:active {
+    filter: brightness(0.96);
+}
+
+/* 图二底部药丸按钮：压住全局 btn active 缩放 */
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn {
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    min-height: 44px !important;
+    min-width: 148px !important;
+    padding: 10px 28px !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em;
+    cursor: pointer !important;
+    transform: none !important;
+    transition: filter 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn--primary {
+    color: #ffffff !important;
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%) !important;
+    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.28) !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn--secondary {
+    color: #ffffff !important;
+    background: linear-gradient(180deg, #94a3b8 0%, #575c66 100%) !important;
+    box-shadow: 0 2px 8px rgba(71, 85, 105, 0.22) !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn:hover {
+    transform: none !important;
+    filter: brightness(1.05);
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn:active {
+    transform: none !important;
+    filter: brightness(0.96);
 }
 
 .btn:hover {
