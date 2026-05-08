@@ -1,10 +1,13 @@
-body {
+/*
+ * IMPORTANT: Scope list-page rules under body.domain-page .domain-react-page.
+ * This file is bundled once; unscoped .container / .action-buttons / .search-input
+ * leaked onto Process List, User List, etc. after visiting /domain — breaking layout and clicks.
+ */
+body.domain-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    height: 100vh;
-    /* 添加这行 */
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -15,23 +18,21 @@ body {
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
-    overflow-y: hidden;
-    /* 添加这行，禁止垂直滚动 */
+    overflow-y: auto;
 }
 
-.container {
+body.domain-page .domain-react-page {
     max-width: none;
     margin: 0;
     padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    height: 100vh;
-    /* 添加这行 */
+    min-height: 100vh;
     box-sizing: border-box;
-    overflow: hidden;
-    /* 添加这行 */
+    overflow-x: hidden;
+    overflow-y: visible;
 }
 
-h1 {
+body.domain-page .domain-react-page>h1 {
     color: #002C49;
     text-align: left;
     margin-top: clamp(12px, 1.04vw, 20px);
@@ -42,17 +43,34 @@ h1 {
     letter-spacing: -0.025em;
 }
 
-.action-buttons {
+body.domain-page .domain-react-page .action-buttons {
     margin-bottom: 24px;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    gap: 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px 16px;
     padding-bottom: clamp(10px, 1.04vw, 20px);
 }
 
+body.domain-page .domain-react-page .domain-toolbar-left {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+body.domain-page .domain-react-page .domain-toolbar-right {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
 /* 横线样式 - 超出container */
-.separator-line {
+body.domain-page .domain-react-page .separator-line {
     width: 100vw;
     height: 2px;
     background-color: #939393;
@@ -64,14 +82,13 @@ h1 {
     margin-right: -50vw;
 }
 
-.table-container {
+body.domain-page .domain-react-page .table-container {
     overflow-x: visible;
     overflow-y: auto;
     margin-top: 20px;
     border: none;
     border-radius: 0;
     max-height: calc(100vh - 200px);
-    /* 添加这行，限制最大高度 */
 }
 
 .btn:hover {
@@ -87,7 +104,7 @@ h1 {
     transform: translateX(120%);
 }
 
-.btn-add {
+body.domain-page .domain-react-page .btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
@@ -99,15 +116,16 @@ h1 {
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    flex-shrink: 0;
 }
 
-.btn-add:hover {
+body.domain-page .domain-react-page .btn-add:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-fee-settings {
+body.domain-page .domain-react-page .btn-fee-settings {
     background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
     color: white;
     font-family: 'Amaranth', sans-serif;
@@ -118,18 +136,21 @@ h1 {
     box-shadow: 0 2px 4px rgba(71, 85, 105, 0.35);
     cursor: pointer;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.btn-fee-settings:hover {
+body.domain-page .domain-react-page .btn-fee-settings:hover {
     background: linear-gradient(180deg, #64748b 0%, #334155 100%);
     box-shadow: 0 4px 8px rgba(51, 65, 85, 0.4);
     transform: translateY(-1px);
 }
 
-.domain-fee-inline-summary {
+body.domain-page .domain-react-page .domain-fee-inline-summary {
     font-size: clamp(10px, 0.78vw, 14px);
     color: #475569;
     white-space: nowrap;
+    flex-shrink: 0;
+    align-self: center;
 }
 
 /* Domain Accounting Due (toolbar + modal) */
@@ -1248,7 +1269,7 @@ h1 {
     color: #b45309;
 }
 
-.btn-edit {
+body.domain-page .domain-react-page .btn-edit {
     background-color: transparent;
     color: black;
     padding: clamp(2px, 0.31vw, 6px) 0;
@@ -1257,12 +1278,12 @@ h1 {
     cursor: pointer;
 }
 
-.btn-edit:hover {
+body.domain-page .domain-react-page .btn-edit:hover {
     background-color: transparent;
     box-shadow: none;
 }
 
-.btn-edit img {
+body.domain-page .domain-react-page .btn-edit img {
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(10px, 0.83vw, 16px);
     display: block;
@@ -1271,7 +1292,7 @@ h1 {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
-.btn-delete {
+body.domain-page .domain-react-page .btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: 'Amaranth';
@@ -1286,13 +1307,13 @@ h1 {
     cursor: pointer;
 }
 
-.btn-delete:hover {
+body.domain-page .domain-react-page .btn-delete:hover {
     background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
 }
 
-.btn-delete.active {
+body.domain-page .domain-react-page .btn-delete.active {
     background: linear-gradient(180deg, #49a70bff 0%, #15581aff 100%) !important;
     color: white !important;
     box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3) !important;
@@ -1923,15 +1944,19 @@ h1 {
     color: #065f46;
 }
 
-/* Search input styles */
-.search-container {
+/* Search input styles — Domain list only */
+body.domain-page .domain-react-page .domain-toolbar-left .search-container {
     position: relative;
+    flex: 1 1 220px;
+    min-width: min(100%, 160px);
+    max-width: min(380px, 100%);
 }
 
-.search-icon {
+body.domain-page .domain-react-page .search-icon {
     position: absolute;
     left: 10px;
-    top: 25%;
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 2;
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(14px, 0.83vw, 16px);
@@ -1939,8 +1964,10 @@ h1 {
     object-fit: contain;
 }
 
-.search-input {
-    width: clamp(165px, 13vw, 250px);
+body.domain-page .domain-react-page .search-input {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
     padding: 7px 2px clamp(6px, 0.42vw, 8px) clamp(20px, 2.08vw, 32px) !important;
     border: 1px solid rgba(148, 163, 184, 0.35);
     border-radius: 6px;
@@ -1954,7 +1981,7 @@ h1 {
     box-sizing: border-box;
 }
 
-.search-input:focus {
+body.domain-page .domain-react-page .search-input:focus {
     outline: none;
     border-color: #6366f1;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 3px 4px rgba(15, 23, 42, 0.1);
@@ -1967,14 +1994,7 @@ h1 {
 }
 
 /* 新的卡片式表格样式 */
-.table-container {
-    overflow-x: visible;
-    margin-top: 20px;
-    border: none;
-    border-radius: 0;
-}
-
-.table-header {
+body.domain-page .domain-react-page .table-header {
     display: grid;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
@@ -1989,7 +2009,7 @@ h1 {
     /* 允许内容收缩 */
 }
 
-.domain-cards {
+body.domain-page .domain-react-page .domain-cards {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -2001,7 +2021,7 @@ h1 {
     /* 允许 tooltip 显示 */
 }
 
-.domain-card {
+body.domain-page .domain-react-page .domain-card {
     display: none;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
@@ -2016,18 +2036,18 @@ h1 {
     /* 允许内容收缩 */
 }
 
-.domain-card.show-card {
+body.domain-page .domain-react-page .domain-card.show-card {
     display: grid;
     /* 添加新class来显示 */
 }
 
-.domain-card:hover {
+body.domain-page .domain-react-page .domain-card:hover {
     background-color: #f9fafb;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     transform: translateY(-1px);
 }
 
-.card-item {
+body.domain-page .domain-react-page .card-item {
     font-size: clamp(9px, 0.78vw, 15px);
     font-weight: bold;
     color: #374151;
@@ -2043,18 +2063,18 @@ h1 {
     /* 防止文本换行 */
 }
 
-.card-item.companies-column {
+body.domain-page .domain-react-page .card-item.companies-column {
     overflow: visible;
     /* 确保 tooltip 可以显示 */
 }
 
 /* Force uppercase for specific columns */
-.card-item.uppercase-text {
+body.domain-page .domain-react-page .card-item.uppercase-text {
     text-transform: uppercase;
 }
 
 /* 分页样式 - 修改为图片中的设计 */
-.pagination-container {
+body.domain-page .domain-react-page .pagination-container {
     position: fixed;
     bottom: 30px;
     right: 40px;
@@ -2067,11 +2087,11 @@ h1 {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    z-index: 100;
+    z-index: 1500;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.pagination-btn {
+body.domain-page .domain-react-page .pagination-btn {
     background: transparent;
     border: none;
     color: #007AFF;
@@ -2088,17 +2108,17 @@ h1 {
     margin: 0;
 }
 
-.pagination-btn:hover:not(:disabled) {
+body.domain-page .domain-react-page .pagination-btn:hover:not(:disabled) {
     background-color: rgba(0, 122, 255, 0.1);
     color: #0056b3;
 }
 
-.pagination-btn:disabled {
+body.domain-page .domain-react-page .pagination-btn:disabled {
     color: #C7C7CC;
     cursor: not-allowed;
 }
 
-.pagination-info {
+body.domain-page .domain-react-page .pagination-info {
     font-size: clamp(10px, 0.78vw, 15px);
     font-weight: 500;
     color: #000000;

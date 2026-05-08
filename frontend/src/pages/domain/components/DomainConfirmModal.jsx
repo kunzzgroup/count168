@@ -6,7 +6,7 @@ export default function DomainConfirmModal({ message, onConfirm, onClose, lang =
   const t = (key, params) => getDomainText(lang, key, params);
   return (
     <DomainModalPortal>
-      <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-[8px]">
+      <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/60 backdrop-blur-[8px]">
         <div className="relative w-[clamp(400px,35vw,550px)] max-w-[90%] overflow-hidden rounded-[24px] border-0 bg-gradient-to-b from-white to-slate-50 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]">
           <div className="flex items-center justify-center pb-[clamp(15px,1.3vw,25px)] pt-[clamp(30px,2.6vw,50px)]">
             <svg className="h-[clamp(50px,4.17vw,80px)] w-[clamp(50px,4.17vw,80px)] rounded-full bg-gradient-to-br from-red-100 to-red-200 p-[clamp(10px,0.83vw,16px)] text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
