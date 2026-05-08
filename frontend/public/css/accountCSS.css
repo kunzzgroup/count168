@@ -1221,12 +1221,13 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 /* Add Account modal: rectangular and full-looking layout */
 #account-addModal .account-modal-content {
-    width: clamp(780px, 72vw, 900px);
-    border-radius: 0.875rem;
-    min-height: clamp(590px, 75vh, 740px);
+    width: clamp(780px, 74vw, 910px);
+    border-radius: 0.9rem;
+    min-height: clamp(560px, 71vh, 700px);
     max-height: 92vh;
     transform: translateY(-50%);
     transform-origin: center center;
+    box-shadow: 0 24px 48px -18px rgba(15, 23, 42, 0.35), 0 8px 18px -10px rgba(15, 23, 42, 0.2);
 }
 
 /* Remove large side empty space by allowing form to fill container */
@@ -1241,83 +1242,104 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 #account-addModal .account-form-columns {
-    gap: clamp(0.85rem, 1.3vw, 1.15rem);
-    padding: clamp(0.8rem, 1.15vw, 1.05rem) clamp(1.15rem, 1.9vw, 1.55rem);
+    gap: clamp(0.95rem, 1.4vw, 1.25rem);
+    padding: clamp(0.85rem, 1.2vw, 1.1rem) clamp(1.2rem, 2vw, 1.65rem);
+    border-bottom: 1px solid #e5e7eb;
 }
 
 #account-addModal .account-form-section {
-    padding: 0 clamp(1rem, 1.6vw, 1.35rem);
+    padding: 0 clamp(1.15rem, 1.9vw, 1.55rem);
     margin-bottom: 0;
-    padding-bottom: clamp(0.35rem, 0.65vw, 0.55rem);
+    padding-bottom: clamp(0.45rem, 0.75vw, 0.65rem);
 }
 
 /* Make fields/readability closer to reference */
 #account-addModal .account-form-group label {
-    font-size: clamp(13px, 0.9vw, 15px);
+    font-size: clamp(12px, 0.85vw, 14px);
+    color: #334155;
+    letter-spacing: 0.015em;
 }
 
 #account-addModal .account-form-group input,
 #account-addModal .account-form-group select,
 #account-addModal .account-form-group textarea {
-    font-size: clamp(13px, 0.9vw, 15px);
-    min-height: 2.65rem;
+    font-size: clamp(13px, 0.9vw, 14px);
+    min-height: 2.55rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.52rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 #account-addModal .account-advance-section h3 {
-    font-size: clamp(26px, 1.75vw, 32px);
+    font-size: clamp(18px, 1.35vw, 24px);
+    margin-bottom: clamp(0.45rem, 0.85vw, 0.7rem);
+    padding-bottom: clamp(0.2rem, 0.45vw, 0.3rem);
+    border-bottom: 1px solid #e5e7eb;
 }
 
 #account-addModal .account-advance-section {
-    padding-top: clamp(0.35rem, 0.7vw, 0.6rem);
+    padding-top: clamp(0.4rem, 0.75vw, 0.65rem);
 }
 
 #account-addModal .account-other-currency {
-    gap: clamp(0.6rem, 1.1vw, 0.9rem);
-    padding: clamp(0.45rem, 0.9vw, 0.7rem) clamp(0.65rem, 1.2vw, 0.95rem);
-    margin-bottom: clamp(0.45rem, 0.9vw, 0.7rem);
+    gap: clamp(0.55rem, 1vw, 0.8rem);
+    padding: clamp(0.5rem, 0.9vw, 0.72rem) clamp(0.65rem, 1.2vw, 1rem);
+    margin-bottom: clamp(0.5rem, 0.9vw, 0.75rem);
+    border-radius: 0.58rem;
+    border-color: #e2e8f0;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
 #account-addModal .account-other-currency label {
-    font-size: clamp(13px, 0.95vw, 15px);
-    min-width: 8.25rem;
+    font-size: clamp(12px, 0.85vw, 13px);
+    min-width: 6.8rem;
+    color: #334155;
 }
 
 #account-addModal .account-other-currency input {
-    min-height: 2.45rem;
-    font-size: clamp(13px, 0.95vw, 15px);
+    min-height: 2.25rem;
+    font-size: clamp(12px, 0.85vw, 13px);
 }
 
 #account-addModal .account-btn-add-currency {
-    min-height: 2.35rem;
-    padding: 0.55rem 1.05rem;
-    font-size: clamp(12px, 0.88vw, 14px);
+    min-height: 2.15rem;
+    padding: 0.45rem 0.9rem;
+    font-size: clamp(11px, 0.82vw, 12px);
+    border-radius: 0.45rem;
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.28);
 }
 
 #account-addModal .account-currency-list {
-    gap: clamp(0.45rem, 0.8vw, 0.6rem);
+    gap: clamp(0.35rem, 0.7vw, 0.5rem);
 }
 
 #account-addModal .account-currency-item,
 #account-addModal .account-company-btn {
-    font-size: clamp(12px, 0.9vw, 14px);
-    padding: clamp(0.4rem, 0.75vw, 0.55rem) clamp(0.75rem, 1.2vw, 1rem);
-    min-height: 2rem;
+    font-size: clamp(11px, 0.82vw, 12px);
+    padding: clamp(0.28rem, 0.56vw, 0.42rem) clamp(0.62rem, 0.95vw, 0.82rem);
+    min-height: 1.72rem;
+    border-radius: 999px;
+    border-color: #d6deea;
+    box-shadow: none;
 }
 
 #account-addModal .account-form-actions {
     margin-top: auto;
-    padding: clamp(0.85rem, 1.4vw, 1.1rem) clamp(1.2rem, 2vw, 1.6rem);
-    padding-bottom: clamp(0.45rem, 0.8vw, 0.7rem);
+    padding: clamp(0.8rem, 1.25vw, 1rem) clamp(1.2rem, 2vw, 1.55rem);
+    padding-bottom: clamp(0.55rem, 0.85vw, 0.75rem);
     border-radius: 0 0 0.875rem 0.875rem;
-    gap: clamp(0.75rem, 1.4vw, 1rem);
+    gap: clamp(0.7rem, 1.2vw, 0.9rem);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-top: 1px solid #e5e7eb;
 }
 
 #account-addModal .account-modal-body {
     display: flex;
     flex-direction: column;
-    padding-left: clamp(0.5rem, 0.85vw, 0.7rem);
-    padding-right: clamp(0.5rem, 0.85vw, 0.7rem);
+    padding-left: clamp(0.56rem, 0.9vw, 0.78rem);
+    padding-right: clamp(0.56rem, 0.9vw, 0.78rem);
     padding-bottom: 0 !important;
+    background: #ffffff;
 }
 
 #account-addModal .account-btn-save,
@@ -1329,20 +1351,49 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 #account-addModal .account-btn-save {
-    min-width: clamp(108px, 8vw, 130px);
-    min-height: 2.45rem;
-    font-size: clamp(13px, 0.92vw, 15px);
-    padding: clamp(0.48rem, 0.72vw, 0.65rem) clamp(1.1rem, 1.6vw, 1.45rem);
+    min-width: clamp(102px, 7.3vw, 122px);
+    min-height: 2.32rem;
+    font-size: clamp(12px, 0.85vw, 13px);
+    padding: clamp(0.42rem, 0.66vw, 0.56rem) clamp(0.95rem, 1.35vw, 1.2rem);
 }
 
 #account-addModal .account-modal-header h2 {
-    font-size: clamp(38px, 2.7vw, 46px);
-    padding-left: clamp(1.3rem, 2vw, 1.9rem);
+    font-size: clamp(34px, 2.25vw, 40px);
+    padding-left: clamp(1.35rem, 2.05vw, 1.95rem);
+    color: #1f2937;
 }
 
 #account-addModal .account-close {
-    right: 1rem;
-    top: 1rem;
+    right: 0.95rem;
+    top: 0.9rem;
+    color: #94a3b8;
+}
+
+#account-addModal .account-form-column .account-section-header {
+    font-size: clamp(13px, 0.92vw, 15px);
+    color: #111827;
+    border-bottom-color: #e5e7eb;
+}
+
+#account-addModal .account-radio-label {
+    border-radius: 0.44rem;
+    font-size: clamp(11px, 0.8vw, 12px);
+    border-color: #dbe4f0;
+    background: #f8fafc;
+}
+
+#account-addModal .account-radio-label:has(input:checked) {
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    border-color: transparent;
+    box-shadow: 0 3px 8px rgba(13, 96, 255, 0.3);
+}
+
+#account-addModal .account-other-currency>div:not(.account-currency-list) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
 }
 
 .account-modal-header {
