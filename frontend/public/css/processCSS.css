@@ -1642,7 +1642,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page #addModal .process-form.add-grid {
-    grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr) !important;
+    grid-template-columns: minmax(0, 0.38fr) minmax(0, 0.62fr) !important;
     column-gap: 1rem !important;
     row-gap: 0.45rem !important;
     align-items: start !important;
@@ -1678,11 +1678,12 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page #addModal #day_checkboxes.day-checkboxes,
 .process-page #addModal #edit_day_checkboxes.day-checkboxes {
     display: flex !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 0.75rem !important;
+    gap: 0.6rem !important;
+    justify-content: flex-start !important;
     overflow: visible !important;
-    white-space: normal !important;
+    white-space: nowrap !important;
 }
 
 /* Edit Modal - 与Add Modal保持一致的响应式设置 */
@@ -1751,13 +1752,19 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 .process-page #addModal .day-checkboxes .checkbox-item label {
     text-transform: uppercase !important;
-    font-size: 0.8125rem !important;
+    font-size: 0.75rem !important;
     letter-spacing: 0.02em !important;
 }
 
 .process-page #addModal .day-checkboxes .checkbox-item input[type="checkbox"] {
-    width: 14px !important;
-    height: 14px !important;
+    width: 13px !important;
+    height: 13px !important;
+}
+
+.process-page #addModal .process-form .form-group textarea {
+    min-height: 6rem !important;
+    max-height: 6rem !important;
+    resize: none !important;
 }
 
 .process-page .modal .form-actions {
@@ -3351,7 +3358,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #addModal .process-form.add-grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr) !important;
+    grid-template-columns: minmax(0, 0.38fr) minmax(0, 0.62fr) !important;
     column-gap: 1rem !important;
     row-gap: 0.45rem !important;
     max-width: 100% !important;
@@ -3402,21 +3409,28 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 #addModal #day_checkboxes.day-checkboxes,
 #addModal #edit_day_checkboxes.day-checkboxes {
     display: flex !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 0.75rem !important;
+    gap: 0.6rem !important;
+    justify-content: flex-start !important;
     overflow: visible !important;
-    white-space: normal !important;
+    white-space: nowrap !important;
 }
 
 #addModal .day-checkboxes .checkbox-item label {
-    font-size: clamp(12px, 0.88vw, 14px) !important;
+    font-size: clamp(11px, 0.82vw, 12px) !important;
     text-transform: uppercase !important;
 }
 
 #addModal .day-checkboxes .checkbox-item input[type="checkbox"] {
-    width: 14px !important;
-    height: 14px !important;
+    width: 13px !important;
+    height: 13px !important;
+}
+
+#addModal .process-form .form-group textarea {
+    min-height: 6rem !important;
+    max-height: 6rem !important;
+    resize: none !important;
 }
 
 #addModal .add-actions .btn {
