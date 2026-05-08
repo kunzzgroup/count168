@@ -1040,8 +1040,8 @@ label.user-modal-col-title.acc-proc-label {
     font-size: clamp(14px, 0.94vw, 18px);
     font-weight: 700;
     color: #1a237e;
-    margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(8px, 0.63vw, 12px);
-    padding: 0 clamp(14px, 1.04vw, 20px) clamp(6px, 0.52vw, 10px);
+    margin: 0 0 15.936px 0;
+    padding: 0 19.968px 11.984px;
     border-bottom: 2px solid #1a237e;
     flex-shrink: 0;
 }
@@ -1065,8 +1065,8 @@ label.user-modal-col-title.acc-proc-label {
     display: flex;
     gap: 10px;
     justify-content: center;
-    padding-top: clamp(8px, 0.63vw, 12px);
-    margin-top: clamp(6px, 0.52vw, 10px);
+    padding-top: 12px;
+    margin-top: 9.984px;
     border-top: 1px solid #e2e8f0;
 }
 
