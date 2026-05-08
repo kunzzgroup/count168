@@ -821,7 +821,7 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .account-label--process {
-    white-space: nowrap;
+    white-space: pre-line;
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1.2;
