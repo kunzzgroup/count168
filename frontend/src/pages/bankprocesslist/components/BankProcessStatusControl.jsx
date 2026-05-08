@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { deriveBankProcessUiStatus, normalizeBankIssueFlag, normalizeBankProcessStatus } from "../bankProcessHelpers.js";
 
-export default function BankProcessStatusControl({ row, onUpdated, notify: doNotify, buildApiUrl: apiUrl }) {
+export default function BankProcessStatusControl({ row, onUpdated, notify: doNotify, buildApiUrl: apiUrl, t }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0, minWidth: 118 });
   const wrapRef = useRef(null);
@@ -66,36 +66,36 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
       if (target === "ACTIVE") {
         if (hasFlag) {
           const j = await postIssueFlag(id, "");
-          if (!j.success) return doNotify(j.message || j.error || "Clear flag failed", "danger");
+          if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
         }
         if (st !== "active") {
           const j = await postToggle(id);
-          if (!j.success) return doNotify(j.message || j.error || "Status update failed", "danger");
+          if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
         }
       } else if (target === "INACTIVE") {
         if (hasFlag) {
           const j = await postIssueFlag(id, "");
-          if (!j.success) return doNotify(j.message || j.error || "Clear flag failed", "danger");
+          if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
         }
         if (st === "active") {
           const j = await postToggle(id);
-          if (!j.success) return doNotify(j.message || j.error || "Status update failed", "danger");
+          if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
         }
       } else if (target === "OFFICIAL") {
         const j = await postIssueFlag(id, "official");
-        if (!j.success) return doNotify(j.message || j.error || "Update failed", "danger");
+        if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
       } else if (target === "E_INVOICE") {
         const j = await postIssueFlag(id, "e_invoice");
-        if (!j.success) return doNotify(j.message || j.error || "Update failed", "danger");
+        if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
       } else if (target === "BLOCK") {
         const j = await postIssueFlag(id, "block");
-        if (!j.success) return doNotify(j.message || j.error || "Update failed", "danger");
+        if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
       }
-      doNotify("Status updated", "success");
+      doNotify(t("statusUpdated"), "success");
       onUpdated();
       setOpen(false);
     } catch {
-      doNotify("Status update failed", "danger");
+      doNotify(t("statusUpdateFailed"), "danger");
     }
   };
 

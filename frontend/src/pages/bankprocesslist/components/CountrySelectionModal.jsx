@@ -13,29 +13,30 @@ export default function CountrySelectionModal({
   onConfirm,
   onClose,
   notify,
+  t,
 }) {
   return (
     <div id="countrySelectionModal" className="modal" style={{ display: "block" }}>
       <div className="modal-content country-selection-modal">
         <div className="modal-header">
-          <h2>Select or Add Country</h2>
+          <h2>{t("selectOrAddCountry")}</h2>
           <span className="close" onClick={onClose} role="presentation">&times;</span>
         </div>
         <div className="modal-body">
           <div className="country-selection-container">
             <div className="available-countries-section">
               <div className="add-country-bar">
-                <h3>Add New Country</h3>
+                <h3>{t("addNewCountry")}</h3>
                 <form className="add-country-form" onSubmit={onSubmitNewCountry}>
                   <div className="add-country-input-group">
-                    <input type="text" id="new_country_name" placeholder="Enter new country name..." value={newCountryName} onChange={(e) => setNewCountryName(e.target.value.toUpperCase())} />
-                    <button type="submit" className="btn btn-save">Add</button>
+                    <input type="text" id="new_country_name" placeholder={t("addNewCountry")} value={newCountryName} onChange={(e) => setNewCountryName(e.target.value.toUpperCase())} />
+                    <button type="submit" className="btn btn-save">{t("add")}</button>
                   </div>
                 </form>
               </div>
-              <h3>Available Countries</h3>
+              <h3>{t("availableCountries")}</h3>
               <div className="country-search">
-                <input type="text" id="countrySearch" placeholder="Search countries..." value={countrySearch} onChange={(e) => setCountrySearch(e.target.value.toUpperCase())} />
+                <input type="text" id="countrySearch" placeholder={t("searchCountries")} value={countrySearch} onChange={(e) => setCountrySearch(e.target.value.toUpperCase())} />
               </div>
               <div className="country-list" id="existingCountries">
                 {[...new Set([...(countriesList || []), ...selectedCountryChips])]
@@ -68,10 +69,10 @@ export default function CountrySelectionModal({
               </div>
             </div>
             <div className="selected-countries-section">
-              <h3>Selected Countries</h3>
+              <h3>{t("selectedCountries")}</h3>
               <div className="selected-countries-list" id="selectedCountriesInModal">
                 {selectedCountryChips.length === 0 ? (
-                  <div className="no-countries">None</div>
+                  <div className="no-countries">{t("none")}</div>
                 ) : (
                   selectedCountryChips.map((c) => (
                     <div key={`sel-${c}`} className="selected-country-modal-item">
@@ -92,15 +93,15 @@ export default function CountrySelectionModal({
               id="confirmCountriesBtn"
               onClick={() => {
                 if (selectedCountryChips.length !== 1) {
-                  notify("Select exactly one country on the right (add from the list or remove extras with ×).", "warning");
+                  notify(t("selectExactlyOneCountry"), "warning");
                   return;
                 }
                 onConfirm(selectedCountryChips[0]);
               }}
             >
-              Confirm
+              {t("confirm")}
             </button>
-            <button type="button" className="btn btn-cancel" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
           </div>
         </div>
       </div>

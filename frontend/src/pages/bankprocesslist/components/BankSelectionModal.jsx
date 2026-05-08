@@ -13,6 +13,7 @@ export default function BankSelectionModal({
   onConfirm,
   onClose,
   notify,
+  t,
 }) {
   const toggleBankChipSelection = (b) => {
     setSelectedBankChips((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]));
@@ -22,24 +23,24 @@ export default function BankSelectionModal({
     <div id="bankSelectionModal" className="modal" style={{ display: "block" }}>
       <div className="modal-content bank-selection-modal">
         <div className="modal-header">
-          <h2>Select or Add Bank</h2>
+          <h2>{t("selectOrAddBank")}</h2>
           <span className="close" onClick={onClose} role="presentation">&times;</span>
         </div>
         <div className="modal-body">
           <div className="bank-selection-container">
             <div className="available-banks-section">
               <div className="add-bank-bar">
-                <h3>Add New Bank</h3>
+                <h3>{t("addNewBank")}</h3>
                 <form className="add-bank-form" onSubmit={onSubmitNewBank}>
                   <div className="add-bank-input-group">
-                    <input type="text" id="new_bank_name" placeholder="Enter new bank name..." value={newBankName} onChange={(e) => setNewBankName(e.target.value.toUpperCase())} />
-                    <button type="submit" className="btn btn-save">Add</button>
+                    <input type="text" id="new_bank_name" placeholder={t("addNewBank")} value={newBankName} onChange={(e) => setNewBankName(e.target.value.toUpperCase())} />
+                    <button type="submit" className="btn btn-save">{t("add")}</button>
                   </div>
                 </form>
               </div>
-              <h3>Available Banks</h3>
+              <h3>{t("availableBanks")}</h3>
               <div className="bank-search">
-                <input type="text" id="bankSearch" placeholder="Search banks..." value={bankSearch} onChange={(e) => setBankSearch(e.target.value.toUpperCase())} />
+                <input type="text" id="bankSearch" placeholder={t("searchBanks")} value={bankSearch} onChange={(e) => setBankSearch(e.target.value.toUpperCase())} />
               </div>
               <div className="bank-list" id="existingBanks">
                 {banksList.filter((b) => !bankSearch.trim() || b.toUpperCase().includes(bankSearch.trim())).map((b) => (
@@ -70,10 +71,10 @@ export default function BankSelectionModal({
               </div>
             </div>
             <div className="selected-banks-section">
-              <h3>Selected Banks</h3>
+              <h3>{t("selectedBanks")}</h3>
               <div className="selected-banks-list" id="selectedBanksInModal">
                 {selectedBankChips.length === 0 ? (
-                  <div className="no-countries">None</div>
+                  <div className="no-countries">{t("none")}</div>
                 ) : (
                   selectedBankChips.map((b) => (
                     <div key={`sel-b-${b}`} className="selected-country-modal-item">
@@ -94,15 +95,15 @@ export default function BankSelectionModal({
               id="confirmBanksBtn"
               onClick={() => {
                 if (selectedBankChips.length !== 1) {
-                  notify("Select exactly one bank on the right (add from the list or remove extras with ×).", "warning");
+                  notify(t("selectExactlyOneBank"), "warning");
                   return;
                 }
                 onConfirm(selectedBankChips[0]);
               }}
             >
-              Confirm
+              {t("confirm")}
             </button>
-            <button type="button" className="btn btn-cancel" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
           </div>
         </div>
       </div>

@@ -10,6 +10,8 @@ import "../../../public/css/account-list.css";
 import "../../../public/css/date-range-picker.css";
 
 import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../account/accountLogic.js";
+import { getAccountText } from "../../translateFile/accountTranslate.js";
+import { getBankProcessText } from "../../translateFile/bankProcessTranslate.js";
 
 // Helper imports
 import {
@@ -42,6 +44,9 @@ import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
 
 export default function BankProcessListPage() {
+  const [lang, setLang] = useState(() => (localStorage.getItem("language") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params = {}) => getBankProcessText(lang, key, params), [lang]);
+  const tAccount = useCallback((key, params = {}) => getAccountText(lang, key, params), [lang]);
   const [cssReady, setCssReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
@@ -139,7 +144,7 @@ export default function BankProcessListPage() {
     const code = toUpper(accountModalCurrencyInput).trim();
     if (!code) return;
     const targetCompany = accountModalSelectedCompanyIds[0] || companyId;
-    if (!targetCompany) return notify("Please select a company first", "danger");
+    if (!targetCompany) return notify(t("pleaseSelectCompanyFirst"), "danger");
     try {
       const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), {
         method: "POST",
@@ -148,12 +153,12 @@ export default function BankProcessListPage() {
         credentials: "include",
       });
       const json = await res.json();
-      if (!json.success || !json.data) return notify(json.message || json.error || "Failed to create currency", "danger");
+      if (!json.success || !json.data) return notify(json.message || json.error || t("failedCreateCurrency"), "danger");
       setAccountModalCurrencies((prev) => [...prev, { id: json.data.id, code: json.data.code, is_linked: false }]);
       setAccountModalCurrencyInput("");
-      notify(`Currency ${code} created`, "success");
+      notify(t("currencyCreated", { code }), "success");
     } catch {
-      notify("Failed to create currency", "danger");
+      notify(t("failedCreateCurrency"), "danger");
     }
   };
 
@@ -166,11 +171,11 @@ export default function BankProcessListPage() {
         credentials: "include",
       });
       const json = await res.json();
-      if (!json.success) return notify(json.error || "Failed to delete currency", "danger");
+      if (!json.success) return notify(json.error || t("failedDeleteCurrency"), "danger");
       setAccountModalCurrencies((prev) => prev.filter((c) => Number(c.id) !== Number(cid)));
       setAccountModalSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== Number(cid)));
     } catch {
-      notify("Failed to delete currency", "danger");
+      notify(t("failedDeleteCurrency"), "danger");
     }
   };
 
@@ -178,10 +183,10 @@ export default function BankProcessListPage() {
     e.preventDefault();
     const alertAmount = normalizeAlertAmount(accountModalForm.alert_amount);
     if (accountModalForm.payment_alert === "1" && (!accountModalForm.alert_type || !accountModalForm.alert_start_date)) {
-      return notify("When Payment Alert is Yes, Alert Type and Start Date are required.", "danger");
+      return notify(t("paymentAlertRequired"), "danger");
     }
     if (accountModalForm.payment_alert === "1" && alertAmount && Number(alertAmount) >= 0) {
-      return notify("Alert Amount must be negative.", "danger");
+      return notify(t("alertAmountNegative"), "danger");
     }
 
     const fd = new FormData();
@@ -201,7 +206,7 @@ export default function BankProcessListPage() {
     try {
       const res = await fetch(buildApiUrl("api/accounts/addaccountapi.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notify(json.message || json.error || "Save failed", "danger");
+      if (!json.success) return notify(json.message || json.error || t("saveFailed"), "danger");
 
       if (json?.data?.id && accountModalSelectedCompanyIds.length) {
         await Promise.all(
@@ -228,10 +233,10 @@ export default function BankProcessListPage() {
         );
       }
 
-      notify("Account added successfully", "success");
+      notify(t("accountAddedSuccessfully"), "success");
       await handleAccountModalSuccess?.(json.data);
     } catch {
-      notify("Save failed", "danger");
+      notify(t("saveFailed"), "danger");
     }
   };
 
@@ -241,6 +246,16 @@ export default function BankProcessListPage() {
     return () => {
       document.body.classList.remove("process-page", "process-page--bank", "process-page--bank-show-all");
       document.body.classList.add("dashboard-page");
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncLang = () => setLang(localStorage.getItem("language") === "zh" ? "zh" : "en");
+    window.addEventListener("storage", syncLang);
+    window.addEventListener("eazycount:language-updated", syncLang);
+    return () => {
+      window.removeEventListener("storage", syncLang);
+      window.removeEventListener("eazycount:language-updated", syncLang);
     };
   }, []);
 
@@ -266,7 +281,7 @@ export default function BankProcessListPage() {
       if (toH) toH.value = dtIso && /^\d{4}-\d{2}-\d{2}$/.test(dtIso) ? isoToDmy(dtIso) : "";
       window.MaintenanceDateRangePicker.init({
         allowEmpty: true,
-        placeholder: "Select date range",
+        placeholder: t("selectDateRange"),
         onChange: () => {
           const df = dmyToIso(window.MaintenanceDateRangePicker.getDateFrom());
           const dt = dmyToIso(window.MaintenanceDateRangePicker.getDateTo());
@@ -488,14 +503,14 @@ export default function BankProcessListPage() {
       const res = await fetch(url.toString(), { credentials: "include", signal: ac.signal });
       const json = await res.json();
       if (ac.signal.aborted) return;
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Failed to load bank processes", "danger");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("failedLoadBankProcesses"), "danger");
       setRows(normalizeRows(json.data));
       setSelectedIds(new Set());
       setCurrentPage(1);
       syncUrl();
     } catch {
       if (ac.signal.aborted) return;
-      notify("Failed to load bank processes", "danger");
+      notify(t("failedLoadBankProcesses"), "danger");
     } finally {
       if (!ac.signal.aborted) setTableLoading(false);
     }
@@ -538,7 +553,7 @@ export default function BankProcessListPage() {
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Switch company failed", "danger");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("switchCompanyFailed"), "danger");
       setCompanyId(Number(c.id));
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
@@ -546,7 +561,7 @@ export default function BankProcessListPage() {
         window.location.assign(new URL(`/process-list?company_id=${c.id}`, window.location.origin).toString());
       }
       if (accountingOpen) void loadAccountingInbox();
-    } catch { notify("Switch company failed", "danger"); }
+    } catch { notify(t("switchCompanyFailed"), "danger"); }
   };
 
   const openAdd = () => {
@@ -570,12 +585,12 @@ export default function BankProcessListPage() {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", name);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=add_country"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Add country failed", "danger");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("addCountryFailed"), "danger");
       setCountriesList((prev) => [...new Set([...prev, name])].sort());
       setSelectedCountryChips((prev) => (prev.includes(name) ? prev : [...prev, name]));
       setNewCountryName("");
-      notify("Country added");
-    } catch { notify("Add country failed", "danger"); }
+      notify(t("countryAdded"));
+    } catch { notify(t("addCountryFailed"), "danger"); }
   };
 
   const submitNewBank = async (e) => {
@@ -586,45 +601,45 @@ export default function BankProcessListPage() {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", String(form.country)); fd.append("banks[]", name);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=save_country_banks"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Add bank failed", "danger");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("addBankFailed"), "danger");
       setBanksList((prev) => [...new Set([...prev, name])].sort());
       setSelectedBankChips((prev) => (prev.includes(name) ? prev : [...prev, name]));
       setNewBankName("");
-      notify("Bank added");
-    } catch { notify("Add bank failed", "danger"); }
+      notify(t("bankAdded"));
+    } catch { notify(t("addBankFailed"), "danger"); }
   };
 
   const removeAvailableCountry = async (countryName) => {
     const country = String(countryName || "").trim();
     if (!country || !companyId) return;
-    if (!window.confirm(`Remove country "${country}" and all its banks?`)) return;
+    if (!window.confirm(t("removeCountryConfirm", { country }))) return;
     try {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", country);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=remove_country"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Remove country failed", "danger");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("removeCountryFailed"), "danger");
       setCountriesList((prev) => prev.filter((c) => c !== country));
       setSelectedCountryChips((prev) => prev.filter((c) => c !== country));
       setForm((f) => (f.country === country ? { ...f, country: "", bank: "" } : f));
-      notify("Country removed");
-    } catch { notify("Remove country failed", "danger"); }
+      notify(t("countryRemoved"));
+    } catch { notify(t("removeCountryFailed"), "danger"); }
   };
 
   const removeAvailableBank = async (bankName) => {
     const bank = String(bankName || "").trim();
     const country = String(form.country || "").trim();
     if (!bank || !country || !companyId) return;
-    if (!window.confirm(`Remove bank "${bank}" from country "${country}"?`)) return;
+    if (!window.confirm(t("removeBankConfirm", { bank, country }))) return;
     try {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", country); fd.append("bank", bank);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=remove_bank"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Remove bank failed", "danger");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("removeBankFailed"), "danger");
       setBanksList((prev) => prev.filter((b) => b !== bank));
       setSelectedBankChips((prev) => prev.filter((b) => b !== bank));
       setForm((f) => (f.bank === bank ? { ...f, bank: "" } : f));
-      notify("Bank removed");
-    } catch { notify("Remove bank failed", "danger"); }
+      notify(t("bankRemoved"));
+    } catch { notify(t("removeBankFailed"), "danger"); }
   };
 
   const openProfitShareModal = () => {
@@ -663,7 +678,7 @@ export default function BankProcessListPage() {
 
   const openAddAccountForField = async (target) => {
     setAccountPlusTarget(target);
-    if (!companyId) return notify("Missing company context.", "danger");
+    if (!companyId) return notify(t("missingCompanyContext"), "danger");
     try {
       const [editRes, curRes] = await Promise.all([
         fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }),
@@ -685,7 +700,7 @@ export default function BankProcessListPage() {
       url.searchParams.set("permission", "Bank");
       const res = await fetch(url.toString(), { credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success || !json.data) return notify(json.message || json.error || "Failed to load bank process", "danger");
+      if (!res.ok || !json.success || !json.data) return notify(json.message || json.error || t("failedLoadBankProcess"), "danger");
       const d = json.data;
       setEditMode(true);
       setForm({
@@ -702,7 +717,7 @@ export default function BankProcessListPage() {
         status: d.status || "active", remark: d.remark || "", sop: d.sop || "",
       });
       setModalOpen(true);
-    } catch { notify("Failed to load bank process", "danger"); }
+    } catch { notify(t("failedLoadBankProcess"), "danger"); }
   };
 
   const submitForm = async (e) => {
@@ -710,7 +725,7 @@ export default function BankProcessListPage() {
     const dayStart = String(form.day_start || "").trim();
     const dayEnd = String(form.day_end || "").trim();
     if (dayStart && dayEnd && dayEnd < dayStart) {
-      notify("Day end cannot be earlier than Day start", "danger");
+      notify(t("dayEndEarlierThanStart"), "danger");
       return;
     }
     const hasDayEnd = !!dayEnd;
@@ -730,16 +745,16 @@ export default function BankProcessListPage() {
       const endpoint = editMode ? "api/processes/processlist_api.php?action=update_process" : "api/processes/addprocess_api.php";
       const res = await fetch(buildApiUrl(endpoint), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Save failed", "danger");
-      notify(editMode ? "Bank process updated" : "Bank process added");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("saveFailed"), "danger");
+      notify(editMode ? t("bankProcessUpdated") : t("bankProcessAdded"));
       notifyTransactionDataChanged("bank-process-list-react");
       setModalOpen(false); fetchRows();
-    } catch { notify("Save failed", "danger"); }
+    } catch { notify(t("saveFailed"), "danger"); }
   };
 
   const postAccountingToTransaction = async () => {
     const selected = accountingRows.filter((r) => accountingSelected.has(Number(r.id)) && !r.already_posted_today);
-    if (selected.length === 0) return notify("Please select at least one due item", "warning");
+    if (selected.length === 0) return notify(t("needOneDueItem"), "warning");
     try {
       const fd = new FormData();
       selected.forEach((r) => {
@@ -749,16 +764,16 @@ export default function BankProcessListPage() {
       fd.append("allow_future_monthly", "1");
       const res = await fetch(buildApiUrl("api/processes/process_post_to_transaction_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Transaction post failed", "danger");
-      notify(json.message || "Posted to transaction");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("transactionPostFailed"), "danger");
+      notify(json.message || t("postedToTransaction"));
       notifyTransactionDataChanged("bank-process-list-react");
       loadAccountingInbox(); fetchRows();
-    } catch { notify("Transaction post failed", "danger"); }
+    } catch { notify(t("transactionPostFailed"), "danger"); }
   };
 
   const dismissAccountingRows = async () => {
     const selected = accountingRows.filter((r) => accountingDeleteSelected.has(Number(r.id)));
-    if (selected.length === 0) return notify("Please tick rows in Delete column", "warning");
+    if (selected.length === 0) return notify(t("tickDeleteRows"), "warning");
     try {
       const fd = new FormData();
       selected.forEach((r) => {
@@ -767,11 +782,11 @@ export default function BankProcessListPage() {
       });
       const res = await fetch(buildApiUrl("api/processes/dismiss_accounting_due_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Delete from due failed", "danger");
-      notify(json.message || "Removed from Accounting Due");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("deleteDueFailed"), "danger");
+      notify(json.message || t("removedFromDue"));
       notifyTransactionDataChanged("bank-process-list-react");
       loadAccountingInbox(); fetchRows();
-    } catch { notify("Delete from due failed", "danger"); }
+    } catch { notify(t("deleteDueFailed"), "danger"); }
   };
 
   const saveRemarkModal = async () => {
@@ -780,12 +795,12 @@ export default function BankProcessListPage() {
       const fd = new FormData(); fd.append("id", String(remarkRow.id)); fd.append("remark", remarkDraft);
       const res = await fetch(buildApiUrl("api/processes/update_bank_remark_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Remark update failed", "danger");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("remarkUpdateFailed"), "danger");
       setRows((prev) => prev.map((r) => (Number(r.id) === Number(remarkRow.id) ? { ...r, remark: remarkDraft } : r)));
       notifyTransactionDataChanged("bank-process-list-react");
-      notify("Remark updated");
+      notify(t("remarkUpdated"));
       setRemarkModalOpen(false); setRemarkRow(null);
-    } catch { notify("Remark update failed", "danger"); }
+    } catch { notify(t("remarkUpdateFailed"), "danger"); }
   };
 
   const resendAccountingDue = async () => {
@@ -794,7 +809,7 @@ export default function BankProcessListPage() {
     const dayStart = String(resendDayStart || "").trim();
     const dayEnd = String(resendDayEnd || "").trim();
     if (dayStart && dayEnd && dayEnd < dayStart) {
-      const msg = "Day end cannot be earlier than Day start";
+      const msg = t("dayEndEarlierThanStart");
       setResendInlineError(msg);
       notify(msg, "danger");
       return;
@@ -807,15 +822,15 @@ export default function BankProcessListPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        const msg = json.message || json.error || "Resend failed";
+        const msg = json.message || json.error || t("resendFailed");
         if (isBankResendDayStartBackendErrorMessage(msg)) setResendInlineError(msg);
         return notify(msg, "danger");
       }
-      notify(json.message || "Resend successful");
+      notify(json.message || t("resendSuccessful"));
       notifyTransactionDataChanged("bank-process-list-react");
       if (accountingOpen) loadAccountingInbox();
       setResendModalOpen(false); setResendTarget(null);
-    } catch { notify("Resend failed", "danger"); }
+    } catch { notify(t("resendFailed"), "danger"); }
   };
 
   const deleteSelected = () => {
@@ -835,14 +850,14 @@ export default function BankProcessListPage() {
         body: JSON.stringify({ ids: Array.from(selectedIds), permission: "Bank" }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Delete failed", "danger");
+      if (!res.ok || !json.success) return notify(json.message || json.error || t("deleteFailed"), "danger");
       const n = json?.data?.deleted ?? selectedIds.size;
-      notify(n === 1 ? "1 process deleted successfully" : `${n} processes deleted successfully`, "success");
+      notify(n === 1 ? t("processDeletedOne") : t("processDeletedMany", { count: n }), "success");
       notifyTransactionDataChanged("bank-process-list-react");
       setDeleteConfirmOpen(false);
       setSelectedIds(new Set());
       fetchRows();
-    } catch { notify("Delete failed", "danger"); }
+    } catch { notify(t("deleteFailed"), "danger"); }
     finally { setDeleteSubmitting(false); }
   };
 
@@ -891,7 +906,7 @@ export default function BankProcessListPage() {
       <div className="content">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 8, flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
-            <h1 className="page-title" style={{ margin: 0 }}>Bank Process List</h1>
+            <h1 className="page-title" style={{ margin: 0 }}>{t("bankProcessList")}</h1>
             <div className="process-accounting-inbox-wrap">
               <button
                 type="button"
@@ -901,7 +916,7 @@ export default function BankProcessListPage() {
                 <svg className="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
                 </svg>
-                Accounting Due
+                {t("accountingDue")}
                 <span className="process-accounting-inbox-badge">{accountingRows.filter((x) => !x.already_posted_today).length}</span>
               </button>
             </div>
@@ -911,12 +926,12 @@ export default function BankProcessListPage() {
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-add" onClick={openAdd}>Add Process</button>
+              <button type="button" className="btn btn-add" onClick={openAdd}>{t("addProcess")}</button>
               <div className="process-list-date-filter" id="processListDateFilter" style={{ display: "inline-flex" }}>
                 <div className="date-range-picker" id="date-range-picker">
                   <i className="fas fa-calendar-alt" aria-hidden="true" />
-                  <span id="date-range-display">Select date range</span>
-                  <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title="Clear date range" aria-label="Clear date range" style={{ display: "none" }}>&times;</button>
+                  <span id="date-range-display">{t("selectDateRange")}</span>
+                  <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")} style={{ display: "none" }}>&times;</button>
                 </div>
                 <input type="hidden" id="date_from" defaultValue="" />
                 <input type="hidden" id="date_to" defaultValue="" />
@@ -925,7 +940,7 @@ export default function BankProcessListPage() {
                 <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
                 </svg>
-                <input type="text" className="search-input" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <input type="text" className="search-input" placeholder={t("search")} value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
               <div className="checkbox-section">
                 <input
@@ -943,7 +958,7 @@ export default function BankProcessListPage() {
                     }
                   }}
                 />
-                <label htmlFor="showAll">Show All</label>
+                <label htmlFor="showAll">{t("showAll")}</label>
               </div>
               <div className="checkbox-section">
                 <input
@@ -956,7 +971,7 @@ export default function BankProcessListPage() {
                     if (v) setShowAll(false);
                   }}
                 />
-                <label htmlFor="showInactive">Show Inactive</label>
+                <label htmlFor="showInactive">{t("showInactive")}</label>
               </div>
               <div className="checkbox-section">
                 <input
@@ -969,7 +984,7 @@ export default function BankProcessListPage() {
                     if (v) setShowAll(false);
                   }}
                 />
-                <label htmlFor="showOfficial">Show Official</label>
+                <label htmlFor="showOfficial">{t("showOfficial")}</label>
               </div>
               <div className="checkbox-section">
                 <input
@@ -982,7 +997,7 @@ export default function BankProcessListPage() {
                     if (v) setShowAll(false);
                   }}
                 />
-                <label htmlFor="showEInvoice">Show E-Invoice</label>
+                <label htmlFor="showEInvoice">{t("showEInvoice")}</label>
               </div>
               <div className="checkbox-section">
                 <input
@@ -995,13 +1010,13 @@ export default function BankProcessListPage() {
                     if (v) setShowAll(false);
                   }}
                 />
-                <label htmlFor="showBlock">Show Block</label>
+                <label htmlFor="showBlock">{t("showBlock")}</label>
               </div>
             </div>
-            <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title="Only inactive processes can be deleted" onClick={deleteSelected}>Delete</button>
+            <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
           </div>
-          {groupIds.length > 0 && <div className="process-company-filter"><span className="process-company-label">GroupID:</span><div className="process-company-buttons">{groupIds.map((g) => <button key={g} type="button" className={`process-company-btn ${selectedGroup === g ? "active" : ""}`} onClick={() => setSelectedGroup(g)}>{g}</button>)}</div></div>}
-          <div className="process-company-filter"><span className="process-company-label">Company:</span><div className="process-company-buttons">{companyButtons.map((c) => <button key={c.id} type="button" className={`process-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`} onClick={() => onSwitchCompany(c)}>{c.company_id}</button>)}</div></div>
+          {groupIds.length > 0 && <div className="process-company-filter"><span className="process-company-label">{t("groupId")}</span><div className="process-company-buttons">{groupIds.map((g) => <button key={g} type="button" className={`process-company-btn ${selectedGroup === g ? "active" : ""}`} onClick={() => setSelectedGroup(g)}>{g}</button>)}</div></div>}
+          <div className="process-company-filter"><span className="process-company-label">{t("company")}</span><div className="process-company-buttons">{companyButtons.map((c) => <button key={c.id} type="button" className={`process-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`} onClick={() => onSwitchCompany(c)}>{c.company_id}</button>)}</div></div>
         </div>
 
         <BankProcessTable
@@ -1018,8 +1033,9 @@ export default function BankProcessListPage() {
             setResendModalOpen(true);
           }}
           supplierSortDir={supplierSortDir} setSupplierSortDir={setSupplierSortDir}
+          t={t}
         />
-        {!showAll && <div className="pagination-container"><button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>◀</button><span className="pagination-info">{currentPage} of {totalPages}</span><button type="button" className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>▶</button></div>}
+        {!showAll && <div className="pagination-container"><button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>◀</button><span className="pagination-info">{t("pageOf", { current: currentPage, total: totalPages })}</span><button type="button" className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>▶</button></div>}
       </div>
 
       {modalOpen && (
@@ -1031,6 +1047,7 @@ export default function BankProcessListPage() {
           onOpenProfitShareModal={openProfitShareModal}
           onOpenBankFormNoteModal={(kind) => setBankFormNote({ kind, draft: kind === "sop" ? String(form.sop || "") : String(form.remark || "") })}
           onOpenAddAccountForField={openAddAccountForField}
+          t={t}
         />
       )}
       
@@ -1041,6 +1058,7 @@ export default function BankProcessListPage() {
           onSubmitNewCountry={submitNewCountry} onRemoveAvailableCountry={removeAvailableCountry}
           onConfirm={(country) => { setForm((f) => ({ ...f, country, bank: "" })); setCountryModalOpen(false); }}
           onClose={() => setCountryModalOpen(false)} notify={notify}
+          t={t}
         />
       )}
 
@@ -1051,6 +1069,7 @@ export default function BankProcessListPage() {
           onSubmitNewBank={submitNewBank} onRemoveAvailableBank={removeAvailableBank}
           onConfirm={(bank) => { setForm((f) => ({ ...f, bank })); setBankModalOpen(false); }}
           onClose={() => setBankModalOpen(false)} notify={notify}
+          t={t}
         />
       )}
 
@@ -1059,6 +1078,7 @@ export default function BankProcessListPage() {
           profitShareRows={profitShareRows} setProfitShareRows={setProfitShareRows} accounts={accounts}
           onConfirm={confirmProfitShareModal} onClose={() => setProfitShareModalOpen(false)}
           onOpenAddAccountForField={openAddAccountForField}
+          t={t}
         />
       )}
 
@@ -1071,6 +1091,7 @@ export default function BankProcessListPage() {
             setBankFormNote(null);
           }
         }}
+        t={t}
       />
 
       {accountingOpen && (
@@ -1079,6 +1100,7 @@ export default function BankProcessListPage() {
           accountingSelected={accountingSelected} setAccountingSelected={setAccountingSelected}
           accountingDeleteSelected={accountingDeleteSelected} setAccountingDeleteSelected={setAccountingDeleteSelected}
           onPostToTransaction={postAccountingToTransaction} onDismissRows={dismissAccountingRows} onClose={() => setAccountingOpen(false)}
+          t={t}
         />
       )}
 
@@ -1088,11 +1110,12 @@ export default function BankProcessListPage() {
           resendDayEnd={resendDayEnd} setResendDayEnd={setResendDayEnd} resendFrequency={resendFrequency} setResendFrequency={setResendFrequency}
           resendInlineError={resendInlineError} setResendInlineError={setResendInlineError}
           onResend={resendAccountingDue} onClose={() => setResendModalOpen(false)}
+          t={t}
         />
       )}
 
       {remarkModalOpen && (
-        <BankRemarkModal remarkDraft={remarkDraft} setRemarkDraft={setRemarkDraft} onSave={saveRemarkModal} onClose={() => setRemarkModalOpen(false)} />
+        <BankRemarkModal remarkDraft={remarkDraft} setRemarkDraft={setRemarkDraft} onSave={saveRemarkModal} onClose={() => setRemarkModalOpen(false)} t={t} />
       )}
 
       <ProcessDeleteConfirmModal
@@ -1101,11 +1124,12 @@ export default function BankProcessListPage() {
         deleting={deleteSubmitting}
         onCancel={() => setDeleteConfirmOpen(false)}
         onConfirm={confirmDeleteProcesses}
+        t={t}
       />
 
       <AccountModal
         open={addAccountModalOpen}
-        title="Add Account"
+        title={tAccount("addAccount")}
         isEditMode={false}
         form={accountModalForm}
         setForm={setAccountModalForm}
@@ -1125,41 +1149,7 @@ export default function BankProcessListPage() {
           setAddAccountModalOpen(false);
           setAccountPlusTarget(null);
         }}
-        t={(key, params) => {
-          // Bank process page uses English-only labels for this modal.
-          switch (key) {
-            case "addAccount": return "Add Account";
-            case "updateAccount": return "Update Account";
-            case "editAccount": return "Edit Account";
-            case "cancel": return "Cancel";
-            case "personalInformation": return "Personal Information";
-            case "payment": return "Payment";
-            case "paymentAlert": return "Payment Alert";
-            case "yes": return "Yes";
-            case "noWord": return "No";
-            case "accountIdRequired": return "Account ID *";
-            case "nameRequired": return "Name *";
-            case "roleRequired": return "Role *";
-            case "passwordRequired": return "Password *";
-            case "selectRole": return "Select Role";
-            case "remark": return "Remark";
-            case "advancedAccount": return "Advanced Account";
-            case "otherCurrency": return "Other Currency:";
-            case "newCurrencyPlaceholder": return "Enter new currency code";
-            case "createCurrency": return "Create Currency";
-            case "company": return "Company:";
-            case "alertType": return "Alert Type";
-            case "selectType": return "Select Type";
-            case "weekly": return "Weekly";
-            case "monthly": return "Monthly";
-            case "startDate": return "Start Date";
-            case "alertAmount": return "Alert (Amount)";
-            case "days": return `${params?.n ?? ""} Days`;
-            case "enterAmountPlaceholder": return "";
-            case "supplier": return "SUPPLIER";
-            default: return key;
-          }
-        }}
+        t={tAccount}
       />
       <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
         <div className="calendar-header">
@@ -1173,7 +1163,7 @@ export default function BankProcessListPage() {
           <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
         </div>
         <div className="calendar-weekdays">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (<div key={d} className="calendar-weekday">{d}</div>))}
+          {(lang === "zh" ? ["日", "一", "二", "三", "四", "五", "六"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).map((d) => (<div key={d} className="calendar-weekday">{d}</div>))}
         </div>
         <div className="calendar-days" id="calendar-days" />
       </div>

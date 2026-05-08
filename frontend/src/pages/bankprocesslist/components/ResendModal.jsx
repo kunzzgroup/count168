@@ -12,6 +12,7 @@ export default function ResendModal({
   setResendInlineError,
   onResend,
   onClose,
+  t,
 }) {
   return (
     <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={{ display: "block" }}>
@@ -23,21 +24,21 @@ export default function ResendModal({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3v5h5" />
             </svg>
           </div>
-          <h2 className="process-confirm-title bank-resend-modal-title">Resend to Accounting Due</h2>
+          <h2 className="process-confirm-title bank-resend-modal-title">{t("resendToDueTitle")}</h2>
           <p className="process-confirm-message bank-resend-modal-message">
-            Process: <b>{resendTarget?.supplier || resendTarget?.bank || "-"}</b>
+            {t("processLabel")}: <b>{resendTarget?.supplier || resendTarget?.bank || "-"}</b>
           </p>
         </div>
         <div id="confirmBankResendScheduleFields" className="bank-resend-schedule-card">
           <div className="bank-resend-schedule-card__head">
-            <span className="bank-resend-schedule-card__label">Billing schedule</span>
+            <span className="bank-resend-schedule-card__label">{t("billingSchedule")}</span>
             <p className="bank-resend-schedule-card__hint">
-              These values apply only to this Resend (which month to reopen). They are not saved to the process record; Edit Process keeps its own billing until you click Update Process.
+              {t("billingScheduleHint")}
             </p>
           </div>
           <div className="bank-resend-schedule-grid">
             <div className="bank-resend-field">
-              <label className="bank-resend-field__label" htmlFor="bank_resend_day_start">Day start</label>
+              <label className="bank-resend-field__label" htmlFor="bank_resend_day_start">{t("dayStart")}</label>
               <input
                 id="bank_resend_day_start"
                 className={`bank-resend-control${resendInlineError ? " bank-resend-control--error" : ""}`}
@@ -51,7 +52,7 @@ export default function ResendModal({
               />
             </div>
             <div className="bank-resend-field">
-              <label className="bank-resend-field__label" htmlFor="bank_resend_day_end">Day end</label>
+              <label className="bank-resend-field__label" htmlFor="bank_resend_day_end">{t("dayEnd")}</label>
               <input
                 id="bank_resend_day_end"
                 className="bank-resend-control"
@@ -63,10 +64,10 @@ export default function ResendModal({
               />
             </div>
             <div className="bank-resend-field bank-resend-field--full">
-              <label className="bank-resend-field__label" htmlFor="bank_resend_frequency">Frequency</label>
+              <label className="bank-resend-field__label" htmlFor="bank_resend_frequency">{t("frequency")}</label>
               <select id="bank_resend_frequency" className="bank-resend-control bank-resend-control--select" value={resendFrequency} onChange={(e) => setResendFrequency(e.target.value)}>
-                <option value="1st_of_every_month">1st of Every Month</option>
-                <option value="monthly" disabled={!!String(resendDayEnd || "").trim()}>Monthly</option>
+                <option value="1st_of_every_month">{t("firstOfEveryMonth")}</option>
+                <option value="monthly" disabled={!!String(resendDayEnd || "").trim()}>{t("monthly")}</option>
               </select>
             </div>
           </div>
@@ -85,10 +86,10 @@ export default function ResendModal({
               onClose();
             }}
           >
-            Cancel
+            {t("cancel")}
           </button>
           <button type="button" className="process-btn process-btn-resend confirm-bank-resend-confirm" id="confirmBankResendBtn" onClick={onResend}>
-            Resend
+            {t("resendAction")}
           </button>
         </div>
       </div>
