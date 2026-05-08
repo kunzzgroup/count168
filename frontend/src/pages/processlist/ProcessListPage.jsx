@@ -18,6 +18,7 @@ import ProcessTable from "./components/ProcessTable.jsx";
 import ProcessFormModal from "./components/ProcessFormModal.jsx";
 import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
 import ProcessDeleteConfirmModal from "./components/ProcessDeleteConfirmModal.jsx";
+import { getProcessListText } from "../../translateFile/processListTranslate.js";
 
 async function isBankCategoryCompany(companyCode) {
   if (!companyCode) return false;
@@ -59,6 +60,8 @@ function ProcessToastStack({ items }) {
 }
 
 export default function ProcessListPage() {
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params) => getProcessListText(lang, key, params), [lang]);
   const [cssReady, setCssReady] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
@@ -106,6 +109,22 @@ export default function ProcessListPage() {
     return () => {
       document.body.classList.remove("process-page");
       document.body.classList.add("dashboard-page");
+    };
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    const onLangUpdated = (e) => {
+      const nextLang = e?.detail?.lang;
+      setLang(nextLang === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
     };
   }, []);
 
@@ -225,7 +244,7 @@ export default function ProcessListPage() {
       const json = await res.json();
       if (ac.signal.aborted) return;
       if (!res.ok || !json.success) {
-        notify(json.message || json.error || "Failed to load process list", "danger");
+        notify(json.message || json.error || t("failedLoadProcessList"), "danger");
         return;
       }
       setRows(sortProcessRows(normalizeRows(json.data)));
@@ -234,7 +253,7 @@ export default function ProcessListPage() {
       syncUrl();
     } catch {
       if (ac.signal.aborted) return;
-      notify("Failed to load process list", "danger");
+      notify(t("failedLoadProcessList"), "danger");
     } finally {
       if (!ac.signal.aborted) setTableLoading(false);
     }
@@ -278,18 +297,18 @@ export default function ProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) {
         if (json?.data?.duplicate || String(json?.message || json?.error || "").includes("already exists")) {
-          notify("Description name already exists", "danger");
+          notify(t("descExists"), "danger");
         } else {
-          notify(json.message || json.error || "Failed to add description", "danger");
+          notify(json.message || json.error || t("failedAddDescription"), "danger");
         }
         return null;
       }
-      notify("Description added successfully!", "success");
+      notify(t("descAdded"), "success");
       await reloadDescriptions();
       const newId = json?.data?.description_id ?? json?.description_id;
       return newId != null ? { id: newId, name: descName } : null;
     } catch {
-      notify("Failed to add description", "danger");
+      notify(t("failedAddDescription"), "danger");
       return null;
     }
   };
@@ -307,17 +326,17 @@ export default function ProcessListPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        notify(json.message || json.error || "Failed to delete description", "danger");
+        notify(json.message || json.error || t("failedDeleteDescription"), "danger");
         return;
       }
-      notify("Description deleted", "success");
+      notify(t("descDeleted"), "success");
       await reloadDescriptions();
       setForm((prev) => ({
         ...prev,
         selected_descriptions: prev.selected_descriptions.filter((d) => String(d.id) !== String(descId)),
       }));
     } catch {
-      notify("Failed to delete description", "danger");
+      notify(t("failedDeleteDescription"), "danger");
     }
   };
 
@@ -411,7 +430,7 @@ export default function ProcessListPage() {
           ]);
           return;
         }
-        notify(json.message || json.error || "Switch company failed", "danger");
+        notify(json.message || json.error || t("switchCompanyFailed"), "danger");
         return;
       }
       setCompanyId(Number(company.id));
@@ -422,7 +441,7 @@ export default function ProcessListPage() {
         window.location.assign(new URL(`/bank-process-list?company_id=${company.id}`, window.location.origin).toString());
       }
     } catch {
-      notify("Switch company failed", "danger");
+      notify(t("switchCompanyFailed"), "danger");
     }
   };
 
@@ -447,7 +466,7 @@ export default function ProcessListPage() {
       const res = await fetch(url.toString(), { credentials: "include" });
       const json = await res.json();
       if (!res.ok || !json.success || !json.data) {
-        notify(json.message || json.error || "Failed to load process", "danger");
+        notify(json.message || json.error || t("failedLoadProcess"), "danger");
         return;
       }
       const p = json.data;
@@ -456,7 +475,7 @@ export default function ProcessListPage() {
       if (currencyId) {
         const exists = currencies.some((c) => String(c.id) === currencyId);
         if (!exists) {
-          if (p.currency_warning) notify("Warning: The original currency does not belong to your company. Please select a currency manually.", "danger");
+          if (p.currency_warning) notify(t("currencyWarningNoCompany"), "danger");
           currencyId = "";
         }
       }
@@ -466,7 +485,7 @@ export default function ProcessListPage() {
         if (matchingOption) {
           currencyId = String(matchingOption.id);
         } else if (p.currency_warning) {
-          notify(`Warning: The original currency (${code}) does not belong to your company. Please select a currency manually.`, "danger");
+          notify(t("currencyWarningWithCode", { code }), "danger");
         }
       }
 
@@ -508,24 +527,24 @@ export default function ProcessListPage() {
       setDescriptionPickerOpen(false);
       setModalOpen(true);
     } catch {
-      notify("Failed to load process", "danger");
+      notify(t("failedLoadProcess"), "danger");
     }
   };
 
   const submitForm = async (event) => {
     event.preventDefault();
     if (!form.selected_descriptions || form.selected_descriptions.length === 0) {
-      notify("Please select at least one description", "danger");
+      notify(t("needAtLeastOneDescription"), "danger");
       return;
     }
 
     if (!editMode) {
       if (!form.is_multi_process && (!form.process_name || !String(form.process_name).trim())) {
-        notify("Please enter Process ID or enable Multi-use Purpose", "danger");
+        notify(t("needProcessIdOrMulti"), "danger");
         return;
       }
       if (form.is_multi_process && (!form.selected_processes || form.selected_processes.length === 0)) {
-        notify("Please select at least one process for Multi-use Purpose", "danger");
+        notify(t("needOneMultiProcess"), "danger");
         return;
       }
     }
@@ -552,15 +571,15 @@ export default function ProcessListPage() {
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          notify(json.message || json.error || "Update failed", "danger");
+          notify(json.message || json.error || t("updateFailed"), "danger");
           return;
         }
-        notify(json.message || "Process updated successfully!", "success");
+        notify(json.message || t("processUpdated"), "success");
         notifyTransactionDataChanged("processlist-react");
         setModalOpen(false);
         fetchRows();
       } catch {
-        notify("Update failed", "danger");
+        notify(t("updateFailed"), "danger");
       }
       return;
     }
@@ -589,17 +608,17 @@ export default function ProcessListPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        notify(json.message || json.error || "Create failed", "danger");
+        notify(json.message || json.error || t("createFailed"), "danger");
         return;
       }
-      let message = json.message || "Process added successfully!";
+      let message = json.message || t("processAdded");
       const d = json.data;
       if (d && typeof d === "object") {
-        if (d.copy_from_used && Number(d.source_templates_found) === 0) message += " (No templates found to copy)";
-        if (d.copy_from_used && d.sync_source_set) message += " [Sync enabled: changes will sync to these processes]";
-        else if (d.copy_from_used && !d.sync_source_set) message += " (Sync not set: source process not found for this company)";
+        if (d.copy_from_used && Number(d.source_templates_found) === 0) message += ` (${t("copyNoTemplates")})`;
+        if (d.copy_from_used && d.sync_source_set) message += ` [${t("copySyncEnabled")}]`;
+        else if (d.copy_from_used && !d.sync_source_set) message += ` (${t("copySyncNotSet")})`;
         if (Array.isArray(d.errors) && d.errors.length > 0) {
-          message += `. ${d.errors.length} process(es) were skipped due to conflicts.`;
+          message += `. ${t("processSkippedConflicts", { count: d.errors.length })}`;
         }
       }
       notify(message, "success");
@@ -607,7 +626,7 @@ export default function ProcessListPage() {
       setModalOpen(false);
       fetchRows();
     } catch {
-      notify("Create failed", "danger");
+      notify(t("createFailed"), "danger");
     }
   };
 
@@ -640,17 +659,17 @@ export default function ProcessListPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        notify(json.message || json.error || "Delete failed", "danger");
+        notify(json.message || json.error || t("deleteFailed"), "danger");
         return;
       }
       const n = json?.data?.deleted ?? selectedIds.size;
-      notify(n === 1 ? "1 process deleted successfully" : `${n} processes deleted successfully`, "success");
+      notify(n === 1 ? t("processDeletedOne") : t("processDeletedMany", { count: n }), "success");
       notifyTransactionDataChanged("processlist-react");
       setDeleteConfirmOpen(false);
       setSelectedIds(new Set());
       fetchRows();
     } catch {
-      notify("Delete failed", "danger");
+      notify(t("deleteFailed"), "danger");
     } finally {
       setDeleteSubmitting(false);
     }
@@ -669,7 +688,7 @@ export default function ProcessListPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        notify(json.message || json.error || "Status update failed", "danger");
+        notify(json.message || json.error || t("statusUpdateFailed"), "danger");
         return;
       }
       const newStatus = String(json?.data?.newStatus || "").toLowerCase();
@@ -693,11 +712,11 @@ export default function ProcessListPage() {
         return next;
       });
 
-      const statusText = newStatus === "active" ? "activated" : "deactivated";
-      notify(`Process status changed to ${statusText}`, "success");
+      const statusText = newStatus === "active" ? t("activated") : t("deactivated");
+      notify(t("statusChangedTo", { status: statusText }), "success");
       notifyTransactionDataChanged("processlist-react");
     } catch {
-      notify("Status update failed", "danger");
+      notify(t("statusUpdateFailed"), "danger");
     }
   };
 
@@ -709,11 +728,11 @@ export default function ProcessListPage() {
     return (
       <div className="container">
         <div className="content">
-          <h1 className="page-title">Process List</h1>
+          <h1 className="page-title">{t("pageTitle")}</h1>
           <div className="process-table-wrapper" id="processTableWrapper">
             <div className="process-cards" id="processTableBody">
               <div className="process-card">
-                <div className="card-item">Load the Data...</div>
+                <div className="card-item">{t("loadingData")}</div>
               </div>
             </div>
           </div>
@@ -725,17 +744,17 @@ export default function ProcessListPage() {
   return (
     <div className="container">
       <div className="content" style={showAll ? { height: "auto", overflow: "visible" } : undefined}>
-        <h1 className="page-title">Process List</h1>
+        <h1 className="page-title">{t("pageTitle")}</h1>
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <button type="button" className="btn btn-add" onClick={openAdd}>
-                Add Process
+                {t("addProcess")}
               </button>
               <div className="search-container">
                 <input
                   className="search-input"
-                  placeholder="Search"
+                  placeholder={t("search")}
                   value={search}
                   onChange={onSearchChange}
                 />
@@ -750,7 +769,7 @@ export default function ProcessListPage() {
                     if (v) setShowInactive(false);
                   }}
                 />
-                <span>Show All</span>
+                <span>{t("showAll")}</span>
               </label>
               <label className="checkbox-section">
                 <input
@@ -762,7 +781,7 @@ export default function ProcessListPage() {
                     if (v) setShowAll(false);
                   }}
                 />
-                <span>Show Inactive</span>
+                <span>{t("showInactive")}</span>
               </label>
             </div>
             <button
@@ -772,12 +791,12 @@ export default function ProcessListPage() {
               disabled={!selectedIds.size}
               onClick={deleteSelected}
             >
-              {selectedIds.size ? `Delete (${selectedIds.size})` : "Delete"}
+              {selectedIds.size ? t("deleteWithCount", { count: selectedIds.size }) : t("delete")}
             </button>
           </div>
           {groupIds.length > 0 && (
             <div className="process-company-filter shared-group-wrapper">
-              <span className="process-company-label">GroupID:</span>
+              <span className="process-company-label">{t("groupId")}</span>
               <div className="process-company-buttons">
                 {groupIds.map((g) => (
                   <button
@@ -793,7 +812,7 @@ export default function ProcessListPage() {
             </div>
           )}
           <div className="process-company-filter shared-company-wrapper">
-            <span className="process-company-label">Company:</span>
+            <span className="process-company-label">{t("company")}</span>
             <div className="process-company-buttons">
               {companyButtons.map((c) => (
                 <button
@@ -820,6 +839,7 @@ export default function ProcessListPage() {
           openEdit={openEdit}
           toggleSelectId={toggleSelectId}
           toggleSelectAll={toggleSelectAll}
+          t={t}
         />
 
         {!showAll && (
@@ -828,7 +848,7 @@ export default function ProcessListPage() {
               ◀
             </button>
             <span className="pagination-info">
-              {currentPage} of {totalPages}
+              {t("pageOf", { current: currentPage, total: totalPages })}
             </span>
             <button
               type="button"
@@ -855,6 +875,7 @@ export default function ProcessListPage() {
           }}
           onSubmit={submitForm}
           onOpenDescriptionPicker={() => setDescriptionPickerOpen(true)}
+          t={t}
         />
       )}
 
@@ -866,6 +887,7 @@ export default function ProcessListPage() {
           onClose={() => setDescriptionPickerOpen(false)}
           onAddDescription={handleAddDescription}
           onDeleteDescription={handleDeleteDescription}
+          t={t}
         />
       )}
 
@@ -875,10 +897,11 @@ export default function ProcessListPage() {
         deleting={deleteSubmitting}
         onCancel={() => !deleteSubmitting && setDeleteConfirmOpen(false)}
         onConfirm={confirmDeleteProcesses}
+        t={t}
       />
 
       {expirationCompanies && (
-        <CompanyExpirationModal companies={expirationCompanies} onClose={() => setExpirationCompanies(null)} lang="en" />
+        <CompanyExpirationModal companies={expirationCompanies} onClose={() => setExpirationCompanies(null)} lang={lang} />
       )}
 
       <ProcessToastStack items={toasts} />
