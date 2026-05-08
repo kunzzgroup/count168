@@ -37,9 +37,8 @@ body.domain-page .domain-react-page>h1 {
     z-index: 400;
     color: #002C49;
     text-align: left;
-    margin-top: clamp(12px, 1.04vw, 20px);
-    margin-bottom: clamp(16px, 1.35vw, 26px);
-    font-size: clamp(26px, 3.33vw, 40px);
+    margin: 19px 0;
+    font-size: 40px;
     font-family: 'Amaranth';
     font-weight: 500;
     letter-spacing: -0.025em;
@@ -49,20 +48,20 @@ body.domain-page .domain-react-page .action-buttons {
     /* 整块工具栏叠在下方 table 之上，避免兄弟层 late-paint 盖住 Add/Price 等按钮点击区 */
     position: relative;
     z-index: 400;
-    margin-bottom: 24px;
+    margin-bottom: 0;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     flex-wrap: wrap;
-    gap: 12px 16px;
-    padding-bottom: clamp(10px, 1.04vw, 20px);
+    gap: 12px;
+    padding: 0 19.5px 0 0;
 }
 
 body.domain-page .domain-react-page .domain-toolbar-left {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px 12px;
+    gap: 12px;
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -366,9 +365,10 @@ body.domain-page .domain-react-page .btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
-    width: clamp(80px, 6.25vw, 120px);
-    padding: clamp(6px, 0.42vw, 8px) 0px;
-    font-size: clamp(10px, 0.83vw, 16px);
+    width: 120px;
+    min-height: 35.5px;
+    padding: 8px 0;
+    font-size: 15.93px;
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
@@ -387,8 +387,10 @@ body.domain-page .domain-react-page .btn-fee-settings {
     background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
     color: white;
     font-family: 'Amaranth', sans-serif;
-    padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1vw, 18px);
-    font-size: clamp(10px, 0.83vw, 16px);
+    width: 68.24px;
+    min-height: 35.5px;
+    padding: 8px 0;
+    font-size: 15.93px;
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(71, 85, 105, 0.35);
@@ -404,7 +406,7 @@ body.domain-page .domain-react-page .btn-fee-settings:hover {
 }
 
 body.domain-page .domain-react-page .domain-fee-inline-summary {
-    font-size: clamp(10px, 0.78vw, 14px);
+    font-size: 14px;
     color: #475569;
     white-space: nowrap;
     flex-shrink: 0;
@@ -1554,9 +1556,10 @@ body.domain-page .domain-react-page .btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: 'Amaranth';
-    width: clamp(90px, 6.25vw, 120px);
-    padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: clamp(10px, 0.83vw, 16px);
+    width: 120px;
+    min-height: 35.5px;
+    padding: 8px 20px;
+    font-size: 15.93px;
     margin-left: 10px;
     border: none;
     border-radius: 6px;
@@ -2226,7 +2229,8 @@ body.domain-page .domain-react-page .search-input {
     width: 100%;
     min-width: 0;
     max-width: none;
-    padding: 7px 2px clamp(6px, 0.42vw, 8px) clamp(20px, 2.08vw, 32px) !important;
+    min-height: 34px;
+    padding: 7px 2px 8px 32px !important;
     border: 1px solid rgba(148, 163, 184, 0.35);
     border-radius: 6px;
     font-size: clamp(10px, 0.8vw, 15px);
@@ -2256,13 +2260,13 @@ body.domain-page .domain-react-page .table-header {
     display: grid;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
-    padding: clamp(0px, 0.78vw, 15px) 20px 15px;
+    padding: 14.75px 20px 15px;
     background-color: transparent;
     border-radius: 8px;
     margin-bottom: 0px;
     font-weight: bold;
     color: #374151;
-    font-size: clamp(10px, 0.74vw, 14px);
+    font-size: 14px;
     min-width: 0;
     /* 允许内容收缩 */
 }
