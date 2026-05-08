@@ -114,6 +114,15 @@ export default function UserListPage() {
   const selectedGroupLabel = String(selectedCompany?.group_id || "-").toUpperCase();
   const selectedCompanyLabel = String(selectedCompany?.company_id || "").toUpperCase();
   const gcSummary = `${selectedGroupLabel} - ${selectedCompanyLabel}`;
+  const groupCompanyCountMap = useMemo(() => {
+    const m = new Map();
+    allCompanyButtons.forEach((c) => {
+      const gid = String(c.group_id || "").trim().toUpperCase();
+      if (!gid) return;
+      m.set(gid, (m.get(gid) || 0) + 1);
+    });
+    return m;
+  }, [allCompanyButtons]);
   const companiesInGroup = useMemo(() => {
     if (!popoverActiveGroup) return allCompanyButtons;
     return allCompanyButtons.filter((c) => String(c.group_id || "").toUpperCase() === popoverActiveGroup);
@@ -431,21 +440,30 @@ export default function UserListPage() {
                 <div className="user-gc-popover" role="dialog">
                   {groupIds.length > 0 && (
                     <div className="user-gc-popover__groups">
-                      <div className="user-gc-popover__title">Select Group</div>
-                      {groupIds.map((gid) => (
-                        <button
-                          key={gid}
-                          type="button"
-                          className={`user-gc-group-item${popoverActiveGroup === gid ? " is-active" : ""}`}
-                          onClick={() => setPopoverActiveGroup(gid)}
-                        >
-                          <span>{gid} Group</span>
-                        </button>
-                      ))}
+                      <div className="user-gc-popover__title">SELECT GROUP</div>
+                      <ul className="user-gc-group-list">
+                        {groupIds.map((gid) => {
+                          const active = popoverActiveGroup === gid;
+                          const count = groupCompanyCountMap.get(gid) || 0;
+                          return (
+                            <li key={gid}>
+                              <button
+                                type="button"
+                                className={`user-gc-group-item${active ? " is-active" : ""}`}
+                                onClick={() => setPopoverActiveGroup(gid)}
+                              >
+                                <span className="user-gc-group-item__dot" aria-hidden />
+                                <span className="user-gc-group-item__label">{gid} Group</span>
+                                <span className="user-gc-group-item__badge">{count}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
                   )}
                   <div className="user-gc-popover__companies">
-                    <div className="user-gc-popover__title">Select Company</div>
+                    <div className="user-gc-popover__title">SELECT COMPANY</div>
                     <div className="user-gc-company-pills">
                       {companiesInGroup.map((c) => {
                         const cid = Number(c.id);
@@ -463,6 +481,7 @@ export default function UserListPage() {
                       })}
                     </div>
                     <div className="user-gc-popover__footer">
+                      <span className="user-gc-popover__count">1 selected</span>
                       <button type="button" className="user-gc-confirm-btn" onClick={confirmGcPopover}>Confirm</button>
                     </div>
                   </div>
