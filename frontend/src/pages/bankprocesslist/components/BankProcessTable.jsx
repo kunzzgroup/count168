@@ -52,7 +52,21 @@ export default function BankProcessTable({
   openResendModal,
   supplierSortDir,
   setSupplierSortDir,
+  showHeaderSelectAll,
 }) {
+  const deletableRows = pageRows.filter(
+    (r) => normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions
+  );
+  const allDeletableSelected =
+    deletableRows.length > 0 && deletableRows.every((r) => selectedIds.has(r.id));
+  const toggleHeaderSelectAll = (checked) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) deletableRows.forEach((r) => next.add(r.id));
+      else deletableRows.forEach((r) => next.delete(r.id));
+      return next;
+    });
+  };
   const headerRef = useRef(null);
   const cardsRef = useRef(null);
 
@@ -108,7 +122,25 @@ export default function BankProcessTable({
     { key: "profit", label: "Profit" },
     { key: "status", label: "Status" },
     { key: "date", label: "Date" },
-    { key: "action", label: "Action" },
+    {
+      key: "action",
+      label: (
+        <>
+          Action
+          {showHeaderSelectAll && deletableRows.length > 0 ? (
+            <input
+              type="checkbox"
+              className="header-action-checkbox"
+              title="Select all"
+              aria-label="Select all deletable bank processes on this page"
+              checked={allDeletableSelected}
+              onChange={(e) => toggleHeaderSelectAll(e.target.checked)}
+              style={{ marginLeft: 10, cursor: "pointer" }}
+            />
+          ) : null}
+        </>
+      ),
+    },
   ];
 
   return (
@@ -121,7 +153,18 @@ export default function BankProcessTable({
         ))}
       </div>
       <div ref={cardsRef} className="process-cards bank-mode">
-        {tableLoading && <div className="process-card"><div className="card-item">Loading...</div></div>}
+        {tableLoading && (
+          <div className="process-card">
+            <div className="card-item" style={{ gridColumn: "1 / -1" }}>Load the Data...</div>
+          </div>
+        )}
+        {!tableLoading && pageRows.length === 0 && (
+          <div className="process-card">
+            <div className="card-item" style={{ textAlign: "left", padding: 20, gridColumn: "1 / -1" }}>
+              No process data found
+            </div>
+          </div>
+        )}
         {!tableLoading && pageRows.map((r, i) => (
           <div key={r.id} className="process-card" style={{ gridTemplateColumns: BANK_GRID_TEMPLATE_COLUMNS }}>
             <div className="card-item">{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</div>
