@@ -166,7 +166,11 @@ export default function DomainPage() {
     });
   }
 
-  function handleDeleteSelected() {
+  function handleDeleteSelected(ev) {
+    if (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
     if (checkedIds.size === 0) { showDomainAlert(t("selectOwnersToDeleteFirst"), "danger"); return; }
 
     const invalid = domains.filter((d) => checkedIds.has(d.id) && hasProtectedCompany(d.companies_full));
@@ -299,6 +303,9 @@ export default function DomainPage() {
               id="deleteSelectedBtn"
               disabled={checkedIds.size === 0}
               onClick={handleDeleteSelected}
+              onPointerDown={(ev) => {
+                ev.stopPropagation();
+              }}
             >
               {checkedIds.size > 0
                 ? t("deleteWithCount", { count: checkedIds.size })
