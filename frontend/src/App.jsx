@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import LoginPage from "./pages/login/LoginPage.jsx";
 import TransactionDashboardPage from "./pages/TransactionDashboardPage.jsx";
 import DomainPage from "./pages/domain/DomainPage.jsx";
@@ -24,6 +24,12 @@ import UserSecondaryPasswordPage from "./pages/login/UserSecondaryPasswordPage.j
 import MemberPage from "./pages/login/MemberPage.jsx";
 import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
 import UserAccessPage from "./pages/useraccess/UserAccessPage.jsx";
+import DeletedLogPage from "./pages/deletedlog/DeletedLogPage.jsx";
+
+function DeletedLogPhpRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "/deleted-log", search }} replace />;
+}
 
 export default function App() {
   return (
@@ -56,6 +62,7 @@ export default function App() {
         <Route path="/bankprocess-maintenance" element={<BankprocessMaintenancePage />} />
         <Route path="/payment-maintenance" element={<PaymentMaintenancePage />} />
         <Route path="/useraccess" element={<UserAccessPage />} />
+        <Route path="/deleted-log" element={<DeletedLogPage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
@@ -95,6 +102,8 @@ export default function App() {
       <Route path="/owner_secondary_password.php" element={<Navigate to="/owner-secondary-password" replace />} />
       <Route path="/api/users/user_secondary_password.php" element={<Navigate to="/user-secondary-password" replace />} />
       <Route path="/useraccess.php" element={<Navigate to="/useraccess" replace />} />
+      <Route path="/deleted-log.php" element={<DeletedLogPhpRedirect />} />
+      <Route path="/deleted_log.php" element={<DeletedLogPhpRedirect />} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
