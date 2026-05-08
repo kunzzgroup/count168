@@ -3772,6 +3772,13 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     font-size: 13px !important;
 }
 
+.modal-content.description-selection-modal .description-item .remove-description {
+    font-size: 1.15rem !important;
+    width: 1.3rem !important;
+    height: 1.3rem !important;
+    line-height: 1 !important;
+}
+
 .modal-content.description-selection-modal .modal-footer {
     margin-top: 0 !important;
     padding: 10px 16px 12px 16px !important;
