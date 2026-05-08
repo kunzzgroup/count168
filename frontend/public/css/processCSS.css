@@ -1640,11 +1640,14 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page #addModal .process-form.add-grid {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: 1rem !important;
+    row-gap: 0.25rem !important;
 }
 
 .process-page #addModal .process-form.add-grid .add-col {
     padding: 1rem 1.25rem !important;
+    min-width: 0 !important;
 }
 
 .process-page #addModal .process-form .form-group label {
@@ -1656,6 +1659,28 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page #addModal .process-form .form-row {
     gap: 1.125rem !important;
     margin-bottom: 0.875rem !important;
+}
+
+/* Keep Add Process modal controls from being squeezed/clipped */
+.process-page #addModal .process-form.add-grid .form-row {
+    display: block !important;
+}
+
+.process-page #addModal .process-form.add-grid .form-group {
+    min-width: 0 !important;
+    width: 100% !important;
+}
+
+.process-page #addModal .process-form.add-grid .row-two-cols {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: 0.75rem 1rem !important;
+}
+
+.process-page #addModal .process-form.add-grid textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 /* Day Use: one single row filled */
@@ -1682,11 +1707,14 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page #editModal .process-form.add-grid {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: 1rem !important;
+    row-gap: 0.25rem !important;
 }
 
 .process-page #editModal .process-form.add-grid .add-col {
     padding: 1rem 1.25rem !important;
+    min-width: 0 !important;
 }
 
 .process-page #editModal .process-form .form-group label {
