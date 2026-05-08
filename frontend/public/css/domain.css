@@ -2260,7 +2260,7 @@ body.domain-page .domain-react-page .table-header {
     display: grid;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
-    padding: 14.75px 20px 15px;
+    padding: 14.75px 20px 15px !important;
     background: transparent !important;
     background-image: none !important;
     border-radius: 8px;
