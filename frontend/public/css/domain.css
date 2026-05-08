@@ -732,9 +732,9 @@ body.domain-page .domain-fee-react-modal.modal-content {
     justify-content: center !important;
     align-items: center;
     gap: 12px;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #e2e8f0;
+    margin-top: 24px !important;
+    padding: 32px 0 !important;
+    border-top: 1px solid #e2e8f0 !important;
 }
 
 .domain-fee-react-modal .btn-save,
@@ -746,6 +746,25 @@ body.domain-page .domain-fee-react-modal.modal-content {
     font-size: 15.936px;
     line-height: 1;
     border-radius: 6px;
+    border: none !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}
+
+.domain-fee-react-modal .btn-save {
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%) !important;
+}
+
+.domain-fee-react-modal .btn-save:hover {
+    background: linear-gradient(180deg, #0d60ff 0%, #63c4ff 100%) !important;
+}
+
+.domain-fee-react-modal .btn-cancel {
+    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%) !important;
+}
+
+.domain-fee-react-modal .btn-cancel:hover {
+    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%) !important;
 }
 
 /* Domain Accounting Due (toolbar + modal) */
