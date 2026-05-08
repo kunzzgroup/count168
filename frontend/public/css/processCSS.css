@@ -3533,6 +3533,124 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     min-height: 2.35rem !important;
 }
 
+/* Final lock: keep Edit Process layout same as Add Process */
+#editModal .modal-content {
+    width: clamp(900px, 84vw, 1120px) !important;
+    max-width: 1120px !important;
+    min-height: clamp(460px, 62vh, 600px) !important;
+    max-height: 92vh !important;
+}
+
+#editModal .modal-body {
+    padding: 1.2rem 1.6rem 1rem !important;
+}
+
+#editModal .process-form.add-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 0.4fr) minmax(0, 0.6fr) !important;
+    column-gap: 1.2rem !important;
+    row-gap: 0.45rem !important;
+    max-width: 100% !important;
+    align-items: start !important;
+}
+
+#editModal .process-form.add-grid .add-col {
+    padding: 0.8rem 0.95rem !important;
+    min-width: 0 !important;
+    align-self: start !important;
+}
+
+#editModal .process-form.add-grid .add-col:first-child {
+    padding-top: 0.8rem !important;
+}
+
+#editModal .process-form.add-grid .add-col:last-child {
+    padding-top: 0.55rem !important;
+}
+
+#editModal .process-form .form-group {
+    display: block !important;
+}
+
+#editModal .process-form .form-group label {
+    display: block !important;
+    font-size: clamp(14px, 0.98vw, 16px) !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0.45rem !important;
+}
+
+#editModal .process-form .form-group input,
+#editModal .process-form .form-group select,
+#editModal .process-form .form-group textarea {
+    font-size: clamp(14px, 0.98vw, 16px) !important;
+    line-height: 1.35 !important;
+    padding: 0.5rem 0.8rem !important;
+    min-height: 2.45rem !important;
+}
+
+#editModal .process-form .form-row small,
+#editModal .process-form .form-group .field-help {
+    font-size: clamp(11px, 0.8vw, 13px) !important;
+    line-height: 1.35 !important;
+}
+
+#editModal .day-use-header {
+    display: block !important;
+    margin-bottom: 0.35rem !important;
+}
+
+#editModal .day-use-header > label {
+    display: block !important;
+    margin-bottom: 0.35rem !important;
+}
+
+#editModal .day-use-header .all-day-checkbox {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    margin-bottom: 0.25rem !important;
+}
+
+#editModal #edit_day_checkboxes.day-checkboxes {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 0.28rem 0.6rem !important;
+    justify-content: start !important;
+    overflow: visible !important;
+    white-space: normal !important;
+}
+
+#editModal .day-checkboxes .checkbox-item {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+    white-space: nowrap !important;
+    gap: 0.4rem !important;
+}
+
+#editModal .day-checkboxes .checkbox-item label {
+    display: inline !important;
+    margin: 0 !important;
+    font-size: clamp(11px, 0.82vw, 12px) !important;
+    text-transform: uppercase !important;
+}
+
+#editModal .day-checkboxes .checkbox-item input[type="checkbox"] {
+    width: 13px !important;
+    height: 13px !important;
+}
+
+#editModal .process-form .form-group textarea {
+    min-height: 7.25rem !important;
+    max-height: 7.25rem !important;
+    resize: none !important;
+}
+
 /* Final lock: restore Select/Add Description modal to reference layout */
 .modal-content.description-selection-modal {
     width: min(1040px, 95vw) !important;
