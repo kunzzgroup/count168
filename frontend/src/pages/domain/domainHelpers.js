@@ -220,7 +220,8 @@ export function formatDomainFeeEdit2(val) {
   if (val === null || val === undefined || val === "") return "";
   const n = Number(val);
   if (!isFinite(n)) return "";
-  return n.toFixed(2);
+  if (Number.isInteger(n)) return String(n);
+  return n.toFixed(2).replace(/\.?0+$/, "");
 }
 
 export function formatShareRowAmount2(value) {
