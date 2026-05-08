@@ -22,6 +22,7 @@ export default function AccountEditorRow({
   dragContextRef,
   enableDrag = true,
   readOnlyMode = false,
+  t,
 }) {
   const sliderRef = useRef(null);
   const rowRef = useRef(null);
@@ -125,9 +126,9 @@ export default function AccountEditorRow({
         disabled={readOnlyMode}
         onChange={(e) => onUpdate(idx, "account_id", e.target.value)}
       >
-        <option value="">-- SELECT ACCOUNT --</option>
+        <option value="">{t("selectAccountPlaceholder")}</option>
         {accounts.map((acc) => {
-          const mainStr = parseInt(acc.is_main_owner, 10) === 1 ? " - Main" : "";
+          const mainStr = parseInt(acc.is_main_owner, 10) === 1 ? t("mainOwnerSuffix") : "";
           const t = String(acc.type || "").toLowerCase();
           const label =
             t === "group"
@@ -172,7 +173,7 @@ export default function AccountEditorRow({
       </div>
       <div className="own-row-actions">
         <div className="own-read-only-badge" style={{ display: "flex", visibility: showRo ? "visible" : "hidden" }}>
-          <span className="own-read-only-text">Read Only</span>
+            <span className="own-read-only-text">{t("readOnly")}</span>
           <label className="own-ro-toggle">
             <input
               type="checkbox"
@@ -183,7 +184,7 @@ export default function AccountEditorRow({
             <span className="own-ro-slider" />
           </label>
         </div>
-        <button type="button" className="own-btn-square own-btn-delete" title="Remove" disabled={readOnlyMode} onClick={() => onRemove(idx)}>
+        <button type="button" className="own-btn-square own-btn-delete" title={t("remove")} disabled={readOnlyMode} onClick={() => onRemove(idx)}>
           <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
             <path
               fillRule="evenodd"

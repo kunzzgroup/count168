@@ -14,8 +14,11 @@ import CompanyCard from "./components/CompanyCard.jsx";
 import GroupEarningCard from "./components/GroupEarningCard.jsx";
 import BulkActionBar from "./components/BulkActionBar.jsx";
 import ConflictModal from "./components/ConflictModal.jsx";
+import { getOwnershipText } from "../../translateFile/ownershipTranslate.js";
 
 export default function OwnershipPage() {
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params) => getOwnershipText(lang, key, params), [lang]);
   const [boot, setBoot] = useState(true);
   const [cssReady, setCssReady] = useState(false);
 
@@ -27,6 +30,22 @@ export default function OwnershipPage() {
     return () => {
       document.body.classList.remove("ownership-page");
       setCssReady(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    const onLangUpdated = (e) => {
+      const nextLang = e?.detail?.lang;
+      setLang(nextLang === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
     };
   }, []);
 
@@ -647,7 +666,7 @@ export default function OwnershipPage() {
   return (
     <>
       <div className="own-container">
-        <h1 className="own-page-title">Account Ownership</h1>
+        <h1 className="own-page-title">{t("accountOwnership")}</h1>
         <div className="own-separator-line" />
         <div className="own-tab-bar">
           <button
@@ -661,7 +680,7 @@ export default function OwnershipPage() {
               <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
               <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
-            Account Ownership
+            {t("accountOwnership")}
           </button>
           <button
             type="button"
@@ -673,14 +692,14 @@ export default function OwnershipPage() {
               <path d="M2 17l10 5 10-5" />
               <path d="M2 12l10 5 10-5" />
             </svg>
-            Group Earnings
+            {t("groupEarnings")}
           </button>
         </div>
 
         <div className="own-tab-panel" style={{ display: activeTab === "account-ownership" ? "" : "none" }}>
           {allGroupIds.length > 0 ? (
             <div className="own-group-filter-bar">
-              <span className="own-gfb-label">Group</span>
+              <span className="own-gfb-label">{t("group")}</span>
               <div className="own-gfb-buttons">
                 {allGroupIds.map((g) => {
                   const count = allCompanies.filter(
@@ -712,7 +731,7 @@ export default function OwnershipPage() {
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M18 6L6 18M6 6l12 12" />
                     </svg>
-                    Cancel
+                    {t("cancel")}
                   </>
                 ) : (
                   <>
@@ -722,7 +741,7 @@ export default function OwnershipPage() {
                       <rect x="3" y="14" width="7" height="7" rx="1" />
                       <path d="M14 17h7M17.5 14v7" />
                     </svg>
-                    Select
+                    {t("select")}
                   </>
                 )}
               </button>
@@ -734,7 +753,7 @@ export default function OwnershipPage() {
                 <div className="own-loader" />
               </div>
             ) : companiesData.length === 0 ? (
-              <div className="own-empty-state">No companies found.</div>
+              <div className="own-empty-state">{t("noCompaniesFound")}</div>
             ) : (
               companiesData.map((c) => (
                 <CompanyCard
@@ -765,6 +784,7 @@ export default function OwnershipPage() {
                   calcTotal={calcTotal}
                   readOnlyMode={readOnlyMode}
                   fmtPct={fmtPct}
+                  t={t}
                 />
               ))
             )}
@@ -779,7 +799,7 @@ export default function OwnershipPage() {
               </div>
             ) : geGroups.length === 0 ? (
               <div className="own-empty-state">
-                No groups found. Assign companies to groups in the Account Ownership tab first.
+                {t("noGroupsFound")}
               </div>
             ) : (
               geGroups.map((grp) => (
@@ -800,6 +820,7 @@ export default function OwnershipPage() {
                   calcTotal={calcTotal}
                   readOnlyMode={readOnlyMode}
                   fmtPct={fmtPct}
+                  t={t}
                 />
               ))
             )}
@@ -833,6 +854,7 @@ export default function OwnershipPage() {
           if (c) await linkPartner(c.companyId, c.loginId, type);
         }}
         onCancel={() => setConflict(null)}
+        t={t}
       />
 
       {typeof document !== "undefined" && (
@@ -848,6 +870,7 @@ export default function OwnershipPage() {
             setSelectionMode(false);
             setSelectedCompanyIds(new Set());
           }}
+          t={t}
         />
       )}
     </>

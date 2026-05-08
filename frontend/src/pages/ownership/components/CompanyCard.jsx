@@ -29,18 +29,19 @@ export default function CompanyCard({
   calcTotal,
   readOnlyMode,
   fmtPct,
+  t,
 }) {
   const id = Number(comp.id);
   const gid = comp.group_id || null;
   const alloc = parseFloat(comp.allocated_percentage) || 0;
   const st = companyState;
   const totalLive = st ? calcTotal(st.rows) : alloc;
-  const headerRemain = totalLive > 100 ? "Over limit!" : `${fmtPct(100 - totalLive)} Remaining`;
+  const headerRemain = totalLive > 100 ? t("overLimit") : `${fmtPct(100 - totalLive)} ${t("remaining")}`;
   const headerPct = fmtPct(totalLive);
   const barW = Math.min(totalLive, 100);
   const selectable = allGroupIds.length > 0 && (!gid || groupFilter !== null);
 
-  let footerText = "100% Unallocated";
+  let footerText = t("unallocated", { value: "100%" });
   let warn = { show: false, err: false, icon: "⚠️", msg: "" };
   let confirmDisabled = false;
 
@@ -48,14 +49,14 @@ export default function CompanyCard({
     const t = calcTotal(st.rows);
     const rem = 100 - t;
     if (t > 100) {
-      warn = { show: true, err: true, icon: "❌", msg: "Total exceeds 100%!" };
-      footerText = `${fmtPct(Math.abs(rem))} Over Allocated`;
+      warn = { show: true, err: true, icon: "❌", msg: t("totalExceeds100") };
+      footerText = t("overAllocated", { value: fmtPct(Math.abs(rem)) });
       confirmDisabled = true;
     } else if (t < 100) {
-      warn = { show: true, err: false, icon: "⚠️", msg: "Total is less than 100%" };
-      footerText = `${fmtPct(rem)} Unallocated`;
+      warn = { show: true, err: false, icon: "⚠️", msg: t("totalLessThan100") };
+      footerText = t("unallocated", { value: fmtPct(rem) });
     } else {
-      footerText = "Fully Allocated";
+      footerText = t("fullyAllocated");
     }
   }
 
@@ -109,7 +110,7 @@ export default function CompanyCard({
         </div>
         <div className="own-card-header-middle">
           <div className="own-allocation-info">
-            <span className="own-allocation-label">Total Allocation</span>
+            <span className="own-allocation-label">{t("totalAllocation")}</span>
             <span className="own-allocation-percentage" id={`header-percent-${id}`}>
               {headerPct}
             </span>
@@ -132,7 +133,7 @@ export default function CompanyCard({
                   onSetOpenGroupPanel(openGroupPanelId === id ? null : id);
                 }}
               >
-                + Group
+                {t("joinGroup")}
               </button>
               <div className={`own-group-panel${openGroupPanelId === id ? " open" : ""}`}>
                 {allGroupIds.map((g) => (
@@ -154,11 +155,11 @@ export default function CompanyCard({
           ) : null}
           {!readOnlyMode && allGroupIds.length > 0 && gid ? (
             <button type="button" className="own-group-ungroup-btn" onClick={(e) => { e.stopPropagation(); onUngroup(id, comp.name); }}>
-              Ungroup
+              {t("ungroup")}
             </button>
           ) : null}
           <button type="button" className="own-btn-outline" data-action="toggle" onClick={(e) => { e.stopPropagation(); onToggle(id); }}>
-            Manage
+            {t("manage")}
           </button>
           <button type="button" className="own-icon-btn" data-action="toggle" onClick={(e) => { e.stopPropagation(); onToggle(id); }}>
             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -177,8 +178,8 @@ export default function CompanyCard({
           {expanded && st ? (
             <>
               <div className="own-table-headers">
-                <div>Account</div>
-                <div>Ownership%</div>
+                <div>{t("account")}</div>
+                <div>{t("ownershipPercent")}</div>
               </div>
               <div id={`rows-container-${id}`}>
                 {st.rows.map((row, idx) => (
@@ -206,16 +207,18 @@ export default function CompanyCard({
                     onDragEnd={() => {
                       dragRef.current = { companyId: null, idx: null };
                     }}
+                    t={t}
                   />
                 ))}
               </div>
               <button type="button" className="own-btn-add-account" disabled={readOnlyMode} onClick={(e) => { e.stopPropagation(); onAddRow(id); }}>
-                + Add Account
+                {t("addAccount")}
               </button>
               <PartnerLinkSection
                 inputId={`partner-login-${id}`}
                 disabled={readOnlyMode}
                 onLink={async (login) => onLinkPartner(id, login)}
+                t={t}
               />
               <div className="own-card-footer">
                 <div className="own-footer-left">
@@ -229,10 +232,10 @@ export default function CompanyCard({
                 </div>
                 <div className="own-footer-right">
                   <button type="button" className="own-footer-btn own-btn-cancel" onClick={(e) => { e.stopPropagation(); onCancel(); }}>
-                    Cancel
+                    {t("cancel")}
                   </button>
                   <button type="button" className="own-footer-btn own-btn-confirm" id={`confirm-btn-${id}`} disabled={readOnlyMode || confirmDisabled || savingCompanyId === id} onClick={(e) => { e.stopPropagation(); onConfirm(id); }}>
-                    {savingCompanyId === id ? "Saving..." : "Confirm"}
+                    {savingCompanyId === id ? t("saving") : t("confirm")}
                   </button>
                 </div>
               </div>
