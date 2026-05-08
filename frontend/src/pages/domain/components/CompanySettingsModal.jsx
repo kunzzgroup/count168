@@ -262,10 +262,24 @@ export default function CompanySettingsModal({
   };
 
   // ─── Render ────────────────────────────────────────────────────────────────
+  /* 必须高于 DomainFormModal 遮罩 (2147483000)；勿依赖任意 Tailwind z-[…] 以免生产未生成 */
+  const companySettingsOverlayZ = 2147483001;
+
   return (
     <DomainModalPortal>
-      <div className="fixed inset-0 z-[50003] bg-black/50 backdrop-blur-[4px]" style={{ display: "block" }}
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div
+        style={{
+          display: "block",
+          position: "fixed",
+          inset: 0,
+          zIndex: companySettingsOverlayZ,
+          overflowY: "auto",
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
+        }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      >
         <div className="relative mx-auto mt-[2%] w-[min(1120px,96vw)] max-w-[min(1120px,96vw)] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
         <button type="button" className="absolute right-5 top-[clamp(10px,1.04vw,20px)] z-[10001] flex h-[clamp(26px,1.88vw,36px)] w-[clamp(26px,1.88vw,36px)] items-center justify-center rounded-full text-[clamp(20px,1.46vw,28px)] font-normal leading-none text-slate-500 transition-all hover:scale-110 hover:bg-slate-100 hover:text-slate-700" onClick={onClose}>&times;</button>
         <h2 className="m-0 w-full border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)] text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">{t("companySettings")}</h2>
