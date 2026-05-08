@@ -1316,13 +1316,13 @@ label.user-modal-col-title.acc-proc-label {
 .checkbox-section {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
+    gap: 6px;
     background: transparent;
 }
 
 .checkbox-section input[type="checkbox"] {
-    width: 0.9375rem;
-    height: 0.9375rem;
+    width: 15px;
+    height: 15px;
     accent-color: #1a237e;
     appearance: none;
     -webkit-appearance: none;
@@ -1352,10 +1352,11 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .checkbox-section label {
-    font-size: clamp(10px, 0.8vw, 15px);
+    font-size: 15px;
+    line-height: 20px;
     color: #495057;
     cursor: pointer;
-    font-weight: 500;
+    font-weight: 400;
 }
 
 /* 新的卡片式表格样式 */
