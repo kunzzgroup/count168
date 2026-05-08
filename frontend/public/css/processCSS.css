@@ -1683,6 +1683,38 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     box-sizing: border-box !important;
 }
 
+.process-page #addModal .process-form.add-grid input,
+.process-page #addModal .process-form.add-grid select {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Keep Process ID + Multi-Process on one stable row */
+.process-page #addModal .process-form.add-grid .input-with-checkbox {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+}
+
+/* Keep day section aligned like original design */
+.process-page #addModal .process-form.add-grid .day-use-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    flex-wrap: nowrap !important;
+}
+
+.process-page #addModal .process-form.add-grid .all-day-checkbox {
+    flex-shrink: 0 !important;
+}
+
+.process-page #addModal .process-form.add-grid .add-actions {
+    margin-top: 0.75rem !important;
+}
+
 /* Day Use: one single row filled */
 .process-page #addModal #day_checkboxes.day-checkboxes,
 .process-page #addModal #edit_day_checkboxes.day-checkboxes {
