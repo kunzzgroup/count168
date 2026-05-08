@@ -1371,10 +1371,19 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page:not(.process-page--bank) .process-table-wrapper {
+    flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.process-page:not(.process-page--bank):not(.process-page--show-all) .pagination-container {
+    margin-top: 8px !important;
+    margin-bottom: 0 !important;
+    margin-left: auto !important;
+    align-self: flex-end;
+    flex-shrink: 0;
 }
 
 .process-page:not(.process-page--bank) .process-cards {
