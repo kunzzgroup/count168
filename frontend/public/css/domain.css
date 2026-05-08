@@ -2147,6 +2147,40 @@ body.domain-page .domain-react-page .btn-delete.active {
     text-decoration: underline;
 }
 
+body.domain-page .domain-react-page .domain-company-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+body.domain-page .domain-react-page .domain-company-chip.company-badge:hover {
+    color: #374151;
+    text-decoration: none;
+}
+
+body.domain-page .domain-react-page .domain-company-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #eef2ff;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
 /* Company Expiration Modal Styles */
 .company-exp-item {
     display: flex;
