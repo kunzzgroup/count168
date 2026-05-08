@@ -53,7 +53,7 @@ export default function TransactionTablesSection({
                         <td>{formatPaymentHistoryMoney(row.bf)}</td>
                         <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
                         <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
-                        <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, true)}>{formatPaymentHistoryMoney(row.balance)}</td>
+                        <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, "left")}>{formatPaymentHistoryMoney(row.balance)}</td>
                       </tr>
                     );
                   })}
@@ -90,7 +90,7 @@ export default function TransactionTablesSection({
                         <td>{formatPaymentHistoryMoney(row.bf)}</td>
                         <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
                         <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
-                        <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, false)}>{formatPaymentHistoryMoney(row.balance)}</td>
+                        <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, "right")}>{formatPaymentHistoryMoney(row.balance)}</td>
                       </tr>
                     );
                   })}
@@ -140,7 +140,7 @@ export default function TransactionTablesSection({
                               <td>{formatPaymentHistoryMoney(row.bf)}</td>
                               <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
                               <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
-                              <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, side.isLeft)}>{formatPaymentHistoryMoney(row.balance)}</td>
+                              <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, side.isLeft ? "left" : "right")}>{formatPaymentHistoryMoney(row.balance)}</td>
                             </tr>
                           );
                         })}
