@@ -19,7 +19,7 @@ import {
   updateSessionCompany 
 } from "./captureMaintenanceLogic.js";
 
-// Components
+// Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
 import CaptureMaintenanceTable from "./components/CaptureMaintenanceTable.jsx";
 import ConfirmDeleteModal from "./components/ConfirmDeleteModal.jsx";
