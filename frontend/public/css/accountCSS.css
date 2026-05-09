@@ -699,19 +699,20 @@ body.account-page:not(.account-page--show-all) .account-card {
     gap: 0.5rem;
     font-weight: 500;
     cursor: pointer;
-    padding: clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.625rem, 1.2vw, 0.875rem);
-    border-radius: 0.5rem;
+    padding: 8px 14px;
+    border-radius: 0.375rem;
     background: #f8fafc;
     border: 0.125rem solid #e2e8f0;
     transition: all 0.2s ease;
-    font-size: clamp(11px, 0.8vw, 13px);
+    font-size: 14px;
     color: #374151;
     font-family: 'Amaranth', sans-serif;
+    letter-spacing: 0.025em;
 }
 
 .account-radio-label:hover {
     background: #e2e8f0;
-    border-color: #004ff9;
+    border-color: #334ff9;
     transform: translateY(-0.0625rem);
     box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
 }
@@ -721,10 +722,10 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 .account-radio-label:has(input:checked) {
-    background: #004ff9;
-    color: white;
-    border-color: #004ff9;
-    box-shadow: 0 0.25rem 0.75rem rgba(0, 122, 255, 0.3);
+    background: #334ff9;
+    color: #ffffff;
+    border-color: #334ff9;
+    box-shadow: 0 0 0 3px rgba(51, 79, 249, 0.1), 0 0.125rem 0.5rem rgba(51, 79, 249, 0.2);
 }
 
 .account-advance-section {
@@ -1257,13 +1258,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding-bottom: clamp(0.45rem, 0.75vw, 0.65rem);
 }
 
-/* Make fields/readability closer to reference */
-#account-addModal .account-form-group label,
-#account-editModal .account-form-group label {
-    font-size: clamp(12px, 0.85vw, 14px);
-    color: #334155;
-    letter-spacing: 0.015em;
-}
+/* Labels: match DevTools · 14px Amaranth · #374151 · mb 8px (inherit .account-form-group label) */
 
 #account-addModal .account-form-group input,
 #account-addModal .account-form-group select,
@@ -1271,11 +1266,33 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-form-group input,
 #account-editModal .account-form-group select,
 #account-editModal .account-form-group textarea {
-    font-size: clamp(13px, 0.9vw, 14px);
-    min-height: 2.55rem;
+    font-size: 14px;
+    padding: 10px 14px;
+    min-height: 2.8125rem;
     border: 1px solid #dbe3ee;
-    border-radius: 0.52rem;
+    border-radius: 0.5rem;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    color: #334155;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+#account-addModal .account-form-group--placeholder-width input,
+#account-editModal .account-form-group--placeholder-width input {
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+#account-addModal .account-form-group input:focus,
+#account-addModal .account-form-group select:focus,
+#account-addModal .account-form-group textarea:focus,
+#account-editModal .account-form-group input:focus,
+#account-editModal .account-form-group select:focus,
+#account-editModal .account-form-group textarea:focus {
+    outline: none;
+    border-color: #334ff9;
+    box-shadow: 0 0 0 3px rgba(51, 79, 249, 0.1);
+    transform: none;
 }
 
 /* Advanced Account · devtools reference: 15px · #1E293B · margin 15px 0 8px · pad bottom 4px */
@@ -1378,13 +1395,13 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: none;
 }
 
-/* Toggle pills · selected #004FF9 · pad ~8px 14px · code text 13px white */
+/* Toggle pills · selected #334FF9 (match Payment Yes/No) */
 #account-addModal .account-currency-item.currency-toggle-item.selected,
 #account-editModal .account-currency-item.currency-toggle-item.selected {
     padding: 8px 14px;
     min-height: 40px;
-    background: #004ff9;
-    border-color: #004ff9;
+    background: #334ff9;
+    border-color: #334ff9;
 }
 
 #account-addModal .account-currency-item.currency-toggle-item:not(.selected),
@@ -1450,24 +1467,30 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-form-column .account-section-header,
 #account-editModal .account-form-column .account-section-header {
-    font-size: clamp(13px, 0.92vw, 15px);
-    color: #111827;
-    border-bottom-color: #e5e7eb;
+    font-family: Amaranth, sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
 }
 
 #account-addModal .account-radio-label,
 #account-editModal .account-radio-label {
-    border-radius: 0.44rem;
-    font-size: clamp(11px, 0.8vw, 12px);
-    border-color: #dbe4f0;
+    padding: 8px 14px;
+    font-size: 14px;
+    border-radius: 0.375rem;
+    border-color: #e2e8f0;
     background: #f8fafc;
 }
 
 #account-addModal .account-radio-label:has(input:checked),
 #account-editModal .account-radio-label:has(input:checked) {
-    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
-    border-color: transparent;
-    box-shadow: 0 3px 8px rgba(13, 96, 255, 0.3);
+    background: #334ff9;
+    color: #ffffff;
+    border-color: #334ff9;
+    box-shadow: 0 0 0 3px rgba(51, 79, 249, 0.1), 0 2px 6px rgba(51, 79, 249, 0.18);
 }
 
 #account-addModal .account-other-currency>div:not(.account-currency-list),

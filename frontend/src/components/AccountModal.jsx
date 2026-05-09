@@ -4,6 +4,14 @@ function upper(v) {
   return String(v || "").toUpperCase();
 }
 
+/** HTML input `size`: approx placeholder span (devtools-style); CJK needs extra cols */
+function inputColsFromPlaceholder(ph) {
+  const s = String(ph || "");
+  if (!s.trim()) return 16;
+  const hasCjk = /[\u4e00-\u9fff\u3000-\u303f\u3040-\u30ff]/.test(s);
+  return Math.min(85, Math.max(12, Math.ceil([...s].length * (hasCjk ? 1.15 : 1) + 2)));
+}
+
 /**
  * Single shared Account modal (Add/Edit) UI component.
  *
@@ -37,12 +45,9 @@ export default function AccountModal({
   const text = (key, params) => (typeof t === "function" ? t(key, params) : key);
   const modalId = isEditMode ? "account-editModal" : "account-addModal";
   const currencyPlaceholder = text("newCurrencyPlaceholder");
-  /** HTML size ≈ placeholder width (ch); CJK glyphs render wider → slight bump */
-  const hasCjk = /[\u4e00-\u9fff\u3000-\u303f\u3040-\u30ff]/.test(currencyPlaceholder);
-  const currencyInputCols = Math.min(
-    80,
-    Math.max(12, Math.ceil([...currencyPlaceholder].length * (hasCjk ? 1.15 : 1) + 1))
-  );
+  const currencyInputCols = inputColsFromPlaceholder(currencyPlaceholder);
+  const alertAmountPlaceholder = text("enterAmountPlaceholder");
+  const alertAmountInputCols = inputColsFromPlaceholder(alertAmountPlaceholder);
 
   const companyButtons = Array.isArray(companies)
     ? companies.filter((c) => c?.company_id && String(c.company_id).trim() !== "")
@@ -208,12 +213,13 @@ export default function AccountModal({
                 )}
 
                 {form.payment_alert === "1" && (
-                  <div className="account-form-group">
+                  <div className="account-form-group account-form-group--placeholder-width">
                     <label>{text("alertAmount")}</label>
                     <input
                       type="text"
                       inputMode="decimal"
-                      placeholder={text("enterAmountPlaceholder")}
+                      size={alertAmountInputCols}
+                      placeholder={alertAmountPlaceholder}
                       value={form.alert_amount || ""}
                       onChange={(e) => setForm((f) => ({ ...f, alert_amount: e.target.value }))}
                     />
