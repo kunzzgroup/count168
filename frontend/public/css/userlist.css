@@ -170,7 +170,7 @@ body.user-page.user-page--show-all .user-cards {
 .user-gc-popover {
     position: absolute;
     top: calc(100% + 8px);
-    left: 20px;
+    left: 0;
     z-index: 40;
     display: grid;
     grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.35fr);
