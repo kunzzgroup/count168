@@ -257,7 +257,7 @@ body.account-page:not(.account-page--show-all) {
 .account-company-label {
     font-weight: bold;
     color: #374151;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: clamp(10px, 0.73vw, 0.875rem);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
 }
@@ -704,7 +704,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     background: #f8fafc;
     border: 0.125rem solid #e2e8f0;
     transition: all 0.2s ease;
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #374151;
     font-family: 'Amaranth', sans-serif;
     letter-spacing: 0.025em;
@@ -864,12 +864,12 @@ body.account-page:not(.account-page--show-all) .account-card {
     gap: 0.5rem;
     font-weight: 500;
     cursor: pointer;
-    padding: clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.625rem, 1.2vw, 0.875rem);
+    padding: clamp(0.375rem, 0.5vw, 0.5rem) clamp(0.625rem, 0.8vw, 0.875rem);
     border-radius: 14px;
     background: #f8fafc;
     border: 1px solid #d6dce8;
     transition: all 0.2s ease;
-    font-size: 11px;
+    font-size: clamp(0.75rem, 0.8vw, 0.875rem);
     color: #374151;
     font-family: 'Amaranth', sans-serif;
     position: relative;
@@ -1258,7 +1258,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding-bottom: clamp(0.45rem, 0.75vw, 0.65rem);
 }
 
-/* Labels: match DevTools · 14px Amaranth · #374151 · mb 8px (inherit .account-form-group label) */
+/* Labels: match DevTools · 0.875rem Amaranth · #374151 · mb 8px (inherit .account-form-group label) */
 
 #account-addModal .account-form-group input,
 #account-addModal .account-form-group select,
@@ -1266,7 +1266,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-form-group input,
 #account-editModal .account-form-group select,
 #account-editModal .account-form-group textarea {
-    font-size: 14px;
+    font-size: 0.875rem;
     padding: 10px 14px;
     min-height: 2.8125rem;
     border: 1px solid #dbe3ee;
@@ -1334,7 +1334,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-other-currency label,
 #account-editModal .account-other-currency label {
     flex-shrink: 0;
-    font-size: 14px;
+    font-size: 0.875rem;
     min-width: 7.5rem;
     margin: 0;
     font-weight: 600;
@@ -1350,7 +1350,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     max-width: 100%;
     min-height: 34px;
     padding: 8px;
-    font-size: 14px;
+    font-size: 0.875rem;
     background: #ffffff;
     border: 1px solid #dbe3ee;
     border-radius: 8px;
@@ -1387,8 +1387,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-currency-item,
 #account-editModal .account-company-btn {
     font-family: Amaranth, sans-serif;
-    font-size: 12px;
-    padding: 6px 16px;
+    font-size: clamp(0.75rem, 0.8vw, 0.875rem);
+    padding: clamp(0.375rem, 0.5vw, 0.5rem) clamp(0.625rem, 0.8vw, 0.875rem);
     min-height: auto;
     border-radius: 999px;
     border: 1px solid #d6deea;
@@ -1402,6 +1402,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     min-height: 40px;
     background: #334ff9;
     border-color: #334ff9;
+    font-size: clamp(0.6875rem, 0.85vw, 0.8125rem);
 }
 
 #account-addModal .account-currency-item.currency-toggle-item:not(.selected),
@@ -1413,7 +1414,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-currency-item.currency-toggle-item.selected .currency-code-text,
 #account-editModal .account-currency-item.currency-toggle-item.selected .currency-code-text {
-    font-size: 13px;
+    font-size: inherit;
     color: #ffffff;
 }
 
@@ -1479,7 +1480,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-radio-label,
 #account-editModal .account-radio-label {
     padding: 8px 14px;
-    font-size: 14px;
+    font-size: 0.875rem;
     border-radius: 0.375rem;
     border-color: #e2e8f0;
     background: #f8fafc;
@@ -1563,7 +1564,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     word-wrap: break-word;
     border-left: 4px solid;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.5;
 }
 
@@ -1954,7 +1955,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 @media (max-width: 1024px) {
     .account-card-item {
-        font-size: clamp(10px, 0.85vw, 14px);
+        font-size: clamp(10px, 0.85vw, 0.875rem);
     }
 
     .account-form-group label {
@@ -1964,21 +1965,21 @@ body.account-page:not(.account-page--show-all) .account-card {
     .account-form-group input,
     .account-form-group select,
     .account-form-group textarea {
-        font-size: clamp(9px, 0.85vw, 14px);
+        font-size: clamp(9px, 0.85vw, 0.875rem);
     }
 
     .account-other-currency label {
-        font-size: clamp(9px, 0.85vw, 14px);
+        font-size: clamp(9px, 0.85vw, 0.875rem);
         min-width: 1.5rem;
     }
 
     .account-currency-item {
-        font-size: clamp(9px, 0.85vw, 14px);
+        font-size: clamp(9px, 0.85vw, 0.875rem);
     }
 
     #addCompanyList .account-currency-item,
     #editCompanyList .account-currency-item {
-        font-size: clamp(10px, 0.85vw, 14px);
+        font-size: clamp(10px, 0.85vw, 0.875rem);
     }
 
     .account-cards {
@@ -2038,7 +2039,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     border-radius: 4px;
     background-color: white;
     cursor: pointer;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: clamp(9px, 0.73vw, 0.875rem);
     color: #374151;
     transition: all 0.2s ease;
     min-height: 32px;
@@ -2087,7 +2088,7 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-toggle {
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: clamp(10px, 0.73vw, 0.875rem);
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -2158,7 +2159,7 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     background: white;
     cursor: pointer;
     text-align: left;
-    font-size: 14px;
+    font-size: 0.875rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2216,7 +2217,7 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     padding: 6px 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: clamp(9px, 0.73vw, 0.875rem);
     box-sizing: border-box;
 }
 
@@ -2228,7 +2229,7 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
 .custom-select-option {
     padding: 8px 12px;
     cursor: pointer;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: clamp(9px, 0.73vw, 0.875rem);
     border-bottom: 1px solid #f5f5f5;
 }
 
@@ -2249,6 +2250,6 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     padding: 12px;
     text-align: center;
     color: #999;
-    font-size: 14px;
+    font-size: 0.875rem;
 }
 
