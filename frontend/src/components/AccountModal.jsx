@@ -210,6 +210,16 @@ export default function AccountModal({
                         type="date"
                         value={form.alert_start_date}
                         onChange={(e) => setForm((f) => ({ ...f, alert_start_date: e.target.value }))}
+                        onClick={(e) => {
+                          const el = e.currentTarget
+                          if (typeof el.showPicker === "function") {
+                            try {
+                              el.showPicker()
+                            } catch {
+                              /* 部分环境在非用户手势等情况下会抛错 */
+                            }
+                          }
+                        }}
                       />
                     </div>
                   </div>
