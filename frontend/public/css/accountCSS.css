@@ -1261,7 +1261,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-form-group label,
 #account-editModal .account-form-group label {
     font-size: clamp(12px, 0.85vw, 14px);
-    color: #334155;
+    color: white;
     letter-spacing: 0.015em;
 }
 
