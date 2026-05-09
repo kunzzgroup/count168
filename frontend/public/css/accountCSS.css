@@ -614,7 +614,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 .account-form-column .account-form-row {
     gap: 1.125rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
 }
 
 /* 隐藏的 alert 字段不占空间 */
