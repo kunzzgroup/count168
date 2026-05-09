@@ -2001,7 +2001,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     }
 
     .account-form-group label {
-        font-size: 0.8125rem !important;
+        font-size: 1.4rem !important;
         margin-bottom: 0.25rem !important;
     }
 
