@@ -1344,7 +1344,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-btn-add-currency,
 #account-editModal .account-btn-add-currency {
     min-height: 2.75rem;
-    padding: 0.5rem 1rem;
+    padding: 1rem 1.5rem;
     font-size: 1.4rem;
     font-weight: 700;
     font-family: Amaranth, sans-serif;
