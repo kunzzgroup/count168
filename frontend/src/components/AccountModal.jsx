@@ -230,7 +230,7 @@ export default function AccountModal({
                 <h3>{text("advancedAccount")}</h3>
                 <div className="account-other-currency">
                   <label>{text("otherCurrency")}</label>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div className="account-currency-input-group">
                     <input
                       type="text"
                       placeholder={text("newCurrencyPlaceholder")}
@@ -244,7 +244,7 @@ export default function AccountModal({
                   {renderCurrencyList()}
                 </div>
 
-                <div className="account-other-currency" style={{ marginTop: "20px" }}>
+                <div className="account-other-currency account-other-currency--company">
                   <label>{text("company")}</label>
                   <div className="account-currency-list">
                     {companyButtons.map((c) => {
