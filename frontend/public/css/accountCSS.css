@@ -1258,7 +1258,18 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding-bottom: clamp(0.45rem, 0.75vw, 0.65rem);
 }
 
-/* Labels: match DevTools · 0.875rem Amaranth · #374151 · mb 8px (inherit .account-form-group label) */
+/* Labels / inputs: 图二 — label 0.875rem 粗体；控件 0.875rem 常规 */
+
+#account-addModal .account-form-group label,
+#account-editModal .account-form-group label {
+    display: block;
+    font-family: Amaranth, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #374151;
+    letter-spacing: 0.025em;
+    margin-bottom: 0.5rem;
+}
 
 #account-addModal .account-form-group input,
 #account-addModal .account-form-group select,
@@ -1267,6 +1278,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-form-group select,
 #account-editModal .account-form-group textarea {
     font-size: 0.875rem;
+    font-weight: 400;
     padding: 10px 14px;
     min-height: 2.8125rem;
     border: 1px solid #dbe3ee;
@@ -1295,14 +1307,29 @@ body.account-page:not(.account-page--show-all) .account-card {
     transform: none;
 }
 
-/* Advanced Account · devtools reference: 15px · #1E293B · margin 15px 0 8px · pad bottom 4px */
+#account-addModal .account-form-group input::placeholder,
+#account-addModal .account-form-group textarea::placeholder,
+#account-editModal .account-form-group input::placeholder,
+#account-editModal .account-form-group textarea::placeholder {
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+#account-addModal .account-other-currency input::placeholder,
+#account-editModal .account-other-currency input::placeholder {
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+/* Advanced Account · 与 Personal/Payment 分区标题同规格（图二） */
 #account-addModal .account-advance-section h3,
 #account-editModal .account-advance-section h3 {
-    font-size: 15px;
+    font-family: Amaranth, sans-serif;
+    font-size: 1rem;
     font-weight: 700;
     color: #1e293b;
     margin: 15px 0 8px;
-    padding: 0 0 4px;
+    padding: 0 0 8px;
     border-bottom: 1px solid #e2e8f0;
 }
 
@@ -1311,7 +1338,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding-top: clamp(0.4rem, 0.75vw, 0.65rem);
 }
 
-/* Strip · #F8FAFC bg · text #334155 16px · pad 8px 12px · margin bottom 8px */
+/* Strip · 与表单主文同 0.875rem，避免 16px 把子级撑乱（图二） */
 #account-addModal .account-other-currency,
 #account-editModal .account-other-currency {
     align-items: center;
@@ -1322,22 +1349,25 @@ body.account-page:not(.account-page--show-all) .account-card {
     border: 1px solid #e2e8f0;
     background: #f8fafc;
     color: #334155;
-    font-size: 16px;
+    font-size: 0.875rem;
+    font-weight: 400;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 #account-addModal .account-other-currency--company,
 #account-editModal .account-other-currency--company {
-    margin: 20px 0 8px;
+    margin: 8px 0 8px;
 }
 
 #account-addModal .account-other-currency label,
 #account-editModal .account-other-currency label {
     flex-shrink: 0;
+    align-self: center;
+    font-family: Amaranth, sans-serif;
     font-size: 0.875rem;
     min-width: 7.5rem;
     margin: 0;
-    font-weight: 600;
+    font-weight: 700;
     color: #374151;
 }
 
@@ -1361,7 +1391,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-btn-add-currency {
     min-height: 34px;
     padding: 8px 16px;
-    font-size: 12px;
+    font-size: 0.875rem;
+    font-weight: 700;
     font-family: Amaranth, sans-serif;
     border-radius: 8px;
     box-shadow: 0 2px 6px rgba(13, 96, 255, 0.28);
@@ -1388,6 +1419,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-company-btn {
     font-family: Amaranth, sans-serif;
     font-size: clamp(0.75rem, 0.8vw, 0.875rem);
+    font-weight: 600;
     padding: clamp(0.375rem, 0.5vw, 0.5rem) clamp(0.625rem, 0.8vw, 0.875rem);
     min-height: auto;
     border-radius: 999px;
@@ -1447,16 +1479,20 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-btn-cancel {
     min-width: 130px;
     min-height: 36px;
-    font-size: 16px;
+    font-size: 0.875rem;
+    font-weight: 700;
     font-family: Amaranth, sans-serif;
     padding: 8px 20px;
 }
 
 #account-addModal .account-modal-header h2,
 #account-editModal .account-modal-header h2 {
-    font-size: clamp(22px, 1.85vw, 28px);
+    font-size: clamp(1.375rem, 1.85vw, 1.75rem);
+    font-weight: 700;
+    line-height: 1.2;
     padding-left: clamp(1.35rem, 2.05vw, 1.95rem);
     color: #1f2937;
+    font-family: Amaranth, sans-serif;
 }
 
 #account-addModal .account-close,
@@ -1469,7 +1505,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-form-column .account-section-header,
 #account-editModal .account-form-column .account-section-header {
     font-family: Amaranth, sans-serif;
-    font-size: 15px;
+    font-size: 1rem;
     font-weight: 700;
     color: #1e293b;
     border-bottom: 1px solid #e2e8f0;
@@ -1481,6 +1517,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-radio-label {
     padding: 8px 14px;
     font-size: 0.875rem;
+    font-weight: 600;
     border-radius: 0.375rem;
     border-color: #e2e8f0;
     background: #f8fafc;
