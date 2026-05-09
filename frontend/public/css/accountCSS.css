@@ -1343,9 +1343,9 @@ body.account-page:not(.account-page--show-all) .account-card {
 /* 与图二/三 Payment 选中、底部 Add 同系蓝渐变 */
 #account-addModal .account-btn-add-currency,
 #account-editModal .account-btn-add-currency {
-    min-height: 34px;
-    padding: 8px 16px;
-    font-size: 0.875rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    font-size: 1.4rem;
     font-weight: 700;
     font-family: Amaranth, sans-serif;
     color: #ffffff;
