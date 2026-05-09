@@ -1473,6 +1473,20 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: 0 3px 8px rgba(13, 96, 255, 0.28);
 }
 
+/* × 可点：避免 flex:1 的代码区盖住删除键 */
+#account-addModal .account-currency-item.currency-toggle-item .currency-code-text,
+#account-editModal .account-currency-item.currency-toggle-item .currency-code-text {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+#account-addModal .account-currency-item.currency-toggle-item .currency-delete-btn,
+#account-editModal .account-currency-item.currency-toggle-item .currency-delete-btn {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+
 /* Form footer · tooltip: padding 16px 40px */
 #account-addModal .account-form-actions,
 #account-editModal .account-form-actions {

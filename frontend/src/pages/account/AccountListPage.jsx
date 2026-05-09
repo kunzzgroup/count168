@@ -83,8 +83,8 @@ export default function AccountListPage() {
   const [selectedCurrencyIds, setSelectedCurrencyIds] = useState([]);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
   const [currencyInput, setCurrencyInput] = useState("");
-  /** 本会话「创建货币」返回的 id，× 时可从列表移除；其余 × 仅取消勾选 */
-  const [createdCurrencyIds, setCreatedCurrencyIds] = useState([]);
+  /** Add/Edit 弹窗内点 × 隐藏的货币 id（本会话），避免仅取消勾选时界面无变化 */
+  const [hiddenCurrencyIds, setHiddenCurrencyIds] = useState([]);
   const [settingCurrencyId, setSettingCurrencyId] = useState(null);
   const [settingLinked, setSettingLinked] = useState(new Set());
   const [settingInitial, setSettingInitial] = useState(new Set());
@@ -93,6 +93,11 @@ export default function AccountListPage() {
 
   const toastTimerRef = useRef(null);
   const gcPopoverRef = useRef(null);
+
+  const accountModalCurrencies = useMemo(
+    () => currencies.filter((c) => !hiddenCurrencyIds.includes(Number(c.id))),
+    [currencies, hiddenCurrencyIds]
+  );
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -351,7 +356,7 @@ export default function AccountListPage() {
     setIsEditMode(false); setForm({ ...DEFAULT_FORM, payment_alert: "0" });
     setSelectedCurrencyIds([]); setCurrencyInput("");
     setInitialEditCurrencyIds([]);
-    setCreatedCurrencyIds([]);
+    setHiddenCurrencyIds([]);
     setAddModalOpen(true); loadSelectionMeta(null, false);
   };
 
@@ -362,7 +367,7 @@ export default function AccountListPage() {
       if (!json.success) return notify(json.message || t("failedToLoadAccount"), "danger");
       const d = json.data;
       setIsEditMode(true);
-      setCreatedCurrencyIds([]);
+      setHiddenCurrencyIds([]);
       setForm({ id: d.id, account_id: toUpper(d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
       await loadSelectionMeta(id, true);
       setEditModalOpen(true);
@@ -426,7 +431,7 @@ export default function AccountListPage() {
         }
       }
       setAddModalOpen(false); setEditModalOpen(false);
-      setCreatedCurrencyIds([]);
+      setHiddenCurrencyIds([]);
       notify(t("accountSavedSuccessfully"));
       fetchAccounts();
     } catch { notify(t("saveFailed"), "danger"); }
@@ -440,7 +445,6 @@ export default function AccountListPage() {
       if (json.success) {
         const newId = Number(json.data.id);
         setCurrencies((prev) => [...prev, { id: newId, code: json.data.code, is_linked: false }]);
-        setCreatedCurrencyIds((prev) => [...prev, newId]);
         setCurrencyInput("");
       }
     } catch { notify(t("createFailed"), "danger"); }
@@ -449,10 +453,7 @@ export default function AccountListPage() {
   const removeModalCurrency = (currencyId) => {
     const id = Number(currencyId);
     setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
-    if (createdCurrencyIds.includes(id)) {
-      setCurrencies((prev) => prev.filter((c) => Number(c.id) !== id));
-      setCreatedCurrencyIds((prev) => prev.filter((x) => x !== id));
-    }
+    setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
   const loadCurrencyLinks = async (curId) => {
@@ -723,7 +724,7 @@ export default function AccountListPage() {
         form={form}
         setForm={setForm}
         orderedRoles={orderedRoles}
-        currencies={currencies}
+        currencies={accountModalCurrencies}
         companies={companies}
         selectedCurrencyIds={selectedCurrencyIds}
         setSelectedCurrencyIds={setSelectedCurrencyIds}
@@ -741,7 +742,7 @@ export default function AccountListPage() {
         onClose={() => {
           setAddModalOpen(false);
           setEditModalOpen(false);
-          setCreatedCurrencyIds([]);
+          setHiddenCurrencyIds([]);
         }}
         t={t}
       />

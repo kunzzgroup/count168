@@ -86,7 +86,15 @@ export default function AccountModal({
               <span className="currency-code-text" onClick={() => setSelectedCurrencyIds((prev) => toggleId(prev, id))} role="presentation">
                 {upper(c.code)}
               </span>
-              <button type="button" className="currency-delete-btn" onClick={() => onRemoveCurrency(c.id)}>
+              <button
+                type="button"
+                className="currency-delete-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onRemoveCurrency(c.id);
+                }}
+              >
                 ×
               </button>
             </div>
