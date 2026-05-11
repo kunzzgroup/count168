@@ -860,9 +860,6 @@ try {
             $dayEndRaw = $r['day_end'] ?? null;
             $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
             $endDate = inboxBankProcessDateFieldToYmd($dayEndRaw);
-            if ($startDate !== null && isResendConsolidatedAlreadyPosted($pdo, $company_id, (int) $r['id'], $startDate)) {
-                continue;
-            }
             if ($startDate !== null && $endDate !== null && $startDate <= $endDate) {
                 $baseCost = money_normalize($r['cost'] ?? '0');
                 $basePrice = money_normalize($r['price'] ?? '0');
@@ -896,9 +893,6 @@ try {
             $dayEndRaw = $r['day_end'] ?? null;
             $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
             $endDate = inboxBankProcessDateFieldToYmd($dayEndRaw);
-            if ($startDate !== null && isResendConsolidatedAlreadyPosted($pdo, $company_id, (int) $r['id'], $startDate)) {
-                continue;
-            }
             if ($startDate !== null && $endDate !== null && $startDate <= $endDate) {
                 $baseCost = money_normalize($r['cost'] ?? '0');
                 $basePrice = money_normalize($r['price'] ?? '0');
