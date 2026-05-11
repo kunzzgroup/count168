@@ -112,7 +112,7 @@ if (!function_exists('renderBankProcessModals')) {
                 width: 40px;
                 height: 22px;
                 border-radius: 999px;
-                background: #cbd5e1;
+                background:rgb(27, 114, 219);
                 transition: background 0.2s ease;
             }
 
