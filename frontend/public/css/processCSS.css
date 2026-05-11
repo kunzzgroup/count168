@@ -1019,25 +1019,27 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     box-sizing: border-box;
 }
 
-/* Bank list：表头对齐参考 — 蓝渐变条上白字粗体大写、适中高度、垂直居中 */
+/* Bank list（React 卡片表）：表头纵向厚度贴近数据行 — 蓝条上下几乎无空档；白字粗体大写 */
 body.ec-auth-shell.process-page.process-page--bank .table-header {
     font-size: clamp(10px, 0.74vw, 13px) !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.06em !important;
     color: #ffffff !important;
-    padding-top: 10px !important;
-    padding-bottom: 10px !important;
-    padding-left: 20px !important;
-    padding-right: 20px !important;
-    line-height: 1.25 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    line-height: 1 !important;
+    min-height: 0 !important;
     align-items: center !important;
-    margin-top: 16px !important;
+    margin-top: 12px !important;
 }
 
 body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
-    padding: 4px 6px !important;
-    line-height: 1.25 !important;
+    padding: 1px 4px !important;
+    line-height: 1.05 !important;
+    min-height: 0 !important;
     display: flex !important;
     align-items: center !important;
     color: #ffffff !important;
@@ -1045,19 +1047,25 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 .process-page.process-page--bank .table-header {
     align-items: center;
-    line-height: 1.25;
+    line-height: 1;
     font-size: clamp(10px, 0.74vw, 13px);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: #ffffff;
-    margin-top: 16px;
-    gap: 12px;
+    margin-top: 12px;
+    gap: 10px;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 16px;
+    padding-right: 16px;
+    min-height: 0;
 }
 
 .process-page.process-page--bank .table-header .header-item {
-    padding: 4px 6px;
-    line-height: 1.25;
+    padding: 1px 4px;
+    line-height: 1.05;
+    min-height: 0;
     display: flex;
     align-items: center;
     color: #ffffff;
