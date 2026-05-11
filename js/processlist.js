@@ -3798,7 +3798,11 @@ function addCalendarMonthsToYmd(ymd, months) {
     return y + '-' + mo + '-' + day;
 }
 
-/** 与 api/processes/billing_schedule.php billingContractExclusiveEndYmdFirstOfMonth 一致（每月1号结算锚点） */
+/**
+ * 与 billing_schedule.php billingContractExclusiveEndYmdFirstOfMonth 一致（1st of Every Month）。
+ * 业务含义：起租日非 1 号时，首段为「当日起～当月底」先计价/先还；之后每个自然月从 1 号起算整月。
+ * 返回值：合约最后一天的下一天 00:00（exclusive），表单 day_end 再减一天 = 租期 inclusive 末日。
+ */
 function billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths) {
     if (!startYmd || termMonths < 1) {
         return null;
@@ -3836,7 +3840,10 @@ function subtractOneDayFromYmd(ymd) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-/** 与 contractExclusiveEndYmdForFrequency 一致后再减一天：表单存 inclusive 最后租期日 */
+/**
+ * 与 contractExclusiveEndYmdForFrequency 一致后再减一天：表单 day_end = inclusive 最后租期日。
+ * monthly：起租日+N 个自然月的「归还日」前一天。1st_of_every_month：见 billingContractExclusiveEndYmdFirstOfMonthJs。
+ */
 function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
     if (!startYmd || termMonths == null || termMonths < 1) {
         return null;
