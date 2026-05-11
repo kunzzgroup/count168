@@ -2300,9 +2300,11 @@ function syncBankDayEndCapDatePickersLocked() {
 function setBankDayEndMonthlyCapEnabled(enabled) {
     const hiddenEl = document.getElementById('bank_day_end_monthly_cap_enabled');
     const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
+    const labelTextEl = document.getElementById('bank_day_end_monthly_cap_label_text');
     const on = !!enabled;
     if (hiddenEl) hiddenEl.value = on ? '1' : '0';
     if (switchEl) switchEl.checked = on;
+    if (labelTextEl) labelTextEl.textContent = on ? 'ON' : 'OFF';
     syncBankDayEndCapDatePickersLocked();
 }
 

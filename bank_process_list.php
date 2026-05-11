@@ -338,10 +338,10 @@ if (!function_exists('renderBankProcessModals')) {
                                             <label for="bank_day_end" style="margin-bottom: 0;">Day end</label>
                                             <span id="bank_day_end_monthly_cap_wrap" class="read-only-toggle-inline"
                                                 title="When on, Day start and Day end cannot be edited; also enables day-end monthly cap (1st of Every Month).">
-                                                <span class="read-only-label">Read Only</span>
+                                                <span id="bank_day_end_monthly_cap_label_text" class="read-only-label">OFF</span>
                                                 <label class="toggle-switch" for="bank_day_end_monthly_cap_switch">
                                                     <input type="checkbox" id="bank_day_end_monthly_cap_switch"
-                                                        value="1" aria-label="Read only: lock Day start and Day end">
+                                                        value="1" aria-label="ON locks Day start and Day end; OFF allows edits">
                                                     <span class="toggle-slider"></span>
                                                 </label>
                                             </span>
