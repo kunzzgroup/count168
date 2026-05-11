@@ -149,14 +149,27 @@ try {
             $postDate = postedDateForMonthlyBillingMonth($p['billing_month'], $today);
         }
         if ($periodType === 'resend_consolidated_range') {
-            $dsSql = bmp_bankProcessHasResendScheduleColumns($pdo)
-                ? 'COALESCE(accounting_resend_schedule_day_start, day_start) AS ds'
-                : 'day_start AS ds';
-            $stmtDs = $pdo->prepare("SELECT $dsSql FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1");
-            $stmtDs->execute([$processId, $companyId]);
-            $dsRaw = $stmtDs->fetchColumn();
-            if ($dsRaw !== false && $dsRaw !== null && trim((string) $dsRaw) !== '') {
-                $normDs = bmp_bankProcessDateFieldToYmd($dsRaw);
+            // 与 process_accounting_inbox_api 一致：先合并 Resend 弹窗暂存列再取 day_start，避免 COALESCE(库列) 与 Inbox 展示锚点不一致导致无法写入 *_skipped。
+            bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
+            bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
+            $hasRelaxCol = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
+            $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
+            $selectCols = ['bp.id', 'bp.day_start', 'bp.day_end'];
+            if ($hasRelaxCol) {
+                $selectCols[] = 'bp.accounting_resend_relax_created_floor';
+            }
+            if ($hasSchedCols) {
+                $selectCols[] = 'bp.accounting_resend_schedule_day_start';
+                $selectCols[] = 'bp.accounting_resend_schedule_day_end';
+                $selectCols[] = 'bp.accounting_resend_schedule_frequency';
+            }
+            $stmtBp = $pdo->prepare('SELECT ' . implode(', ', $selectCols) . ' FROM bank_process bp WHERE bp.id = ? AND bp.company_id = ? LIMIT 1');
+            $stmtBp->execute([$processId, $companyId]);
+            $bpRow = $stmtBp->fetch(PDO::FETCH_ASSOC);
+            if ($bpRow) {
+                $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($bpRow);
+                $dsMerged = $merged['day_start'] ?? null;
+                $normDs = bmp_bankProcessDateFieldToYmd($dsMerged);
                 if ($normDs !== null && $normDs !== '') {
                     $postDate = $normDs;
                 }
@@ -174,6 +187,22 @@ try {
             // INSERT IGNORE 未插入但已有同键 *_skipped 行：视为已移除（重复点 Delete 时条数不为 0）
             if ($papId > 0) {
                 $inserted++;
+            }
+        }
+        // 唯一键若与既有 resend_consolidated_range（非 skipped）同键冲突：INSERT IGNORE 不插入且上面 SELECT 也找不到 skipped → 直接改为 skipped。
+        if ($papId === 0 && $periodType === 'resend_consolidated_range') {
+            $updPap = $pdo->prepare(
+                "UPDATE process_accounting_posted SET period_type = ?
+                 WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = 'resend_consolidated_range'"
+            );
+            $updPap->execute([$skippedType, $companyId, $processId, $postDate]);
+            if ($updPap->rowCount() > 0) {
+                $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
+                $fid2 = $selPap->fetchColumn();
+                $papId = $fid2 ? (int) $fid2 : 0;
+                if ($papId > 0) {
+                    $inserted++;
+                }
             }
         }
         if ($papId > 0) {

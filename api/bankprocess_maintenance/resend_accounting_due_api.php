@@ -253,6 +253,14 @@ try {
     );
     $delOncePap->execute([$company_id, $bankProcessId]);
 
+    // 清除本 process 全部 Resend 合并账期标记（含旧锚点），避免仅按 BETWEEN 删漏导致 Inbox 锚点与 pap.posted_date 不一致、Dismiss 无法写入 *_skipped。
+    $delAllResendConsolidatedPap = $pdo->prepare(
+        "DELETE FROM process_accounting_posted
+         WHERE company_id = ? AND process_id = ?
+           AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped')"
+    );
+    $delAllResendConsolidatedPap->execute([$company_id, $bankProcessId]);
+
     $targetYear = (int) substr($effectiveDayStartYmd, 0, 4);
     $targetMonth = (int) substr($effectiveDayStartYmd, 5, 2);
     // 弹窗同时填 day_start + day_end：清除该区间内各月 monthly 及 partial / tail / 合并期标记，便于生成单笔合并账单。
