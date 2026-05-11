@@ -2355,6 +2355,8 @@ async function confirmAccountingDueDelete() {
             formData.append('period_types[]', p.periodType);
             formData.append('billing_months[]', p.billingMonth || '');
         });
+        // Temporary debugging flag for dismiss API root-cause tracing.
+        formData.append('debug', '1');
         const response = await fetch(buildApiUrl('api/processes/dismiss_accounting_due_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {

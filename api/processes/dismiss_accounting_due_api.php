@@ -95,6 +95,40 @@ function isProcessInResendConsolidatedMode(PDO $pdo, int $companyId, int $proces
     return !empty($merged['accounting_resend_consolidated_range']);
 }
 
+/**
+ * consolidated 被 Dismiss 后，清掉本次 Resend 的 relax/schedule，避免 Inbox 继续按合并区间反复生成同一行。
+ */
+function clearProcessResendConsolidatedState(PDO $pdo, int $companyId, int $processId): void
+{
+    bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
+    bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
+    $hasRelaxCol = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
+    $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
+    if (!$hasRelaxCol) {
+        return;
+    }
+    if ($hasSchedCols) {
+        $stmt = $pdo->prepare(
+            "UPDATE bank_process
+             SET accounting_resend_relax_created_floor = 0,
+                 accounting_resend_schedule_day_start = NULL,
+                 accounting_resend_schedule_day_end = NULL,
+                 accounting_resend_schedule_frequency = NULL,
+                 dts_modified = NOW()
+             WHERE id = ? AND company_id = ?"
+        );
+        $stmt->execute([$processId, $companyId]);
+        return;
+    }
+    $stmt = $pdo->prepare(
+        "UPDATE bank_process
+         SET accounting_resend_relax_created_floor = 0,
+             dts_modified = NOW()
+         WHERE id = ? AND company_id = ?"
+    );
+    $stmt->execute([$processId, $companyId]);
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
@@ -118,6 +152,8 @@ try {
     }
 
     $billingMonths = isset($_POST['billing_months']) && is_array($_POST['billing_months']) ? $_POST['billing_months'] : [];
+    $debugMode = isset($_POST['debug']) && (string) $_POST['debug'] === '1';
+    $debugRows = [];
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim((string) $periodTypes[$i]) : 'monthly';
@@ -157,7 +193,7 @@ try {
     $inserted = 0;
     bmp_ensureMaintenanceResendPendingTable($pdo);
     $insPap = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
-    $selPap = $pdo->prepare("SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = ? LIMIT 1");
+    $selPap = $pdo->prepare("SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type = ? LIMIT 1");
     $insRp = $pdo->prepare(
         "INSERT IGNORE INTO bank_process_maintenance_resend_pending
          (company_id, bank_process_id, process_accounting_posted_id, period_type, transaction_date)
@@ -166,15 +202,29 @@ try {
     foreach ($pairs as $p) {
         $processId = $p['id'];
         $periodType = $p['period_type'];
+        $debugEntry = [
+            'process_id' => $processId,
+            'period_type_input' => $periodType,
+            'billing_month_input' => (string) ($p['billing_month'] ?? ''),
+            'forced_consolidated' => false,
+            'post_date' => null,
+            'pap_id' => 0,
+            'path' => 'none',
+        ];
         $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1");
         $stmt->execute([$processId, $companyId]);
         if (!$stmt->fetch()) {
+            if ($debugMode) {
+                $debugEntry['path'] = 'skip_process_not_found';
+                $debugRows[] = $debugEntry;
+            }
             continue;
         }
-        if ($periodType === 'monthly') {
+        if (in_array($periodType, ['monthly', 'day_end_tail', 'partial_first_month'], true)) {
             try {
                 if (isProcessInResendConsolidatedMode($pdo, $companyId, $processId)) {
                     $periodType = 'resend_consolidated_range';
+                    $debugEntry['forced_consolidated'] = true;
                 }
             } catch (Throwable $e) {
                 // ignore fallback detection failure, keep original period type
@@ -212,11 +262,14 @@ try {
                 }
             }
         }
+        $debugEntry['period_type_effective'] = $periodType;
+        $debugEntry['post_date'] = $postDate;
         $insPap->execute([$companyId, $processId, $postDate, $skippedType]);
         $papId = 0;
         if ($insPap->rowCount() > 0) {
             $inserted++;
             $papId = (int) $pdo->lastInsertId();
+            $debugEntry['path'] = 'insert_skipped';
         } else {
             $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
             $fid = $selPap->fetchColumn();
@@ -224,13 +277,14 @@ try {
             // INSERT IGNORE 未插入但已有同键 *_skipped 行：视为已移除（重复点 Delete 时条数不为 0）
             if ($papId > 0) {
                 $inserted++;
+                $debugEntry['path'] = 'existing_skipped';
             }
         }
         // 唯一键若与既有 resend_consolidated_range（非 skipped）同键冲突：INSERT IGNORE 不插入且上面 SELECT 也找不到 skipped → 直接改为 skipped。
         if ($papId === 0 && $periodType === 'resend_consolidated_range') {
             $updPap = $pdo->prepare(
                 "UPDATE process_accounting_posted SET period_type = ?
-                 WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = 'resend_consolidated_range'"
+                 WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type = 'resend_consolidated_range'"
             );
             $updPap->execute([$skippedType, $companyId, $processId, $postDate]);
             if ($updPap->rowCount() > 0) {
@@ -239,13 +293,14 @@ try {
                 $papId = $fid2 ? (int) $fid2 : 0;
                 if ($papId > 0) {
                     $inserted++;
+                    $debugEntry['path'] = 'update_consolidated_same_date';
                 }
             }
             // 兜底 1：同锚点日可能是其它 period_type 占位，统一改为 consolidated_skipped。
             if ($papId === 0) {
                 $updPapAny = $pdo->prepare(
                     "UPDATE process_accounting_posted SET period_type = ?
-                     WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type NOT LIKE '%\\_skipped'"
+                     WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type NOT LIKE '%\\_skipped'"
                 );
                 $updPapAny->execute([$skippedType, $companyId, $processId, $postDate]);
                 if ($updPapAny->rowCount() > 0) {
@@ -254,6 +309,7 @@ try {
                     $papId = $fid2b ? (int) $fid2b : 0;
                     if ($papId > 0) {
                         $inserted++;
+                        $debugEntry['path'] = 'update_any_same_date';
                     }
                 }
             }
@@ -276,6 +332,7 @@ try {
                     $papId = $fid2c ? (int) $fid2c : 0;
                     if ($papId > 0) {
                         $inserted++;
+                        $debugEntry['path'] = 'update_latest_consolidated';
                     }
                 }
             }
@@ -283,10 +340,22 @@ try {
         if ($papId > 0) {
             $ptNorm = bmp_normalizePeriodType($periodType);
             $insRp->execute([$companyId, $processId, $papId, $ptNorm, $postDate]);
+            if ($periodType === 'resend_consolidated_range') {
+                clearProcessResendConsolidatedState($pdo, $companyId, $processId);
+                $debugEntry['cleared_resend_state'] = true;
+            }
+        }
+        $debugEntry['pap_id'] = $papId;
+        if ($debugMode) {
+            $debugRows[] = $debugEntry;
         }
     }
 
-    jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', ['dismissed' => $inserted]);
+    $respData = ['dismissed' => $inserted];
+    if ($debugMode) {
+        $respData['debug'] = $debugRows;
+    }
+    jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', $respData);
 } catch (Exception $e) {
     http_response_code(400);
     jsonResponse(false, $e->getMessage(), null);
