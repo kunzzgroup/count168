@@ -226,8 +226,8 @@ export const EMPTY_BANK_FORM = {
   profit_sharing: "",
   day_start: "",
   day_end: "",
-  /** Default matches legacy bank_process_list.php / openAddProcess (Frequency = Once). */
-  day_start_frequency: "once",
+  /** Add Process: default Frequency = 1st of Every Month (edit uses saved `day_start_frequency`, including `once`). */
+  day_start_frequency: "1st_of_every_month",
   status: "active",
   remark: "",
   sop: "",
