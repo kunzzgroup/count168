@@ -181,6 +181,7 @@ body {
 
 .account-page-title {
     margin: 0;
+    margin-top: var(--text-page-title-mt) !important;
 }
 
 

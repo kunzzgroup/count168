@@ -36,8 +36,8 @@ body.process-page {
 .process-page .page-title {
     color: var(--color-heading);
     text-align: left;
-    margin-top: var(--text-page-title-mt);
-    margin-bottom: var(--text-page-title-mb);
+    margin: 0;
+    margin-top: var(--text-page-title-mt) !important;
     font-size: var(--text-page-title);
     font-weight: var(--font-weight-page-title);
     letter-spacing: var(--letter-spacing-page-title);
@@ -1459,10 +1459,6 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 .process-page:not(.process-page--bank) .content>div:first-child {
     margin-top: 8px !important;
-}
-
-.process-page:not(.process-page--bank) .page-title {
-    margin-bottom: clamp(8px, 0.83vw, 14px);
 }
 
 .process-page:not(.process-page--bank) .action-buttons-container {

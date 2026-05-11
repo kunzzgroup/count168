@@ -21,7 +21,7 @@
     body.datacapture-page h1,
     body.domain-page .domain-react-page > h1 {
         font-size: var(--text-page-title) !important;
-        margin-bottom: 0px !important;
+        margin-top: var(--text-page-title-mt) !important;
     }
 
     /* Container / Margins - 保留左侧 sidebar 的空间 */
@@ -236,11 +236,8 @@
        必须用 !important 覆盖上方的全局 !important 规则（高特异性选择器取胜）
        ---------------------------------------------------- */
 
-    /* 全局 h1/page-title { margin-bottom: 20px !important } 会覆盖 h1 的 inline margin:0
-       在 Bank 页面 h1 下方偷偷多占 20px，必须归零 */
     .process-page.process-page--bank .page-title {
-        margin-bottom: 0 !important;
-        margin-top: 0 !important;
+        margin-top: var(--text-page-title-mt) !important;
     }
 
     .process-page.process-page--bank .action-controls-row {
