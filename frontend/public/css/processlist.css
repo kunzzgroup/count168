@@ -762,7 +762,7 @@
 #addBankModal .bank-select {
     min-height: 50px;
     padding: 14px 18px;
-    font-size: 1.125rem;
+    font-size: 1.2rem;
     line-height: 1.4;
 }
 
@@ -774,7 +774,7 @@
     min-height: 50px;
     padding: 14px 18px;
     padding-right: 2.75rem;
-    font-size: 1.125rem;
+    font-size: 1.2rem;
     line-height: 1.4;
 }
 
@@ -789,6 +789,14 @@
     align-items: flex-start;
     justify-content: flex-start;
     text-align: left;
+}
+
+#addBankModal .no-profit-sharing p {
+    font-size: 1.2rem;
+}
+
+#addBankModal .bank-profit-sharing-item {
+    font-size: 1.2rem;
 }
 
 /* Footer: Cancel 字号与 Add Process 一致（覆盖全局 btn-cancel 偏小） */
@@ -1362,6 +1370,12 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
     max-height: min(460px, 80vh) !important;
 }
 
+#addBankModal .custom-select-search input,
+#addBankModal .custom-select-option,
+#addBankModal .custom-select-no-results {
+    font-size: 1.2rem;
+}
+
 /* Add Account 弹窗优先级最高，在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
 #addAccountModal {
     z-index: 10002 !important;
@@ -1528,7 +1542,7 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
 
 .bank-profit-sharing-header h3 {
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 1.5rem;
     color: #1e293b;
     font-weight: 600;
 }
