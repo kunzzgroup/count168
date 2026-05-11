@@ -454,20 +454,30 @@ button.sc-login-lang-seg.active {
 
 .sc-login-submit-btn {
   box-sizing: border-box;
-  min-height: 51px;
+  height: var(--login-submit-height);
+  min-height: var(--login-submit-height);
+  max-height: var(--login-submit-height);
   background: linear-gradient(135deg, var(--login-bg-start), var(--login-bg-end));
   color: #ffffff;
-  padding: 15px;
+  padding: 0 var(--login-submit-pad-x);
   border-radius: var(--login-radius-pill);
   font-family: Arial, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   font-size: 18px;
   font-weight: 700;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   box-shadow: 0 4px 15px rgba(0, 79, 249, 0.3);
   width: 100%;
+  white-space: nowrap;
+}
+
+.sc-login-submit-btn > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sc-login-submit-btn:hover {
