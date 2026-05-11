@@ -1,0 +1,103 @@
+/*
+ * design-tokens.css — SPA 全局 :root 设计令牌（由 globals.css 首行 @import）。
+ * 与 public/css/dashboard.css 的 --scd-* 区分命名；可按需在 dashboard 内做 var() 别名。
+ */
+:root {
+  /* --- 字体响应式变量 (1280px -> 1920px) --- */
+  --text-display: clamp(4.8rem, 2.5vw + 1.6rem, 6.4rem);
+  --text-h1: clamp(2.4rem, 1.25vw + 0.8rem, 3.2rem);
+  --text-h2: clamp(2rem, 0.625vw + 1.2rem, 2.4rem);
+  --text-h3: clamp(1.6rem, 0.3125vw + 1.2rem, 1.8rem);
+  --text-base: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  --text-small: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
+  --text-tiny: clamp(1rem, 0.15vw + 0.8rem, 1.1rem);
+
+  /* --- 间距响应式变量 --- */
+  --space-page: clamp(1.6rem, 2vw, 4rem);
+  --space-card: clamp(1.6rem, 1.5vw + 0.5rem, 2.4rem);
+  --space-gap: clamp(1.2rem, 1vw + 0.2rem, 2rem);
+
+  /* --- Sidebar (AuthenticatedLayout .informationmenu) — route-independent --- */
+  --sidebar-shell-bg: #002d49;
+  --sidebar-shell-border: rgba(255, 255, 255, 0.2);
+  --sidebar-active-bg: #0e93f3;
+  --sidebar-menu-text: #ffffff;
+  --sidebar-lock-width: 23.5rem;
+  --sidebar-logo-height: 3.6rem;
+  --sidebar-avatar-lock: 4rem;
+  --sidebar-user-name-size: 1.6rem;
+  --sidebar-user-role-size: 1.1rem;
+  --sidebar-lang-width: 10.8rem;
+  --sidebar-lang-height: 3.2rem;
+  --sidebar-lang-font: 1.1rem;
+  --sidebar-icon-size: 1.8rem;
+  --sidebar-menu-font: 1.6rem;
+  --sidebar-submenu-font: 1.2rem;
+  --sidebar-menu-pad-y: 1.2rem;
+  --sidebar-menu-pad-x: 1.6rem;
+  --sidebar-submenu-pad-y: 0.8rem;
+  --sidebar-header-pad-t: 1rem;
+  --sidebar-header-pad-x: 1rem;
+  --sidebar-header-pad-b: 0.8rem;
+
+  /* --- 品牌 / 文本色（列表页与 dashboard 壳层对齐，供 var 消重）--- */
+  --color-page-bg: #e9f1ff;
+  --color-page-fg: #334155;
+  --color-heading: #002c49;
+  --color-body-strong: #1f2937;
+  --color-surface: #ffffff;
+  --color-border: #e5e7eb;
+  --color-border-muted: #d0d7de;
+  --color-muted-fg: #6b7280;
+
+  /* --- 语义色 --- */
+  --color-primary: #3b82f6;
+  --color-primary-strong: #2563eb;
+  --color-danger: #ef4444;
+  --color-success: #22c55e;
+
+  /* --- 圆角 / 阴影 --- */
+  --radius-panel: 1rem;
+  --radius-card: 1.2rem;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  /* --- 字体栈 --- */
+  --font-heading-page: 'Amaranth', ui-sans-serif, system-ui, sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    sans-serif;
+
+  /* --- 列表页主标题（对应 clamp(26px, 2.08vw, 40px)）--- */
+  --text-page-title: clamp(2.6rem, 2.08vw, 4rem);
+  --text-page-title-mt: clamp(1.2rem, 1.04vw, 2rem);
+  --text-page-title-mb: clamp(1.6rem, 1.35vw, 2.6rem);
+  --font-weight-page-title: 500;
+  --letter-spacing-page-title: -0.025em;
+
+  /* --- 主区水平留白（userlist / ownership 容器）--- */
+  --page-pad-inline-end: 4rem;
+  --page-pad-inline-start: clamp(18rem, 14.06vw, 27rem);
+
+  /* --- 壳层背景图（background-color 仍用 --color-page-bg）--- */
+  --app-shell-bg-image: radial-gradient(
+      circle at 15% 20%,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0) 48%
+    ),
+    radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(
+      circle at 40% 70%,
+      rgba(206, 232, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0) 60%
+    ),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(145deg, #97bffc 0%, #aecffa 40%, #f9fbff 100%);
+
+  /* --- 叠层 --- */
+  --z-modal: 12000;
+
+  /* --- 动效 --- */
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 0.2s;
+}
