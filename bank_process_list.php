@@ -326,7 +326,7 @@ if (!function_exists('renderBankProcessModals')) {
                                 <div class="form-row bank-row-two-cols">
                                     <div class="form-group">
                                         <label for="bank_contract">Contract</label>
-                                        <select id="bank_contract" name="contract" class="bank-select" required>
+                                        <select id="bank_contract" name="contract" class="bank-select">
                                             <option value="">Select Contract</option>
                                             <option value="1 MONTH">1 MONTH</option>
                                             <option value="2 MONTHS">2 MONTHS</option>

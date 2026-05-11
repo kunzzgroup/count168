@@ -2064,6 +2064,10 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
     bindBankFieldErrorClear();
     addBankProcessForm.addEventListener('submit', async function (e) {
         e.preventDefault();
+        var fqPre = document.getElementById('bank_day_start_frequency');
+        if (fqPre && fqPre.value === 'once' && typeof syncBankOnceFrequencyUi === 'function') {
+            syncBankOnceFrequencyUi({ preserveValues: true });
+        }
         if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
         if (bankProcessSubmitInFlight) {
             return;
@@ -2219,8 +2223,12 @@ function syncBankOnceFrequencyUi(opts) {
         if (contractEl) {
             contractEl.disabled = true;
             contractEl.removeAttribute('required');
+            contractEl.classList.remove('bank-field-error');
         }
-        if (insEl) insEl.disabled = true;
+        if (insEl) {
+            insEl.disabled = true;
+            insEl.classList.remove('bank-field-error');
+        }
         if (dayEndPick) {
             dayEndPick.disabled = true;
             dayEndPick.style.opacity = '0.55';

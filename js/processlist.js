@@ -3660,6 +3660,8 @@ function clearBankFieldErrors() {
 }
 function markBankRequiredErrors() {
     clearBankFieldErrors();
+    var freqOnceEl = document.getElementById('bank_day_start_frequency');
+    var freqOnce = freqOnceEl && freqOnceEl.value === 'once';
     var country = (document.getElementById('bank_country') && document.getElementById('bank_country').value || '').trim();
     var bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
     var type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
@@ -3680,7 +3682,7 @@ function markBankRequiredErrors() {
     if (!name) { var el = document.getElementById('bank_name'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
     if (!cost) { var el = document.getElementById('bank_cost'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
     if (!price) { var el = document.getElementById('bank_price'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
-    if (!contract) { var el = document.getElementById('bank_contract'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
+    if (!contract && !freqOnce) { var el = document.getElementById('bank_contract'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
     if (!cardMerchant && cardMerchantBtn) { cardMerchantBtn.classList.add('bank-field-error'); hasError = true; }
     if (!customer && customerBtn) { customerBtn.classList.add('bank-field-error'); hasError = true; }
     if (!profitAccount && profitAccountBtn) { profitAccountBtn.classList.add('bank-field-error'); hasError = true; }
@@ -3734,6 +3736,10 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
     bindBankFieldErrorClear();
     addBankProcessForm.addEventListener('submit', async function (e) {
         e.preventDefault();
+        var fqPre = document.getElementById('bank_day_start_frequency');
+        if (fqPre && fqPre.value === 'once' && typeof syncBankOnceFrequencyUi === 'function') {
+            syncBankOnceFrequencyUi({ preserveValues: true });
+        }
         if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
         if (bankProcessSubmitInFlight) {
             return;
