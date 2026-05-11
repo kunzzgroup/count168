@@ -107,10 +107,13 @@ function bankProcessResolveDisplayValueByAccount(array $t): string
 }
 
 /**
- * Payment History / Maintenance：Frequency=once 入账行统一描述。
- * 格式：ONCE (DD/MM/YYYY) @ buy/sell/profit（三笔均为 process 原价，无额外文字标签）
+ * Payment History / Maintenance：Frequency=once 入账行描述（与首月 partial 一致：每行只展示本条对应的金额）。
+ * - Supplier(card_merchant)：ONCE (DD/MM/YYYY) @ buy
+ * - Customer：ONCE (DD/MM/YYYY) @ sell
+ * - Company profit：ONCE (DD/MM/YYYY)（不在 Description 重复金额，与 Win/Loss 列一致）
+ * - Profit sharing 账户：ONCE (DD/MM/YYYY) @ 该账号分摊额
  *
- * @param array $t 需含 process_cost、process_price、process_profit；transaction_date 优先（Y-m-d 或 d/m/Y），否则 bp_day_start
+ * @param array $t 需含 account_id、card_merchant_id、customer_id、profit_account_id、process_*；transaction_date 优先，否则 bp_day_start
  */
 function bankProcessOnceOneOffHistoryDescription(array $t): string
 {
@@ -143,10 +146,26 @@ function bankProcessOnceOneOffHistoryDescription(array $t): string
     if ($dmy === '') {
         $dmy = date('d/m/Y');
     }
-    $c = bankProcessBillFormatTripartNumber($t['process_cost'] ?? '0');
-    $p = bankProcessBillFormatTripartNumber($t['process_price'] ?? '0');
-    $pr = bankProcessBillFormatTripartNumber($t['process_profit'] ?? '0');
-    return 'ONCE (' . $dmy . ') @ ' . $c . '/' . $p . '/' . $pr;
+    $prefix = 'ONCE (' . $dmy . ')';
+    $txAccountId = (int) ($t['account_id'] ?? 0);
+    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+    $customerId = (int) ($t['customer_id'] ?? 0);
+    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
+
+    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_cost'] ?? '0');
+    }
+    if ($txAccountId > 0 && $txAccountId === $customerId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber(money_abs($t['process_price'] ?? '0', 2));
+    }
+    if ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+        return $prefix;
+    }
+    $psAmount = bankProcessProfitSharingOriginalAmountByAccount($t);
+    if ($psAmount !== null) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($psAmount);
+    }
+    return $prefix;
 }
 
 /**
