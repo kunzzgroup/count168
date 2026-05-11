@@ -1588,8 +1588,9 @@ function updateAccountingInboxDeleteButton() {
     const deleteSelectAllCb = document.getElementById('processAccountingInboxDeleteSelectAll');
     if (!tbody || !deleteBtn) return;
     const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
+    const rowPick = tbody.querySelectorAll('.process-accounting-inbox-row-cb:checked:not([disabled])');
     const allDelete = tbody.querySelectorAll('.process-accounting-inbox-delete-cb');
-    deleteBtn.disabled = checked.length === 0;
+    deleteBtn.disabled = checked.length === 0 && rowPick.length === 0;
     if (deleteSelectAllCb && !deleteSelectAllCb.disabled) {
         deleteSelectAllCb.checked = allDelete.length > 0 && allDelete.length === checked.length;
     }
@@ -1676,8 +1677,11 @@ async function postAccountingInboxToTransaction() {
 function deleteAccountingInboxSelected() {
     const tbody = document.getElementById('processAccountingInboxTbody');
     if (!tbody) return;
-    const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
-    const pairs = Array.from(checked).map(cb => {
+    let boxes = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
+    if (boxes.length === 0) {
+        boxes = tbody.querySelectorAll('.process-accounting-inbox-row-cb:checked:not([disabled])');
+    }
+    const pairs = Array.from(boxes).map(cb => {
         const tr = cb.closest('tr');
         const id = parseInt((tr && tr.getAttribute('data-id')) || cb.dataset.id || '', 10);
         const periodType = (tr && tr.getAttribute('data-period-type')) || 'monthly';
@@ -1685,7 +1689,7 @@ function deleteAccountingInboxSelected() {
         return { id, periodType, billingMonth };
     }).filter(p => !isNaN(p.id));
     if (pairs.length === 0) {
-        showNotification('请在右侧 Delete 列勾选要从 Accounting Due 移除的行', 'warning');
+        showNotification('请勾选要移除的行（左侧行勾选或右侧 Delete 列）', 'warning');
         return;
     }
     showConfirmAccountingDueDeleteModal(pairs);
@@ -1730,7 +1734,12 @@ async function confirmAccountingDueDelete() {
         const response = await fetch(buildApiUrl('api/processes/dismiss_accounting_due_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
-            showNotification(result.message || 'Removed from Accounting Due', 'success');
+            const dismissed = (result.data && typeof result.data.dismissed === 'number') ? result.data.dismissed : -1;
+            if (dismissed === 0) {
+                showNotification(result.message || '未能移除任何行，请刷新后重试', 'warning');
+            } else {
+                showNotification(result.message || 'Removed from Accounting Due', 'success');
+            }
             await loadAccountingInbox();
             if (typeof fetchProcesses === 'function') {
                 fetchProcesses();
