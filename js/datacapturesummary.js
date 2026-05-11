@@ -19984,12 +19984,11 @@ async function submitSummaryData() {
             let cleanIdProductMain = '';
             // Description 不再从单元格文本重新截取，而是统一使用行上的 data-original-description，
             // 避免像 "FAH07P1* (红股10%)" 这类已经带描述的值在再次提交时被误判为“无描述”并清空。
-            let descriptionMain = row.getAttribute('data-original-description') || '';
+            const rowDescriptionRaw = row.getAttribute('data-original-description') || '';
             if (idProductMainRaw) {
                 cleanIdProductMain = idProductMainRaw.trim();
             }
             let cleanIdProductSub = '';
-            let descriptionSub = '';
             if (idProductSubRaw) {
                 cleanIdProductSub = idProductSubRaw.trim();
             }
@@ -20001,6 +20000,17 @@ async function submitSummaryData() {
             if (!cleanIdProductMain && cleanIdProductSub) {
                 productType = 'sub';
                 idProduct = cleanIdProductSub;
+            }
+
+            // 描述必须按 productType 落到对应字段：sub 行 → description_sub，main 行 → description_main。
+            // 之前不论 main/sub 都把描述写进 descriptionMain，导致 Payment History 在 sub 行上
+            // 读 description_sub 时为空，括号里的描述（例如 "(TTST)"）无法显示。
+            let descriptionMain = '';
+            let descriptionSub = '';
+            if (productType === 'sub') {
+                descriptionSub = rowDescriptionRaw;
+            } else {
+                descriptionMain = rowDescriptionRaw;
             }
 
             const account = accountText;

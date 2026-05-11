@@ -1531,9 +1531,12 @@ try {
 
         if ($capture['product_type'] === 'sub' && !empty($capture['id_product_sub'])) {
             $product = $capture['id_product_sub'];
-            // 获取对应的 description_sub
+            // 获取对应的描述：优先 description_sub；若为空则回退到 description_main，
+            // 兼容历史数据（旧版前端把 sub 行的描述误写进 description_main 字段的情况）。
             if (!empty($capture['description_sub'])) {
                 $productDescription = $capture['description_sub'];
+            } elseif (!empty($capture['description_main'])) {
+                $productDescription = $capture['description_main'];
             }
         } elseif (!empty($capture['id_product_main'])) {
             $product = $capture['id_product_main'];
