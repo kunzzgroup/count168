@@ -302,9 +302,9 @@ if (!function_exists('renderBankProcessModals')) {
                                     <label for="bank_day_start_frequency">Frequency</label>
                                     <select id="bank_day_start_frequency" name="day_start_frequency"
                                         class="bank-input bank-select">
-                                        <option value="1st_of_every_month">1st of Every Month</option>
+                                        <option value="1st_of_every_month" selected>1st of Every Month</option>
                                         <option value="monthly">Monthly</option>
-                                        <option value="once" selected>Once</option>
+                                        <option value="once">Once</option>
                                     </select>
                                 </div>
                                 <input type="hidden" id="bank_profit_sharing" name="profit_sharing">

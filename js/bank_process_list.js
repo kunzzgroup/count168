@@ -1045,7 +1045,7 @@ function openAddProcessForSelectedPermission() {
                     setBankFormDayInputYmd(dayStartEl, '');
                 }
                 const freqEl = document.getElementById('bank_day_start_frequency');
-                if (freqEl) freqEl.value = 'once';
+                if (freqEl) freqEl.value = '1st_of_every_month';
                 updateBankFrequencyOptions();
             }
             if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
