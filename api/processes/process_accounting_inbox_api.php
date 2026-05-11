@@ -300,10 +300,11 @@ function isDayEndTailAlreadyPosted(PDO $pdo, int $companyId, int $processId): bo
 function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $processId, ?string $anchorYmd = null): bool
 {
     if ($anchorYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+        // 使用 DATE(posted_date)：列可能为 DATETIME，与 dismiss 写入的 Y-m-d 锚点须一致，否则已 *_skipped 仍出现在 Accounting Due。
         $stmt = $pdo->prepare(
             "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
              AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped')
-             AND posted_date = ? LIMIT 1"
+             AND DATE(posted_date) = ? LIMIT 1"
         );
         $stmt->execute([$companyId, $processId, $anchorYmd]);
         return (bool) $stmt->fetch();

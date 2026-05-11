@@ -1493,19 +1493,27 @@ function updatePostToTransactionButton() {
 }
 
 window.__accountingInboxList = [];
+let __accountingInboxLoadSeq = 0;
 function loadAccountingInbox() {
+    const seq = ++__accountingInboxLoadSeq;
     const urlStr = buildApiUrl('api/processes/process_accounting_inbox_api.php');
     const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
     const u = new URL(urlStr);
     if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
+    u.searchParams.set('_t', String(Date.now()));
     return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
         .then(r => r.json())
         .then(data => {
+            if (seq !== __accountingInboxLoadSeq) return;
             const list = (data && data.success && data.data) ? data.data : [];
             window.__accountingInboxList = list;
             renderAccountingInbox(list);
         })
-        .catch(err => { console.error('Accounting inbox load failed:', err); renderAccountingInbox([]); });
+        .catch(err => {
+            if (seq !== __accountingInboxLoadSeq) return;
+            console.error('Accounting inbox load failed:', err);
+            renderAccountingInbox([]);
+        });
 }
 function renderAccountingInbox(items) {
     const tbody = document.getElementById('processAccountingInboxTbody');
@@ -1723,7 +1731,7 @@ async function confirmAccountingDueDelete() {
         const result = await response.json();
         if (result.success) {
             showNotification(result.message || 'Removed from Accounting Due', 'success');
-            loadAccountingInbox();
+            await loadAccountingInbox();
             if (typeof fetchProcesses === 'function') {
                 fetchProcesses();
             }
