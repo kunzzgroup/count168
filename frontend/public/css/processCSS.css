@@ -260,6 +260,11 @@ body.process-page {
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .process-page .content .btn.btn-delete:hover,
@@ -758,7 +763,7 @@ body.process-page {
     min-width: 9.35rem;
     max-width: 9.35rem;
     height: 30px;
-    min-height: 30px;
+    min-height: 23px;
     max-height: 30px;
     flex-shrink: 0;
     box-sizing: border-box;
@@ -3132,7 +3137,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 #confirmBankResendModal .bank-resend-schedule-card__label {
     display: block;
-    font-size: 0.9375rem;
+    font-size: 1.3rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -3142,7 +3147,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 #confirmBankResendModal .bank-resend-schedule-card__hint {
     margin: 0;
-    font-size: 1.0625rem;
+    font-size: 1.180rem;
     line-height: 1.55;
     color: #334155;
 }
