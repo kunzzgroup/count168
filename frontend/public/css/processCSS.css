@@ -749,17 +749,25 @@ body.process-page {
     padding: 1px 4px;
 }
 
+/* Bank React 列表：状态格统一宽度（按最长 E-INVOICE 对齐），文字居中、内边距收紧 */
 .process-page.process-page--bank .bank-status-button {
-    min-height: 21px;
-    padding: 2px 24px 2px 9px;
-    line-height: 1.05;
-    font-size: clamp(9px, 0.72vw, 13px);
-    background-size: 13px 13px;
-    background-position: right 6px center;
+    width: 7.5rem;
+    min-width: 7.5rem;
+    max-width: 7.5rem;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    min-height: 22px;
+    padding: 2px 21px 2px 7px;
+    line-height: 1.12;
+    font-size: clamp(8px, 0.65vw, 10px);
+    letter-spacing: 0.02em;
+    justify-content: center;
+    background-size: 12px 12px;
+    background-position: right 5px center;
 }
 
 .process-page.process-page--bank .bank-status-button.is-block {
-    padding-right: 9px;
+    padding: 2px 7px;
 }
 
 .process-page.process-page--bank .contract-badge {
@@ -884,13 +892,16 @@ body.process-page {
     }
 
     .process-page.process-page--bank .bank-status-button {
+        width: 6.65rem;
+        min-width: 6.65rem;
+        max-width: 6.65rem;
         min-height: 19px;
-        padding: 1px 22px 1px 7px;
-        font-size: clamp(8px, 0.65vw, 12px);
+        padding: 2px 19px 2px 6px;
+        font-size: clamp(7px, 0.6vw, 9px);
     }
 
     .process-page.process-page--bank .bank-status-button.is-block {
-        padding-right: 7px;
+        padding: 2px 6px;
     }
 }
 
@@ -977,31 +988,34 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     box-sizing: border-box;
 }
 
-/* Bank list：表头行高度与数据行密度一致（覆盖 ec-auth-shell / 13inch 表头加大字号与 padding） */
+/* Bank list：表头行尽量贴齐数据行（再压一轮字号 / padding / 行高） */
 body.ec-auth-shell.process-page.process-page--bank .table-header {
-    font-size: clamp(10px, 0.72vw, 13px) !important;
-    padding-top: 2px !important;
-    padding-bottom: 2px !important;
-    padding-left: 20px !important;
-    padding-right: 20px !important;
-    line-height: 1.15 !important;
+    font-size: clamp(9px, 0.62vw, 11px) !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    line-height: 1.05 !important;
     align-items: center;
+    margin-top: 12px !important;
 }
 
 body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
-    padding: 2px 4px !important;
-    line-height: 1.15 !important;
+    padding: 1px 3px !important;
+    line-height: 1.05 !important;
 }
 
 .process-page.process-page--bank .table-header {
     align-items: center;
-    line-height: 1.15;
-    font-size: clamp(10px, 0.72vw, 13px);
+    line-height: 1.05;
+    font-size: clamp(9px, 0.62vw, 11px);
+    margin-top: 12px;
+    gap: 10px;
 }
 
 .process-page.process-page--bank .table-header .header-item {
-    padding: 2px 4px;
-    line-height: 1.15;
+    padding: 1px 3px;
+    line-height: 1.05;
 }
 
 .process-page .process-card:hover {
@@ -3096,9 +3110,9 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 #confirmBankResendModal .bank-resend-schedule-card__hint {
     margin: 0;
-    font-size: 0.9375rem;
+    font-size: 1.0625rem;
     line-height: 1.55;
-    color: #475569;
+    color: #334155;
 }
 
 #confirmBankResendModal .bank-resend-schedule-grid {
@@ -3120,11 +3134,11 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 #confirmBankResendModal .bank-resend-field__label {
     display: block;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    color: #334155;
-    margin-bottom: 8px;
-    letter-spacing: 0.01em;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
 }
 
 #confirmBankResendModal .bank-resend-field__note {
@@ -3137,7 +3151,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 #confirmBankResendModal .bank-resend-inline-alert {
     margin-top: 12px;
     padding: 14px 16px;
-    font-size: 1.0625rem;
+    font-size: 1.125rem;
     font-weight: 700;
     line-height: 1.45;
     color: #450a0a;
@@ -3159,9 +3173,9 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 #confirmBankResendModal .bank-resend-control {
     width: 100%;
     box-sizing: border-box;
-    min-height: 50px;
-    padding: 11px 14px;
-    font-size: 1.0625rem;
+    min-height: 56px;
+    padding: 13px 16px;
+    font-size: 1.3125rem;
     font-family: inherit;
     color: #1e293b;
     background: #fff;
@@ -3185,8 +3199,8 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 44px;
+    background-position: right 16px center;
+    padding-right: 48px;
 }
 
 #confirmBankResendModal .process-confirm-actions.bank-resend-modal-actions {
@@ -3203,16 +3217,25 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 #confirmBankResendModal .bank-resend-modal-actions .confirm-bank-resend-confirm {
     flex: 1 1 auto;
     max-width: none;
-    min-width: clamp(7.5rem, 34vw, 11rem);
+    min-width: clamp(9rem, 38vw, 14rem);
 }
 
 #confirmBankResendModal .bank-resend-modal-actions .process-btn-cancel,
 #confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
     width: 100%;
-    min-height: 48px;
-    padding: 0.7rem 1.35rem;
-    font-size: clamp(0.9375rem, 1.15vw, 1.125rem);
-    border-radius: 0.5rem;
+    min-height: 58px;
+    padding: 0.85rem 1.5rem;
+    font-size: clamp(1.25rem, 2.4vw, 1.65rem);
+    font-weight: 700;
+    border-radius: 0.55rem;
+}
+
+/* 覆盖 ec-auth-shell 对全局 .btn 的缩小 */
+body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-btn-cancel,
+body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
+    font-size: clamp(1.25rem, 2.4vw, 1.65rem) !important;
+    padding: 0.85rem 1.5rem !important;
+    min-height: 58px !important;
 }
 
 /* Scrollbar for long messages */
@@ -3902,7 +3925,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 .process-page .process-cards.bank-mode .card-item.bank-status-cell {
     overflow: visible !important;
-    min-width: max-content;
+    justify-content: flex-start;
 }
 
 /* Final restore: Edit Process should match reference (long rectangle + horizontal Day Use) */
