@@ -338,7 +338,7 @@ button.sc-login-lang-seg.active {
 
 .sc-login-input::placeholder {
   color: var(--login-bg-end);
-  font-size: 16px;
+  font-size: var(--text-small);
   font-weight: 400;
 }
 
@@ -417,7 +417,7 @@ button.sc-login-lang-seg.active {
   overflow: hidden;
   text-overflow: ellipsis;
   color: #656565;
-  font-size: 14px;
+  font-size: var(--text-small);
   font-weight: 400;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -427,7 +427,7 @@ button.sc-login-lang-seg.active {
   max-width: 100%;
   color: #56ccf2;
   text-decoration: none;
-  font-size: 14px;
+  font-size: var(--text-small);
   font-weight: 400;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   white-space: nowrap;
