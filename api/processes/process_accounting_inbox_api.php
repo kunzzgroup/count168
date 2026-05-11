@@ -10,7 +10,7 @@
  * - 非1号 day_start：首月按比例从 day_start 起算；若创建日晚于该自然月末则整段跳过（旧数据不拿）；出现日 max(day_start, 创建日)。
  * - Monthly = 每月 day_start 日为应付日；一期金额为「上一应付日到本期应付前一日」按日历天比例（例如 3/13 应付则服务 2/13–3/12），不按自然月末截断。
  * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
- * - 填写 day_end 且长于合同自然结束：多一笔 day_end_tail（例 1st + 非1号 day_start：自然结束次日到 day_end 按当月天数比例）。
+ * - 填写 day_end 且长于合同自然结束：可入账 day_end_tail（自然结束日到 day_end 按比例）；仅当 bank_process.day_end_monthly_cap_enabled=ON 时排入 Accounting Due（无该列时保持旧行为：仍排尾段）。
  * - Resend 弹窗同时填 day_start 与 day_end（仅 relax 暂存）：Accounting Due 只列一行，金额按自然月切段 [day_start, day_end] 合并（与 process_post 的 resend_consolidated_range 一致）；不影响非 Resend 的 addprocess。
  */
 
@@ -430,18 +430,9 @@ function inboxUniqueSortedBillingMonths(array $months): array
     return $months;
 }
 
-/**
- * 追加一条 monthly 型 Accounting Due 行。frequency=monthly 时按「对日对月」服务区间比例（与 process_post 一致），不使用自然月末截断。
- *
- * @param '1st_of_every_month'|'monthly' $frequency
- */
+/** 从 day_end 取「日」，供 1st 频率月内比例等；与 day_end_tail 开关无关。 */
 function inboxDayEndMonthlyCapDay(array $row): ?int
 {
-    $enabledRaw = $row['day_end_monthly_cap_enabled'] ?? null;
-    $enabled = in_array((string) $enabledRaw, ['1', 'true', 'TRUE'], true) || $enabledRaw === 1 || $enabledRaw === true;
-    if (!$enabled) {
-        return null;
-    }
     $dayEndYmd = inboxBankProcessDateFieldToYmd($row['day_end'] ?? null);
     if ($dayEndYmd === null) {
         return null;
@@ -453,6 +444,21 @@ function inboxDayEndMonthlyCapDay(array $row): ?int
     return $day;
 }
 
+/** Day end 旁开关：仅控制是否排 day_end_tail。无库列时视为 ON（兼容旧库）。 */
+function inboxDayEndTailSwitchOn(bool $hasDayEndMonthlyCapCol, array $row): bool
+{
+    if (!$hasDayEndMonthlyCapCol) {
+        return true;
+    }
+    $enabledRaw = $row['day_end_monthly_cap_enabled'] ?? null;
+    return in_array((string) $enabledRaw, ['1', 'true', 'TRUE'], true) || $enabledRaw === 1 || $enabledRaw === true;
+}
+
+/**
+ * 追加一条 monthly 型 Accounting Due 行。frequency=monthly 时按「对日对月」服务区间比例（与 process_post 一致），不使用自然月末截断。
+ *
+ * @param '1st_of_every_month'|'monthly' $frequency
+ */
 function inboxAppendMonthlyNeedToday(
     array &$needToday,
     array $r,
@@ -1329,6 +1335,9 @@ try {
             // Resend with an explicit single reopened period: do not also queue day_end_tail in the same pass
             // (would look like a duplicate bill alongside the monthly line).
             if (!empty($r['accounting_resend_single_period_from_schedule'])) {
+                continue;
+            }
+            if (!inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r)) {
                 continue;
             }
             $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';

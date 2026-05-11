@@ -2,7 +2,7 @@
 /**
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
- * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = day_end 超出合同自然结束日的尾段按比例，
+ * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = day_end 超出合同自然结束日的尾段按比例（仅当 day_end_monthly_cap_enabled=ON 时允许入账；无列则与旧版一致），
  * resend_consolidated_range = 仅 Resend 弹窗同时填 day_start+day_end 时：按自然月切段 [day_start, day_end] 合并为一笔（与 Inbox 一致）。
  * 仅处理 status = 'active' 的 process。
  */
@@ -698,11 +698,13 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
     $hasFlagColumn = tableHasColumn($pdo, 'bank_process', 'flag');
     $hasResendRelax = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
+    $hasDayEndTailCol = tableHasColumn($pdo, 'bank_process', 'day_end_monthly_cap_enabled');
     $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
     $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
             bp.dts_created" . ($hasFrequency ? ", bp.day_start_frequency" : "") .
         ($hasResendRelax ? ", bp.accounting_resend_relax_created_floor" : "") .
+        ($hasDayEndTailCol ? ", bp.day_end_monthly_cap_enabled" : "") .
         ($hasSchedCols ? ", bp.accounting_resend_schedule_day_start, bp.accounting_resend_schedule_day_end, bp.accounting_resend_schedule_frequency" : "") . ",
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
@@ -1001,6 +1003,7 @@ try {
     $has_source_bank_process_period_type = tableHasColumn($pdo, 'transactions', 'source_bank_process_period_type');
     $has_period_type = tableHasColumn($pdo, 'process_accounting_posted', 'period_type');
     $has_resend_relax_col = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
+    $has_day_end_tail_switch_col = tableHasColumn($pdo, 'bank_process', 'day_end_monthly_cap_enabled');
     $fallbackDate = date('Y-m-d');
     $createdCount = 0;
     $skippedFutureMonthlyDueCount = 0;
@@ -1075,6 +1078,13 @@ try {
             $price = $partial['price'];
             $profit = $partial['profit'];
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
+            if ($has_day_end_tail_switch_col) {
+                $raw = $p['day_end_monthly_cap_enabled'] ?? null;
+                $tailOn = in_array((string) $raw, ['1', 'true', 'TRUE'], true) || $raw === 1 || $raw === true;
+                if (!$tailOn) {
+                    continue;
+                }
+            }
             $dayEndRaw = $p['day_end'] ?? null;
             if ($dayEndRaw === null || trim((string) $dayEndRaw) === '' || strtotime((string) $dayEndRaw) === false) {
                 continue;
