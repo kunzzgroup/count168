@@ -163,14 +163,14 @@ body.dashboard-page {
 }
 
 .dashboard-title {
-    color: var(--scd-title);
+    color: var(--color-heading);
     text-align: left;
     margin-top: 0;
     margin-bottom: clamp(6px, 0.5vw, 10px);
-    font-size: clamp(20px, 1.8vw, 32px);
-    font-family: 'Amaranth';
-    font-weight: 500;
-    letter-spacing: -0.025em;
+    font-size: var(--text-page-title);
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-page-title);
+    letter-spacing: var(--letter-spacing-page-title);
     flex-shrink: 0;
 }
 
@@ -1021,11 +1021,6 @@ body.dashboard-page {
 
     }
 
-    .dashboard-title {
-        font-size: 22px;
-        margin-bottom: 6px;
-    }
-
     .dashboard-content {
         gap: 8px;
     }
@@ -1143,12 +1138,6 @@ body.dashboard-page {
         padding-right: 20px;
         padding-top: 10px;
         padding-bottom: 16px;
-    }
-
-    .dashboard-title {
-        font-size: 18px;
-        margin-bottom: 4px;
-        flex-shrink: 0;
     }
 
     .dashboard-content {
