@@ -304,6 +304,7 @@ if (!function_exists('renderBankProcessModals')) {
                                         class="bank-input bank-select">
                                         <option value="1st_of_every_month">1st of Every Month</option>
                                         <option value="monthly">Monthly</option>
+                                        <option value="once">Once</option>
                                     </select>
                                 </div>
                                 <input type="hidden" id="bank_profit_sharing" name="profit_sharing">

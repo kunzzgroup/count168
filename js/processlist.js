@@ -969,16 +969,23 @@ function renderBankTable() {
         return s === '' ? '-' : val;
     }
     pageItems.forEach((process, idx) => {
-        const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
+        const isOnceRow = String(process.day_start_frequency || '') === 'once';
+        let contract = '';
+        let contractCell = '';
         const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
-        // Special rule: 1 MONTH / 1+1 / 1+2 / 1+3 during active period use gray style
         const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
-        const contractClass = (grayContracts.indexOf(contract) !== -1 && baseContractClass === 'contract-active')
-            ? 'contract-1month-active'
-            : baseContractClass;
-        const contractCell = (contract && contractClass)
-            ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contract) + '</span>'
-            : (contract ? escapeHtml(contract) : escapeHtml('-'));
+        if (isOnceRow) {
+            contractCell = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('Once') + '</span>';
+        } else {
+            contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
+            const contractClass = (grayContracts.indexOf(contract) !== -1 && baseContractClass === 'contract-active')
+                ? 'contract-1month-active'
+                : baseContractClass;
+            contractCell = (contract && contractClass)
+                ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contract) + '</span>'
+                : (contract ? escapeHtml(contract) : escapeHtml('-'));
+        }
+        const insuranceCell = isOnceRow ? escapeHtml(' - ') : escapeHtml(dashIfEmpty(process.insurance));
         const cost = dashIfEmpty(process.cost);
         const price = dashIfEmpty(process.price);
         const profit = dashIfEmpty(process.profit);
@@ -996,7 +1003,7 @@ function renderBankTable() {
             '<td class="bank-td-types">' + escapeHtml(dashIfEmpty(process.types)) + '</td>' +
             '<td class="bank-td-card-owner">' + escapeHtml(dashIfEmpty(process.supplier)) + '</td>' +
             '<td>' + contractCell + '</td>' +
-            '<td>' + escapeHtml(dashIfEmpty(process.insurance)) + '</td>' +
+            '<td>' + insuranceCell + '</td>' +
             '<td>' + escapeHtml(dashIfEmpty(process.customer)) + '</td>' +
             '<td>' + escapeHtml(String(cost)) + '</td>' +
             '<td>' + escapeHtml(String(price)) + '</td>' +
@@ -1191,6 +1198,7 @@ function openAddProcessForSelectedPermission() {
                 updateBankFrequencyOptions();
             }
             if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
+            if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi();
             setBankModalLoadingState(false, 'Add Process');
             updateBankSubmitButtonState();
         }).catch(() => {
@@ -2280,6 +2288,10 @@ function showConfirmBankResendModal(processId) {
         return;
     }
     pendingBankResendProcessId = id;
+    function bankResendModalFrequencyFromStored(freq) {
+        if (freq === 'monthly') return 'monthly';
+        return '1st_of_every_month';
+    }
     const msgEl = document.getElementById('confirmBankResendMessage');
     const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
     const label = proc
@@ -2302,7 +2314,7 @@ function showConfirmBankResendModal(processId) {
     let scheduleSeed = {
         day_start: proc ? (proc.day_start || '') : '',
         day_end: proc ? (proc.day_end || '') : '',
-        day_start_frequency: proc && proc.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+        day_start_frequency: bankResendModalFrequencyFromStored(proc ? proc.day_start_frequency : '')
     };
     const bankModule = getBankProcessModule();
     if (bankModule && typeof bankModule.getPendingResendScheduleForProcess === 'function') {
@@ -2311,7 +2323,7 @@ function showConfirmBankResendModal(processId) {
             scheduleSeed = {
                 day_start: pendingSchedule.day_start || '',
                 day_end: pendingSchedule.day_end || '',
-                day_start_frequency: pendingSchedule.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+                day_start_frequency: bankResendModalFrequencyFromStored(pendingSchedule.day_start_frequency)
             };
         }
     }
@@ -2324,7 +2336,7 @@ function showConfirmBankResendModal(processId) {
         deEl.value = d2 ? (d2.length === 10 ? d2 : String(d2).split(' ')[0]) : '';
     }
     if (fqEl) {
-        fqEl.value = scheduleSeed.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
+        fqEl.value = bankResendModalFrequencyFromStored(scheduleSeed.day_start_frequency);
     }
     const dayEndSync = document.getElementById('bank_resend_day_end');
     const freqSync = document.getElementById('bank_resend_frequency');
@@ -3708,7 +3720,10 @@ function bindBankFieldErrorClear() {
     const freqSelectEl = document.getElementById('bank_day_start_frequency');
     if (freqSelectEl && !freqSelectEl._bankDayEndMinBound) {
         freqSelectEl._bankDayEndMinBound = true;
-        freqSelectEl.addEventListener('change', syncBankDayEndContractMin);
+        freqSelectEl.addEventListener('change', function () {
+            if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi();
+            syncBankDayEndContractMin();
+        });
     }
 }
 
@@ -3735,13 +3750,15 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
         const cost = (document.getElementById('bank_cost') && document.getElementById('bank_cost').value || '').trim();
         const price = (document.getElementById('bank_price') && document.getElementById('bank_price').value || '').trim();
         const contract = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value || '').trim();
+        const freqOnceSubmitEl = document.getElementById('bank_day_start_frequency');
+        const isOnceSubmit = freqOnceSubmitEl && freqOnceSubmitEl.value === 'once';
         const cardMerchantBtn = document.getElementById('bank_card_merchant');
         const customerBtn = document.getElementById('bank_customer');
         const profitAccountBtn = document.getElementById('bank_profit_account');
         const cardMerchant = cardMerchantBtn && cardMerchantBtn.getAttribute('data-value');
         const customer = customerBtn && customerBtn.getAttribute('data-value');
         const profitAccount = profitAccountBtn && profitAccountBtn.getAttribute('data-value');
-        if (!country || !bank || !type || !name || !cost || !price || !contract || !cardMerchant || !customer || !profitAccount) {
+        if (!country || !bank || !type || !name || !cost || !price || (!contract && !isOnceSubmit) || !cardMerchant || !customer || !profitAccount) {
             return;
         }
         const editId = document.getElementById('bank_edit_id').value;
@@ -3767,6 +3784,11 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
         formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        if (freqEl && freqEl.value === 'once') {
+            formData.set('day_end', '');
+            formData.set('contract', '');
+            formData.set('insurance', '');
+        }
         try {
             if (editId) {
                 formData.append('id', editId);

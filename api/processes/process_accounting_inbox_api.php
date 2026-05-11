@@ -936,6 +936,11 @@ try {
         $basePrice = money_normalize($r['price'] ?? '0');
         $baseProfit = money_normalize($r['profit'] ?? '0');
 
+        // One-off bank rows：不参与周期性入账队列（避免 day_start_frequency 落入 elseif Monthly 分支）
+        if ($frequency === 'once') {
+            continue;
+        }
+
         if ($frequency === '1st_of_every_month') {
             if (empty($dayStart)) {
                 continue;
