@@ -90,6 +90,57 @@ if (!function_exists('renderBankProcessModals')) {
     function renderBankProcessModals()
     {
         ?>
+        <style>
+            .bank-day-end-switch {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                margin: 0;
+                font-size: 11px;
+                font-weight: 600;
+                color: #64748b;
+                cursor: pointer;
+                user-select: none;
+            }
+
+            .bank-day-end-switch__input {
+                display: none;
+            }
+
+            .bank-day-end-switch__track {
+                position: relative;
+                width: 40px;
+                height: 22px;
+                border-radius: 999px;
+                background: #cbd5e1;
+                transition: background 0.2s ease;
+            }
+
+            .bank-day-end-switch__track::before {
+                content: '';
+                position: absolute;
+                top: 3px;
+                left: 3px;
+                width: 16px;
+                height: 16px;
+                border-radius: 50%;
+                background: #ffffff;
+                transition: transform 0.2s ease;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            }
+
+            .bank-day-end-switch__input:checked + .bank-day-end-switch__track {
+                background: #60a5fa;
+            }
+
+            .bank-day-end-switch__input:checked + .bank-day-end-switch__track::before {
+                transform: translateX(18px);
+            }
+
+            .bank-day-end-switch__input:disabled + .bank-day-end-switch__track {
+                opacity: 0.6;
+            }
+        </style>
         <div id="processAccountingDueModal" class="modal" style="display: none;">
             <div class="modal-content accounting-due-modal-content">
                 <div class="modal-header">
@@ -259,11 +310,11 @@ if (!function_exists('renderBankProcessModals')) {
                                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px;">
                                             <label for="bank_day_end" style="margin-bottom: 0;">Day end</label>
                                             <label id="bank_day_end_monthly_cap_wrap" for="bank_day_end_monthly_cap_switch"
-                                                class="remember-switch"
-                                                style="margin: 0; gap: 6px; font-size: 11px; color: #64748b; font-weight: 600;">
+                                                class="bank-day-end-switch">
                                                 <span id="bank_day_end_monthly_cap_state_text">Off</span>
-                                                <input type="checkbox" id="bank_day_end_monthly_cap_switch" aria-label="Cap monthly billing by day end">
-                                                <span class="slider" aria-hidden="true"></span>
+                                                <input type="checkbox" id="bank_day_end_monthly_cap_switch"
+                                                    class="bank-day-end-switch__input" aria-label="Cap monthly billing by day end">
+                                                <span class="bank-day-end-switch__track" aria-hidden="true"></span>
                                             </label>
                                         </div>
                                         <input type="hidden" id="bank_day_end" name="day_end" value="">
