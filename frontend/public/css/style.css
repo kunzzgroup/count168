@@ -137,9 +137,9 @@ body.bg::before {
 /* Form Content — 设计稿 padding 30×20；字号/色用 design-tokens */
 .form-content {
     padding: 30px 20px;
-    font-size: var(--text-base);
-    font-family: var(--font-ui);
-    color: var(--color-page-fg);
+    font-size: var(--text-base, 1rem);
+    font-family: var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+    color: var(--color-page-fg, #334155);
 }
 
 .form-content--secondary-verify {
@@ -153,7 +153,7 @@ body.bg::before {
     color: var(--color-body-strong);
     font-size: var(--text-h3);
     font-weight: 600;
-    font-family: var(--font-ui);
+    font-family: var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
     line-height: 1.25;
 }
 
@@ -163,7 +163,7 @@ body.bg::before {
     color: var(--color-muted-fg);
     font-size: var(--text-small);
     font-weight: 400;
-    font-family: var(--font-ui);
+    font-family: var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
     line-height: 1.35;
 }
 
@@ -353,7 +353,7 @@ body.bg::before {
     border: none;
     padding: 0 var(--login-submit-pad-x);
     border-radius: var(--login-radius-pill);
-    font-family: Arial, var(--font-ui);
+    font-family: Arial, var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
     font-size: var(--text-h3);
     font-weight: 700;
     line-height: 1;
