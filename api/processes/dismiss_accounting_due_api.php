@@ -218,7 +218,9 @@ try {
             $upsertConsolidated = $pdo->prepare(
                 "INSERT INTO process_accounting_posted (company_id, process_id, posted_date, period_type)
                  VALUES (?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE period_type = VALUES(period_type)"
+                 ON DUPLICATE KEY UPDATE
+                    posted_date = VALUES(posted_date),
+                    period_type = VALUES(period_type)"
             );
             $upsertConsolidated->execute([$companyId, $processId, $postDate, $skippedType]);
             $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
