@@ -3824,15 +3824,29 @@ function billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths) {
     return start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-' + String(start.getDate()).padStart(2, '0');
 }
 
-/** 与 contractExclusiveEndYmdForFrequency：monthly = 起始日+N月；否则 = 1st 锚点规则 */
+/** 与 billing_schedule.php：exclusive 归还日的前一天 = day_end 最后一天计入 */
+function subtractOneDayFromYmd(ymd) {
+    if (!ymd) return null;
+    const head = String(ymd).trim().substring(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(head)) return null;
+    const p = head.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/** 与 contractExclusiveEndYmdForFrequency 一致后再减一天：表单存 inclusive 最后租期日 */
 function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
     if (!startYmd || termMonths == null || termMonths < 1) {
         return null;
     }
-    if (frequency === 'monthly') {
-        return addCalendarMonthsToYmd(startYmd, termMonths);
-    }
-    return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+    const exclusive = frequency === 'monthly'
+        ? addCalendarMonthsToYmd(startYmd, termMonths)
+        : billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+    if (!exclusive) return null;
+    const inclusive = subtractOneDayFromYmd(exclusive);
+    return inclusive || null;
 }
 
 /**
