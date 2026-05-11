@@ -205,6 +205,30 @@ try {
                 }
             }
         }
+        // INSERT 与既有「已入账」行同锚点冲突时（例如唯一键不含 period_type 的旧库）：把原非 skipped 行改为 *_skipped，与 inbox 隐藏规则一致。
+        if ($papId === 0 && $periodType !== 'resend_consolidated_range') {
+            if ($periodType === 'monthly') {
+                $updPap2 = $pdo->prepare(
+                    "UPDATE process_accounting_posted SET period_type = ?
+                     WHERE company_id = ? AND process_id = ? AND posted_date = ? AND (period_type = 'monthly' OR period_type IS NULL OR period_type = '')"
+                );
+                $updPap2->execute([$skippedType, $companyId, $processId, $postDate]);
+            } else {
+                $updPap2 = $pdo->prepare(
+                    "UPDATE process_accounting_posted SET period_type = ?
+                     WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = ?"
+                );
+                $updPap2->execute([$skippedType, $companyId, $processId, $postDate, $periodType]);
+            }
+            if ($updPap2->rowCount() > 0) {
+                $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
+                $fid3 = $selPap->fetchColumn();
+                $papId = $fid3 ? (int) $fid3 : 0;
+                if ($papId > 0) {
+                    $inserted++;
+                }
+            }
+        }
         if ($papId > 0) {
             $ptNorm = bmp_normalizePeriodType($periodType);
             $insRp->execute([$companyId, $processId, $papId, $ptNorm, $postDate]);
