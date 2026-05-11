@@ -3801,7 +3801,8 @@ function addCalendarMonthsToYmd(ymd, months) {
 /**
  * 与 billing_schedule.php billingContractExclusiveEndYmdFirstOfMonth 一致（1st of Every Month）。
  * 业务含义：起租日非 1 号时，首段为「当日起～当月底」先计价/先还；之后每个自然月从 1 号起算整月。
- * 返回值：合约最后一天的下一天 00:00（exclusive），表单 day_end 再减一天 = 租期 inclusive 末日。
+ * 返回值：次计费周期首日 Y-m-d（exclusive，与 billingContractExclusiveEndYmdFirstOfMonth 一致）。
+ * 1st 模式下 Add Process 的 Day end 直接显示该日（如 5/4 起 +1M → 6/1）；Monthly 仍用 contractBillingEndYmdForBankForm 内减一天。
  */
 function billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths) {
     if (!startYmd || termMonths < 1) {
@@ -3841,19 +3842,20 @@ function subtractOneDayFromYmd(ymd) {
 }
 
 /**
- * 与 contractExclusiveEndYmdForFrequency 一致后再减一天：表单 day_end = inclusive 最后租期日。
- * monthly：起租日+N 个自然月的「归还日」前一天。1st_of_every_month：见 billingContractExclusiveEndYmdFirstOfMonthJs。
+ * monthly：起租日+N 月 exclusive 再减一天 = inclusive 最后租期日（与 billing 窗口语义一致）。
+ * 1st_of_every_month：不减天，直接为 billingContractExclusiveEndYmdFirstOfMonthJs（次周期首日，如 1/6）。
  */
 function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
     if (!startYmd || termMonths == null || termMonths < 1) {
         return null;
     }
-    const exclusive = frequency === 'monthly'
-        ? addCalendarMonthsToYmd(startYmd, termMonths)
-        : billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
-    if (!exclusive) return null;
-    const inclusive = subtractOneDayFromYmd(exclusive);
-    return inclusive || null;
+    if (frequency === 'monthly') {
+        const exclusive = addCalendarMonthsToYmd(startYmd, termMonths);
+        if (!exclusive) return null;
+        const inclusive = subtractOneDayFromYmd(exclusive);
+        return inclusive || null;
+    }
+    return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
 }
 
 /**
@@ -3862,7 +3864,7 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
  * 若 Day end 仍等于上次算出的合约结束日，起始日/合约/Frequency 变化后随新结果更新。
  * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
  * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
- * 1st_of_every_month：与后端一致以次月 1 号为锚；营业若有出入，用户可直接改 Day end（晚于 min 视为延长，不自动缩短）。
+ * 1st_of_every_month：Day end 自动为次周期首日（次月 1 号锚）；营业若有出入可手改（晚于 min 视为延长，不自动缩短）。
  */
 function autoCalculateBankDayEnd() {
     const dayStartEl = document.getElementById('bank_day_start');
