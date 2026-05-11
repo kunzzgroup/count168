@@ -256,21 +256,21 @@ if (!function_exists('renderBankProcessModals')) {
                                         </button>
                                     </div>
                                     <div class="form-group bank-day-end-input-wrap">
-                                        <label for="bank_day_end">Day end</label>
+                                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px;">
+                                            <label for="bank_day_end" style="margin-bottom: 0;">Day end</label>
+                                            <label id="bank_day_end_monthly_cap_wrap" for="bank_day_end_monthly_cap_switch"
+                                                style="display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: #495057;">
+                                                <input type="checkbox" id="bank_day_end_monthly_cap_switch" aria-label="Cap monthly billing by day end">
+                                                <span>Cap month by Day end</span>
+                                            </label>
+                                        </div>
                                         <input type="hidden" id="bank_day_end" name="day_end" value="">
+                                        <input type="hidden" id="bank_day_end_monthly_cap_enabled" name="day_end_monthly_cap_enabled" value="0">
                                         <button type="button" class="date-range-picker bank-form-day-picker"
                                             id="bank_day_end_picker" aria-label="Select day end">
                                             <i class="fas fa-calendar-alt" aria-hidden="true"></i>
                                             <span id="bank_day_end_display" class="bank-day-display--placeholder">dd/mm/yyyy</span>
                                         </button>
-                                        <div id="bank_day_end_monthly_cap_wrap" style="margin-top: 8px;">
-                                            <input type="hidden" id="bank_day_end_monthly_cap_enabled" name="day_end_monthly_cap_enabled" value="0">
-                                            <label for="bank_day_end_monthly_cap_switch" class="remember-switch">
-                                                <input type="checkbox" id="bank_day_end_monthly_cap_switch" aria-label="Cap monthly billing by day end">
-                                                <span class="slider" aria-hidden="true"></span>
-                                                <span class="remember-text" style="font-size: 12px;">Cap month by Day end</span>
-                                            </label>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
