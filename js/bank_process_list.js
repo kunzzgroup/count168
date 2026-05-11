@@ -2260,9 +2260,14 @@ allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 function setBankDayEndMonthlyCapEnabled(enabled) {
     const hiddenEl = document.getElementById('bank_day_end_monthly_cap_enabled');
     const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
+    const stateTextEl = document.getElementById('bank_day_end_monthly_cap_state_text');
     const on = !!enabled;
     if (hiddenEl) hiddenEl.value = on ? '1' : '0';
     if (switchEl) switchEl.checked = on;
+    if (stateTextEl) {
+        stateTextEl.textContent = on ? 'On' : 'Off';
+        stateTextEl.style.color = on ? '#0d6efd' : '#64748b';
+    }
 }
 
 function isBankDayEndMonthlyCapEnabled() {

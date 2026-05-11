@@ -260,10 +260,10 @@ if (!function_exists('renderBankProcessModals')) {
                                             <label for="bank_day_end" style="margin-bottom: 0;">Day end</label>
                                             <label id="bank_day_end_monthly_cap_wrap" for="bank_day_end_monthly_cap_switch"
                                                 class="remember-switch"
-                                                style="margin: 0; gap: 6px;">
+                                                style="margin: 0; gap: 6px; font-size: 11px; color: #64748b; font-weight: 600;">
+                                                <span id="bank_day_end_monthly_cap_state_text">Off</span>
                                                 <input type="checkbox" id="bank_day_end_monthly_cap_switch" aria-label="Cap monthly billing by day end">
                                                 <span class="slider" aria-hidden="true"></span>
-                                                <span style="font-size: 11px; color: #6c757d;">ON/OFF</span>
                                             </label>
                                         </div>
                                         <input type="hidden" id="bank_day_end" name="day_end" value="">
