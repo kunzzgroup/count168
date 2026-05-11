@@ -726,6 +726,14 @@ body.process-page {
     -webkit-overflow-scrolling: touch;
 }
 
+/*
+ * Bank 列表外壳是 grid（表头 + 数据区两行）。父级 flex 拉高 wrapper 高度时，Grid 会把多余垂直空间摊进行轨道，
+ * 两行都为 auto 时第一行蓝条会被「撑厚」。固定第一行为 auto、第二行为 minmax(0,1fr)，表头高度仅随内容。
+ */
+.process-page.process-page--bank .process-table-wrapper {
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
 /* Show All 模式：与普通模式相同（wrapper 已 flex:1，overflow-y:auto，无需额外规则） */
 
 /* 勿设 height:100%：否则行数少时浏览器会把行高均分撑满 flex 区，出现「两行占满一屏」 */
@@ -3235,7 +3243,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     box-sizing: border-box;
     min-height: 56px;
     padding: 13px 16px;
-    font-size: 1.3125rem;
+    font-size: 1.4125rem;
     font-family: inherit;
     color: #1e293b;
     background: #fff;
@@ -3264,7 +3272,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 }
 
 #confirmBankResendModal .process-confirm-actions.bank-resend-modal-actions {
-    margin-top: 0;
+    margin-top: 10px;
     padding: clamp(18px, 2vw, 26px) clamp(22px, 3vw, 36px) clamp(22px, 2.5vw, 32px);
     border-top: 1px solid #e2e8f0;
     background: linear-gradient(180deg, rgba(248, 250, 252, 0.5) 0%, rgba(241, 245, 249, 0.9) 100%);
@@ -3295,7 +3303,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
     font-size: clamp(1.25rem, 2.4vw, 1.65rem) !important;
     padding: 0.85rem 1.5rem !important;
-    min-height: 58px !important;
+    min-height: 45px !important;
 }
 
 /* Scrollbar for long messages */
