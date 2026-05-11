@@ -159,7 +159,7 @@ function bankProcessOnceOneOffHistoryDescription(array $t): string
         return $prefix . ' @ ' . bankProcessBillFormatTripartNumber(money_abs($t['process_price'] ?? '0', 2));
     }
     if ($txAccountId > 0 && $txAccountId === $profitAccountId) {
-        return $prefix;
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_profit'] ?? '0');
     }
     $psAmount = bankProcessProfitSharingOriginalAmountByAccount($t);
     if ($psAmount !== null) {
