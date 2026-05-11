@@ -949,7 +949,7 @@ function renderBankTable() {
         const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
         const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
         if (isOnceRow) {
-            contractCell = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('Once') + '</span>';
+            contractCell = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('ONCE') + '</span>';
         } else {
             contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
             const contractClass = (grayContracts.indexOf(contract) !== -1 && baseContractClass === 'contract-active')
@@ -1509,11 +1509,11 @@ function renderAccountingInbox(items) {
         const cbDisabled = row.already_posted_today ? ' disabled' : '';
         const cbChecked = row.already_posted_today ? '' : ' checked';
         const cbClass = 'process-accounting-inbox-row-cb';
-        const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_resend_consolidated_range ? 'resend_consolidated_range' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly')));
+        const periodType = row.is_once_one_off ? 'once_one_off' : (row.is_manual_inactive ? 'manual_inactive' : (row.is_resend_consolidated_range ? 'resend_consolidated_range' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly'))));
         const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
         const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
         const contractRaw = (row.contract || '').toString().trim() || '-';
-        const contractDisplay = ({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw;
+        const contractDisplay = row.is_once_one_off ? 'ONCE' : (({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw);
         const bm = (row.monthly_billing_month != null && row.monthly_billing_month !== '') ? String(row.monthly_billing_month).trim() : '';
         const bmAttr = bm ? ' data-billing-month="' + escapeHtml(bm) + '"' : '';
         const deleteCbClass = 'process-accounting-inbox-delete-cb';
@@ -1830,7 +1830,7 @@ async function performToggleStatus(processId) {
                         const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
                         let contractCellHtml;
                         if (isOnceRow) {
-                            contractCellHtml = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('Once') + '</span>';
+                            contractCellHtml = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('ONCE') + '</span>';
                         } else {
                             const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
                             const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];

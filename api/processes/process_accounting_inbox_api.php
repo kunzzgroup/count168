@@ -507,6 +507,20 @@ function hasMonthlyPostedOrSkippedInCalendarMonth(PDO $pdo, int $companyId, int 
     return (bool) $stmt->fetch();
 }
 
+/** Frequency=once：一次性入账已执行或已从 Due 移除（跳过）后不再出现在 Accounting Due */
+function inbox_isOnceOneOffAlreadyHandled(PDO $pdo, int $companyId, int $processId): bool
+{
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type IN ('once_one_off','once_one_off_skipped') LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 /** 某月第 N 日（不超过该月最后一天） */
 function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
 {
@@ -670,6 +684,10 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     $item['already_posted_today'] = false;
                     continue;
                 }
+                if (!empty($item['is_once_one_off'])) {
+                    $item['already_posted_today'] = inbox_isOnceOneOffAlreadyHandled($pdo, $companyId, (int) $item['id']);
+                    continue;
+                }
                 if (!empty($item['is_partial_first_month'])) {
                     $item['already_posted_today'] = in_array((int) $item['id'], $partialPostedIds, true);
                     continue;
@@ -708,6 +726,10 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
             foreach ($needToday as &$item) {
                 if (!empty($item['is_manual_inactive'])) {
                     $item['already_posted_today'] = false;
+                    continue;
+                }
+                if (!empty($item['is_once_one_off'])) {
+                    $item['already_posted_today'] = inbox_isOnceOneOffAlreadyHandled($pdo, $companyId, (int) $item['id']);
                     continue;
                 }
                 if (!empty($item['is_resend_consolidated_range'])) {
@@ -936,8 +958,30 @@ try {
         $basePrice = money_normalize($r['price'] ?? '0');
         $baseProfit = money_normalize($r['profit'] ?? '0');
 
-        // One-off bank rows：不参与周期性入账队列（避免 day_start_frequency 落入 elseif Monthly 分支）
+        // Frequency=once：单笔全流程入账；不按应付日/创建日过滤，始终出现在 Accounting Due（入账或 Delete 跳过后即消失）
         if ($frequency === 'once') {
+            if (!$hasFrequency) {
+                continue;
+            }
+            $processIdOnce = (int) $r['id'];
+            if (inbox_isOnceOneOffAlreadyHandled($pdo, $company_id, $processIdOnce)) {
+                continue;
+            }
+            $needToday[] = [
+                'id' => $processIdOnce,
+                'name' => ($r['name'] ?? '') ?: ($r['bank'] ?? ''),
+                'bank' => $r['bank'] ?? '',
+                'country' => $r['country'] ?? '',
+                'day_start' => $dayStart,
+                'contract' => 'ONCE',
+                'cost' => $baseCost,
+                'price' => $basePrice,
+                'profit' => $baseProfit,
+                'already_posted_today' => false,
+                'is_partial_first_month' => false,
+                'is_manual_inactive' => false,
+                'is_once_one_off' => true,
+            ];
             continue;
         }
 
@@ -1315,6 +1359,7 @@ try {
     // 这里仅对“同 process + 同账期 + 同 period_type”去重；并且特殊账期优先于普通 monthly。
     if (!empty($needToday)) {
         $rankOf = static function (array $item): int {
+            if (!empty($item['is_once_one_off'])) return 6;
             if (!empty($item['is_resend_consolidated_range'])) return 5;
             if (!empty($item['is_day_end_tail'])) return 4;
             if (!empty($item['is_partial_first_month'])) return 3;
@@ -1336,6 +1381,7 @@ try {
             return $bm;
         };
         $typeOf = static function (array $item): string {
+            if (!empty($item['is_once_one_off'])) return 'once_one_off';
             if (!empty($item['is_resend_consolidated_range'])) return 'resend_consolidated_range';
             if (!empty($item['is_day_end_tail'])) return 'day_end_tail';
             if (!empty($item['is_partial_first_month'])) return 'partial_first_month';

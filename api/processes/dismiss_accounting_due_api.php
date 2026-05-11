@@ -44,6 +44,9 @@ function toSkippedPeriodType(string $periodType): string
     if ($t === 'resend_consolidated_range') {
         return 'resend_consolidated_range_skipped';
     }
+    if ($t === 'once_one_off') {
+        return 'once_one_off_skipped';
+    }
     return 'monthly_skipped';
 }
 
@@ -90,7 +93,7 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim((string) $periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off') {
             $pt = 'monthly';
         }
         $pairs[] = [
