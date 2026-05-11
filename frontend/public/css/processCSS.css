@@ -977,6 +977,33 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     box-sizing: border-box;
 }
 
+/* Bank list：表头行高度与数据行密度一致（覆盖 ec-auth-shell / 13inch 表头加大字号与 padding） */
+body.ec-auth-shell.process-page.process-page--bank .table-header {
+    font-size: clamp(10px, 0.72vw, 13px) !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    line-height: 1.15 !important;
+    align-items: center;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
+    padding: 2px 4px !important;
+    line-height: 1.15 !important;
+}
+
+.process-page.process-page--bank .table-header {
+    align-items: center;
+    line-height: 1.15;
+    font-size: clamp(10px, 0.72vw, 13px);
+}
+
+.process-page.process-page--bank .table-header .header-item {
+    padding: 2px 4px;
+    line-height: 1.15;
+}
+
 .process-page .process-card:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     transform: translateY(-1px);

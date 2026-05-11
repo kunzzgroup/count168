@@ -742,6 +742,7 @@
     text-align: left;
     align-self: flex-start;
     width: 100%;
+    font-size: 13px;
 }
 
 #addBankModal .bank-section-title {
@@ -759,10 +760,10 @@
 
 #addBankModal .bank-input,
 #addBankModal .bank-select {
-    min-height: 48px;
+    min-height: 50px;
     padding: 14px 18px;
-    font-size: 1rem;
-    line-height: 1.35;
+    font-size: 1.125rem;
+    line-height: 1.4;
 }
 
 #addBankModal .bank-select {
@@ -770,24 +771,44 @@
 }
 
 #addBankModal .account-select-with-buttons .custom-select-button {
-    min-height: 48px;
+    min-height: 50px;
     padding: 14px 18px;
     padding-right: 2.75rem;
-    font-size: 1rem;
-    line-height: 1.35;
+    font-size: 1.125rem;
+    line-height: 1.4;
 }
 
-#addBankModal .select-with-add .bank-add-btn,
-#addBankModal .account-select-with-buttons .bank-add-btn {
-    width: clamp(28px, 2vw, 34px);
-    height: clamp(28px, 2vw, 34px);
-    font-size: clamp(14px, 1.1vw, 18px);
+/* Compact "+" next to fields (was oversized vs inputs) */
+#addBankModal .bank-add-btn {
+    width: clamp(22px, 1.45vw, 26px) !important;
+    height: clamp(22px, 1.45vw, 26px) !important;
+    font-size: clamp(11px, 0.85vw, 14px) !important;
 }
 
 #addBankModal .no-profit-sharing {
     align-items: flex-start;
     justify-content: flex-start;
     text-align: left;
+}
+
+/* Footer: Cancel 字号与 Add Process 一致（覆盖全局 btn-cancel 偏小） */
+#addBankModal .bank-actions .btn-cancel {
+    font-family: 'Amaranth', inherit;
+    font-size: clamp(10px, 0.83vw, 16px);
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    width: clamp(90px, 7vw, 130px);
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
+    font-size: clamp(10px, 0.83vw, 16px) !important;
+    padding: clamp(6px, 0.42vw, 8px) 20px !important;
+    width: clamp(90px, 7vw, 130px) !important;
+    border-radius: 6px !important;
 }
 
 
