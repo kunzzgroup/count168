@@ -1,6 +1,7 @@
 /*
  * design-tokens.css — SPA 全局 :root 设计令牌（由 globals.css 首行 @import）。
  * 与 public/css/dashboard.css 的 --scd-* 区分命名；可按需在 dashboard 内做 var() 别名。
+ * 登录页 public/css/login-shadcn.css 使用下方 --login-*，勿在 login-shadcn 内再写 :root 重复定义。
  */
 :root {
   /* --- 字体响应式变量 (1280px -> 1920px) --- */
@@ -100,4 +101,17 @@
   /* --- 动效 --- */
   --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
   --duration-fast: 0.2s;
+
+  /*
+   * Login（public/css/login-shadcn.css）— 仅在此处定义字面量，登录样式一律 var(--login-*)。
+   * 依赖 main.jsx 引入的打包 CSS 与本页 link 的 login-shadcn 共同作用在 document 上。
+   */
+  --login-bg-start: #004ff9;
+  --login-bg-end: #56ccf2;
+  --login-surface: rgba(255, 255, 255, 0.95);
+  --login-text: #333333;
+  --login-muted: #666666;
+  --login-danger: #dc3545;
+  --login-radius-xl: 28px;
+  --login-radius-pill: 999px;
 }
