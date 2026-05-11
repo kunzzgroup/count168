@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RESET_PASSWORD_I18N } from "../../translateFile/resetPasswordTranslate.js";
 import { sendResetTac, submitResetPassword } from "./resetPassword.js";
 
-function AlertModal({ open, title, message, onClose }) {
+function AlertModal({ open, title, message, confirmText, onClose }) {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (event) => {
@@ -32,7 +33,7 @@ function AlertModal({ open, title, message, onClose }) {
         </p>
         <div className="modal-actions">
           <button type="button" className="modal-btn modal-btn-primary" onClick={onClose}>
-            Confirm
+            {confirmText || "Confirm"}
           </button>
         </div>
       </div>
@@ -41,6 +42,7 @@ function AlertModal({ open, title, message, onClose }) {
 }
 
 export default function ResetPasswordPage() {
+  const [lang, setLang] = useState(() => localStorage.getItem("login_lang") || "en");
   const [companyId, setCompanyId] = useState("");
   const [email, setEmail] = useState("");
   const [tac, setTac] = useState("");
@@ -48,8 +50,14 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSendingTac, setIsSendingTac] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [modal, setModal] = useState({ open: false, title: "Notice", message: "" });
+  const [modal, setModal] = useState({ open: false, title: "", message: "" });
   const tacInputRef = useRef(null);
+
+  const i18n = useMemo(() => RESET_PASSWORD_I18N[lang] || RESET_PASSWORD_I18N.en, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem("login_lang", lang);
+  }, [lang]);
 
   useEffect(() => {
     document.body.classList.remove(
@@ -75,13 +83,16 @@ export default function ResetPasswordPage() {
     };
   }, []);
 
-  const showModal = useCallback((title, message) => {
-    setModal({
-      open: true,
-      title: title || "Notice",
-      message: message || "",
-    });
-  }, []);
+  const showModal = useCallback(
+    (title, message) => {
+      setModal({
+        open: true,
+        title: title || i18n.notice,
+        message: message || "",
+      });
+    },
+    [i18n.notice]
+  );
 
   const passwordMatched = useMemo(() => {
     if (!confirmPassword) return true;
@@ -93,11 +104,11 @@ export default function ResetPasswordPage() {
     const trimmedEmail = email.trim();
 
     if (!normalizedCompanyId) {
-      showModal("Notice", "Please enter Company ID first");
+      showModal(i18n.notice, i18n.companyIdFirst);
       return;
     }
     if (!trimmedEmail) {
-      showModal("Notice", "Please enter your email address first");
+      showModal(i18n.notice, i18n.emailFirst);
       return;
     }
 
@@ -109,21 +120,21 @@ export default function ResetPasswordPage() {
       });
 
       if (data.success) {
-        let message = data.message || "TAC code has been sent to your email";
+        let message = data.message || i18n.tacSent;
         if (data.tac) {
-          message += `\n\nYour verification code: ${data.tac}`;
+          message += `\n\n${i18n.verifyCodeLine} ${data.tac}`;
           setTac(data.tac);
         }
-        showModal("Success", message);
+        showModal(i18n.success, message);
         requestAnimationFrame(() => {
           tacInputRef.current?.focus();
         });
       } else {
-        showModal("Notice", data.message || "Failed to send TAC. Please try again.");
+        showModal(i18n.notice, data.message || i18n.tacFailed);
       }
     } catch (error) {
       console.error("Send TAC error:", error);
-      showModal("Notice", "Network error. Please try again.");
+      showModal(i18n.notice, i18n.networkError);
     } finally {
       setIsSendingTac(false);
     }
@@ -134,7 +145,7 @@ export default function ResetPasswordPage() {
     if (isResetting) return;
 
     if (!passwordMatched) {
-      showModal("Notice", "Passwords do not match");
+      showModal(i18n.notice, i18n.passwordsNoMatch);
       return;
     }
 
@@ -143,12 +154,12 @@ export default function ResetPasswordPage() {
     const trimmedTac = tac.trim();
 
     if (!trimmedTac) {
-      showModal("Notice", "Please enter the TAC code");
+      showModal(i18n.notice, i18n.enterTac);
       return;
     }
 
     if (!normalizedCompanyId || !trimmedEmail) {
-      showModal("Notice", "Company ID and email are required");
+      showModal(i18n.notice, i18n.companyEmailRequired);
       return;
     }
 
@@ -162,18 +173,18 @@ export default function ResetPasswordPage() {
       });
 
       if (data.success) {
-        showModal("Success", "Password reset successful! Redirecting to login...");
+        showModal(i18n.success, i18n.resetSuccess);
         setTimeout(() => {
           window.location.assign("/login");
         }, 1500);
         return;
       }
 
-      showModal("Notice", data.message || "Failed to reset password. Please try again.");
+      showModal(i18n.notice, data.message || i18n.resetFailed);
       setIsResetting(false);
     } catch (error) {
       console.error("Reset password error:", error);
-      showModal("Notice", "Network error. Please try again.");
+      showModal(i18n.notice, i18n.networkError);
       setIsResetting(false);
     }
   };
@@ -182,7 +193,7 @@ export default function ResetPasswordPage() {
     <>
       <div className="login-container">
         <div className="login-header">
-          <h2>Reset Password</h2>
+          <h2>{i18n.pageTitle}</h2>
         </div>
         <div className="login-card">
           <div className="form-content">
@@ -191,7 +202,7 @@ export default function ResetPasswordPage() {
                 <i className="fas fa-building input-icon" />
                 <input
                   type="text"
-                  placeholder="Company / Group ID (or Owner Code)"
+                  placeholder={i18n.companyPlaceholder}
                   value={companyId}
                   onChange={(event) => setCompanyId(event.target.value.toUpperCase())}
                   required
@@ -202,7 +213,7 @@ export default function ResetPasswordPage() {
                 <i className="fas fa-envelope input-icon" />
                 <input
                   type="email"
-                  placeholder="Enter your email address"
+                  placeholder={i18n.emailPlaceholder}
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   required
@@ -215,13 +226,13 @@ export default function ResetPasswordPage() {
                   <input
                     ref={tacInputRef}
                     type="text"
-                    placeholder="TAC"
+                    placeholder={i18n.tacPlaceholder}
                     value={tac}
                     onChange={(event) => setTac(event.target.value)}
                   />
                 </div>
                 <button type="button" className="tac-btn" onClick={onSendTac} disabled={isSendingTac}>
-                  {isSendingTac ? "Sending..." : "SEND"}
+                  {isSendingTac ? i18n.sending : i18n.send}
                 </button>
               </div>
 
@@ -229,7 +240,7 @@ export default function ResetPasswordPage() {
                 <i className="fas fa-lock input-icon" />
                 <input
                   type="password"
-                  placeholder="New Password"
+                  placeholder={i18n.newPasswordPlaceholder}
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
                   required
@@ -240,7 +251,7 @@ export default function ResetPasswordPage() {
                 <i className="fas fa-lock input-icon" />
                 <input
                   type="password"
-                  placeholder="Confirm New Password"
+                  placeholder={i18n.confirmPasswordPlaceholder}
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   style={{ borderColor: passwordMatched ? "#e1e5e9" : "#dc3545" }}
@@ -249,20 +260,34 @@ export default function ResetPasswordPage() {
               </div>
 
               <button type="submit" className="login-btn" disabled={isResetting}>
-                <span>{isResetting ? "Resetting..." : "Reset Password"}</span>
+                <span>{isResetting ? i18n.resetting : i18n.resetButton}</span>
               </button>
 
               <div className="language-switch-container">
-                <a href="/cn/reset-password.php" className="lang-switch" title="Switch Language">
-                  <span className="lang-option">中文</span>
-                  <span className="lang-option active">English</span>
-                </a>
+                <div className="lang-switch" role="group" aria-label={i18n.switchLang}>
+                  <button
+                    type="button"
+                    className={`lang-option${lang === "zh" ? " active" : ""}`}
+                    onClick={() => setLang("zh")}
+                    aria-pressed={lang === "zh"}
+                  >
+                    中
+                  </button>
+                  <button
+                    type="button"
+                    className={`lang-option${lang === "en" ? " active" : ""}`}
+                    onClick={() => setLang("en")}
+                    aria-pressed={lang === "en"}
+                  >
+                    EN
+                  </button>
+                </div>
               </div>
 
               <div className="back-to-login">
                 <a href="/login" className="back-link">
                   <i className="fas fa-arrow-left" />
-                  Back to Login
+                  {i18n.backToLogin}
                 </a>
               </div>
             </form>
@@ -274,6 +299,7 @@ export default function ResetPasswordPage() {
         open={modal.open}
         title={modal.title}
         message={modal.message}
+        confirmText={i18n.confirm}
         onClose={() => setModal((state) => ({ ...state, open: false }))}
       />
     </>
