@@ -558,8 +558,7 @@ body.process-page {
     background: linear-gradient(180deg, #f3f4f6 0%, #e5e7eb 100%);
     color: #111827;
     border-color: #9ca3af;
-    /* BLOCK acts like a badge (no dropdown chevron) */
-    background-image: none;
+    /* BLOCK：仅用渐变底色；勿再接 background-image:none，否则会去掉渐变 */
     padding-right: 12px;
 }
 
@@ -727,6 +726,14 @@ body.process-page {
     -webkit-overflow-scrolling: touch;
 }
 
+/*
+ * Bank 列表外壳是 grid（表头 + 数据区两行）。父级 flex 拉高 wrapper 高度时，Grid 会把多余垂直空间摊进行轨道，
+ * 两行都为 auto 时第一行蓝条会被「撑厚」。固定第一行为 auto、第二行为 minmax(0,1fr)，表头高度仅随内容。
+ */
+.process-page.process-page--bank .process-table-wrapper {
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
 /* Show All 模式：与普通模式相同（wrapper 已 flex:1，overflow-y:auto，无需额外规则） */
 
 /* 勿设 height:100%：否则行数少时浏览器会把行高均分撑满 flex 区，出现「两行占满一屏」 */
@@ -749,17 +756,49 @@ body.process-page {
     padding: 1px 4px;
 }
 
+/* Bank React 列表：参考图二 — 统一宽高、大字重、居中；下拉箭头用 ::after 绝对定位避免挤偏文字 */
 .process-page.process-page--bank .bank-status-button {
-    min-height: 21px;
-    padding: 2px 24px 2px 9px;
-    line-height: 1.05;
-    font-size: clamp(9px, 0.72vw, 13px);
-    background-size: 13px 13px;
-    background-position: right 6px center;
+    position: relative;
+    width: 9.35rem;
+    min-width: 9.35rem;
+    max-width: 9.35rem;
+    height: 30px;
+    min-height: 30px;
+    max-height: 30px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 0 26px;
+    line-height: 1;
+    font-size: clamp(9px, 0.78vw, 12px);
+    font-weight: 800;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* 勿写 background-image:none — 会与 .is-active 等 linear-gradient 同级覆盖，导致底色丢失 */
+}
+
+.process-page.process-page--bank .bank-status-button:not(.is-block)::after {
+    content: "";
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5.25 7.5L10 12.25L14.75 7.5' stroke='%2364758b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    pointer-events: none;
+    opacity: 0.88;
 }
 
 .process-page.process-page--bank .bank-status-button.is-block {
-    padding-right: 9px;
+    padding: 0 26px;
+}
+
+.process-page.process-page--bank .bank-status-button.is-block::after {
+    content: none;
 }
 
 .process-page.process-page--bank .contract-badge {
@@ -884,13 +923,24 @@ body.process-page {
     }
 
     .process-page.process-page--bank .bank-status-button {
-        min-height: 19px;
-        padding: 1px 22px 1px 7px;
-        font-size: clamp(8px, 0.65vw, 12px);
+        width: 8.35rem;
+        min-width: 8.35rem;
+        max-width: 8.35rem;
+        height: 28px;
+        min-height: 28px;
+        max-height: 28px;
+        padding: 0 22px;
+        font-size: clamp(8px, 0.7vw, 10px);
+    }
+
+    .process-page.process-page--bank .bank-status-button:not(.is-block)::after {
+        width: 10px;
+        height: 10px;
+        right: 6px;
     }
 
     .process-page.process-page--bank .bank-status-button.is-block {
-        padding-right: 7px;
+        padding: 0 22px;
     }
 }
 
@@ -975,6 +1025,65 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page .process-cards.bank-mode .process-card .card-item {
     padding: 2px 0px;
     box-sizing: border-box;
+}
+
+/* Bank list（React 卡片表）：表头纵向厚度贴近数据行 — 蓝条上下几乎无空档；白字粗体大写 */
+body.ec-auth-shell.process-page.process-page--bank .table-header {
+    font-size: clamp(10px, 0.74vw, 13px) !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    color: #ffffff !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    line-height: 1 !important;
+    min-height: 0 !important;
+    align-items: center !important;
+    margin-top: 12px !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
+    padding: 1px 4px !important;
+    line-height: 1.05 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    color: #ffffff !important;
+}
+
+.process-page.process-page--bank .table-header {
+    align-items: center;
+    line-height: 1;
+    font-size: clamp(10px, 0.74vw, 13px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #ffffff;
+    margin-top: 12px;
+    gap: 10px;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 16px;
+    padding-right: 16px;
+    min-height: 0;
+}
+
+.process-page.process-page--bank .table-header .header-item {
+    padding: 1px 4px;
+    line-height: 1.05;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    color: #ffffff;
+}
+
+.process-page.process-page--bank .table-header .bank-header-sortable {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
 }
 
 .process-page .process-card:hover {
@@ -2999,7 +3108,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 /* Resend to Accounting Due — layout & form panel */
 #confirmBankResendModal .bank-resend-modal-content {
-    width: clamp(400px, 94vw, 520px);
+    width: clamp(420px, 94vw, 560px);
     max-width: 96%;
     display: flex;
     flex-direction: column;
@@ -3059,19 +3168,19 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #confirmBankResendModal .bank-resend-schedule-card__label {
     display: block;
-    font-size: 0.8125rem;
+    font-size: 0.9375rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #0f766e;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 #confirmBankResendModal .bank-resend-schedule-card__hint {
     margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    color: #64748b;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: #334155;
 }
 
 #confirmBankResendModal .bank-resend-schedule-grid {
@@ -3093,11 +3202,11 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #confirmBankResendModal .bank-resend-field__label {
     display: block;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 6px;
-    letter-spacing: 0.01em;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
 }
 
 #confirmBankResendModal .bank-resend-field__note {
@@ -3110,7 +3219,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 #confirmBankResendModal .bank-resend-inline-alert {
     margin-top: 12px;
     padding: 14px 16px;
-    font-size: 1rem;
+    font-size: 1.125rem;
     font-weight: 700;
     line-height: 1.45;
     color: #450a0a;
@@ -3132,9 +3241,9 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 #confirmBankResendModal .bank-resend-control {
     width: 100%;
     box-sizing: border-box;
-    min-height: 42px;
-    padding: 8px 12px;
-    font-size: 0.9375rem;
+    min-height: 56px;
+    padding: 13px 16px;
+    font-size: 1.4125rem;
     font-family: inherit;
     color: #1e293b;
     background: #fff;
@@ -3158,15 +3267,43 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 40px;
+    background-position: right 16px center;
+    padding-right: 48px;
 }
 
 #confirmBankResendModal .process-confirm-actions.bank-resend-modal-actions {
-    margin-top: 0;
+    margin-top: 10px;
     padding: clamp(18px, 2vw, 26px) clamp(22px, 3vw, 36px) clamp(22px, 2.5vw, 32px);
     border-top: 1px solid #e2e8f0;
     background: linear-gradient(180deg, rgba(248, 250, 252, 0.5) 0%, rgba(241, 245, 249, 0.9) 100%);
+    gap: 16px;
+}
+
+/* Resend modal: larger footer buttons (scoped — keeps other confirm modals unchanged) */
+#confirmBankResendModal .bank-resend-modal-actions .confirm-cancel,
+#confirmBankResendModal .bank-resend-modal-actions .confirm-bank-resend-cancel,
+#confirmBankResendModal .bank-resend-modal-actions .confirm-bank-resend-confirm {
+    flex: 1 1 auto;
+    max-width: none;
+    min-width: clamp(9rem, 38vw, 14rem);
+}
+
+#confirmBankResendModal .bank-resend-modal-actions .process-btn-cancel,
+#confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
+    width: 100%;
+    min-height: 58px;
+    padding: 0.85rem 1.5rem;
+    font-size: clamp(1.25rem, 2.4vw, 1.65rem);
+    font-weight: 700;
+    border-radius: 0.55rem;
+}
+
+/* 覆盖 ec-auth-shell 对全局 .btn 的缩小 */
+body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-btn-cancel,
+body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
+    font-size: clamp(1.25rem, 2.4vw, 1.65rem) !important;
+    padding: 0.85rem 1.5rem !important;
+    min-height: 45px !important;
 }
 
 /* Scrollbar for long messages */
@@ -3856,7 +3993,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 .process-page .process-cards.bank-mode .card-item.bank-status-cell {
     overflow: visible !important;
-    min-width: max-content;
+    justify-content: center;
 }
 
 /* Final restore: Edit Process should match reference (long rectangle + horizontal Day Use) */

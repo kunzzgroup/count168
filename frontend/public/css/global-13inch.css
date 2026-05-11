@@ -170,6 +170,25 @@
         line-height: 1.1 !important;
     }
 
+    /*
+       Bank Process List（React）：div.table-header 与全局 ec-auth-shell 表头规则叠加会变「厚」。
+       在此强制压扁蓝条高度，贴近下方数据行（覆盖本文件中 table-header 的 padding-top/bottom）。
+    */
+    body.ec-auth-shell.process-page.process-page--bank .table-header {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        line-height: 1 !important;
+        min-height: 0 !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
+        padding: 1px 4px !important;
+        line-height: 1.05 !important;
+        min-height: 0 !important;
+    }
+
     .transaction-table-row {
         min-height: 52px !important;
     }
