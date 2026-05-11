@@ -45,8 +45,8 @@ export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading 
         <h3
           style={{
             margin: "0 0 8px",
-            fontSize: "var(--text-h2)",
-            fontWeight: 600,
+            fontSize: "var(--text-h1)",
+            fontWeight: 700,
             fontFamily: "var(--font-ui, system-ui, sans-serif)",
             color: "var(--color-body-strong, #1f2937)",
             textAlign: "center",
