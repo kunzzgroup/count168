@@ -1,5 +1,6 @@
 /*
  * Login card width must not change when toggling EN/中文.
+ * Card min-height is set in design-tokens (--login-card-min-height*) + login-shadcn so the shell height follows the Chinese layout.
  *
  * Why this file:
  * - index.html links /css/login-shadcn.css *before* the Vite bundle; Tailwind + app-shell

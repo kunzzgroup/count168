@@ -248,6 +248,7 @@ button.sc-login-lang-seg.active {
   backdrop-filter: blur(10px);
   min-width: 0;
   max-width: 100%;
+  min-height: var(--login-card-min-height);
 }
 
 .sc-login-role-tabs {
@@ -615,6 +616,10 @@ button.sc-login-lang-seg.active {
 }
 
 @media (max-width: 480px) {
+  .sc-login-card {
+    min-height: var(--login-card-min-height-narrow);
+  }
+
   .sc-login-role-tab {
     min-height: 52px;
     padding: 12px 10px;
