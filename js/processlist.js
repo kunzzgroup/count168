@@ -2136,6 +2136,23 @@ function closeConfirmAccountingDueDeleteModal() {
     pendingDismissPairs = [];
 }
 
+function syncBankResendModalOnceDayEndUi() {
+    const dayEnd = document.getElementById('bank_resend_day_end');
+    const freq = document.getElementById('bank_resend_frequency');
+    if (!dayEnd || !freq) return;
+    const isOnce = freq.value === 'once';
+    if (isOnce) {
+        dayEnd.value = '';
+        dayEnd.disabled = true;
+        dayEnd.style.opacity = '0.55';
+        dayEnd.title = 'Not used when Frequency is Once';
+    } else {
+        dayEnd.disabled = false;
+        dayEnd.style.opacity = '';
+        dayEnd.title = '';
+    }
+}
+
 function bindBankResendModalFrequencySyncOnce() {
     const modal = document.getElementById('confirmBankResendModal');
     if (!modal || modal._bankResendFreqBound) return;
@@ -2144,6 +2161,11 @@ function bindBankResendModalFrequencySyncOnce() {
     const freq = document.getElementById('bank_resend_frequency');
     if (!dayEnd || !freq) return;
     function syncResendFreq() {
+        if (freq.value === 'once') {
+            const monthlyOptOnce = freq.querySelector('option[value="monthly"]');
+            if (monthlyOptOnce) monthlyOptOnce.disabled = false;
+            return;
+        }
         const monthlyOpt = freq.querySelector('option[value="monthly"]');
         const hasEnd = !!(dayEnd.value && String(dayEnd.value).trim());
         if (hasEnd) {
@@ -2153,8 +2175,13 @@ function bindBankResendModalFrequencySyncOnce() {
             monthlyOpt.disabled = false;
         }
     }
-    dayEnd.addEventListener('change', syncResendFreq);
-    dayEnd.addEventListener('input', syncResendFreq);
+    function onDayEndOrFreqChange() {
+        syncBankResendModalOnceDayEndUi();
+        syncResendFreq();
+    }
+    dayEnd.addEventListener('change', onDayEndOrFreqChange);
+    dayEnd.addEventListener('input', onDayEndOrFreqChange);
+    freq.addEventListener('change', onDayEndOrFreqChange);
 }
 
 function bindBankResendDayStartClearInlineErrorOnce() {
@@ -2290,6 +2317,7 @@ function showConfirmBankResendModal(processId) {
     pendingBankResendProcessId = id;
     function bankResendModalFrequencyFromStored(freq) {
         if (freq === 'monthly') return 'monthly';
+        if (freq === 'once') return 'once';
         return '1st_of_every_month';
     }
     const msgEl = document.getElementById('confirmBankResendMessage');
@@ -2342,14 +2370,19 @@ function showConfirmBankResendModal(processId) {
     const freqSync = document.getElementById('bank_resend_frequency');
     if (dayEndSync && freqSync) {
         const monthlyOpt = freqSync.querySelector('option[value="monthly"]');
-        const hasEnd = !!(dayEndSync.value && String(dayEndSync.value).trim());
-        if (hasEnd) {
-            freqSync.value = '1st_of_every_month';
-            if (monthlyOpt) monthlyOpt.disabled = true;
-        } else if (monthlyOpt) {
-            monthlyOpt.disabled = false;
+        if (freqSync.value === 'once') {
+            if (monthlyOpt) monthlyOpt.disabled = false;
+        } else {
+            const hasEnd = !!(dayEndSync.value && String(dayEndSync.value).trim());
+            if (hasEnd) {
+                freqSync.value = '1st_of_every_month';
+                if (monthlyOpt) monthlyOpt.disabled = true;
+            } else if (monthlyOpt) {
+                monthlyOpt.disabled = false;
+            }
         }
     }
+    syncBankResendModalOnceDayEndUi();
     const confirmBtn = document.getElementById('confirmBankResendBtn');
     if (confirmBtn) {
         confirmBtn.disabled = false;
@@ -2378,6 +2411,12 @@ function closeConfirmBankResendModal() {
         const mo = fqClose.querySelector('option[value="monthly"]');
         if (mo) mo.disabled = false;
     }
+    const deClose = document.getElementById('bank_resend_day_end');
+    if (deClose) {
+        deClose.disabled = false;
+        deClose.style.opacity = '';
+        deClose.title = '';
+    }
     const confirmBtn = document.getElementById('confirmBankResendBtn');
     if (confirmBtn) {
         confirmBtn.disabled = false;
@@ -2404,8 +2443,8 @@ async function confirmBankResendFromModal() {
     const fqEl = document.getElementById('bank_resend_frequency');
     const scheduleOpts = (dsEl && deEl && fqEl) ? {
         day_start: (dsEl.value || '').trim(),
-        day_end: (deEl.value || '').trim(),
-        day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : '1st_of_every_month'
+        day_end: fqEl.value === 'once' ? '' : (deEl.value || '').trim(),
+        day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : (fqEl.value === 'once' ? 'once' : '1st_of_every_month')
     } : null;
     const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
     let backendLocked = false;

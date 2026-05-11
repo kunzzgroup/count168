@@ -125,7 +125,7 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
             $row['accounting_resend_consolidated_range'] = 1;
         }
         $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
-        if ($fq === 'monthly' || $fq === '1st_of_every_month') {
+        if ($fq === 'monthly' || $fq === '1st_of_every_month' || $fq === 'once') {
             $row['day_start_frequency'] = $fq;
         }
         if (!$hadScheduleStart && !empty($row['accounting_resend_relax_created_floor'])

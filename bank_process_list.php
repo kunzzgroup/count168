@@ -812,6 +812,7 @@ if (!function_exists('renderBankProcessModals')) {
                             <select id="bank_resend_frequency" class="bank-resend-control bank-resend-control--select">
                                 <option value="1st_of_every_month">1st of Every Month</option>
                                 <option value="monthly">Monthly</option>
+                                <option value="once">Once</option>
                             </select>
                         </div>
                     </div>
