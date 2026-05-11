@@ -64,14 +64,14 @@ body.account-page:not(.account-page--show-all) {
 }
 
 .account-page-title {
-    color: #002C49;
+    color: var(--color-heading);
     text-align: left;
-    margin-top: clamp(12px, 1.04vw, 20px);
+    margin-top: var(--text-page-title-mt);
     margin-bottom: clamp(8px, 0.83vw, 14px);
-    font-size: clamp(26px, 2.08vw, 40px);
-    font-weight: 500;
-    letter-spacing: -0.025em;
-    font-family: 'Amaranth', sans-serif;
+    font-size: var(--text-page-title);
+    font-weight: var(--font-weight-page-title);
+    letter-spacing: var(--letter-spacing-page-title);
+    font-family: var(--font-heading-page);
 }
 
 /* Search Section */

@@ -137,13 +137,13 @@ body.datacapture-page .dc-page-toolbar {
 }
 
 body.datacapture-page h1 {
-    color: #0f172a;
+    color: var(--color-heading);
     text-align: left;
     margin: 0;
-    font-size: clamp(26px, 2.08vw, 40px);
-    font-family: inherit;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-size: var(--text-page-title);
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-page-title);
+    letter-spacing: var(--letter-spacing-page-title);
 }
 
 .top-section {

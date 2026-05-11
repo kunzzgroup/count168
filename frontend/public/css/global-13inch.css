@@ -11,10 +11,16 @@
     /* Page title hierarchy - Must be the most obvious element */
     body.ec-auth-shell h1,
     .account-page-title,
+    .own-page-title,
     .transaction-title,
     .datacapture-title,
-    .page-title {
-        font-size: 30px !important;
+    .page-title,
+    #maintenance-page-title,
+    .user-page .content > h1,
+    .dashboard-title,
+    body.datacapture-page h1,
+    body.domain-page .domain-react-page > h1 {
+        font-size: var(--text-page-title) !important;
         margin-bottom: 0px !important;
     }
 

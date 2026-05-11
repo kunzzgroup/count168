@@ -27,14 +27,14 @@ body.transaction-page {
 }
 
 .transaction-page .transaction-title {
-    color: #002C49;
+    color: var(--color-heading);
     text-align: left;
-    margin-top: clamp(12px, 1.04vw, 20px);
-    margin-bottom: clamp(16px, 1.35vw, 26px);
-    font-size: clamp(26px, 2.08vw, 40px);
-    font-family: 'Amaranth';
-    font-weight: 500;
-    letter-spacing: -0.025em;
+    margin-top: var(--text-page-title-mt);
+    margin-bottom: var(--text-page-title-mb);
+    font-size: var(--text-page-title);
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-page-title);
+    letter-spacing: var(--letter-spacing-page-title);
 }
 
 .transaction-page .transaction-main {
