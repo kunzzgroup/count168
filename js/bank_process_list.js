@@ -2100,8 +2100,15 @@ function bindBankFieldErrorClear() {
     const dayEndCapSwitchEl = document.getElementById('bank_day_end_monthly_cap_switch');
     if (dayEndCapSwitchEl && !dayEndCapSwitchEl._bankBound) {
         dayEndCapSwitchEl._bankBound = true;
-        dayEndCapSwitchEl.addEventListener('change', function () {
-            setBankDayEndMonthlyCapEnabled(!!this.checked);
+        function onCapSwitchUserInput() {
+            setBankDayEndMonthlyCapEnabled(!!dayEndCapSwitchEl.checked);
+        }
+        dayEndCapSwitchEl.addEventListener('change', onCapSwitchUserInput);
+        dayEndCapSwitchEl.addEventListener('click', function () {
+            var self = this;
+            window.setTimeout(function () {
+                setBankDayEndMonthlyCapEnabled(!!self.checked);
+            }, 0);
         });
     }
     if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
@@ -2297,14 +2304,20 @@ function syncBankDayEndCapDatePickersLocked() {
     }
 }
 
+function syncBankDayEndMonthlyCapSwitchLabel() {
+    const sw = document.getElementById('bank_day_end_monthly_cap_switch');
+    const lab = document.getElementById('bank_day_end_monthly_cap_label_text');
+    if (!sw || !lab) return;
+    lab.textContent = sw.checked ? 'ON' : 'OFF';
+}
+
 function setBankDayEndMonthlyCapEnabled(enabled) {
     const hiddenEl = document.getElementById('bank_day_end_monthly_cap_enabled');
     const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
-    const labelTextEl = document.getElementById('bank_day_end_monthly_cap_label_text');
     const on = !!enabled;
     if (hiddenEl) hiddenEl.value = on ? '1' : '0';
     if (switchEl) switchEl.checked = on;
-    if (labelTextEl) labelTextEl.textContent = on ? 'ON' : 'OFF';
+    syncBankDayEndMonthlyCapSwitchLabel();
     syncBankDayEndCapDatePickersLocked();
 }
 
@@ -2339,6 +2352,7 @@ function syncBankDayEndMonthlyCapUi() {
         switchEl.disabled = !enabledByFrequency || locked;
         switchEl.style.cursor = switchEl.disabled ? 'not-allowed' : 'pointer';
     }
+    syncBankDayEndMonthlyCapSwitchLabel();
     syncBankDayEndCapDatePickersLocked();
 }
 
