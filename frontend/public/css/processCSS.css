@@ -749,25 +749,31 @@ body.process-page {
     padding: 1px 4px;
 }
 
-/* Bank React 列表：状态格统一宽度（按最长 E-INVOICE 对齐），文字居中、内边距收紧 */
+/* Bank React 列表：状态格统一宽高；左侧多留空以抵消右侧下拉箭头，文字几何居中；溢出省略 */
 .process-page.process-page--bank .bank-status-button {
-    width: 7.5rem;
-    min-width: 7.5rem;
-    max-width: 7.5rem;
+    width: 8.35rem;
+    min-width: 8.35rem;
+    max-width: 8.35rem;
+    height: 26px;
+    min-height: 26px;
+    max-height: 26px;
     flex-shrink: 0;
     box-sizing: border-box;
-    min-height: 22px;
-    padding: 2px 21px 2px 7px;
-    line-height: 1.12;
-    font-size: clamp(8px, 0.65vw, 10px);
-    letter-spacing: 0.02em;
+    padding: 0 22px 0 14px;
+    line-height: 1;
+    font-size: clamp(7px, 0.62vw, 9px);
+    letter-spacing: 0.04em;
     justify-content: center;
-    background-size: 12px 12px;
-    background-position: right 5px center;
+    align-items: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-size: 11px 11px;
+    background-position: right 6px center;
 }
 
 .process-page.process-page--bank .bank-status-button.is-block {
-    padding: 2px 7px;
+    padding: 0 12px;
+    background-position: center;
 }
 
 .process-page.process-page--bank .contract-badge {
@@ -892,16 +898,18 @@ body.process-page {
     }
 
     .process-page.process-page--bank .bank-status-button {
-        width: 6.65rem;
-        min-width: 6.65rem;
-        max-width: 6.65rem;
-        min-height: 19px;
-        padding: 2px 19px 2px 6px;
-        font-size: clamp(7px, 0.6vw, 9px);
+        width: 7.35rem;
+        min-width: 7.35rem;
+        max-width: 7.35rem;
+        height: 24px;
+        min-height: 24px;
+        max-height: 24px;
+        padding: 0 20px 0 11px;
+        font-size: clamp(6px, 0.58vw, 8px);
     }
 
     .process-page.process-page--bank .bank-status-button.is-block {
-        padding: 2px 6px;
+        padding: 0 10px;
     }
 }
 
@@ -988,34 +996,55 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     box-sizing: border-box;
 }
 
-/* Bank list：表头行尽量贴齐数据行（再压一轮字号 / padding / 行高） */
+/* Bank list：表头对齐参考 — 蓝渐变条上白字粗体大写、适中高度、垂直居中 */
 body.ec-auth-shell.process-page.process-page--bank .table-header {
-    font-size: clamp(9px, 0.62vw, 11px) !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-    line-height: 1.05 !important;
-    align-items: center;
-    margin-top: 12px !important;
+    font-size: clamp(10px, 0.74vw, 13px) !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    color: #ffffff !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    line-height: 1.25 !important;
+    align-items: center !important;
+    margin-top: 16px !important;
 }
 
 body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
-    padding: 1px 3px !important;
-    line-height: 1.05 !important;
+    padding: 4px 6px !important;
+    line-height: 1.25 !important;
+    display: flex !important;
+    align-items: center !important;
+    color: #ffffff !important;
 }
 
 .process-page.process-page--bank .table-header {
     align-items: center;
-    line-height: 1.05;
-    font-size: clamp(9px, 0.62vw, 11px);
-    margin-top: 12px;
-    gap: 10px;
+    line-height: 1.25;
+    font-size: clamp(10px, 0.74vw, 13px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #ffffff;
+    margin-top: 16px;
+    gap: 12px;
 }
 
 .process-page.process-page--bank .table-header .header-item {
-    padding: 1px 3px;
-    line-height: 1.05;
+    padding: 4px 6px;
+    line-height: 1.25;
+    display: flex;
+    align-items: center;
+    color: #ffffff;
+}
+
+.process-page.process-page--bank .table-header .bank-header-sortable {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
 }
 
 .process-page .process-card:hover {
