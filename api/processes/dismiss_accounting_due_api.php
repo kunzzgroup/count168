@@ -156,9 +156,9 @@ try {
             $stmtDs->execute([$processId, $companyId]);
             $dsRaw = $stmtDs->fetchColumn();
             if ($dsRaw !== false && $dsRaw !== null && trim((string) $dsRaw) !== '') {
-                $tsDs = strtotime((string) $dsRaw);
-                if ($tsDs !== false) {
-                    $postDate = date('Y-m-d', $tsDs);
+                $normDs = bmp_bankProcessDateFieldToYmd($dsRaw);
+                if ($normDs !== null && $normDs !== '') {
+                    $postDate = $normDs;
                 }
             }
         }
@@ -171,6 +171,10 @@ try {
             $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
             $fid = $selPap->fetchColumn();
             $papId = $fid ? (int) $fid : 0;
+            // INSERT IGNORE 未插入但已有同键 *_skipped 行：视为已移除（重复点 Delete 时条数不为 0）
+            if ($papId > 0) {
+                $inserted++;
+            }
         }
         if ($papId > 0) {
             $ptNorm = bmp_normalizePeriodType($periodType);

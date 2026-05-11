@@ -155,6 +155,46 @@ if (!function_exists('bmp_normalizePeriodType')) {
 }
 
 /**
+ * 与 process_accounting_inbox_api / process_post 一致：优先 d/m/Y，避免原始 day_start 被 strtotime 误解析，
+ * 导致 dismiss 写入的 posted_date 与 Inbox 判定锚点不一致（Resend 合并行删后仍显示）。
+ */
+if (!function_exists('bmp_bankProcessDateFieldToYmd')) {
+    function bmp_bankProcessDateFieldToYmd($raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+        $s = trim((string) $raw);
+        if ($s === '') {
+            return null;
+        }
+        if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
+            $y = (int) $m[1];
+            $mo = (int) $m[2];
+            $d = (int) $m[3];
+            if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+                return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+            }
+        }
+        if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
+            $d = (int) $m[1];
+            $mo = (int) $m[2];
+            $y = (int) $m[3];
+            if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+                return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+            }
+        }
+        $dateStr = str_replace('/', '-', $s);
+        if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+            $dateStr .= '-' . date('Y');
+        }
+        $ts = strtotime($dateStr);
+
+        return $ts !== false ? date('Y-m-d', $ts) : null;
+    }
+}
+
+/**
  * Accounting Inbox / 入账推断：Resend 后放宽「旧数据不拿」的创建日门槛。
  * 将 effectiveCreated = min(dts_created 日, day_start)，使修正后的 day_start 不晚于创建日时仍可按新锚点排队。
  *
