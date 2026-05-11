@@ -2999,7 +2999,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 /* Resend to Accounting Due — layout & form panel */
 #confirmBankResendModal .bank-resend-modal-content {
-    width: clamp(400px, 94vw, 520px);
+    width: clamp(420px, 94vw, 560px);
     max-width: 96%;
     display: flex;
     flex-direction: column;
@@ -3059,19 +3059,19 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #confirmBankResendModal .bank-resend-schedule-card__label {
     display: block;
-    font-size: 0.8125rem;
+    font-size: 0.9375rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #0f766e;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 #confirmBankResendModal .bank-resend-schedule-card__hint {
     margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    color: #64748b;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: #475569;
 }
 
 #confirmBankResendModal .bank-resend-schedule-grid {
@@ -3093,10 +3093,10 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 #confirmBankResendModal .bank-resend-field__label {
     display: block;
-    font-size: 0.75rem;
+    font-size: 0.9375rem;
     font-weight: 600;
-    color: #475569;
-    margin-bottom: 6px;
+    color: #334155;
+    margin-bottom: 8px;
     letter-spacing: 0.01em;
 }
 
@@ -3110,7 +3110,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 #confirmBankResendModal .bank-resend-inline-alert {
     margin-top: 12px;
     padding: 14px 16px;
-    font-size: 1rem;
+    font-size: 1.0625rem;
     font-weight: 700;
     line-height: 1.45;
     color: #450a0a;
@@ -3132,9 +3132,9 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 #confirmBankResendModal .bank-resend-control {
     width: 100%;
     box-sizing: border-box;
-    min-height: 42px;
-    padding: 8px 12px;
-    font-size: 0.9375rem;
+    min-height: 50px;
+    padding: 11px 14px;
+    font-size: 1.0625rem;
     font-family: inherit;
     color: #1e293b;
     background: #fff;
@@ -3158,8 +3158,8 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 40px;
+    background-position: right 14px center;
+    padding-right: 44px;
 }
 
 #confirmBankResendModal .process-confirm-actions.bank-resend-modal-actions {
@@ -3167,6 +3167,25 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     padding: clamp(18px, 2vw, 26px) clamp(22px, 3vw, 36px) clamp(22px, 2.5vw, 32px);
     border-top: 1px solid #e2e8f0;
     background: linear-gradient(180deg, rgba(248, 250, 252, 0.5) 0%, rgba(241, 245, 249, 0.9) 100%);
+    gap: 16px;
+}
+
+/* Resend modal: larger footer buttons (scoped — keeps other confirm modals unchanged) */
+#confirmBankResendModal .bank-resend-modal-actions .confirm-cancel,
+#confirmBankResendModal .bank-resend-modal-actions .confirm-bank-resend-cancel,
+#confirmBankResendModal .bank-resend-modal-actions .confirm-bank-resend-confirm {
+    flex: 1 1 auto;
+    max-width: none;
+    min-width: clamp(7.5rem, 34vw, 11rem);
+}
+
+#confirmBankResendModal .bank-resend-modal-actions .process-btn-cancel,
+#confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
+    width: 100%;
+    min-height: 48px;
+    padding: 0.7rem 1.35rem;
+    font-size: clamp(0.9375rem, 1.15vw, 1.125rem);
+    border-radius: 0.5rem;
 }
 
 /* Scrollbar for long messages */
