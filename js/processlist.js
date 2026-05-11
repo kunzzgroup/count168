@@ -2350,9 +2350,6 @@ async function confirmAccountingDueDelete() {
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Removing...'; }
     try {
         const formData = new FormData();
-        const scopeCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' && window.PROCESSLIST_COMPANY_ID !== null && window.PROCESSLIST_COMPANY_ID !== '')
-            ? String(window.PROCESSLIST_COMPANY_ID) : '';
-        if (scopeCompanyId) formData.append('company_id', scopeCompanyId);
         pairs.forEach(p => {
             formData.append('ids[]', p.id);
             formData.append('period_types[]', p.periodType);

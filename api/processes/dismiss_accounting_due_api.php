@@ -10,7 +10,6 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/process_api_company_scope.php';
 require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
 
 function jsonResponse(bool $success, string $message = '', $data = null): void
@@ -74,7 +73,7 @@ try {
         jsonResponse(false, '请先登录', null);
         exit;
     }
-    $companyId = process_api_resolve_effective_company_id($pdo);
+    $companyId = (int) ($_SESSION['company_id'] ?? 0);
     if (!$companyId) {
         http_response_code(400);
         jsonResponse(false, '缺少公司信息', null);
@@ -139,15 +138,9 @@ try {
     foreach ($pairs as $p) {
         $processId = $p['id'];
         $periodType = $p['period_type'];
-        // 以 bank_process 真实 company_id 为准（与列表/POST 的 company 可能不一致时仍要能写入 *_skipped）
-        $stmtBp0 = $pdo->prepare('SELECT id, company_id FROM bank_process WHERE id = ? LIMIT 1');
-        $stmtBp0->execute([$processId]);
-        $row0 = $stmtBp0->fetch(PDO::FETCH_ASSOC);
-        if (!$row0) {
-            continue;
-        }
-        $bpCompanyId = (int) ($row0['company_id'] ?? 0);
-        if ($bpCompanyId <= 0 || !process_api_check_company_access($pdo, $bpCompanyId)) {
+        $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1");
+        $stmt->execute([$processId, $companyId]);
+        if (!$stmt->fetch()) {
             continue;
         }
         $skippedType = toSkippedPeriodType($periodType);
@@ -170,8 +163,8 @@ try {
                 $selectCols[] = 'bp.accounting_resend_schedule_day_end';
                 $selectCols[] = 'bp.accounting_resend_schedule_frequency';
             }
-            $stmtBp = $pdo->prepare('SELECT ' . implode(', ', $selectCols) . ' FROM bank_process bp WHERE bp.id = ? LIMIT 1');
-            $stmtBp->execute([$processId]);
+            $stmtBp = $pdo->prepare('SELECT ' . implode(', ', $selectCols) . ' FROM bank_process bp WHERE bp.id = ? AND bp.company_id = ? LIMIT 1');
+            $stmtBp->execute([$processId, $companyId]);
             $bpRow = $stmtBp->fetch(PDO::FETCH_ASSOC);
             if ($bpRow) {
                 $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($bpRow);
@@ -182,13 +175,13 @@ try {
                 }
             }
         }
-        $insPap->execute([$bpCompanyId, $processId, $postDate, $skippedType]);
+        $insPap->execute([$companyId, $processId, $postDate, $skippedType]);
         $papId = 0;
         if ($insPap->rowCount() > 0) {
             $inserted++;
             $papId = (int) $pdo->lastInsertId();
         } else {
-            $selPap->execute([$bpCompanyId, $processId, $postDate, $skippedType]);
+            $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
             $fid = $selPap->fetchColumn();
             $papId = $fid ? (int) $fid : 0;
             // INSERT IGNORE 未插入但已有同键 *_skipped 行：视为已移除（重复点 Delete 时条数不为 0）
@@ -202,9 +195,9 @@ try {
                 "UPDATE process_accounting_posted SET period_type = ?
                  WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = 'resend_consolidated_range'"
             );
-            $updPap->execute([$skippedType, $bpCompanyId, $processId, $postDate]);
+            $updPap->execute([$skippedType, $companyId, $processId, $postDate]);
             if ($updPap->rowCount() > 0) {
-                $selPap->execute([$bpCompanyId, $processId, $postDate, $skippedType]);
+                $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
                 $fid2 = $selPap->fetchColumn();
                 $papId = $fid2 ? (int) $fid2 : 0;
                 if ($papId > 0) {
@@ -214,14 +207,10 @@ try {
         }
         if ($papId > 0) {
             $ptNorm = bmp_normalizePeriodType($periodType);
-            $insRp->execute([$bpCompanyId, $processId, $papId, $ptNorm, $postDate]);
+            $insRp->execute([$companyId, $processId, $papId, $ptNorm, $postDate]);
         }
     }
 
-    if ($inserted === 0) {
-        jsonResponse(false, '未能从待入账列表移除（未写入任何记录）。请确认对该流程所属公司有权限；若仍失败请刷新后重试。', ['dismissed' => 0]);
-        exit;
-    }
     jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', ['dismissed' => $inserted]);
 } catch (Exception $e) {
     http_response_code(400);
