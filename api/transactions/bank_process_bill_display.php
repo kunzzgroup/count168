@@ -107,6 +107,49 @@ function bankProcessResolveDisplayValueByAccount(array $t): string
 }
 
 /**
+ * Payment History / Maintenance：Frequency=once 入账行统一描述。
+ * 格式：ONCE (DD/MM/YYYY) @ buy/sell/profit（三笔均为 process 原价，无额外文字标签）
+ *
+ * @param array $t 需含 process_cost、process_price、process_profit；transaction_date 优先（Y-m-d 或 d/m/Y），否则 bp_day_start
+ */
+function bankProcessOnceOneOffHistoryDescription(array $t): string
+{
+    $dmy = '';
+    $td = trim((string) ($t['transaction_date'] ?? ''));
+    if ($td !== '' && stripos($td, '0000-00-00') !== 0) {
+        if (preg_match('#^\d{1,2}/\d{1,2}/\d{4}$#', $td)) {
+            $dmy = $td;
+        } elseif (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $td, $m)) {
+            $ts = strtotime($m[1] . '-' . $m[2] . '-' . $m[3]);
+            if ($ts !== false) {
+                $dmy = date('d/m/Y', $ts);
+            }
+        } else {
+            $ts = strtotime(str_replace('/', '-', $td));
+            if ($ts !== false) {
+                $dmy = date('d/m/Y', $ts);
+            }
+        }
+    }
+    if ($dmy === '') {
+        $ymd = bankProcessParseDayStartToYmd($t['bp_day_start'] ?? null);
+        if ($ymd !== null) {
+            $ts = strtotime($ymd);
+            if ($ts !== false) {
+                $dmy = date('d/m/Y', $ts);
+            }
+        }
+    }
+    if ($dmy === '') {
+        $dmy = date('d/m/Y');
+    }
+    $c = bankProcessBillFormatTripartNumber($t['process_cost'] ?? '0');
+    $p = bankProcessBillFormatTripartNumber($t['process_price'] ?? '0');
+    $pr = bankProcessBillFormatTripartNumber($t['process_profit'] ?? '0');
+    return 'ONCE (' . $dmy . ') @ ' . $c . '/' . $p . '/' . $pr;
+}
+
+/**
  * 首月比例账单描述：Pro-rated(dd/mm - dd/mm)@monthly <对应账单价格>
  * 仅显示当前这条记录对应的价格：
  * - Supplier(card_merchant): buy price

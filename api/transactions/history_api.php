@@ -1830,6 +1830,8 @@ try {
             } else {
                 if ($periodType === 'partial_first_month') {
                     $description = bankProcessProRatedFirstMonthDescription($t);
+                } elseif ($periodType === 'once_one_off') {
+                    $description = bankProcessOnceOneOffHistoryDescription($t);
                 } else {
                     if ($periodType === 'day_end_tail') {
                         // 统一 day_end 展示文案：Prorated(... | n days)@Monthly（不带 DayEnd 前缀）
