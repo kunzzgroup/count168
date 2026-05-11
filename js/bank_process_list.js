@@ -2328,13 +2328,13 @@ function parseBankContractTermMonths(contract) {
     return null;
 }
 
-/** Add Process Day end 租期月数：1+1/1+2/1+3 仅首段 1 个月租期，+N 为损坏罚金不参与租期终点（与入账侧「active 按 1 个月」一致） */
+/** Add Process Day end 租期月数：凡「1+N」（1+1 / 1+2 / 1+3）均只算首段 1 个月租期；+N 为损坏罚金不参与租期终点（与入账侧 active 按 1 个月一致） */
 function parseBankContractRentalMonthsForDayEnd(contract) {
     if (contract == null || String(contract).trim() === '') {
         return null;
     }
     const c = String(contract).trim();
-    if (/^1\+\d+$/i.test(c)) {
+    if (/^1\+\d+/i.test(c)) {
         return 1;
     }
     return parseBankContractTermMonths(contract);
