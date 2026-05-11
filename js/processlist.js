@@ -3847,7 +3847,9 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
 }
 
 /**
- * 不自动填写空的 Day end。设置合约对应的 min；早于 min 则上调。
+ * Day start + Contract 有有效月数时自动填入 Day end（与 dd/mm 显示同步）。
+ * 设置合约对应的 min；早于 min 则上调。
+ * 若 Day end 仍等于上次算出的合约结束日，起始日/合约/Frequency 变化后随新结果更新。
  * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
  * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
  */
@@ -3856,6 +3858,13 @@ function autoCalculateBankDayEnd() {
     const dayEndEl = document.getElementById('bank_day_end');
     const contractEl = document.getElementById('bank_contract');
     if (!dayEndEl) {
+        return;
+    }
+    const freqOnceGuard = document.getElementById('bank_day_start_frequency');
+    if (freqOnceGuard && freqOnceGuard.value === 'once') {
+        dayEndEl.removeAttribute('min');
+        delete dayEndEl.dataset.bankContractEndHint;
+        updateBankFrequencyOptions();
         return;
     }
     const start = (dayStartEl && dayStartEl.value || '').trim();
@@ -3882,7 +3891,7 @@ function autoCalculateBankDayEnd() {
     }
     dayEndEl.setAttribute('min', calculated);
     const cur = (dayEndEl.value || '').trim();
-    if (cur && cur < calculated) {
+    if (!cur || cur < calculated || (prevContractEnd && cur === prevContractEnd && calculated !== cur)) {
         setBankFormDayInputYmd(dayEndEl, calculated);
     } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
         setBankFormDayInputYmd(dayEndEl, calculated);
