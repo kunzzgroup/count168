@@ -2260,13 +2260,9 @@ function syncBankDayEndCapDatePickersLocked() {
     const capOn = typeof isBankDayEndMonthlyCapEnabled === 'function' && isBankDayEndMonthlyCapEnabled();
     const once = freqEl && freqEl.value === 'once';
     const first = freqEl && freqEl.value === '1st_of_every_month';
-    const lockDates = !!(capOn && first && !once);
-    if (lockDates) {
-        if (startPick) {
-            startPick.disabled = true;
-            startPick.style.opacity = '0.55';
-            startPick.style.cursor = 'not-allowed';
-        }
+    // 仅与 Day end 挂钩：ON + 1st 时只锁 Day end 日历；Day start 不由本开关控制
+    const lockDayEndOnly = !!(capOn && first && !once);
+    if (lockDayEndOnly) {
         if (endPick) {
             endPick.disabled = true;
             endPick.style.opacity = '0.55';
@@ -2543,7 +2539,7 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
  * 若 Day end 仍等于上次算出的合约结束日，起始日/合约/Frequency 变化后随新结果更新。
  * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
  * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
- * 1st_of_every_month：Day end 自动为次周期首日（次月 1 号锚）；营业若有出入可手改（晚于 min 视为延长，不自动缩短）。
+ * 1st_of_every_month + Day end 开关 ON：Day end 按合约自动为次周期首日；OFF 时不跑该自动链，仅 min=Day start。
  */
 function autoCalculateBankDayEnd() {
     if (isBankProcessBillingScheduleLocked()) return;
@@ -2569,6 +2565,22 @@ function autoCalculateBankDayEnd() {
     if (!start) {
         dayEndEl.removeAttribute('min');
         delete dayEndEl.dataset.bankContractEndHint;
+        updateBankFrequencyOptions();
+        if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
+        return;
+    }
+    // OFF：不执行 1st 下「合约驱动 Day end」的自动逻辑（仅保留不早于 Day start）
+    const capOn = typeof isBankDayEndMonthlyCapEnabled === 'function' && isBankDayEndMonthlyCapEnabled();
+    if (frequency === '1st_of_every_month' && !capOn) {
+        dayEndEl.setAttribute('min', start);
+        delete dayEndEl.dataset.bankContractEndHint;
+        if (dayEndEl.value && dayEndEl.value < start) {
+            if (typeof setBankFormDayInputYmd === 'function') {
+                setBankFormDayInputYmd(dayEndEl, start);
+            } else {
+                dayEndEl.value = start;
+            }
+        }
         updateBankFrequencyOptions();
         if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         return;
