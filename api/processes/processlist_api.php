@@ -985,15 +985,17 @@ function getBankProcess() {
             return;
         }
         $hasSopColumn = bankProcessHasColumn($pdo, 'sop');
+        $hasDayEndTailSwitchCol = bankProcessHasColumn($pdo, 'day_end_monthly_cap_enabled');
         $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $hasFlagColumn = bankProcessHasColumn($pdo, 'flag');
         $hasAnyIssueFlagColumn = $hasIssueFlagColumn || $hasFlagColumn;
         $sopSelect = $hasSopColumn ? "bp.sop" : "NULL AS sop";
         $issueFlagSelect = $hasAnyIssueFlagColumn ? getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn) . " AS issue_flag" : "NULL AS issue_flag";
+        $dayEndCapSelect = $hasDayEndTailSwitchCol ? ', bp.day_end_monthly_cap_enabled' : '';
         $stmt = $pdo->prepare("SELECT 
                 bp.id, bp.country, bp.bank, bp.type, bp.name,
                 bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance, bp.remark, $sopSelect,
-                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, bp.status, $issueFlagSelect,
+                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, bp.status, $issueFlagSelect$dayEndCapSelect,
                 bp.dts_modified, bp.dts_created,
                 a_cm.account_id as card_merchant_account_id, a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name,
                 a_pa.account_id as profit_account_account_id, a_pa.name as profit_account_name
@@ -1035,6 +1037,11 @@ function getBankProcess() {
             'day_start' => $process['day_start'],
             'day_start_frequency' => $process['day_start_frequency'] ?? '1st_of_every_month',
             'day_end' => $process['day_end'] ?? null,
+            'day_end_monthly_cap_enabled' => $hasDayEndTailSwitchCol
+                ? (((isset($process['day_end_monthly_cap_enabled']) && in_array((string) $process['day_end_monthly_cap_enabled'], ['1', 'true', 'TRUE'], true))
+                    || $process['day_end_monthly_cap_enabled'] === 1
+                    || $process['day_end_monthly_cap_enabled'] === true) ? 1 : 0)
+                : 0,
             'status' => $process['status'],
             'issue_flag' => normalizeBankIssueFlagValue($process['issue_flag'] ?? null),
             'dts_modified' => $process['dts_modified'],
@@ -1106,6 +1113,11 @@ function updateBankProcess() {
         $modifiedByOwnerId = $isOwner ? ($_SESSION['owner_id'] ?? null) : null;
         $currentUserId = $isOwner ? null : getCurrentUserId($pdo);
         $hasSopColumn = bankProcessHasColumn($pdo, 'sop');
+        $hasDayEndTailSwitchCol = bankProcessHasColumn($pdo, 'day_end_monthly_cap_enabled');
+        $dayEndTailOn = 0;
+        if ($hasDayEndTailSwitchCol && $day_start_frequency === '1st_of_every_month') {
+            $dayEndTailOn = isset($_POST['day_end_monthly_cap_enabled']) && (string) $_POST['day_end_monthly_cap_enabled'] === '1' ? 1 : 0;
+        }
         $sql = "UPDATE bank_process SET 
             country=?, bank=?, type=?, name=?, card_merchant_id=?, customer_id=?, profit_account_id=?,
             contract=?, insurance=?, ";
@@ -1117,12 +1129,23 @@ function updateBankProcess() {
             $sql .= "sop=?, ";
             $params[] = $sop;
         }
-        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, day_start_frequency=?, status=?,
+        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, day_start_frequency=?";
+        if ($hasDayEndTailSwitchCol) {
+            $sql .= ", day_end_monthly_cap_enabled=?";
+        }
+        $sql .= ", status=?,
             dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
             WHERE id=? AND company_id=?";
         array_push(
             $params,
-            $remark, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $day_start_frequency, $status,
+            $remark, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $day_start_frequency
+        );
+        if ($hasDayEndTailSwitchCol) {
+            $params[] = $dayEndTailOn;
+        }
+        array_push(
+            $params,
+            $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         );
         $stmt = $pdo->prepare($sql);

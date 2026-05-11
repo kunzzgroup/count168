@@ -1325,7 +1325,12 @@ async function openBankEditModal(id) {
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
         if (freqEl) freqEl.value = bankProcessFrequencyNormalized(process.day_start_frequency);
-        if (typeof setBankDayEndMonthlyCapEnabled === 'function') setBankDayEndMonthlyCapEnabled(false);
+        if (typeof setBankDayEndMonthlyCapEnabled === 'function') {
+            const isFirst = bankProcessFrequencyNormalized(process.day_start_frequency) === '1st_of_every_month';
+            const cr = process.day_end_monthly_cap_enabled;
+            const capOn = isFirst && (cr === 1 || cr === true || String(cr) === '1');
+            setBankDayEndMonthlyCapEnabled(!!capOn);
+        }
         if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         if (typeof updateBankFrequencyOptions === 'function') updateBankFrequencyOptions();
         if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi({ preserveValues: true });
@@ -2305,16 +2310,10 @@ function syncBankDayEndMonthlyCapUi() {
     const wrapEl = document.getElementById('bank_day_end_monthly_cap_wrap');
     const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
     const freqEl = document.getElementById('bank_day_start_frequency');
-    const editIdEl = document.getElementById('bank_edit_id');
-    const inEditMode = !!(editIdEl && String(editIdEl.value || '').trim() !== '');
-    if (wrapEl) {
-        wrapEl.style.display = inEditMode ? 'none' : '';
-    }
-    if (inEditMode) {
-        setBankDayEndMonthlyCapEnabled(false);
-        return;
-    }
     const enabledByFrequency = !!(freqEl && freqEl.value === '1st_of_every_month');
+    if (wrapEl) {
+        wrapEl.style.display = enabledByFrequency ? '' : 'none';
+    }
     if (!enabledByFrequency) {
         setBankDayEndMonthlyCapEnabled(false);
     }
