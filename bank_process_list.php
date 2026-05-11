@@ -91,54 +91,81 @@ if (!function_exists('renderBankProcessModals')) {
     {
         ?>
         <style>
-            .bank-day-end-switch {
+            /* 与 userlist.php Read Only 同款开关（作用域限 Bank 弹窗） */
+            #addBankModal .read-only-toggle-inline {
                 display: inline-flex;
                 align-items: center;
-                gap: 6px;
-                margin: 0;
-                font-size: 11px;
+                gap: clamp(4px, 0.31vw, 6px);
+                flex-shrink: 0;
+            }
+
+            #addBankModal .read-only-label {
+                font-size: clamp(9px, 0.6vw, 11px);
                 font-weight: 600;
-                color:rgb(14, 88, 192);
-                cursor: pointer;
-                user-select: none;
+                color: #64748b;
+                white-space: nowrap;
+                line-height: 1;
             }
 
-            .bank-day-end-switch__input {
-                display: none;
-            }
-
-            .bank-day-end-switch__track {
+            #addBankModal .toggle-switch {
                 position: relative;
-                width: 40px;
-                height: 22px;
-                border-radius: 999px;
-                background:rgb(27, 114, 219);
-                transition: background 0.2s ease;
+                display: inline-flex;
+                align-items: center;
+                width: clamp(28px, 2.08vw, 38px);
+                height: clamp(15px, 1.15vw, 21px);
+                flex-shrink: 0;
+                cursor: pointer;
             }
 
-            .bank-day-end-switch__track::before {
+            #addBankModal .toggle-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+                position: absolute;
+            }
+
+            #addBankModal .toggle-slider {
+                position: absolute;
+                inset: 0;
+                background: #cbd5e1;
+                border-radius: 999px;
+                transition: background 0.25s ease;
+                box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+                top: 5px;
+                bottom: -5px;
+            }
+
+            #addBankModal .toggle-slider::before {
                 content: '';
                 position: absolute;
-                top: 3px;
-                left: 3px;
-                width: 16px;
-                height: 16px;
+                width: clamp(11px, 0.83vw, 15px);
+                height: clamp(11px, 0.83vw, 15px);
+                top: 50%;
+                left: 2px;
+                transform: translateY(-50%);
+                background: white;
                 border-radius: 50%;
-                background:rgb(16, 102, 231);
-                transition: transform 0.2s ease;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+                transition: left 0.25s ease;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
             }
 
-            .bank-day-end-switch__input:checked + .bank-day-end-switch__track {
-                background: #60a5fa;
+            #addBankModal .toggle-switch input:checked + .toggle-slider {
+                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                top: 5px;
+                bottom: -5px;
             }
 
-            .bank-day-end-switch__input:checked + .bank-day-end-switch__track::before {
-                transform: translateX(18px);
+            #addBankModal .toggle-switch input:checked + .toggle-slider::before {
+                left: calc(100% - clamp(11px, 0.83vw, 15px) - 2px);
             }
 
-            .bank-day-end-switch__input:disabled + .bank-day-end-switch__track {
-                opacity: 0.6;
+            #addBankModal .toggle-switch input:disabled + .toggle-slider {
+                opacity: 0.4;
+                cursor: not-allowed;
+            }
+
+            #addBankModal .toggle-switch:has(input:disabled) {
+                cursor: not-allowed;
             }
         </style>
         <div id="processAccountingDueModal" class="modal" style="display: none;">
@@ -309,13 +336,15 @@ if (!function_exists('renderBankProcessModals')) {
                                     <div class="form-group bank-day-end-input-wrap">
                                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px;">
                                             <label for="bank_day_end" style="margin-bottom: 0;">Day end</label>
-                                            <label id="bank_day_end_monthly_cap_wrap" for="bank_day_end_monthly_cap_switch"
-                                                class="bank-day-end-switch">
-                                                <span id="bank_day_end_monthly_cap_state_text">Off</span>
-                                                <input type="checkbox" id="bank_day_end_monthly_cap_switch"
-                                                    class="bank-day-end-switch__input" aria-label="Cap monthly billing by day end">
-                                                <span class="bank-day-end-switch__track" aria-hidden="true"></span>
-                                            </label>
+                                            <span id="bank_day_end_monthly_cap_wrap" class="read-only-toggle-inline"
+                                                title="When on, Day start and Day end cannot be edited; also enables day-end monthly cap (1st of Every Month).">
+                                                <span class="read-only-label">Read Only</span>
+                                                <label class="toggle-switch" for="bank_day_end_monthly_cap_switch">
+                                                    <input type="checkbox" id="bank_day_end_monthly_cap_switch"
+                                                        value="1" aria-label="Read only: lock Day start and Day end">
+                                                    <span class="toggle-slider"></span>
+                                                </label>
+                                            </span>
                                         </div>
                                         <input type="hidden" id="bank_day_end" name="day_end" value="">
                                         <input type="hidden" id="bank_day_end_monthly_cap_enabled" name="day_end_monthly_cap_enabled" value="0">
