@@ -1955,16 +1955,33 @@ async function postAccountingInboxToTransaction() {
 function deleteAccountingInboxSelected() {
     const tbody = document.getElementById('processAccountingInboxTbody');
     if (!tbody) return;
-    const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
-    const pairs = Array.from(checked).map(cb => {
-        const tr = cb.closest('tr');
-        const id = parseInt((tr && tr.getAttribute('data-id')) || cb.dataset.id || '', 10);
-        const periodType = (tr && tr.getAttribute('data-period-type')) || 'monthly';
-        const billingMonth = (tr && tr.getAttribute('data-billing-month')) || '';
-        return { id, periodType, billingMonth };
-    }).filter(p => !isNaN(p.id));
+    function trToDismissPair(tr) {
+        if (!tr) return null;
+        const id = parseInt(tr.getAttribute('data-id') || '', 10);
+        if (isNaN(id)) return null;
+        return {
+            id: id,
+            periodType: tr.getAttribute('data-period-type') || 'monthly',
+            billingMonth: tr.getAttribute('data-billing-month') || ''
+        };
+    }
+    let pairs = [];
+    const deleteChecked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
+    if (deleteChecked.length > 0) {
+        pairs = Array.from(deleteChecked).map(cb => trToDismissPair(cb.closest('tr'))).filter(Boolean);
+    } else {
+        const postChecked = tbody.querySelectorAll('.process-accounting-inbox-row-cb:checked:not([disabled])');
+        pairs = Array.from(postChecked).map(cb => trToDismissPair(cb.closest('tr'))).filter(Boolean);
+    }
+    const seen = {};
+    pairs = pairs.filter(p => {
+        const k = p.id + '|' + p.periodType + '|' + (p.billingMonth || '');
+        if (seen[k]) return false;
+        seen[k] = true;
+        return true;
+    });
     if (pairs.length === 0) {
-        showNotification('请在右侧 Delete 列勾选要从 Accounting Due 移除的行', 'warning');
+        showNotification('请勾选要移除的行：左侧入账勾选框或右侧 Delete 列勾选框', 'warning');
         return;
     }
     showConfirmAccountingDueDeleteModal(pairs);
