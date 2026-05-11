@@ -269,7 +269,7 @@ button.sc-login-lang-seg.active {
   cursor: pointer;
   font-family: Arial, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   font-weight: 700;
-  font-size: 24px;
+  font-size: var(--text-h2);
   line-height: 1.2;
   text-align: center;
   white-space: nowrap;
@@ -618,7 +618,6 @@ button.sc-login-lang-seg.active {
   .sc-login-role-tab {
     min-height: 52px;
     padding: 12px 10px;
-    font-size: 18px;
   }
 
   .sc-login-card-content {
