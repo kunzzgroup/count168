@@ -558,8 +558,7 @@ body.process-page {
     background: linear-gradient(180deg, #f3f4f6 0%, #e5e7eb 100%);
     color: #111827;
     border-color: #9ca3af;
-    /* BLOCK acts like a badge (no dropdown chevron) */
-    background-image: none;
+    /* BLOCK：仅用渐变底色；勿再接 background-image:none，否则会去掉渐变 */
     padding-right: 12px;
 }
 
@@ -770,7 +769,7 @@ body.process-page {
     align-items: center;
     overflow: hidden;
     text-overflow: ellipsis;
-    background-image: none;
+    /* 勿写 background-image:none — 会与 .is-active 等 linear-gradient 同级覆盖，导致底色丢失 */
 }
 
 .process-page.process-page--bank .bank-status-button:not(.is-block)::after {
