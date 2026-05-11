@@ -115,6 +115,6 @@
   --login-radius-xl: 28px;
   --login-radius-pill: 999px;
   /* 登录白卡最小高度：按中文版 Tab（--text-h2）+ 表单 + 语系条撑满；切 EN 时只换字、外框不降 */
-  --login-card-min-height: 504px;
+  --login-card-min-height: 450px;
   --login-card-min-height-narrow: 528px;
 }
