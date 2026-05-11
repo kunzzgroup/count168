@@ -329,6 +329,40 @@ function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $proces
     }
 }
 
+function ensureAccountingDueDismissedTable(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS process_accounting_due_dismissed (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            process_id INT NOT NULL,
+            period_type VARCHAR(64) NOT NULL,
+            anchor_date DATE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_pad_dismissed (company_id, process_id, period_type, anchor_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
+function isAccountingDueDismissed(PDO $pdo, int $companyId, int $processId, string $periodType, ?string $anchorYmd): bool
+{
+    if ($anchorYmd === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+        return false;
+    }
+    try {
+        ensureAccountingDueDismissedTable($pdo);
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_due_dismissed
+             WHERE company_id = ? AND process_id = ? AND period_type = ? AND anchor_date = ?
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $periodType, $anchorYmd]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $processId, string $exclusiveEndYmd, string $startDate, int $startDayOfMonth, bool $hasPeriodType, ?string $createdYmd = null): bool
 {
     if (!$hasPeriodType) {
@@ -860,6 +894,9 @@ try {
             $dayEndRaw = $r['day_end'] ?? null;
             $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
             $endDate = inboxBankProcessDateFieldToYmd($dayEndRaw);
+            if ($startDate !== null && isAccountingDueDismissed($pdo, $company_id, (int) $r['id'], 'resend_consolidated_range', $startDate)) {
+                continue;
+            }
             if ($startDate !== null && $endDate !== null && $startDate <= $endDate) {
                 $baseCost = money_normalize($r['cost'] ?? '0');
                 $basePrice = money_normalize($r['price'] ?? '0');
@@ -893,6 +930,9 @@ try {
             $dayEndRaw = $r['day_end'] ?? null;
             $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
             $endDate = inboxBankProcessDateFieldToYmd($dayEndRaw);
+            if ($startDate !== null && isAccountingDueDismissed($pdo, $company_id, (int) $r['id'], 'resend_consolidated_range', $startDate)) {
+                continue;
+            }
             if ($startDate !== null && $endDate !== null && $startDate <= $endDate) {
                 $baseCost = money_normalize($r['cost'] ?? '0');
                 $basePrice = money_normalize($r['price'] ?? '0');

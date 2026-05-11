@@ -95,6 +95,36 @@ function isProcessInResendConsolidatedMode(PDO $pdo, int $companyId, int $proces
     return !empty($merged['accounting_resend_consolidated_range']);
 }
 
+/** 专用 Dismiss 锁：按 process + period_type + anchor_date 标记已从 Accounting Due 移除 */
+function ensureAccountingDueDismissedTable(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS process_accounting_due_dismissed (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            process_id INT NOT NULL,
+            period_type VARCHAR(64) NOT NULL,
+            anchor_date DATE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_pad_dismissed (company_id, process_id, period_type, anchor_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
+function upsertAccountingDueDismissed(PDO $pdo, int $companyId, int $processId, string $periodType, string $anchorDate): void
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorDate)) {
+        return;
+    }
+    $stmt = $pdo->prepare(
+        "INSERT INTO process_accounting_due_dismissed
+         (company_id, process_id, period_type, anchor_date)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE created_at = CURRENT_TIMESTAMP"
+    );
+    $stmt->execute([$companyId, $processId, $periodType, $anchorDate]);
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
@@ -156,6 +186,7 @@ try {
     $today = date('Y-m-d');
     $inserted = 0;
     bmp_ensureMaintenanceResendPendingTable($pdo);
+    ensureAccountingDueDismissedTable($pdo);
     $insPap = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
     $selPap = $pdo->prepare("SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type = ? LIMIT 1");
     $insRp = $pdo->prepare(
@@ -212,48 +243,76 @@ try {
                 }
             }
         }
+        $insPap->execute([$companyId, $processId, $postDate, $skippedType]);
         $papId = 0;
-        if ($periodType === 'resend_consolidated_range') {
-            // 根治：无论唯一键是否包含 period_type，都强制把该锚点行收敛为 consolidated_skipped。
-            $upsertConsolidated = $pdo->prepare(
-                "INSERT INTO process_accounting_posted (company_id, process_id, posted_date, period_type)
-                 VALUES (?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE
-                    posted_date = VALUES(posted_date),
-                    period_type = VALUES(period_type)"
-            );
-            $upsertConsolidated->execute([$companyId, $processId, $postDate, $skippedType]);
+        if ($insPap->rowCount() > 0) {
+            $inserted++;
+            $papId = (int) $pdo->lastInsertId();
+        } else {
             $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
             $fid = $selPap->fetchColumn();
             $papId = $fid ? (int) $fid : 0;
-            // 兼容历史数据：若 upsert 后仍未拿到 skipped，按同锚点日强制改写。
-            if ($papId === 0) {
-                $forceDate = $pdo->prepare(
-                    "UPDATE process_accounting_posted SET period_type = ?
-                     WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?)"
-                );
-                $forceDate->execute([$skippedType, $companyId, $processId, $postDate]);
-                $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
-                $fid2 = $selPap->fetchColumn();
-                $papId = $fid2 ? (int) $fid2 : 0;
-            }
+            // INSERT IGNORE 未插入但已有同键 *_skipped 行：视为已移除（重复点 Delete 时条数不为 0）
             if ($papId > 0) {
                 $inserted++;
             }
-        } else {
-            $insPap->execute([$companyId, $processId, $postDate, $skippedType]);
-            if ($insPap->rowCount() > 0) {
-                $inserted++;
-                $papId = (int) $pdo->lastInsertId();
-            } else {
+        }
+        // 唯一键若与既有 resend_consolidated_range（非 skipped）同键冲突：INSERT IGNORE 不插入且上面 SELECT 也找不到 skipped → 直接改为 skipped。
+        if ($papId === 0 && $periodType === 'resend_consolidated_range') {
+            $updPap = $pdo->prepare(
+                "UPDATE process_accounting_posted SET period_type = ?
+                 WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type = 'resend_consolidated_range'"
+            );
+            $updPap->execute([$skippedType, $companyId, $processId, $postDate]);
+            if ($updPap->rowCount() > 0) {
                 $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
-                $fid = $selPap->fetchColumn();
-                $papId = $fid ? (int) $fid : 0;
-                // INSERT IGNORE 未插入但已有同键 *_skipped 行：视为已移除（重复点 Delete 时条数不为 0）
+                $fid2 = $selPap->fetchColumn();
+                $papId = $fid2 ? (int) $fid2 : 0;
                 if ($papId > 0) {
                     $inserted++;
                 }
             }
+            // 兜底 1：同锚点日可能是其它 period_type 占位，统一改为 consolidated_skipped。
+            if ($papId === 0) {
+                $updPapAny = $pdo->prepare(
+                    "UPDATE process_accounting_posted SET period_type = ?
+                     WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type NOT LIKE '%\\_skipped'"
+                );
+                $updPapAny->execute([$skippedType, $companyId, $processId, $postDate]);
+                if ($updPapAny->rowCount() > 0) {
+                    $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
+                    $fid2b = $selPap->fetchColumn();
+                    $papId = $fid2b ? (int) $fid2b : 0;
+                    if ($papId > 0) {
+                        $inserted++;
+                    }
+                }
+            }
+            // 兜底 2：若锚点日依旧未命中（历史日期漂移），将该 process 最新 consolidated 改为 skipped。
+            if ($papId === 0) {
+                $updLatest = $pdo->prepare(
+                    "UPDATE process_accounting_posted SET period_type = ?
+                     WHERE company_id = ? AND process_id = ? AND period_type = 'resend_consolidated_range'
+                     ORDER BY id DESC LIMIT 1"
+                );
+                $updLatest->execute([$skippedType, $companyId, $processId]);
+                if ($updLatest->rowCount() > 0) {
+                    $selLatest = $pdo->prepare(
+                        "SELECT id FROM process_accounting_posted
+                         WHERE company_id = ? AND process_id = ? AND period_type = ?
+                         ORDER BY id DESC LIMIT 1"
+                    );
+                    $selLatest->execute([$companyId, $processId, $skippedType]);
+                    $fid2c = $selLatest->fetchColumn();
+                    $papId = $fid2c ? (int) $fid2c : 0;
+                    if ($papId > 0) {
+                        $inserted++;
+                    }
+                }
+            }
+        }
+        if ($periodType === 'resend_consolidated_range') {
+            upsertAccountingDueDismissed($pdo, $companyId, $processId, 'resend_consolidated_range', $postDate);
         }
         if ($papId > 0) {
             $ptNorm = bmp_normalizePeriodType($periodType);
