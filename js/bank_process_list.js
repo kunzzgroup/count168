@@ -2250,6 +2250,7 @@ allowOnlyNumberCommaPeriod(document.getElementById('bank_insurance'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_cost'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
+/** Day end 开关只控制是否跑 1st 自动链，不锁日历；仅 Frequency=Once 时禁用 Day end 与合约相关控件 */
 function syncBankDayEndCapDatePickersLocked() {
     if (typeof isBankProcessBillingScheduleLocked === 'function' && isBankProcessBillingScheduleLocked()) {
         return;
@@ -2257,19 +2258,7 @@ function syncBankDayEndCapDatePickersLocked() {
     const startPick = document.getElementById('bank_day_start_picker');
     const endPick = document.getElementById('bank_day_end_picker');
     const freqEl = document.getElementById('bank_day_start_frequency');
-    const capOn = typeof isBankDayEndMonthlyCapEnabled === 'function' && isBankDayEndMonthlyCapEnabled();
     const once = freqEl && freqEl.value === 'once';
-    const first = freqEl && freqEl.value === '1st_of_every_month';
-    // 仅与 Day end 挂钩：ON + 1st 时只锁 Day end 日历；Day start 不由本开关控制
-    const lockDayEndOnly = !!(capOn && first && !once);
-    if (lockDayEndOnly) {
-        if (endPick) {
-            endPick.disabled = true;
-            endPick.style.opacity = '0.55';
-            endPick.style.cursor = 'not-allowed';
-        }
-        return;
-    }
     if (startPick) {
         startPick.disabled = false;
         startPick.style.opacity = '';
