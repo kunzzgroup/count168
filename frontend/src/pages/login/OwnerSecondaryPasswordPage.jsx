@@ -94,19 +94,16 @@ export default function OwnerSecondaryPasswordPage() {
 
   return (
     <div className="login-container">
-      <div className="login-card">
-        <div className="form-content">
-          <h2 style={{ textAlign: "center", marginBottom: 30, color: "#1e293b", fontSize: 24, fontWeight: 600 }}>
-            Secondary Password Verification
-          </h2>
-          <p style={{ textAlign: "center", marginBottom: 30, color: "#64748b", fontSize: 14 }}>
-            Please enter your 6-digit secondary password to continue
-          </p>
+      <div className="login-card login-card--solo">
+        <div className="form-content form-content--secondary-verify">
+          <h2 className="secondary-verify-title">Secondary Password Verification</h2>
+          <p className="secondary-verify-lead">Please enter your 6-digit secondary password to continue</p>
 
           <form className="login-form" onSubmit={onSubmit}>
             <div className="input-group">
               <i className="fas fa-lock input-icon" />
               <input
+                id="secondary_password"
                 ref={inputRef}
                 type="password"
                 placeholder="Enter 6-digit password"
