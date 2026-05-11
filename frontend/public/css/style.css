@@ -143,13 +143,13 @@ body.bg::before {
 }
 
 .form-content--secondary-verify {
-    min-height: 288px;
+    min-height: 260px;
     box-sizing: border-box;
 }
 
 .secondary-verify-title {
     text-align: center;
-    margin: 0 0 30px;
+    margin: 0 0 8px;
     color: var(--color-body-strong);
     font-size: var(--text-h2);
     font-weight: 600;
@@ -159,7 +159,7 @@ body.bg::before {
 
 .secondary-verify-lead {
     text-align: center;
-    margin: 0 0 30px;
+    margin: 0 0 24px;
     color: var(--color-muted-fg);
     font-size: var(--text-small);
     font-weight: 400;
