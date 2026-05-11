@@ -81,10 +81,10 @@ body.bg::before {
 
 
 
-/* Main Container — card width aligned with count168.site (~380px) */
+/* Main Container — 与 React 登录页 .sc-login-column 一致 430px（图二 / login-surface-lock） */
 .login-container {
     width: 100%;
-    max-width: min(380px, 92vw);
+    max-width: min(430px, 92vw);
     margin: 0 auto;
     position: relative;
     z-index: 2;
