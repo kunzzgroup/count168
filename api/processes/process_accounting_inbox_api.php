@@ -19,6 +19,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/process_api_company_scope.php';
 require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/contract_billing_addon.php';
@@ -740,7 +741,7 @@ try {
         jsonResponse(false, '请先登录', null);
         exit;
     }
-    $company_id = (int) ($_SESSION['company_id'] ?? 0);
+    $company_id = process_api_resolve_effective_company_id($pdo);
     if (!$company_id) {
         http_response_code(400);
         jsonResponse(false, '缺少公司信息', null);

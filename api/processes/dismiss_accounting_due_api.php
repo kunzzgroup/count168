@@ -10,6 +10,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/process_api_company_scope.php';
 require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
 
 function jsonResponse(bool $success, string $message = '', $data = null): void
@@ -73,7 +74,7 @@ try {
         jsonResponse(false, '请先登录', null);
         exit;
     }
-    $companyId = (int) ($_SESSION['company_id'] ?? 0);
+    $companyId = process_api_resolve_effective_company_id($pdo);
     if (!$companyId) {
         http_response_code(400);
         jsonResponse(false, '缺少公司信息', null);
@@ -211,6 +212,10 @@ try {
         }
     }
 
+    if ($inserted === 0) {
+        jsonResponse(false, '未能从待入账列表移除（未写入任何记录）。常见原因：页面所选公司与会话默认公司不一致；请刷新页面或切换为与 Process 列表相同的公司后再试。', ['dismissed' => 0]);
+        exit;
+    }
     jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', ['dismissed' => $inserted]);
 } catch (Exception $e) {
     http_response_code(400);
