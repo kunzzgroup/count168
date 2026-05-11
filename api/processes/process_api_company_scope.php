@@ -11,9 +11,10 @@ if (!function_exists('process_api_check_company_access')) {
             return false;
         }
         $currentUserId = $_SESSION['user_id'] ?? null;
-        $currentUserRole = $_SESSION['role'] ?? '';
-        if ($currentUserRole === 'owner') {
-            $ownerId = $_SESSION['owner_id'] ?? $currentUserId;
+        $currentUserRole = strtolower(trim((string) ($_SESSION['role'] ?? '')));
+        $userType = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
+        if ($currentUserRole === 'owner' || $userType === 'owner') {
+            $ownerId = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $currentUserId;
             $stmt = $pdo->prepare('SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?');
             $stmt->execute([$requestedCompanyId, $ownerId]);
             return (int) $stmt->fetchColumn() > 0;
