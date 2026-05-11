@@ -6,7 +6,7 @@
 }
 
 body.bg {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
     background: url('/images/count_bg.png') center/cover no-repeat;
     min-height: 100vh;
     display: flex;
@@ -101,9 +101,9 @@ body.bg::before {
     backdrop-filter: blur(10px);
 }
 
-/* 独立白卡（二次验证等，无顶部 gradient header）— 四角圆角与 count168 设计稿一致 */
+/* 独立白卡（二次验证等，无顶部 gradient header） */
 .login-card--solo {
-    border-radius: 28px;
+    border-radius: var(--login-radius-xl);
 }
 
 /* Tabs */
@@ -134,12 +134,12 @@ body.bg::before {
 }
 
 
-/* Form Content — 设计稿 form-content: 420×288 量级、padding 30×20、正文 16px Segoe */
+/* Form Content — 设计稿 padding 30×20；字号/色用 design-tokens */
 .form-content {
     padding: 30px 20px;
-    font-size: 16px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #000000;
+    font-size: var(--text-base);
+    font-family: var(--font-ui);
+    color: var(--color-page-fg);
 }
 
 .form-content--secondary-verify {
@@ -150,20 +150,20 @@ body.bg::before {
 .secondary-verify-title {
     text-align: center;
     margin: 0 0 30px;
-    color: #1e293b;
-    font-size: 24px;
+    color: var(--color-body-strong);
+    font-size: var(--text-h3);
     font-weight: 600;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--font-ui);
     line-height: 1.25;
 }
 
 .secondary-verify-lead {
     text-align: center;
     margin: 0 0 30px;
-    color: #64748b;
-    font-size: 14px;
+    color: var(--color-muted-fg);
+    font-size: var(--text-small);
     font-weight: 400;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--font-ui);
     line-height: 1.35;
 }
 
@@ -199,7 +199,7 @@ body.bg::before {
     left: 15px;
     top: 50%;
     transform: translateY(-50%);
-    color: #56ccf2;
+    color: var(--login-bg-end);
     font-size: 15px;
     z-index: 2;
 }
@@ -210,23 +210,22 @@ body.bg::before {
     max-width: 100%;
     min-height: 46.5px;
     padding: 12px 25px 12px 46px;
-    border: 1px solid #56ccf2;
-    border-radius: 50px;
-    font-size: 16px;
+    border: 1px solid var(--login-bg-end);
+    border-radius: var(--login-radius-pill);
+    font-size: var(--text-base);
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    background: rgba(255, 255, 255, 0.902);
-    color: #333333;
+    background: var(--login-surface);
+    color: var(--login-text);
 }
 
 .input-group input:focus {
     outline: none;
-    border-color: #004ff9;
+    border-color: var(--login-bg-start);
     box-shadow: 0 0 0 3px rgba(0, 79, 249, 0.1);
 }
 
 .input-group input::placeholder {
-    color: #56ccf2;
-    font-size: 16px;
+    color: var(--login-bg-end);
     font-weight: 400;
 }
 
@@ -343,19 +342,19 @@ body.bg::before {
     text-decoration: underline;
 }
 
-/* Login Button — 与 login-shadcn 主提交钮一致：约 51px 高、18px Arial、水平 padding 15px */
+/* Login Button — 与 login-shadcn 主提交钮同一套 --login-* + 字号接近原 18px 用 --text-h3 */
 .login-btn {
     box-sizing: border-box;
-    height: 51px;
-    min-height: 51px;
-    max-height: 51px;
-    background: linear-gradient(135deg, #004ff9, #56ccf2);
+    height: var(--login-submit-height);
+    min-height: var(--login-submit-height);
+    max-height: var(--login-submit-height);
+    background: linear-gradient(135deg, var(--login-bg-start), var(--login-bg-end));
     color: #ffffff;
     border: none;
-    padding: 0 15px;
-    border-radius: 50px;
-    font-family: Arial, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 18px;
+    padding: 0 var(--login-submit-pad-x);
+    border-radius: var(--login-radius-pill);
+    font-family: Arial, var(--font-ui);
+    font-size: var(--text-h3);
     font-weight: 700;
     line-height: 1;
     cursor: pointer;
@@ -376,7 +375,7 @@ body.bg::before {
 }
 
 .login-btn:hover {
-    background: linear-gradient(135deg, #56ccf2, #004ff9);
+    background: linear-gradient(135deg, var(--login-bg-end), var(--login-bg-start));
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(0, 79, 249, 0.4);
 }

@@ -1,7 +1,7 @@
 /*
  * design-tokens.css — SPA 全局 :root 设计令牌（由 globals.css 首行 @import）。
  * 与 public/css/dashboard.css 的 --scd-* 区分命名；可按需在 dashboard 内做 var() 别名。
- * 登录页 public/css/login-shadcn.css 使用下方 --login-*，勿在 login-shadcn 内再写 :root 重复定义。
+ * 登录页 public/css/login-shadcn.css 与 public/css/style.css（二次验证、reset 等）共用下方 --login-*、--text-*、--color-*（由打包 CSS 注入 :root）。
  */
 :root {
   /* --- 字体响应式变量 (1280px -> 1920px) --- */
