@@ -299,16 +299,18 @@ function isDayEndTailAlreadyPosted(PDO $pdo, int $companyId, int $processId): bo
 
 function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $processId, ?string $anchorYmd = null): bool
 {
-    if ($anchorYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
-        // 使用 DATE(posted_date)：列可能为 DATETIME，与 dismiss 写入的 Y-m-d 锚点须一致，否则已 *_skipped 仍出现在 Accounting Due。
-        $stmt = $pdo->prepare(
-            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
-             AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped')
-             AND DATE(posted_date) = ? LIMIT 1"
-        );
-        $stmt->execute([$companyId, $processId, $anchorYmd]);
-        if ((bool) $stmt->fetch()) {
-            return true;
+    try {
+        if ($anchorYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+            // 使用 DATE(posted_date)：列可能为 DATETIME，与 dismiss 写入的 Y-m-d 锚点须一致，否则已 *_skipped 仍出现在 Accounting Due。
+            $stmt = $pdo->prepare(
+                "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
+                 AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped')
+                 AND DATE(posted_date) = ? LIMIT 1"
+            );
+            $stmt->execute([$companyId, $processId, $anchorYmd]);
+            if ((bool) $stmt->fetch()) {
+                return true;
+            }
         }
         // 兜底：历史数据/旧逻辑可能让 consolidated 的 posted_date 与当前锚点不一致，
         // 但同 process 只要已有 consolidated(_skipped) 即视为该期已处理，避免 Delete 后残留。
@@ -318,13 +320,13 @@ function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $proces
         );
         $stmtAny->execute([$companyId, $processId]);
         return (bool) $stmtAny->fetch();
+    } catch (Throwable $e) {
+        // 兼容极旧库（无 period_type）：退化为同 process 同锚点日期存在 posted 即视为已处理。
+        if ($anchorYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+            return hasLegacyPostedOnDate($pdo, $companyId, $processId, $anchorYmd);
+        }
+        return false;
     }
-    $stmt = $pdo->prepare(
-        "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
-         AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped') LIMIT 1"
-    );
-    $stmt->execute([$companyId, $processId]);
-    return (bool) $stmt->fetch();
 }
 
 function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $processId, string $exclusiveEndYmd, string $startDate, int $startDayOfMonth, bool $hasPeriodType, ?string $createdYmd = null): bool
@@ -716,13 +718,15 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     continue;
                 }
                 if (!empty($item['is_resend_consolidated_range'])) {
-                    $processId = (int) ($item['id'] ?? 0);
                     $anchorRaw = isset($item['day_start']) ? trim((string) $item['day_start']) : '';
                     $anchorYmd = $anchorRaw !== '' ? inboxBankProcessDateFieldToYmd($anchorRaw) : null;
-                    if ($processId > 0 && $anchorYmd !== null) {
-                        $item['already_posted_today'] = hasLegacyPostedOnDate($pdo, $companyId, $processId, $anchorYmd);
-                        continue;
-                    }
+                    $item['already_posted_today'] = isResendConsolidatedAlreadyPosted(
+                        $pdo,
+                        $companyId,
+                        (int) ($item['id'] ?? 0),
+                        $anchorYmd
+                    );
+                    continue;
                 }
                 if (!empty($item['monthly_billing_month'])
                     && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $item['monthly_billing_month'], $m)) {
