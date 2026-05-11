@@ -302,9 +302,9 @@ if (!function_exists('renderBankProcessModals')) {
                                     <label for="bank_day_start_frequency">Frequency</label>
                                     <select id="bank_day_start_frequency" name="day_start_frequency"
                                         class="bank-input bank-select">
-                                        <option value="once" selected>Once</option>
                                         <option value="1st_of_every_month">1st of Every Month</option>
                                         <option value="monthly">Monthly</option>
+                                        <option value="once" selected>Once</option>
                                     </select>
                                 </div>
                                 <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
@@ -810,9 +810,9 @@ if (!function_exists('renderBankProcessModals')) {
                         <div class="bank-resend-field bank-resend-field--full">
                             <label class="bank-resend-field__label" for="bank_resend_frequency">Frequency</label>
                             <select id="bank_resend_frequency" class="bank-resend-control bank-resend-control--select">
-                                <option value="once" selected>Once</option>
                                 <option value="1st_of_every_month">1st of Every Month</option>
                                 <option value="monthly">Monthly</option>
+                                <option value="once" selected>Once</option>
                             </select>
                         </div>
                     </div>
