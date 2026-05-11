@@ -1588,9 +1588,8 @@ function updateAccountingInboxDeleteButton() {
     const deleteSelectAllCb = document.getElementById('processAccountingInboxDeleteSelectAll');
     if (!tbody || !deleteBtn) return;
     const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
-    const rowPick = tbody.querySelectorAll('.process-accounting-inbox-row-cb:checked:not([disabled])');
     const allDelete = tbody.querySelectorAll('.process-accounting-inbox-delete-cb');
-    deleteBtn.disabled = checked.length === 0 && rowPick.length === 0;
+    deleteBtn.disabled = checked.length === 0;
     if (deleteSelectAllCb && !deleteSelectAllCb.disabled) {
         deleteSelectAllCb.checked = allDelete.length > 0 && allDelete.length === checked.length;
     }
@@ -1677,23 +1676,16 @@ async function postAccountingInboxToTransaction() {
 function deleteAccountingInboxSelected() {
     const tbody = document.getElementById('processAccountingInboxTbody');
     if (!tbody) return;
-    const trSet = new Map();
-    tbody.querySelectorAll('.process-accounting-inbox-row-cb:checked:not([disabled])').forEach(function (cb) {
+    const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
+    const pairs = Array.from(checked).map(cb => {
         const tr = cb.closest('tr');
-        if (tr) trSet.set(tr, true);
-    });
-    tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked').forEach(function (cb) {
-        const tr = cb.closest('tr');
-        if (tr) trSet.set(tr, true);
-    });
-    const pairs = Array.from(trSet.keys()).map(function (tr) {
-        const id = parseInt((tr && tr.getAttribute('data-id')) || '', 10);
+        const id = parseInt((tr && tr.getAttribute('data-id')) || cb.dataset.id || '', 10);
         const periodType = (tr && tr.getAttribute('data-period-type')) || 'monthly';
         const billingMonth = (tr && tr.getAttribute('data-billing-month')) || '';
         return { id, periodType, billingMonth };
-    }).filter(function (p) { return !isNaN(p.id); });
+    }).filter(p => !isNaN(p.id));
     if (pairs.length === 0) {
-        showNotification('请勾选要移除的行（左侧行勾选或右侧 Delete 列）', 'warning');
+        showNotification('请在右侧 Delete 列勾选要从 Accounting Due 移除的行', 'warning');
         return;
     }
     showConfirmAccountingDueDeleteModal(pairs);
@@ -1738,12 +1730,7 @@ async function confirmAccountingDueDelete() {
         const response = await fetch(buildApiUrl('api/processes/dismiss_accounting_due_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
-            const dismissed = (result.data && typeof result.data.dismissed === 'number') ? result.data.dismissed : -1;
-            if (dismissed === 0) {
-                showNotification(result.message || '未能移除任何行，请刷新后重试', 'warning');
-            } else {
-                showNotification(result.message || 'Removed from Accounting Due', 'success');
-            }
+            showNotification(result.message || 'Removed from Accounting Due', 'success');
             await loadAccountingInbox();
             if (typeof fetchProcesses === 'function') {
                 fetchProcesses();
@@ -2299,22 +2286,37 @@ function syncBankOnceFrequencyUi(opts) {
 }
 window.syncBankOnceFrequencyUi = syncBankOnceFrequencyUi;
 
-// Sync Frequency based on Day End（不再因填写 Day end 而禁用 Monthly 或改频率）
+// Sync Frequency based on Day End
 function updateBankFrequencyOptions() {
     if (isBankProcessBillingScheduleLocked()) return;
     const dayEndEl = document.getElementById('bank_day_end');
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (!dayEndEl || !freqEl) return;
 
-    const monthlyOption = freqEl.querySelector('option[value="monthly"]');
-    if (monthlyOption) monthlyOption.disabled = false;
-
     if (freqEl.value === 'once') {
+        const monthlyOption = freqEl.querySelector('option[value="monthly"]');
+        if (monthlyOption) monthlyOption.disabled = false;
         return;
     }
 
     if (dayEndEl.min && dayEndEl.value && dayEndEl.value < dayEndEl.min) {
         dayEndEl.value = dayEndEl.min;
+    }
+
+    const hasDayEnd = !!dayEndEl.value;
+    const monthlyOption = freqEl.querySelector('option[value="monthly"]');
+
+    if (hasDayEnd) {
+        // If day end is set, force to 1st of every month
+        freqEl.value = '1st_of_every_month';
+        if (monthlyOption) {
+            monthlyOption.disabled = true;
+        }
+    } else {
+        // If no day end, allow monthly selection
+        if (monthlyOption) {
+            monthlyOption.disabled = false;
+        }
     }
 }
 
@@ -2392,8 +2394,9 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
 }
 
 /**
- * Day end 为空时按「起始日 + 合约月数」日历进位自动填写（与 PHP billingContractExclusiveEndYmd 一致，如 5/12 +3 月 → 8/12）。
- * 设置合约对应的 min、bankContractEndHint；早于 min 则上调。缩短月数时的随动规则不变。
+ * 不自动填写空的 Day end。设置合约对应的 min；早于 min 则上调。
+ * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
+ * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
  */
 function autoCalculateBankDayEnd() {
     if (isBankProcessBillingScheduleLocked()) return;
@@ -2433,30 +2436,11 @@ function autoCalculateBankDayEnd() {
         return;
     }
     dayEndEl.min = calculated;
-    let cur = (dayEndEl.value || '').trim();
-    if (!cur && term) {
-        const autoFillEnd = addCalendarMonthsToYmd(start, term);
-        if (autoFillEnd) {
-            if (typeof setBankFormDayInputYmd === 'function') {
-                setBankFormDayInputYmd(dayEndEl, autoFillEnd);
-            } else {
-                dayEndEl.value = autoFillEnd;
-            }
-            cur = autoFillEnd;
-        }
-    }
+    const cur = (dayEndEl.value || '').trim();
     if (cur && cur < calculated) {
-        if (typeof setBankFormDayInputYmd === 'function') {
-            setBankFormDayInputYmd(dayEndEl, calculated);
-        } else {
-            dayEndEl.value = calculated;
-        }
+        dayEndEl.value = calculated;
     } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
-        if (typeof setBankFormDayInputYmd === 'function') {
-            setBankFormDayInputYmd(dayEndEl, calculated);
-        } else {
-            dayEndEl.value = calculated;
-        }
+        dayEndEl.value = calculated;
     }
     dayEndEl.dataset.bankContractEndHint = calculated;
     updateBankFrequencyOptions();
