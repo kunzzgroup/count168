@@ -142,7 +142,7 @@ export const PROCESS_LIST_I18N = {
     activated: "启用",
     deactivated: "停用",
     statusChangedTo: "流程状态已更改为：{status}",
-    pageOf: "第 {current} / {total} 页",
+    pageOf: "{current} / {total}",
     processId: "流程ID",
     noColumn: "序号",
     description: "描述",

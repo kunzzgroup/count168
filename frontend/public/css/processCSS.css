@@ -703,7 +703,8 @@ body.process-page {
 
 /* separator-line 不再 override，与 Games 完全一致（margin: 5px 0 -10px 0） */
 
-.process-page.process-page--bank .bank-table-wrapper {
+.process-page.process-page--bank .bank-table-wrapper,
+.process-page.process-page--bank .process-table-wrapper {
     flex: 1 1 auto;
     /* 填满剩余垂直空间，分页条始终在 flex 末尾不遮挡数据 */
     min-height: 0;
@@ -762,8 +763,11 @@ body.process-page {
 
 .process-page.process-page--bank .pagination-container {
     flex-shrink: 0;
-    margin-top: 3px;
-    margin-bottom: max(5px, env(safe-area-inset-bottom, 0px));
+    align-self: flex-end;
+    margin-top: 8px;
+    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    margin-left: auto !important;
+    margin-right: clamp(10px, 2vw, 28px) !important;
 }
 
 /* Bank 操作栏：5 个 checkbox（比 Games 多 3 个）+ 日期选择器 + Search，laptop 下防止换行 */
@@ -836,7 +840,8 @@ body.process-page {
         padding: 0 14px 6px 14px;
     }
 
-    .process-page.process-page--bank .bank-table-wrapper {
+    .process-page.process-page--bank .bank-table-wrapper,
+    .process-page.process-page--bank .process-table-wrapper {
         margin-top: 8px;
     }
 
@@ -851,8 +856,10 @@ body.process-page {
     }
 
     .process-page.process-page--bank .pagination-container {
-        margin-top: 3px;
-        margin-bottom: max(5px, env(safe-area-inset-bottom, 0px));
+        margin-top: 6px;
+        margin-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+        margin-left: auto !important;
+        margin-right: clamp(8px, 2vw, 24px) !important;
     }
 }
 
@@ -3803,22 +3810,24 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     border-radius: 5px !important;
 }
 
-/* Bank list: keep pagination under table (not fixed at viewport corner) */
+/* Bank list: pagination anchored bottom-right of main column (matches reference layout) */
 .process-page.process-page--bank .pagination-container {
     position: static;
-    right: auto;
-    bottom: auto;
-    left: auto;
-    top: auto;
-    z-index: auto;
-    margin: 8px auto 0 auto !important;
+    align-self: flex-end;
+    margin-left: auto !important;
+    margin-right: clamp(10px, 2vw, 28px) !important;
+    margin-top: 8px !important;
+    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 1;
 }
 
-.process-page.process-page--bank .bank-table-wrapper {
+.process-page.process-page--bank .bank-table-wrapper,
+.process-page.process-page--bank .process-table-wrapper {
     padding-bottom: 0;
 }
 
-.process-page.process-page--bank.process-page--bank-show-all .bank-table-wrapper {
+.process-page.process-page--bank.process-page--bank-show-all .bank-table-wrapper,
+.process-page.process-page--bank.process-page--bank-show-all .process-table-wrapper {
     padding-bottom: 0;
 }
 
