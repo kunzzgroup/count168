@@ -323,7 +323,7 @@ button.sc-login-lang-seg.active {
   padding: 12px 25px 12px 46px;
   border: 1px solid var(--login-bg-end);
   border-radius: var(--login-radius-pill);
-  font-size: var(--text-small);
+  font-size: var(--text-base);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
   background: rgba(255, 255, 255, 0.9);
   color: var(--login-text);
@@ -416,7 +416,7 @@ button.sc-login-lang-seg.active {
   overflow: hidden;
   text-overflow: ellipsis;
   color: #656565;
-  font-size: var(--text-small);
+  font-size: var(--text-base);
   font-weight: 400;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -426,7 +426,7 @@ button.sc-login-lang-seg.active {
   max-width: 100%;
   color: #56ccf2;
   text-decoration: none;
-  font-size: var(--text-small);
+  font-size: var(--text-base);
   font-weight: 400;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   white-space: nowrap;
