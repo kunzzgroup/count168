@@ -749,31 +749,49 @@ body.process-page {
     padding: 1px 4px;
 }
 
-/* Bank React 列表：状态格统一宽高；左侧多留空以抵消右侧下拉箭头，文字几何居中；溢出省略 */
+/* Bank React 列表：参考图二 — 统一宽高、大字重、居中；下拉箭头用 ::after 绝对定位避免挤偏文字 */
 .process-page.process-page--bank .bank-status-button {
-    width: 8.35rem;
-    min-width: 8.35rem;
-    max-width: 8.35rem;
-    height: 26px;
-    min-height: 26px;
-    max-height: 26px;
+    position: relative;
+    width: 9.35rem;
+    min-width: 9.35rem;
+    max-width: 9.35rem;
+    height: 30px;
+    min-height: 30px;
+    max-height: 30px;
     flex-shrink: 0;
     box-sizing: border-box;
-    padding: 0 22px 0 14px;
+    padding: 0 26px;
     line-height: 1;
-    font-size: clamp(7px, 0.62vw, 9px);
-    letter-spacing: 0.04em;
+    font-size: clamp(9px, 0.78vw, 12px);
+    font-weight: 800;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
     justify-content: center;
     align-items: center;
     overflow: hidden;
     text-overflow: ellipsis;
-    background-size: 11px 11px;
-    background-position: right 6px center;
+    background-image: none;
+}
+
+.process-page.process-page--bank .bank-status-button:not(.is-block)::after {
+    content: "";
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5.25 7.5L10 12.25L14.75 7.5' stroke='%2364758b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    pointer-events: none;
+    opacity: 0.88;
 }
 
 .process-page.process-page--bank .bank-status-button.is-block {
-    padding: 0 12px;
-    background-position: center;
+    padding: 0 26px;
+}
+
+.process-page.process-page--bank .bank-status-button.is-block::after {
+    content: none;
 }
 
 .process-page.process-page--bank .contract-badge {
@@ -898,18 +916,24 @@ body.process-page {
     }
 
     .process-page.process-page--bank .bank-status-button {
-        width: 7.35rem;
-        min-width: 7.35rem;
-        max-width: 7.35rem;
-        height: 24px;
-        min-height: 24px;
-        max-height: 24px;
-        padding: 0 20px 0 11px;
-        font-size: clamp(6px, 0.58vw, 8px);
+        width: 8.35rem;
+        min-width: 8.35rem;
+        max-width: 8.35rem;
+        height: 28px;
+        min-height: 28px;
+        max-height: 28px;
+        padding: 0 22px;
+        font-size: clamp(8px, 0.7vw, 10px);
+    }
+
+    .process-page.process-page--bank .bank-status-button:not(.is-block)::after {
+        width: 10px;
+        height: 10px;
+        right: 6px;
     }
 
     .process-page.process-page--bank .bank-status-button.is-block {
-        padding: 0 10px;
+        padding: 0 22px;
     }
 }
 
@@ -3954,7 +3978,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 
 .process-page .process-cards.bank-mode .card-item.bank-status-cell {
     overflow: visible !important;
-    justify-content: flex-start;
+    justify-content: center;
 }
 
 /* Final restore: Edit Process should match reference (long rectangle + horizontal Day Use) */
