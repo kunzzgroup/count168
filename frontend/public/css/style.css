@@ -151,7 +151,7 @@ body.bg::before {
     text-align: center;
     margin: 0 0 30px;
     color: var(--color-body-strong);
-    font-size: var(--text-h3);
+    font-size: var(--text-h2);
     font-weight: 600;
     font-family: var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
     line-height: 1.25;
