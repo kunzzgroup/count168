@@ -152,6 +152,8 @@ try {
     }
 
     $billingMonths = isset($_POST['billing_months']) && is_array($_POST['billing_months']) ? $_POST['billing_months'] : [];
+    $debugMode = isset($_POST['debug']) && (string) $_POST['debug'] === '1';
+    $debugRows = [];
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim((string) $periodTypes[$i]) : 'monthly';
@@ -200,15 +202,29 @@ try {
     foreach ($pairs as $p) {
         $processId = $p['id'];
         $periodType = $p['period_type'];
+        $debugEntry = [
+            'process_id' => $processId,
+            'period_type_input' => $periodType,
+            'billing_month_input' => (string) ($p['billing_month'] ?? ''),
+            'forced_consolidated' => false,
+            'post_date' => null,
+            'pap_id' => 0,
+            'path' => 'none',
+        ];
         $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1");
         $stmt->execute([$processId, $companyId]);
         if (!$stmt->fetch()) {
+            if ($debugMode) {
+                $debugEntry['path'] = 'skip_process_not_found';
+                $debugRows[] = $debugEntry;
+            }
             continue;
         }
         if (in_array($periodType, ['monthly', 'day_end_tail', 'partial_first_month'], true)) {
             try {
                 if (isProcessInResendConsolidatedMode($pdo, $companyId, $processId)) {
                     $periodType = 'resend_consolidated_range';
+                    $debugEntry['forced_consolidated'] = true;
                 }
             } catch (Throwable $e) {
                 // ignore fallback detection failure, keep original period type
@@ -246,11 +262,14 @@ try {
                 }
             }
         }
+        $debugEntry['period_type_effective'] = $periodType;
+        $debugEntry['post_date'] = $postDate;
         $insPap->execute([$companyId, $processId, $postDate, $skippedType]);
         $papId = 0;
         if ($insPap->rowCount() > 0) {
             $inserted++;
             $papId = (int) $pdo->lastInsertId();
+            $debugEntry['path'] = 'insert_skipped';
         } else {
             $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
             $fid = $selPap->fetchColumn();
@@ -258,6 +277,7 @@ try {
             // INSERT IGNORE 未插入但已有同键 *_skipped 行：视为已移除（重复点 Delete 时条数不为 0）
             if ($papId > 0) {
                 $inserted++;
+                $debugEntry['path'] = 'existing_skipped';
             }
         }
         // 唯一键若与既有 resend_consolidated_range（非 skipped）同键冲突：INSERT IGNORE 不插入且上面 SELECT 也找不到 skipped → 直接改为 skipped。
@@ -273,6 +293,7 @@ try {
                 $papId = $fid2 ? (int) $fid2 : 0;
                 if ($papId > 0) {
                     $inserted++;
+                    $debugEntry['path'] = 'update_consolidated_same_date';
                 }
             }
             // 兜底 1：同锚点日可能是其它 period_type 占位，统一改为 consolidated_skipped。
@@ -288,6 +309,7 @@ try {
                     $papId = $fid2b ? (int) $fid2b : 0;
                     if ($papId > 0) {
                         $inserted++;
+                        $debugEntry['path'] = 'update_any_same_date';
                     }
                 }
             }
@@ -310,6 +332,7 @@ try {
                     $papId = $fid2c ? (int) $fid2c : 0;
                     if ($papId > 0) {
                         $inserted++;
+                        $debugEntry['path'] = 'update_latest_consolidated';
                     }
                 }
             }
@@ -319,11 +342,20 @@ try {
             $insRp->execute([$companyId, $processId, $papId, $ptNorm, $postDate]);
             if ($periodType === 'resend_consolidated_range') {
                 clearProcessResendConsolidatedState($pdo, $companyId, $processId);
+                $debugEntry['cleared_resend_state'] = true;
             }
+        }
+        $debugEntry['pap_id'] = $papId;
+        if ($debugMode) {
+            $debugRows[] = $debugEntry;
         }
     }
 
-    jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', ['dismissed' => $inserted]);
+    $respData = ['dismissed' => $inserted];
+    if ($debugMode) {
+        $respData['debug'] = $debugRows;
+    }
+    jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', $respData);
 } catch (Exception $e) {
     http_response_code(400);
     jsonResponse(false, $e->getMessage(), null);
