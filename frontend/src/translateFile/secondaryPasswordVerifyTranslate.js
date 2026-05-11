@@ -10,8 +10,8 @@ export const SECONDARY_VERIFY_I18N = {
     switchLang: "Switch language",
   },
   zh: {
-    title: "二次密码验证",
-    lead: "请输入 6 位数字二次密码以继续",
+    title: "二级密码验证",
+    lead: "请输入 6 位数字二级密码",
     placeholder: "请输入 6 位数字密码",
     verify: "验证",
     verifying: "验证中...",
