@@ -124,9 +124,21 @@ export default function UserListPage() {
     return m;
   }, [allCompanyButtons]);
   const companiesInGroup = useMemo(() => {
-    if (!popoverActiveGroup) return allCompanyButtons;
-    return allCompanyButtons.filter((c) => String(c.group_id || "").toUpperCase() === popoverActiveGroup);
+    if (!popoverActiveGroup) {
+      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+    }
+    return allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === popoverActiveGroup);
   }, [allCompanyButtons, popoverActiveGroup]);
+
+  useEffect(() => {
+    if (!gcPopoverOpen) return;
+    setGcDraftCompanyId((draft) => {
+      const keep = companiesInGroup.some((c) => Number(c.id) === Number(draft));
+      if (keep) return draft;
+      const first = companiesInGroup[0]?.id;
+      return first != null ? Number(first) : null;
+    });
+  }, [gcPopoverOpen, companiesInGroup]);
 
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
@@ -431,7 +443,7 @@ export default function UserListPage() {
                                   <button
                                     type="button"
                                     className={`user-gc-group-item${active ? " is-active" : ""}`}
-                                    onClick={() => setPopoverActiveGroup(gid)}
+                                    onClick={() => setPopoverActiveGroup((prev) => (prev === gid ? "" : gid))}
                                   >
                                     <span className="user-gc-group-item__dot" aria-hidden />
                                     <span className="user-gc-group-item__label">{gid} Group</span>

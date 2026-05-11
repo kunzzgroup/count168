@@ -4,6 +4,7 @@ import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
+import "../../../public/css/userlist.css";
 
 // Logic & Constants
 import {
@@ -22,6 +23,15 @@ import CurrencySettingModal from "./components/CurrencySettingModal.jsx";
 import LinkAccountModal from "./components/LinkAccountModal.jsx";
 import { getAccountText } from "../../translateFile/accountTranslate.js";
 
+function normalizeCompanyRow(row) {
+  if (!row || typeof row !== "object") return row;
+  return {
+    ...row,
+    group_id: row.group_id ?? row.groupId ?? row.group ?? null,
+    company_id: row.company_id ?? row.companyId ?? row.code ?? "",
+  };
+}
+
 export default function AccountListPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -39,7 +49,9 @@ export default function AccountListPage() {
   const [roles, setRoles] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [gcPopoverOpen, setGcPopoverOpen] = useState(false);
+  const [popoverActiveGroup, setPopoverActiveGroup] = useState("");
+  const [gcDraftCompanyId, setGcDraftCompanyId] = useState(null);
 
   // -- Filters --
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,6 +83,8 @@ export default function AccountListPage() {
   const [selectedCurrencyIds, setSelectedCurrencyIds] = useState([]);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
   const [currencyInput, setCurrencyInput] = useState("");
+  /** Add/Edit 弹窗内点 × 隐藏的货币 id（本会话），避免仅取消勾选时界面无变化 */
+  const [hiddenCurrencyIds, setHiddenCurrencyIds] = useState([]);
   const [settingCurrencyId, setSettingCurrencyId] = useState(null);
   const [settingLinked, setSettingLinked] = useState(new Set());
   const [settingInitial, setSettingInitial] = useState(new Set());
@@ -78,6 +92,12 @@ export default function AccountListPage() {
   const [settingRole, setSettingRole] = useState("");
 
   const toastTimerRef = useRef(null);
+  const gcPopoverRef = useRef(null);
+
+  const accountModalCurrencies = useMemo(
+    () => currencies.filter((c) => !hiddenCurrencyIds.includes(Number(c.id))),
+    [currencies, hiddenCurrencyIds]
+  );
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -161,7 +181,7 @@ export default function AccountListPage() {
         const compJson = await compRes.json();
         const editJson = await editRes.json();
 
-        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
+        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
         setCompanies(rows);
         setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 
@@ -172,8 +192,6 @@ export default function AccountListPage() {
         setShowInactive(url.searchParams.get("showInactive") === "1");
         setShowAll(url.searchParams.get("showAll") === "1");
 
-        const curComp = rows.find(r => Number(r.id) === Number(cid));
-        setSelectedGroup(curComp?.group_id ? String(curComp.group_id).toUpperCase() : null);
       } catch { navigate("/login"); }
       finally { setBootLoading(false); }
     })();
@@ -185,11 +203,53 @@ export default function AccountListPage() {
 
   // -- Computed --
   const allCompanyButtons = useMemo(() => companies.filter(c => c.company_id && String(c.company_id).trim() !== ""), [companies]);
-  const groupIds = useMemo(() => [...new Set(allCompanyButtons.filter(c => c.group_id).map(c => String(c.group_id).toUpperCase()))].sort(), [allCompanyButtons]);
-  const companyButtons = useMemo(() => {
-    if (!selectedGroup) return allCompanyButtons.filter(c => !c.group_id || String(c.group_id).trim() === "");
-    return allCompanyButtons.filter(c => String(c.group_id || "").toUpperCase() === selectedGroup);
-  }, [allCompanyButtons, selectedGroup]);
+  const groupIds = useMemo(
+    () =>
+      [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
+    [allCompanyButtons]
+  );
+  const selectedCompany = useMemo(
+    () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
+    [allCompanyButtons, companyId]
+  );
+  const selectedGroupLabel = String(selectedCompany?.group_id || "-").toUpperCase();
+  const selectedCompanyLabel = String(selectedCompany?.company_id || "").toUpperCase();
+  const gcSummary = `${selectedGroupLabel} - ${selectedCompanyLabel}`;
+  const groupCompanyCountMap = useMemo(() => {
+    const m = new Map();
+    allCompanyButtons.forEach((c) => {
+      const gid = String(c.group_id || "").trim().toUpperCase();
+      if (!gid) return;
+      m.set(gid, (m.get(gid) || 0) + 1);
+    });
+    return m;
+  }, [allCompanyButtons]);
+  const companiesInGroup = useMemo(() => {
+    if (!popoverActiveGroup) {
+      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+    }
+    return allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === popoverActiveGroup);
+  }, [allCompanyButtons, popoverActiveGroup]);
+
+  useEffect(() => {
+    if (!gcPopoverOpen) return;
+    setGcDraftCompanyId((draft) => {
+      const keep = companiesInGroup.some((c) => Number(c.id) === Number(draft));
+      if (keep) return draft;
+      const first = companiesInGroup[0]?.id;
+      return first != null ? Number(first) : null;
+    });
+  }, [gcPopoverOpen, companiesInGroup]);
+
+  useEffect(() => {
+    if (!gcPopoverOpen) return;
+    const onDocPointerDown = (e) => {
+      if (!gcPopoverRef.current) return;
+      if (!gcPopoverRef.current.contains(e.target)) setGcPopoverOpen(false);
+    };
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, [gcPopoverOpen]);
 
   const sortedAccounts = useMemo(() => {
     const arr = [...accounts];
@@ -230,11 +290,23 @@ export default function AccountListPage() {
       const json = await res.json();
       if (!json.success) return notify(json.message || t("failedToSwitchCompany"), "danger");
       setCompanyId(Number(c.id));
-      setSelectedGroup(c.group_id ? String(c.group_id).toUpperCase() : null);
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }));
     } catch { notify(t("failedToSwitchCompany"), "danger"); }
     finally { setSwitchingCompany(false); }
+  };
+
+  const openGcPopover = () => {
+    const currentGroup = String(selectedCompany?.group_id || "").trim().toUpperCase();
+    setPopoverActiveGroup(currentGroup);
+    setGcDraftCompanyId(Number(companyId) || null);
+    setGcPopoverOpen((v) => !v);
+  };
+
+  const confirmGcPopover = async () => {
+    const picked = allCompanyButtons.find((c) => Number(c.id) === Number(gcDraftCompanyId));
+    if (picked) await onSwitchCompany(picked);
+    setGcPopoverOpen(false);
   };
 
   const togglePaymentAlert = async (id) => {
@@ -284,6 +356,7 @@ export default function AccountListPage() {
     setIsEditMode(false); setForm({ ...DEFAULT_FORM, payment_alert: "0" });
     setSelectedCurrencyIds([]); setCurrencyInput("");
     setInitialEditCurrencyIds([]);
+    setHiddenCurrencyIds([]);
     setAddModalOpen(true); loadSelectionMeta(null, false);
   };
 
@@ -294,6 +367,7 @@ export default function AccountListPage() {
       if (!json.success) return notify(json.message || t("failedToLoadAccount"), "danger");
       const d = json.data;
       setIsEditMode(true);
+      setHiddenCurrencyIds([]);
       setForm({ id: d.id, account_id: toUpper(d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
       await loadSelectionMeta(id, true);
       setEditModalOpen(true);
@@ -357,6 +431,7 @@ export default function AccountListPage() {
         }
       }
       setAddModalOpen(false); setEditModalOpen(false);
+      setHiddenCurrencyIds([]);
       notify(t("accountSavedSuccessfully"));
       fetchAccounts();
     } catch { notify(t("saveFailed"), "danger"); }
@@ -367,8 +442,18 @@ export default function AccountListPage() {
     try {
       const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, company_id: companyId }), credentials: "include" });
       const json = await res.json();
-      if (json.success) { setCurrencies(prev => [...prev, { id: json.data.id, code: json.data.code, is_linked: false }]); setCurrencyInput(""); }
+      if (json.success) {
+        const newId = Number(json.data.id);
+        setCurrencies((prev) => [...prev, { id: newId, code: json.data.code, is_linked: false }]);
+        setCurrencyInput("");
+      }
     } catch { notify(t("createFailed"), "danger"); }
+  };
+
+  const removeModalCurrency = (currencyId) => {
+    const id = Number(currencyId);
+    setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+    setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
   const loadCurrencyLinks = async (curId) => {
@@ -500,7 +585,71 @@ export default function AccountListPage() {
           <div className="account-separator-line" />
           <div className="account-action-buttons-container" style={{ marginBottom: 20 }}>
             <div className="account-action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                {allCompanyButtons.length > 0 && (
+                  <div className="user-group-company-row" ref={gcPopoverRef}>
+                    <button type="button" className="user-gc-trigger" onClick={openGcPopover} disabled={switchingCompany}>
+                      <span className="user-gc-trigger__label">{t("groupAndCompany")}</span>
+                      <span className="user-gc-trigger__chips" title={gcSummary}>{gcSummary}</span>
+                      <span className="user-gc-trigger__caret" aria-hidden>▼</span>
+                    </button>
+                    {gcPopoverOpen && (
+                      <div className="user-gc-popover" role="dialog">
+                        {groupIds.length > 0 && (
+                          <div className="user-gc-popover__groups">
+                            <div className="user-gc-popover__title">{t("gcSelectGroup")}</div>
+                            <ul className="user-gc-group-list">
+                              {groupIds.map((gid) => {
+                                const active = popoverActiveGroup === gid;
+                                const count = groupCompanyCountMap.get(gid) || 0;
+                                return (
+                                  <li key={gid}>
+                                    <button
+                                      type="button"
+                                      className={`user-gc-group-item${active ? " is-active" : ""}`}
+                                      onClick={() => setPopoverActiveGroup((prev) => (prev === gid ? "" : gid))}
+                                    >
+                                      <span className="user-gc-group-item__dot" aria-hidden />
+                                      <span className="user-gc-group-item__label">
+                                        {lang === "zh" ? `${gid} 集团` : `${gid} Group`}
+                                      </span>
+                                      <span className="user-gc-group-item__badge">{count}</span>
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        )}
+                        <div className="user-gc-popover__companies">
+                          <div className="user-gc-popover__title">{t("gcSelectCompany")}</div>
+                          <div className="user-gc-company-pills">
+                            {companiesInGroup.map((c) => {
+                              const cid = Number(c.id);
+                              const active = Number(gcDraftCompanyId) === cid;
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  className={`user-gc-company-pill${active ? " is-on" : ""}`}
+                                  onClick={() => setGcDraftCompanyId(cid)}
+                                >
+                                  {String(c.company_id || "").toUpperCase()}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="user-gc-popover__footer">
+                            <span className="user-gc-popover__count">{t("gcOneSelected")}</span>
+                            <button type="button" className="user-gc-confirm-btn" onClick={() => void confirmGcPopover()}>
+                              {t("gcConfirm")}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <button className="account-btn account-btn-add" onClick={openAdd}>{t("addAccount")}</button>
                 <div className="account-search-container">
                   <svg className="account-search-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
@@ -512,39 +661,6 @@ export default function AccountListPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <button className="account-btn account-btn-setting" onClick={() => setCurrencySettingOpen(true)}>{t("currencySetting")}</button>
                 <button className="account-btn account-btn-delete" disabled={!selectedDeleteIds.size} onClick={() => setConfirmDeleteOpen(true)}>{t("deleteWithCount", { count: selectedDeleteIds.size })}</button>
-              </div>
-            </div>
-            <div style={{ padding: "0 20px 15px 20px" }}>
-              {groupIds.length > 0 && (
-                <div className="account-company-filter">
-                  <span className="account-company-label">{t("groupId")}</span>
-                  <div className="account-company-buttons">
-                    {groupIds.map(gid => (
-                      <button
-                        key={gid}
-                        className={`account-company-btn ${selectedGroup === gid ? "active" : ""}`}
-                        onClick={() => setSelectedGroup(p => p === gid ? null : gid)}
-                      >
-                        {gid}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="account-company-filter">
-                <span className="account-company-label">{t("company")}</span>
-                <div className="account-company-buttons">
-                  {companyButtons.map(c => (
-                    <button
-                      key={c.id}
-                      className={`account-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`}
-                      onClick={() => onSwitchCompany(c)}
-                      disabled={switchingCompany}
-                    >
-                      {c.company_id}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
           </div>
@@ -608,7 +724,7 @@ export default function AccountListPage() {
         form={form}
         setForm={setForm}
         orderedRoles={orderedRoles}
-        currencies={currencies}
+        currencies={accountModalCurrencies}
         companies={companies}
         selectedCurrencyIds={selectedCurrencyIds}
         setSelectedCurrencyIds={setSelectedCurrencyIds}
@@ -621,10 +737,12 @@ export default function AccountListPage() {
           if (e?.preventDefault) e.preventDefault();
           createCurrency();
         }}
+        onRemoveCurrency={removeModalCurrency}
         onSubmit={saveForm}
         onClose={() => {
           setAddModalOpen(false);
           setEditModalOpen(false);
+          setHiddenCurrencyIds([]);
         }}
         t={t}
       />

@@ -170,7 +170,7 @@ body.user-page.user-page--show-all .user-cards {
 .user-gc-popover {
     position: absolute;
     top: calc(100% + 8px);
-    left: 20px;
+    left: 0;
     z-index: 40;
     display: grid;
     grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.35fr);
@@ -973,11 +973,10 @@ label.user-modal-col-title.acc-proc-label {
     flex-shrink: 0;
 }
 
-/* Permissions list: scrollable */
+/* Permissions list: scrollable — grows like Account/Process grids so footer buttons align on one row */
 .sidebar-permissions-section .permissions-container {
     flex: 1;
     min-height: 0;
-    max-height: 163.65px;
     overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -986,14 +985,15 @@ label.user-modal-col-title.acc-proc-label {
     align-content: start;
 }
 
-/* Fixed buttons at bottom of permissions section */
+/* Same row as Account / Process Select All · Clear All (sticky to column bottom via flex ) */
 .sidebar-permissions-section .permissions-actions {
     flex-shrink: 0;
     display: flex;
     gap: 10px;
     justify-content: center;
-    padding: 12px 0 0;
-    margin: 9.984px 0 0 0;
+    padding-top: 12px;
+    margin-top: auto;
+    margin-bottom: 0;
     border-top: 1px solid #e2e8f0;
 }
 

@@ -614,7 +614,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 .account-form-column .account-form-row {
     gap: 1.125rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
 }
 
 /* 隐藏的 alert 字段不占空间 */
@@ -1261,7 +1261,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-form-group label,
 #account-editModal .account-form-group label {
     font-size: clamp(12px, 0.85vw, 14px);
-    color: #334155;
+    font-weight: 600;
     letter-spacing: 0.015em;
 }
 
@@ -1278,12 +1278,34 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
+/* Start Date：整框可点展开（WebKit 扩大日历触发区；配合 JS showPicker） */
+#account-addModal .account-form-group input[type="date"],
+#account-editModal .account-form-group input[type="date"] {
+    position: relative;
+    cursor: pointer;
+}
+
+#account-addModal .account-form-group input[type="date"]::-webkit-calendar-picker-indicator,
+#account-editModal .account-form-group input[type="date"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0;
+}
+
+/* Advanced Account · devtools reference: 15px · #1E293B · margin 15px 0 8px · pad bottom 4px */
 #account-addModal .account-advance-section h3,
 #account-editModal .account-advance-section h3 {
-    font-size: clamp(18px, 1.35vw, 24px);
-    margin-bottom: clamp(0.45rem, 0.85vw, 0.7rem);
-    padding-bottom: clamp(0.2rem, 0.45vw, 0.3rem);
-    border-bottom: 1px solid #e5e7eb;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 15px 0 8px;
+    padding: 0 0 4px;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 #account-addModal .account-advance-section,
@@ -1291,36 +1313,86 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding-top: clamp(0.4rem, 0.75vw, 0.65rem);
 }
 
+/* Strip · #F8FAFC bg · text #334155 16px · pad 8px 12px · margin bottom 8px */
 #account-addModal .account-other-currency,
 #account-editModal .account-other-currency {
-    gap: clamp(0.55rem, 1vw, 0.8rem);
-    padding: clamp(0.5rem, 0.9vw, 0.72rem) clamp(0.65rem, 1.2vw, 1rem);
-    margin-bottom: clamp(0.5rem, 0.9vw, 0.75rem);
-    border-radius: 0.58rem;
-    border-color: #e2e8f0;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    margin: 0 0 8px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+#account-addModal .account-other-currency--company,
+#account-editModal .account-other-currency--company {
+    margin: 20px 0 8px;
 }
 
 #account-addModal .account-other-currency label,
 #account-editModal .account-other-currency label {
-    font-size: clamp(12px, 0.85vw, 13px);
-    min-width: 6.8rem;
-    color: #334155;
+    flex-shrink: 0;
+    font-size: 14px;
+    min-width: 7.5rem;
+    margin: 0;
+    font-weight: 600;
+    color: #374151;
 }
 
 #account-addModal .account-other-currency input,
 #account-editModal .account-other-currency input {
-    min-height: 2.25rem;
-    font-size: clamp(12px, 0.85vw, 13px);
+    flex: 0 1 auto;
+    box-sizing: border-box;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 34px;
+    padding: 8px;
+    font-size: 14px;
+    background: #ffffff;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    color: #334155;
 }
 
+/* 与图二/三 Payment 选中、底部 Add 同系蓝渐变 */
 #account-addModal .account-btn-add-currency,
 #account-editModal .account-btn-add-currency {
-    min-height: 2.15rem;
-    padding: 0.45rem 0.9rem;
-    font-size: clamp(11px, 0.82vw, 12px);
-    border-radius: 0.45rem;
-    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.28);
+    min-height: 2.75rem;
+    padding: 1rem 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 700;
+    font-family: Amaranth, sans-serif;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.28), 0 3px 8px rgba(13, 96, 255, 0.18);
+}
+
+#account-addModal .account-btn-add-currency:hover,
+#account-editModal .account-btn-add-currency:hover {
+    background: linear-gradient(180deg, #0d60ff 0%, #63c4ff 100%);
+    color: #ffffff;
+}
+
+#account-addModal .account-btn-add-currency:active,
+#account-editModal .account-btn-add-currency:active {
+    transform: translateY(0);
+}
+
+#account-addModal .account-other-currency .account-currency-input-group,
+#account-editModal .account-other-currency .account-currency-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
 }
 
 #account-addModal .account-currency-list,
@@ -1328,28 +1400,124 @@ body.account-page:not(.account-page--show-all) .account-card {
     gap: clamp(0.35rem, 0.7vw, 0.5rem);
 }
 
-#account-addModal .account-currency-item,
 #account-addModal .account-company-btn,
-#account-editModal .account-currency-item,
 #account-editModal .account-company-btn {
-    font-size: clamp(11px, 0.82vw, 12px);
-    padding: clamp(0.28rem, 0.56vw, 0.42rem) clamp(0.62rem, 0.95vw, 0.82rem);
-    min-height: 1.72rem;
+    font-family: Amaranth, sans-serif;
+    font-size: 12px;
+    padding: 6px 16px;
+    min-height: auto;
     border-radius: 999px;
-    border-color: #d6deea;
+    border: 1px solid #d6deea;
     box-shadow: none;
 }
 
+/* 无 × 的货币 pill（仅选择模式） */
+#account-addModal .account-currency-item:not(.currency-toggle-item),
+#account-editModal .account-currency-item:not(.currency-toggle-item) {
+    font-family: Amaranth, sans-serif;
+    font-size: 12px;
+    padding: 6px 16px;
+    min-height: auto;
+    border-radius: 999px;
+    border: 1px solid #d6deea;
+    box-shadow: none;
+}
+
+/* 图二/三 · Other Currency：选中蓝渐变+白字+白×；未选中白底浅灰边深灰字+红×；货币码 1.4rem */
+#account-addModal .account-currency-item.currency-toggle-item,
+#account-editModal .account-currency-item.currency-toggle-item {
+    border-radius: 0.5rem;
+    font-family: Amaranth, sans-serif;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    min-height: 2.75rem;
+    align-items: center;
+    box-shadow: none;
+}
+
+#account-addModal .account-currency-item.currency-toggle-item.selected,
+#account-editModal .account-currency-item.currency-toggle-item.selected {
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    border: 1px solid transparent;
+    color: #ffffff;
+}
+
+#account-addModal .account-currency-item.currency-toggle-item.selected .currency-code-text,
+#account-editModal .account-currency-item.currency-toggle-item.selected .currency-code-text {
+    font-size: 1.4rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #ffffff;
+}
+
+#account-addModal .account-currency-item.currency-toggle-item:not(.selected),
+#account-editModal .account-currency-item.currency-toggle-item:not(.selected) {
+    background: #ffffff;
+    border: 1px solid #dbe4f0;
+    color: #334155;
+}
+
+#account-addModal .account-currency-item.currency-toggle-item:not(.selected) .currency-code-text,
+#account-editModal .account-currency-item.currency-toggle-item:not(.selected) .currency-code-text {
+    font-size: 1.4rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #334155;
+}
+
+#account-addModal .account-currency-item.currency-toggle-item:not(.selected) .currency-delete-btn,
+#account-editModal .account-currency-item.currency-toggle-item:not(.selected) .currency-delete-btn {
+    color: #dc2626;
+    opacity: 1;
+}
+
+#account-addModal .account-currency-item.currency-toggle-item:not(.selected) .currency-delete-btn:hover,
+#account-editModal .account-currency-item.currency-toggle-item:not(.selected) .currency-delete-btn:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+#account-addModal .account-currency-item.currency-toggle-item:not(.selected):hover,
+#account-editModal .account-currency-item.currency-toggle-item:not(.selected):hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #334155;
+    transform: none;
+    box-shadow: 0 0.125rem 0.375rem rgba(15, 23, 42, 0.06);
+}
+
+#account-addModal .account-currency-item.currency-toggle-item.selected:hover,
+#account-editModal .account-currency-item.currency-toggle-item.selected:hover {
+    transform: none;
+    box-shadow: 0 3px 8px rgba(13, 96, 255, 0.28);
+}
+
+/* × 可点：避免 flex:1 的代码区盖住删除键 */
+#account-addModal .account-currency-item.currency-toggle-item .currency-code-text,
+#account-editModal .account-currency-item.currency-toggle-item .currency-code-text {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+#account-addModal .account-currency-item.currency-toggle-item .currency-delete-btn,
+#account-editModal .account-currency-item.currency-toggle-item .currency-delete-btn {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+
+/* Form footer · tooltip: padding 16px 40px */
 #account-addModal .account-form-actions,
 #account-editModal .account-form-actions {
     margin-top: auto;
-    padding: clamp(0.8rem, 1.25vw, 1rem) clamp(1.2rem, 2vw, 1.55rem);
-    padding-bottom: clamp(0.55rem, 0.85vw, 0.75rem);
+    padding: 16px 40px;
     border-radius: 0 0 0.875rem 0.875rem;
-    gap: clamp(0.7rem, 1.2vw, 0.9rem);
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    gap: 12px;
+    background: #ffffff;
     border-top: 1px solid #e5e7eb;
 }
+
+/* Footer primary/secondary · ~130×36 · pad 8px 20px · 16px Amaranth */
 
 #account-addModal .account-modal-body,
 #account-editModal .account-modal-body {
@@ -1362,18 +1530,50 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 #account-addModal .account-btn-save,
+#account-editModal .account-btn-save {
+    min-width: 130px;
+    min-height: 36px;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: Amaranth, sans-serif;
+    padding: 8px 20px;
+    color: #ffffff;
+    border: none;
+    border-radius: 0.375rem;
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.28), 0 3px 8px rgba(13, 96, 255, 0.18);
+}
+
+#account-addModal .account-btn-save:hover,
+#account-editModal .account-btn-save:hover {
+    background: linear-gradient(180deg, #0d60ff 0%, #63c4ff 100%);
+    color: #ffffff;
+}
+
 #account-addModal .account-btn-cancel,
-#account-editModal .account-btn-save,
 #account-editModal .account-btn-cancel {
-    min-width: clamp(126px, 9.5vw, 156px);
-    min-height: 2.72rem;
-    font-size: clamp(14px, 1vw, 16px);
-    padding: clamp(0.58rem, 0.86vw, 0.8rem) clamp(1.35rem, 2vw, 1.85rem);
+    min-width: 130px;
+    min-height: 36px;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: Amaranth, sans-serif;
+    padding: 8px 20px;
+    color: #ffffff;
+    border: none;
+    border-radius: 0.375rem;
+    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
+    box-shadow: 0 2px 6px rgba(88, 88, 88, 0.25);
+}
+
+#account-addModal .account-btn-cancel:hover,
+#account-editModal .account-btn-cancel:hover {
+    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
+    color: #ffffff;
 }
 
 #account-addModal .account-modal-header h2,
 #account-editModal .account-modal-header h2 {
-    font-size: clamp(34px, 2.25vw, 40px);
+    font-size: clamp(22px, 1.85vw, 28px);
     padding-left: clamp(1.35rem, 2.05vw, 1.95rem);
     color: #1f2937;
 }
@@ -1412,7 +1612,8 @@ body.account-page:not(.account-page--show-all) .account-card {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     min-width: 0;
 }
 

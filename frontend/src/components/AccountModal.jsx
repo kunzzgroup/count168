@@ -36,6 +36,13 @@ export default function AccountModal({
 
   const text = (key, params) => (typeof t === "function" ? t(key, params) : key);
   const modalId = isEditMode ? "account-editModal" : "account-addModal";
+  const currencyPlaceholder = text("newCurrencyPlaceholder");
+  /** HTML size ≈ placeholder width (ch); CJK glyphs render wider → slight bump */
+  const hasCjk = /[\u4e00-\u9fff\u3000-\u303f\u3040-\u30ff]/.test(currencyPlaceholder);
+  const currencyInputCols = Math.min(
+    80,
+    Math.max(12, Math.ceil([...currencyPlaceholder].length * (hasCjk ? 1.15 : 1) + 1))
+  );
 
   const companyButtons = Array.isArray(companies)
     ? companies.filter((c) => c?.company_id && String(c.company_id).trim() !== "")
@@ -79,7 +86,15 @@ export default function AccountModal({
               <span className="currency-code-text" onClick={() => setSelectedCurrencyIds((prev) => toggleId(prev, id))} role="presentation">
                 {upper(c.code)}
               </span>
-              <button type="button" className="currency-delete-btn" onClick={() => onRemoveCurrency(c.id)}>
+              <button
+                type="button"
+                className="currency-delete-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onRemoveCurrency(c.id);
+                }}
+              >
                 ×
               </button>
             </div>
@@ -195,6 +210,16 @@ export default function AccountModal({
                         type="date"
                         value={form.alert_start_date}
                         onChange={(e) => setForm((f) => ({ ...f, alert_start_date: e.target.value }))}
+                        onClick={(e) => {
+                          const el = e.currentTarget
+                          if (typeof el.showPicker === "function") {
+                            try {
+                              el.showPicker()
+                            } catch {
+                              /* 部分环境在非用户手势等情况下会抛错 */
+                            }
+                          }
+                        }}
                       />
                     </div>
                   </div>
@@ -230,10 +255,11 @@ export default function AccountModal({
                 <h3>{text("advancedAccount")}</h3>
                 <div className="account-other-currency">
                   <label>{text("otherCurrency")}</label>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div className="account-currency-input-group">
                     <input
                       type="text"
-                      placeholder={text("newCurrencyPlaceholder")}
+                      size={currencyInputCols}
+                      placeholder={currencyPlaceholder}
                       value={currencyInput}
                       onChange={(e) => setCurrencyInput(upper(e.target.value))}
                     />
@@ -244,7 +270,7 @@ export default function AccountModal({
                   {renderCurrencyList()}
                 </div>
 
-                <div className="account-other-currency" style={{ marginTop: "20px" }}>
+                <div className="account-other-currency account-other-currency--company">
                   <label>{text("company")}</label>
                   <div className="account-currency-list">
                     {companyButtons.map((c) => {

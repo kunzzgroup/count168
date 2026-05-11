@@ -633,11 +633,11 @@ export default function TransactionDashboardPage() {
   );
 
   const openGcPopover = useCallback(() => {
-    const g = selectedGroup || (groupIds.length ? groupIds[0] : null);
+    const g = selectedGroup ?? null;
     setPopoverActiveGroup(g);
     setGcDraftIds(computeGcDraft(g));
     setGcPopoverOpen(true);
-  }, [selectedGroup, groupIds, computeGcDraft]);
+  }, [selectedGroup, computeGcDraft]);
 
   const confirmGcPopover = useCallback(async () => {
     const gid = popoverActiveGroup;
@@ -690,11 +690,12 @@ export default function TransactionDashboardPage() {
 
   const onPopoverPickGroup = useCallback(
     (gid) => {
-      setPopoverActiveGroup(gid);
-      const list = companiesInGroupList(companies, gid);
+      const next = popoverActiveGroup === gid ? null : gid;
+      setPopoverActiveGroup(next);
+      const list = companiesInGroupList(companies, next);
       setGcDraftIds(sortIds(list.map((c) => parseInt(c.id, 10))));
     },
-    [companies]
+    [companies, popoverActiveGroup]
   );
 
   const setPeriodRange = (periodKey) => {
