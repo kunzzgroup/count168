@@ -226,11 +226,19 @@ export const EMPTY_BANK_FORM = {
   profit_sharing: "",
   day_start: "",
   day_end: "",
-  day_start_frequency: "1st_of_every_month",
+  /** Default matches legacy bank_process_list.php / openAddProcess (Frequency = Once). */
+  day_start_frequency: "once",
   status: "active",
   remark: "",
   sop: "",
 };
+
+/** @returns {'monthly'|'once'|'1st_of_every_month'} */
+export function bankProcessFrequencyNormalized(v) {
+  if (v === "monthly") return "monthly";
+  if (v === "once") return "once";
+  return "1st_of_every_month";
+}
 
 export const parseBankContractTermMonths = (contract) => {
   if (!contract || String(contract).trim() === '') return null;
@@ -276,6 +284,7 @@ export const billingContractExclusiveEndYmdFirstOfMonthJs = (startYmd, termMonth
 
 export const contractBillingEndYmdForBankForm = (startYmd, termMonths, frequency) => {
   if (!startYmd || termMonths == null || termMonths < 1) return null;
+  if (frequency === "once") return null;
   if (frequency === 'monthly') return addCalendarMonthsToYmd(startYmd, termMonths);
   return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
 };

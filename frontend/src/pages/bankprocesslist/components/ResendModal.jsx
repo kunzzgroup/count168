@@ -1,4 +1,5 @@
 import React from "react";
+import { bankProcessFrequencyNormalized } from "../bankProcessHelpers.js";
 
 export default function ResendModal({
   resendTarget,
@@ -14,6 +15,10 @@ export default function ResendModal({
   onClose,
   t,
 }) {
+  const fq = bankProcessFrequencyNormalized(resendFrequency);
+  const isOnce = fq === "once";
+  const hasDayEnd = !!String(resendDayEnd || "").trim();
+
   return (
     <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={{ display: "block" }}>
       <div className="process-confirm-modal-content bank-resend-modal-content">
@@ -58,16 +63,25 @@ export default function ResendModal({
                 className="bank-resend-control"
                 type="date"
                 autoComplete="off"
-                min={resendDayStart || undefined}
+                min={isOnce ? undefined : (resendDayStart || undefined)}
+                disabled={isOnce}
+                title={isOnce ? t("dayEndNotUsedWhenOnce") : undefined}
+                style={isOnce ? { opacity: 0.55 } : undefined}
                 value={resendDayEnd}
                 onChange={(e) => setResendDayEnd(e.target.value)}
               />
             </div>
             <div className="bank-resend-field bank-resend-field--full">
               <label className="bank-resend-field__label" htmlFor="bank_resend_frequency">{t("frequency")}</label>
-              <select id="bank_resend_frequency" className="bank-resend-control bank-resend-control--select" value={resendFrequency} onChange={(e) => setResendFrequency(e.target.value)}>
+              <select
+                id="bank_resend_frequency"
+                className="bank-resend-control bank-resend-control--select"
+                value={fq}
+                onChange={(e) => setResendFrequency(e.target.value)}
+              >
                 <option value="1st_of_every_month">{t("firstOfEveryMonth")}</option>
-                <option value="monthly" disabled={!!String(resendDayEnd || "").trim()}>{t("monthly")}</option>
+                <option value="monthly" disabled={hasDayEnd && !isOnce}>{t("monthly")}</option>
+                <option value="once">{t("onceFrequency")}</option>
               </select>
             </div>
           </div>

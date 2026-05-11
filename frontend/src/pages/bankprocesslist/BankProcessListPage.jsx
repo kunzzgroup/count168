@@ -29,6 +29,7 @@ import {
   parseBankContractTermMonths,
   contractBillingEndYmdForBankForm,
   matchesCurrentBankFilters,
+  bankProcessFrequencyNormalized,
 } from "./bankProcessHelpers.js";
 import ProcessDeleteConfirmModal from "../processlist/components/ProcessDeleteConfirmModal.jsx";
 
@@ -42,6 +43,16 @@ import BankNoteModal from "./components/BankNoteModal.jsx";
 import BankRemarkModal from "./components/BankRemarkModal.jsx";
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
+
+/** Matches legacy processlist.js / bank_process_list.js Accounting Due row period_types. */
+function accountingDuePeriodType(r) {
+  if (r.is_once_one_off) return "once_one_off";
+  if (r.is_manual_inactive) return "manual_inactive";
+  if (r.is_resend_consolidated_range) return "resend_consolidated_range";
+  if (r.is_partial_first_month) return "partial_first_month";
+  if (r.is_day_end_tail) return "day_end_tail";
+  return "monthly";
+}
 
 export default function BankProcessListPage() {
   const resolveLang = useCallback(
@@ -441,19 +452,23 @@ export default function BankProcessListPage() {
     });
   }, [modalOpen, form.cost, form.price, form.profit_sharing]);
 
-  // Keep legacy bank_process_list.js rule:
-  // when Day end exists, Frequency cannot be monthly.
+  // Legacy updateBankFrequencyOptions: when Day end exists (and not Once), force 1st_of_every_month (not monthly).
   useEffect(() => {
     if (!modalOpen) return;
     const hasDayEnd = !!String(form.day_end || "").trim();
     if (!hasDayEnd) return;
+    if (bankProcessFrequencyNormalized(form.day_start_frequency) === "once") return;
     if (String(form.day_start_frequency || "") !== "monthly") return;
     setForm((prev) => ({ ...prev, day_start_frequency: "1st_of_every_month" }));
   }, [modalOpen, form.day_end, form.day_start_frequency]);
 
-  // Auto calculate Day end
+  // Auto calculate Day end (legacy autoCalculateBankDayEnd skips Frequency = Once)
   useEffect(() => {
     if (!modalOpen) return;
+    if (bankProcessFrequencyNormalized(form.day_start_frequency) === "once") {
+      bankContractEndHintRef.current = null;
+      return;
+    }
     const start = String(form.day_start || "").trim();
     const currentEnd = String(form.day_end || "").trim();
     const contract = String(form.contract || "").trim();
@@ -493,11 +508,20 @@ export default function BankProcessListPage() {
   }, []);
 
   useEffect(() => {
-    const hasDayEnd = !!String(resendDayEnd || "").trim();
-    if (!hasDayEnd) return;
-    if (String(resendFrequency || "") !== "monthly") return;
-    setResendFrequency("1st_of_every_month");
-  }, [resendDayEnd, resendFrequency]);
+    if (!resendModalOpen) return;
+    if (bankProcessFrequencyNormalized(resendFrequency) !== "once") return;
+    if (!String(resendDayEnd || "").trim()) return;
+    setResendDayEnd("");
+  }, [resendModalOpen, resendFrequency]);
+
+  useEffect(() => {
+    if (!resendModalOpen) return;
+    if (bankProcessFrequencyNormalized(resendFrequency) === "once") return;
+    if (!String(resendDayEnd || "").trim()) return;
+    if (resendFrequency !== "1st_of_every_month") {
+      setResendFrequency("1st_of_every_month");
+    }
+  }, [resendModalOpen, resendDayEnd, resendFrequency]);
 
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
@@ -742,7 +766,7 @@ export default function BankProcessListPage() {
         profit_sharing: d.profit_sharing || "",
         day_start: d.day_start ? String(d.day_start).slice(0, 10) : "",
         day_end: d.day_end ? String(d.day_end).slice(0, 10) : "",
-        day_start_frequency: d.day_start_frequency || "1st_of_every_month",
+        day_start_frequency: bankProcessFrequencyNormalized(d.day_start_frequency),
         status: d.status || "active", remark: d.remark || "", sop: d.sop || "",
       });
       setModalOpen(true);
@@ -751,19 +775,33 @@ export default function BankProcessListPage() {
 
   const submitForm = async (e) => {
     e.preventDefault();
+    const rawFreq = bankProcessFrequencyNormalized(form.day_start_frequency);
+    const isOnceSubmit = rawFreq === "once";
     const dayStart = String(form.day_start || "").trim();
     const dayEnd = String(form.day_end || "").trim();
     if (dayStart && dayEnd && dayEnd < dayStart) {
       notify(t("dayEndEarlierThanStart"), "danger");
       return;
     }
-    const hasDayEnd = !!dayEnd;
-    const normalizedFreq = hasDayEnd ? "1st_of_every_month" : (String(form.day_start_frequency || "") === "monthly" ? "monthly" : "1st_of_every_month");
+    if (!isOnceSubmit && !String(form.contract || "").trim()) {
+      notify(t("contractRequiredUnlessOnce"), "danger");
+      return;
+    }
+    const hasDayEnd = !!dayEnd && !isOnceSubmit;
+    let normalizedFreq;
+    if (isOnceSubmit) normalizedFreq = "once";
+    else if (hasDayEnd) normalizedFreq = "1st_of_every_month";
+    else if (rawFreq === "monthly") normalizedFreq = "monthly";
+    else normalizedFreq = "1st_of_every_month";
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => {
       if (k === "id" && !editMode) return;
       if (k === "day_start_frequency") {
         fd.append(k, normalizedFreq);
+        return;
+      }
+      if (isOnceSubmit && (k === "day_end" || k === "contract" || k === "insurance")) {
+        fd.append(k, "");
         return;
       }
       fd.append(k, v ?? "");
@@ -787,8 +825,7 @@ export default function BankProcessListPage() {
     try {
       const fd = new FormData();
       selected.forEach((r) => {
-        const periodType = r.is_manual_inactive ? "manual_inactive" : (r.is_resend_consolidated_range ? "resend_consolidated_range" : (r.is_partial_first_month ? "partial_first_month" : (r.is_day_end_tail ? "day_end_tail" : "monthly")));
-        fd.append("ids[]", r.id); fd.append("period_types[]", periodType); fd.append("billing_months[]", r.monthly_billing_month || "");
+        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", r.monthly_billing_month || "");
       });
       fd.append("allow_future_monthly", "1");
       const res = await fetch(buildApiUrl("api/processes/process_post_to_transaction_api.php"), { method: "POST", body: fd, credentials: "include" });
@@ -806,8 +843,7 @@ export default function BankProcessListPage() {
     try {
       const fd = new FormData();
       selected.forEach((r) => {
-        const periodType = r.is_manual_inactive ? "manual_inactive" : (r.is_resend_consolidated_range ? "resend_consolidated_range" : (r.is_partial_first_month ? "partial_first_month" : (r.is_day_end_tail ? "day_end_tail" : "monthly")));
-        fd.append("ids[]", r.id); fd.append("period_types[]", periodType); fd.append("billing_months[]", r.monthly_billing_month || "");
+        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", r.monthly_billing_month || "");
       });
       const res = await fetch(buildApiUrl("api/processes/dismiss_accounting_due_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
@@ -837,17 +873,26 @@ export default function BankProcessListPage() {
     setResendInlineError("");
     const dayStart = String(resendDayStart || "").trim();
     const dayEnd = String(resendDayEnd || "").trim();
-    if (dayStart && dayEnd && dayEnd < dayStart) {
+    const fqEarly = bankProcessFrequencyNormalized(resendFrequency);
+    if (fqEarly !== "once" && dayStart && dayEnd && dayEnd < dayStart) {
       const msg = t("dayEndEarlierThanStart");
       setResendInlineError(msg);
       notify(msg, "danger");
       return;
     }
-    const normalizedResendFrequency = dayEnd ? "1st_of_every_month" : (String(resendFrequency || "") === "monthly" ? "monthly" : "1st_of_every_month");
+    const fq = bankProcessFrequencyNormalized(resendFrequency);
+    const dayEndTrim = fq === "once" ? "" : String(resendDayEnd || "").trim();
+    const normalizedResendFrequency =
+      fq === "once" ? "once" : (dayEndTrim ? "1st_of_every_month" : fq === "monthly" ? "monthly" : "1st_of_every_month");
     try {
       const res = await fetch(buildApiUrl("api/bankprocess_maintenance/resend_accounting_due_api.php"), {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ bank_process_id: Number(resendTarget.id), day_start: resendDayStart || null, day_end: resendDayEnd || null, day_start_frequency: normalizedResendFrequency }),
+        body: JSON.stringify({
+          bank_process_id: Number(resendTarget.id),
+          day_start: resendDayStart || null,
+          day_end: fq === "once" ? null : (dayEndTrim || null),
+          day_start_frequency: normalizedResendFrequency,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -1058,8 +1103,9 @@ export default function BankProcessListPage() {
             setResendInlineError("");
             setResendTarget(row);
             setResendDayStart(String(row.day_start || row.date || "").slice(0, 10));
-            setResendDayEnd("");
-            setResendFrequency("1st_of_every_month");
+            const seedFq = bankProcessFrequencyNormalized(row.day_start_frequency);
+            setResendFrequency(seedFq);
+            setResendDayEnd(seedFq === "once" ? "" : String(row.day_end || "").slice(0, 10));
             setResendModalOpen(true);
           }}
           supplierSortDir={supplierSortDir} setSupplierSortDir={setSupplierSortDir}

@@ -1,6 +1,6 @@
 import React from "react";
 import BankSearchableAccountPick from "./BankSearchableAccountPick.jsx";
-import { parseProfitSharingToRows, parseBankContractTermMonths, contractBillingEndYmdForBankForm } from "../bankProcessHelpers.js";
+import { parseProfitSharingToRows, parseBankContractTermMonths, contractBillingEndYmdForBankForm, bankProcessFrequencyNormalized } from "../bankProcessHelpers.js";
 
 export default function BankProcessFormModal({
   editMode,
@@ -21,9 +21,10 @@ export default function BankProcessFormModal({
   const hasDayEnd = !!String(form.day_end || "").trim();
   const dayStart = String(form.day_start || "").trim();
   const contract = String(form.contract || "").trim();
-  const frequency = String(form.day_start_frequency || "1st_of_every_month").trim();
+  const frequency = bankProcessFrequencyNormalized(form.day_start_frequency);
+  const isOnce = frequency === "once";
   let dayEndMin = dayStart || undefined;
-  if (dayStart && contract) {
+  if (!isOnce && dayStart && contract) {
     const term = parseBankContractTermMonths(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(dayStart, term, frequency) : null;
     if (calculated) {
@@ -205,16 +206,26 @@ export default function BankProcessFormModal({
                       <label htmlFor="bank_day_start">{t("dayStart")}</label>
                       <input id="bank_day_start" name="day_start" type="date" className="bank-input" value={form.day_start} onChange={(ev) => setForm((prev) => ({ ...prev, day_start: ev.target.value }))} />
                     </div>
-                    <div className="form-group bank-day-end-input-wrap">
+                    <div className="form-group bank-day-end-input-wrap" style={isOnce ? { opacity: 0.75 } : undefined}>
                       <label htmlFor="bank_day_end">{t("dayEnd")}</label>
                       <input
                         id="bank_day_end"
                         name="day_end"
                         type="date"
                         className="bank-input"
-                        min={dayEndMin}
+                        min={isOnce ? undefined : dayEndMin}
+                        disabled={isOnce}
+                        title={isOnce ? t("dayEndNotUsedWhenOnce") : undefined}
                         value={form.day_end}
-                        onChange={(ev) => setForm((prev) => ({ ...prev, day_end: ev.target.value }))}
+                        onChange={(ev) => {
+                          const v = ev.target.value;
+                          setForm((prev) => {
+                            const hasEnd = !!String(v).trim();
+                            let freq = bankProcessFrequencyNormalized(prev.day_start_frequency);
+                            if (hasEnd && freq !== "once") freq = "1st_of_every_month";
+                            return { ...prev, day_end: v, day_start_frequency: freq };
+                          });
+                        }}
                       />
                     </div>
                   </div>
@@ -245,9 +256,25 @@ export default function BankProcessFormModal({
                 <div className="bank-form-cell bank-form-cell-left">
                   <div className="form-group bank-day-start-frequency-wrap" style={{ marginBottom: 20 }}>
                     <label htmlFor="bank_day_start_frequency">{t("frequency")}</label>
-                    <select id="bank_day_start_frequency" name="day_start_frequency" className="bank-input bank-select" value={form.day_start_frequency} onChange={(ev) => setForm((prev) => ({ ...prev, day_start_frequency: ev.target.value }))}>
+                    <select
+                      id="bank_day_start_frequency"
+                      name="day_start_frequency"
+                      className="bank-input bank-select"
+                      value={bankProcessFrequencyNormalized(form.day_start_frequency)}
+                      onChange={(ev) => {
+                        const next = ev.target.value;
+                        setForm((prev) => {
+                          const prevNorm = bankProcessFrequencyNormalized(prev.day_start_frequency);
+                          if (next === "once" && prevNorm !== "once") {
+                            return { ...prev, day_start_frequency: next, day_end: "", contract: "", insurance: "" };
+                          }
+                          return { ...prev, day_start_frequency: next };
+                        });
+                      }}
+                    >
                       <option value="1st_of_every_month">{t("firstOfEveryMonth")}</option>
                       <option value="monthly" disabled={hasDayEnd}>{t("monthly")}</option>
+                      <option value="once">{t("onceFrequency")}</option>
                     </select>
                   </div>
                   <input type="hidden" name="profit_sharing" value={form.profit_sharing} />
@@ -275,7 +302,15 @@ export default function BankProcessFormModal({
                   <div className="form-row bank-row-two-cols">
                     <div className="form-group">
                       <label htmlFor="bank_contract">{t("contract")}</label>
-                      <select id="bank_contract" name="contract" className="bank-select" value={form.contract} onChange={(ev) => setForm((prev) => ({ ...prev, contract: ev.target.value }))} required>
+                      <select
+                        id="bank_contract"
+                        name="contract"
+                        className="bank-select"
+                        value={form.contract}
+                        onChange={(ev) => setForm((prev) => ({ ...prev, contract: ev.target.value }))}
+                        required={!isOnce}
+                        disabled={isOnce}
+                      >
                         <option value="">{t("contract")}</option>
                         <option value="1 MONTH">1 MONTH</option>
                         <option value="2 MONTHS">2 MONTHS</option>
@@ -288,7 +323,7 @@ export default function BankProcessFormModal({
                     </div>
                     <div className="form-group">
                       <label htmlFor="bank_insurance">{t("insurance")}</label>
-                      <input id="bank_insurance" name="insurance" type="text" className="bank-input" inputMode="decimal" autoComplete="off" placeholder={t("enterAmount")} value={form.insurance} onChange={(ev) => setForm((prev) => ({ ...prev, insurance: ev.target.value }))} />
+                      <input id="bank_insurance" name="insurance" type="text" className="bank-input" inputMode="decimal" autoComplete="off" placeholder={t("enterAmount")} value={form.insurance} disabled={isOnce} onChange={(ev) => setForm((prev) => ({ ...prev, insurance: ev.target.value }))} />
                     </div>
                   </div>
                   <div className="form-group bank-remark-wrap" style={{ marginTop: 12 }}>
