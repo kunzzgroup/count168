@@ -435,6 +435,24 @@ function inboxUniqueSortedBillingMonths(array $months): array
  *
  * @param '1st_of_every_month'|'monthly' $frequency
  */
+function inboxDayEndMonthlyCapDay(array $row): ?int
+{
+    $enabledRaw = $row['day_end_monthly_cap_enabled'] ?? null;
+    $enabled = in_array((string) $enabledRaw, ['1', 'true', 'TRUE'], true) || $enabledRaw === 1 || $enabledRaw === true;
+    if (!$enabled) {
+        return null;
+    }
+    $dayEndYmd = inboxBankProcessDateFieldToYmd($row['day_end'] ?? null);
+    if ($dayEndYmd === null) {
+        return null;
+    }
+    $day = (int) substr($dayEndYmd, 8, 2);
+    if ($day < 1 || $day > 31) {
+        return null;
+    }
+    return $day;
+}
+
 function inboxAppendMonthlyNeedToday(
     array &$needToday,
     array $r,
@@ -455,6 +473,7 @@ function inboxAppendMonthlyNeedToday(
             $billMo = (int) $m[2];
             $createdYm = $createdDt->format('Y-n');
             $billYm = sprintf('%04d-%d', $billY, $billMo);
+            $dayEndCapDay = ($frequency === '1st_of_every_month') ? inboxDayEndMonthlyCapDay($r) : null;
             if ($frequency === 'monthly' && $startTs !== false && $startDate !== '') {
                 $startDay = (int) date('j', $startTs);
                 $dueYmd = billingCalendarMonthDueYmd($billY, $billMo, $startDay);
@@ -469,6 +488,19 @@ function inboxAppendMonthlyNeedToday(
                 }
                 if ($from <= $p1) {
                     $pr = prorateMonthlyAnniversaryPeriodLinear($p0, $p1, $from, $cost, $price, $profit);
+                    $cost = $pr['cost'];
+                    $price = $pr['price'];
+                    $profit = $pr['profit'];
+                } else {
+                    $cost = '0.00000000';
+                    $price = '0.00000000';
+                    $profit = '0.00000000';
+                }
+            } elseif ($dayEndCapDay !== null) {
+                $from = sprintf('%04d-%02d-01', $billY, $billMo);
+                $to = calendarMonthDueYmd($billY, $billMo, $dayEndCapDay);
+                if ($from <= $to) {
+                    $pr = prorateInclusiveDateRange($from, $to, $cost, $price, $profit);
                     $cost = $pr['cost'];
                     $price = $pr['price'];
                     $profit = $pr['profit'];
@@ -549,7 +581,7 @@ function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
 }
 
 /** 获取当前公司下可用于 Accounting Inbox 的 active Bank Process 列表 */
-function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency, bool $hasResendRelaxCol): array
+function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency, bool $hasResendRelaxCol, bool $hasDayEndMonthlyCapCol): array
 {
     bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
     $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
@@ -557,6 +589,7 @@ function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFre
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.day_end, bp.contract, bp.dts_created" .
         ($hasFrequency ? ", bp.day_start_frequency" : "") .
         ($hasResendRelaxCol ? ", bp.accounting_resend_relax_created_floor" : "") .
+        ($hasDayEndMonthlyCapCol ? ", bp.day_end_monthly_cap_enabled" : "") .
         ($hasSchedCols ? ", bp.accounting_resend_schedule_day_start, bp.accounting_resend_schedule_day_end, bp.accounting_resend_schedule_frequency" : "") . "
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'active'
@@ -809,7 +842,8 @@ try {
     }
     $hasResendRelaxCol = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
 
-    $rows = fetchActiveBankProcessesForInbox($pdo, $company_id, $hasFrequency, $hasResendRelaxCol);
+    $hasDayEndMonthlyCapCol = tableHasColumn($pdo, 'bank_process', 'day_end_monthly_cap_enabled');
+    $rows = fetchActiveBankProcessesForInbox($pdo, $company_id, $hasFrequency, $hasResendRelaxCol, $hasDayEndMonthlyCapCol);
     $needToday = [];
 
     // 1) Partial first month
@@ -1040,7 +1074,18 @@ try {
                 // ignore
             }
             if ($firstMonthOnFirst) {
-                $pr = prorateToMonthEndFromStart($startDate, $baseCost, $basePrice, $baseProfit);
+                $capDay = inboxDayEndMonthlyCapDay($r);
+                if ($capDay !== null) {
+                    try {
+                        $startDt = new DateTimeImmutable($startDate);
+                        $capTo = calendarMonthDueYmd((int) $startDt->format('Y'), (int) $startDt->format('n'), $capDay);
+                        $pr = prorateInclusiveDateRange($startDate, $capTo, $baseCost, $basePrice, $baseProfit);
+                    } catch (Throwable $e) {
+                        $pr = prorateToMonthEndFromStart($startDate, $baseCost, $basePrice, $baseProfit);
+                    }
+                } else {
+                    $pr = prorateToMonthEndFromStart($startDate, $baseCost, $basePrice, $baseProfit);
+                }
                 $mc = $pr['cost'];
                 $mp = $pr['price'];
                 $mf = $pr['profit'];

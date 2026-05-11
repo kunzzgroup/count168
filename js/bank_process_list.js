@@ -1048,6 +1048,8 @@ function openAddProcessForSelectedPermission() {
                 if (freqEl) freqEl.value = '1st_of_every_month';
                 updateBankFrequencyOptions();
             }
+            if (typeof setBankDayEndMonthlyCapEnabled === 'function') setBankDayEndMonthlyCapEnabled(false);
+            if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
             if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
             if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi();
             setBankModalLoadingState(false, 'Add Process');
@@ -1187,6 +1189,8 @@ function closeAddBankModal() {
         dayEndClear.removeAttribute('min');
         delete dayEndClear.dataset.bankContractEndHint;
     }
+    if (typeof setBankDayEndMonthlyCapEnabled === 'function') setBankDayEndMonthlyCapEnabled(false);
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
     if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi();
 }
 
@@ -1321,6 +1325,8 @@ async function openBankEditModal(id) {
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
         if (freqEl) freqEl.value = bankProcessFrequencyNormalized(process.day_start_frequency);
+        if (typeof setBankDayEndMonthlyCapEnabled === 'function') setBankDayEndMonthlyCapEnabled(false);
+        if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         if (typeof updateBankFrequencyOptions === 'function') updateBankFrequencyOptions();
         if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi({ preserveValues: true });
         document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
@@ -2088,8 +2094,17 @@ function bindBankFieldErrorClear() {
         freqSelectEl.addEventListener('change', function () {
             if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi();
             syncBankDayEndContractMin();
+            if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         });
     }
+    const dayEndCapSwitchEl = document.getElementById('bank_day_end_monthly_cap_switch');
+    if (dayEndCapSwitchEl && !dayEndCapSwitchEl._bankBound) {
+        dayEndCapSwitchEl._bankBound = true;
+        dayEndCapSwitchEl.addEventListener('change', function () {
+            setBankDayEndMonthlyCapEnabled(!!this.checked);
+        });
+    }
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }
 
 // 处理 Bank Add/Edit Process 表单提交（Edit 时走 update_process）
@@ -2158,10 +2173,28 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
         formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        let dayEndMonthlyCapEnabled = isBankDayEndMonthlyCapEnabled();
+        const dayEndInputEl = document.getElementById('bank_day_end');
+        const dayEndYmd = (dayEndInputEl && dayEndInputEl.value) ? String(dayEndInputEl.value).trim() : '';
+        if (!freqEl || freqEl.value !== '1st_of_every_month') {
+            dayEndMonthlyCapEnabled = false;
+        }
+        if (dayEndMonthlyCapEnabled && !/^\d{4}-\d{2}-\d{2}$/.test(dayEndYmd)) {
+            showNotification('Please select a valid Day end before enabling Day-end cap.', 'danger');
+            bankProcessSubmitInFlight = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = editId ? 'Update Process' : 'Add Process';
+            }
+            return;
+        }
+        formData.set('day_end_monthly_cap_enabled', dayEndMonthlyCapEnabled ? '1' : '0');
+        setBankDayEndMonthlyCapEnabled(dayEndMonthlyCapEnabled);
         if (freqEl && freqEl.value === 'once') {
             formData.set('day_end', '');
             formData.set('contract', '');
             formData.set('insurance', '');
+            formData.set('day_end_monthly_cap_enabled', '0');
         }
         try {
             if (editId) {
@@ -2224,6 +2257,47 @@ allowOnlyNumberCommaPeriod(document.getElementById('bank_insurance'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_cost'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
+function setBankDayEndMonthlyCapEnabled(enabled) {
+    const hiddenEl = document.getElementById('bank_day_end_monthly_cap_enabled');
+    const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
+    const on = !!enabled;
+    if (hiddenEl) hiddenEl.value = on ? '1' : '0';
+    if (switchEl) switchEl.checked = on;
+}
+
+function isBankDayEndMonthlyCapEnabled() {
+    const hiddenEl = document.getElementById('bank_day_end_monthly_cap_enabled');
+    const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
+    if (hiddenEl) {
+        return String(hiddenEl.value || '').trim() === '1';
+    }
+    return !!(switchEl && switchEl.checked);
+}
+
+function syncBankDayEndMonthlyCapUi() {
+    const wrapEl = document.getElementById('bank_day_end_monthly_cap_wrap');
+    const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    const editIdEl = document.getElementById('bank_edit_id');
+    const inEditMode = !!(editIdEl && String(editIdEl.value || '').trim() !== '');
+    if (wrapEl) {
+        wrapEl.style.display = inEditMode ? 'none' : '';
+    }
+    if (inEditMode) {
+        setBankDayEndMonthlyCapEnabled(false);
+        return;
+    }
+    const enabledByFrequency = !!(freqEl && freqEl.value === '1st_of_every_month');
+    if (!enabledByFrequency) {
+        setBankDayEndMonthlyCapEnabled(false);
+    }
+    if (switchEl) {
+        const locked = (typeof isBankProcessBillingScheduleLocked === 'function' && isBankProcessBillingScheduleLocked());
+        switchEl.disabled = !enabledByFrequency || locked;
+        switchEl.style.cursor = switchEl.disabled ? 'not-allowed' : 'pointer';
+    }
+}
+
 /** Frequency = Once：禁用 Day end / Contract / Insurance；切换为非 Once 时恢复 */
 function syncBankOnceFrequencyUi(opts) {
     opts = opts || {};
@@ -2283,6 +2357,7 @@ function syncBankOnceFrequencyUi(opts) {
         }
         if (dayEndWrap) dayEndWrap.style.opacity = '';
     }
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }
 window.syncBankOnceFrequencyUi = syncBankOnceFrequencyUi;
 
@@ -2307,6 +2382,7 @@ function updateBankFrequencyOptions() {
     if (monthlyOption) {
         monthlyOption.disabled = false;
     }
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }
 
 /** 与 api/processes/billing_schedule.php getBillingTermMonthsFromContract 一致（账单期数；1+1→2 等） */
@@ -2438,6 +2514,7 @@ function autoCalculateBankDayEnd() {
         dayEndEl.removeAttribute('min');
         delete dayEndEl.dataset.bankContractEndHint;
         updateBankFrequencyOptions();
+        if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         return;
     }
     const start = (dayStartEl && dayStartEl.value || '').trim();
@@ -2449,6 +2526,7 @@ function autoCalculateBankDayEnd() {
         dayEndEl.removeAttribute('min');
         delete dayEndEl.dataset.bankContractEndHint;
         updateBankFrequencyOptions();
+        if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         return;
     }
     const term = parseBankContractRentalMonthsForDayEnd(contract);
@@ -2478,6 +2556,7 @@ function autoCalculateBankDayEnd() {
     }
     dayEndEl.dataset.bankContractEndHint = calculated;
     updateBankFrequencyOptions();
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }
 
 

@@ -263,6 +263,14 @@ if (!function_exists('renderBankProcessModals')) {
                                             <i class="fas fa-calendar-alt" aria-hidden="true"></i>
                                             <span id="bank_day_end_display" class="bank-day-display--placeholder">dd/mm/yyyy</span>
                                         </button>
+                                        <div id="bank_day_end_monthly_cap_wrap" style="margin-top: 8px;">
+                                            <input type="hidden" id="bank_day_end_monthly_cap_enabled" name="day_end_monthly_cap_enabled" value="0">
+                                            <label for="bank_day_end_monthly_cap_switch" class="remember-switch">
+                                                <input type="checkbox" id="bank_day_end_monthly_cap_switch" aria-label="Cap monthly billing by day end">
+                                                <span class="slider" aria-hidden="true"></span>
+                                                <span class="remember-text" style="font-size: 12px;">Cap month by Day end</span>
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

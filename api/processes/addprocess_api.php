@@ -300,6 +300,10 @@ function insertBankProcess(PDO $pdo, array $params): int {
         $params['profit_sharing'], $params['day_start'], $params['day_start_frequency'], $params['day_end'], 'active',
         $params['created_by'], $params['created_by_type'], $params['created_by_owner_id']
     ]);
+    if (bankProcessHasColumn($pdo, 'day_end_monthly_cap_enabled')) {
+        $columns[] = 'day_end_monthly_cap_enabled';
+        $values[] = !empty($params['day_end_monthly_cap_enabled']) ? 1 : 0;
+    }
 
     $placeholders = implode(', ', array_fill(0, count($columns), '?'));
     $stmt = $pdo->prepare("
@@ -456,6 +460,17 @@ try {
         if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly', 'once'], true)) {
             $day_start_frequency = '1st_of_every_month';
         }
+        $dayEnd = trim($_POST['day_end'] ?? '') ?: null;
+        $dayEndMonthlyCapEnabled = isset($_POST['day_end_monthly_cap_enabled']) && (string) $_POST['day_end_monthly_cap_enabled'] === '1';
+        if ($day_start_frequency !== '1st_of_every_month') {
+            $dayEndMonthlyCapEnabled = false;
+        }
+        if ($dayEndMonthlyCapEnabled) {
+            $dayEndYmd = $dayEnd !== null ? substr((string) $dayEnd, 0, 10) : '';
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayEndYmd)) {
+                $dayEndMonthlyCapEnabled = false;
+            }
+        }
         $currentUserId = null;
         $createdByType = 'user';
         $createdByOwnerId = null;
@@ -484,7 +499,8 @@ try {
             'profit_sharing' => trim($_POST['profit_sharing'] ?? ''),
             'day_start' => trim($_POST['day_start'] ?? '') ?: null,
             'day_start_frequency' => $day_start_frequency,
-            'day_end' => trim($_POST['day_end'] ?? '') ?: null,
+            'day_end' => $dayEnd,
+            'day_end_monthly_cap_enabled' => $dayEndMonthlyCapEnabled ? 1 : 0,
             'created_by' => $currentUserId,
             'created_by_type' => $createdByType,
             'created_by_owner_id' => $createdByOwnerId
