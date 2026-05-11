@@ -2286,37 +2286,22 @@ function syncBankOnceFrequencyUi(opts) {
 }
 window.syncBankOnceFrequencyUi = syncBankOnceFrequencyUi;
 
-// Sync Frequency based on Day End
+// Sync Frequency based on Day End（不再因填写 Day end 而禁用 Monthly 或改频率）
 function updateBankFrequencyOptions() {
     if (isBankProcessBillingScheduleLocked()) return;
     const dayEndEl = document.getElementById('bank_day_end');
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (!dayEndEl || !freqEl) return;
 
+    const monthlyOption = freqEl.querySelector('option[value="monthly"]');
+    if (monthlyOption) monthlyOption.disabled = false;
+
     if (freqEl.value === 'once') {
-        const monthlyOption = freqEl.querySelector('option[value="monthly"]');
-        if (monthlyOption) monthlyOption.disabled = false;
         return;
     }
 
     if (dayEndEl.min && dayEndEl.value && dayEndEl.value < dayEndEl.min) {
         dayEndEl.value = dayEndEl.min;
-    }
-
-    const hasDayEnd = !!dayEndEl.value;
-    const monthlyOption = freqEl.querySelector('option[value="monthly"]');
-
-    if (hasDayEnd) {
-        // If day end is set, force to 1st of every month
-        freqEl.value = '1st_of_every_month';
-        if (monthlyOption) {
-            monthlyOption.disabled = true;
-        }
-    } else {
-        // If no day end, allow monthly selection
-        if (monthlyOption) {
-            monthlyOption.disabled = false;
-        }
     }
 }
 
@@ -2394,9 +2379,8 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
 }
 
 /**
- * 不自动填写空的 Day end。设置合约对应的 min；早于 min 则上调。
- * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
- * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
+ * Day end 为空时按「起始日 + 合约月数」日历进位自动填写（与 PHP billingContractExclusiveEndYmd 一致，如 5/12 +3 月 → 8/12）。
+ * 设置合约对应的 min、bankContractEndHint；早于 min 则上调。缩短月数时的随动规则不变。
  */
 function autoCalculateBankDayEnd() {
     if (isBankProcessBillingScheduleLocked()) return;
@@ -2436,11 +2420,30 @@ function autoCalculateBankDayEnd() {
         return;
     }
     dayEndEl.min = calculated;
-    const cur = (dayEndEl.value || '').trim();
+    let cur = (dayEndEl.value || '').trim();
+    if (!cur && term) {
+        const autoFillEnd = addCalendarMonthsToYmd(start, term);
+        if (autoFillEnd) {
+            if (typeof setBankFormDayInputYmd === 'function') {
+                setBankFormDayInputYmd(dayEndEl, autoFillEnd);
+            } else {
+                dayEndEl.value = autoFillEnd;
+            }
+            cur = autoFillEnd;
+        }
+    }
     if (cur && cur < calculated) {
-        dayEndEl.value = calculated;
+        if (typeof setBankFormDayInputYmd === 'function') {
+            setBankFormDayInputYmd(dayEndEl, calculated);
+        } else {
+            dayEndEl.value = calculated;
+        }
     } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
-        dayEndEl.value = calculated;
+        if (typeof setBankFormDayInputYmd === 'function') {
+            setBankFormDayInputYmd(dayEndEl, calculated);
+        } else {
+            dayEndEl.value = calculated;
+        }
     }
     dayEndEl.dataset.bankContractEndHint = calculated;
     updateBankFrequencyOptions();

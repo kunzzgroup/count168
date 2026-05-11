@@ -2011,18 +2011,10 @@ function bindBankResendModalFrequencySyncOnce() {
     const freq = document.getElementById('bank_resend_frequency');
     if (!dayEnd || !freq) return;
     function syncResendFreq() {
-        if (freq.value === 'once') {
-            const monthlyOptOnce = freq.querySelector('option[value="monthly"]');
-            if (monthlyOptOnce) monthlyOptOnce.disabled = false;
-            return;
-        }
         const monthlyOpt = freq.querySelector('option[value="monthly"]');
-        const hasEnd = !!(dayEnd.value && String(dayEnd.value).trim());
-        if (hasEnd) {
-            freq.value = '1st_of_every_month';
-            if (monthlyOpt) monthlyOpt.disabled = true;
-        } else if (monthlyOpt) {
-            monthlyOpt.disabled = false;
+        if (monthlyOpt) monthlyOpt.disabled = false;
+        if (freq.value === 'once') {
+            return;
         }
     }
     function onDayEndOrFreqChange() {
@@ -2220,17 +2212,7 @@ function showConfirmBankResendModal(processId) {
     const freqSync = document.getElementById('bank_resend_frequency');
     if (dayEndSync && freqSync) {
         const monthlyOpt = freqSync.querySelector('option[value="monthly"]');
-        if (freqSync.value === 'once') {
-            if (monthlyOpt) monthlyOpt.disabled = false;
-        } else {
-            const hasEnd = !!(dayEndSync.value && String(dayEndSync.value).trim());
-            if (hasEnd) {
-                freqSync.value = '1st_of_every_month';
-                if (monthlyOpt) monthlyOpt.disabled = true;
-            } else if (monthlyOpt) {
-                monthlyOpt.disabled = false;
-            }
-        }
+        if (monthlyOpt) monthlyOpt.disabled = false;
     }
     syncBankResendModalOnceDayEndUi();
     const confirmBtn = document.getElementById('confirmBankResendBtn');
@@ -3745,31 +3727,18 @@ allowOnlyNumberCommaPeriod(document.getElementById('bank_insurance'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_cost'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
-// Sync Frequency based on Day End
+// Sync Frequency based on Day End（不再因填写 Day end 而禁用 Monthly 或改频率）
 function updateBankFrequencyOptions() {
     const dayEndEl = document.getElementById('bank_day_end');
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (!dayEndEl || !freqEl) return;
 
+    const monthlyOption = freqEl.querySelector('option[value="monthly"]');
+    if (monthlyOption) monthlyOption.disabled = false;
+
     const minYmd = bankFormDayEndMinYmdAttr(dayEndEl);
     if (minYmd && dayEndEl.value && dayEndEl.value < minYmd) {
         setBankFormDayInputYmd(dayEndEl, minYmd);
-    }
-
-    const hasDayEnd = !!dayEndEl.value;
-    const monthlyOption = freqEl.querySelector('option[value="monthly"]');
-
-    if (hasDayEnd) {
-        // If day end is set, force to 1st of every month
-        freqEl.value = '1st_of_every_month';
-        if (monthlyOption) {
-            monthlyOption.disabled = true;
-        }
-    } else {
-        // If no day end, allow monthly selection
-        if (monthlyOption) {
-            monthlyOption.disabled = false;
-        }
     }
 }
 
@@ -3847,9 +3816,8 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
 }
 
 /**
- * 不自动填写空的 Day end。设置合约对应的 min；早于 min 则上调。
- * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
- * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
+ * Day end 为空时按「起始日 + 合约月数」日历进位自动填写（与 PHP billingContractExclusiveEndYmd 一致）。
+ * 设置合约对应的 min、bankContractEndHint；早于 min 则上调。缩短月数时的随动规则不变。
  */
 function autoCalculateBankDayEnd() {
     const dayStartEl = document.getElementById('bank_day_start');
@@ -3881,7 +3849,14 @@ function autoCalculateBankDayEnd() {
         return;
     }
     dayEndEl.setAttribute('min', calculated);
-    const cur = (dayEndEl.value || '').trim();
+    let cur = (dayEndEl.value || '').trim();
+    if (!cur && term) {
+        const autoFillEnd = addCalendarMonthsToYmd(start, term);
+        if (autoFillEnd) {
+            setBankFormDayInputYmd(dayEndEl, autoFillEnd);
+            cur = autoFillEnd;
+        }
+    }
     if (cur && cur < calculated) {
         setBankFormDayInputYmd(dayEndEl, calculated);
     } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
