@@ -104,7 +104,8 @@ try {
     }
     $seen = [];
     $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
-        $key = $p['id'] . '_' . $p['period_type'];
+        // 须含 billing_month：Resend 多期同 process + monthly 时否则只保留一条，Delete 会写错账期或 0 条。
+        $key = $p['id'] . '_' . $p['period_type'] . '_' . trim((string) ($p['billing_month'] ?? ''));
         if (isset($seen[$key])) {
             return false;
         }
@@ -129,7 +130,10 @@ try {
     $inserted = 0;
     bmp_ensureMaintenanceResendPendingTable($pdo);
     $insPap = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
-    $selPap = $pdo->prepare("SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = ? LIMIT 1");
+    // posted_date 可能为 DATETIME，与 inbox 的 DATE 口径对齐，避免个别库/数据上「已入账」行无法被 UPDATE 成 *_skipped。
+    $selPap = $pdo->prepare(
+        "SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type = ? LIMIT 1"
+    );
     $insRp = $pdo->prepare(
         "INSERT IGNORE INTO bank_process_maintenance_resend_pending
          (company_id, bank_process_id, process_accounting_posted_id, period_type, transaction_date)
@@ -193,7 +197,7 @@ try {
         if ($papId === 0 && $periodType === 'resend_consolidated_range') {
             $updPap = $pdo->prepare(
                 "UPDATE process_accounting_posted SET period_type = ?
-                 WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = 'resend_consolidated_range'"
+                 WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type = 'resend_consolidated_range'"
             );
             $updPap->execute([$skippedType, $companyId, $processId, $postDate]);
             if ($updPap->rowCount() > 0) {
@@ -210,13 +214,13 @@ try {
             if ($periodType === 'monthly') {
                 $updPap2 = $pdo->prepare(
                     "UPDATE process_accounting_posted SET period_type = ?
-                     WHERE company_id = ? AND process_id = ? AND posted_date = ? AND (period_type = 'monthly' OR period_type IS NULL OR period_type = '')"
+                     WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND (period_type = 'monthly' OR period_type IS NULL OR period_type = '')"
                 );
                 $updPap2->execute([$skippedType, $companyId, $processId, $postDate]);
             } else {
                 $updPap2 = $pdo->prepare(
                     "UPDATE process_accounting_posted SET period_type = ?
-                     WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = ?"
+                     WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type = ?"
                 );
                 $updPap2->execute([$skippedType, $companyId, $processId, $postDate, $periodType]);
             }
@@ -224,6 +228,64 @@ try {
                 $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
                 $fid3 = $selPap->fetchColumn();
                 $papId = $fid3 ? (int) $fid3 : 0;
+                if ($papId > 0) {
+                    $inserted++;
+                }
+            }
+        }
+        // 入账行 posted_date 与「账期首日」不一致时（仅按自然月对账）：按 billing_month 所在年月对齐 monthly / day_end_tail。
+        if ($papId === 0 && ($periodType === 'monthly' || $periodType === 'day_end_tail') && trim((string) ($p['billing_month'] ?? '')) !== '') {
+            $anchor = postedDateForMonthlyBillingMonth($p['billing_month'], $today);
+            $tsA = strtotime($anchor);
+            if ($tsA !== false) {
+                $billY = (int) date('Y', $tsA);
+                $billMo = (int) date('n', $tsA);
+                if ($periodType === 'monthly') {
+                    $updYm = $pdo->prepare(
+                        "UPDATE process_accounting_posted SET period_type = ?
+                         WHERE company_id = ? AND process_id = ?
+                         AND YEAR(posted_date) = ? AND MONTH(posted_date) = ?
+                         AND (period_type = 'monthly' OR period_type IS NULL OR period_type = '')"
+                    );
+                    $updYm->execute([$skippedType, $companyId, $processId, $billY, $billMo]);
+                } else {
+                    $updYm = $pdo->prepare(
+                        "UPDATE process_accounting_posted SET period_type = ?
+                         WHERE company_id = ? AND process_id = ?
+                         AND YEAR(posted_date) = ? AND MONTH(posted_date) = ?
+                         AND period_type = 'day_end_tail'"
+                    );
+                    $updYm->execute([$skippedType, $companyId, $processId, $billY, $billMo]);
+                }
+                if ($updYm->rowCount() > 0) {
+                    $selYm = $pdo->prepare(
+                        "SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
+                         AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND period_type = ? LIMIT 1"
+                    );
+                    $selYm->execute([$companyId, $processId, $billY, $billMo, $skippedType]);
+                    $fidYm = $selYm->fetchColumn();
+                    $papId = $fidYm ? (int) $fidYm : 0;
+                    if ($papId > 0) {
+                        $inserted++;
+                    }
+                }
+            }
+        }
+        // 其它账期：posted_date 与 $today 不完全一致时，按 process 上最后一条同类型非 skipped 记录降级为 skipped。
+        if ($papId === 0 && in_array($periodType, ['partial_first_month', 'manual_inactive', 'once_one_off'], true)) {
+            $updLast = $pdo->prepare(
+                "UPDATE process_accounting_posted SET period_type = ?
+                 WHERE company_id = ? AND process_id = ? AND period_type = ?
+                 ORDER BY id DESC LIMIT 1"
+            );
+            $updLast->execute([$skippedType, $companyId, $processId, $periodType]);
+            if ($updLast->rowCount() > 0) {
+                $selLast = $pdo->prepare(
+                    "SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = ? ORDER BY id DESC LIMIT 1"
+                );
+                $selLast->execute([$companyId, $processId, $skippedType]);
+                $fidL = $selLast->fetchColumn();
+                $papId = $fidL ? (int) $fidL : 0;
                 if ($papId > 0) {
                     $inserted++;
                 }
