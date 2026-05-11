@@ -81,10 +81,10 @@ body.bg::before {
 
 
 
-/* Main Container — 与 React 登录页 .sc-login-column 一致 430px（图二 / login-surface-lock） */
+/* Main Container — 与 .login-card 450px 对齐，避免子卡比容器宽 */
 .login-container {
     width: 100%;
-    max-width: min(430px, 92vw);
+    max-width: min(450px, 92vw);
     margin: 0 auto;
     position: relative;
     z-index: 2;
@@ -92,6 +92,10 @@ body.bg::before {
 
 /* Login Card */
 .login-card {
+    display: flex;
+    justify-content: center;
+    width: 450px;
+    max-width: 100%;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 0 0 20px 20px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
@@ -99,6 +103,7 @@ body.bg::before {
     position: relative;
     overflow: hidden;
     backdrop-filter: blur(10px);
+    box-sizing: border-box;
 }
 
 /* 独立白卡（二次验证等，无顶部 gradient header） */
