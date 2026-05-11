@@ -67,6 +67,34 @@ function postedDateForMonthlyBillingMonth(?string $billingMonthYn, string $fallb
     return sprintf('%04d-%02d-01', $y, $mo);
 }
 
+/**
+ * 兜底识别：当前 process 若处于 Resend 合并区间（relax=1 且 schedule 同时有 day_start/day_end），
+ * 即使前端传了 monthly，也应按 resend_consolidated_range 处理，避免 Delete 成功提示但 Accounting Due 残留。
+ */
+function isProcessInResendConsolidatedMode(PDO $pdo, int $companyId, int $processId): bool
+{
+    bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
+    bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
+    $hasRelaxCol = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
+    $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
+    if (!$hasRelaxCol || !$hasSchedCols) {
+        return false;
+    }
+    $stmt = $pdo->prepare(
+        "SELECT id, day_start, day_end, accounting_resend_relax_created_floor,
+                accounting_resend_schedule_day_start, accounting_resend_schedule_day_end, accounting_resend_schedule_frequency
+         FROM bank_process
+         WHERE id = ? AND company_id = ? LIMIT 1"
+    );
+    $stmt->execute([$processId, $companyId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return false;
+    }
+    $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
+    return !empty($merged['accounting_resend_consolidated_range']);
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
@@ -143,6 +171,15 @@ try {
         if (!$stmt->fetch()) {
             continue;
         }
+        if ($periodType === 'monthly') {
+            try {
+                if (isProcessInResendConsolidatedMode($pdo, $companyId, $processId)) {
+                    $periodType = 'resend_consolidated_range';
+                }
+            } catch (Throwable $e) {
+                // ignore fallback detection failure, keep original period type
+            }
+        }
         $skippedType = toSkippedPeriodType($periodType);
         $postDate = $today;
         if (($periodType === 'monthly' || $periodType === 'day_end_tail') && ($p['billing_month'] ?? '') !== '') {
@@ -202,6 +239,44 @@ try {
                 $papId = $fid2 ? (int) $fid2 : 0;
                 if ($papId > 0) {
                     $inserted++;
+                }
+            }
+            // 兜底 1：同锚点日可能是其它 period_type 占位，统一改为 consolidated_skipped。
+            if ($papId === 0) {
+                $updPapAny = $pdo->prepare(
+                    "UPDATE process_accounting_posted SET period_type = ?
+                     WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type NOT LIKE '%\\_skipped'"
+                );
+                $updPapAny->execute([$skippedType, $companyId, $processId, $postDate]);
+                if ($updPapAny->rowCount() > 0) {
+                    $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
+                    $fid2b = $selPap->fetchColumn();
+                    $papId = $fid2b ? (int) $fid2b : 0;
+                    if ($papId > 0) {
+                        $inserted++;
+                    }
+                }
+            }
+            // 兜底 2：若锚点日依旧未命中（历史日期漂移），将该 process 最新 consolidated 改为 skipped。
+            if ($papId === 0) {
+                $updLatest = $pdo->prepare(
+                    "UPDATE process_accounting_posted SET period_type = ?
+                     WHERE company_id = ? AND process_id = ? AND period_type = 'resend_consolidated_range'
+                     ORDER BY id DESC LIMIT 1"
+                );
+                $updLatest->execute([$skippedType, $companyId, $processId]);
+                if ($updLatest->rowCount() > 0) {
+                    $selLatest = $pdo->prepare(
+                        "SELECT id FROM process_accounting_posted
+                         WHERE company_id = ? AND process_id = ? AND period_type = ?
+                         ORDER BY id DESC LIMIT 1"
+                    );
+                    $selLatest->execute([$companyId, $processId, $skippedType]);
+                    $fid2c = $selLatest->fetchColumn();
+                    $papId = $fid2c ? (int) $fid2c : 0;
+                    if ($papId > 0) {
+                        $inserted++;
+                    }
                 }
             }
         }
