@@ -610,6 +610,10 @@
     max-width: 66rem !important;
     margin-left: auto !important;
     margin-right: auto !important;
+    display: flex;
+    flex-direction: column;
+    max-height: min(94vh, 56rem);
+    overflow: hidden;
 }
 
 #processAccountingDueModal .modal-header {
@@ -636,14 +640,54 @@
     position: static;
 }
 
-/* 表格区域：超过约 20 行时出现垂直滚动条，表头固定 */
+/* Stack list + actions vertically (overrides global .modal-body { display:flex } row layout from legacy sheets) */
+#processAccountingDueModal .modal-body {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    box-sizing: border-box;
+    gap: 0;
+}
+
+/* 表格区域：宽度铺满；高度随行数增高，过高时在区域内滚动，表头固定 */
 #processAccountingDueModal .process-accounting-inbox-table-wrap {
-    max-height: min(70vh, 520px);
+    width: 100%;
+    max-width: 100%;
+    flex: 0 1 auto;
+    min-height: 10rem;
+    max-height: min(calc(94vh - 14rem), 640px);
     overflow-y: auto;
     overflow-x: auto;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 0;
+    box-sizing: border-box;
+}
+
+#processAccountingDueModal .process-accounting-inbox-table {
+    width: 100%;
+    min-width: 100%;
+    table-layout: auto;
+}
+
+#processAccountingDueModal .process-accounting-inbox-table tbody td[colspan] {
+    text-align: center;
+    color: #64748b;
+    padding: 2rem 1rem;
+    vertical-align: middle;
+}
+
+#processAccountingDueModal .process-accounting-inbox-actions {
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    justify-content: flex-start;
+    margin-top: 12px;
+    padding-top: 12px;
 }
 
 #processAccountingDueModal .process-accounting-inbox-table-wrap .process-accounting-inbox-table th {
