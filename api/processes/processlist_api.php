@@ -1088,7 +1088,7 @@ function updateBankProcess() {
         $day_start = isset($_POST['day_start']) ? trim((string)$_POST['day_start']) : '';
         $day_end = isset($_POST['day_end']) ? trim((string)$_POST['day_end']) : '';
         $day_start_frequency = isset($_POST['day_start_frequency']) ? trim((string)$_POST['day_start_frequency']) : '1st_of_every_month';
-        if ($day_start_frequency !== 'monthly') {
+        if (!in_array($day_start_frequency, ['monthly', 'once', '1st_of_every_month'], true)) {
             $day_start_frequency = '1st_of_every_month';
         }
         if ($day_start === '') {

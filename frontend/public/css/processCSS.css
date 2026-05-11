@@ -762,8 +762,8 @@ body.process-page {
     width: 9.35rem;
     min-width: 9.35rem;
     max-width: 9.35rem;
-    height: 30px;
-    min-height: 23px;
+    height: 22px;
+    min-height: 22px;
     max-height: 30px;
     flex-shrink: 0;
     box-sizing: border-box;
