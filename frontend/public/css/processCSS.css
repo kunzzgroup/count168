@@ -477,7 +477,9 @@ body.process-page {
 
 .process-page .bank-status-dropdown {
     position: relative;
-    width: 100%;
+    display: inline-flex;
+    max-width: 100%;
+    vertical-align: middle;
 }
 
 .process-page .bank-status-dropdown.open {
@@ -485,15 +487,22 @@ body.process-page {
 }
 
 .process-page .bank-status-button {
-    width: 72%;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-height: 24px;
-    padding: 4px 10px 4px 10px;
+    padding: 4px 26px 4px 12px;
     border-radius: 999px;
     border: 1px solid #cbd5e1;
     font-size: clamp(7px, 0.63vw, 12px);
     font-weight: bolder;
     line-height: 1.1;
     text-align: center;
+    white-space: nowrap;
+    overflow: visible;
     cursor: pointer;
     outline: none;
     box-sizing: border-box;
@@ -551,6 +560,7 @@ body.process-page {
     border-color: #9ca3af;
     /* BLOCK acts like a badge (no dropdown chevron) */
     background-image: none;
+    padding-right: 12px;
 }
 
 .process-page .bank-status-menu {
@@ -741,11 +751,15 @@ body.process-page {
 
 .process-page.process-page--bank .bank-status-button {
     min-height: 21px;
-    padding: 2px 8px;
+    padding: 2px 24px 2px 9px;
     line-height: 1.05;
     font-size: clamp(9px, 0.72vw, 13px);
     background-size: 13px 13px;
     background-position: right 6px center;
+}
+
+.process-page.process-page--bank .bank-status-button.is-block {
+    padding-right: 9px;
 }
 
 .process-page.process-page--bank .contract-badge {
@@ -871,8 +885,12 @@ body.process-page {
 
     .process-page.process-page--bank .bank-status-button {
         min-height: 19px;
-        padding: 1px 7px;
+        padding: 1px 22px 1px 7px;
         font-size: clamp(8px, 0.65vw, 12px);
+    }
+
+    .process-page.process-page--bank .bank-status-button.is-block {
+        padding-right: 7px;
     }
 }
 
@@ -3834,6 +3852,11 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 /* Ensure status dropdown is not clipped by card-item overflow */
 .process-page .bank-status-cell {
     overflow: visible !important;
+}
+
+.process-page .process-cards.bank-mode .card-item.bank-status-cell {
+    overflow: visible !important;
+    min-width: max-content;
 }
 
 /* Final restore: Edit Process should match reference (long rectangle + horizontal Day Use) */
