@@ -294,6 +294,7 @@ export default function BankProcessListPage() {
       window.MaintenanceDateRangePicker.init({
         allowEmpty: true,
         placeholder: t("selectDateRange"),
+        selectEndDateHint: t("selectEndDate"),
         onChange: () => {
           const df = dmyToIso(window.MaintenanceDateRangePicker.getDateFrom());
           const dt = dmyToIso(window.MaintenanceDateRangePicker.getDateTo());
@@ -313,6 +314,22 @@ export default function BankProcessListPage() {
     }
     return () => {};
   }, [loading, cssReady]);
+
+  /* Keep date-range chip wording in sync when login/UI language changes (picker caches placeholder internally). */
+  useEffect(() => {
+    if (loading || !cssReady || !bankDatePickerInitRef.current || !window.MaintenanceDateRangePicker?.init) return;
+    window.MaintenanceDateRangePicker.init({
+      allowEmpty: true,
+      placeholder: t("selectDateRange"),
+      selectEndDateHint: t("selectEndDate"),
+      onChange: () => {
+        const df = dmyToIso(window.MaintenanceDateRangePicker.getDateFrom());
+        const dt = dmyToIso(window.MaintenanceDateRangePicker.getDateTo());
+        setDateFrom(df);
+        setDateTo(dt);
+      },
+    });
+  }, [lang, loading, cssReady, t]);
 
   useEffect(() => {
     (async () => {
@@ -942,7 +959,8 @@ export default function BankProcessListPage() {
               <div className="process-list-date-filter" id="processListDateFilter" style={{ display: "inline-flex" }}>
                 <div className="date-range-picker" id="date-range-picker">
                   <i className="fas fa-calendar-alt" aria-hidden="true" />
-                  <span id="date-range-display">{t("selectDateRange")}</span>
+                  {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
+                  <span id="date-range-display" aria-live="polite" />
                   <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")} style={{ display: "none" }}>&times;</button>
                 </div>
                 <input type="hidden" id="date_from" defaultValue="" />

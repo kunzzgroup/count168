@@ -17,6 +17,8 @@ export function ensureMaintenanceDateRangePicker() {
     onChange: null,
     allowEmpty: false,
     placeholder: "Select date range",
+    /** Shown after user picked start date and before end date (range selection). */
+    selectEndDateHint: "Select end date",
   };
 
   function formatDateDisplay(date) {
@@ -32,7 +34,8 @@ export function ensureMaintenanceDateRangePicker() {
     if (calendarStartDate && calendarEndDate) {
       display.textContent = `${formatDateDisplay(calendarStartDate)} - ${formatDateDisplay(calendarEndDate)}`;
     } else if (calendarStartDate) {
-      display.textContent = `${formatDateDisplay(calendarStartDate)} - Select end date`;
+      const hint = config.selectEndDateHint || "Select end date";
+      display.textContent = `${formatDateDisplay(calendarStartDate)} - ${hint}`;
     } else {
       display.textContent = config.placeholder || "Select date range";
     }
