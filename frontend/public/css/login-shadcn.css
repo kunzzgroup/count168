@@ -323,7 +323,7 @@ button.sc-login-lang-seg.active {
   padding: 12px 25px 12px 46px;
   border: 1px solid var(--login-bg-end);
   border-radius: var(--login-radius-pill);
-  font-size: 16px;
+  font-size: var(--text-small);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
   background: rgba(255, 255, 255, 0.9);
   color: var(--login-text);
@@ -338,7 +338,6 @@ button.sc-login-lang-seg.active {
 
 .sc-login-input::placeholder {
   color: var(--login-bg-end);
-  font-size: var(--text-small);
   font-weight: 400;
 }
 
