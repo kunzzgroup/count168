@@ -192,8 +192,11 @@ try {
         $newDayStart = bank_resend_normalizeOptionalYmd($payload['day_start'] ?? null);
         $newDayEnd = bank_resend_normalizeOptionalYmd($payload['day_end'] ?? null);
         $newFrequency = trim((string) ($payload['day_start_frequency'] ?? '1st_of_every_month'));
-        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly'], true)) {
+        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'once'], true)) {
             $newFrequency = '1st_of_every_month';
+        }
+        if ($newFrequency === 'once') {
+            $newDayEnd = null;
         }
         if ($newDayStart !== null && $newDayEnd !== null && $newDayEnd < $newDayStart) {
             throw new Exception('Day end 不能早于 Day start');
@@ -242,6 +245,14 @@ try {
     }
 
     $pdo->beginTransaction();
+    // 一次性入账 / 从 Due 移除：清除后 Process 可再次进入 Accounting Due
+    $delOncePap = $pdo->prepare(
+        "DELETE FROM process_accounting_posted
+         WHERE company_id = ? AND process_id = ?
+           AND period_type IN ('once_one_off','once_one_off_skipped')"
+    );
+    $delOncePap->execute([$company_id, $bankProcessId]);
+
     $targetYear = (int) substr($effectiveDayStartYmd, 0, 4);
     $targetMonth = (int) substr($effectiveDayStartYmd, 5, 2);
     // 弹窗同时填 day_start + day_end：清除该区间内各月 monthly 及 partial / tail / 合并期标记，便于生成单笔合并账单。

@@ -107,6 +107,68 @@ function bankProcessResolveDisplayValueByAccount(array $t): string
 }
 
 /**
+ * Payment History / Maintenance：Frequency=once 入账行描述（与首月 partial 一致：每行只展示本条对应的金额）。
+ * - Supplier(card_merchant)：ONCE (DD/MM/YYYY) @ buy
+ * - Customer：ONCE (DD/MM/YYYY) @ sell
+ * - Company profit：ONCE (DD/MM/YYYY)（不在 Description 重复金额，与 Win/Loss 列一致）
+ * - Profit sharing 账户：ONCE (DD/MM/YYYY) @ 该账号分摊额
+ *
+ * @param array $t 需含 account_id、card_merchant_id、customer_id、profit_account_id、process_*；transaction_date 优先，否则 bp_day_start
+ */
+function bankProcessOnceOneOffHistoryDescription(array $t): string
+{
+    $dmy = '';
+    $td = trim((string) ($t['transaction_date'] ?? ''));
+    if ($td !== '' && stripos($td, '0000-00-00') !== 0) {
+        if (preg_match('#^\d{1,2}/\d{1,2}/\d{4}$#', $td)) {
+            $dmy = $td;
+        } elseif (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $td, $m)) {
+            $ts = strtotime($m[1] . '-' . $m[2] . '-' . $m[3]);
+            if ($ts !== false) {
+                $dmy = date('d/m/Y', $ts);
+            }
+        } else {
+            $ts = strtotime(str_replace('/', '-', $td));
+            if ($ts !== false) {
+                $dmy = date('d/m/Y', $ts);
+            }
+        }
+    }
+    if ($dmy === '') {
+        $ymd = bankProcessParseDayStartToYmd($t['bp_day_start'] ?? null);
+        if ($ymd !== null) {
+            $ts = strtotime($ymd);
+            if ($ts !== false) {
+                $dmy = date('d/m/Y', $ts);
+            }
+        }
+    }
+    if ($dmy === '') {
+        $dmy = date('d/m/Y');
+    }
+    $prefix = 'ONCE (' . $dmy . ')';
+    $txAccountId = (int) ($t['account_id'] ?? 0);
+    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+    $customerId = (int) ($t['customer_id'] ?? 0);
+    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
+
+    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_cost'] ?? '0');
+    }
+    if ($txAccountId > 0 && $txAccountId === $customerId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber(money_abs($t['process_price'] ?? '0', 2));
+    }
+    if ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_profit'] ?? '0');
+    }
+    $psAmount = bankProcessProfitSharingOriginalAmountByAccount($t);
+    if ($psAmount !== null) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($psAmount);
+    }
+    return $prefix;
+}
+
+/**
  * 首月比例账单描述：Pro-rated(dd/mm - dd/mm)@monthly <对应账单价格>
  * 仅显示当前这条记录对应的价格：
  * - Supplier(card_merchant): buy price

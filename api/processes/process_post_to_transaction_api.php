@@ -933,7 +933,7 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off') {
             $pt = 'monthly';
         }
         $pairs[] = [
@@ -1231,6 +1231,10 @@ try {
                     $postedDateForInbox = $exclusiveEnd;
                 }
             }
+        } elseif ($periodType === 'once_one_off') {
+            // 一次性合同：不按应付日限制；归属日与 Inbox 去重锚点用 day_start，缺失则用今日
+            $transactionDate = ($dayStartYmd !== null && $dayStartYmd !== '') ? $dayStartYmd : $fallbackDate;
+            $postedDateForInbox = $transactionDate;
         } elseif ($periodType === 'monthly') {
             // monthly：Payment History 归档日固定为该期应付日（dueYmd），
             // 非 resend 场景未到应付日不允许提前入账；resend 维持可回补旧期能力。
@@ -1286,7 +1290,7 @@ try {
             }
         }
 
-        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ''));
+        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ($periodType === 'once_one_off' ? ' (once)' : '')));
         $resendEndMarker = '';
         if ($periodType === 'resend_consolidated_range') {
             $endRawForMarker = $p['day_end'] ?? null;
@@ -1337,6 +1341,8 @@ try {
             }
         } elseif ($monthlyProrationPsRatio !== null) {
             $psRatio = $monthlyProrationPsRatio;
+        } elseif ($periodType === 'once_one_off') {
+            $psRatio = '1.0000000000000000';
         } elseif ($periodType === 'day_end_tail' || $periodType === 'resend_consolidated_range') {
             $fp = money_normalize($p['profit'] ?? '0');
             $psRatio = money_cmp($fp, '0') > 0 ? money_div($profit, $fp, MONEY_CALC_SCALE) : '0.0000000000000000';
