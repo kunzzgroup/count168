@@ -2310,16 +2310,19 @@ function syncBankDayEndMonthlyCapUi() {
     const wrapEl = document.getElementById('bank_day_end_monthly_cap_wrap');
     const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
     const freqEl = document.getElementById('bank_day_start_frequency');
+    const editIdEl = document.getElementById('bank_edit_id');
+    const inEditMode = !!(editIdEl && String(editIdEl.value || '').trim() !== '');
     const enabledByFrequency = !!(freqEl && freqEl.value === '1st_of_every_month');
+    const showTailSwitch = inEditMode && enabledByFrequency;
     if (wrapEl) {
-        wrapEl.style.display = enabledByFrequency ? '' : 'none';
+        wrapEl.style.display = showTailSwitch ? '' : 'none';
     }
-    if (!enabledByFrequency) {
+    if (!showTailSwitch) {
         setBankDayEndMonthlyCapEnabled(false);
     }
     if (switchEl) {
         const locked = (typeof isBankProcessBillingScheduleLocked === 'function' && isBankProcessBillingScheduleLocked());
-        switchEl.disabled = !enabledByFrequency || locked;
+        switchEl.disabled = !showTailSwitch || locked;
         switchEl.style.cursor = switchEl.disabled ? 'not-allowed' : 'pointer';
     }
     syncBankDayEndMonthlyCapSwitchLabel();
