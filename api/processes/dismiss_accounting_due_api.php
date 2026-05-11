@@ -95,6 +95,47 @@ function isProcessInResendConsolidatedMode(PDO $pdo, int $companyId, int $proces
     return !empty($merged['accounting_resend_consolidated_range']);
 }
 
+/**
+ * 无论本次 Delete 主路径写入了哪种 *_skipped，只要当前 process 处于 consolidated resend 模式，
+ * 额外补写 consolidated_skipped，确保 Inbox 的 consolidated 判定一定能命中隐藏。
+ */
+function ensureConsolidatedSkippedMarker(PDO $pdo, int $companyId, int $processId): void
+{
+    if (!isProcessInResendConsolidatedMode($pdo, $companyId, $processId)) {
+        return;
+    }
+    bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
+    bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
+    $hasRelaxCol = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
+    $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
+    $selectCols = ['bp.id', 'bp.day_start', 'bp.day_end'];
+    if ($hasRelaxCol) {
+        $selectCols[] = 'bp.accounting_resend_relax_created_floor';
+    }
+    if ($hasSchedCols) {
+        $selectCols[] = 'bp.accounting_resend_schedule_day_start';
+        $selectCols[] = 'bp.accounting_resend_schedule_day_end';
+        $selectCols[] = 'bp.accounting_resend_schedule_frequency';
+    }
+    $stmtBp = $pdo->prepare('SELECT ' . implode(', ', $selectCols) . ' FROM bank_process bp WHERE bp.id = ? AND bp.company_id = ? LIMIT 1');
+    $stmtBp->execute([$processId, $companyId]);
+    $bpRow = $stmtBp->fetch(PDO::FETCH_ASSOC);
+    if (!$bpRow) {
+        return;
+    }
+    $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($bpRow);
+    $anchorRaw = $merged['day_start'] ?? null;
+    $anchor = bmp_bankProcessDateFieldToYmd($anchorRaw);
+    if ($anchor === null || $anchor === '') {
+        return;
+    }
+    $ins = $pdo->prepare(
+        "INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type)
+         VALUES (?, ?, ?, 'resend_consolidated_range_skipped')"
+    );
+    $ins->execute([$companyId, $processId, $anchor]);
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
@@ -283,6 +324,12 @@ try {
         if ($papId > 0) {
             $ptNorm = bmp_normalizePeriodType($periodType);
             $insRp->execute([$companyId, $processId, $papId, $ptNorm, $postDate]);
+        }
+        // 强制兜底：当前 process 若是 consolidated resend，补写 consolidated_skipped 防止 Due 残留。
+        try {
+            ensureConsolidatedSkippedMarker($pdo, $companyId, $processId);
+        } catch (Throwable $e) {
+            // ignore safeguard failure
         }
     }
 
