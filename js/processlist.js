@@ -1956,17 +1956,21 @@ async function postAccountingInboxToTransaction() {
 function deleteAccountingInboxSelected() {
     const tbody = document.getElementById('processAccountingInboxTbody');
     if (!tbody) return;
-    let boxes = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
-    if (boxes.length === 0) {
-        boxes = tbody.querySelectorAll('.process-accounting-inbox-row-cb:checked:not([disabled])');
-    }
-    const pairs = Array.from(boxes).map(cb => {
+    const trSet = new Map();
+    tbody.querySelectorAll('.process-accounting-inbox-row-cb:checked:not([disabled])').forEach(function (cb) {
         const tr = cb.closest('tr');
-        const id = parseInt((tr && tr.getAttribute('data-id')) || cb.dataset.id || '', 10);
+        if (tr) trSet.set(tr, true);
+    });
+    tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked').forEach(function (cb) {
+        const tr = cb.closest('tr');
+        if (tr) trSet.set(tr, true);
+    });
+    const pairs = Array.from(trSet.keys()).map(function (tr) {
+        const id = parseInt((tr && tr.getAttribute('data-id')) || '', 10);
         const periodType = (tr && tr.getAttribute('data-period-type')) || 'monthly';
         const billingMonth = (tr && tr.getAttribute('data-billing-month')) || '';
         return { id, periodType, billingMonth };
-    }).filter(p => !isNaN(p.id));
+    }).filter(function (p) { return !isNaN(p.id); });
     if (pairs.length === 0) {
         showNotification('请勾选要移除的行（左侧行勾选或右侧 Delete 列）', 'warning');
         return;
