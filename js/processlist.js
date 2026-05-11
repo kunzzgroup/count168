@@ -3756,20 +3756,9 @@ function updateBankFrequencyOptions() {
         setBankFormDayInputYmd(dayEndEl, minYmd);
     }
 
-    const hasDayEnd = !!dayEndEl.value;
     const monthlyOption = freqEl.querySelector('option[value="monthly"]');
-
-    if (hasDayEnd) {
-        // If day end is set, force to 1st of every month
-        freqEl.value = '1st_of_every_month';
-        if (monthlyOption) {
-            monthlyOption.disabled = true;
-        }
-    } else {
-        // If no day end, allow monthly selection
-        if (monthlyOption) {
-            monthlyOption.disabled = false;
-        }
+    if (monthlyOption) {
+        monthlyOption.disabled = false;
     }
 }
 
