@@ -1032,13 +1032,24 @@ function openAddProcessForSelectedPermission() {
             if (typeof updateBankFrequencyOptions === 'function') {
                 const dayEndEl = document.getElementById('bank_day_end');
                 if (dayEndEl) {
-                    dayEndEl.value = '';
+                    if (typeof setBankFormDayInputYmd === 'function') {
+                        setBankFormDayInputYmd(dayEndEl, '');
+                    } else {
+                        dayEndEl.value = '';
+                    }
                     dayEndEl.removeAttribute('min');
                     delete dayEndEl.dataset.bankContractEndHint;
                 }
+                const dayStartEl = document.getElementById('bank_day_start');
+                if (dayStartEl && typeof setBankFormDayInputYmd === 'function') {
+                    setBankFormDayInputYmd(dayStartEl, '');
+                }
+                const freqEl = document.getElementById('bank_day_start_frequency');
+                if (freqEl) freqEl.value = 'once';
                 updateBankFrequencyOptions();
             }
             if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
+            if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi();
             setBankModalLoadingState(false, 'Add Process');
             updateBankSubmitButtonState();
         }).catch(() => {
@@ -1270,6 +1281,7 @@ async function openBankEditModal(id) {
         const result = await response.json();
         if (!result.success || !result.data) {
             showNotification(result.error || 'Failed to load process data', 'danger');
+            setBankModalLoadingState(false, 'Add Process');
             closeAddBankModal();
             return;
         }
@@ -1290,11 +1302,22 @@ async function openBankEditModal(id) {
         document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';
         document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
         const dayStart = process.day_start || '';
-        document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+        const dayStartYmd = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+        const dayStartEl = document.getElementById('bank_day_start');
+        if (dayStartEl && typeof setBankFormDayInputYmd === 'function') {
+            setBankFormDayInputYmd(dayStartEl, dayStartYmd);
+        } else if (dayStartEl) {
+            dayStartEl.value = dayStartYmd;
+        }
         const dayEnd = process.day_end || '';
         const dayEndEl = document.getElementById('bank_day_end');
         if (dayEndEl) {
-            dayEndEl.value = dayEnd ? (dayEnd.length === 10 ? dayEnd : dayEnd.split(' ')[0]) : '';
+            const dayEndYmd = dayEnd ? (dayEnd.length === 10 ? dayEnd : dayEnd.split(' ')[0]) : '';
+            if (typeof setBankFormDayInputYmd === 'function') {
+                setBankFormDayInputYmd(dayEndEl, dayEndYmd);
+            } else {
+                dayEndEl.value = dayEndYmd;
+            }
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
         if (freqEl) freqEl.value = bankProcessFrequencyNormalized(process.day_start_frequency);
@@ -1420,10 +1443,14 @@ async function openBankEditModal(id) {
         }
         updateBankSubmitButtonState();
         document.getElementById('bankSubmitBtn').disabled = false;
+        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
+        if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi({ preserveValues: true });
+        setBankModalLoadingState(false, 'Edit Process');
         setBankProcessEditLockedFields(true);
         setBankProcessBillingScheduleLocked(false);
     } catch (error) {
         console.error('Error opening bank edit modal:', error);
+        setBankModalLoadingState(false, 'Add Process');
         closeAddBankModal();
         showNotification('Failed to load process data', 'danger');
     }

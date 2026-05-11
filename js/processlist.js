@@ -1175,6 +1175,11 @@ function addProcess() {
 
 function openAddProcessForSelectedPermission() {
     if (selectedPermission === 'Bank') {
+        const bankModule = getBankProcessModule();
+        if (bankModule && typeof bankModule.openAddProcess === 'function') {
+            bankModule.openAddProcess();
+            return;
+        }
         window.selectedProfitSharingEntries = [];
         document.getElementById('addBankModal').style.display = 'block';
         setBankModalLoadingState(true, 'Add Process');
@@ -1195,6 +1200,8 @@ function openAddProcessForSelectedPermission() {
                 if (dayStartEl) {
                     setBankFormDayInputYmd(dayStartEl, '');
                 }
+                const freqEl = document.getElementById('bank_day_start_frequency');
+                if (freqEl) freqEl.value = 'once';
                 updateBankFrequencyOptions();
             }
             if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
@@ -1439,180 +1446,15 @@ function closeEditModal() {
     document.getElementById('edit_description').value = '';
 }
 
-/** Bank 编辑：打开与 Add 同格式的弹窗，预填数据，提交时走 update_process */
-async function openBankEditModal(id) {
-    document.getElementById('addBankModal').style.display = 'block';
-    setBankModalLoadingState(true, 'Edit Process');
-    try {
-        const processRequest = fetch(buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank`));
-        const bankDataRequest = ensureAddBankProcessDataLoaded();
-        const response = await processRequest;
-        const result = await response.json();
-        if (!result.success || !result.data) {
-            showNotification(result.error || 'Failed to load process data', 'danger');
-            closeAddBankModal();
-            return;
-        }
-        const process = result.data;
-        document.getElementById('bank_edit_id').value = process.id;
-        document.getElementById('bankModalTitle').textContent = 'Edit Process';
-        document.getElementById('bankSubmitBtn').textContent = 'Update Process';
-        document.getElementById('bankSubmitBtn').disabled = true;
-        document.getElementById('bank_type').value = process.type || '';
-        document.getElementById('bank_name').value = process.name || '';
-        document.getElementById('bank_contract').value = process.contract || '';
-        document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
-        const bankSopEl = document.getElementById('bank_sop');
-        const bankRemarkEl = document.getElementById('bank_remark');
-        if (bankSopEl) bankSopEl.value = (process.sop != null && process.sop !== undefined) ? String(process.sop).toUpperCase() : '';
-        if (bankRemarkEl) bankRemarkEl.value = (process.remark != null && process.remark !== undefined) ? String(process.remark).toUpperCase() : '';
-        document.getElementById('bank_cost').value = process.cost != null && process.cost !== '' ? process.cost : '';
-        document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';
-        document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
-        const dayStart = process.day_start || '';
-        const dayStartYmd = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
-        setBankFormDayInputYmd(document.getElementById('bank_day_start'), dayStartYmd);
-        const dayEnd = process.day_end || '';
-        const dayEndEl = document.getElementById('bank_day_end');
-        if (dayEndEl) {
-            const dayEndYmd = dayEnd ? (dayEnd.length === 10 ? dayEnd : dayEnd.split(' ')[0]) : '';
-            setBankFormDayInputYmd(dayEndEl, dayEndYmd);
-        }
-        const freqEl = document.getElementById('bank_day_start_frequency');
-        if (freqEl) freqEl.value = process.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
-        if (typeof updateBankFrequencyOptions === 'function') updateBankFrequencyOptions();
-        document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
-        window.selectedProfitSharingEntries = [];
-        const psStr = (process.profit_sharing || '').trim();
-        if (psStr) {
-            psStr.split(',').forEach(function (part) {
-                const t = part.trim();
-                const dash = t.lastIndexOf(' - ');
-                if (dash > -1) {
-                    window.selectedProfitSharingEntries.push({
-                        accountId: '',
-                        accountText: t.substring(0, dash).trim(),
-                        amount: t.substring(dash + 3).trim()
-                    });
-                }
-            });
-        }
-        renderSelectedProfitSharing();
-        if (typeof updateBankProfitDisplay === 'function') updateBankProfitDisplay();
-        if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
-
-        const countrySelect = document.getElementById('bank_country');
-        const bankSelect = document.getElementById('bank_bank');
-        if (process.country && countrySelect && !Array.from(countrySelect.options).some(o => o.value === process.country)) {
-            const opt = document.createElement('option');
-            opt.value = process.country;
-            opt.textContent = process.country;
-            countrySelect.appendChild(opt);
-        }
-        if (countrySelect) {
-            countrySelect.value = process.country || '';
-        }
-        if (process.bank && bankSelect && !Array.from(bankSelect.options).some(o => o.value === process.bank)) {
-            const opt = document.createElement('option');
-            opt.value = process.bank;
-            opt.textContent = process.bank;
-            bankSelect.appendChild(opt);
-        }
-        if (bankSelect) {
-            bankSelect.value = process.bank || '';
-        }
-        const cardMerchantBtnEarly = document.getElementById('bank_card_merchant');
-        const customerBtnEarly = document.getElementById('bank_customer');
-        const profitAccountBtnEarly = document.getElementById('bank_profit_account');
-        if (cardMerchantBtnEarly) {
-            cardMerchantBtnEarly.setAttribute('data-value', process.card_merchant_id || '');
-            const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
-            const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
-            cardMerchantBtnEarly.textContent = process.card_merchant_id
-                ? (formatBankAccountDisplay(cmCode, cmName, process.card_merchant_id) || 'Select Account')
-                : (cardMerchantBtnEarly.getAttribute('data-placeholder') || 'Select Account');
-        }
-        if (customerBtnEarly) {
-            customerBtnEarly.setAttribute('data-value', process.customer_id || '');
-            customerBtnEarly.textContent = process.customer_id
-                ? (formatBankAccountDisplay(process.customer_account, process.customer_name, process.customer_id) || 'Select Account')
-                : (customerBtnEarly.getAttribute('data-placeholder') || 'Select Account');
-        }
-        if (profitAccountBtnEarly) {
-            profitAccountBtnEarly.setAttribute('data-value', process.profit_account_id || '');
-            profitAccountBtnEarly.textContent = process.profit_account_id
-                ? (formatBankAccountDisplay(process.profit_account_account_id || process.profit_account_name, process.profit_account_name, process.profit_account_id) || 'Select Account')
-                : (profitAccountBtnEarly.getAttribute('data-placeholder') || 'Select Account');
-        }
-
-        await bankDataRequest;
-        if (process.country) {
-            if (!Array.from(countrySelect.options).some(o => o.value === process.country)) {
-                const opt = document.createElement('option');
-                opt.value = process.country;
-                opt.textContent = process.country;
-                countrySelect.appendChild(opt);
-            }
-            countrySelect.value = process.country;
-            // 编辑时：若当前 process.bank 不在该 Country 的 Selected Banks 中则临时加入，再刷新下拉
-            if (process.bank && (process.bank || '').trim()) {
-                if (!window.selectedBanksByCountry) window.selectedBanksByCountry = {};
-                const arr = window.selectedBanksByCountry[process.country] || [];
-                if (arr.indexOf(process.bank) < 0) {
-                    window.selectedBanksByCountry[process.country] = arr.concat([process.bank]);
-                    persistSelectedBanksByCountryToStorage();
-                }
-            }
-            applySelectedBanksToDropdown(process.country);
-        } else {
-            countrySelect.value = '';
-            applySelectedBanksToDropdown('');
-        }
-        if (process.bank) {
-            bankSelect.value = process.bank;
-        } else {
-            bankSelect.value = '';
-        }
-        const cardMerchantBtn = document.getElementById('bank_card_merchant');
-        const customerBtn = document.getElementById('bank_customer');
-        if (cardMerchantBtn && process.card_merchant_id) {
-            cardMerchantBtn.setAttribute('data-value', process.card_merchant_id);
-            const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
-            const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
-            cardMerchantBtn.textContent = formatBankAccountDisplay(cmCode, cmName, process.card_merchant_id) || 'Select Account';
-        } else if (cardMerchantBtn) {
-            cardMerchantBtn.removeAttribute('data-value');
-            cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
-        }
-        if (customerBtn && process.customer_id) {
-            customerBtn.setAttribute('data-value', process.customer_id);
-            customerBtn.textContent = formatBankAccountDisplay(process.customer_account, process.customer_name, process.customer_id) || 'Select Account';
-        } else if (customerBtn) {
-            customerBtn.removeAttribute('data-value');
-            customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
-        }
-        const profitAccountBtn = document.getElementById('bank_profit_account');
-        if (profitAccountBtn && process.profit_account_id) {
-            profitAccountBtn.setAttribute('data-value', process.profit_account_id);
-            profitAccountBtn.textContent = formatBankAccountDisplay(process.profit_account_account_id || process.profit_account_name, process.profit_account_name, process.profit_account_id) || 'Select Account';
-        } else if (profitAccountBtn) {
-            profitAccountBtn.removeAttribute('data-value');
-            profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
-        }
-        updateBankSubmitButtonState();
-        document.getElementById('bankSubmitBtn').disabled = false;
-        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
-    } catch (error) {
-        console.error('Error opening bank edit modal:', error);
-        closeAddBankModal();
-        showNotification('Failed to load process data', 'danger');
-    }
-}
-
 async function editProcess(id) {
     try {
         if (selectedPermission === 'Bank') {
-            await openBankEditModal(id);
+            const bankModule = getBankProcessModule();
+            if (bankModule && typeof bankModule.openBankEditModal === 'function') {
+                await bankModule.openBankEditModal(id);
+            } else {
+                showNotification('Bank edit is unavailable. Please refresh the page.', 'danger');
+            }
             return;
         }
         await loadEditProcessData();
