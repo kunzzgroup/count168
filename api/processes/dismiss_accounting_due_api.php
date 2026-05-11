@@ -95,6 +95,40 @@ function isProcessInResendConsolidatedMode(PDO $pdo, int $companyId, int $proces
     return !empty($merged['accounting_resend_consolidated_range']);
 }
 
+/**
+ * consolidated 被 Dismiss 后，清掉本次 Resend 的 relax/schedule，避免 Inbox 继续按合并区间反复生成同一行。
+ */
+function clearProcessResendConsolidatedState(PDO $pdo, int $companyId, int $processId): void
+{
+    bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
+    bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
+    $hasRelaxCol = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
+    $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
+    if (!$hasRelaxCol) {
+        return;
+    }
+    if ($hasSchedCols) {
+        $stmt = $pdo->prepare(
+            "UPDATE bank_process
+             SET accounting_resend_relax_created_floor = 0,
+                 accounting_resend_schedule_day_start = NULL,
+                 accounting_resend_schedule_day_end = NULL,
+                 accounting_resend_schedule_frequency = NULL,
+                 dts_modified = NOW()
+             WHERE id = ? AND company_id = ?"
+        );
+        $stmt->execute([$processId, $companyId]);
+        return;
+    }
+    $stmt = $pdo->prepare(
+        "UPDATE bank_process
+         SET accounting_resend_relax_created_floor = 0,
+             dts_modified = NOW()
+         WHERE id = ? AND company_id = ?"
+    );
+    $stmt->execute([$processId, $companyId]);
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
@@ -157,7 +191,7 @@ try {
     $inserted = 0;
     bmp_ensureMaintenanceResendPendingTable($pdo);
     $insPap = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
-    $selPap = $pdo->prepare("SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = ? LIMIT 1");
+    $selPap = $pdo->prepare("SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type = ? LIMIT 1");
     $insRp = $pdo->prepare(
         "INSERT IGNORE INTO bank_process_maintenance_resend_pending
          (company_id, bank_process_id, process_accounting_posted_id, period_type, transaction_date)
@@ -171,7 +205,7 @@ try {
         if (!$stmt->fetch()) {
             continue;
         }
-        if ($periodType === 'monthly') {
+        if (in_array($periodType, ['monthly', 'day_end_tail', 'partial_first_month'], true)) {
             try {
                 if (isProcessInResendConsolidatedMode($pdo, $companyId, $processId)) {
                     $periodType = 'resend_consolidated_range';
@@ -230,7 +264,7 @@ try {
         if ($papId === 0 && $periodType === 'resend_consolidated_range') {
             $updPap = $pdo->prepare(
                 "UPDATE process_accounting_posted SET period_type = ?
-                 WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = 'resend_consolidated_range'"
+                 WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type = 'resend_consolidated_range'"
             );
             $updPap->execute([$skippedType, $companyId, $processId, $postDate]);
             if ($updPap->rowCount() > 0) {
@@ -245,7 +279,7 @@ try {
             if ($papId === 0) {
                 $updPapAny = $pdo->prepare(
                     "UPDATE process_accounting_posted SET period_type = ?
-                     WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type NOT LIKE '%\\_skipped'"
+                     WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) AND period_type NOT LIKE '%\\_skipped'"
                 );
                 $updPapAny->execute([$skippedType, $companyId, $processId, $postDate]);
                 if ($updPapAny->rowCount() > 0) {
@@ -283,6 +317,9 @@ try {
         if ($papId > 0) {
             $ptNorm = bmp_normalizePeriodType($periodType);
             $insRp->execute([$companyId, $processId, $papId, $ptNorm, $postDate]);
+            if ($periodType === 'resend_consolidated_range') {
+                clearProcessResendConsolidatedState($pdo, $companyId, $processId);
+            }
         }
     }
 
