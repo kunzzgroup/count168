@@ -98,7 +98,7 @@ if (!function_exists('renderBankProcessModals')) {
                 margin: 0;
                 font-size: 11px;
                 font-weight: 600;
-                color: #64748b;
+                color:rgb(14, 88, 192);
                 cursor: pointer;
                 user-select: none;
             }
@@ -124,7 +124,7 @@ if (!function_exists('renderBankProcessModals')) {
                 width: 16px;
                 height: 16px;
                 border-radius: 50%;
-                background: #ffffff;
+                background:rgb(16, 102, 231);
                 transition: transform 0.2s ease;
                 box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
             }
