@@ -2097,20 +2097,6 @@ function bindBankFieldErrorClear() {
             if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         });
     }
-    const dayEndCapSwitchEl = document.getElementById('bank_day_end_monthly_cap_switch');
-    if (dayEndCapSwitchEl && !dayEndCapSwitchEl._bankBound) {
-        dayEndCapSwitchEl._bankBound = true;
-        function onCapSwitchUserInput() {
-            setBankDayEndMonthlyCapEnabled(!!dayEndCapSwitchEl.checked);
-        }
-        dayEndCapSwitchEl.addEventListener('change', onCapSwitchUserInput);
-        dayEndCapSwitchEl.addEventListener('click', function () {
-            var self = this;
-            window.setTimeout(function () {
-                setBankDayEndMonthlyCapEnabled(!!self.checked);
-            }, 0);
-        });
-    }
     if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }
 
@@ -4926,6 +4912,39 @@ function initBankProcessModule() {
     const accountingInboxPost = document.getElementById('processAccountingInboxPostBtn');
     if (accountingInboxPost) accountingInboxPost.addEventListener('click', function () { postAccountingInboxToTransaction(); });
 }
+
+/** processlist.js 先执行并占用 __bankAddProcessSubmitBound 时，bindBankFieldErrorClear 不会走到本文件；此处仍绑定 Day end cap 开关与 Frequency→cap UI */
+(function bindBankDayEndCapControlsAlways() {
+    if (window.__bankDayEndCapControlsAlways) return;
+    window.__bankDayEndCapControlsAlways = true;
+    const sw = document.getElementById('bank_day_end_monthly_cap_switch');
+    if (sw && !sw._bankCapSwitchAlwaysBound) {
+        sw._bankCapSwitchAlwaysBound = true;
+        function applyCapFromSwitch() {
+            if (typeof setBankDayEndMonthlyCapEnabled === 'function') {
+                setBankDayEndMonthlyCapEnabled(!!sw.checked);
+            }
+        }
+        sw.addEventListener('change', applyCapFromSwitch);
+        sw.addEventListener('click', function () {
+            var self = this;
+            window.setTimeout(function () {
+                if (typeof setBankDayEndMonthlyCapEnabled === 'function') {
+                    setBankDayEndMonthlyCapEnabled(!!self.checked);
+                }
+            }, 0);
+        });
+    }
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    if (freqEl && !freqEl._bankMonthlyCapUiFromBankModule) {
+        freqEl._bankMonthlyCapUiFromBankModule = true;
+        freqEl.addEventListener('change', function () {
+            if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
+        });
+    }
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
+})();
+
 return {
     init: initBankProcessModule,
     toggleBankSupplierSort: toggleBankSupplierSort,
