@@ -312,6 +312,7 @@ export default function LoginPage() {
         <div className="sc-login-card">
           <div className="sc-login-role-tabs">
             <button
+              id="admin-tab"
               type="button"
               className={`sc-login-role-tab${role === "admin" ? " active" : ""}`}
               onClick={() => setRole("admin")}
@@ -319,6 +320,7 @@ export default function LoginPage() {
               {i18n.admin}
             </button>
             <button
+              id="member-tab"
               type="button"
               className={`sc-login-role-tab${role === "member" ? " active" : ""}`}
               onClick={() => setRole("member")}
@@ -332,6 +334,7 @@ export default function LoginPage() {
               <div className="sc-login-input-row">
                 <i className="fas fa-building sc-login-input-icon" />
                 <input
+                  id="company-id"
                   type="text"
                   className="sc-login-input"
                   placeholder={i18n.companyPlaceholder}
@@ -344,6 +347,7 @@ export default function LoginPage() {
               <div className="sc-login-input-row">
                 <i className="fas fa-user sc-login-input-icon" />
                 <input
+                  id="user-id"
                   type="text"
                   className="sc-login-input"
                   placeholder={userPlaceholder}
@@ -356,6 +360,7 @@ export default function LoginPage() {
               <div className="sc-login-input-row">
                 <i className="fas fa-lock sc-login-input-icon" />
                 <input
+                  id="password"
                   type="password"
                   className="sc-login-input"
                   placeholder={i18n.passwordPlaceholder}
@@ -369,10 +374,12 @@ export default function LoginPage() {
                 <label className="sc-login-remember">
                   <input
                     type="checkbox"
+                    className="sc-login-remember-check"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <span>{i18n.rememberMe}</span>
+                  <span className="sc-login-remember-slider" aria-hidden="true" />
+                  <span className="sc-login-remember-text">{i18n.rememberMe}</span>
                 </label>
                 {role === "admin" && (
                   <a href="/reset-password" className="sc-login-forgot-link">

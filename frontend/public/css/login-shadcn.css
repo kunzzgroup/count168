@@ -271,26 +271,33 @@ button.sc-login-lang-seg.active {
 .sc-login-role-tab {
   flex: 1;
   min-width: 0;
-  padding: 14px 16px;
+  min-height: 57.5px;
+  box-sizing: border-box;
+  padding: 15px;
   border: none;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.2);
   color: #ffffff;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 18px;
+  font-family: Arial, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.2;
   text-align: center;
   white-space: nowrap;
-  transition: all 0.3s ease;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
 .sc-login-role-tab.active {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
+  background: linear-gradient(135deg, var(--sc-login-bg-start), var(--sc-login-bg-end));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 .sc-login-card-content {
-  padding: 28px 24px;
+  padding: 30px 20px;
   min-width: 0;
+  font-size: 16px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #000000;
 }
 
 .sc-login-form {
@@ -309,7 +316,7 @@ button.sc-login-lang-seg.active {
 
 .sc-login-input-icon {
   position: absolute;
-  left: 18px;
+  left: 15px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--sc-login-bg-end);
@@ -321,11 +328,13 @@ button.sc-login-lang-seg.active {
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  padding: 10px 20px 10px 44px;
-  border: 2px solid var(--sc-login-bg-end);
+  box-sizing: border-box;
+  min-height: 46.5px;
+  padding: 12px 25px 12px 46px;
+  border: 1px solid var(--sc-login-bg-end);
   border-radius: var(--sc-login-radius-pill);
-  font-size: 15px;
-  transition: all 0.3s ease;
+  font-size: 16px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
   background: rgba(255, 255, 255, 0.9);
   color: var(--sc-login-text);
 }
@@ -339,7 +348,7 @@ button.sc-login-lang-seg.active {
 
 .sc-login-input::placeholder {
   color: var(--sc-login-bg-end);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 400;
 }
 
@@ -352,6 +361,7 @@ button.sc-login-lang-seg.active {
 }
 
 .sc-login-remember {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -359,30 +369,77 @@ button.sc-login-lang-seg.active {
   overflow: hidden;
   cursor: pointer;
   user-select: none;
-  color: var(--sc-login-muted);
-  font-size: clamp(12px, 3vw, 14px);
-  font-weight: 500;
 }
 
-.sc-login-remember > span {
+.sc-login-remember-check {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  width: 40px;
+  height: 20px;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.sc-login-remember-slider {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 20px;
+  border-radius: var(--sc-login-radius-pill);
+  background: #dddddd;
+  transition: background 0.2s ease;
+  pointer-events: none;
+}
+
+.sc-login-remember-slider::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s ease;
+}
+
+.sc-login-remember-check:checked + .sc-login-remember-slider {
+  background: linear-gradient(90deg, var(--sc-login-bg-start), var(--sc-login-bg-end));
+}
+
+.sc-login-remember-check:checked + .sc-login-remember-slider::after {
+  transform: translateX(20px);
+}
+
+.sc-login-remember-check:focus-visible + .sc-login-remember-slider {
+  outline: 2px solid var(--sc-login-bg-start);
+  outline-offset: 2px;
+}
+
+.sc-login-remember-text {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.sc-login-remember input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--sc-login-bg-start);
+  color: #656565;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .sc-login-forgot-link {
   justify-self: end;
   max-width: 100%;
-  color: var(--sc-login-bg-end);
+  color: #56ccf2;
   text-decoration: none;
-  font-size: clamp(12px, 3vw, 14px);
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -406,12 +463,15 @@ button.sc-login-lang-seg.active {
 }
 
 .sc-login-submit-btn {
+  box-sizing: border-box;
+  min-height: 51px;
   background: linear-gradient(135deg, var(--sc-login-bg-start), var(--sc-login-bg-end));
   color: #ffffff;
-  padding: 13px 16px;
+  padding: 15px;
   border-radius: var(--sc-login-radius-pill);
-  font-size: 17px;
-  font-weight: 600;
+  font-family: Arial, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -567,12 +627,13 @@ button.sc-login-lang-seg.active {
 
 @media (max-width: 480px) {
   .sc-login-role-tab {
-    padding: 11px 12px;
-    font-size: 16px;
+    min-height: 52px;
+    padding: 12px 10px;
+    font-size: 18px;
   }
 
   .sc-login-card-content {
-    padding: 20px 18px;
+    padding: 24px 16px;
   }
 
 }
