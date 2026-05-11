@@ -3762,7 +3762,7 @@ function updateBankFrequencyOptions() {
     }
 }
 
-/** 与 api/processes/billing_schedule.php getBillingTermMonthsFromContract 一致 */
+/** 与 api/processes/billing_schedule.php getBillingTermMonthsFromContract 一致（账单期数；1+1→2 等） */
 function parseBankContractTermMonths(contract) {
     if (contract == null || String(contract).trim() === '') {
         return null;
@@ -3777,6 +3777,18 @@ function parseBankContractTermMonths(contract) {
         return Math.max(1, parseInt(m[1], 10));
     }
     return null;
+}
+
+/** Add Process Day end 租期月数：1+1/1+2/1+3 仅首段 1 个月租期，+N 为损坏罚金不参与租期终点（与入账侧「active 按 1 个月」一致） */
+function parseBankContractRentalMonthsForDayEnd(contract) {
+    if (contract == null || String(contract).trim() === '') {
+        return null;
+    }
+    const c = String(contract).trim();
+    if (/^1\+\d+$/i.test(c)) {
+        return 1;
+    }
+    return parseBankContractTermMonths(contract);
 }
 
 function addCalendarMonthsToYmd(ymd, months) {
@@ -3891,7 +3903,7 @@ function autoCalculateBankDayEnd() {
         updateBankFrequencyOptions();
         return;
     }
-    const term = parseBankContractTermMonths(contract);
+    const term = parseBankContractRentalMonthsForDayEnd(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
     if (!calculated) {
         dayEndEl.setAttribute('min', start);
