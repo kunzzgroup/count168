@@ -1,13 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { SECONDARY_VERIFY_I18N } from "../../translateFile/secondaryPasswordVerifyTranslate.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 
 export default function UserSecondaryPasswordPage() {
   const navigate = useNavigate();
   const inputRef = useRef(null);
+  const [lang, setLang] = useState(() => localStorage.getItem("login_lang") || "en");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const i18n = useMemo(() => SECONDARY_VERIFY_I18N[lang] || SECONDARY_VERIFY_I18N.en, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem("login_lang", lang);
+  }, [lang]);
+
+  useEffect(() => {
+    setErrorMessage("");
+  }, [lang]);
 
   useEffect(() => {
     document.body.classList.add("bg");
@@ -58,7 +70,7 @@ export default function UserSecondaryPasswordPage() {
     e.preventDefault();
     const value = password.trim();
     if (!/^\d{6}$/.test(value)) {
-      setErrorMessage("Please enter exactly 6 digits");
+      setErrorMessage(i18n.digitsSix);
       inputRef.current?.focus();
       return;
     }
@@ -78,10 +90,10 @@ export default function UserSecondaryPasswordPage() {
         navigate("/dashboard", { replace: true });
         return;
       }
-      setErrorMessage(json?.message || "An error occurred. Please try again.");
+      setErrorMessage(json?.message || i18n.genericError);
       inputRef.current?.focus();
     } catch {
-      setErrorMessage("An error occurred. Please try again.");
+      setErrorMessage(i18n.genericError);
       inputRef.current?.focus();
     } finally {
       setSubmitting(false);
@@ -92,8 +104,8 @@ export default function UserSecondaryPasswordPage() {
     <div className="login-container">
       <div className="login-card login-card--solo">
         <div className="form-content form-content--secondary-verify">
-          <h2 className="secondary-verify-title">Secondary Password Verification</h2>
-          <p className="secondary-verify-lead">Please enter your 6-digit secondary password to continue</p>
+          <h2 className="secondary-verify-title">{i18n.title}</h2>
+          <p className="secondary-verify-lead">{i18n.lead}</p>
 
           <form className="login-form" onSubmit={onSubmit}>
             <div className="input-group">
@@ -102,7 +114,7 @@ export default function UserSecondaryPasswordPage() {
                 id="secondary_password"
                 ref={inputRef}
                 type="password"
-                placeholder="Enter 6-digit password"
+                placeholder={i18n.placeholder}
                 maxLength={6}
                 pattern="[0-9]{6}"
                 autoComplete="off"
@@ -131,8 +143,29 @@ export default function UserSecondaryPasswordPage() {
             ) : null}
 
             <button type="submit" className="login-btn" disabled={submitting}>
-              <span>{submitting ? "Verifying..." : "Verify"}</span>
+              <span>{submitting ? i18n.verifying : i18n.verify}</span>
             </button>
+
+            <div className="language-switch-container">
+              <div className="lang-switch" role="group" aria-label={i18n.switchLang}>
+                <button
+                  type="button"
+                  className={`lang-option${lang === "zh" ? " active" : ""}`}
+                  onClick={() => setLang("zh")}
+                  aria-pressed={lang === "zh"}
+                >
+                  中
+                </button>
+                <button
+                  type="button"
+                  className={`lang-option${lang === "en" ? " active" : ""}`}
+                  onClick={() => setLang("en")}
+                  aria-pressed={lang === "en"}
+                >
+                  EN
+                </button>
+              </div>
+            </div>
           </form>
         </div>
       </div>
