@@ -41,8 +41,10 @@ export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading 
           padding: 20,
         }}
       >
-        <h3 style={{ margin: 0, fontSize: 20, color: "#1a1a1a" }}>{i18n.confirmLogoutTitle || "Confirm Logout"}</h3>
-        <p style={{ marginTop: 12, marginBottom: 20, color: "#4b5563" }}>
+        <h3 style={{ margin: 0, fontSize: "var(--text-page-title-mb)", color: "#1a1a1a" }}>
+          {i18n.confirmLogoutTitle || "Confirm Logout"}
+        </h3>
+        <p style={{ marginTop: 6, marginBottom: 20, color: "#4b5563" }}>
           {i18n.confirmLogoutMessage || "Are you sure you want to logout?"}
         </p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
