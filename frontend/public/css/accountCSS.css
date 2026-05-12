@@ -314,7 +314,7 @@ body.account-page:not(.account-page--show-all) {
     margin-top: 8px;
     font-weight: bold;
     color: white;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
     min-width: 0;
 }
 
@@ -425,7 +425,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 }
 
 .account-card-item {
-    font-size: clamp(10px, 0.7vw, 13px);
+    font-size: var(--text-medium);
     font-weight: bold;
     color: #374151;
     display: flex;
@@ -435,7 +435,6 @@ body.account-page:not(.account-page--show-all) .account-card {
     text-overflow: ellipsis;
     white-space: nowrap;
     min-height: 0;
-    line-height: 1.1;
 }
 
 .account-edit-btn {
@@ -2076,7 +2075,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 @media (max-width: 1024px) {
     .account-card-item {
-        font-size: clamp(10px, 0.85vw, 14px);
+        font-size: var(--text-medium);
+        font-weight: bold;
     }
 
     .account-form-group label {

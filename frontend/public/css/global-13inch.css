@@ -127,6 +127,10 @@
         font-size: var(--text-base) !important;
     }
 
+    body.ec-auth-shell.account-page .account-table-header {
+        font-size: var(--text-base) !important;
+    }
+
     body.ec-auth-shell .table-header .header-item,
     body.ec-auth-shell .account-table-header .header-item,
     body.ec-auth-shell .card-item,
