@@ -501,7 +501,7 @@ export default function UserListPage() {
               <div className="user-gc-inline-row">
                 <span className="user-gc-inline-label">{t("company")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                  <div className="user-gc-segment-group user-gc-segment-group--company" role="group" aria-label={t("company")}>
+                  <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
                     {companiesForPicker.map((c) => {
                       const active = Number(companyId) === Number(c.id);
                       return (
