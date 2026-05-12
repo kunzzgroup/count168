@@ -93,25 +93,25 @@ export default function BankProcessListPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_BANK_FORM });
-  
+
   const [accountingOpen, setAccountingOpen] = useState(false);
   const [accountingRows, setAccountingRows] = useState([]);
   const [accountingLoading, setAccountingLoading] = useState(false);
   const [accountingSelected, setAccountingSelected] = useState(new Set());
   const [accountingDeleteSelected, setAccountingDeleteSelected] = useState(new Set());
-  
+
   const [resendModalOpen, setResendModalOpen] = useState(false);
   const [resendTarget, setResendTarget] = useState(null);
   const [resendDayStart, setResendDayStart] = useState("");
   const [resendDayEnd, setResendDayEnd] = useState("");
   const [resendFrequency, setResendFrequency] = useState("1st_of_every_month");
   const [resendInlineError, setResendInlineError] = useState("");
-  
+
   const [supplierSortDir, setSupplierSortDir] = useState("asc");
   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
   const [remarkDraft, setRemarkDraft] = useState("");
   const [remarkRow, setRemarkRow] = useState(null);
-  
+
   const [countriesList, setCountriesList] = useState([]);
   const [banksList, setBanksList] = useState([]);
   const [countryModalOpen, setCountryModalOpen] = useState(false);
@@ -122,11 +122,11 @@ export default function BankProcessListPage() {
   const [newBankName, setNewBankName] = useState("");
   const [selectedCountryChips, setSelectedCountryChips] = useState([]);
   const [selectedBankChips, setSelectedBankChips] = useState([]);
-  
+
   const [profitShareModalOpen, setProfitShareModalOpen] = useState(false);
   const [profitShareRows, setProfitShareRows] = useState([]);
   const [bankFormNote, setBankFormNote] = useState(null);
-  
+
   const [addAccountModalOpen, setAddAccountModalOpen] = useState(false);
   const [accountPlusTarget, setAccountPlusTarget] = useState(null);
   const [rolesList, setRolesList] = useState([]);
@@ -137,7 +137,7 @@ export default function BankProcessListPage() {
   const [accountModalSelectedCurrencyIds, setAccountModalSelectedCurrencyIds] = useState([]);
   const [accountModalSelectedCompanyIds, setAccountModalSelectedCompanyIds] = useState([]);
   const [accountModalCurrencyInput, setAccountModalCurrencyInput] = useState("");
-  
+
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
   const bankDatePickerInitRef = useRef(false);
@@ -323,7 +323,7 @@ export default function BankProcessListPage() {
         });
       }
     }
-    return () => {};
+    return () => { };
   }, [loading, cssReady]);
 
   /* Keep date-range chip wording in sync when login/UI language changes (picker caches placeholder internally). */
@@ -429,7 +429,7 @@ export default function BankProcessListPage() {
     if (!modalOpen) return;
     const cost = parseFloat(String(form.cost ?? "")) || 0;
     const price = parseFloat(String(form.price ?? "")) || 0;
-    
+
     // profitSharingTotalFromString helper inside component since we can't easily import it just for an effect
     let share = 0;
     const str = String(form.profit_sharing || "").trim();
@@ -443,7 +443,7 @@ export default function BankProcessListPage() {
         }
       }
     }
-    
+
     const net = Math.max(0, price - cost - share);
     const next = !String(form.cost ?? "").trim() && !String(form.price ?? "").trim() && !String(form.profit_sharing ?? "").trim() ? "" : String(Number(net.toFixed(2)));
     setForm((f) => {
@@ -496,7 +496,7 @@ export default function BankProcessListPage() {
     } else if (prevContractEnd && currentEnd && calculated < prevContractEnd && currentEnd <= prevContractEnd && currentEnd > calculated) {
       setForm((prev) => ({ ...prev, day_end: calculated }));
     }
-    
+
     bankContractEndHintRef.current = calculated;
   }, [modalOpen, form.day_start, form.contract, form.day_start_frequency, form.day_end]);
 
@@ -595,7 +595,7 @@ export default function BankProcessListPage() {
       setAccountingRows(list);
       setAccountingSelected(new Set(list.filter((x) => !x.already_posted_today).map((x) => Number(x.id))));
       setAccountingDeleteSelected(new Set());
-    } catch { setAccountingRows([]); } 
+    } catch { setAccountingRows([]); }
     finally { setAccountingLoading(false); }
   }, [companyId]);
 
@@ -1127,7 +1127,7 @@ export default function BankProcessListPage() {
           t={t}
         />
       )}
-      
+
       {countryModalOpen && (
         <CountrySelectionModal
           countriesList={countriesList} selectedCountryChips={selectedCountryChips} setSelectedCountryChips={setSelectedCountryChips}
@@ -1254,3 +1254,5 @@ export default function BankProcessListPage() {
     </div>
   );
 }
+
+//abc
