@@ -113,29 +113,26 @@ body.user-page.user-page--show-all .user-cards {
 }
 
 body.user-page .user-gc-inline-panel {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 14px;
+    row-gap: 10px;
+    align-items: center;
     padding: 12px 20px 14px;
     border-top: 1px solid #eef2f7;
     background: #ffffff;
 }
 
 body.user-page .user-gc-inline-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px 14px;
-    margin-bottom: 10px;
-}
-
-body.user-page .user-gc-inline-row:last-child {
-    margin-bottom: 0;
+    display: contents;
 }
 
 body.user-page .user-gc-inline-label {
-    flex: 0 0 auto;
-    min-width: 5.5rem;
+    justify-self: start;
     font-size: clamp(12px, 0.85vw, 15px);
     font-weight: 600;
     color: #1f2937;
+    white-space: nowrap;
 }
 
 body.user-page .user-gc-inline-pills {
