@@ -72,6 +72,7 @@
 
   /* --- 字重：供主按钮、强调标签等 --- */
   --font-weight-semibold: 600;
+  font-weight: 700;
 
   /* --- User List 工具栏按钮宽度（改此处即可；Delete 略宽于 Add）--- */
   --userlist-btn-add-width: clamp(80px, 7.25vw, 120px);
