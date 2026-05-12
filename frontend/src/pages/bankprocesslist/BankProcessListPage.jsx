@@ -978,13 +978,14 @@ export default function BankProcessListPage() {
   return (
     <div className="container">
       <div className="content">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 8, flexWrap: "wrap", gap: 12 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 0, flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 12, position: "relative", top: 1, zIndex: 1 }}>
             <h1 className="page-title" style={{ margin: 0 }}>{t("bankProcessList")}</h1>
-            <div className="process-accounting-inbox-wrap">
+            <div className="process-accounting-inbox-wrap" style={{ marginTop: 0 }}>
               <button
                 type="button"
                 className="process-accounting-inbox-btn process-accounting-inbox-main"
+                style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: "none" }}
                 onClick={() => { setAccountingOpen(true); void loadAccountingInbox(); }}
               >
                 <svg className="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -996,7 +997,7 @@ export default function BankProcessListPage() {
             </div>
           </div>
         </div>
-        <div className="separator-line" />
+        <div className="separator-line" style={{ marginTop: 0 }} />
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
