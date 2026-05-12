@@ -112,15 +112,13 @@ body.user-page.user-page--show-all .user-cards {
     overflow: hidden;
 }
 
-/* User List 工具条整块：磨砂玻璃（需背后有页面渐变才看得出 blur） */
+/* User List 工具条整块：白实底（与主区白底一致） */
 body.user-page .action-buttons-container {
-    background: rgba(255, 255, 255, 0.52);
-    border: 1px solid rgba(255, 255, 255, 0.55);
-    box-shadow:
-        0 4px 28px rgba(15, 23, 42, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(16px) saturate(1.12);
-    -webkit-backdrop-filter: blur(16px) saturate(1.12);
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    box-shadow: var(--shadow-card, 0 2px 8px rgba(0, 0, 0, 0.1));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 body.user-page .user-gc-inline-panel {
@@ -167,21 +165,21 @@ body.user-page .user-gc-segment-group {
     display: inline-flex;
     flex-direction: row;
     flex-shrink: 0;
-    border: 1px solid rgba(226, 232, 240, 0.9);
+    border: 1px solid var(--color-border, #e5e7eb);
     border-radius: 10px;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.65);
+    background: var(--color-surface, #ffffff);
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 body.user-page .user-gc-segment {
     margin: 0;
     padding: 8px clamp(10px, 1.2vw, 18px);
     border: none;
-    border-right: 1px solid rgba(226, 232, 240, 0.95);
-    background: rgba(255, 255, 255, 0.45);
+    border-right: 1px solid var(--color-border, #e5e7eb);
+    background: var(--color-surface, #ffffff);
     color: #1f2937;
     font-size: clamp(11px, 0.82vw, 14px);
     font-weight: 600;
@@ -1483,11 +1481,11 @@ body.user-page .search-container.userlist-search-bar {
     min-height: calc(18px + 12px + 2px);
     height: auto;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.55);
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.65);
-    backdrop-filter: blur(10px) saturate(1.08);
-    -webkit-backdrop-filter: blur(10px) saturate(1.08);
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     box-sizing: border-box;
     overflow: hidden;
 }
@@ -1577,12 +1575,12 @@ body.user-page .user-filter-chip {
     gap: 8px;
     padding: 6px 14px 6px 10px;
     margin: 0;
-    border: 1px solid rgba(226, 232, 240, 0.85);
+    border: 1px solid var(--color-border, #e5e7eb);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.78);
+    background: #f8fafc;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     cursor: pointer;
     font-family: inherit;
     font-size: clamp(12px, 0.85vw, 15px);
