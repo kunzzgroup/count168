@@ -8,6 +8,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/ensure_bank_process_day_end_monthly_cap_column.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -408,6 +409,10 @@ try {
 } catch (Exception $e) {
     jsonResponse(false, $e->getMessage(), null);
     exit;
+}
+
+if (isset($pdo) && $pdo instanceof PDO) {
+    ensureBankProcessDayEndMonthlyCapEnabledColumn($pdo);
 }
 
 // ---------- 路由 ----------

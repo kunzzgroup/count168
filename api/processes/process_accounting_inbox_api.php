@@ -21,7 +21,12 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/ensure_bank_process_day_end_monthly_cap_column.php';
 require_once __DIR__ . '/contract_billing_addon.php';
+
+if (isset($pdo) && $pdo instanceof PDO) {
+    ensureBankProcessDayEndMonthlyCapEnabledColumn($pdo);
+}
 
 /** 统一 JSON 响应 */
 function jsonResponse(bool $success, string $message = '', $data = null): void

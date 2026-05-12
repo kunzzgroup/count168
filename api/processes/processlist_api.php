@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/ensure_bank_process_day_end_monthly_cap_column.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -25,8 +26,13 @@ function jsonResponse(bool $success, string $message = '', $data = null): void
 
 function bankProcessHasColumn(PDO $pdo, string $column): bool
 {
-    static $cache = [];
-    if (array_key_exists($column, $cache)) return $cache[$column];
+    $cache = &$GLOBALS['__bank_process_column_exists_cache'];
+    if (!is_array($cache)) {
+        $cache = [];
+    }
+    if (array_key_exists($column, $cache)) {
+        return $cache[$column];
+    }
     try {
         $stmt = $pdo->prepare("SHOW COLUMNS FROM bank_process LIKE ?");
         $stmt->execute([$column]);
@@ -262,6 +268,10 @@ if ($req_company_id) {
     }
 }
 // --- END DATA-LEVEL CATEGORY PERMISSION VALIDATION ---
+
+if (isset($pdo) && $pdo instanceof PDO) {
+    ensureBankProcessDayEndMonthlyCapEnabledColumn($pdo);
+}
 
 switch ($action) {
     case 'get_process':
