@@ -1803,7 +1803,7 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
 /* 删除勾选单独列：与表头全选同一 48px 轨道垂直对齐（global-13inch 会给 .header-item/.card-item 加左右 10px） */
 body.ec-auth-shell.user-page .table-header .header-item--select,
 body.ec-auth-shell.user-page .user-card .card-item--select {
-    justify-content: center;
+    justify-content: start;
     align-items: center;
     min-width: 0;
     padding: 0 !important;
