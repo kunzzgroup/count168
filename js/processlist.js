@@ -58,6 +58,29 @@ function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
     return fallback;
 }
 
+/** Add/Edit Bank 弹窗：账户列表刷新后，按 data-value 把 Supplier/Customer/Company 及 Profit Sharing 行按钮文案与 bankAccounts 对齐 */
+function syncBankFormAccountButtonLabelsFromAccounts() {
+    const accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
+    function accountById(id) {
+        const sid = String(id).trim();
+        if (!sid) return null;
+        return accounts.find(function (a) { return String(a.id) === sid; }) || null;
+    }
+    function syncButton(btn) {
+        if (!btn) return;
+        const val = btn.getAttribute('data-value');
+        if (val == null || String(val).trim() === '') return;
+        const acc = accountById(val);
+        if (acc) {
+            btn.textContent = formatBankAccountDisplay(acc.account_id, acc.name, acc.id);
+        }
+    }
+    ['bank_card_merchant', 'bank_customer', 'bank_profit_account'].forEach(function (buttonId) {
+        syncButton(document.getElementById(buttonId));
+    });
+    document.querySelectorAll('.profit-sharing-account-btn').forEach(syncButton);
+}
+
 function formatAccountIdForDisplay(rawAccountId) {
     const value = String(rawAccountId || '').trim();
     if (!value) return '';
@@ -4452,7 +4475,11 @@ if (addAccountFormEl && !window.__globalAddAccountSubmitHandlerBound) {
                 if (newAccountId && triggerFieldId) {
                     const targetBtn = document.getElementById(triggerFieldId);
                     if (targetBtn) {
-                        const displayText = result.data.account_id || result.data.name || String(newAccountId);
+                        const displayText = formatBankAccountDisplay(
+                            result.data && result.data.account_id,
+                            result.data && result.data.name,
+                            newAccountId
+                        );
                         targetBtn.textContent = displayText;
                         targetBtn.setAttribute('data-value', newAccountId);
                         targetBtn.classList.remove('bank-field-error');
@@ -5841,20 +5868,21 @@ function closeEditAccountModalFromBank() {
 
 function refreshBankAccountDropdowns() {
     const accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
-    ['bank_card_merchant', 'bank_customer'].forEach(buttonId => {
+    ['bank_card_merchant', 'bank_customer', 'bank_profit_account'].forEach(function (buttonId) {
         const btn = document.getElementById(buttonId);
         const dropdown = document.getElementById(buttonId + '_dropdown');
-        const optionsContainer = dropdown?.querySelector('.custom-select-options');
+        const optionsContainer = dropdown && dropdown.querySelector('.custom-select-options');
         if (!optionsContainer) return;
         optionsContainer.innerHTML = '';
-        accounts.forEach(account => {
+        accounts.forEach(function (account) {
             const option = document.createElement('div');
             option.className = 'custom-select-option';
             option.setAttribute('data-value', account.id);
-            option.textContent = account.account_id || account.name || '';
-            option.addEventListener('click', () => {
+            const label = formatBankAccountDisplay(account.account_id, account.name, account.id);
+            option.textContent = label;
+            option.addEventListener('click', function () {
                 if (btn) {
-                    btn.textContent = account.account_id || account.name || '';
+                    btn.textContent = label;
                     btn.setAttribute('data-value', account.id);
                 }
                 if (dropdown) dropdown.style.display = 'none';
@@ -5862,6 +5890,7 @@ function refreshBankAccountDropdowns() {
             optionsContainer.appendChild(option);
         });
     });
+    syncBankFormAccountButtonLabelsFromAccounts();
 }
 
 function addProfitSharingRow() {

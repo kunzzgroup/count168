@@ -3236,7 +3236,11 @@ if (addAccountFormEl && !window.__globalAddAccountSubmitHandlerBound) {
                 if (newAccountId && triggerFieldId) {
                     const targetBtn = document.getElementById(triggerFieldId);
                     if (targetBtn) {
-                        const displayText = result.data.account_id || result.data.name || String(newAccountId);
+                        const displayText = formatBankAccountDisplay(
+                            result.data && result.data.account_id,
+                            result.data && result.data.name,
+                            newAccountId
+                        );
                         targetBtn.textContent = displayText;
                         targetBtn.setAttribute('data-value', newAccountId);
                         targetBtn.classList.remove('bank-field-error');
@@ -4661,20 +4665,21 @@ function closeEditAccountModalFromBank() {
 
 function refreshBankAccountDropdowns() {
     const accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
-    ['bank_card_merchant', 'bank_customer'].forEach(buttonId => {
+    ['bank_card_merchant', 'bank_customer', 'bank_profit_account'].forEach(function (buttonId) {
         const btn = document.getElementById(buttonId);
         const dropdown = document.getElementById(buttonId + '_dropdown');
-        const optionsContainer = dropdown?.querySelector('.custom-select-options');
+        const optionsContainer = dropdown && dropdown.querySelector('.custom-select-options');
         if (!optionsContainer) return;
         optionsContainer.innerHTML = '';
-        accounts.forEach(account => {
+        accounts.forEach(function (account) {
             const option = document.createElement('div');
             option.className = 'custom-select-option';
             option.setAttribute('data-value', account.id);
-            option.textContent = account.account_id || account.name || '';
-            option.addEventListener('click', () => {
+            const label = formatBankAccountDisplay(account.account_id, account.name, account.id);
+            option.textContent = label;
+            option.addEventListener('click', function () {
                 if (btn) {
-                    btn.textContent = account.account_id || account.name || '';
+                    btn.textContent = label;
                     btn.setAttribute('data-value', account.id);
                 }
                 if (dropdown) dropdown.style.display = 'none';
@@ -4682,6 +4687,9 @@ function refreshBankAccountDropdowns() {
             optionsContainer.appendChild(option);
         });
     });
+    if (typeof syncBankFormAccountButtonLabelsFromAccounts === 'function') {
+        syncBankFormAccountButtonLabelsFromAccounts();
+    }
 }
 
 function addProfitSharingRow() {
