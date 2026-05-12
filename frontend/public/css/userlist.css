@@ -4,21 +4,19 @@ body.user-page {
     padding: 0;
     min-height: 100vh;
     height: 100vh;
-    /* 主区白实底（与侧栏深蓝对比，阅读列表更干净） */
-    background-color: var(--color-surface, #ffffff);
-    background-image: none;
-    background-blend-mode: normal;
+    /* 添加这行 */
+    background-color: #e9f1ff;
+    background-image:
+        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
+        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
+    background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
     overflow-y: hidden;
     /* 添加这行，禁止垂直滚动 */
-}
-
-/* 覆盖 dashboard.css 中 body.dashboard-page 的同优先级渐变，保证用户列表主区白实底 */
-body.dashboard-page.user-page {
-    background-color: var(--color-surface, #ffffff) !important;
-    background-image: none !important;
-    background-blend-mode: normal !important;
 }
 
 /* 矮屏下 global-13inch 会对 body.user-page 放开滚动，此处强制列表页保持一屏（Show All 时由 body.user-page--show-all 覆盖） */
