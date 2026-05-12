@@ -246,6 +246,11 @@
         font-size: var(--text-tiny) !important;
     }
 
+    /* User List：Role / Status 药丸（.role-badge） */
+    body.ec-auth-shell.user-page .role-badge {
+        font-size: var(--text-tiny) !important;
+    }
+
     /* ----------------------------------------------------
        6. Edit Action Buttons Sizing
        ---------------------------------------------------- */

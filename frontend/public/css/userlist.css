@@ -646,7 +646,7 @@ body.account-page .user-gc-segment:disabled {
     align-items: center;
     padding: clamp(0px, 0.1vw, 2px) clamp(4px, 0.42vw, 8px);
     border-radius: 20px;
-    font-size: clamp(6px, 0.63vw, 12px);
+    font-size: var(--text-tiny);
     font-weight: bold;
     text-transform: capitalize;
 }
