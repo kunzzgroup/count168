@@ -543,23 +543,25 @@ export default function UserListPage() {
               )}
               <div className="user-gc-inline-row">
                 <span className="user-gc-inline-label">{t("company")}</span>
-                <div className="user-gc-inline-pills">
-                  {companiesForPicker.map((c) => {
-                    const active = Number(companyId) === Number(c.id);
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        disabled={switchingCompany}
-                        className={`user-gc-company-pill${active ? " is-on" : ""}`}
-                        onClick={() => {
-                          if (!active) void onSwitchCompany(c);
-                        }}
-                      >
-                        {String(c.company_id || "").toUpperCase()}
-                      </button>
-                    );
-                  })}
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
+                    {companiesForPicker.map((c) => {
+                      const active = Number(companyId) === Number(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          disabled={switchingCompany}
+                          className={`user-gc-segment${active ? " is-on" : ""}`}
+                          onClick={() => {
+                            if (!active) void onSwitchCompany(c);
+                          }}
+                        >
+                          {String(c.company_id || "").toUpperCase()}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
