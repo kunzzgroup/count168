@@ -416,6 +416,11 @@ body.account-page--show-all .account-card {
     justify-content: flex-start;
 }
 
+/* 分页模式：表格体区域最小高度（与 User List 共用 design-tokens） */
+body.account-page:not(.account-page--show-all) .account-cards {
+    min-height: var(--list-table-body-min-height);
+}
+
 .account-card {
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1.2fr 0.42fr;

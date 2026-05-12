@@ -89,7 +89,13 @@
   --page-pad-inline-end: 4rem;
   --page-pad-inline-start: clamp(18rem, 14.06vw, 27rem);
 
+  /*
+   * 列表表格体（User / Account 分页模式，非 Show All）：
+   * 约 20 行可视区 — 小屏保底、中间随视口高度、大屏封顶。
+   */
+  --list-table-body-min-height: clamp(22rem, 52vh, 48rem);
 
+  /* Account 表头蓝条 padding（accountCSS .account-table-header） */
   --table-header-height: 6px 22px;
 
   /* --- 壳层背景图（background-color 仍用 --color-page-bg）--- */

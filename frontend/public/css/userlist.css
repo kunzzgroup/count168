@@ -1830,6 +1830,11 @@ body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .user-car
     justify-content: flex-start;
 }
 
+/* 分页模式：表格体区域最小高度（与 Account List 共用 token） */
+body.user-page:not(.user-page--show-all) .user-cards {
+    min-height: var(--list-table-body-min-height);
+}
+
 /* 非 Show All：行高随内容；仅当行数多、总高度超过列表区时在父级内被压缩（勿用 flex-grow，否则条数少时会把每行撑满半屏） */
 body.user-page:not(.user-page--show-all) .user-card.show-card {
     flex: 0 1 auto;

@@ -579,6 +579,12 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         overflow: hidden !important;
     }
 
+    /* 覆盖上文 body.ec-auth-shell .account-cards 的 min-height:0，保留列表体 responsive 最小高度 */
+    body.account-page:not(.account-page--show-all) .account-cards,
+    body.user-page:not(.user-page--show-all) .user-cards {
+        min-height: var(--list-table-body-min-height) !important;
+    }
+
     /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
     body.ec-auth-shell {
         background-attachment: fixed !important;
