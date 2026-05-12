@@ -17686,6 +17686,81 @@ function handleCellPaste(e) {
             return true;
         }
 
+        // 4.RETURN：一行内已由 Tab 分列后的单元格数组（就地修改）：去尾冒号、按需展开公式列
+        function processReturnRowTabCells(cells, lineNo) {
+            const lineTag = `Line ${lineNo}`;
+            for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+                if (cells[colIndex] && cells[colIndex].endsWith(':') && !cells[colIndex].includes('(')) {
+                    cells[colIndex] = cells[colIndex].slice(0, -1);
+                }
+            }
+            for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+                const cell = cells[colIndex] || '';
+                const isDate = /^\d{2}[-/]\d{2}[-/]\d{4}$/.test(cell) ||
+                    /^\d{4}[-/]\d{2}[-/]\d{2}$/.test(cell);
+                if (isDate) {
+                    continue;
+                }
+
+                const hasFormula = isReturnFormulaCell(cell);
+
+                if (hasFormula) {
+                    console.log(`4.RETURN: ${lineTag}, Column ${colIndex} contains formula:`, cell);
+                    let parsedFormula = null;
+
+                    if (cell.includes(':')) {
+                        console.log(`4.RETURN: ${lineTag}, Column ${colIndex} has colon, calling parseApiReturnFormat...`);
+                        parsedFormula = parseApiReturnFormat(cell);
+                        console.log('4.RETURN: parseApiReturnFormat result:', parsedFormula);
+                    } else {
+                        console.log(`4.RETURN: ${lineTag}, Column ${colIndex} no colon, extracting numbers directly...`);
+                        const numbers = extractReturnTokens(cell);
+                        if (numbers.length > 0) parsedFormula = { columns: numbers };
+                    }
+
+                    if (parsedFormula && parsedFormula.columns && parsedFormula.columns.length > 0) {
+                        console.log(`4.RETURN: ${lineTag}, Column ${colIndex} formula parsed successfully:`, parsedFormula.columns);
+                        const parsedColumns = parsedFormula.columns;
+
+                        let label = '';
+                        let numbersToInsert = [];
+
+                        if (parsedColumns.length > 0) {
+                            const firstElement = parsedColumns[0];
+                            if (firstElement && !/^-?\d+\.?\d*$/.test(firstElement)) {
+                                label = firstElement.replace(':', '');
+                                numbersToInsert = parsedColumns.slice(1);
+                                console.log(`4.RETURN: ${lineTag}, Column ${colIndex} has label:`, label, 'numbers:', numbersToInsert);
+                            } else {
+                                numbersToInsert = parsedColumns;
+                                console.log(`4.RETURN: ${lineTag}, Column ${colIndex} no label, numbers:`, numbersToInsert);
+                            }
+                        }
+
+                        if (label) {
+                            cells[colIndex] = label;
+                        } else {
+                            cells[colIndex] = '';
+                        }
+
+                        if (numbersToInsert.length > 0) {
+                            console.log(`4.RETURN: ${lineTag}, Inserting ${numbersToInsert.length} numbers after column ${colIndex}`);
+                            if (!label) {
+                                cells.splice(colIndex, 1, ...numbersToInsert);
+                            } else {
+                                cells.splice(colIndex + 1, 0, ...numbersToInsert);
+                            }
+                            console.log(`4.RETURN: ${lineTag}, After insertion, cells:`, cells);
+                        }
+
+                        break;
+                    } else {
+                        console.log(`4.RETURN: ${lineTag}, Column ${colIndex} formula parsing failed or returned empty`);
+                    }
+                }
+            }
+        }
+
         // 检查是否是多行数据
         const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
@@ -17709,96 +17784,7 @@ function handleCellPaste(e) {
                         const cells = line.split('\t').map(c => c.trim());
                         console.log(`4.RETURN: Line ${i + 1} split into ${cells.length} columns`);
 
-                        // 处理所有列：去掉标签后的冒号（如 "abc:" -> "abc"）
-                        for (let colIndex = 0; colIndex < cells.length; colIndex++) {
-                            if (cells[colIndex] && cells[colIndex].endsWith(':') && !cells[colIndex].includes('(')) {
-                                // 如果单元格以冒号结尾且不包含公式，去掉冒号
-                                cells[colIndex] = cells[colIndex].slice(0, -1);
-                            }
-                        }
-
-                        // 检查所有列，找到包含公式的列（有括号和运算符）
-                        for (let colIndex = 0; colIndex < cells.length; colIndex++) {
-                            const cell = cells[colIndex] || '';
-
-                            // 先检查是否是日期格式，如果是日期，跳过公式检测
-                            const isDate = /^\d{2}[-/]\d{2}[-/]\d{4}$/.test(cell) ||
-                                /^\d{4}[-/]\d{2}[-/]\d{2}$/.test(cell);
-                            if (isDate) {
-                                continue; // 跳过日期列
-                            }
-
-                            // 检查是否是“公式列”
-                            // ⚠️ 以前这里的判断会把 Content 误判为公式，导致真正 Formula 列没被拆分
-                            const hasFormula = isReturnFormulaCell(cell);
-
-                            if (hasFormula) {
-                                console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} contains formula:`, cell);
-                                // 解析公式列
-                                let parsedFormula = null;
-
-                                // 如果有冒号，使用parseApiReturnFormat
-                                if (cell.includes(':')) {
-                                    console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} has colon, calling parseApiReturnFormat...`);
-                                    parsedFormula = parseApiReturnFormat(cell);
-                                    console.log(`4.RETURN: parseApiReturnFormat result:`, parsedFormula);
-                                } else {
-                                    console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} no colon, extracting numbers directly...`);
-                                    // 如果没有冒号，直接提取数字（支持 .11 / [1] 等 RETURN 特殊写法）
-                                    const numbers = extractReturnTokens(cell);
-                                    if (numbers.length > 0) parsedFormula = { columns: numbers };
-                                }
-
-                                if (parsedFormula && parsedFormula.columns && parsedFormula.columns.length > 0) {
-                                    console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} formula parsed successfully:`, parsedFormula.columns);
-                                    const parsedColumns = parsedFormula.columns;
-
-                                    // 如果有标签（第一个元素可能是标签），保留标签但去掉冒号
-                                    let label = '';
-                                    let numbersToInsert = [];
-
-                                    if (parsedColumns.length > 0) {
-                                        // 检查第一个元素是否是标签（包含非数字字符）
-                                        const firstElement = parsedColumns[0];
-                                        if (firstElement && !/^-?\d+\.?\d*$/.test(firstElement)) {
-                                            // 是标签，去掉冒号
-                                            label = firstElement.replace(':', '');
-                                            numbersToInsert = parsedColumns.slice(1);
-                                            console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} has label:`, label, 'numbers:', numbersToInsert);
-                                        } else {
-                                            // 不是标签，都是数字
-                                            numbersToInsert = parsedColumns;
-                                            console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} no label, numbers:`, numbersToInsert);
-                                        }
-                                    }
-
-                                    // 替换公式列为标签（如果有）
-                                    if (label) {
-                                        cells[colIndex] = label;
-                                    } else {
-                                        // 如果没有标签，移除公式列（后面会用数字替换）
-                                        cells[colIndex] = '';
-                                    }
-
-                                    // 将解析后的数字插入到公式列之后
-                                    if (numbersToInsert.length > 0) {
-                                        console.log(`4.RETURN: Line ${i + 1}, Inserting ${numbersToInsert.length} numbers after column ${colIndex}`);
-                                        // 如果公式列被清空，直接替换；否则插入
-                                        if (!label) {
-                                            cells.splice(colIndex, 1, ...numbersToInsert);
-                                        } else {
-                                            cells.splice(colIndex + 1, 0, ...numbersToInsert);
-                                        }
-                                        console.log(`4.RETURN: Line ${i + 1}, After insertion, cells:`, cells);
-                                    }
-
-                                    // 处理完一个公式列后，跳出循环（一次只处理一个公式列）
-                                    break;
-                                } else {
-                                    console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} formula parsing failed or returned empty`);
-                                }
-                            }
-                        }
+                        processReturnRowTabCells(cells, i + 1);
 
                         dataMatrix.push(cells);
                         maxCols = Math.max(maxCols, cells.length);
@@ -18011,9 +17997,23 @@ function handleCellPaste(e) {
             }
         } else {
             console.log('4.RETURN: Single-line data detected');
-            // 单行数据处理：保留所有列，只解析公式列
-            // 先尝试表格格式解析（多列数据，包含 Description 列）
-            let apiReturnParsed = parseApiReturnTableFormat(pastedData);
+            const singleNormalized = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+            let apiReturnParsed = null;
+
+            // Excel/报表单行复制：列间为 Tab；若先走 smartSplit 会把 01/04/2026 按 / 拆成多列
+            if (singleNormalized.includes('\t')) {
+                const cells = singleNormalized.split('\t').map(c => c.trim());
+                console.log('4.RETURN: Single-line tab split into', cells.length, 'columns');
+                processReturnRowTabCells(cells, 1);
+                apiReturnParsed = {
+                    columns: cells,
+                    columnCount: cells.length
+                };
+            }
+
+            if (!apiReturnParsed) {
+                apiReturnParsed = parseApiReturnTableFormat(pastedData);
+            }
 
             if (!apiReturnParsed) {
                 console.log('4.RETURN: parseApiReturnTableFormat failed, trying smart split...');
