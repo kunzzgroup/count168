@@ -316,7 +316,34 @@ function billingContractExclusiveEndYmdFirstOfMonth(string $dayStartYmd, int $te
             return $start->modify("+{$termMonths} months")->format('Y-m-d');
         }
         $firstAnchor = $start->modify('first day of next month');
-        return $firstAnchor->modify('+' . ($termMonths - 1) . ' months')->format('Y-m-d');
+        return $firstAnchor->modify("+{$termMonths} months")->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * monthly + day_start 非1号：起租当月不计入合同 N 个月；exclusive = 次月起首应付日 + N 月（与 process_accounting_inbox_api 一致）。
+ */
+function billingContractExclusiveEndYmdMonthlyAfterPartialFirst(string $dayStartYmd, int $termMonths): ?string
+{
+    if ($termMonths < 1) {
+        return null;
+    }
+    try {
+        $start = new DateTimeImmutable($dayStartYmd);
+        if ((int) $start->format('j') === 1) {
+            return billingContractExclusiveEndYmd($dayStartYmd, $termMonths);
+        }
+        $nextMo = $start->modify('first day of next month');
+        $y = (int) $nextMo->format('Y');
+        $mo = (int) $nextMo->format('n');
+        $dueDay = (int) $start->format('j');
+        $last = (int) date('t', mktime(0, 0, 0, $mo, 1, $y));
+        $d = min(max(1, $dueDay), $last);
+        $firstContractDue = sprintf('%04d-%02d-%02d', $y, $mo, $d);
+
+        return (new DateTimeImmutable($firstContractDue))->modify("+{$termMonths} months")->format('Y-m-d');
     } catch (Throwable $e) {
         return null;
     }
@@ -332,7 +359,7 @@ function txnAnchorMonthCapAfterPartialFirst(?string $contract, int $startDayOfMo
     if ($term === null || $term < 1) {
         return null;
     }
-    return max(0, $term - 1);
+    return max(0, $term);
 }
 
 function contractExclusiveEndYmdForFrequency(string $startYmd, ?string $contract, string $frequency): ?string
@@ -342,7 +369,7 @@ function contractExclusiveEndYmdForFrequency(string $startYmd, ?string $contract
         return null;
     }
     if ($frequency === 'monthly') {
-        return billingContractExclusiveEndYmd($startYmd, $term);
+        return billingContractExclusiveEndYmdMonthlyAfterPartialFirst($startYmd, $term);
     }
     return billingContractExclusiveEndYmdFirstOfMonth($startYmd, $term);
 }
@@ -651,7 +678,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             }
             $startYm = (new DateTimeImmutable($startDate))->format('Y-m');
             $term = getBillingTermMonthsFromContract($contract);
-            $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmd($startDate, $term) : null;
+            $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdMonthlyAfterPartialFirst($startDate, $term) : null;
             while ($iter <= $endCap) {
                 $y = (int) $iter->format('Y');
                 $mo = (int) $iter->format('n');

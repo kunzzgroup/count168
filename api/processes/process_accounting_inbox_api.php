@@ -8,6 +8,7 @@
  * - 同上 Resend 标记期间：regular monthly 段对「截至今日所有未结清账期」逐月各列一行（含 1st of Every Month 与 Monthly prepaid），便于一次勾选、按 billing_month 多笔入账；非 Resend 流程仍只展示下一笔待结清账期。
  * - Day start 为当月1号且与创建同月：仍自 day_start 当日起可入账（与上条后续整月不同）。
  * - 非1号 day_start：首月按比例从 day_start 起算；若创建日晚于该自然月末则整段跳过（旧数据不拿）；出现日 max(day_start, 创建日)。
+ * - 合同 N 个月（N MONTHS，active）：起租自然月单独首段/首月不计入 N；N 个月从「次月」起计——1st 为次月起连续 N 个自然月 1 号锚点，monthly 为次月起首应付日起连续 N 期；与入账、Day end 自动计算一致。
  * - Monthly = 每月 day_start 日为应付日；一期金额为「上一应付日到本期应付前一日」按日历天比例（例如 3/13 应付则服务 2/13–3/12），不按自然月末截断。
  * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
  * - day_end_tail（1st_of_every_month + 有 day_end_monthly_cap_enabled 列且开关 ON）：尾段区间为 max(合同 exclusiveEnd, day_end 所在月 1 号)～day_end（含），与 prorateInclusiveDateRange 旧算法一致；$today 达 tail 起点即入列。开关 OFF 时不排尾段。
@@ -142,7 +143,7 @@ function getBillingTermMonthsFromContract(?string $contract): ?int
 }
 
 /**
- * 1st of Every Month + day_start 非1号：次月1号起的「整月」锚点月份个数上限 = max(0, N-1)。用于防止 exclusiveEnd 未命中时多出一期（如第4笔6月账）。
+ * 1st of Every Month + day_start 非1号：次月1号起的「整月」锚点月份个数上限 = N（起租当月 partial 不计入合同 N 个月）。
  */
 function inboxAnchorMonthCapAfterPartialFirst(?string $contract, int $startDayOfMonth): ?int
 {
@@ -153,7 +154,7 @@ function inboxAnchorMonthCapAfterPartialFirst(?string $contract, int $startDayOf
     if ($term === null || $term < 1) {
         return null;
     }
-    return max(0, $term - 1);
+    return max(0, $term);
 }
 
 function billingContractExclusiveEndYmd(string $dayStartYmd, int $termMonths): ?string
@@ -169,8 +170,8 @@ function billingContractExclusiveEndYmd(string $dayStartYmd, int $termMonths): ?
 }
 
 /**
- * 每月1号算账 + day_start 非1号：首自然月走 partial_first_month，其后从「次月1号」起至多 (N-1) 个整月账（N 为合同月数，如 3 MONTHS → 尾段+4月+5月共3笔）。
- * 截止日 firstAnchor+(N-1) 月（与 billing_schedule 一致）。day_start 在1号时与 billingContractExclusiveEndYmd 相同。
+ * 每月1号算账 + day_start 非1号：首自然月 partial 不计入合同 N 个月；合同 N 个月从「次月1号」起连续 N 个整月锚点，exclusive = firstAnchor + N 月。
+ * day_start 在1号时与 billingContractExclusiveEndYmd 从当月起计 N 月相同。
  */
 function billingContractExclusiveEndYmdFirstOfMonth(string $dayStartYmd, int $termMonths): ?string
 {
@@ -183,7 +184,35 @@ function billingContractExclusiveEndYmdFirstOfMonth(string $dayStartYmd, int $te
             return $start->modify("+{$termMonths} months")->format('Y-m-d');
         }
         $firstAnchor = $start->modify('first day of next month');
-        return $firstAnchor->modify('+' . ($termMonths - 1) . ' months')->format('Y-m-d');
+        return $firstAnchor->modify("+{$termMonths} months")->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * monthly + day_start 非1号：起租当月单独账单不计入合同 N 个月；N 个月从「次月起第一个应付日」起计，exclusive = 该应付日 + N 月。
+ * day_start 在1号时与 billingContractExclusiveEndYmd 相同。
+ */
+function billingContractExclusiveEndYmdMonthlyAfterPartialFirst(string $dayStartYmd, int $termMonths): ?string
+{
+    if ($termMonths < 1) {
+        return null;
+    }
+    try {
+        $start = new DateTimeImmutable($dayStartYmd);
+        if ((int) $start->format('j') === 1) {
+            return billingContractExclusiveEndYmd($dayStartYmd, $termMonths);
+        }
+        $nextMo = $start->modify('first day of next month');
+        $y = (int) $nextMo->format('Y');
+        $mo = (int) $nextMo->format('n');
+        $dueDay = (int) $start->format('j');
+        $last = (int) date('t', mktime(0, 0, 0, $mo, 1, $y));
+        $d = min(max(1, $dueDay), $last);
+        $firstContractDue = sprintf('%04d-%02d-%02d', $y, $mo, $d);
+
+        return (new DateTimeImmutable($firstContractDue))->modify("+{$termMonths} months")->format('Y-m-d');
     } catch (Throwable $e) {
         return null;
     }
@@ -196,7 +225,7 @@ function contractExclusiveEndYmdForFrequency(string $startYmd, ?string $contract
         return null;
     }
     if ($frequency === 'monthly') {
-        return billingContractExclusiveEndYmd($startYmd, $term);
+        return billingContractExclusiveEndYmdMonthlyAfterPartialFirst($startYmd, $term);
     }
     return billingContractExclusiveEndYmdFirstOfMonth($startYmd, $term);
 }
@@ -335,7 +364,7 @@ function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $proces
     }
 }
 
-function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $processId, string $exclusiveEndYmd, string $startDate, int $startDayOfMonth, bool $hasPeriodType, ?string $createdYmd = null): bool
+function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $processId, string $exclusiveEndYmd, string $startDate, int $startDayOfMonth, bool $hasPeriodType, ?string $createdYmd = null, ?string $frequency = null): bool
 {
     if (!$hasPeriodType) {
         return true;
@@ -347,9 +376,14 @@ function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $proces
         if ($createdYmd !== null && $createdYmd !== '' && $createdYmd > $lastInclusive->format('Y-m-d')) {
             return true;
         }
-        $y = (int) $lastInclusive->format('Y');
-        $mo = (int) $lastInclusive->format('n');
-        $lastYm = $lastInclusive->format('Y-n');
+        $freq = ($frequency === 'monthly') ? 'monthly' : '1st_of_every_month';
+        // monthly 的 exclusive 为「最后一期应付日 +1 月」；最后一期入账锚点自然月 = exclusive 前推一月（与 -1 day 的日历月可能不一致）。
+        $ref = ($freq === 'monthly')
+            ? (new DateTimeImmutable($exclusiveEndYmd))->modify('-1 month')
+            : $lastInclusive;
+        $y = (int) $ref->format('Y');
+        $mo = (int) $ref->format('n');
+        $lastYm = $ref->format('Y-n');
         $startYm = (new DateTimeImmutable($startDate))->format('Y-n');
         if ($startDayOfMonth !== 1 && $startYm === $lastYm) {
             return isPartialFirstMonthAlreadyPosted($pdo, $companyId, $processId);
@@ -778,8 +812,8 @@ try {
         exit;
     }
 
-    //$today = date('Y-m-d');
-    $today = '2026-08-10';
+    $today = date('Y-m-d');
+    //1$today = '2026-08-10';
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -1167,7 +1201,7 @@ try {
                     }
                     $startYm = (new DateTimeImmutable($startDate))->format('Y-m');
                     $term = getBillingTermMonthsFromContract($contract);
-                    $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmd($startDate, $term) : null;
+                    $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdMonthlyAfterPartialFirst($startDate, $term) : null;
                     while ($iter <= $endCap) {
                         $y = (int) $iter->format('Y');
                         $mo = (int) $iter->format('n');
@@ -1316,7 +1350,7 @@ try {
             $startTsNorm = strtotime($startDate);
             $startDayOfMonth = $startTsNorm !== false ? (int) date('j', $startTsNorm) : 1;
             $createdYmdTail = inboxEffectiveCreatedYmdForProcess($r, $today, $startDate);
-            if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType, $createdYmdTail)) {
+            if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType, $createdYmdTail, $frequency)) {
                 continue;
             }
             if ($today < $todayGate) {
