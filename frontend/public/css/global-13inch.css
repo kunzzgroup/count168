@@ -240,6 +240,12 @@
         line-height: 1 !important;
     }
 
+    /* Account List：Role / Alert / Status 药丸与 design token 对齐 */
+    .account-role-badge,
+    span.account-role-badge {
+        font-size: var(--text-tiny) !important;
+    }
+
     /* ----------------------------------------------------
        6. Edit Action Buttons Sizing
        ---------------------------------------------------- */
