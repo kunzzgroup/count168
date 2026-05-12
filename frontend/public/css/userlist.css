@@ -712,7 +712,6 @@ body.user-page .user-gc-segment:disabled {
     justify-content: space-between;
     padding: 3px 32px;
     background: #f8fafc;
-    border-bottom: 2px solid #e2e8f0;
     flex-shrink: 0;
 }
 
