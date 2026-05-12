@@ -55,6 +55,17 @@ body.user-page:not(.user-page--show-all) {
     overflow: hidden;
     padding-bottom: 52px;
     box-sizing: border-box;
+    /* 与主区 --color-page-bg / sidebar 同冷暖轴，供下方表格块 var() 引用 */
+    --userlist-table-header-fg: var(--color-muted-fg);
+    --userlist-table-header-border: var(--color-border-muted);
+    --userlist-table-row-bg: #f3f6fb;
+    --userlist-table-row-hover: #e8eff8;
+    --userlist-table-row-line: rgba(0, 44, 73, 0.09);
+    --userlist-table-text-login: var(--color-heading);
+    --userlist-table-text-name: var(--color-body-strong);
+    --userlist-table-text-email: var(--color-muted-fg);
+    --userlist-table-text-dim: #5a6a7e;
+    --userlist-table-text-faint: #6b7c93;
 }
 
 .user-page .user-table-wrapper .table-header {
@@ -1806,11 +1817,11 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
    覆盖上方通用 .table-header / .user-card 等，不合并 Login / Name 列。
    -------------------------------------------------------------------------- */
 body.user-page .user-table-wrapper .table-header {
-    background: #ffffff !important;
-    color: #64748b;
+    background: var(--color-surface) !important;
+    color: var(--userlist-table-header-fg);
     font-weight: 600;
     font-size: clamp(10px, 0.72vw, 12px);
-    border-bottom: 0.5px solid #e2e8f0;
+    border-bottom: 0.5px solid var(--userlist-table-header-border);
     align-items: center;
     padding-top: 10px;
     padding-bottom: 12px;
@@ -1838,23 +1849,23 @@ body.user-page .user-table-wrapper .header-sortable:hover {
 }
 
 body.user-page .user-table-wrapper .sort-indicator {
-    color: #94a3b8;
+    color: var(--userlist-table-text-faint);
 }
 
 body.user-page .user-table-wrapper .user-card {
     padding: clamp(8px, 0.85vw, 14px) 22px;
-    background: #fafaf9;
-    border-bottom: 0.5px solid rgba(15, 23, 42, 0.1);
+    background: var(--userlist-table-row-bg);
+    border-bottom: 0.5px solid var(--userlist-table-row-line);
     transition: background-color 0.15s ease;
 }
 
 body.user-page .user-table-wrapper .user-card.row-even,
 body.user-page .user-table-wrapper .user-card.row-odd {
-    background: #fafaf9;
+    background: var(--userlist-table-row-bg);
 }
 
 body.user-page .user-table-wrapper .user-card:hover {
-    background: #f1f5f4;
+    background: var(--userlist-table-row-hover);
     box-shadow: none;
     transform: none;
 }
@@ -1864,47 +1875,47 @@ body.user-page .user-table-wrapper .user-card.user-card--loading.show-card {
     justify-content: center;
     align-items: center;
     min-height: 52px;
-    color: #64748b;
+    color: var(--userlist-table-text-dim);
     font-weight: 500;
-    background: #fafaf9;
+    background: var(--userlist-table-row-bg);
 }
 
 body.user-page .user-table-wrapper .user-card .card-item {
     font-weight: 500;
-    color: #0f172a;
+    color: var(--color-page-fg);
 }
 
 body.user-page .user-table-wrapper .user-card .card-item--no {
     justify-content: center;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: #94a3b8;
+    color: var(--userlist-table-text-faint);
     font-size: clamp(10px, 0.78vw, 13px);
 }
 
 body.user-page .user-table-wrapper .user-card .card-item--login {
     font-weight: 700;
-    color: #0f172a;
+    color: var(--userlist-table-text-login);
 }
 
 body.user-page .user-table-wrapper .user-card .card-item--name {
     font-weight: 500;
-    color: #111827;
+    color: var(--userlist-table-text-name);
 }
 
 body.user-page .user-table-wrapper .user-card .card-item--email {
     font-weight: 400;
-    color: #64748b;
+    color: var(--userlist-table-text-email);
 }
 
 body.user-page .user-table-wrapper .user-card .card-item--muted {
     font-weight: 400;
-    color: #94a3b8;
+    color: var(--userlist-table-text-dim);
 }
 
 body.user-page .user-table-wrapper .user-card .card-item--created-by {
     font-weight: 500;
-    color: #94a3b8;
+    color: var(--userlist-table-text-faint);
     font-size: clamp(10px, 0.78vw, 13px);
 }
 
@@ -1919,21 +1930,34 @@ body.user-page .user-table-wrapper .user-card .btn-edit {
     align-items: center;
     justify-content: center;
     padding: 0;
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid var(--color-border-muted) !important;
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--color-surface);
     box-sizing: border-box;
     transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 body.user-page .user-table-wrapper .user-card .btn-edit:hover:not(:disabled) {
-    background: #f8fafc;
-    border-color: #94a3b8 !important;
+    background: rgba(59, 130, 246, 0.08);
+    border-color: var(--color-primary-strong) !important;
 }
 
 body.user-page .user-table-wrapper .user-card:hover .btn-edit:not(:disabled) {
-    border-color: #cbd5e1;
-    background: #ffffff;
+    border-color: var(--color-border);
+    background: var(--color-surface);
+}
+
+/* 表格内：ACTIVE 偏冷青，与 Role 的草绿区分；仅作用于本表 */
+body.user-page .user-table-wrapper .user-card .status-active {
+    background-color: #d7f4f7;
+    color: #0c5f6e;
+    border: 1px solid #9fdbdf;
+}
+
+body.user-page .user-table-wrapper .user-card .role-supervisor {
+    background-color: #e6f6ea;
+    color: #14532d;
+    border: 1px solid #b8e6c8;
 }
 
 /* 分页样式 - 修改为图片中的设计 */
