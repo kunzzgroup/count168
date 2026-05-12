@@ -601,11 +601,20 @@
             showZeroCk.addEventListener('change', handleCheckboxChange);
         }
 
-        // 绑定关闭弹窗
+        // 绑定关闭 Payment History 弹窗（× 与 ESC）
+        const historyModalEl = document.getElementById('historyModal');
+        function closePaymentHistoryModal() {
+            if (historyModalEl) historyModalEl.style.display = 'none';
+        }
         const modalClose = document.getElementById('modal_close');
         if (modalClose) {
-            modalClose.addEventListener('click', () => {
-                document.getElementById('historyModal').style.display = 'none';
+            modalClose.addEventListener('click', closePaymentHistoryModal);
+        }
+        if (historyModalEl) {
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Escape') return;
+                if (historyModalEl.style.display === 'none') return;
+                closePaymentHistoryModal();
             });
         }
 
