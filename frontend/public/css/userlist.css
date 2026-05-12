@@ -356,7 +356,8 @@ body.user-page.user-page--show-all .user-cards {
     font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: clamp(10px, 0.83vw, 16px);
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);

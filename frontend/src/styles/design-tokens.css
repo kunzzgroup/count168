@@ -70,6 +70,9 @@
   --font-ui: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
     Ubuntu, Cantarell, sans-serif;
 
+  /* --- 字重：供主按钮、强调标签等 --- */
+  --font-weight-semibold: 600;
+
   /* --- 列表页主标题（对应 clamp(26px, 2.08vw, 40px)）--- */
   --text-page-title: clamp(2.6rem, 2.08vw, 4rem);
   --text-page-title-mt: clamp(1.2rem, 1.04vw, 2rem);
