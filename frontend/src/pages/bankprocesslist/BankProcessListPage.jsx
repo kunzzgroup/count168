@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AccountModal from "../../components/AccountModal.jsx";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { ensureMaintenanceDateRangePicker } from "../../utils/maintenanceDateRangePicker.js";
@@ -55,6 +56,7 @@ function accountingDuePeriodType(r) {
 }
 
 export default function BankProcessListPage() {
+  const navigate = useNavigate();
   const resolveLang = useCallback(
     (next) => {
       if (next === "zh") return "zh";
@@ -344,6 +346,7 @@ export default function BankProcessListPage() {
 
   useEffect(() => {
     (async () => {
+      let skipLoadingDone = false;
       try {
         const [meRes, companiesRes] = await Promise.all([
           fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
@@ -359,9 +362,18 @@ export default function BankProcessListPage() {
         setCompanies(cs);
         const url = new URL(window.location.href);
         const effectiveCompany = url.searchParams.get("company_id") || meJson.data.company_id || cs[0]?.id || null;
-        setCompanyId(effectiveCompany ? Number(effectiveCompany) : null);
-        const current = cs.find((c) => Number(c.id) === Number(effectiveCompany));
-        setSelectedGroup(current?.group_id ? String(current.group_id).toUpperCase() : null);
+        const effectiveNum = effectiveCompany ? Number(effectiveCompany) : null;
+        const currentCompanyRow = effectiveNum != null ? cs.find((c) => Number(c.id) === Number(effectiveNum)) : null;
+        if (currentCompanyRow?.company_id) {
+          const bankCategory = await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
+          if (!bankCategory) {
+            navigate(`/process-list?company_id=${effectiveNum}`, { replace: true });
+            skipLoadingDone = true;
+            return;
+          }
+        }
+        setCompanyId(effectiveNum);
+        setSelectedGroup(currentCompanyRow?.group_id ? String(currentCompanyRow.group_id).toUpperCase() : null);
         setSearch(url.searchParams.get("search") || "");
         setDateFrom(url.searchParams.get("date_from") || "");
         setDateTo(url.searchParams.get("date_to") || "");
@@ -370,9 +382,11 @@ export default function BankProcessListPage() {
         setShowOfficial(url.searchParams.get("showOfficial") === "1");
         setShowEInvoice(url.searchParams.get("showEInvoice") === "1");
         setShowBlock(url.searchParams.get("showBlock") === "1");
-      } finally { setLoading(false); }
+      } finally {
+        if (!skipLoadingDone) setLoading(false);
+      }
     })();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (!companyId || loading) return;
@@ -664,7 +678,7 @@ export default function BankProcessListPage() {
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
       if (!bankCategory) {
-        window.location.assign(new URL(`/process-list?company_id=${c.id}`, window.location.origin).toString());
+        navigate(`/process-list?company_id=${c.id}`, { replace: true });
       }
       if (accountingOpen) void loadAccountingInbox();
     } catch {

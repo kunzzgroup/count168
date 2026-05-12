@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
+import { isBankCategoryCompany } from "../bankprocesslist/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
@@ -19,24 +21,6 @@ import ProcessFormModal from "./components/ProcessFormModal.jsx";
 import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
 import ProcessDeleteConfirmModal from "./components/ProcessDeleteConfirmModal.jsx";
 import { getProcessListText } from "../../translateFile/processListTranslate.js";
-
-async function isBankCategoryCompany(companyCode) {
-  if (!companyCode) return false;
-  try {
-    const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ action: "get_company_permissions", company_id: companyCode }),
-    });
-    const json = await res.json();
-    const permissions = Array.isArray(json?.data?.permissions) ? json.data.permissions : [];
-    const normalized = permissions.map((p) => String(p || "").toLowerCase());
-    return normalized.includes("bank") && !normalized.includes("games") && !normalized.includes("gambling");
-  } catch {
-    return false;
-  }
-}
 
 function filterSearchInput(raw) {
   return String(raw || "")
@@ -60,6 +44,7 @@ function ProcessToastStack({ items }) {
 }
 
 export default function ProcessListPage() {
+  const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getProcessListText(lang, key, params), [lang]);
   const [cssReady, setCssReady] = useState(false);
@@ -157,6 +142,7 @@ export default function ProcessListPage() {
 
   useEffect(() => {
     (async () => {
+      let skipLoadingDone = false;
       try {
         const [meRes, companiesRes] = await Promise.all([
           fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
@@ -191,9 +177,18 @@ export default function ProcessListPage() {
           }
         }
 
+        const currentCompanyRow = cs.find((c) => Number(c.id) === Number(effectiveCompany));
+        if (currentCompanyRow?.company_id) {
+          const bankCategory = await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
+          if (bankCategory) {
+            navigate(`/bank-process-list?company_id=${effectiveCompany}`, { replace: true });
+            skipLoadingDone = true;
+            return;
+          }
+        }
+
         setCompanyId(effectiveCompany);
-        const current = cs.find((c) => Number(c.id) === Number(effectiveCompany));
-        setSelectedGroup(current?.group_id ? String(current.group_id).toUpperCase() : null);
+        setSelectedGroup(currentCompanyRow?.group_id ? String(currentCompanyRow.group_id).toUpperCase() : null);
 
         const rawSearch = url.searchParams.get("search") || "";
         const normalizedSearch = filterSearchInput(rawSearch);
@@ -209,10 +204,10 @@ export default function ProcessListPage() {
       } catch {
         window.location.assign(new URL("/login", window.location.origin).toString());
       } finally {
-        setLoading(false);
+        if (!skipLoadingDone) setLoading(false);
       }
     })();
-  }, [loadFormMeta]);
+  }, [loadFormMeta, navigate]);
 
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
@@ -341,22 +336,6 @@ export default function ProcessListPage() {
   };
 
   useEffect(() => {
-    if (loading || !companyId || companies.length === 0) return;
-    const currentCompany = companies.find((c) => Number(c.id) === Number(companyId));
-    if (!currentCompany?.company_id) return;
-    let cancelled = false;
-    (async () => {
-      const bankCategory = await isBankCategoryCompany(currentCompany.company_id);
-      if (!cancelled && bankCategory) {
-        window.location.assign(new URL(`/bank-process-list?company_id=${companyId}`, window.location.origin).toString());
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [loading, companyId, companies]);
-
-  useEffect(() => {
     if (showAll) document.body.classList.add("process-page--show-all");
     else document.body.classList.remove("process-page--show-all");
     return () => document.body.classList.remove("process-page--show-all");
@@ -436,9 +415,9 @@ export default function ProcessListPage() {
       setCompanyId(Number(company.id));
       setSelectedGroup(company.group_id ? String(company.group_id).toUpperCase() : null);
       notifyCompanySessionUpdated();
-      const bankCategory = await isBankCategoryCompany(company.company_id);
+      const bankCategory = await isBankCategoryCompany(company.company_id, buildApiUrl);
       if (bankCategory) {
-        window.location.assign(new URL(`/bank-process-list?company_id=${company.id}`, window.location.origin).toString());
+        navigate(`/bank-process-list?company_id=${company.id}`, { replace: true });
       }
     } catch {
       notify(t("switchCompanyFailed"), "danger");
