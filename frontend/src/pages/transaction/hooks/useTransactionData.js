@@ -5,8 +5,11 @@ import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import {
   applySharedGroupButtonClick,
+  dedupeOwnerCompaniesByCode,
+  normalizeOwnerCompanyRow,
   persistDashboardGroupFilter,
   resolveInitialSelectedGroupFromSession,
+  sortedUniqueGroupIds,
 } from "../../../utils/sharedCompanyFilter.js";
 import {
   getAccounts,
@@ -64,12 +67,15 @@ export function useTransactionData({
         }
 
         const companiesJson = await companiesRes.json();
-        const rows = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
+        const rawRows = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
+        const rows = rawRows.map((r) => normalizeOwnerCompanyRow(r)).filter(Boolean);
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
         let effective = queryCompany || u.company_id || rows[0]?.id || null;
         effective = effective ? Number(effective) : null;
+
+        const snapRows = dedupeOwnerCompaniesByCode(rows, effective);
 
         if (queryCompany && rows.some((c) => Number(c.id) === Number(queryCompany))) {
           const sync = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${queryCompany}`), {
@@ -83,18 +89,15 @@ export function useTransactionData({
           }
         }
 
-        const current = rows.find((c) => Number(c.id) === Number(effective));
-        const selGroup = resolveInitialSelectedGroupFromSession(rows, current);
+        const current = snapRows.find((c) => Number(c.id) === Number(effective));
+        const selGroup = resolveInitialSelectedGroupFromSession(snapRows, current);
 
         if (!cancelled) {
-          const snapRows = rows.filter((c) => c.company_id && String(c.company_id).trim() !== "");
           setFilterSnapshot({
             companyId: effective,
             selectedGroup: selGroup,
             snapCompanies: snapRows,
-            snapGroupIds: [
-              ...new Set(snapRows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim())),
-            ].sort(),
+            snapGroupIds: sortedUniqueGroupIds(snapRows),
             viewerRole: String(u.role || "").toLowerCase(),
           });
         }

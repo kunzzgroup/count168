@@ -5,6 +5,41 @@
 
 export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
 
+/**
+ * Normalize keys from `get_owner_companies_api` (and any proxy) so `company_id` / `group_id`
+ * match Account List and Maintenance pages — otherwise Transaction filters stay empty.
+ */
+export function normalizeOwnerCompanyRow(row) {
+  if (!row || typeof row !== "object") return row;
+  const company_id = row.company_id ?? row.companyId ?? row.code ?? "";
+  const group_id = row.group_id ?? row.groupId ?? row.group ?? null;
+  return {
+    ...row,
+    company_id,
+    group_id,
+  };
+}
+
+/** One pill per company code; prefer the row matching `preferredCompanyId` when duplicates exist (same as maintenance transaction filters). */
+export function dedupeOwnerCompaniesByCode(companies, preferredCompanyId) {
+  const list = filterCompaniesWithDisplayId(companies);
+  const byCode = new Map();
+  const norm = (v) => String(v || "").toUpperCase().trim();
+  for (const comp of list) {
+    const key = norm(comp.company_id);
+    if (!key) continue;
+    const existing = byCode.get(key);
+    if (!existing) {
+      byCode.set(key, comp);
+      continue;
+    }
+    const existingIsCurrent = Number(existing.id) === Number(preferredCompanyId);
+    const currentIsCurrent = Number(comp.id) === Number(preferredCompanyId);
+    if (!existingIsCurrent && currentIsCurrent) byCode.set(key, comp);
+  }
+  return Array.from(byCode.values());
+}
+
 export function normalizeCompanyGroupId(comp) {
   return String(comp?.group_id ?? "").trim().toUpperCase();
 }
