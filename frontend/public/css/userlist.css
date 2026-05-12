@@ -1694,8 +1694,8 @@ body.user-page .user-filter-chip__label {
 
 .table-header {
     display: grid;
-    /* 与 .user-card 完全一致，最后一列固定宽以便勾选与表头全选垂直对齐 */
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.75fr 48px;
+    /* 默认 9 列；勾选列见 .user-table-wrapper--bulk-delete-col */
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.95fr;
     gap: 15px;
     padding: 6px 22px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
@@ -1706,6 +1706,12 @@ body.user-page .user-filter-chip__label {
     font-size: var(--text-base);
     min-width: 0;
     /* 允许内容收缩 */
+}
+
+/* Show Inactive / Show All 时：第 10 列批量删除勾选（与表头全选对齐） */
+body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .table-header,
+body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .user-card {
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.75fr 48px;
 }
 
 /* 可排序的表头项 */
@@ -1753,7 +1759,7 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
 
 .user-card {
     display: none;
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.75fr 48px;
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.95fr;
     gap: 15px;
     padding: clamp(1px, 0.21vw, 4px) 22px;
     background: #f0e5fb;

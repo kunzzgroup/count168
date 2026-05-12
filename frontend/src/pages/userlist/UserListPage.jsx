@@ -127,6 +127,9 @@ export default function UserListPage() {
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
 
+  /** 与顶部 chip 一致：仅「显示停用」或「显示全部」时展示批量删除勾选列（默认活跃分页不展示） */
+  const showBulkDeleteColumn = showInactive || showAll;
+
   const pageRows = useMemo(() => {
     if (showAll) return filteredSorted;
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -149,6 +152,13 @@ export default function UserListPage() {
   }, [companyId, search, showAll]);
 
   useEffect(() => { if (!bootLoading) syncUrl(); }, [bootLoading, syncUrl]);
+
+  useEffect(() => {
+    if (!showInactive && !showAll) {
+      setSelectedDeleteIds(new Set());
+      setSelectAllUsers(false);
+    }
+  }, [showInactive, showAll]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -523,7 +533,7 @@ export default function UserListPage() {
               </div>
             </div>
           </div>
-          <div className="user-table-wrapper">
+          <div className={`user-table-wrapper${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
             <div className="table-header">
               <div className="header-item">{t("no")}</div>
               <div className="header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("loginId"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("loginId")} {sortColumn === "loginId" && (sortDirection === "asc" ? "▲" : "▼")}</div>
@@ -534,24 +544,26 @@ export default function UserListPage() {
               <div className="header-item">{t("lastLogin")}</div>
               <div className="header-item">{t("createdBy")}</div>
               <div className="header-item">{t("action")}</div>
-              <div className="header-item header-item--select">
-                <input
-                  type="checkbox"
-                  aria-label={t("selectAllDeletableAria")}
-                  checked={selectAllUsers}
-                  onChange={(e) => {
-                    const on = e.target.checked;
-                    const eligible = pageRows
-                      .filter((r) => {
-                        const c = computeRowCapabilities(r, currentUserId, currentUserRole);
-                        return getDeleteCheckboxState(r, c).show;
-                      })
-                      .map((r) => Number(r.id));
-                    setSelectedDeleteIds(on ? new Set(eligible) : new Set());
-                    setSelectAllUsers(on);
-                  }}
-                />
-              </div>
+              {showBulkDeleteColumn && (
+                <div className="header-item header-item--select">
+                  <input
+                    type="checkbox"
+                    aria-label={t("selectAllDeletableAria")}
+                    checked={selectAllUsers}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      const eligible = pageRows
+                        .filter((r) => {
+                          const c = computeRowCapabilities(r, currentUserId, currentUserRole);
+                          return getDeleteCheckboxState(r, c).show;
+                        })
+                        .map((r) => Number(r.id));
+                      setSelectedDeleteIds(on ? new Set(eligible) : new Set());
+                      setSelectAllUsers(on);
+                    }}
+                  />
+                </div>
+              )}
             </div>
             <div className="user-cards">
               {(tableLoading || switchingCompany) ? <div className="user-card user-card--loading show-card">{t("loading")}</div> : pageRows.map((r, idx) => {
@@ -570,25 +582,27 @@ export default function UserListPage() {
                     <div className="card-item card-item--action">
                       <button className="btn btn-edit" onClick={() => openEdit(r)} disabled={!caps.canEditDelete} style={{ opacity: caps.canEditDelete ? 1 : 0.3 }}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
                     </div>
-                    <div className="card-item card-item--select">
-                      {del.show ? (
-                        <input
-                          type="checkbox"
-                          aria-label={t("rowDeleteCheckboxAria")}
-                          disabled={del.disabled}
-                          checked={selectedDeleteIds.has(Number(r.id))}
-                          onChange={(e) =>
-                            setSelectedDeleteIds((prev) => {
-                              const n = new Set(prev);
-                              if (e.target.checked) n.add(Number(r.id));
-                              else n.delete(Number(r.id));
-                              return n;
-                            })}
-                        />
-                      ) : (
-                        <span className="user-row-select-placeholder" aria-hidden="true" />
-                      )}
-                    </div>
+                    {showBulkDeleteColumn && (
+                      <div className="card-item card-item--select">
+                        {del.show ? (
+                          <input
+                            type="checkbox"
+                            aria-label={t("rowDeleteCheckboxAria")}
+                            disabled={del.disabled}
+                            checked={selectedDeleteIds.has(Number(r.id))}
+                            onChange={(e) =>
+                              setSelectedDeleteIds((prev) => {
+                                const n = new Set(prev);
+                                if (e.target.checked) n.add(Number(r.id));
+                                else n.delete(Number(r.id));
+                                return n;
+                              })}
+                          />
+                        ) : (
+                          <span className="user-row-select-placeholder" aria-hidden="true" />
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
