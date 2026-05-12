@@ -184,6 +184,7 @@ try {
     }
 
     $today = date('Y-m-d');
+    
     $inserted = 0;
     bmp_ensureMaintenanceResendPendingTable($pdo);
     ensureAccountingDueDismissedTable($pdo);
