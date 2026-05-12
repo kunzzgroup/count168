@@ -1401,7 +1401,7 @@ label.user-modal-col-title.acc-proc-label {
     margin-top: 20px;
     font-weight: bold;
     color: white;
-    font-size: var(--text-medium);
+    font-size: var(--text-base);
     min-width: 0;
     /* 允许内容收缩 */
 }

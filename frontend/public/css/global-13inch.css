@@ -112,6 +112,11 @@
         padding-bottom: 4px !important;
     }
 
+    /* User List 表头蓝条：单独用 --text-base */
+    body.ec-auth-shell.user-page .table-header {
+        font-size: var(--text-base) !important;
+    }
+
     body.ec-auth-shell .table-header .header-item,
     body.ec-auth-shell .account-table-header .header-item,
     body.ec-auth-shell .card-item,
