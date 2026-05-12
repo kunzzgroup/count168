@@ -350,44 +350,68 @@ body.account-page:not(.account-page--show-all) {
     display: inline !important;
 }
 
-/* Show All 模式：允许页面纵向滚动，一页展示所有数据 */
+/* Show All：与分页列表相同的行高/内边距；列表区内部纵向滚动（表头留在可视区域上方） */
 body.account-page--show-all {
-    overflow-y: auto !important;
-    height: auto;
-    min-height: 100vh;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
 }
 
 body.account-page--show-all .container {
-    overflow-y: visible;
-    height: auto;
-    min-height: 100vh;
-}
-
-body.account-page--show-all .account-cards {
-    display: flex;
-    flex-direction: column;
-    /* Prevent hundreds of rows from flex-shrinking into one viewport band */
-    flex: 0 0 auto;
-    min-height: auto;
-    max-height: none;
-    overflow-y: visible;
-}
-
-body.account-page--show-all .account-card {
-    flex-shrink: 0;
-    min-height: auto;
+    height: 100vh !important;
+    overflow: hidden !important;
 }
 
 body.account-page--show-all .content {
-    height: auto;
-    min-height: calc(100vh - 22px);
-    overflow: visible;
+    height: calc(100vh - 22px) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
 }
 
 body.account-page--show-all .account-table-wrapper {
-    flex: 0 1 auto;
-    overflow: visible;
-    padding-bottom: 72px;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 52px;
+    box-sizing: border-box;
+}
+
+body.account-page--show-all .account-table-header {
+    flex-shrink: 0;
+}
+
+/* 覆盖 global-13inch 中 body.ec-auth-shell .account-cards 的 overflow:visible，实现表内滚动 */
+body.ec-auth-shell.account-page--show-all .account-cards,
+body.account-page--show-all .account-cards {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    justify-content: flex-start;
+}
+
+body.account-page--show-all .account-card {
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    /* 与 global-13inch（max-width:1440px）下分页行一致的纵向留白 */
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+    min-height: 44px;
+    box-sizing: border-box;
+}
+
+body.account-page--show-all .account-card-item {
+    line-height: 1.5 !important;
 }
 
 /* Account Cards：纵向 flex；行高随内容，空白留在列表底部（与 userlist 一致） */
