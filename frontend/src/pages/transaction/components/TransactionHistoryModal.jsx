@@ -8,7 +8,7 @@ export default function TransactionHistoryModal({
 }) {
   return (
     <div id="historyModal" className="transaction-modal" style={{ display: history.open ? "flex" : "none" }}>
-      <div className="transaction-modal-content">
+      <div className="transaction-modal-content transaction-history-modal">
         <div className="transaction-modal-header">
           <h3 id="modal_title">{history.title}</h3>
           <button
@@ -71,15 +71,7 @@ export default function TransactionHistoryModal({
                   return (
                     <tr
                       key={r.id ?? `${idx}-${r.date || ""}-${r.balance || ""}`}
-                      className={isBf ? "transaction-bf-row" : "transaction-table-row"}
-                      style={
-                        isBf
-                          ? {
-                              fontWeight: "bold",
-                              backgroundColor: "#f0f0f0",
-                            }
-                          : undefined
-                      }
+                      className={isBf ? "transaction-bf-row transaction-history-bf-row" : "transaction-table-row"}
                     >
                       <td className="transaction-history-col-date">{r.date || "-"}</td>
                       <td className="transaction-history-col-product">{String(idProductDisplay)}</td>
