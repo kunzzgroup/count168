@@ -541,8 +541,50 @@ export default function UserListPage() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label htmlFor="showInactive">{t("showInactive")}</label></div>
-                <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label htmlFor="showAll">{t("showAll")}</label></div>
+                <div className="userlist-filter-chips" role="group">
+                  <button
+                    type="button"
+                    className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
+                    aria-pressed={showInactive && !showAll}
+                    onClick={() => {
+                      if (showInactive && !showAll) setShowInactive(false);
+                      else {
+                        setShowInactive(true);
+                        setShowAll(false);
+                      }
+                    }}
+                  >
+                    <span className="user-filter-chip__dot" aria-hidden>
+                      {showInactive && !showAll ? (
+                        <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 12l4 4 8-8" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className="user-filter-chip__label">{t("showInactive")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`user-filter-chip${showAll ? " is-selected" : ""}`}
+                    aria-pressed={showAll}
+                    onClick={() => {
+                      if (showAll) setShowAll(false);
+                      else {
+                        setShowAll(true);
+                        setShowInactive(false);
+                      }
+                    }}
+                  >
+                    <span className="user-filter-chip__dot" aria-hidden>
+                      {showAll ? (
+                        <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 12l4 4 8-8" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className="user-filter-chip__label">{t("showAll")}</span>
+                  </button>
+                </div>
               </div>
               <div className="user-toolbar-actions-right">
                 <button type="button" className="btn btn-add" onClick={openAdd}>
