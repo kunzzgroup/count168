@@ -4,7 +4,7 @@
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
  * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = 尾段 prorateInclusiveDateRange（1st+cap 列 ON 时为 max(exclusiveEnd, day_end 月首)～day_end；否则 exclusiveEnd～day_end 且需 day_end≥exclusiveEnd；1st+cap OFF 不入账尾段），
  * resend_consolidated_range = 仅 Resend 弹窗同时填 day_start+day_end 时：按自然月切段 [day_start, day_end] 合并为一笔（与 Inbox 一致）。
- * 仅处理 status = 'active' 的 process。
+ * 入账请求仅针对当前公司下选中的 Bank Process；Frequency=once 且 period_type=once_one_off 入账成功后，将该 process 的 status 置为 inactive（Accounting Due 的 Dismiss 不写 status）。
  */
 
 session_start();
@@ -1452,6 +1452,14 @@ try {
         }
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
+
+        if ($periodType === 'once_one_off' && $frequency === 'once' && trim((string) ($p['status'] ?? '')) === 'active') {
+            $updOnceInactive = $pdo->prepare(
+                "UPDATE bank_process SET status = 'inactive', dts_modified = NOW() WHERE id = ? AND company_id = ? AND status = 'active'"
+            );
+            $updOnceInactive->execute([(int) $p['id'], $companyId]);
+            $p['status'] = 'inactive';
+        }
 
         if ($periodType === 'resend_consolidated_range' && $has_period_type && $dayStartYmd) {
             $endRawPost = $p['day_end'] ?? null;
