@@ -603,10 +603,16 @@ export default function BankProcessListPage() {
 
   const onSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
+    // Immediately show loading state so there's no "No data found" flash
+    setRows([]);
+    setTableLoading(true);
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("switchCompanyFailed"), "danger");
+      if (!res.ok || !json.success) {
+        setTableLoading(false);
+        return notify(json.message || json.error || t("switchCompanyFailed"), "danger");
+      }
       setCompanyId(Number(c.id));
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
@@ -614,7 +620,10 @@ export default function BankProcessListPage() {
         window.location.assign(new URL(`/process-list?company_id=${c.id}`, window.location.origin).toString());
       }
       if (accountingOpen) void loadAccountingInbox();
-    } catch { notify(t("switchCompanyFailed"), "danger"); }
+    } catch {
+      setTableLoading(false);
+      notify(t("switchCompanyFailed"), "danger");
+    }
   };
 
   const openAdd = () => {
