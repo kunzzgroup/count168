@@ -913,6 +913,117 @@ body.transaction-page {
     background-color: #f8fafc;
 }
 
+/* Payment History 弹窗：与 legacy transaction.php / 图二一致 — 白底标题、深蓝标题字、表头深蓝、白底数据行、十列可横向滚动 */
+.transaction-history-modal.transaction-modal-content {
+    width: min(96vw, 1180px);
+    max-width: 100%;
+}
+
+.transaction-history-modal .transaction-modal-header {
+    background-color: #ffffff;
+    border-bottom: none;
+    padding: clamp(14px, 1.2vw, 22px) clamp(18px, 2.2vw, 28px);
+}
+
+.transaction-history-modal .transaction-modal-header h3 {
+    color: #003366;
+    font-weight: 700;
+    font-size: clamp(15px, 1.12vw, 20px);
+}
+
+.transaction-history-modal .transaction-modal-body {
+    padding: 6px clamp(18px, 2.2vw, 28px) clamp(16px, 1.35vw, 24px);
+}
+
+.transaction-history-modal .transaction-history-table-frame {
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table th {
+    background-color: #003366;
+    border: 1px solid #002244;
+    color: #ffffff;
+    text-align: center;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-date,
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-product,
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-description {
+    text-align: left;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-winloss,
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-crdr,
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-balance {
+    text-align: right;
+}
+
+/* 收紧列宽，减少右侧被裁切；窄屏依赖横向滚动 */
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-date {
+    width: auto;
+    min-width: 72px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-product {
+    width: auto;
+    min-width: 96px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-currency {
+    min-width: 52px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-rate {
+    min-width: 52px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-winloss {
+    min-width: 96px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-crdr {
+    min-width: 96px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-balance {
+    min-width: 96px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-description {
+    min-width: 140px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-remark {
+    min-width: 88px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-created {
+    min-width: 88px;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table td {
+    border: 1px solid #e2e8f0;
+    background-color: #ffffff;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover td,
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row td {
+    background-color: #ffffff !important;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover {
+    background-color: transparent;
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row .transaction-history-col-description {
+    font-weight: 600;
+}
+
 /* Alert 账号标记（整行红色，白色文字）- 必须比普通行样式更具体 */
 .transaction-page .transaction-table tbody .transaction-table-row.transaction-alert-row {
     background-color: #dc2626 !important;
