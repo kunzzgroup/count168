@@ -26,7 +26,7 @@
   --sidebar-menu-text: #ffffff;
 
   /* 基础侧边栏布局 */
-  --sidebar-lock-width: clamp(18rem, 17.1rem + 1.4vw, 23.5rem);
+  --sidebar-lock-width: clamp(160px, 12.98vw, 235px);
   --sidebar-logo-height: clamp(2.8rem, 2.67rem + 0.2vw, 3.6rem);
   --sidebar-avatar-lock: clamp(3.2rem, 3.09rem + 0.18vw, 4rem);
 
