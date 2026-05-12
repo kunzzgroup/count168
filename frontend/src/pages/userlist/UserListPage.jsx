@@ -264,7 +264,7 @@ export default function UserListPage() {
         fetch(buildApiUrl(`api/processes/processlist_api.php?company_id=${cid}&showAll=1`), { credentials: "include" }),
       ]);
       const accJ = await accRes.json(); const procJ = await procRes.json();
-      const accs = (accJ?.data?.accounts || []).filter((a) => String(a.status || "").toLowerCase() === "active").map((a) => ({ id: a.id, account_id: a.account_id }));
+      const accs = (accJ?.data?.accounts || []).filter((a) => String(a.status || "").toLowerCase() === "active").map((a) => ({ id: a.id, account_id: a.account_id, name: String(a.name || "").trim() }));
       const procs = (Array.isArray(procJ?.data) ? procJ.data : []).filter((p) => String(p.status || "").toLowerCase() === "active").map((p) => ({ id: p.id, process_id: p.process_name || p.process_id || "", description: p.description_name || p.description || "" }));
       setModalAccounts(accs); setModalProcesses(procs); return { accounts: accs, processes: procs };
     } catch { setModalAccounts([]); setModalProcesses([]); return { accounts: [], processes: [] }; }

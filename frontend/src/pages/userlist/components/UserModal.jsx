@@ -290,9 +290,9 @@ export default function UserModal({
 
             <div className="user-modal-col user-modal-col--account account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
-                <div className="account-grid account-grid--four">
+                <div className="account-grid account-grid--four account-grid--process">
                   {modalAccounts.map((a) => (
-                    <div key={a.id} className="account-item-compact">
+                    <div key={a.id} className="account-item-compact account-item-compact--process">
                       <input
                         type="checkbox"
                         id={`acc-${a.id}`}
@@ -306,7 +306,10 @@ export default function UserModal({
                           });
                         }}
                       />
-                      <label htmlFor={`acc-${a.id}`} className="account-label">{a.account_id}</label>
+                      <label htmlFor={`acc-${a.id}`} className="account-label account-label--process">
+                        {a.account_id}
+                        {a.name ? <span className="account-label-desc">{a.name}</span> : null}
+                      </label>
                     </div>
                   ))}
                 </div>
