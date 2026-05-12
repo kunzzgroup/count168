@@ -619,7 +619,7 @@ export default function AccountListPage() {
                 </div>
               </div>
               <div className="user-toolbar-actions-right">
-                <button type="button" className="account-btn account-btn-setting" onClick={() => setCurrencySettingOpen(true)}>
+                <button type="button" className="btn btn-currency-setting" onClick={() => setCurrencySettingOpen(true)}>
                   {t("currencySetting")}
                 </button>
                 <button type="button" className="btn btn-add" onClick={openAdd}>

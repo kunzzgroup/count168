@@ -54,7 +54,8 @@
     body.ec-auth-shell.user-page .btn-add,
     body.ec-auth-shell.user-page .btn-delete,
     body.ec-auth-shell.account-page .btn-add,
-    body.ec-auth-shell.account-page .btn-delete {
+    body.ec-auth-shell.account-page .btn-delete,
+    body.ec-auth-shell.account-page .btn-currency-setting {
         font-size: var(--text-base) !important;
         font-weight: var(--font-weight-semibold) !important;
     }

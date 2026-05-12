@@ -523,6 +523,34 @@ body.account-page .user-gc-segment:disabled {
     transform: translateY(-1px);
 }
 
+/* Account List 顶栏：币种设置与 Add / Delete 同高、同字号与内边距 */
+.account-page .btn-currency-setting {
+    background: linear-gradient(180deg, #AAB8C2 0%, #657786 100%);
+    color: #ffffff;
+    font-family: var(--font-heading-page);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-semibold);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(101, 119, 134, 0.2);
+    --sweep-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
+}
+
+.account-page .btn-currency-setting:hover {
+    background: linear-gradient(180deg, #9ca9b4 0%, #5a6a78 100%);
+    box-shadow: 0 4px 8px rgba(101, 119, 134, 0.3);
+    transform: translateY(-1px);
+}
+
 .user-page .btn-edit {
     background-color: transparent;
     color: black;
