@@ -399,20 +399,11 @@ body.account-page--show-all .account-cards {
     justify-content: flex-start;
 }
 
+/* 行内边距、字号、行高：与分页列表完全一致 —— 不单独覆盖 .account-card / .account-card-item，
+   沿用 .account-card + body.ec-auth-shell（global-13inch）规则；此处仅禁止整行被 flex 压缩 */
 body.account-page--show-all .account-card {
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    /* 与 global-13inch（max-width:1440px）下分页行一致的纵向留白 */
-    padding-top: 10px !important;
-    padding-bottom: 10px !important;
-    padding-left: 22px !important;
-    padding-right: 22px !important;
-    min-height: 44px;
-    box-sizing: border-box;
-}
-
-body.account-page--show-all .account-card-item {
-    line-height: 1.5 !important;
 }
 
 /* Account Cards：纵向 flex；行高随内容，空白留在列表底部（与 userlist 一致） */
