@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
@@ -87,7 +87,8 @@ export default function ProcessListPage() {
     }, 1500);
   }, []);
 
-  useEffect(() => {
+  // Layout phase (with BankProcessListPage): avoid deferred useEffect cleanup stripping body.process-page after route swap.
+  useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page");
     document.body.classList.add("process-page");
     setCssReady(true);
