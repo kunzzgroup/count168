@@ -3776,12 +3776,22 @@ function subtractOneDayFromYmd(ymd) {
 }
 
 /**
- * monthly：billingContractExclusiveEndYmdMonthlyAfterPartialFirstJs 的 exclusive 再减一天 = inclusive 最后租期日。
- * 1st_of_every_month：billingContractExclusiveEndYmdFirstOfMonthJs。
+ * 仅用于 Bank 表单 Day end 自动填 / min / dataset.bankContractEndHint；不参与入账。
+ * 合同边界以服务端 contractExclusiveEndYmdForFrequency 为准，本函数不改变 PHP 合同定义。
+ * 起租日当月 1 号：monthly 与 1st 均用 addCalendarMonthsToYmd（与 PHP 1 号起租时的 exclusive 一致）。
+ * 起租日非 1 号：monthly 为 exclusive 再减一天；1st 为 billingContractExclusiveEndYmdFirstOfMonthJs（与 PHP 一致）。
  */
 function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
     if (!startYmd || termMonths == null || termMonths < 1) {
         return null;
+    }
+    const head = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!head) {
+        return null;
+    }
+    const startDay = parseInt(head[3], 10);
+    if (startDay === 1) {
+        return addCalendarMonthsToYmd(startYmd, termMonths);
     }
     if (frequency === 'monthly') {
         const exclusive = billingContractExclusiveEndYmdMonthlyAfterPartialFirstJs(startYmd, termMonths);
