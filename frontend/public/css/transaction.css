@@ -720,12 +720,16 @@ body.transaction-page {
     background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
     overflow: auto;
+    /* React 打开时为 display:flex；默认 stretch 会把弹窗内容拉到整屏高，表体下方大量留白 */
+    align-items: center;
+    justify-content: center;
+    padding: clamp(12px, 2vh, 24px) clamp(12px, 2vw, 20px);
+    box-sizing: border-box;
 }
 
 .transaction-modal-content {
     background-color: #ffffff;
-    /* 稍微往上移，并限制整体高度 */
-    margin: 2% auto;
+    margin: 0;
     padding: 0;
     border: none;
     border-radius: 16px;
@@ -739,6 +743,8 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    flex-shrink: 0;
+    align-self: center;
 }
 
 @keyframes slideDown {
@@ -796,16 +802,17 @@ body.transaction-page {
 
 .transaction-modal-body {
     padding: clamp(10px, 1.04vw, 20px) 32px;
-    flex: 1 1 auto;
+    /* 随表格内容收缩，勿 flex:1 撑满视口导致矮数据底部留白 */
+    flex: 0 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-/* Scroll + border frame so long history lists stay inside the card (no clipped rows) */
+/* Scroll + border frame：高度跟内容走；仅当行数多时再在框内滚动 */
 .transaction-history-table-frame {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
     max-height: min(76vh, calc(92vh - 140px));
     overflow: auto;
