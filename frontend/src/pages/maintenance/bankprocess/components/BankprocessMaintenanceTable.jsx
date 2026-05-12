@@ -8,6 +8,7 @@ export default function BankprocessMaintenanceTable({
   onToggleRow,
   selectAll,
   onToggleSelectAll,
+  m,
 }) {
   if (loading) {
     return (
@@ -15,14 +16,14 @@ export default function BankprocessMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Dts Created</th><th>Account</th><th>From</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitted By</th>
+              <th>{m.tblNo}</th><th>{m.tblDtsCreated}</th><th>{m.tblAccount}</th><th>{m.tblFrom}</th><th className="maintenance-header-amount">{m.tblAmount}</th><th>{m.tblDescription}</th><th>{m.tblRemark}</th><th>{m.tblSubmittedBy}</th>
               <th className="maintenance-select-all-header"><input type="checkbox" className="maintenance-row-checkbox maintenance-select-all-checkbox" disabled /></th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td className="maintenance-table-cell" colSpan="9" style={{ textAlign: "center", padding: "20px" }}>
-                Loading...
+                {m.loading}
               </td>
             </tr>
           </tbody>
@@ -35,7 +36,7 @@ export default function BankprocessMaintenanceTable({
     return (
       <div className="empty-state-container" id="emptyState" style={{ display: "block" }}>
         <div className="empty-state">
-          <p>No bank process transactions found. Please adjust your search criteria and try again.</p>
+          <p>{m.noBankProcessAdjustSearch}</p>
         </div>
       </div>
     );
@@ -48,20 +49,20 @@ export default function BankprocessMaintenanceTable({
       <table className="maintenance-table">
         <thead>
           <tr>
-            <th>No.</th>
-            <th>Dts Created</th>
-            <th>Account</th>
-            <th>From</th>
-            <th className="maintenance-header-amount">Amount</th>
-            <th>Description</th>
-            <th>Remark</th>
-            <th>Submitted By</th>
+            <th>{m.tblNo}</th>
+            <th>{m.tblDtsCreated}</th>
+            <th>{m.tblAccount}</th>
+            <th>{m.tblFrom}</th>
+            <th className="maintenance-header-amount">{m.tblAmount}</th>
+            <th>{m.tblDescription}</th>
+            <th>{m.tblRemark}</th>
+            <th>{m.tblSubmittedBy}</th>
             <th className="maintenance-select-all-header">
               <input
                 type="checkbox"
                 id="select_all_bankprocess"
                 className="maintenance-row-checkbox maintenance-select-all-checkbox"
-                title="Select All"
+                title={m.selectAll}
                 checked={selectAll}
                 onChange={(e) => onToggleSelectAll(e.target.checked)}
               />
@@ -92,7 +93,7 @@ export default function BankprocessMaintenanceTable({
                     className="maintenance-row-checkbox"
                     checked={checked}
                     disabled={isDeleted}
-                    title={isDeleted ? "Already deleted" : ""}
+                    title={isDeleted ? m.alreadyDeleted : ""}
                     onChange={() => onToggleRow(transactionId)}
                   />
                 </td>

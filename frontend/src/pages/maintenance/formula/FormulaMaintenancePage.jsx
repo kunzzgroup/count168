@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLoginLang } from "../../../utils/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N, getFormulaInputMethodOptions } from "../../../translateFile/maintenanceTranslate.js";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
@@ -26,6 +28,10 @@ import ConfirmDeleteModal from "../capture/components/ConfirmDeleteModal.jsx";
 
 export default function FormulaMaintenancePage() {
   const navigate = useNavigate();
+  const lang = useLoginLang();
+  const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
+  const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
+  const inputMethodOptions = useMemo(() => getFormulaInputMethodOptions(lang), [lang]);
 
   // -- Boot State --
   const [bootLoading, setBootLoading] = useState(true);
@@ -230,7 +236,7 @@ export default function FormulaMaintenancePage() {
           setActivePermission(permList[0]);
         }
       } catch (err) {
-        notify("Failed to load company metadata", "error");
+        notify(t("failedLoadCompanyMetadata"), "error");
       }
     })();
   }, [bootLoading, companyId, companyCode, notify]);
@@ -250,9 +256,9 @@ export default function FormulaMaintenancePage() {
       setSelectedIds([]);
       setConfirmDelete(false);
       if (data.length === 0) {
-        notify("No data found", "info");
+        notify(t("noDataFound"), "info");
       } else {
-        notify(`Found ${data.length} record(s)`, "success");
+        notify(t("foundRecords", { n: data.length }), "success");
       }
     } catch (err) {
       notify(err.message, "error");
@@ -260,7 +266,7 @@ export default function FormulaMaintenancePage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, activePermission, selectedProcess, searchFilter, notify]);
+  }, [companyId, activePermission, selectedProcess, searchFilter, notify, t]);
 
   // Debounced search for searchFilter
   useEffect(() => {
@@ -299,9 +305,9 @@ export default function FormulaMaintenancePage() {
       setFormulaData([]);
       
       notifyCompanySessionUpdated();
-      notify(`Switched to ${c.company_id}`, "success");
+      notify(t("switchedTo", { company: c.company_id }), "success");
     } catch (err) {
-      notify(err.message || "Switch failed", "error");
+      notify(err.message || t("switchFailed"), "error");
     }
   };
 
@@ -348,11 +354,11 @@ export default function FormulaMaintenancePage() {
 
   const handleDeleteClick = () => {
     if (!confirmDelete) {
-      notify("Please check the confirm delete checkbox", "error");
+      notify(t("pleaseConfirmDeleteCheckbox"), "error");
       return;
     }
     if (selectedIds.length === 0) {
-      notify("Please select at least one record", "error");
+      notify(t("pleaseSelectOneRecord"), "error");
       return;
     }
     setIsDeleteModalOpen(true);
@@ -362,10 +368,10 @@ export default function FormulaMaintenancePage() {
     setIsDeleteModalOpen(false);
     try {
       await deleteFormulaTemplates(companyId, selectedIds);
-      notify(`Successfully deleted ${selectedIds.length} record(s)`, "success");
+      notify(t("successfullyDeletedN", { n: selectedIds.length }), "success");
       performSearch();
     } catch (err) {
-      notify(err.message || "Delete failed", "error");
+      notify(err.message || t("deleteFailed"), "error");
     }
   };
 
@@ -377,11 +383,11 @@ export default function FormulaMaintenancePage() {
         ...editForm
       };
       await updateFormulaTemplate(payload);
-      notify("Update successful", "success");
+      notify(t("updateSuccessful"), "success");
       performSearch();
       return true;
     } catch (err) {
-      notify(err.message || "Save failed", "error");
+      notify(err.message || t("saveFailed"), "error");
       return false;
     }
   };
@@ -391,10 +397,10 @@ export default function FormulaMaintenancePage() {
   return (
     <div className="container">
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">Maintenance - Formula</h1>
+        <h1 id="maintenance-page-title">{m.pageTitleFormula}</h1>
         {permissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
-            <span className="maintenance-company-label">Category:</span>
+            <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
               {permissions.map(p => (
                 <button 
@@ -427,9 +433,10 @@ export default function FormulaMaintenancePage() {
         confirmDelete={confirmDelete}
         setConfirmDelete={setConfirmDelete}
         onDelete={handleDeleteClick}
+        m={m}
       />
 
-      <FormulaMaintenanceTable 
+      <FormulaMaintenanceTable
         data={formulaData}
         loading={loading}
         selectedIds={selectedIds}
@@ -437,14 +444,19 @@ export default function FormulaMaintenancePage() {
         onToggleSelectAll={toggleSelectAll}
         onSaveRow={handleSaveRow}
         accounts={accounts}
+        m={m}
+        inputMethodOptions={inputMethodOptions}
       />
 
       {/* Modal & Notifications */}
-      <ConfirmDeleteModal 
+      <ConfirmDeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
-        message={`Are you sure you want to delete the selected ${selectedIds.length} record(s)? This action cannot be undone.`}
+        title={m.confirmDeleteTitle}
+        cancelText={m.cancel}
+        confirmText={m.delete}
+        message={t("deleteConfirmRecords", { count: selectedIds.length })}
       />
 
       {toast && (

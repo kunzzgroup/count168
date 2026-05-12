@@ -1,11 +1,12 @@
-export default function CaptureMaintenanceTable({ 
-  data, 
-  loading, 
-  selectedIds, 
-  toggleSelect, 
-  toggleSelectAll, 
+export default function CaptureMaintenanceTable({
+  data,
+  loading,
+  selectedIds,
+  toggleSelect,
+  toggleSelectAll,
   isAllSelected,
-  isIndeterminate 
+  isIndeterminate,
+  m,
 }) {
   if (loading) {
     return (
@@ -13,7 +14,7 @@ export default function CaptureMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Dts Created</th><th>Product</th><th>Process</th><th>Currency</th><th>W/L Group</th><th>Submitted By</th><th>Deleted By</th>
+              <th>{m.tblNo}</th><th>{m.tblDtsCreated}</th><th>{m.tblProduct}</th><th>{m.tblProcess}</th><th>{m.tblCurrency}</th><th>{m.tblWlGroup}</th><th>{m.tblSubmittedBy}</th><th>{m.tblDeletedBy}</th>
               <th className="maintenance-select-all-header">
                 <input type="checkbox" className="maintenance-row-checkbox" disabled />
               </th>
@@ -22,7 +23,7 @@ export default function CaptureMaintenanceTable({
           <tbody>
             <tr>
               <td className="maintenance-table-cell" colSpan="9" style={{ textAlign: "center", padding: "20px" }}>
-                Loading...
+                {m.loading}
               </td>
             </tr>
           </tbody>
@@ -35,7 +36,7 @@ export default function CaptureMaintenanceTable({
     return (
       <div className="empty-state-container" style={{ display: "block" }}>
         <div className="empty-state">
-          <p>No data found. Please adjust your search criteria and try again.</p>
+          <p>{m.noDataAdjustSearch}</p>
         </div>
       </div>
     );
@@ -46,13 +47,13 @@ export default function CaptureMaintenanceTable({
       <table className="maintenance-table">
         <thead>
           <tr>
-            <th>No.</th><th>Dts Created</th><th>Product</th><th>Process</th><th>Currency</th><th>W/L Group</th><th>Submitted By</th><th>Deleted By</th>
+            <th>{m.tblNo}</th><th>{m.tblDtsCreated}</th><th>{m.tblProduct}</th><th>{m.tblProcess}</th><th>{m.tblCurrency}</th><th>{m.tblWlGroup}</th><th>{m.tblSubmittedBy}</th><th>{m.tblDeletedBy}</th>
             <th className="maintenance-select-all-header">
               <input 
                 type="checkbox" 
                 id="select_all_capture"
                 className="maintenance-row-checkbox" 
-                title="Select All" 
+                title={m.selectAll} 
                 checked={isAllSelected}
                 ref={el => {
                   if (el) el.indeterminate = isIndeterminate;
@@ -91,7 +92,7 @@ export default function CaptureMaintenanceTable({
                     checked={selectedIds.includes(row.capture_id)}
                     onChange={() => toggleSelect(row.capture_id)}
                     disabled={isDeleted}
-                    title={isDeleted ? "Already deleted" : ""}
+                    title={isDeleted ? m.alreadyDeleted : ""}
                   />
                 </td>
               </tr>

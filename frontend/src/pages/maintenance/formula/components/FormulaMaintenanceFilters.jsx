@@ -16,6 +16,7 @@ export default function FormulaMaintenanceFilters({
   confirmDelete,
   setConfirmDelete,
   onDelete,
+  m,
 }) {
   const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
   const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
@@ -25,13 +26,20 @@ export default function FormulaMaintenanceFilters({
     <div className="maintenance-search-section formula-maintenance-filters-wrap">
       <div className="maintenance-filters">
         <div className="maintenance-form-group">
-          <label className="maintenance-label">Process</label>
+          <label className="maintenance-label">{m.process}</label>
           <div className="custom-select-wrapper formula-process-control">
-            <ProcessSelect processes={processes} selectedValue={selectedProcess} onSelect={setSelectedProcess} />
+            <ProcessSelect
+              processes={processes}
+              selectedValue={selectedProcess}
+              onSelect={setSelectedProcess}
+              placeholder={m.selectAllProcesses}
+              searchPlaceholder={m.searchProcessPlaceholder}
+              noResultsText={m.noResultsFound}
+            />
             <button
               type="button"
               id="clear_filters_btn"
-              title="Clear Filters"
+              title={m.clearFiltersTitle}
               className="formula-clear-icon-btn"
               onClick={onClearFilters}
               style={{ opacity: showClear ? 1 : 0, pointerEvents: showClear ? "auto" : "none" }}
@@ -46,14 +54,14 @@ export default function FormulaMaintenanceFilters({
         </div>
 
         <div className="maintenance-form-group">
-          <label className="maintenance-label">Search</label>
+          <label className="maintenance-label">{m.search}</label>
           <div className="search-input-container formula-search-input-container">
             <i className="fas fa-search search-icon" />
             <input 
               type="text" 
               id="search_filter" 
               className="maintenance-input" 
-              placeholder="Search formula..." 
+              placeholder={m.searchFormulaPlaceholder}
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               style={{ paddingLeft: "30px", width: "100%" }}
@@ -66,7 +74,7 @@ export default function FormulaMaintenanceFilters({
         <div className="maintenance-filter-left">
           {snapGroupIds.length > 0 && (
             <div className="maintenance-company-filter shared-group-wrapper">
-              <span className="maintenance-company-label">GroupID:</span>
+              <span className="maintenance-company-label">{m.groupId}</span>
               <div className="maintenance-company-buttons">
                 {snapGroupIds.map((gid) => (
                   <button 
@@ -84,7 +92,7 @@ export default function FormulaMaintenanceFilters({
 
           {snapCompanies.length > 0 && (
             <div className="maintenance-company-filter shared-company-wrapper">
-              <span className="maintenance-company-label">Company:</span>
+              <span className="maintenance-company-label">{m.company}</span>
               <div className="maintenance-company-buttons">
                 {snapCompanies.map((comp) => {
                   const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
@@ -116,7 +124,7 @@ export default function FormulaMaintenanceFilters({
             onClick={onDelete}
             disabled={selectedIds.length === 0 || !confirmDelete}
           >
-            Delete
+            {m.delete}
           </button>
           <label className="maintenance-confirm-delete-label">
             <input
@@ -126,7 +134,7 @@ export default function FormulaMaintenanceFilters({
               checked={confirmDelete}
               onChange={(e) => setConfirmDelete(e.target.checked)}
             />
-            <span>Confirm Delete</span>
+            <span>{m.confirmDelete}</span>
           </label>
         </div>
       </div>

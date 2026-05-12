@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { toUpperDisplay, INPUT_METHOD_OPTIONS } from "../formulaMaintenanceLogic.js";
+import { toUpperDisplay } from "../formulaMaintenanceLogic.js";
 import { assetUrl } from "../../../../utils/apiUrl.js";
 
 export default function FormulaMaintenanceTable({
@@ -10,6 +10,8 @@ export default function FormulaMaintenanceTable({
   onToggleSelectAll,
   onSaveRow,
   accounts,
+  m,
+  inputMethodOptions,
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -52,7 +54,7 @@ export default function FormulaMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Process</th><th>Account</th><th>Currency</th><th>Source</th><th>Product</th><th>Input Method</th><th>Formula</th><th>Description</th>
+              <th>{m.tblNo}</th><th>{m.tblProcess}</th><th>{m.tblAccount}</th><th>{m.tblCurrency}</th><th>{m.tblSource}</th><th>{m.tblProduct}</th><th>{m.tblInputMethod}</th><th>{m.tblFormula}</th><th>{m.tblDescription}</th>
               <th className="maintenance-select-all-header">
                 <div className="maintenance-formula-actions-inner">
                   <span className="maintenance-action-edit-placeholder" aria-hidden="true" />
@@ -63,7 +65,7 @@ export default function FormulaMaintenanceTable({
           </thead>
           <tbody>
             <tr>
-              <td className="maintenance-table-cell" colSpan="10" style={{ textAlign: "center", padding: "20px" }}>Loading...</td>
+              <td className="maintenance-table-cell" colSpan="10" style={{ textAlign: "center", padding: "20px" }}>{m.loading}</td>
             </tr>
           </tbody>
         </table>
@@ -75,7 +77,7 @@ export default function FormulaMaintenanceTable({
     return (
       <div className="empty-state-container" style={{ display: "block" }}>
         <div className="empty-state">
-          <p>No data found. Please adjust your search criteria and try again.</p>
+          <p>{m.noDataAdjustSearch}</p>
         </div>
       </div>
     );
@@ -86,15 +88,15 @@ export default function FormulaMaintenanceTable({
       <table className="maintenance-table">
         <thead>
           <tr>
-            <th>No.</th>
-            <th>Process</th>
-            <th>Account</th>
-            <th>Currency</th>
-            <th>Source</th>
-            <th>Product</th>
-            <th>Input Method</th>
-            <th>Formula</th>
-            <th>Description</th>
+            <th>{m.tblNo}</th>
+            <th>{m.tblProcess}</th>
+            <th>{m.tblAccount}</th>
+            <th>{m.tblCurrency}</th>
+            <th>{m.tblSource}</th>
+            <th>{m.tblProduct}</th>
+            <th>{m.tblInputMethod}</th>
+            <th>{m.tblFormula}</th>
+            <th>{m.tblDescription}</th>
             <th className="maintenance-select-all-header">
               <div className="maintenance-formula-actions-inner">
                 <span className="maintenance-action-edit-placeholder" aria-hidden="true" />
@@ -104,7 +106,7 @@ export default function FormulaMaintenanceTable({
                   className="maintenance-row-checkbox"
                   checked={data.length > 0 && selectedIds.length === data.length}
                   onChange={onToggleSelectAll}
-                  title="Select All"
+                  title={m.selectAll}
                 />
               </div>
             </th>
@@ -128,7 +130,7 @@ export default function FormulaMaintenanceTable({
                       onChange={(e) => setEditForm({...editForm, account_id: e.target.value})}
                       style={{ display: "block", width: "100%" }}
                     >
-                      <option value="">--Select Account--</option>
+                      <option value="">{m.selectAccount}</option>
                       {accounts.map(acc => (
                         <option key={acc.id} value={acc.id}>{acc.display_text}</option>
                       ))}
@@ -166,7 +168,7 @@ export default function FormulaMaintenanceTable({
                       onChange={(e) => setEditForm({...editForm, input_method: e.target.value})}
                       style={{ display: "block", width: "100%" }}
                     >
-                      {INPUT_METHOD_OPTIONS.map(opt => (
+                      {inputMethodOptions.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.text}</option>
                       ))}
                     </select>
@@ -209,12 +211,12 @@ export default function FormulaMaintenanceTable({
                   <div className="maintenance-formula-actions-inner">
                     {isEditing ? (
                       <>
-                        <button type="button" className="maintenance-edit-btn" onClick={() => handleSave(row.id)} title="Save">
+                        <button type="button" className="maintenance-edit-btn" onClick={() => handleSave(row.id)} title={m.save}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12"></polyline>
                           </svg>
                         </button>
-                        <button type="button" className="maintenance-cancel-btn" onClick={handleCancel} title="Cancel">
+                        <button type="button" className="maintenance-cancel-btn" onClick={handleCancel} title={m.cancel}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -223,8 +225,8 @@ export default function FormulaMaintenanceTable({
                       </>
                     ) : (
                       <>
-                        <button type="button" className="maintenance-edit-btn" onClick={() => handleEdit(row)} title="Edit">
-                          <img src={assetUrl("images/edit.svg")} alt="Edit" className="edit-icon" style={{ width: "16px", height: "16px" }} />
+                        <button type="button" className="maintenance-edit-btn" onClick={() => handleEdit(row)} title={m.edit}>
+                          <img src={assetUrl("images/edit.svg")} alt={m.edit} className="edit-icon" style={{ width: "16px", height: "16px" }} />
                         </button>
                         <input 
                           type="checkbox" 

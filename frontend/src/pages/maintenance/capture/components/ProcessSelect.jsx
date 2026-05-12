@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 
-export default function ProcessSelect({ processes, selectedValue, onSelect, placeholder = "--Select All--" }) {
+export default function ProcessSelect({
+  processes,
+  selectedValue,
+  onSelect,
+  placeholder = "--Select All--",
+  searchPlaceholder = "Search process...",
+  noResultsText = "No results found",
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -89,7 +96,7 @@ export default function ProcessSelect({ processes, selectedValue, onSelect, plac
           <div className="custom-select-search">
             <input 
               type="text" 
-              placeholder="Search process..." 
+              placeholder={searchPlaceholder}
               autoComplete="off" 
               value={searchTerm}
               onChange={(e) => {
@@ -120,7 +127,7 @@ export default function ProcessSelect({ processes, selectedValue, onSelect, plac
                 );
               })
             ) : (
-              <div className="custom-select-no-results">No results found</div>
+              <div className="custom-select-no-results">{noResultsText}</div>
             )}
           </div>
         </div>

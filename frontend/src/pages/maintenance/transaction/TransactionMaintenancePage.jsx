@@ -9,13 +9,16 @@ import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/transaction_maintenance.css";
-import { 
-  fetchCompanyPermissions, 
-  fetchProcesses, 
+import {
+  fetchCompanyPermissions,
+  fetchProcesses,
   isBankOnlyCategoryCompany,
-  searchTransactionData, 
-  updateSessionCompany 
+  searchTransactionData,
+  updateSessionCompany,
 } from "./transactionMaintenanceLogic.js";
+import { useLoginLang } from "../../../utils/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
+import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
@@ -23,6 +26,9 @@ import TransactionMaintenanceTable from "./components/TransactionMaintenanceTabl
 
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
+  const lang = useLoginLang();
+  const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
+  const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
   // -- Boot State --
   const [bootLoading, setBootLoading] = useState(true);
@@ -155,6 +161,14 @@ export default function TransactionMaintenancePage() {
     return () => clearTimeout(timer);
   }, [bootLoading, me, cssReady]);
 
+  useEffect(() => {
+    if (bootLoading || !me || !cssReady) return;
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: t("selectDateRange"),
+      selectEndDateHint: t("selectEndDate"),
+    });
+  }, [bootLoading, me, cssReady, lang, t]);
+
   // -- Boot Logic --
   useEffect(() => {
     (async () => {
@@ -260,10 +274,10 @@ export default function TransactionMaintenancePage() {
         }
       } catch (err) {
         console.error("Meta data load error:", err);
-        notify("Failed to load meta data", "error");
+        notify(t("failedLoadMetaData"), "error");
       }
     })();
-  }, [bootLoading, companyId, companyCode, notify]);
+  }, [bootLoading, companyId, companyCode, notify, t]);
 
   // -- Search Logic --
   const performSearch = useCallback(async () => {
@@ -280,7 +294,7 @@ export default function TransactionMaintenancePage() {
       setTransactionData(data);
       setHasSearched(true);
       if (data.length > 0) {
-        notify(`Found ${data.length} record(s)`, "success");
+        notify(t("foundRecords", { n: data.length }), "success");
       }
     } catch (err) {
       notify(err.message, "error");
@@ -288,7 +302,7 @@ export default function TransactionMaintenancePage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify]);
+  }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t]);
 
   // Auto-search when filters change (if has searched before or just loaded)
   useEffect(() => {
@@ -325,9 +339,9 @@ export default function TransactionMaintenancePage() {
       else sessionStorage.removeItem("dashboard_group_filter");
       
       notifyCompanySessionUpdated();
-      notify(`Switched to ${c.company_id}`, "success");
+      notify(t("switchedTo", { company: c.company_id }), "success");
     } catch (err) {
-      notify(err.message || "Switch failed", "error");
+      notify(err.message || t("switchFailed"), "error");
     }
   };
 
@@ -352,10 +366,10 @@ export default function TransactionMaintenancePage() {
   return (
     <div className="container">
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">Maintenance - Transaction</h1>
+        <h1 id="maintenance-page-title">{m.pageTitleTransaction}</h1>
         {permissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
-            <span className="maintenance-company-label">Category:</span>
+            <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
               {permissions.map(p => (
                 <button 
@@ -384,35 +398,20 @@ export default function TransactionMaintenancePage() {
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
         onSwitchCompany={handleSwitchCompany}
+        m={m}
       />
 
-      <TransactionMaintenanceTable 
-        data={transactionData}
-        loading={loading}
-      />
+      <TransactionMaintenanceTable data={transactionData} loading={loading} m={m} />
 
       {/* Notifications */}
       <div id="notificationContainer" className="maintenance-notification-container">
-        {toasts.map(t => (
-          <div key={t.id} className={`maintenance-notification maintenance-notification-${t.type} show`}>
-            {t.message}
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`maintenance-notification maintenance-notification-${toast.type} show`}>
+            {toast.message}
           </div>
         ))}
       </div>
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()}>
-            <select id="calendar-month-select" defaultValue="0"><option value="0">Jan</option><option value="1">Feb</option><option value="2">Mar</option><option value="3">Apr</option><option value="4">May</option><option value="5">Jun</option><option value="6">Jul</option><option value="7">Aug</option><option value="8">Sep</option><option value="9">Oct</option><option value="10">Nov</option><option value="11">Dec</option></select>
-            <select id="calendar-year-select" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
-        </div>
-        <div className="calendar-weekdays">
-          <div className="calendar-weekday">Sun</div><div className="calendar-weekday">Mon</div><div className="calendar-weekday">Tue</div><div className="calendar-weekday">Wed</div><div className="calendar-weekday">Thu</div><div className="calendar-weekday">Fri</div><div className="calendar-weekday">Sat</div>
-        </div>
-        <div className="calendar-days" id="calendar-days" />
-      </div>
+      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }

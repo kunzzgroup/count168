@@ -7,7 +7,8 @@ export default function PaymentMaintenanceTable({
   selectedIds, 
   toggleSelect, 
   toggleSelectAll, 
-  selectAll 
+  selectAll,
+  m,
 }) {
   const selectAllRef = useRef(null);
 
@@ -26,7 +27,7 @@ export default function PaymentMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th>
+              <th>{m.tblNo}</th><th>{m.tblCreatedAt}</th><th>{m.tblAccountTo}</th><th>{m.tblAccountFrom}</th><th className="maintenance-header-amount">{m.tblAmount}</th><th>{m.tblDescription}</th><th>{m.tblRemark}</th><th>{m.tblSubmitter}</th><th>{m.tblDeleter}</th>
               <th className="maintenance-select-all-header">
                 <input type="checkbox" className="maintenance-row-checkbox" disabled />
               </th>
@@ -35,7 +36,7 @@ export default function PaymentMaintenanceTable({
           <tbody>
             <tr>
               <td className="maintenance-table-cell" colSpan="10" style={{ textAlign: "center", padding: "20px" }}>
-                Loading...
+                {m.loading}
               </td>
             </tr>
           </tbody>
@@ -48,7 +49,7 @@ export default function PaymentMaintenanceTable({
     return (
       <div className="empty-state-container" style={{ display: "block" }}>
         <div className="empty-state">
-          <p>No data found. Please adjust your search criteria and try again.</p>
+          <p>{m.noDataAdjustSearch}</p>
         </div>
       </div>
     );
@@ -59,7 +60,7 @@ export default function PaymentMaintenanceTable({
       <table className="maintenance-table">
         <thead>
           <tr>
-            <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th>
+            <th>{m.tblNo}</th><th>{m.tblCreatedAt}</th><th>{m.tblAccountTo}</th><th>{m.tblAccountFrom}</th><th className="maintenance-header-amount">{m.tblAmount}</th><th>{m.tblDescription}</th><th>{m.tblRemark}</th><th>{m.tblSubmitter}</th><th>{m.tblDeleter}</th>
             <th className="maintenance-select-all-header">
               <input 
                 type="checkbox" 
@@ -68,7 +69,7 @@ export default function PaymentMaintenanceTable({
                 className="maintenance-row-checkbox" 
                 checked={selectAll}
                 onChange={toggleSelectAll}
-                title="Select All" 
+                title={m.selectAll} 
               />
             </th>
           </tr>

@@ -347,6 +347,11 @@ export function ensureMaintenanceDateRangePicker() {
     if (dropdown) dropdown.classList.toggle("show");
   };
   window.MaintenanceDateRangePicker = {
+    setLocaleStrings(partial) {
+      if (!partial || typeof partial !== "object") return;
+      config = { ...config, ...partial };
+      updateDateRangeDisplay();
+    },
     init(options) {
       if (options) {
         config = { ...config, ...options };
