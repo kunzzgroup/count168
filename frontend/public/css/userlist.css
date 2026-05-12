@@ -354,7 +354,7 @@ body.user-page.user-page--show-all .user-cards {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: clamp(80px, 6.25vw, 120px);
+    width: var(--userlist-btn-add-width);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: var(--text-base);
     font-weight: var(--font-weight-semibold);
@@ -402,7 +402,7 @@ body.user-page.user-page--show-all .user-cards {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: clamp(90px, 6.25vw, 120px);
+    width: var(--userlist-btn-delete-width);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: var(--text-base);
     font-weight: var(--font-weight-semibold);
@@ -434,7 +434,7 @@ body.user-page.user-page--show-all .user-cards {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: clamp(80px, 6.25vw, 120px);
+    width: var(--userlist-btn-add-width);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
     border: none;
@@ -1209,7 +1209,7 @@ label.user-modal-col-title.acc-proc-label {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: clamp(80px, 6.25vw, 120px);
+    width: var(--userlist-btn-add-width);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
     border: none;

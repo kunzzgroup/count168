@@ -73,6 +73,10 @@
   /* --- 字重：供主按钮、强调标签等 --- */
   --font-weight-semibold: 600;
 
+  /* --- User List 工具栏按钮宽度（改此处即可；Delete 略宽于 Add）--- */
+  --userlist-btn-add-width: clamp(80px, 6.25vw, 120px);
+  --userlist-btn-delete-width: clamp(90px, 7.25vw, 120px);
+
   /* --- 列表页主标题（对应 clamp(26px, 2.08vw, 40px)）--- */
   --text-page-title: clamp(2.6rem, 2.08vw, 4rem);
   --text-page-title-mt: clamp(1.2rem, 1.04vw, 2rem);
