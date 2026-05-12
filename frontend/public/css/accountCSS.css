@@ -309,7 +309,7 @@ body.account-page:not(.account-page--show-all) {
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1fr 0.6fr;
     gap: 15px;
-    padding: 0px 20px;
+    padding:var(--table-header-height);
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
     margin-top: 8px;
