@@ -794,12 +794,11 @@ body.process-page {
 }
 
 .process-page.process-page--bank .pagination-container {
-    flex-shrink: 0;
-    align-self: flex-end;
-    margin-top: 8px;
-    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
-    margin-left: auto !important;
-    margin-right: clamp(10px, 2vw, 28px) !important;
+    position: fixed !important;
+    right: max(40px, env(safe-area-inset-right, 0px)) !important;
+    bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+    margin: 0 !important;
+    z-index: 100 !important;
 }
 
 /* Bank 操作栏：5 个 checkbox（比 Games 多 3 个）+ 日期选择器 + Search，laptop 下防止换行 */
@@ -888,10 +887,11 @@ body.process-page {
     }
 
     .process-page.process-page--bank .pagination-container {
-        margin-top: 6px;
-        margin-bottom: max(6px, env(safe-area-inset-bottom, 0px));
-        margin-left: auto !important;
-        margin-right: clamp(8px, 2vw, 24px) !important;
+        position: fixed !important;
+        right: max(40px, env(safe-area-inset-right, 0px)) !important;
+        bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+        margin: 0 !important;
+        z-index: 100 !important;
     }
 }
 
@@ -3932,13 +3932,11 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 
 /* Bank list: pagination anchored bottom-right of main column (matches reference layout) */
 .process-page.process-page--bank .pagination-container {
-    position: static;
-    align-self: flex-end;
-    margin-left: auto !important;
-    margin-right: clamp(10px, 2vw, 28px) !important;
-    margin-top: 8px !important;
-    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
-    z-index: 1;
+    position: fixed !important;
+    right: max(40px, env(safe-area-inset-right, 0px)) !important;
+    bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+    margin: 0 !important;
+    z-index: 100 !important;
 }
 
 .process-page.process-page--bank .bank-table-wrapper,
