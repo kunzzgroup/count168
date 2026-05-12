@@ -26,7 +26,7 @@ export default function ProfitSharingModal({
           <span className="close" onClick={onClose} role="presentation">&times;</span>
         </div>
         <div className="modal-body">
-          <div className="bank-form" style={{ display: "block" }}>
+          <div className="bank-form" style={{ display: "block", width: "100%" }}>
             <div id="profitSharingRowsContainer">
               {profitShareRows.map((row, idx) => (
                 <div key={`ps-${idx}`} className="form-row profit-sharing-row">

@@ -1498,14 +1498,18 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
     z-index: 10000;
 }
 
-/* modal-content 覆盖全局 88% 宽度：按内容自适应，随行数增加高度自然增长 */
+/* modal-content 覆盖全局 88% 宽度：固定宽度填满弹窗，随行数增加高度自然增长 */
 #profitSharingModal .modal-content {
-    width: auto !important;
-    min-width: min(500px, 90vw) !important;
+    width: min(640px, 92vw) !important;
     max-width: min(640px, 92vw) !important;
     max-height: none !important;
     height: auto !important;
     overflow: visible !important;
+}
+
+/* modal-body 最小高度确保底部按钮贴合 */
+#profitSharingModal .modal-body {
+    min-height: 215px;
 }
 
 /* 弹窗及到下拉之间的所有祖先都允许溢出，让 Account 下拉可以溢出弹窗显示 */
@@ -1546,13 +1550,15 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
     justify-content: center;
 }
 
-/* Profit Sharing 弹窗：所有行统一三列（Account | Amount | 占位/删除），保证列宽一致 */
+/* Profit Sharing 弹窗：三列（Account | Amount | 删除按钮），内容撑满整行 */
 #profitSharingModal #profitSharingRowsContainer .profit-sharing-row {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: 1fr 1fr 32px;
     gap: 15px;
     align-items: end;
     margin-bottom: 15px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #profitSharingModal .profit-sharing-modal-btn {
