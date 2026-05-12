@@ -1,4 +1,4 @@
-import { companyButtonStyle } from "../transactionPaymentPageUtils.js";
+import { isCompanyVisibleForSharedFilter } from "../../../utils/sharedCompanyFilter.js";
 
 export default function TransactionSearchSection({
   selectedCategories,
@@ -26,6 +26,8 @@ export default function TransactionSearchSection({
   onCurrencyDropOn,
   toggleCurrencyBtn,
 }) {
+  const hideGroupFilter = !fs.snapGroupIds?.length;
+
   return (
     <div className="transaction-search-section">
       <div className="transaction-form-group">
@@ -178,23 +180,26 @@ export default function TransactionSearchSection({
           <div id="company-buttons-wrapper" className="transaction-company-filter shared-company-wrapper">
             <span className="transaction-company-label">Company:</span>
             <div id="company-buttons-container" className="transaction-company-buttons">
-              {fs.snapCompanies.map((comp) => (
-                <button
-                  key={comp.id}
-                  type="button"
-                  style={companyButtonStyle(comp, fs.selectedGroup)}
-                  className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(fs.companyId) ? "active" : ""}`}
-                  data-company-id={comp.id}
-                  data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
-                  data-company-code={comp.company_id}
-                  onClick={() => {
-                    if (companyButtonStyle(comp, fs.selectedGroup).display === "none") return;
-                    onCompanyButtonClick(comp);
-                  }}
-                >
-                  {comp.company_id}
-                </button>
-              ))}
+              {fs.snapCompanies.map((comp) => {
+                const visible = isCompanyVisibleForSharedFilter(comp, fs.selectedGroup, hideGroupFilter);
+                return (
+                  <button
+                    key={comp.id}
+                    type="button"
+                    style={{ display: visible ? undefined : "none" }}
+                    className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(fs.companyId) ? "active" : ""}`}
+                    data-company-id={comp.id}
+                    data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
+                    data-company-code={comp.company_id}
+                    onClick={() => {
+                      if (!visible) return;
+                      onCompanyButtonClick(comp);
+                    }}
+                  >
+                    {comp.company_id}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
