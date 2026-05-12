@@ -1488,14 +1488,23 @@ body.user-page .search-container.userlist-search-collapsible:not(.is-expanded) {
 }
 
 body.user-page .search-container.userlist-search-collapsible.is-expanded {
-    width: clamp(165px, 13vw, 250px);
-    max-width: clamp(165px, 13vw, 250px);
-    height: auto;
-    min-height: 0;
-    border-radius: 6px;
-    background: transparent;
-    border: none;
-    box-shadow: none;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: clamp(200px, 28vw, 320px);
+    max-width: clamp(200px, 28vw, 320px);
+    min-height: clamp(34px, 2.5vw, 40px);
+    height: clamp(34px, 2.5vw, 40px);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 1);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 3px 4px rgba(15, 23, 42, 0.1);
+    overflow: hidden;
+}
+
+body.user-page .search-container.userlist-search-collapsible.is-expanded:focus-within {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 3px 4px rgba(15, 23, 42, 0.1);
 }
 
 body.user-page .userlist-search-toggle {
@@ -1519,7 +1528,16 @@ body.user-page .userlist-search-toggle {
 }
 
 body.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-toggle {
-    border-radius: 6px 0 0 6px;
+    position: relative;
+    left: auto;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    flex: 0 0 clamp(36px, 2.75vw, 42px);
+    width: clamp(36px, 2.75vw, 42px);
+    height: auto;
+    align-self: stretch;
+    border-radius: 0;
 }
 
 body.user-page .userlist-search-toggle:focus-visible {
@@ -1557,12 +1575,51 @@ body.ec-auth-shell.user-page .search-container.userlist-search-collapsible:not(.
 body.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-input,
 body.ec-auth-shell.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-input {
     position: relative;
-    width: 100% !important;
-    max-width: 100% !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto !important;
+    max-width: none !important;
     opacity: 1;
     pointer-events: auto;
-    /* 左侧为 .userlist-search-toggle 留位，避免与放大镜重叠 */
-    padding-left: clamp(38px, 2.85vw, 46px) !important;
+    align-self: stretch;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: clamp(4px, 0.35vw, 7px) clamp(10px, 0.9vw, 14px) clamp(4px, 0.35vw, 7px) clamp(6px, 0.5vw, 10px) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    font-size: var(--text-small);
+    color: #0f172a;
+    line-height: 1.35;
+}
+
+body.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-input::placeholder,
+body.ec-auth-shell.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-input::placeholder {
+    color: #64748b;
+    opacity: 1;
+}
+
+/* 13″ 全局 .search-input 规则：User List 展开药丸内用 token 字号与自定义内边距 */
+body.ec-auth-shell.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-input.search-input {
+    font-size: var(--text-small) !important;
+    padding-top: clamp(4px, 0.35vw, 7px) !important;
+    padding-bottom: clamp(4px, 0.35vw, 7px) !important;
+    padding-left: clamp(6px, 0.5vw, 10px) !important;
+    padding-right: clamp(10px, 0.9vw, 14px) !important;
+    max-width: none !important;
+    width: auto !important;
+}
+
+body.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-input:focus,
+body.ec-auth-shell.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-input:focus {
+    outline: none;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }
 
 /* Hide rows when filtered */
