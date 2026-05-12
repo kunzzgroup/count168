@@ -1333,6 +1333,112 @@ label.user-modal-col-title.acc-proc-label {
     background: rgba(255, 255, 255, 1);
 }
 
+/* User List — 可折叠搜索（默认圆形图标按钮，展开为输入条；仅 body.user-page） */
+body.user-page .search-container.userlist-search-collapsible {
+    position: relative;
+    flex-shrink: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+    transition:
+        max-width 0.28s ease,
+        width 0.28s ease,
+        min-height 0.28s ease,
+        height 0.28s ease,
+        border-radius 0.28s ease,
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+body.user-page .search-container.userlist-search-collapsible:not(.is-expanded) {
+    width: clamp(36px, 2.75vw, 42px);
+    max-width: clamp(36px, 2.75vw, 42px);
+    min-height: clamp(34px, 2.5vw, 40px);
+    height: clamp(34px, 2.5vw, 40px);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 1);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 3px 4px rgba(15, 23, 42, 0.1);
+}
+
+body.user-page .search-container.userlist-search-collapsible.is-expanded {
+    width: clamp(165px, 13vw, 250px);
+    max-width: clamp(165px, 13vw, 250px);
+    height: auto;
+    min-height: 0;
+    border-radius: 6px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+body.user-page .userlist-search-toggle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 3;
+    width: clamp(34px, 2.75vw, 42px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: inherit;
+    color: #64748b;
+    box-sizing: border-box;
+}
+
+body.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-toggle {
+    border-radius: 6px 0 0 6px;
+}
+
+body.user-page .userlist-search-toggle:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
+body.user-page .userlist-search-toggle__icon {
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(14px, 0.83vw, 16px);
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+body.user-page .search-container.userlist-search-collapsible:not(.is-expanded) .userlist-search-input,
+body.ec-auth-shell.user-page .search-container.userlist-search-collapsible:not(.is-expanded) .userlist-search-input {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0 !important;
+    max-width: 0 !important;
+    min-width: 0 !important;
+    height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-input,
+body.ec-auth-shell.user-page .search-container.userlist-search-collapsible.is-expanded .userlist-search-input {
+    position: relative;
+    width: 100% !important;
+    max-width: 100% !important;
+    opacity: 1;
+    pointer-events: auto;
+    /* 左侧为 .userlist-search-toggle 留位，避免与放大镜重叠 */
+    padding-left: clamp(38px, 2.85vw, 46px) !important;
+}
+
 /* Hide rows when filtered */
 .table-row-hidden {
     display: none !important;

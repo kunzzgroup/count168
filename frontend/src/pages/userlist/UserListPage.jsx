@@ -68,6 +68,9 @@ export default function UserListPage() {
   const toastTimerRef = useRef(null);
   const pendingDeleteRef = useRef([]);
   const gcPopoverRef = useRef(null);
+  const searchShellRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const [searchExpanded, setSearchExpanded] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -195,6 +198,33 @@ export default function UserListPage() {
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [gcPopoverOpen]);
+
+  const openSearchBar = useCallback(() => {
+    setSearchExpanded(true);
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    if (!searchExpanded) return undefined;
+    const onDocPointerDown = (e) => {
+      if (searchShellRef.current?.contains(e.target)) return;
+      if (!String(search).trim()) setSearchExpanded(false);
+    };
+    document.addEventListener("pointerdown", onDocPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown, true);
+  }, [searchExpanded, search]);
+
+  useEffect(() => {
+    if (!searchExpanded) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key !== "Escape") return;
+      if (String(search).trim()) return;
+      setSearchExpanded(false);
+      searchInputRef.current?.blur();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [searchExpanded, search]);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -482,9 +512,35 @@ export default function UserListPage() {
                   )}
                 </div>
                 <button type="button" className="btn btn-add" onClick={openAdd}>{t("addUser")}</button>
-                <div className="search-container">
-                  <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
-                  <input type="text" className="search-input" placeholder={t("searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
+                <div
+                  ref={searchShellRef}
+                  className={`search-container userlist-search-collapsible${searchExpanded ? " is-expanded" : ""}`}
+                >
+                  <button
+                    type="button"
+                    className="userlist-search-toggle"
+                    aria-expanded={searchExpanded}
+                    aria-controls="userlist-search-input"
+                    aria-label={t("searchPlaceholder")}
+                    onClick={() => {
+                      if (searchExpanded) searchInputRef.current?.focus();
+                      else openSearchBar();
+                    }}
+                  >
+                    <svg className="userlist-search-toggle__icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                  </button>
+                  <input
+                    id="userlist-search-input"
+                    ref={searchInputRef}
+                    type="text"
+                    className="search-input userlist-search-input"
+                    placeholder={t("searchPlaceholder")}
+                    value={search}
+                    tabIndex={searchExpanded ? 0 : -1}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
                 </div>
                 <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label htmlFor="showInactive">{t("showInactive")}</label></div>
                 <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label htmlFor="showAll">{t("showAll")}</label></div>
