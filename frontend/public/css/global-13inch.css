@@ -52,7 +52,9 @@
 
     /* User List「Add User」「Delete」：不受上条 12px 压扁 */
     body.ec-auth-shell.user-page .btn-add,
-    body.ec-auth-shell.user-page .btn-delete {
+    body.ec-auth-shell.user-page .btn-delete,
+    body.ec-auth-shell.account-page .btn-add,
+    body.ec-auth-shell.account-page .btn-delete {
         font-size: var(--text-base) !important;
         font-weight: var(--font-weight-semibold) !important;
     }

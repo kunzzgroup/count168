@@ -605,3 +605,8 @@
     border-top: 2px solid #e2e8f0;
     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
 }
+
+/* Account List 顶栏药丸搜索：与 User List 共用样式，保留姓名/账号原大小写 */
+body.account-page .search-container.userlist-search-bar .userlist-search-input {
+    text-transform: none !important;
+}

@@ -49,9 +49,6 @@ export default function AccountListPage() {
   const [roles, setRoles] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
-  const [gcPopoverOpen, setGcPopoverOpen] = useState(false);
-  const [popoverActiveGroup, setPopoverActiveGroup] = useState("");
-  const [gcDraftCompanyId, setGcDraftCompanyId] = useState(null);
 
   // -- Filters --
   const [searchTerm, setSearchTerm] = useState("");
@@ -92,7 +89,6 @@ export default function AccountListPage() {
   const [settingRole, setSettingRole] = useState("");
 
   const toastTimerRef = useRef(null);
-  const gcPopoverRef = useRef(null);
 
   const accountModalCurrencies = useMemo(
     () => currencies.filter((c) => !hiddenCurrencyIds.includes(Number(c.id))),
@@ -212,44 +208,19 @@ export default function AccountListPage() {
     () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
     [allCompanyButtons, companyId]
   );
-  const selectedGroupLabel = String(selectedCompany?.group_id || "-").toUpperCase();
-  const selectedCompanyLabel = String(selectedCompany?.company_id || "").toUpperCase();
-  const gcSummary = `${selectedGroupLabel} - ${selectedCompanyLabel}`;
-  const groupCompanyCountMap = useMemo(() => {
-    const m = new Map();
-    allCompanyButtons.forEach((c) => {
-      const gid = String(c.group_id || "").trim().toUpperCase();
-      if (!gid) return;
-      m.set(gid, (m.get(gid) || 0) + 1);
-    });
-    return m;
-  }, [allCompanyButtons]);
-  const companiesInGroup = useMemo(() => {
-    if (!popoverActiveGroup) {
-      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+  const selectedGroupKey = useMemo(
+    () => String(selectedCompany?.group_id || "").trim().toUpperCase(),
+    [selectedCompany?.group_id]
+  );
+  const companiesForPicker = useMemo(() => {
+    if (groupIds.length === 0) return allCompanyButtons;
+    if (!selectedGroupKey) {
+      const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+      return ung.length ? ung : allCompanyButtons;
     }
-    return allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === popoverActiveGroup);
-  }, [allCompanyButtons, popoverActiveGroup]);
-
-  useEffect(() => {
-    if (!gcPopoverOpen) return;
-    setGcDraftCompanyId((draft) => {
-      const keep = companiesInGroup.some((c) => Number(c.id) === Number(draft));
-      if (keep) return draft;
-      const first = companiesInGroup[0]?.id;
-      return first != null ? Number(first) : null;
-    });
-  }, [gcPopoverOpen, companiesInGroup]);
-
-  useEffect(() => {
-    if (!gcPopoverOpen) return;
-    const onDocPointerDown = (e) => {
-      if (!gcPopoverRef.current) return;
-      if (!gcPopoverRef.current.contains(e.target)) setGcPopoverOpen(false);
-    };
-    document.addEventListener("pointerdown", onDocPointerDown);
-    return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [gcPopoverOpen]);
+    const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
+    return inG.length ? inG : allCompanyButtons;
+  }, [allCompanyButtons, groupIds.length, selectedGroupKey]);
 
   const sortedAccounts = useMemo(() => {
     const arr = [...accounts];
@@ -296,18 +267,19 @@ export default function AccountListPage() {
     finally { setSwitchingCompany(false); }
   };
 
-  const openGcPopover = () => {
-    const currentGroup = String(selectedCompany?.group_id || "").trim().toUpperCase();
-    setPopoverActiveGroup(currentGroup);
-    setGcDraftCompanyId(Number(companyId) || null);
-    setGcPopoverOpen((v) => !v);
-  };
+  const handlePickGroup = useCallback(
+    (gid) => {
+      const g = String(gid || "").trim().toUpperCase();
+      if (!g || g === selectedGroupKey) return;
+      const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
+      if (first) void onSwitchCompany(first);
+    },
+    [allCompanyButtons, onSwitchCompany, selectedGroupKey]
+  );
 
-  const confirmGcPopover = async () => {
-    const picked = allCompanyButtons.find((c) => Number(c.id) === Number(gcDraftCompanyId));
-    if (picked) await onSwitchCompany(picked);
-    setGcPopoverOpen(false);
-  };
+  useEffect(() => {
+    if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
+  }, [showInactive, showAll]);
 
   const togglePaymentAlert = async (id) => {
     try {
@@ -583,84 +555,132 @@ export default function AccountListPage() {
         <div className="content">
           <h1 className="account-page-title">{t("accountList")}</h1>
           <div className="account-separator-line" />
-          <div className="account-action-buttons-container" style={{ marginBottom: 20 }}>
-            <div className="account-action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="action-buttons-container" style={{ marginBottom: 20 }}>
+            <div className="action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                {allCompanyButtons.length > 0 && (
-                  <div className="user-group-company-row" ref={gcPopoverRef}>
-                    <button type="button" className="user-gc-trigger" onClick={openGcPopover} disabled={switchingCompany}>
-                      <span className="user-gc-trigger__label">{t("groupAndCompany")}</span>
-                      <span className="user-gc-trigger__chips" title={gcSummary}>{gcSummary}</span>
-                      <span className="user-gc-trigger__caret" aria-hidden>▼</span>
-                    </button>
-                    {gcPopoverOpen && (
-                      <div className="user-gc-popover" role="dialog">
-                        {groupIds.length > 0 && (
-                          <div className="user-gc-popover__groups">
-                            <div className="user-gc-popover__title">{t("gcSelectGroup")}</div>
-                            <ul className="user-gc-group-list">
-                              {groupIds.map((gid) => {
-                                const active = popoverActiveGroup === gid;
-                                const count = groupCompanyCountMap.get(gid) || 0;
-                                return (
-                                  <li key={gid}>
-                                    <button
-                                      type="button"
-                                      className={`user-gc-group-item${active ? " is-active" : ""}`}
-                                      onClick={() => setPopoverActiveGroup((prev) => (prev === gid ? "" : gid))}
-                                    >
-                                      <span className="user-gc-group-item__dot" aria-hidden />
-                                      <span className="user-gc-group-item__label">
-                                        {lang === "zh" ? `${gid} 集团` : `${gid} Group`}
-                                      </span>
-                                      <span className="user-gc-group-item__badge">{count}</span>
-                                    </button>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        )}
-                        <div className="user-gc-popover__companies">
-                          <div className="user-gc-popover__title">{t("gcSelectCompany")}</div>
-                          <div className="user-gc-company-pills">
-                            {companiesInGroup.map((c) => {
-                              const cid = Number(c.id);
-                              const active = Number(gcDraftCompanyId) === cid;
-                              return (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  className={`user-gc-company-pill${active ? " is-on" : ""}`}
-                                  onClick={() => setGcDraftCompanyId(cid)}
-                                >
-                                  {String(c.company_id || "").toUpperCase()}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <div className="user-gc-popover__footer">
-                            <span className="user-gc-popover__count">{t("gcOneSelected")}</span>
-                            <button type="button" className="user-gc-confirm-btn" onClick={() => void confirmGcPopover()}>
-                              {t("gcConfirm")}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button className="account-btn account-btn-add" onClick={openAdd}>{t("addAccount")}</button>
-                <div className="account-search-container">
-                  <svg className="account-search-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
-                  <input className="account-search-input" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={t("searchByAccountOrName")} />
+                <div className="search-container userlist-search-bar">
+                  <span className="userlist-search-bar__icon" aria-hidden="true">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                  </span>
+                  <input
+                    id="accountlist-search-input"
+                    type="text"
+                    className="search-input userlist-search-input"
+                    placeholder={t("searchByAccountOrName")}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
-                <div className="account-checkbox-section"><input type="checkbox" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label>{t("inactive")}</label></div>
-                <div className="account-checkbox-section"><input type="checkbox" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label>{t("showAll")}</label></div>
+                <div className="userlist-filter-chips" role="group">
+                  <button
+                    type="button"
+                    className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
+                    aria-pressed={showInactive && !showAll}
+                    onClick={() => {
+                      if (showInactive && !showAll) setShowInactive(false);
+                      else {
+                        setShowInactive(true);
+                        setShowAll(false);
+                      }
+                    }}
+                  >
+                    <span className="user-filter-chip__dot" aria-hidden>
+                      {showInactive && !showAll ? (
+                        <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 12l4 4 8-8" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className="user-filter-chip__label">{t("inactive")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`user-filter-chip${showAll ? " is-selected" : ""}`}
+                    aria-pressed={showAll}
+                    onClick={() => {
+                      if (showAll) setShowAll(false);
+                      else {
+                        setShowAll(true);
+                        setShowInactive(false);
+                      }
+                    }}
+                  >
+                    <span className="user-filter-chip__dot" aria-hidden>
+                      {showAll ? (
+                        <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 12l4 4 8-8" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className="user-filter-chip__label">{t("showAll")}</span>
+                  </button>
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <button className="account-btn account-btn-setting" onClick={() => setCurrencySettingOpen(true)}>{t("currencySetting")}</button>
-                <button className="account-btn account-btn-delete" disabled={!selectedDeleteIds.size} onClick={() => setConfirmDeleteOpen(true)}>{t("deleteWithCount", { count: selectedDeleteIds.size })}</button>
+              <div className="user-toolbar-actions-right">
+                <button type="button" className="account-btn account-btn-setting" onClick={() => setCurrencySettingOpen(true)}>
+                  {t("currencySetting")}
+                </button>
+                <button type="button" className="btn btn-add" onClick={openAdd}>
+                  <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                  {t("addAccount")}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-delete"
+                  disabled={!selectedDeleteIds.size}
+                  onClick={() => setConfirmDeleteOpen(true)}
+                >
+                  {t("deleteWithCount", { count: selectedDeleteIds.size })}
+                </button>
+              </div>
+            </div>
+            <div className="user-gc-inline-panel">
+              {groupIds.length > 0 && (
+                <div className="user-gc-inline-row">
+                  <span className="user-gc-inline-label">{t("groupId")}</span>
+                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                    <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                      {groupIds.map((gid) => (
+                        <button
+                          key={gid}
+                          type="button"
+                          disabled={switchingCompany}
+                          className={`user-gc-segment${gid === selectedGroupKey ? " is-on" : ""}`}
+                          onClick={() => handlePickGroup(gid)}
+                        >
+                          {gid}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="user-gc-inline-row">
+                <span className="user-gc-inline-label">{t("company")}</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
+                    {companiesForPicker.map((c) => {
+                      const active = Number(companyId) === Number(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          disabled={switchingCompany}
+                          className={`user-gc-segment${active ? " is-on" : ""}`}
+                          onClick={() => {
+                            if (!active) void onSwitchCompany(c);
+                          }}
+                        >
+                          {String(c.company_id || "").toUpperCase()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

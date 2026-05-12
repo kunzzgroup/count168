@@ -112,8 +112,9 @@ body.user-page.user-page--show-all .user-cards {
     overflow: hidden;
 }
 
-/* User List 工具条整块：白实底（与主区白底一致） */
-body.user-page .action-buttons-container {
+/* User List / Account List 工具条整块：白实底（与主区白底一致） */
+body.user-page .action-buttons-container,
+body.account-page .action-buttons-container {
     background: var(--color-surface, #ffffff);
     border: 1px solid var(--color-border, #e5e7eb);
     box-shadow: var(--shadow-card, 0 2px 8px rgba(0, 0, 0, 0.1));
@@ -121,7 +122,8 @@ body.user-page .action-buttons-container {
     -webkit-backdrop-filter: none;
 }
 
-body.user-page .user-gc-inline-panel {
+body.user-page .user-gc-inline-panel,
+body.account-page .user-gc-inline-panel {
     display: grid;
     grid-template-columns: auto 1fr;
     column-gap: 14px;
@@ -132,11 +134,13 @@ body.user-page .user-gc-inline-panel {
     background: transparent;
 }
 
-body.user-page .user-gc-inline-row {
+body.user-page .user-gc-inline-row,
+body.account-page .user-gc-inline-row {
     display: contents;
 }
 
-body.user-page .user-gc-inline-label {
+body.user-page .user-gc-inline-label,
+body.account-page .user-gc-inline-label {
     justify-self: start;
     font-size: var(--text-base);
     font-weight: var(--font-weight-bold);
@@ -144,7 +148,8 @@ body.user-page .user-gc-inline-label {
     white-space: nowrap;
 }
 
-body.user-page .user-gc-inline-pills {
+body.user-page .user-gc-inline-pills,
+body.account-page .user-gc-inline-pills {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -153,7 +158,8 @@ body.user-page .user-gc-inline-pills {
     min-width: 0;
 }
 
-body.user-page .user-gc-inline-pills--segment-scroll {
+body.user-page .user-gc-inline-pills--segment-scroll,
+body.account-page .user-gc-inline-pills--segment-scroll {
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 0;
@@ -161,7 +167,8 @@ body.user-page .user-gc-inline-pills--segment-scroll {
     -webkit-overflow-scrolling: touch;
 }
 
-body.user-page .user-gc-segment-group {
+body.user-page .user-gc-segment-group,
+body.account-page .user-gc-segment-group {
     display: inline-flex;
     flex-direction: row;
     flex-shrink: 0;
@@ -174,7 +181,8 @@ body.user-page .user-gc-segment-group {
     -webkit-backdrop-filter: none;
 }
 
-body.user-page .user-gc-segment {
+body.user-page .user-gc-segment,
+body.account-page .user-gc-segment {
     margin: 0;
     padding: 8px clamp(10px, 1.2vw, 18px);
     border: none;
@@ -192,28 +200,33 @@ body.user-page .user-gc-segment {
         color 0.15s ease;
 }
 
-body.user-page .user-gc-segment:last-child {
+body.user-page .user-gc-segment:last-child,
+body.account-page .user-gc-segment:last-child {
     border-right: none;
 }
 
-body.user-page .user-gc-segment:hover:not(:disabled):not(.is-on) {
+body.user-page .user-gc-segment:hover:not(:disabled):not(.is-on),
+body.account-page .user-gc-segment:hover:not(:disabled):not(.is-on) {
     background: #f8fafc;
 }
 
-body.user-page .user-gc-segment:focus-visible {
+body.user-page .user-gc-segment:focus-visible,
+body.account-page .user-gc-segment:focus-visible {
     outline: none;
     box-shadow: inset 0 0 0 2px #6366f1;
     position: relative;
     z-index: 1;
 }
 
-body.user-page .user-gc-segment.is-on {
+body.user-page .user-gc-segment.is-on,
+body.account-page .user-gc-segment.is-on {
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
     color: #ffffff;
     border-right-color: rgba(255, 255, 255, 0.28);
 }
 
-body.user-page .user-gc-segment:disabled {
+body.user-page .user-gc-segment:disabled,
+body.account-page .user-gc-segment:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
@@ -226,14 +239,16 @@ body.user-page .user-gc-segment:disabled {
     gap: 12px;
 }
 
-.user-page .user-toolbar-actions-right {
+.user-page .user-toolbar-actions-right,
+.account-page .user-toolbar-actions-right {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-shrink: 0;
 }
 
-.user-page .user-toolbar-actions-right .btn-delete {
+.user-page .user-toolbar-actions-right .btn-delete,
+.account-page .user-toolbar-actions-right .btn-delete {
     margin-left: 0;
 }
 
@@ -455,20 +470,24 @@ body.user-page .user-gc-segment:disabled {
     overflow-y: visible;
 }
 
-.user-page .btn:hover {
+.user-page .btn:hover,
+.account-page .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.user-page .btn:active {
+.user-page .btn:active,
+.account-page .btn:active {
     transform: translateY(0);
 }
 
-.user-page .btn:hover::after {
+.user-page .btn:hover::after,
+.account-page .btn:hover::after {
     transform: translateX(120%);
 }
 
-.user-page .btn-add {
+.user-page .btn-add,
+.account-page .btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: var(--font-heading-page);
@@ -489,14 +508,16 @@ body.user-page .user-gc-segment:disabled {
     text-align: center;
 }
 
-.user-page .btn-add .btn-add__icon {
+.user-page .btn-add .btn-add__icon,
+.account-page .btn-add .btn-add__icon {
     flex-shrink: 0;
     width: clamp(14px, 1.1vw, 18px);
     height: clamp(14px, 1.1vw, 18px);
     display: block;
 }
 
-.user-page .btn-add:hover {
+.user-page .btn-add:hover,
+.account-page .btn-add:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
@@ -525,7 +546,8 @@ body.user-page .user-gc-segment:disabled {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
-.user-page .btn-delete {
+.user-page .btn-delete,
+.account-page .btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: var(--font-heading-page);
@@ -545,7 +567,8 @@ body.user-page .user-gc-segment:disabled {
     text-align: center;
 }
 
-.user-page .btn-delete:hover {
+.user-page .btn-delete:hover,
+.account-page .btn-delete:hover {
     background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
@@ -1470,8 +1493,9 @@ label.user-modal-col-title.acc-proc-label {
     background: rgba(255, 255, 255, 1);
 }
 
-/* User List — 常显搜索条（药丸 + 左图标；高度与 .user-filter-chip 一致：18px 内容区 + 6+6 padding + 1+1 border） */
-body.user-page .search-container.userlist-search-bar {
+/* User List / Account List — 常显搜索条（药丸 + 左图标；高度与 .user-filter-chip 一致：18px 内容区 + 6+6 padding + 1+1 border） */
+body.user-page .search-container.userlist-search-bar,
+body.account-page .search-container.userlist-search-bar {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -1490,7 +1514,8 @@ body.user-page .search-container.userlist-search-bar {
     overflow: hidden;
 }
 
-body.user-page .userlist-search-bar__icon {
+body.user-page .userlist-search-bar__icon,
+body.account-page .userlist-search-bar__icon {
     flex: 0 0 30px;
     width: 30px;
     display: flex;
@@ -1501,14 +1526,17 @@ body.user-page .userlist-search-bar__icon {
     align-self: center;
 }
 
-body.user-page .userlist-search-bar__icon svg {
+body.user-page .userlist-search-bar__icon svg,
+body.account-page .userlist-search-bar__icon svg {
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(14px, 0.83vw, 16px);
     flex-shrink: 0;
 }
 
 body.user-page .search-container.userlist-search-bar .userlist-search-input,
-body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input {
+body.account-page .search-container.userlist-search-bar .userlist-search-input,
+body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input,
+body.ec-auth-shell.account-page .search-container.userlist-search-bar .userlist-search-input {
     flex: 1 1 auto;
     min-width: 0;
     width: auto !important;
@@ -1529,14 +1557,17 @@ body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-sea
 }
 
 body.user-page .search-container.userlist-search-bar .userlist-search-input::placeholder,
-body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input::placeholder {
+body.account-page .search-container.userlist-search-bar .userlist-search-input::placeholder,
+body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input::placeholder,
+body.ec-auth-shell.account-page .search-container.userlist-search-bar .userlist-search-input::placeholder {
     color: #64748b;
     opacity: 1;
     text-transform: none;
 }
 
-/* 13″ 全局 .search-input：User List 药丸内用 token 字号与内边距 */
-body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input.search-input {
+/* 13″ 全局 .search-input：User List / Account List 药丸内用 token 字号与内边距 */
+body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input.search-input,
+body.ec-auth-shell.account-page .search-container.userlist-search-bar .userlist-search-input.search-input {
     font-size: var(--text-small) !important;
     padding-top: 6px !important;
     padding-bottom: 6px !important;
@@ -1548,8 +1579,12 @@ body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-sea
 
 body.user-page .search-container.userlist-search-bar .userlist-search-input:focus,
 body.user-page .search-container.userlist-search-bar .userlist-search-input:focus-visible,
+body.account-page .search-container.userlist-search-bar .userlist-search-input:focus,
+body.account-page .search-container.userlist-search-bar .userlist-search-input:focus-visible,
 body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input:focus,
-body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input:focus-visible {
+body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input:focus-visible,
+body.ec-auth-shell.account-page .search-container.userlist-search-bar .userlist-search-input:focus,
+body.ec-auth-shell.account-page .search-container.userlist-search-bar .userlist-search-input:focus-visible {
     outline: none !important;
     border: none !important;
     box-shadow: none !important;
@@ -1561,15 +1596,17 @@ body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-sea
     display: none !important;
 }
 
-/* User List — 名单范围筛选（chip，图二风格；与旧 checkbox 逻辑一致） */
-body.user-page .userlist-filter-chips {
+/* User List / Account List — 名单范围筛选（chip，图二风格；与旧 checkbox 逻辑一致） */
+body.user-page .userlist-filter-chips,
+body.account-page .userlist-filter-chips {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
 }
 
-body.user-page .user-filter-chip {
+body.user-page .user-filter-chip,
+body.account-page .user-filter-chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -1594,23 +1631,27 @@ body.user-page .user-filter-chip {
         background-color 0.15s ease;
 }
 
-body.user-page .user-filter-chip:hover {
+body.user-page .user-filter-chip:hover,
+body.account-page .user-filter-chip:hover {
     border-color: #cbd5e1;
     box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
 }
 
-body.user-page .user-filter-chip:focus-visible {
+body.user-page .user-filter-chip:focus-visible,
+body.account-page .user-filter-chip:focus-visible {
     outline: 2px solid #6366f1;
     outline-offset: 2px;
 }
 
-body.user-page .user-filter-chip.is-selected {
+body.user-page .user-filter-chip.is-selected,
+body.account-page .user-filter-chip.is-selected {
     border-color: rgba(13, 96, 255, 0.45);
     color: #0d60ff;
     box-shadow: 0 2px 6px rgba(13, 96, 255, 0.12);
 }
 
-body.user-page .user-filter-chip__dot {
+body.user-page .user-filter-chip__dot,
+body.account-page .user-filter-chip__dot {
     flex-shrink: 0;
     width: 18px;
     height: 18px;
@@ -1622,18 +1663,21 @@ body.user-page .user-filter-chip__dot {
     transition: background 0.15s ease;
 }
 
-body.user-page .user-filter-chip.is-selected .user-filter-chip__dot {
+body.user-page .user-filter-chip.is-selected .user-filter-chip__dot,
+body.account-page .user-filter-chip.is-selected .user-filter-chip__dot {
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
     color: #ffffff;
 }
 
-body.user-page .user-filter-chip__check {
+body.user-page .user-filter-chip__check,
+body.account-page .user-filter-chip__check {
     width: 11px;
     height: 11px;
     display: block;
 }
 
-body.user-page .user-filter-chip__label {
+body.user-page .user-filter-chip__label,
+body.account-page .user-filter-chip__label {
     white-space: nowrap;
 }
 
