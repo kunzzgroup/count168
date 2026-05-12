@@ -612,6 +612,8 @@
     margin-right: auto !important;
     display: flex;
     flex-direction: column;
+    height: auto !important;
+    min-height: min-content !important;
     max-height: min(94vh, 56rem);
     overflow: hidden;
 }
@@ -657,7 +659,7 @@
     width: 100%;
     max-width: 100%;
     flex: 0 1 auto;
-    min-height: 10rem;
+    min-height: auto;
     max-height: min(calc(94vh - 14rem), 640px);
     overflow-y: auto;
     overflow-x: auto;
@@ -681,6 +683,9 @@
 }
 
 #processAccountingDueModal .process-accounting-inbox-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     flex-shrink: 0;
     width: 100%;
     max-width: 100%;
