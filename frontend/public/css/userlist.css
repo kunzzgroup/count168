@@ -1004,7 +1004,6 @@ label.user-modal-col-title.acc-proc-label {
 /* Add/Edit User — Login ID 字段标题 */
 #userModal label[for="login_id"] {
     font-size: var(--text-medium);
-    font-weight: var(--font-weight-semibold);
 }
 
 .user-page .form-group input,
@@ -1410,15 +1409,16 @@ label.user-modal-col-title.acc-proc-label {
 #login_id {
     text-transform: uppercase;
     font-size: var(--text-small);
-    font-weight: 400;
 }
 
 #name {
     text-transform: uppercase;
+    font-size: var(--text-small);
 }
 
 #email {
     text-transform: lowercase;
+    font-size: var(--text-small);
 }
 
 /* Search input styles */
