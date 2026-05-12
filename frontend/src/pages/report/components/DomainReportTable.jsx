@@ -1,15 +1,19 @@
 import { formatAmount } from "../domainReportLogic.js";
 
-export default function DomainReportTable({ reportData, loading, error }) {
+export default function DomainReportTable({ reportData, loading, error, t }) {
+  const tableHeader = (
+    <div className="domain-report-table-header">
+      <div>{t("colProcess")}</div>
+      <div>{t("colTurnover")}</div>
+      <div>{t("colWin")}</div>
+      <div>{t("colLose")}</div>
+      <div>{t("colWinLose")}</div>
+    </div>
+  );
+
   const renderEmpty = (message) => (
     <div className="domain-report-list-container">
-      <div className="domain-report-table-header">
-        <div>Process</div>
-        <div>Turnover</div>
-        <div>Win</div>
-        <div>Lose</div>
-        <div>Win/Lose</div>
-      </div>
+      {tableHeader}
       <div className="domain-report-cards">
         <div className="domain-report-card">
           <div className="domain-report-card-item" style={{ gridColumn: "1 / -1", textAlign: "center", justifyContent: "center", padding: 20 }}>
@@ -20,22 +24,16 @@ export default function DomainReportTable({ reportData, loading, error }) {
     </div>
   );
 
-  if (loading) return renderEmpty("Loading...");
+  if (loading) return renderEmpty(t("loading"));
   if (error) return renderEmpty(error);
-  if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty("No data found");
+  if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty(t("noDataFound"));
 
   const data = reportData.data;
   const totals = reportData.totals;
 
   return (
     <div className="domain-report-list-container">
-      <div className="domain-report-table-header">
-        <div>Process</div>
-        <div>Turnover</div>
-        <div>Win</div>
-        <div>Lose</div>
-        <div>Win/Lose</div>
-      </div>
+      {tableHeader}
 
       <div className="domain-report-cards">
         {data.map((item, idx) => {
@@ -57,7 +55,7 @@ export default function DomainReportTable({ reportData, loading, error }) {
 
       {totals && (
         <div className="domain-report-total" style={{ display: "grid" }}>
-          <div className="domain-report-total-label">Total</div>
+          <div className="domain-report-total-label">{t("total")}</div>
           <div className="domain-report-amount"><strong>{formatAmount(totals.turnover)}</strong></div>
           <div className="domain-report-amount"><strong>{formatAmount(totals.win)}</strong></div>
           <div className="domain-report-amount"><strong>{formatAmount(totals.lose)}</strong></div>

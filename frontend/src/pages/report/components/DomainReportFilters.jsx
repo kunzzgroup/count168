@@ -2,6 +2,8 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import ReportDatePicker from "../common/ReportDatePicker.jsx";
 import { quickRangeToDates } from "../../../utils/dateUtils.js";
 
+const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
+
 export default function DomainReportFilters({
   companyId,
   onSwitchCompany,
@@ -19,6 +21,7 @@ export default function DomainReportFilters({
   dateFrom,
   dateTo,
   onRangeChange,
+  t,
 }) {
   const [processSearch, setProcessSearch] = useState("");
   const [processDropdownOpen, setProcessDropdownOpen] = useState(false);
@@ -34,38 +37,31 @@ export default function DomainReportFilters({
   }, []);
 
   const filteredProcesses = useMemo(() => {
-    const all = [{ id: "", display_text: "All Process" }, ...processes];
+    const all = [{ id: "", display_text: t("allProcess") }, ...processes];
     if (!processSearch.trim()) return all;
     const s = processSearch.toLowerCase();
-    return all.filter(p => (p.display_text || "").toLowerCase().includes(s));
-  }, [processes, processSearch]);
+    const allLabel = t("allProcess").toLowerCase();
+    return all.filter((p) => {
+      const text = (p.display_text || "").toLowerCase();
+      return text.includes(s) || (p.id === "" && allLabel.includes(s));
+    });
+  }, [processes, processSearch, t]);
 
   const selectedProcessLabel = useMemo(() => {
-    if (!processId) return "All Process";
+    if (!processId) return t("allProcess");
     const found = processes.find(p => String(p.id) === String(processId));
-    return found ? found.display_text : "All Process";
-  }, [processes, processId]);
+    return found ? found.display_text : t("allProcess");
+  }, [processes, processId, t]);
 
   const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
   const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-
-  const RANGE_TEXTS = {
-    today: "Today",
-    yesterday: "Yesterday",
-    thisWeek: "This Week",
-    lastWeek: "Last Week",
-    thisMonth: "This Month",
-    lastMonth: "Last Month",
-    thisYear: "This Year",
-    lastYear: "Last Year",
-  };
 
   return (
     <div className="domain-report-filter-container">
       <div className="domain-report-filters">
         {/* Process Select */}
         <div className="domain-report-filter-group">
-          <label className="maintenance-label">Process</label>
+          <label className="maintenance-label">{t("process")}</label>
           <div className="custom-select-wrapper" ref={processDropdownRef}>
             <button
               type="button"
@@ -79,7 +75,7 @@ export default function DomainReportFilters({
                 <div className="custom-select-search">
                   <input
                     type="text"
-                    placeholder="Search process..."
+                    placeholder={t("searchProcess")}
                     autoComplete="off"
                     value={processSearch}
                     onChange={(e) => setProcessSearch(e.target.value)}
@@ -97,7 +93,7 @@ export default function DomainReportFilters({
                     </div>
                   ))}
                   {filteredProcesses.length === 0 && (
-                    <div className="custom-select-no-results">No results found</div>
+                    <div className="custom-select-no-results">{t("noResultsFound")}</div>
                   )}
                 </div>
               </div>
@@ -111,12 +107,15 @@ export default function DomainReportFilters({
           dateTo={dateTo}
           onRangeChange={onRangeChange}
           containerClass="domain-report-filter-group"
+          label={t("dateRange")}
+          placeholder={t("selectDateRange")}
+          selectEndDateHint={t("selectEndDate")}
         />
 
         {/* Quick Select */}
         <div className="domain-report-filter-group quick-select-wrap">
           <label className="form-label">
-            <i className="fas fa-clock" /> Quick Select
+            <i className="fas fa-clock" /> {t("quickSelect")}
           </label>
           <div className="quick-select-dropdown quick-select-dropdown-toggle">
             <button
@@ -125,11 +124,11 @@ export default function DomainReportFilters({
               onClick={(e) => { e.stopPropagation(); window.toggleQuickSelectDropdown?.(); }}
             >
               <i className="fas fa-calendar-alt" />
-              <span id="quick-select-text">Period</span>
+              <span id="quick-select-text">{t("period")}</span>
               <i className="fas fa-chevron-down" />
             </button>
             <div className="dropdown-menu" id="quick-select-dropdown">
-              {Object.entries(RANGE_TEXTS).map(([key, label]) => (
+              {QUICK_RANGE_KEYS.map((key) => (
                 <button key={key} type="button" className="dropdown-item" onClick={() => {
                   if (window.selectQuickRange) {
                     window.selectQuickRange(key);
@@ -138,7 +137,7 @@ export default function DomainReportFilters({
                   const dates = quickRangeToDates(key);
                   if (dates) onRangeChange(dates.startDate, dates.endDate);
                 }}>
-                  {label}
+                  {t(key)}
                 </button>
               ))}
             </div>
@@ -150,7 +149,7 @@ export default function DomainReportFilters({
         {/* Group ID Buttons */}
         {snapGroupIds.length > 0 && (
           <div className="transaction-company-filter shared-group-wrapper" style={{ marginBottom: 10 }}>
-            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>GroupID:</span>
+            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>{t("groupId")}</span>
             <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
               {snapGroupIds.map((gid) => (
                 <button
@@ -169,7 +168,7 @@ export default function DomainReportFilters({
         {/* Company Buttons */}
         {snapCompanies.length > 0 && (
           <div className="transaction-company-filter shared-company-wrapper">
-            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>Company:</span>
+            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>{t("company")}</span>
             <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
               {snapCompanies.map((comp) => {
                 const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
@@ -194,14 +193,14 @@ export default function DomainReportFilters({
         {/* Currency Buttons */}
         {currencyList.length > 0 && (
           <div className="transaction-company-filter" style={{ marginTop: 10 }}>
-            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>Currency:</span>
+            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>{t("currency")}</span>
             <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
               <button
                 type="button"
                 className={`transaction-company-btn ${showAllCurrencies ? "active" : ""}`}
                 onClick={toggleAllCurrencies}
               >
-                All
+                {t("all")}
               </button>
               {currencyList.map(c => (
                 <button

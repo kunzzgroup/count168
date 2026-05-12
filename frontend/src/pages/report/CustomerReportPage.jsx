@@ -15,6 +15,7 @@ import {
   isBankOnlyCategoryCompany,
 } from "./customerReportLogic.js";
 import { formatYmd, quickRangeToDates } from "../../utils/dateUtils.js";
+import { getReportText } from "../../translateFile/reportTranslate.js";
 
 // Components
 import CustomerReportFilters from "./components/CustomerReportFilters.jsx";
@@ -22,6 +23,8 @@ import CustomerReportTable from "./components/CustomerReportTable.jsx";
 
 export default function CustomerReportPage() {
   const navigate = useNavigate();
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params) => getReportText(lang, key, params), [lang]);
 
   // -- State: Boot / Me --
   const [bootLoading, setBootLoading] = useState(true);
@@ -52,6 +55,22 @@ export default function CustomerReportPage() {
   const [toast, setToast] = useState(null);
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    const onLangUpdated = (e) => {
+      const nextLang = e?.detail?.lang;
+      setLang(nextLang === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
+    };
+  }, []);
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -244,7 +263,7 @@ export default function CustomerReportPage() {
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
-      if (!json.success) { notify(json.error || "Switch failed", "danger"); return; }
+      if (!json.success) { notify(json.error || t("switchFailed"), "danger"); return; }
       setCompanyId(Number(c.id));
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       setSelectedGroup(newGroup);
@@ -253,7 +272,7 @@ export default function CustomerReportPage() {
       
       await checkBankOnly(c.id);
       notifyCompanySessionUpdated();
-    } catch { notify("Switch failed", "danger"); }
+    } catch { notify(t("switchFailed"), "danger"); }
   };
 
   const onGroupClick = async (gid) => {
@@ -286,7 +305,7 @@ export default function CustomerReportPage() {
     <div className="container">
       <div className="content">
         <div className="report-header">
-          <h1 className="account-page-title">Customer Report</h1>
+          <h1 className="account-page-title">{t("customerReportTitle")}</h1>
         </div>
         <div className="account-separator-line" />
 
@@ -310,6 +329,7 @@ export default function CustomerReportPage() {
           toggleCurrency={toggleCurrency}
           showAllCurrencies={showAllCurrencies}
           toggleAllCurrencies={toggleAllCurrencies}
+          t={t}
         />
 
         <CustomerReportTable
@@ -317,6 +337,7 @@ export default function CustomerReportPage() {
           loading={loading}
           error={error}
           currencyList={currencyList}
+          t={t}
         />
       </div>
 

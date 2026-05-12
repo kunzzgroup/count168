@@ -1,11 +1,19 @@
 import { formatAmount } from "../customerReportLogic.js";
 
-export default function CustomerReportTable({ reportData, loading, error, currencyList = [] }) {
+export default function CustomerReportTable({ reportData, loading, error, currencyList = [], t }) {
+  const tableHeader = (
+    <div className="customer-report-table-header">
+      <div>{t("colAccount")}</div>
+      <div>{t("colName")}</div>
+      <div>{t("colCurrency")}</div>
+      <div>{t("colWin")}</div>
+      <div>{t("colLose")}</div>
+    </div>
+  );
+
   const renderEmpty = (message) => (
     <div className="customer-report-list-container">
-      <div className="customer-report-table-header">
-        <div>Account</div><div>Name</div><div>Currency</div><div>Win</div><div>Lose</div>
-      </div>
+      {tableHeader}
       <div className="customer-report-cards">
         <div className="customer-report-card">
           <div className="customer-report-card-item" style={{ textAlign: "center", padding: 20, gridColumn: "1 / -1", justifyContent: "center" }}>
@@ -16,12 +24,10 @@ export default function CustomerReportTable({ reportData, loading, error, curren
     </div>
   );
 
-  if (loading) return renderEmpty("Loading...");
+  if (loading) return renderEmpty(t("loading"));
   if (error) return (
     <div className="customer-report-list-container">
-      <div className="customer-report-table-header">
-        <div>Account</div><div>Name</div><div>Currency</div><div>Win</div><div>Lose</div>
-      </div>
+      {tableHeader}
       <div className="customer-report-cards">
         <div className="customer-report-card">
           <div className="customer-report-card-item" style={{ textAlign: "center", padding: 20, gridColumn: "1 / -1", justifyContent: "center", color: "red" }}>
@@ -31,7 +37,7 @@ export default function CustomerReportTable({ reportData, loading, error, curren
       </div>
     </div>
   );
-  if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty("No data found");
+  if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty(t("noDataFound"));
 
   const data = reportData.data;
 
@@ -74,11 +80,9 @@ export default function CustomerReportTable({ reportData, loading, error, curren
           return (
             <div key={c} className="customer-report-currency-section" style={{ marginBottom: 30 }}>
               <h3 style={{ margin: "20px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937" }}>
-                Currency: {c.toUpperCase()}
+                {t("currencyLine", { code: c.toUpperCase() })}
               </h3>
-              <div className="customer-report-table-header">
-                <div>Account</div><div>Name</div><div>Currency</div><div>Win</div><div>Lose</div>
-              </div>
+              {tableHeader}
               <div className="customer-report-cards">
                 {items.map((it, idx) => (
                   <div key={idx} className="customer-report-card">
@@ -91,7 +95,7 @@ export default function CustomerReportTable({ reportData, loading, error, curren
                 ))}
               </div>
               <div className="customer-report-total">
-                <div className="customer-report-total-label">Total:</div>
+                <div className="customer-report-total-label">{t("totalColon")}</div>
                 <div className="customer-report-amount win customer-report-total-win">{formatAmount(win)}</div>
                 <div className="customer-report-amount lose customer-report-total-lose">{formatAmount(lose)}</div>
               </div>
@@ -101,11 +105,9 @@ export default function CustomerReportTable({ reportData, loading, error, curren
         {hasNull && (
           <div className="customer-report-currency-section" style={{ marginBottom: 30 }}>
             <h3 style={{ margin: "20px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937" }}>
-              Currency: -
+              {t("currencyDash")}
             </h3>
-            <div className="customer-report-table-header">
-              <div>Account</div><div>Name</div><div>Currency</div><div>Win</div><div>Lose</div>
-            </div>
+            {tableHeader}
             <div className="customer-report-cards">
               {grouped["null"].map((it, idx) => (
                 <div key={idx} className="customer-report-card">
@@ -118,7 +120,7 @@ export default function CustomerReportTable({ reportData, loading, error, curren
               ))}
             </div>
             <div className="customer-report-total">
-              <div className="customer-report-total-label">Total:</div>
+              <div className="customer-report-total-label">{t("totalColon")}</div>
               <div className="customer-report-amount win customer-report-total-win">
                 {formatAmount(grouped["null"].reduce((acc, cur) => acc + (parseFloat(cur.win) || 0), 0))}
               </div>
@@ -135,9 +137,7 @@ export default function CustomerReportTable({ reportData, loading, error, curren
   // Default view (Single currency or no currency)
   return (
     <div className="customer-report-list-container" id="default-report-container">
-      <div className="customer-report-table-header">
-        <div>Account</div><div>Name</div><div>Currency</div><div>Win</div><div>Lose</div>
-      </div>
+      {tableHeader}
       <div className="customer-report-cards">
         {data.map((it, idx) => (
           <div key={idx} className="customer-report-card">
@@ -150,7 +150,7 @@ export default function CustomerReportTable({ reportData, loading, error, curren
         ))}
       </div>
       <div className="customer-report-total">
-        <div className="customer-report-total-label">Total:</div>
+        <div className="customer-report-total-label">{t("totalColon")}</div>
         <div className="customer-report-amount win customer-report-total-win">{formatAmount(reportData.total_win)}</div>
         <div className="customer-report-amount lose customer-report-total-lose">{formatAmount(reportData.total_lose)}</div>
       </div>
