@@ -195,6 +195,30 @@ if (!function_exists('bmp_bankProcessDateFieldToYmd')) {
 }
 
 /**
+ * Resend（accounting_resend_relax_created_floor）且合并后的 day_start / day_end 跨自然月时：
+ * 勿再对其中某一整月单独套用「月初～day_end」按月截断，否则会多出下一月的 Accounting Due / Transaction，
+ * 与「单笔合并区间」或用户预期的单日总价冲突。
+ */
+if (!function_exists('bmp_shouldSkipDayEndMonthlyCapForResendCrossMonthRange')) {
+    function bmp_shouldSkipDayEndMonthlyCapForResendCrossMonthRange(array $row): bool
+    {
+        if (empty($row['accounting_resend_relax_created_floor'])) {
+            return false;
+        }
+        $ds = bmp_bankProcessDateFieldToYmd($row['day_start'] ?? null);
+        $de = bmp_bankProcessDateFieldToYmd($row['day_end'] ?? null);
+        if ($ds === null || $de === null || $ds > $de) {
+            return false;
+        }
+        try {
+            return (new DateTimeImmutable($ds))->format('Y-m') !== (new DateTimeImmutable($de))->format('Y-m');
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+/**
  * Accounting Inbox / 入账推断：Resend 后放宽「旧数据不拿」的创建日门槛。
  * 将 effectiveCreated = min(dts_created 日, day_start)，使修正后的 day_start 不晚于创建日时仍可按新锚点排队。
  *

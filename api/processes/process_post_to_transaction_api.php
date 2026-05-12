@@ -416,6 +416,9 @@ function txnTryDayEndMonthlyCapAmounts1stOfMonth(array $p, bool $hasCol, string 
     if (!$hasCol || $frequency !== '1st_of_every_month') {
         return null;
     }
+    if (function_exists('bmp_shouldSkipDayEndMonthlyCapForResendCrossMonthRange') && bmp_shouldSkipDayEndMonthlyCapForResendCrossMonthRange($p)) {
+        return null;
+    }
     $raw = $p['day_end_monthly_cap_enabled'] ?? null;
     $on = in_array((string) $raw, ['1', 'true', 'TRUE'], true) || $raw === 1 || $raw === true;
     if (!$on) {

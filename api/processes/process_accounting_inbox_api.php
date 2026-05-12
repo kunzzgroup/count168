@@ -456,6 +456,9 @@ function inboxTryDayEndMonthlyCapAmounts1stOfMonth(array $r, bool $hasDayEndMont
     if (!$hasDayEndMonthlyCapCol || $frequency !== '1st_of_every_month' || !inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r)) {
         return null;
     }
+    if (function_exists('bmp_shouldSkipDayEndMonthlyCapForResendCrossMonthRange') && bmp_shouldSkipDayEndMonthlyCapForResendCrossMonthRange($r)) {
+        return null;
+    }
     $dayEndYmd = inboxBankProcessDateFieldToYmd($r['day_end'] ?? null);
     if ($dayEndYmd === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayEndYmd)) {
         return null;
@@ -851,8 +854,8 @@ try {
         exit;
     }
 
-    //$today = date('Y-m-d');
-    $today = '2026-08-05';
+    $today = date('Y-m-d');
+    //$today = '2026-08-05';
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
