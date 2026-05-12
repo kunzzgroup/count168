@@ -24,23 +24,35 @@
   --sidebar-shell-border: rgba(255, 255, 255, 0.2);
   --sidebar-active-bg: #0e93f3;
   --sidebar-menu-text: #ffffff;
-  --sidebar-lock-width: 23.5rem;
-  --sidebar-logo-height: 3.6rem;
-  --sidebar-avatar-lock: 4rem;
-  --sidebar-user-name-size: 1.6rem;
-  --sidebar-user-role-size: 1.1rem;
-  --sidebar-lang-width: 10.8rem;
-  --sidebar-lang-height: 3.2rem;
-  --sidebar-lang-font: 1.1rem;
-  --sidebar-icon-size: 1.8rem;
-  --sidebar-menu-font: 1.6rem;
-  --sidebar-submenu-font: 1.2rem;
-  --sidebar-menu-pad-y: 1.2rem;
-  --sidebar-menu-pad-x: 1.6rem;
-  --sidebar-submenu-pad-y: 0.8rem;
-  --sidebar-header-pad-t: 1rem;
-  --sidebar-header-pad-x: 1rem;
-  --sidebar-header-pad-b: 0.8rem;
+
+  /* 基础侧边栏布局 */
+  --sidebar-lock-width: clamp(18rem, 17.1rem + 1.4vw, 23.5rem);
+  --sidebar-logo-height: clamp(2.8rem, 2.67rem + 0.2vw, 3.6rem);
+  --sidebar-avatar-lock: clamp(3.2rem, 3.09rem + 0.18vw, 4rem);
+
+  /* 用户信息字体 */
+  --sidebar-user-name-size: clamp(1.3rem, 1.25rem + 0.08vw, 1.6rem);
+  --sidebar-user-role-size: clamp(0.95rem, 0.92rem + 0.05vw, 1.1rem);
+
+  /* 语言切换栏 */
+  --sidebar-lang-width: clamp(8.5rem, 8.19rem + 0.49vw, 10.8rem);
+  --sidebar-lang-height: clamp(2.5rem, 2.4rem + 0.16vw, 3.2rem);
+  --sidebar-lang-font: clamp(0.95rem, 0.92rem + 0.05vw, 1.1rem);
+
+  /* 图标与菜单字体 */
+  --sidebar-icon-size: clamp(1.4rem, 1.35rem + 0.09vw, 1.8rem);
+  --sidebar-menu-font: clamp(1.3rem, 1.25rem + 0.08vw, 1.6rem);
+  --sidebar-submenu-font: clamp(1rem, 0.97rem + 0.05vw, 1.2rem);
+
+  /* 菜单内边距 (Padding) */
+  --sidebar-menu-pad-y: clamp(0.95rem, 0.92rem + 0.05vw, 1.2rem);
+  --sidebar-menu-pad-x: clamp(1.3rem, 1.25rem + 0.08vw, 1.6rem);
+  --sidebar-submenu-pad-y: clamp(0.6rem, 0.57rem + 0.05vw, 0.8rem);
+
+  /* 头部内边距 (Header Padding) */
+  --sidebar-header-pad-t: clamp(0.8rem, 0.77rem + 0.05vw, 1rem);
+  --sidebar-header-pad-x: clamp(0.8rem, 0.77rem + 0.05vw, 1rem);
+  --sidebar-header-pad-b: clamp(0.6rem, 0.57rem + 0.05vw, 0.8rem);
 
   /* --- 品牌 / 文本色（列表页与 dashboard 壳层对齐，供 var 消重）--- */
   --color-page-bg: #e9f1ff;
