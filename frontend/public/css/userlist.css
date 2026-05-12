@@ -1801,6 +1801,141 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     text-transform: uppercase;
 }
 
+/* --------------------------------------------------------------------------
+   User List 表（user-page）：浅 SaaS 表头 + 主次列 + 行 hover / 编辑按钮反馈
+   覆盖上方通用 .table-header / .user-card 等，不合并 Login / Name 列。
+   -------------------------------------------------------------------------- */
+body.user-page .user-table-wrapper .table-header {
+    background: #ffffff !important;
+    color: #64748b;
+    font-weight: 600;
+    font-size: clamp(10px, 0.72vw, 12px);
+    border-bottom: 0.5px solid #e2e8f0;
+    align-items: center;
+    padding-top: 10px;
+    padding-bottom: 12px;
+}
+
+body.user-page .user-table-wrapper .table-header .header-item {
+    display: flex;
+    align-items: center;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+
+body.user-page .user-table-wrapper .table-header .header-item--no {
+    justify-content: center;
+}
+
+body.user-page .user-table-wrapper .table-header .header-item--action {
+    justify-content: center;
+    gap: 8px;
+}
+
+body.user-page .user-table-wrapper .header-sortable:hover {
+    background-color: rgba(15, 23, 42, 0.05);
+}
+
+body.user-page .user-table-wrapper .sort-indicator {
+    color: #94a3b8;
+}
+
+body.user-page .user-table-wrapper .user-card {
+    padding: clamp(8px, 0.85vw, 14px) 22px;
+    background: #fafaf9;
+    border-bottom: 0.5px solid rgba(15, 23, 42, 0.1);
+    transition: background-color 0.15s ease;
+}
+
+body.user-page .user-table-wrapper .user-card.row-even,
+body.user-page .user-table-wrapper .user-card.row-odd {
+    background: #fafaf9;
+}
+
+body.user-page .user-table-wrapper .user-card:hover {
+    background: #f1f5f4;
+    box-shadow: none;
+    transform: none;
+}
+
+body.user-page .user-table-wrapper .user-card.user-card--loading.show-card {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    min-height: 52px;
+    color: #64748b;
+    font-weight: 500;
+    background: #fafaf9;
+}
+
+body.user-page .user-table-wrapper .user-card .card-item {
+    font-weight: 500;
+    color: #0f172a;
+}
+
+body.user-page .user-table-wrapper .user-card .card-item--no {
+    justify-content: center;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #94a3b8;
+    font-size: clamp(10px, 0.78vw, 13px);
+}
+
+body.user-page .user-table-wrapper .user-card .card-item--login {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+body.user-page .user-table-wrapper .user-card .card-item--name {
+    font-weight: 500;
+    color: #111827;
+}
+
+body.user-page .user-table-wrapper .user-card .card-item--email {
+    font-weight: 400;
+    color: #64748b;
+}
+
+body.user-page .user-table-wrapper .user-card .card-item--muted {
+    font-weight: 400;
+    color: #94a3b8;
+}
+
+body.user-page .user-table-wrapper .user-card .card-item--created-by {
+    font-weight: 500;
+    color: #94a3b8;
+    font-size: clamp(10px, 0.78vw, 13px);
+}
+
+body.user-page .user-table-wrapper .user-card .card-item--action {
+    gap: 8px;
+}
+
+body.user-page .user-table-wrapper .user-card .btn-edit {
+    width: clamp(30px, 2.2vw, 38px);
+    height: clamp(30px, 2.2vw, 38px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px;
+    background: #ffffff;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+body.user-page .user-table-wrapper .user-card .btn-edit:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #94a3b8 !important;
+}
+
+body.user-page .user-table-wrapper .user-card:hover .btn-edit:not(:disabled) {
+    border-color: #cbd5e1;
+    background: #ffffff;
+}
+
 /* 分页样式 - 修改为图片中的设计 */
 .pagination-container {
     position: fixed;
