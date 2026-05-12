@@ -1498,6 +1498,11 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
     z-index: 10000;
 }
 
+/* Ensure account modal is on top of profit sharing modal */
+.process-page .account-modal {
+    z-index: 20000;
+}
+
 /* modal-content 覆盖全局 88% 宽度：固定宽度填满弹窗，随行数增加高度自然增长 */
 #profitSharingModal .modal-content {
     width: min(640px, 92vw) !important;
@@ -1510,6 +1515,11 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
 /* modal-body 最小高度确保底部按钮贴合 */
 #profitSharingModal .modal-body {
     min-height: 215px;
+}
+
+#profitSharingModal .modal-header {
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
 }
 
 /* 弹窗及到下拉之间的所有祖先都允许溢出，让 Account 下拉可以溢出弹窗显示 */
