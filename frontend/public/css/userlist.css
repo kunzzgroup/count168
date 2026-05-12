@@ -1517,12 +1517,14 @@ body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-sea
     font-size: var(--text-small);
     color: #0f172a;
     line-height: 1.2;
+    text-transform: uppercase;
 }
 
 body.user-page .search-container.userlist-search-bar .userlist-search-input::placeholder,
 body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input::placeholder {
     color: #64748b;
     opacity: 1;
+    text-transform: none;
 }
 
 /* 13″ 全局 .search-input：User List 药丸内用 token 字号与内边距 */
