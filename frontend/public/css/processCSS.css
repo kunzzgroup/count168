@@ -471,8 +471,8 @@ body.process-page {
 .process-page .bank-data-table .bank-th-status,
 .process-page .bank-data-table .bank-td-status {
     width: 8%;
-    min-width: 98px;
-    max-width: 132px;
+    min-width: 85px;
+    max-width: 120px;
 }
 
 .process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-country):not(.bank-th-types):not(.bank-th-card-owner):not(.bank-th-status):not(.bank-th-action),
@@ -759,9 +759,9 @@ body.process-page {
 /* Bank React 列表：统一宽高、大字重、居中；整块胶囊点击打开下拉，无向下箭头 */
 .process-page.process-page--bank .bank-status-button {
     position: relative;
-    width: 9.35rem;
-    min-width: 9.35rem;
-    max-width: 9.35rem;
+    width: 8.35rem;
+    min-width: 5.35rem;
+    max-width: 8.35rem;
     height: 22px;
     min-height: 22px;
     max-height: 30px;
@@ -975,7 +975,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page .process-card {
     display: grid;
     grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
-    gap: 15px;
+    gap: 8px;
     padding: 0 20px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
@@ -1031,7 +1031,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     letter-spacing: 0.06em;
     color: #ffffff;
     margin-top: 12px;
-    gap: 10px;
+    gap: 8px;
     padding-top: 0;
     padding-bottom: 0;
     padding-left: 16px;
