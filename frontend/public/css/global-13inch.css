@@ -107,7 +107,7 @@
     body.ec-auth-shell .contract-table-header,
     body.ec-auth-shell .datacapture-table-header,
     body.ec-auth-shell .member-table-header {
-        font-size: 14px !important;
+        font-size: var(--text-medium) !important;
         padding-top: 4px !important;
         padding-bottom: 4px !important;
     }
@@ -126,7 +126,7 @@
     body.ec-auth-shell table th,
     body.ec-auth-shell .transaction-table th,
     body.ec-auth-shell .datacapture-table th {
-        font-size: 14px !important;
+        font-size: var(--text-medium) !important;
         padding: 10px 14px !important;
     }
 
@@ -146,7 +146,7 @@
     body.ec-auth-shell .account-card-item,
     body.ec-auth-shell .contract-card-item,
     body.ec-auth-shell .member-card-item {
-        font-size: 14px !important;
+        font-size: var(--text-medium) !important;
         line-height: 1.5 !important;
         letter-spacing: 0.015em !important;
     }

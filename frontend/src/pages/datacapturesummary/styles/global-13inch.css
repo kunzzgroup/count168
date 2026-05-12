@@ -107,7 +107,7 @@
     .contract-table-header,
     .datacapture-table-header,
     .member-table-header {
-        font-size: 14px !important;
+        font-size: var(--text-medium) !important;
         padding-top: 4px !important;
         padding-bottom: 4px !important;
     }
@@ -126,7 +126,7 @@
     table th,
     .transaction-table th,
     .datacapture-table th {
-        font-size: 14px !important;
+        font-size: var(--text-medium) !important;
         padding: 10px 14px !important;
     }
 
@@ -146,7 +146,7 @@
     .account-card-item,
     .contract-card-item,
     .member-card-item {
-        font-size: 14px !important;
+        font-size: var(--text-medium) !important;
         line-height: 1.5 !important;
         letter-spacing: 0.015em !important;
     }

@@ -1401,7 +1401,7 @@ label.user-modal-col-title.acc-proc-label {
     margin-top: 20px;
     font-weight: bold;
     color: white;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-medium);
     min-width: 0;
     /* 允许内容收缩 */
 }
@@ -1482,7 +1482,7 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
 }
 
 .card-item {
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: bold;
     color: #374151;
     display: flex;
