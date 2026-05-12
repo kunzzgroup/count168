@@ -2474,75 +2474,6 @@ function addCalendarMonthsToYmd(ymd, months) {
     return y + '-' + mo + '-' + day;
 }
 
-/**
- * 与 billing_schedule.php billingContractExclusiveEndYmdMonthlyAfterPartialFirst 一致。
- * 起租当月不计入合同 N 个月；exclusive = 次月起首应付日 + N 月（1 号起租同 addCalendarMonthsToYmd）。
- */
-function billingContractExclusiveEndYmdMonthlyAfterPartialFirstJs(startYmd, termMonths) {
-    if (!startYmd || termMonths < 1) {
-        return null;
-    }
-    const p = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!p) {
-        return null;
-    }
-    const y = parseInt(p[1], 10);
-    const mo = parseInt(p[2], 10);
-    const day = parseInt(p[3], 10);
-    if (day === 1) {
-        return addCalendarMonthsToYmd(startYmd, termMonths);
-    }
-    const firstOfNext = new Date(y, mo, 1);
-    if (isNaN(firstOfNext.getTime())) {
-        return null;
-    }
-    const y2 = firstOfNext.getFullYear();
-    const mIdx = firstOfNext.getMonth();
-    const lastDay = new Date(y2, mIdx + 1, 0).getDate();
-    const d2 = Math.min(Math.max(1, day), lastDay);
-    const firstContractDue = new Date(y2, mIdx, d2);
-    if (isNaN(firstContractDue.getTime())) {
-        return null;
-    }
-    firstContractDue.setMonth(firstContractDue.getMonth() + termMonths);
-    return (
-        firstContractDue.getFullYear() +
-        '-' +
-        String(firstContractDue.getMonth() + 1).padStart(2, '0') +
-        '-' +
-        String(firstContractDue.getDate()).padStart(2, '0')
-    );
-}
-
-/**
- * 与 billing_schedule.php billingContractExclusiveEndYmdFirstOfMonth 一致（1st of Every Month）。
- * 起租日非 1 号时首段为当月起 partial；合同 N 个月从次月 1 号锚点起计，exclusive = 次月 1 号 + N 月。
- */
-function billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths) {
-    if (!startYmd || termMonths < 1) {
-        return null;
-    }
-    const p = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!p) {
-        return null;
-    }
-    const y = parseInt(p[1], 10);
-    const mo = parseInt(p[2], 10);
-    const day = parseInt(p[3], 10);
-    const start = new Date(y, mo - 1, day);
-    if (isNaN(start.getTime())) {
-        return null;
-    }
-    if (day === 1) {
-        start.setMonth(start.getMonth() + termMonths);
-    } else {
-        const firstAnchor = new Date(y, mo, 1);
-        firstAnchor.setMonth(firstAnchor.getMonth() + termMonths);
-        return firstAnchor.getFullYear() + '-' + String(firstAnchor.getMonth() + 1).padStart(2, '0') + '-' + String(firstAnchor.getDate()).padStart(2, '0');
-    }
-    return start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-' + String(start.getDate()).padStart(2, '0');
-}
-
 /** 与 billing_schedule.php：exclusive 归还日的前一天 = day_end 最后一天计入 */
 function subtractOneDayFromYmd(ymd) {
     if (!ymd) return null;
@@ -2557,10 +2488,10 @@ function subtractOneDayFromYmd(ymd) {
 
 /**
  * 仅用于 Bank 表单 Day end 自动填 / min / dataset.bankContractEndHint；不参与入账。
- * 合同边界以服务端为准：process_accounting_inbox_api.php / process_post_to_transaction_api.php / billing_schedule.php 的
- * contractExclusiveEndYmdForFrequency（及 billingContractExclusiveEndYmd*）未因本函数而变。
- * 起租日当月 1 号：此处对 monthly 与 1st 均用 addCalendarMonthsToYmd（与 PHP 在「1 号起租」时的 exclusive 一致，如 5/1+3M→8/1）。
- * 起租日非 1 号：monthly 为 exclusive 再减一天（含尾日展示）；1st 为 billingContractExclusiveEndYmdFirstOfMonthJs（与 PHP 入账边界一致）。
+ * 合同边界以服务端 contractExclusiveEndYmdForFrequency 为准；入账仍用 PHP，本函数不改变合同定义。
+ * 起租日当月 1 号：monthly 与 1st 均用 addCalendarMonthsToYmd（如 5/1+3M→8/1）。
+ * 起租日非 1 号：monthly 与 1st 均用「起租日 + N 个自然月」再减一天为含尾日（如 4/15+3M→7/14），不用 1st 锚点 exclusive，避免填成 8/1。
+ * @param {string} frequency 保留供调用方兼容，非 1 号起租时不再分支。
  */
 function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
     if (!startYmd || termMonths == null || termMonths < 1) {
@@ -2574,13 +2505,11 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
     if (startDay === 1) {
         return addCalendarMonthsToYmd(startYmd, termMonths);
     }
-    if (frequency === 'monthly') {
-        const exclusive = billingContractExclusiveEndYmdMonthlyAfterPartialFirstJs(startYmd, termMonths);
-        if (!exclusive) return null;
-        const inclusive = subtractOneDayFromYmd(exclusive);
-        return inclusive || null;
+    const exclusiveCal = addCalendarMonthsToYmd(startYmd, termMonths);
+    if (!exclusiveCal) {
+        return null;
     }
-    return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+    return subtractOneDayFromYmd(exclusiveCal) || null;
 }
 
 /**
@@ -2589,7 +2518,7 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
  * 若 Day end 仍等于上次算出的合约结束日，起始日/合约/Frequency 变化后随新结果更新。
  * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
  * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
- * 1st_of_every_month：Day end 自动为次周期首日（次月 1 号锚）；营业若有出入可手改（晚于 min 视为延长，不自动缩短）。
+ * Day end 自动填由 contractBillingEndYmdForBankForm：1 号起租为起租+N 月；非 1 号为起租+N 月再减一天（与 frequency 入账规则独立）。
  */
 function autoCalculateBankDayEnd() {
     if (isBankProcessBillingScheduleLocked()) return;
