@@ -171,7 +171,17 @@ export default function UserModal({
                 </div>
                 <div className="form-group user-info-field">
                   <label htmlFor="email">{t("emailRequired")}</label>
-                  <input id="email" type="email" required disabled={fieldLocks.email} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.toLowerCase() }))} />
+                  <input
+                    id="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    spellCheck={false}
+                    required
+                    disabled={fieldLocks.email}
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.toLowerCase() }))}
+                  />
                 </div>
                 {(currentUserRole === "admin" || currentUserRole === "owner" || currentUserRole === "partnership") && (
                   <div className="form-group user-info-field company-field-group">
