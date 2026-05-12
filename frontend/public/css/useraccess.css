@@ -216,7 +216,7 @@ h1 {
 .btn-update {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -234,7 +234,7 @@ h1 {
 .btn-update:disabled {
     background: #cccccc;
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -246,7 +246,7 @@ h1 {
 .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -631,7 +631,7 @@ h1 {
 .btn-account-control {
     background: linear-gradient(180deg, #44e44d 0%, #227426 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 0px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -651,7 +651,7 @@ h1 {
 .btn-clearall {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(90px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -671,7 +671,7 @@ h1 {
 .btn-back {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -774,7 +774,7 @@ h1 {
     font-size: clamp(20px, 1.67vw, 32px);
     font-weight: 700;
     margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
-    font-family: 'Amaranth', -apple-system, sans-serif;
+    font-family: var(--font-heading-page), -apple-system, sans-serif;
     letter-spacing: -0.02em;
 }
 

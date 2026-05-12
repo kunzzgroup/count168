@@ -57,7 +57,7 @@ body {
             font-weight: bold;
             color: #002C49;
             font-size: clamp(12px, 0.94vw, 18px);
-            font-family: 'Amaranth';
+            font-family: var(--font-heading-page);
             white-space: nowrap;
         }
         
@@ -79,7 +79,7 @@ body {
         .batch-controls-group .btn-update {
             background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
             color: white;
-            font-family: 'Amaranth';
+            font-family: var(--font-heading-page);
             width: clamp(80px, 6.25vw, 120px);
             padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1.04vw, 20px);
             font-size: clamp(10px, 0.83vw, 16px);
@@ -104,7 +104,7 @@ body {
         .batch-controls-group .btn-update-all {
             background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
             color: white;
-            font-family: 'Amaranth';
+            font-family: var(--font-heading-page);
             width: clamp(90px, 7.03vw, 135px);
             padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1.04vw, 20px);
             font-size: clamp(10px, 0.83vw, 16px);
@@ -140,7 +140,7 @@ body {
         .btn-submit {
             background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
             color: white;
-            font-family: 'Amaranth';
+            font-family: var(--font-heading-page);
             width: clamp(80px, 6.25vw, 120px);
             padding: clamp(6px, 0.42vw, 8px) 20px;
             font-size: clamp(10px, 0.83vw, 16px);
@@ -181,7 +181,7 @@ body {
         .btn-cancel {
             background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
             color: white;
-            font-family: 'Amaranth';
+            font-family: var(--font-heading-page);
             width: clamp(80px, 6.25vw, 120px);
             padding: clamp(6px, 0.42vw, 8px) 20px;
             font-size: clamp(10px, 0.83vw, 16px);
@@ -202,7 +202,7 @@ body {
         .btn-refresh {
             background: transparent;
             color: #4a90e2;
-            font-family: 'Amaranth';
+            font-family: var(--font-heading-page);
             width: clamp(40px, 3.125vw, 50px);
             height: clamp(32px, 2.5vw, 40px);
             padding: 0;
@@ -230,13 +230,13 @@ body {
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
-            font-family: 'Amaranth', sans-serif;
+            font-family: var(--font-heading-page);
         }
 
         .summary-btn-delete {
             background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
             color: white;
-            font-family: 'Amaranth';
+            font-family: var(--font-heading-page);
             width: clamp(80px, 6.25vw, 120px);
             padding: clamp(6px, 0.42vw, 8px) 20px;
             font-size: clamp(10px, 0.83vw, 16px);
@@ -755,7 +755,7 @@ body {
             font-size: clamp(20px, 1.67vw, 32px);
             font-weight: 700;
             margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
-            font-family: 'Amaranth', -apple-system, sans-serif;
+            font-family: var(--font-heading-page), -apple-system, sans-serif;
             letter-spacing: -0.02em;
         }
 
@@ -1579,7 +1579,7 @@ body {
         .edit-formula-form-container .btn-save {
             background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
             color: white;
-            font-family: 'Amaranth';
+            font-family: var(--font-heading-page);
             width: clamp(80px, 6.25vw, 120px);
             padding: clamp(6px, 0.42vw, 8px) 20px;
             font-size: clamp(10px, 0.83vw, 16px);
@@ -1599,7 +1599,7 @@ body {
         .edit-formula-form-container .btn-cancel {
             background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
             color: white;
-            font-family: 'Amaranth';
+            font-family: var(--font-heading-page);
             width: clamp(80px, 6.25vw, 120px);
             padding: clamp(6px, 0.42vw, 8px) 20px;
             font-size: clamp(10px, 0.83vw, 16px);
@@ -1721,7 +1721,7 @@ body {
             color: #666;
             font-size: 16px;
             margin: 0;
-            font-family: 'Amaranth', sans-serif;
+            font-family: var(--font-heading-page);
         }
 
         /* Account Select with Buttons Styles */

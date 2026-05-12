@@ -71,7 +71,7 @@ body.transaction-page {
     font-weight: bold;
     color: #374151;
     font-size: clamp(10px, 0.73vw, 14px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     width: clamp(60px, 5.5vw, 105px);
     flex-shrink: 0;
 }
@@ -306,7 +306,7 @@ body.transaction-page {
 .transaction-page .transaction-search-btn {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -323,7 +323,7 @@ body.transaction-page {
 .transaction-page .transaction-submit-btn {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);

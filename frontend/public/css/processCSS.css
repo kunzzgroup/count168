@@ -168,7 +168,7 @@ body.process-page {
     font-weight: bold;
     color: #374151;
     font-size: clamp(10px, 0.73vw, 14px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     white-space: nowrap;
     display: flex;
     align-items: center;
@@ -225,7 +225,7 @@ body.process-page {
 .process-page .content .btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(90px, 7vw, 130px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -250,7 +250,7 @@ body.process-page {
 .process-page .content .btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -1269,7 +1269,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     color: #374151;
     font-size: 0.875rem;
     letter-spacing: 0.025em;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .process-page .form-group input,
@@ -1308,7 +1308,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 .process-page .btn-save {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(90px, 7vw, 130px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -1336,7 +1336,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 .process-page .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
     font-size: clamp(0.625rem, 0.83vw, 1rem);
@@ -1928,7 +1928,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 }
 
 .process-page .notification-popup .notification-title {
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     font-size: 1rem;
     font-weight: 700;
     color: #1e293b;
@@ -1983,7 +1983,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 .process-page .notification-popup .notification-message {
     padding: 0.75rem 1.25rem 1.25rem 1.25rem;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     font-size: 0.875rem;
     color: #475569;
     line-height: 1.5;
@@ -2838,7 +2838,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     font-size: clamp(20px, 1.67vw, 32px);
     font-weight: 700;
     margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
-    font-family: 'Amaranth', -apple-system, sans-serif;
+    font-family: var(--font-heading-page), -apple-system, sans-serif;
     letter-spacing: -0.02em;
 }
 
@@ -2887,7 +2887,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 .process-btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
     font-size: clamp(0.625rem, 0.83vw, 1rem);
@@ -2931,7 +2931,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 .process-btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
     font-size: clamp(0.625rem, 0.83vw, 1rem);
@@ -2976,7 +2976,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 .process-btn-inactive {
     background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
     font-size: clamp(0.625rem, 0.83vw, 1rem);
@@ -3046,7 +3046,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 .process-btn-resend {
     background: linear-gradient(180deg, #10b981 0%, #047857 100%);
     color: white;
-    font-family: 'Amaranth', -apple-system, sans-serif;
+    font-family: var(--font-heading-page), -apple-system, sans-serif;
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
     font-size: clamp(0.625rem, 0.83vw, 1rem);

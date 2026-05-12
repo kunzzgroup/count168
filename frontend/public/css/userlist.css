@@ -353,7 +353,7 @@ body.user-page.user-page--show-all .user-cards {
 .user-page .btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -400,7 +400,7 @@ body.user-page.user-page--show-all .user-cards {
 .user-page .btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(90px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -431,7 +431,7 @@ body.user-page.user-page--show-all .user-cards {
 .user-page .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -1206,7 +1206,7 @@ label.user-modal-col-title.acc-proc-label {
 .user-page .btn-save {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -1231,7 +1231,7 @@ label.user-modal-col-title.acc-proc-label {
 .user-page .btn-account-control {
     background: linear-gradient(180deg, #44e44d 0%, #227426 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: 120px;
     min-height: 35.5px;
     padding: 8px 0;
@@ -1257,7 +1257,7 @@ label.user-modal-col-title.acc-proc-label {
 .user-page .btn-clearall {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: 120px;
     min-height: 35.5px;
     padding: 8px 20px;
@@ -1644,7 +1644,7 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     font-size: clamp(20px, 1.67vw, 32px);
     font-weight: 700;
     margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
-    font-family: 'Amaranth', -apple-system, sans-serif;
+    font-family: var(--font-heading-page), -apple-system, sans-serif;
     letter-spacing: -0.02em;
 }
 
@@ -1702,12 +1702,12 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     font-weight: bold;
     color: #374151;
     font-size: clamp(10px, 0.73vw, 14.5px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     white-space: nowrap;
 }
 
 .transaction-company-filter > span {
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     font-weight: 700;
     font-size: clamp(11px, 0.83vw, 15px);
     color: #374151;

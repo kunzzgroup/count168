@@ -94,7 +94,7 @@ body.dashboard-page.maintenance-page {
     width: clamp(100px, 8vw, 150px);
     justify-content: space-between;
     position: relative;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
 
@@ -130,7 +130,7 @@ body.dashboard-page.maintenance-page {
     color: #000000ff;
     font-size: clamp(8px, 0.74vw, 14px);
     font-weight: 500;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .selector-dropdown .dropdown-item:last-child {
@@ -190,7 +190,7 @@ body.dashboard-page.maintenance-page {
     font-size: clamp(11px, 0.85vw, 13px);
     font-weight: 600;
     color: #374151;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .maintenance-input,
@@ -279,7 +279,7 @@ body.dashboard-page.maintenance-page {
     padding: clamp(3px, 0.31vw, 6px) clamp(12px, 1vw, 18px);
     font-size: clamp(9px, 0.63vw, 12px);
     font-weight: bold;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     border-radius: 999px;
     border: 1px solid #d0d7de;
     background: #f1f5f9;
@@ -318,7 +318,7 @@ body.dashboard-page.maintenance-page {
     font-weight: bold;
     color: #374151;
     font-size: clamp(10px, 0.73vw, 14px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     white-space: nowrap;
 }
 
@@ -389,7 +389,7 @@ body.dashboard-page.maintenance-page {
 .maintenance-search-btn {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -408,7 +408,7 @@ body.dashboard-page.maintenance-page {
 
 /* Flatpickr 自定义样式 */
 .flatpickr-calendar {
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 .flatpickr-day.selected {
@@ -631,7 +631,7 @@ body.dashboard-page.maintenance-page {
 .empty-state p {
     margin: 0 auto;
     max-width: 28rem;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 /* Notification Styles */
@@ -721,7 +721,7 @@ body.dashboard-page.maintenance-page {
 }
 
 .maintenance-confirm-title {
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     font-size: clamp(20px, 1.67vw, 32px);
     font-weight: 700;
     color: #1e293b;
@@ -729,7 +729,7 @@ body.dashboard-page.maintenance-page {
 }
 
 .maintenance-confirm-message {
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     font-size: clamp(14px, 1.04vw, 20px);
     color: #64748b;
     margin: 0 0 clamp(24px, 2.08vw, 40px) 0;
@@ -750,7 +750,7 @@ body.dashboard-page.maintenance-page {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     white-space: nowrap;
 }
 

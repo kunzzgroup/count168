@@ -116,7 +116,7 @@ body.transaction-page {
     font-weight: bold;
     color: #374151;
     font-size: clamp(9px, 0.73vw, 14px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     width: clamp(60px, 5.5vw, 105px);
     flex-shrink: 0;
 }
@@ -341,7 +341,7 @@ body.transaction-page {
 .transaction-page .transaction-account-reverse-btn {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     flex: 0 0 auto;
     align-self: stretch;
     min-width: fit-content;
@@ -422,7 +422,7 @@ body.transaction-page {
 .transaction-page .transaction-search-btn {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(9px, 0.73vw, 14px);
@@ -441,7 +441,7 @@ body.transaction-page {
 .transaction-page .transaction-submit-btn {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(9px, 0.73vw, 14px);
@@ -1299,7 +1299,7 @@ body.transaction-page .transaction-container * {
 
 /* Flatpickr 自定义样式 */
 .flatpickr-calendar {
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -1358,7 +1358,7 @@ body.transaction-page .transaction-container * {
     font-weight: bold;
     color: #374151;
     font-size: clamp(9px, 0.73vw, 14px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     white-space: nowrap;
     min-width: 0px;
     display: inline-block;

@@ -69,7 +69,7 @@ h1 {
     padding: clamp(4px, 0.4vw, 6px) clamp(12px, 1vw, 16px);
     font-size: clamp(12px, 0.85vw, 14px);
     font-weight: 700;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     color: #002C49;
     background: white;
     border: 1.5px solid #cbd5e1;
@@ -228,7 +228,7 @@ h1 {
     margin: 0;
     color: #002C49;
     font-size: clamp(16px, 1.25vw, 24px);
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
 }
 
 .announcement-item {
@@ -460,7 +460,7 @@ h1 {
     margin: 0;
     color: #002C49;
     font-size: clamp(16px, 1.25vw, 24px);
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
 }
 
 /* Edit Modal Styles */
@@ -496,7 +496,7 @@ h1 {
 .edit-modal-header h2 {
     margin: 0;
     color: #002C49;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     font-size: clamp(18px, 1.46vw, 28px);
 }
 

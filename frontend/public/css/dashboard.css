@@ -303,7 +303,7 @@ body.dashboard-page {
     font-weight: bold;
     color: var(--scd-foreground);
     font-size: clamp(9px, 0.82vw, 15px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     white-space: nowrap;
     min-width: 0px;
     display: inline-block;
@@ -367,7 +367,7 @@ body.dashboard-page {
     font-size: clamp(12px, 0.95vw, 15px);
     font-weight: 700;
     color: var(--scd-foreground);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     letter-spacing: 0.02em;
 }
 
@@ -674,7 +674,7 @@ body.dashboard-page {
     text-transform: uppercase;
     letter-spacing: 0.06em;
     margin-bottom: 6px;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .dashboard-filter-cluster__rows {
@@ -794,7 +794,7 @@ body.dashboard-page {
     color: var(--scd-muted-foreground);
     font-weight: 600;
     letter-spacing: 0.06em;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     text-transform: uppercase;
 }
 
@@ -806,7 +806,7 @@ body.dashboard-page {
     font-size: clamp(18px, 1.4vw, 26px);
     font-weight: 700;
     color: var(--scd-card-foreground);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     white-space: nowrap;
 }
 
@@ -930,7 +930,7 @@ body.dashboard-page {
     font-size: clamp(16px, 1.25vw, 24px);
     font-weight: 600;
     color: var(--scd-card-foreground);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .dashboard-chart-buttons {
@@ -1293,7 +1293,7 @@ body.dashboard-page {
     border: 1px solid transparent;
     font-size: clamp(9px, 0.82vw, 15px);
     color: var(--scd-foreground);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .date-part:hover {
@@ -1313,7 +1313,7 @@ body.dashboard-page {
     font-weight: 500;
     user-select: none;
     margin: 0 2px;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .date-dropdown {
@@ -1414,7 +1414,7 @@ body.dashboard-page {
     color: var(--scd-foreground);
     background: transparent;
     border: 1px solid transparent;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .date-option:hover {
@@ -1440,7 +1440,7 @@ body.dashboard-page {
     font-size: clamp(9px, 0.82vw, 15px);
     color: var(--scd-muted-foreground);
     font-weight: 600;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 /* 分隔线 */
@@ -1501,7 +1501,7 @@ body.dashboard-page {
     font-weight: 600;
     text-align: left;
     transition: background-color 0.2s;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .dropdown-item:hover {
@@ -1527,7 +1527,7 @@ body.dashboard-page {
     gap: clamp(4px, 0.6vw, 8px);
     transition: all 0.2s;
     text-decoration: none;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .dropdown .btn {
@@ -1556,7 +1556,7 @@ body.dashboard-page {
     font-weight: bold;
     color: var(--scd-black);
     margin-bottom: clamp(4px, 0.5vw, 8px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .date-info {
@@ -1566,7 +1566,7 @@ body.dashboard-page {
     padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
     background: var(--scd-card);
     border-radius: 6px;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 /* 日历弹窗样式 */
@@ -1629,7 +1629,7 @@ body.dashboard-page {
     background: var(--scd-card);
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .calendar-month-year select:hover {
@@ -1655,7 +1655,7 @@ body.dashboard-page {
     font-weight: 600;
     color: var(--scd-neutral-500);
     padding: clamp(2px, 0.21vw, 4px) 0;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .calendar-days {
@@ -1679,7 +1679,7 @@ body.dashboard-page {
     border: 1px solid transparent;
     position: relative;
     padding: clamp(2px, 0.3vw, 4px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .calendar-day:hover {
@@ -1758,7 +1758,7 @@ body.dashboard-page {
     border-radius: 6px;
     margin-bottom: clamp(4px, 0.5vw, 8px);
     border: 1px solid var(--scd-border);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .text-green {

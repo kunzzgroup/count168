@@ -93,7 +93,7 @@
     background: white;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .calendar-month-year select:hover {
@@ -119,7 +119,7 @@
     font-weight: 600;
     color: #898989;
     padding: clamp(2px, 0.21vw, 4px) 0;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .calendar-days {
@@ -143,7 +143,7 @@
     border: 1px solid transparent;
     position: relative;
     padding: clamp(2px, 0.3vw, 4px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .calendar-day:hover {
@@ -228,7 +228,7 @@
     font-size: clamp(10px, 0.75vw, 14px);
     font-weight: bold;
     color: #000;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .quick-select-wrap .form-label i.fa-clock {
@@ -255,7 +255,7 @@ body:not(.maintenance-page) .quick-select-dropdown .dropdown-toggle {
     cursor: pointer;
     background-color: #3b82f6;
     color: white;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 body:not(.maintenance-page) .quick-select-dropdown .dropdown-toggle:hover {
@@ -297,7 +297,7 @@ body:not(.maintenance-page) .quick-select-dropdown .dropdown-item {
     font-weight: 600;
     text-align: left;
     transition: background-color 0.2s;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 body:not(.maintenance-page) .quick-select-dropdown .dropdown-item:hover {
@@ -351,7 +351,7 @@ body.maintenance-page .quick-select-dropdown .dropdown-item {
     font-weight: 600;
     text-align: left;
     transition: background-color 0.2s;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 body.maintenance-page .quick-select-dropdown .dropdown-item:hover {

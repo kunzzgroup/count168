@@ -145,7 +145,7 @@ body.account-page:not(.account-page--show-all) {
 .account-btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(90px, 7vw, 130px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -169,7 +169,7 @@ body.account-page:not(.account-page--show-all) {
 .account-btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -258,7 +258,7 @@ body.account-page:not(.account-page--show-all) {
     font-weight: bold;
     color: #374151;
     font-size: clamp(10px, 0.73vw, 14px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     white-space: nowrap;
 }
 
@@ -574,7 +574,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding-bottom: 0.75rem;
     border-bottom: 0.125rem solid #e2e8f0;
     position: relative;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .account-section-header::after {
@@ -635,7 +635,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     color: #374151;
     font-size: 0.875rem;
     letter-spacing: 0.025em;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 /* Payment Alert label 更紧凑 */
@@ -706,7 +706,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     transition: all 0.2s ease;
     font-size: clamp(11px, 0.8vw, 13px);
     color: #374151;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .account-radio-label:hover {
@@ -818,7 +818,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     box-shadow: 0 0.125rem 0.25rem rgba(0, 123, 255, 0.3);
 }
 
@@ -870,7 +870,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     transition: all 0.2s ease;
     font-size: 11px;
     color: #374151;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     position: relative;
 }
 
@@ -1156,7 +1156,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     font-size: clamp(20px, 1.67vw, 32px);
     font-weight: 700;
     margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
-    font-family: 'Amaranth', -apple-system, sans-serif;
+    font-family: var(--font-heading-page), -apple-system, sans-serif;
     letter-spacing: -0.02em;
 }
 
@@ -1366,7 +1366,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding: 1rem 1.5rem;
     font-size: 1.4rem;
     font-weight: 700;
-    font-family: Amaranth, sans-serif;
+    font-family: var(--font-heading-page);
     color: #ffffff;
     border: none;
     border-radius: 8px;
@@ -1402,7 +1402,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-company-btn,
 #account-editModal .account-company-btn {
-    font-family: Amaranth, sans-serif;
+    font-family: var(--font-heading-page);
     font-size: 12px;
     padding: 6px 16px;
     min-height: auto;
@@ -1414,7 +1414,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 /* 无 × 的货币 pill（仅选择模式） */
 #account-addModal .account-currency-item:not(.currency-toggle-item),
 #account-editModal .account-currency-item:not(.currency-toggle-item) {
-    font-family: Amaranth, sans-serif;
+    font-family: var(--font-heading-page);
     font-size: 12px;
     padding: 6px 16px;
     min-height: auto;
@@ -1427,7 +1427,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-currency-item.currency-toggle-item,
 #account-editModal .account-currency-item.currency-toggle-item {
     border-radius: 0.5rem;
-    font-family: Amaranth, sans-serif;
+    font-family: var(--font-heading-page);
     font-weight: 600;
     padding: 0.5rem 0.75rem;
     min-height: 2.75rem;
@@ -1535,7 +1535,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     min-height: 36px;
     font-size: 16px;
     font-weight: 700;
-    font-family: Amaranth, sans-serif;
+    font-family: var(--font-heading-page);
     padding: 8px 20px;
     color: #ffffff;
     border: none;
@@ -1556,7 +1556,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     min-height: 36px;
     font-size: 16px;
     font-weight: 700;
-    font-family: Amaranth, sans-serif;
+    font-family: var(--font-heading-page);
     padding: 8px 20px;
     color: #ffffff;
     border: none;
@@ -1628,7 +1628,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding: 1.25rem 0 0 2.1875rem;
     font-size: 32px;
     line-height: 1;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .account-close {
@@ -1723,7 +1723,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 .account-btn-save {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     min-width: clamp(90px, 7vw, 130px);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
     font-size: clamp(0.625rem, 0.83vw, 1rem);
@@ -1774,7 +1774,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 .account-btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     min-width: clamp(90px, 7vw, 130px);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
     font-size: clamp(0.625rem, 0.83vw, 1rem);
@@ -2158,7 +2158,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     min-height: 32px;
     box-sizing: border-box;
     line-height: 1.2;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .report-date-range-picker:hover {
@@ -2209,7 +2209,7 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-toggle {
     width: clamp(104px, 8.8vw, 140px);
     justify-content: space-between;
     position: relative;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     min-height: 32px;
     line-height: 1.2;
@@ -2249,7 +2249,7 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item {
     cursor: pointer;
     font-size: 13px;
     color: #374151;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     transition: all 0.2s;
 }
 

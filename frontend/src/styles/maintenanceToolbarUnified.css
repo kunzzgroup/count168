@@ -74,7 +74,7 @@ body.maintenance-page .maintenance-search-section .quick-select-dropdown .dropdo
     padding: clamp(3px, 0.31vw, 6px) clamp(12px, 1vw, 18px);
     font-size: clamp(9px, 0.63vw, 12px);
     font-weight: bold;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-ui);
     border-radius: 999px;
     border: 1px solid transparent;
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
@@ -111,7 +111,7 @@ body.maintenance-page .maintenance-search-section .quick-select-dropdown .dropdo
 body.maintenance-page .maintenance-delete-btn {
     background: linear-gradient(180deg, #f30e12 0%, #a91215 100%);
     color: white;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-ui);
     width: auto;
     min-width: clamp(72px, 5.5vw, 110px);
     padding: clamp(3px, 0.31vw, 6px) clamp(14px, 1.04vw, 22px);

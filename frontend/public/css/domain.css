@@ -560,7 +560,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn:active {
 body.domain-page .domain-react-page .btn-add {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: 120px;
     min-height: 35.5px;
     padding: 8px 0;
@@ -582,7 +582,7 @@ body.domain-page .domain-react-page .btn-add:hover {
 body.domain-page .domain-react-page .btn-fee-settings {
     background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
     color: white;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     width: 68.24px;
     min-height: 35.5px;
     padding: 8px 0;
@@ -743,7 +743,7 @@ body.domain-page .domain-fee-react-modal.modal-content {
     width: 120px;
     min-height: 35.5px;
     padding: 8px 20px;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     font-size: 15.936px;
     line-height: 1;
     border-radius: 6px;
@@ -785,7 +785,7 @@ body.domain-page .domain-fee-react-modal.modal-content {
     border-radius: 8px;
     padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1vw, 18px);
     font-size: clamp(10px, 0.83vw, 16px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     white-space: nowrap;
@@ -1298,7 +1298,7 @@ body.domain-page .domain-fee-react-modal.modal-content {
     width: 120px;
     min-height: 35.5px;
     padding: 8px 20px;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     font-size: 15.936px;
     font-weight: 600;
     line-height: 1;
@@ -2084,7 +2084,7 @@ body.domain-page .domain-react-page .btn-edit img {
 body.domain-page .domain-react-page .btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: 120px;
     min-height: 35.5px;
     padding: 8px 20px;
@@ -2112,7 +2112,7 @@ body.domain-page .domain-react-page .btn-delete.active {
 .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -2132,7 +2132,7 @@ body.domain-page .domain-react-page .btn-delete.active {
 .btn-access {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 0px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -2291,7 +2291,7 @@ body.domain-page .domain-react-page .btn-delete.active {
 .btn-save {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -2315,7 +2315,7 @@ body.domain-page .domain-react-page .btn-delete.active {
 .btn-primary {
     background: linear-gradient(180deg, #6fd4c6 0%, #2ea89b 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
@@ -3047,7 +3047,7 @@ body.domain-page .domain-react-page .pagination-info {
     font-size: clamp(20px, 1.67vw, 32px);
     font-weight: 700;
     margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
-    font-family: 'Amaranth', -apple-system, sans-serif;
+    font-family: var(--font-heading-page), -apple-system, sans-serif;
     letter-spacing: -0.02em;
 }
 
@@ -3119,7 +3119,7 @@ body.domain-page .domain-confirm-modal-content .confirm-icon {
 body.domain-page .domain-confirm-modal-content .confirm-title {
     margin: 0 0 24px 0 !important;
     text-align: center !important;
-    font-family: 'Amaranth' !important;
+    font-family: var(--font-heading-page) !important;
     font-size: 40px !important;
     font-weight: 700 !important;
     line-height: 1 !important;

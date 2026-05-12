@@ -55,7 +55,7 @@ body {
     font-size: clamp(11px, 0.85vw, 13px);
     font-weight: 600;
     color: #374151;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
 }
 
 .customer-report-filter-group select,

@@ -88,7 +88,7 @@
     border-radius: 4px;
     font-size: 13px;
     color: #3f3f46;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     cursor: pointer;
     user-select: none;
 }

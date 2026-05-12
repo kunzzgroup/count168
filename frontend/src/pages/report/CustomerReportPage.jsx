@@ -66,7 +66,7 @@ export default function CustomerReportPage() {
 
     let cancelled = false;
     const links = [
-      "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
     ];
 

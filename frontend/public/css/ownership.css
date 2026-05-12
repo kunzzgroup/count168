@@ -90,7 +90,7 @@ body.ownership-page {
     font-size: 13px;
     font-weight: 700;
     color: var(--own-dark-text);
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     white-space: nowrap;
     min-width: 52px;
     text-align: right;

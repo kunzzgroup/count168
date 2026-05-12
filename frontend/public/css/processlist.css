@@ -727,7 +727,7 @@
 #processAccountingDueModal .btn-primary {
     background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
     color: white;
-    font-family: 'Amaranth';
+    font-family: var(--font-heading-page);
     width: clamp(7.5rem, 9.5vw, 10.5rem);
     padding: clamp(0.5rem, 0.6vw, 0.75rem) 1.5rem;
     font-size: clamp(0.9rem, 1.1vw, 1.25rem);
@@ -757,7 +757,7 @@
 #processAccountingDueModal .btn.btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%) !important;
     color: #fff !important;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     width: clamp(7.5rem, 9.5vw, 10.5rem);
     padding: clamp(0.5rem, 0.6vw, 0.75rem) 1.5rem;
     font-size: clamp(0.9rem, 1.1vw, 1.25rem);
@@ -792,7 +792,7 @@
 #processAccountingDueModal .btn.btn-cancel {
     background: linear-gradient(180deg, #6c757d 0%, #495057 100%) !important;
     color: #fff !important;
-    font-family: 'Amaranth', sans-serif;
+    font-family: var(--font-heading-page);
     width: clamp(7.5rem, 9.5vw, 10.5rem);
     padding: clamp(0.5rem, 0.6vw, 0.75rem) 1.5rem;
     font-size: clamp(0.9rem, 1.1vw, 1.25rem);
@@ -912,7 +912,7 @@
 
 /* Footer: Cancel 字号与 Add Process 一致（覆盖全局 btn-cancel 偏小） */
 #addBankModal .bank-actions .btn-cancel {
-    font-family: 'Amaranth', inherit;
+    font-family: var(--font-heading-page), inherit;
     font-size: clamp(10px, 0.83vw, 16px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     width: clamp(90px, 7vw, 130px);

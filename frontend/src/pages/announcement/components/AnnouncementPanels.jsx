@@ -32,7 +32,7 @@ export function AnnouncementPanel({ t, announcements, onEdit, onDelete }) {
     <div id="panel-announcement" className="page-panel">
       <div className="announcement-layout">
         <div className="announcement-form-section">
-          <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "'Amaranth', sans-serif", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
+          <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "var(--font-heading-page)", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
             {t("createNewAnnouncement")}
           </h2>
           <form id="announcementForm" onSubmit={handleSubmit}>
@@ -126,7 +126,7 @@ export function MaintenancePanel({ t, maintenanceList, onEdit, onDelete }) {
     <div id="panel-maintenance" className="page-panel">
       <div className="maintenance-layout">
         <div className="maintenance-form-section">
-          <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "'Amaranth', sans-serif", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
+          <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "var(--font-heading-page)", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
             {t("createNewMaintenanceContent")}
           </h2>
           {!canCreate && (
