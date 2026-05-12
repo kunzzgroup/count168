@@ -78,10 +78,12 @@ body.transaction-page {
     gap: clamp(6px, 0.52vw, 12px);
 }
 
+/* Group / Company / Currency：紧跟筛选区，勿用 margin-top:auto（会与右侧表单等高时整块沉底，看起来像缺少 Group/Company） */
 .transaction-page .transaction-bottom-filters {
-    margin-top: auto;
+    margin-top: clamp(6px, 0.52vw, 10px);
     display: flex;
     flex-direction: column;
+    gap: clamp(6px, 0.52vw, 10px);
 }
 
 .transaction-page .transaction-form-group {
