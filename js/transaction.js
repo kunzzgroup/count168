@@ -2100,7 +2100,7 @@
             if (!quiet) {
                 if (displayedCount === 0 && totalAccounts > 0) {
                     showNotification(
-                        `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show 0 balance" or adjust filters.`,
+                        `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show all 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show all 0 balance" or adjust filters.`,
                         'info'
                     );
                 } else {

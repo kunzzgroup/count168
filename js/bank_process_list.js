@@ -949,7 +949,8 @@ function renderBankTable() {
         const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
         const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
         if (isOnceRow) {
-            contractCell = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('ONCE') + '</span>';
+            const onceContractClass = baseContractClass === 'contract-active' ? 'contract-1month-active' : baseContractClass;
+            contractCell = '<span class="contract-badge ' + onceContractClass + '">' + escapeHtml('ONCE') + '</span>';
         } else {
             contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
             const contractClass = (grayContracts.indexOf(contract) !== -1 && baseContractClass === 'contract-active')
@@ -1876,7 +1877,8 @@ async function performToggleStatus(processId) {
                         const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
                         let contractCellHtml;
                         if (isOnceRow) {
-                            contractCellHtml = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('ONCE') + '</span>';
+                            const onceContractClass = baseContractClass === 'contract-active' ? 'contract-1month-active' : baseContractClass;
+                            contractCellHtml = '<span class="contract-badge ' + onceContractClass + '">' + escapeHtml('ONCE') + '</span>';
                         } else {
                             const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
                             const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];

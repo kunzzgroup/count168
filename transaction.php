@@ -205,7 +205,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                     </label>
                     <label class="transaction-checkbox-label">
                         <input type="checkbox" id="show_zero_balance" class="transaction-checkbox">
-                        Show 0 balance
+                        Show all 0 balance
                     </label>
                 </div>
                 

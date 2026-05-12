@@ -975,7 +975,8 @@ function renderBankTable() {
         const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
         const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
         if (isOnceRow) {
-            contractCell = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('ONCE') + '</span>';
+            const onceContractClass = baseContractClass === 'contract-active' ? 'contract-1month-active' : baseContractClass;
+            contractCell = '<span class="contract-badge ' + onceContractClass + '">' + escapeHtml('ONCE') + '</span>';
         } else {
             contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
             const contractClass = (grayContracts.indexOf(contract) !== -1 && baseContractClass === 'contract-active')
@@ -2495,16 +2496,23 @@ async function performToggleStatus(processId) {
                     row.setAttribute('data-issue-flag', normalizeBankIssueFlag(process ? process.issue_flag : ''));
                     const cells = row.querySelectorAll('td');
                     if (cells.length >= 15) {
-                        // Contract cell (index 6): apply gray rule for 1 MONTH / 1+1 / 1+2 / 1+3 during active period
-                        const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
+                        // Contract cell (index 6): gray for 1 MONTH / 1+1 / 1+2 / 1+3 / ONCE when active (same badge style)
                         const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
-                        const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
-                        const contractClass = (grayContracts.indexOf(contractRaw) !== -1 && baseContractClass === 'contract-active')
-                            ? 'contract-1month-active'
-                            : baseContractClass;
-                        const contractCellHtml = (contractRaw && contractClass)
-                            ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contractRaw) + '</span>'
-                            : (contractRaw ? escapeHtml(contractRaw) : escapeHtml('-'));
+                        const isOnceRowUpd = process && String(process.day_start_frequency || '') === 'once';
+                        let contractCellHtml;
+                        if (isOnceRowUpd) {
+                            const onceContractClass = baseContractClass === 'contract-active' ? 'contract-1month-active' : baseContractClass;
+                            contractCellHtml = '<span class="contract-badge ' + onceContractClass + '">' + escapeHtml('ONCE') + '</span>';
+                        } else {
+                            const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
+                            const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
+                            const contractClass = (grayContracts.indexOf(contractRaw) !== -1 && baseContractClass === 'contract-active')
+                                ? 'contract-1month-active'
+                                : baseContractClass;
+                            contractCellHtml = (contractRaw && contractClass)
+                                ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contractRaw) + '</span>'
+                                : (contractRaw ? escapeHtml(contractRaw) : escapeHtml('-'));
+                        }
                         cells[6].innerHTML = contractCellHtml;
 
                         // Status & action cells
