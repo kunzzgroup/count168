@@ -1405,18 +1405,18 @@ label.user-modal-col-title.acc-proc-label {
     margin-left: 0;
 }
 
-/* Input formatting */
-#login_id {
+/* User modal — Login ID / Name / Email 输入（仅字号 token，不声明 font-weight） */
+#userModal #login_id {
     text-transform: uppercase;
     font-size: var(--text-small);
 }
 
-#name {
+#userModal #name {
     text-transform: uppercase;
     font-size: var(--text-small);
 }
 
-#email {
+#userModal #email {
     text-transform: lowercase;
     font-size: var(--text-small);
 }
