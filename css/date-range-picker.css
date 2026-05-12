@@ -317,3 +317,27 @@
 .quick-select-dropdown .dropdown-item:last-child {
     border-radius: 0 0 6px 6px;
 }
+
+/* Bank Process Day start / Day end single-date popup */
+.calendar-popup-bank-footer {
+    border-top: 1px solid #e5e7eb;
+    margin-top: 10px;
+    padding-top: 10px;
+    text-align: right;
+}
+
+.calendar-popup-bank-clear {
+    background: transparent;
+    border: none;
+    color: #2563eb;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 4px;
+    text-decoration: underline;
+    font-family: inherit;
+}
+
+.calendar-popup-bank-clear:hover {
+    color: #1d4ed8;
+}

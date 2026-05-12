@@ -50,6 +50,62 @@
         return String(raw).trim().substring(0, 10);
     }
 
+    function hideBankCalendarFooter() {
+        const foot = document.getElementById('calendar-popup-bank-footer');
+        if (foot) foot.style.display = 'none';
+    }
+
+    function showBankCalendarFooter() {
+        const foot = document.getElementById('calendar-popup-bank-footer');
+        if (foot) foot.style.display = 'block';
+    }
+
+    /** Bank Add/Edit Day start / Day end：日历底部「清空日期」 */
+    function ensureBankCalendarFooter(popup) {
+        if (!popup || document.getElementById('calendar-popup-bank-footer')) return;
+        const foot = document.createElement('div');
+        foot.id = 'calendar-popup-bank-footer';
+        foot.className = 'calendar-popup-bank-footer';
+        foot.style.display = 'none';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'calendar-popup-bank-clear';
+        btn.textContent = 'Clear';
+        btn.setAttribute('aria-label', 'Clear date');
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            clearBankSingleDateSelection();
+        });
+        foot.appendChild(btn);
+        popup.appendChild(foot);
+    }
+
+    function clearBankSingleDateSelection() {
+        if (!bankPopupState) return;
+        const st = bankPopupState;
+        const input = document.getElementById(st.inputId);
+        const onSel = st.onSelect;
+        bankPopupState = null;
+        hideBankCalendarFooter();
+        const popup = document.getElementById('calendar-popup');
+        if (popup) popup.style.display = 'none';
+        if (typeof setBankFormDayInputYmd === 'function' && input) {
+            setBankFormDayInputYmd(input, '');
+        } else {
+            if (input) {
+                input.value = '';
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            const display = document.getElementById(st.displayId);
+            if (display) {
+                display.textContent = 'dd/mm/yyyy';
+                display.classList.add('bank-day-display--placeholder');
+            }
+        }
+        if (typeof onSel === 'function') onSel('');
+    }
+
     function syncRangeStateFromHiddenInputs() {
         const fromEl = document.getElementById(config.dateFromId);
         const toEl = document.getElementById(config.dateToId);
@@ -136,8 +192,10 @@
         const monthSelect = document.getElementById('calendar-month-select');
         if (monthSelect) monthSelect.value = calendarCurrentDate.getMonth();
         positionPopupUnderAnchor(anchorEl);
+        ensureBankCalendarFooter(popup);
         popup.style.display = 'block';
         renderCalendar();
+        showBankCalendarFooter();
     }
 
     function updateDateRangeDisplay() {
@@ -165,6 +223,7 @@
         if (!popup || !picker) return;
         if (popup.style.display === 'none' || !popup.style.display) {
             bankPopupState = null;
+            hideBankCalendarFooter();
             syncRangeStateFromHiddenInputs();
             var rect = picker.getBoundingClientRect();
             var barWidth = rect.width;
@@ -339,6 +398,7 @@
             const display = document.getElementById(bankPopupState.displayId);
             const onSel = bankPopupState.onSelect;
             bankPopupState = null;
+            hideBankCalendarFooter();
             if (input) {
                 input.value = ymd;
                 input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -376,6 +436,7 @@
 
     function clearSelection(triggerOnChange) {
         bankPopupState = null;
+        hideBankCalendarFooter();
         calendarStartDate = null;
         calendarEndDate = null;
         isSelectingRange = false;
@@ -611,6 +672,7 @@
                 if (calendar && popup && !calendar.contains(e.target) && !popup.contains(e.target) && !bankPick) {
                     popup.style.display = 'none';
                     bankPopupState = null;
+                    hideBankCalendarFooter();
                 }
                 var qsDropdown = document.getElementById('quick-select-dropdown');
                 var qsToggle = e.target.closest && (e.target.closest('.quick-select-dropdown-toggle') || e.target.closest('#quick-select-dropdown'));
