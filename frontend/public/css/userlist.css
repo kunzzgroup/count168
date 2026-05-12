@@ -527,25 +527,6 @@ body.user-page .user-gc-segment:disabled {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
-/* 列表内编辑按钮：浅灰边框方角圆（图一） */
-body.user-page .user-table-wrapper .btn-edit {
-    width: clamp(30px, 2.2vw, 38px);
-    height: clamp(30px, 2.2vw, 38px);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 8px;
-    background: #ffffff;
-    box-sizing: border-box;
-}
-
-body.user-page .user-table-wrapper .btn-edit:hover:not(:disabled) {
-    background: #f8fafc;
-    border-color: #cbd5e1 !important;
-}
-
 .user-page .btn-delete {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
@@ -1713,38 +1694,23 @@ body.user-page .user-filter-chip__label {
     border-radius: 0;
 }
 
-/* User List 表：白底灰字表头 + 头像+Login 首列（与图一 SaaS 表一致） */
-body.user-page .user-table-wrapper .table-header {
+.table-header {
     display: grid;
-    grid-template-columns: 2.35fr 2fr 3.35fr 2.45fr 1.45fr 2.35fr 2fr 2.05fr;
-    gap: 12px;
-    padding: 10px 20px 12px;
-    background: #ffffff !important;
-    border-radius: 10px 10px 0 0;
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.95fr;
+    gap: 15px;
+    padding: 6px 20px;
+    background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
+    border-radius: 8px 8px 0 0;
     margin-top: 20px;
-    font-weight: 600;
-    color: #64748b;
-    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: bold;
+    color: white;
+    font-size: var(--text-base);
     min-width: 0;
-    border-bottom: 0.5px solid #e2e8f0;
-    align-items: center;
-}
-
-body.user-page .user-table-wrapper .table-header .header-item {
-    display: flex;
-    align-items: center;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-weight: 600;
-}
-
-body.user-page .user-table-wrapper .table-header .header-item--action {
-    justify-content: center;
-    gap: 8px;
+    /* 允许内容收缩 */
 }
 
 /* 可排序的表头项 */
-body.user-page .user-table-wrapper .header-sortable {
+.header-sortable {
     cursor: pointer;
     user-select: none;
     display: flex;
@@ -1755,19 +1721,19 @@ body.user-page .user-table-wrapper .header-sortable {
     border-radius: 4px;
 }
 
-body.user-page .user-table-wrapper .header-sortable:hover {
-    background-color: rgba(15, 23, 42, 0.05);
+.header-sortable:hover {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* 排序指示器 */
-body.user-page .user-table-wrapper .sort-indicator {
+.sort-indicator {
     font-size: clamp(8px, 0.6vw, 12px);
-    color: #94a3b8;
+    color: rgba(255, 255, 255, 0.8);
     display: inline;
-    margin-left: 2px;
+    margin-left: 4px;
 }
 
-body.user-page .user-table-wrapper .sort-indicator[style*="display: inline"] {
+.sort-indicator[style*="display: inline"] {
     display: inline !important;
 }
 
@@ -1786,99 +1752,36 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     min-height: 0;
 }
 
-body.user-page .user-table-wrapper .user-card {
+.user-card {
     display: none;
-    grid-template-columns: 2.35fr 2fr 3.35fr 2.45fr 1.45fr 2.35fr 2fr 2.05fr;
-    gap: 12px;
-    padding: clamp(8px, 0.9vw, 14px) 20px;
-    background: #fafaf9;
-    border-bottom: 0.5px solid rgba(15, 23, 42, 0.1);
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2.45fr 1.53fr;
+    gap: 15px;
+    padding: clamp(1px, 0.21vw, 4px) 22px;
+    background: #f0e5fb;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
-    transition: background-color 0.15s ease;
+    transition: all 0.2s ease;
     min-width: 0;
+    /* 允许内容收缩 */
 }
 
-body.user-page .user-table-wrapper .user-card.show-card {
+.user-card.show-card {
     display: grid;
+    /* 添加新class来显示 */
 }
 
-body.user-page .user-table-wrapper .user-card.user-card--loading.show-card {
-    display: flex !important;
-    justify-content: center;
-    align-items: center;
-    min-height: 56px;
-    color: #64748b;
-    font-weight: 500;
-    background: #fafaf9;
+/* Zebra striping for cards - 基于索引而不是 DOM 位置 */
+.user-card.row-even {
+    background: #cceeff99;
 }
 
-/* 与图一一致：统一浅底，取消斑马纹 */
-body.user-page .user-table-wrapper .user-card.row-even,
-body.user-page .user-table-wrapper .user-card.row-odd {
-    background: #fafaf9;
+.user-card.row-odd {
+    background: #ffffff;
 }
 
-body.user-page .user-table-wrapper .user-card:hover {
-    background: #f1f5f4;
-    box-shadow: none;
-    transform: none;
-}
-
-body.user-page .user-table-wrapper .user-card .card-item {
-    font-size: var(--text-medium);
-    font-weight: 500;
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-body.user-page .user-table-wrapper .user-card .card-item--name {
-    font-weight: 500;
-    color: #111827;
-}
-
-body.user-page .user-table-wrapper .user-card .card-item--email {
-    font-weight: 400;
-    color: #64748b;
-}
-
-body.user-page .user-table-wrapper .user-card .card-item--muted {
-    font-weight: 400;
-    color: #94a3b8;
-}
-
-body.user-page .user-table-wrapper .user-card .card-item--action {
-    gap: 8px;
-}
-
-body.user-page .user-table-wrapper .user-card .user-card__login-cell {
-    gap: 10px;
-}
-
-body.user-page .user-row-avatar {
-    flex-shrink: 0;
-    width: clamp(28px, 2.1vw, 36px);
-    height: clamp(28px, 2.1vw, 36px);
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: clamp(11px, 0.85vw, 14px);
-    color: #0f172a;
-}
-
-body.user-page .user-row-login {
-    font-weight: 700;
-    color: #0f172a;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
+.user-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
 }
 
 .card-item {
@@ -1898,84 +1801,49 @@ body.user-page .user-row-login {
     text-transform: uppercase;
 }
 
-/* 分页：左用户数 + 右箭头与当前页（图一） */
-body.user-page .pagination-container {
+/* 分页样式 - 修改为图片中的设计 */
+.pagination-container {
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 0px));
     right: max(40px, env(safe-area-inset-right, 0px));
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-width: min(92vw, 320px);
-    padding: 8px 14px;
-    background: rgba(255, 255, 255, 0.96);
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+    gap: 0;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 0px;
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    border: 1px solid rgba(148, 163, 184, 0.2);
     z-index: 100;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-body.user-page .pagination-user-count {
-    font-size: clamp(10px, 0.75vw, 13px);
+.pagination-btn {
+    background: transparent;
+    border: none;
+    color: #007AFF;
+    font-size: clamp(8px, 0.83vw, 16px);
     font-weight: 500;
-    color: #94a3b8;
-    white-space: nowrap;
-}
-
-body.user-page .pagination-nav {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-body.user-page .pagination-btn {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    color: #0f172a;
-    font-size: clamp(11px, 0.85vw, 15px);
-    font-weight: 600;
-    width: clamp(28px, 2.1vw, 34px);
-    height: clamp(28px, 2.1vw, 34px);
+    width: clamp(20px, 1.46vw, 28px);
+    height: clamp(20px, 1.46vw, 28px);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    border-radius: 8px;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+    border-radius: 14px;
+    transition: all 0.2s ease;
     margin: 0;
-    line-height: 1;
-    padding: 0;
 }
 
-body.user-page .pagination-btn:hover:not(:disabled) {
-    background-color: #f8fafc;
-    border-color: #cbd5e1;
-    color: #0f172a;
+.pagination-btn:hover:not(:disabled) {
+    background-color: rgba(0, 122, 255, 0.1);
+    color: #0056b3;
 }
 
-body.user-page .pagination-btn:disabled {
-    color: #cbd5e1;
-    border-color: #f1f5f9;
+.pagination-btn:disabled {
+    color: #C7C7CC;
     cursor: not-allowed;
-    background: #fafafa;
-}
-
-body.user-page .pagination-page-current {
-    min-width: clamp(28px, 2.1vw, 34px);
-    height: clamp(28px, 2.1vw, 34px);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: clamp(11px, 0.85vw, 14px);
-    font-weight: 600;
-    color: #0f172a;
-    border: 2px solid #0f172a;
-    border-radius: 8px;
-    box-sizing: border-box;
-    padding: 0 6px;
 }
 
 .pagination-info {

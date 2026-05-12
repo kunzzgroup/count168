@@ -119,7 +119,7 @@
         padding-bottom: 4px !important;
     }
 
-    /* User List 表头：字号用 --text-base（样式见 userlist.css 白底灰字） */
+    /* User List 表头蓝条：单独用 --text-base */
     body.ec-auth-shell.user-page .table-header {
         font-size: var(--text-base) !important;
     }
