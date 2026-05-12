@@ -1477,11 +1477,6 @@ body.user-page .search-container.userlist-search-bar {
     overflow: hidden;
 }
 
-body.user-page .search-container.userlist-search-bar:focus-within {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 3px 4px rgba(15, 23, 42, 0.1);
-}
-
 body.user-page .userlist-search-bar__icon {
     flex: 0 0 30px;
     width: 30px;
@@ -1539,8 +1534,10 @@ body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-sea
 }
 
 body.user-page .search-container.userlist-search-bar .userlist-search-input:focus,
-body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input:focus {
-    outline: none;
+body.user-page .search-container.userlist-search-bar .userlist-search-input:focus-visible,
+body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input:focus,
+body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input:focus-visible {
+    outline: none !important;
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
