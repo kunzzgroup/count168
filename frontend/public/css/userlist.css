@@ -112,17 +112,6 @@ body.user-page.user-page--show-all .user-cards {
     overflow: hidden;
 }
 
-/* User List 工具条整块：磨砂玻璃（需背后有页面渐变才看得出 blur） */
-body.user-page .action-buttons-container {
-    background: rgba(255, 255, 255, 0.52);
-    border: 1px solid rgba(255, 255, 255, 0.55);
-    box-shadow:
-        0 4px 28px rgba(15, 23, 42, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(16px) saturate(1.12);
-    -webkit-backdrop-filter: blur(16px) saturate(1.12);
-}
-
 body.user-page .user-gc-inline-panel {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -130,8 +119,8 @@ body.user-page .user-gc-inline-panel {
     row-gap: 10px;
     align-items: center;
     padding: 12px 20px 14px;
-    border-top: 1px solid rgba(15, 23, 42, 0.06);
-    background: transparent;
+    border-top: 1px solid #eef2f7;
+    background: #ffffff;
 }
 
 body.user-page .user-gc-inline-row {
@@ -167,21 +156,19 @@ body.user-page .user-gc-segment-group {
     display: inline-flex;
     flex-direction: row;
     flex-shrink: 0;
-    border: 1px solid rgba(226, 232, 240, 0.9);
+    border: 1px solid #e2e8f0;
     border-radius: 10px;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.65);
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 body.user-page .user-gc-segment {
     margin: 0;
     padding: 8px clamp(10px, 1.2vw, 18px);
     border: none;
-    border-right: 1px solid rgba(226, 232, 240, 0.95);
-    background: rgba(255, 255, 255, 0.45);
+    border-right: 1px solid #e2e8f0;
+    background: #ffffff;
     color: #1f2937;
     font-size: clamp(11px, 0.82vw, 14px);
     font-weight: 600;
@@ -193,6 +180,7 @@ body.user-page .user-gc-segment {
         background 0.15s ease,
         color 0.15s ease;
 }
+
 
 body.user-page .user-gc-segment:last-child {
     border-right: none;
@@ -213,6 +201,32 @@ body.user-page .user-gc-segment.is-on {
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
     color: #ffffff;
     border-right-color: rgba(255, 255, 255, 0.28);
+}
+
+/* Company 行段组：磨砂玻璃（GroupID 仍为上方白底实色） */
+body.user-page .user-gc-segment-group--company {
+    background: rgba(255, 255, 255, 0.48);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: 0 2px 14px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(12px) saturate(1.12);
+    -webkit-backdrop-filter: blur(12px) saturate(1.12);
+}
+
+body.user-page .user-gc-segment-group--company .user-gc-segment:not(.is-on) {
+    background: rgba(255, 255, 255, 0.38);
+    border-right-color: rgba(226, 232, 240, 0.92);
+}
+
+body.user-page .user-gc-segment-group--company .user-gc-segment:hover:not(:disabled):not(.is-on) {
+    background: rgba(248, 250, 252, 0.75);
+}
+
+body.user-page .user-gc-segment-group--company .user-gc-segment.is-on {
+    background: linear-gradient(180deg, rgba(99, 196, 255, 0.78) 0%, rgba(13, 96, 255, 0.82) 100%);
+    backdrop-filter: blur(10px) saturate(1.2);
+    -webkit-backdrop-filter: blur(10px) saturate(1.2);
+    color: #ffffff;
+    border-right-color: rgba(255, 255, 255, 0.35);
 }
 
 body.user-page .user-gc-segment:disabled {
@@ -1483,11 +1497,9 @@ body.user-page .search-container.userlist-search-bar {
     min-height: calc(18px + 12px + 2px);
     height: auto;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.55);
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.65);
-    backdrop-filter: blur(10px) saturate(1.08);
-    -webkit-backdrop-filter: blur(10px) saturate(1.08);
+    background: rgba(255, 255, 255, 1);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 3px 4px rgba(15, 23, 42, 0.1);
     box-sizing: border-box;
     overflow: hidden;
 }
@@ -1577,12 +1589,10 @@ body.user-page .user-filter-chip {
     gap: 8px;
     padding: 6px 14px 6px 10px;
     margin: 0;
-    border: 1px solid rgba(226, 232, 240, 0.85);
+    border: 1px solid #e2e8f0;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.78);
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
     cursor: pointer;
     font-family: inherit;
     font-size: clamp(12px, 0.85vw, 15px);
