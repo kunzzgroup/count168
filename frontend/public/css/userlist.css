@@ -1459,16 +1459,16 @@ label.user-modal-col-title.acc-proc-label {
     background: rgba(255, 255, 255, 1);
 }
 
-/* User List — 常显搜索条（药丸 + 左图标；无折叠/宽度动画） */
+/* User List — 常显搜索条（药丸 + 左图标；高度与 .user-filter-chip 一致：18px 内容区 + 6+6 padding + 1+1 border） */
 body.user-page .search-container.userlist-search-bar {
     display: flex;
     flex-direction: row;
-    align-items: stretch;
+    align-items: center;
     flex-shrink: 0;
     width: clamp(200px, 28vw, 320px);
     max-width: clamp(200px, 28vw, 320px);
-    min-height: clamp(34px, 2.5vw, 40px);
-    height: clamp(34px, 2.5vw, 40px);
+    min-height: calc(18px + 12px + 2px);
+    height: auto;
     border-radius: 999px;
     background: rgba(255, 255, 255, 1);
     border: 1px solid rgba(148, 163, 184, 0.35);
@@ -1483,13 +1483,14 @@ body.user-page .search-container.userlist-search-bar:focus-within {
 }
 
 body.user-page .userlist-search-bar__icon {
-    flex: 0 0 clamp(36px, 2.75vw, 42px);
-    width: clamp(36px, 2.75vw, 42px);
+    flex: 0 0 30px;
+    width: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #64748b;
     pointer-events: none;
+    align-self: center;
 }
 
 body.user-page .userlist-search-bar__icon svg {
@@ -1505,7 +1506,8 @@ body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-sea
     width: auto !important;
     max-width: none !important;
     margin: 0 !important;
-    padding: clamp(4px, 0.35vw, 7px) clamp(10px, 0.9vw, 14px) clamp(4px, 0.35vw, 7px) clamp(4px, 0.4vw, 8px) !important;
+    padding: 6px clamp(10px, 0.9vw, 14px) 6px clamp(4px, 0.4vw, 8px) !important;
+    min-height: 0 !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
@@ -1514,7 +1516,7 @@ body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-sea
     -webkit-backdrop-filter: none !important;
     font-size: var(--text-small);
     color: #0f172a;
-    line-height: 1.35;
+    line-height: 1.2;
 }
 
 body.user-page .search-container.userlist-search-bar .userlist-search-input::placeholder,
@@ -1526,8 +1528,8 @@ body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-sea
 /* 13″ 全局 .search-input：User List 药丸内用 token 字号与内边距 */
 body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input.search-input {
     font-size: var(--text-small) !important;
-    padding-top: clamp(4px, 0.35vw, 7px) !important;
-    padding-bottom: clamp(4px, 0.35vw, 7px) !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
     padding-left: clamp(4px, 0.4vw, 8px) !important;
     padding-right: clamp(10px, 0.9vw, 14px) !important;
     max-width: none !important;
