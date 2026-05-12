@@ -91,10 +91,10 @@
 
   /*
    * 列表表格体（User / Account 分页模式，非 Show All）：
-   * min：小屏保底；preferred：约半屏随视口；max：≈20 行（20 × ~2.75rem）封顶，避免超高屏无限拉长。
-   * 若你本意是「中间用 2vh」：2vh 过小且 max 几乎永不生效，请用 52vh 量级。
+   * 中间用 2vh 压低「最小高度」框，避免 52vh 过大；min 1rem 保底。
+   * max 48rem：在 2vh 下常见分辨率几乎不会触发（2vh 远小于 48rem），仅作 clamp 上界与极端超高 vh 的保险。
    */
-  --list-table-body-min-height: clamp(1rem, 52vh, 56rem);
+  --list-table-body-min-height: clamp(1rem, 2vh, 48rem);
 
   /* Account 表头蓝条 padding（accountCSS .account-table-header） */
   --table-header-height: 6px 22px;
