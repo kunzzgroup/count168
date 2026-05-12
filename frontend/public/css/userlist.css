@@ -147,11 +147,6 @@ body.user-page .user-gc-inline-pills {
     min-width: 0;
 }
 
-body.user-page .user-gc-inline-pills .user-gc-company-pill:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-}
-
 body.user-page .user-gc-inline-pills--segment-scroll {
     flex-wrap: nowrap;
     overflow-x: auto;

@@ -526,18 +526,20 @@ export default function UserListPage() {
               {groupIds.length > 0 && (
                 <div className="user-gc-inline-row">
                   <span className="user-gc-inline-label">{t("groupId")}</span>
-                  <div className="user-gc-inline-pills">
-                    {groupIds.map((gid) => (
-                      <button
-                        key={gid}
-                        type="button"
-                        disabled={switchingCompany}
-                        className={`user-gc-company-pill${gid === selectedGroupKey ? " is-on" : ""}`}
-                        onClick={() => handlePickGroup(gid)}
-                      >
-                        {gid}
-                      </button>
-                    ))}
+                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                    <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                      {groupIds.map((gid) => (
+                        <button
+                          key={gid}
+                          type="button"
+                          disabled={switchingCompany}
+                          className={`user-gc-segment${gid === selectedGroupKey ? " is-on" : ""}`}
+                          onClick={() => handlePickGroup(gid)}
+                        >
+                          {gid}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
