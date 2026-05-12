@@ -583,9 +583,10 @@ export default function BankProcessListPage() {
     setSelectedIds(new Set());
   }, [companyId, loading, showAll, showInactive, showOfficial, showEInvoice, showBlock, dateFrom, dateTo, syncUrl]);
 
-  const loadAccountingInbox = useCallback(async () => {
+  const loadAccountingInbox = useCallback(async (opts = {}) => {
+    const silent = !!opts.silent;
     if (!companyId) return;
-    setAccountingLoading(true);
+    if (!silent) setAccountingLoading(true);
     try {
       const url = new URL(buildApiUrl("api/processes/process_accounting_inbox_api.php"));
       url.searchParams.set("company_id", String(companyId));
@@ -593,11 +594,57 @@ export default function BankProcessListPage() {
       const json = await res.json();
       const list = Array.isArray(json?.data) ? json.data : [];
       setAccountingRows(list);
-      setAccountingSelected(new Set(list.filter((x) => !x.already_posted_today).map((x) => Number(x.id))));
-      setAccountingDeleteSelected(new Set());
-    } catch { setAccountingRows([]); }
-    finally { setAccountingLoading(false); }
+      if (!silent) {
+        setAccountingSelected(new Set(list.filter((x) => !x.already_posted_today).map((x) => Number(x.id))));
+        setAccountingDeleteSelected(new Set());
+      } else {
+        const ids = new Set(list.map((x) => Number(x.id)));
+        setAccountingSelected((prev) => {
+          const next = new Set();
+          prev.forEach((id) => {
+            if (ids.has(id)) next.add(id);
+          });
+          return next;
+        });
+        setAccountingDeleteSelected((prev) => {
+          const next = new Set();
+          prev.forEach((id) => {
+            if (ids.has(id)) next.add(id);
+          });
+          return next;
+        });
+      }
+    } catch {
+      setAccountingRows([]);
+      if (!silent) {
+        setAccountingSelected(new Set());
+        setAccountingDeleteSelected(new Set());
+      }
+    } finally {
+      if (!silent) setAccountingLoading(false);
+    }
   }, [companyId]);
+
+  // Badge count uses accountingRows; fetch inbox whenever company is ready so the badge is not stuck at 0 until the modal is opened.
+  useEffect(() => {
+    if (!companyId || loading) return;
+    void loadAccountingInbox({ silent: true });
+  }, [companyId, loading, loadAccountingInbox]);
+
+  // Items can become due when the clock passes a billing boundary; refresh periodically and when the tab becomes visible again.
+  useEffect(() => {
+    if (!companyId || loading) return;
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      void loadAccountingInbox({ silent: true });
+    };
+    const id = window.setInterval(tick, 90000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [companyId, loading, loadAccountingInbox]);
 
   const resetForm = () => setForm({ ...EMPTY_BANK_FORM });
 
@@ -911,7 +958,7 @@ export default function BankProcessListPage() {
       }
       notify(json.message || t("resendSuccessful"));
       notifyTransactionDataChanged("bank-process-list-react");
-      if (accountingOpen) loadAccountingInbox();
+      void loadAccountingInbox({ silent: true });
       setResendModalOpen(false); setResendTarget(null);
     } catch { notify(t("resendFailed"), "danger"); }
   };
