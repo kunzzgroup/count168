@@ -23324,7 +23324,7 @@ async function submitDataCaptureForm() {
     // 在提交前转换表格格式
     convertTableFormatOnSubmit();
 
-    // 注意：1.Text 和 2.Format 模式的 id product 自动识别在 captureTableData() 函数中处理
+    // 注意：1.Text、2.Format、4.RETURN 模式的 id product 自动识别在 captureTableData() 函数中处理
     // 不会在界面上移动数据，只在数据捕获时自动识别
 
     const form = document.getElementById('dataCaptureForm');
@@ -23544,8 +23544,8 @@ function captureTableData() {
                 }
             });
 
-            // 1.Text 和 2.Format 模式：如果第一列为空，自动将第一个有数据的列识别为 id product
-            if ((currentDataCaptureType === '1.Text' || currentDataCaptureType === '2.Format') && rowData.length > 1) {
+            // 1.Text、2.Format、4.RETURN 模式：如果第一列为空，自动将第一个有数据的列识别为 id product
+            if ((currentDataCaptureType === '1.Text' || currentDataCaptureType === '2.Format' || currentDataCaptureType === '4.RETURN') && rowData.length > 1) {
                 const firstDataCell = rowData[1]; // 第一列数据（index 1 是行号，index 1 之后是第一列数据）
                 if (firstDataCell && firstDataCell.type === 'data') {
                     const firstCellValue = (firstDataCell.value || '').trim();
@@ -23576,7 +23576,7 @@ function captureTableData() {
                                     firstDataCell.col = targetCol;
                                     cell.col = firstCol;
 
-                                    const modeName = (currentDataCaptureType === '2.Format') ? '2.Format' : '1.Text';
+                                    const modeName = currentDataCaptureType === '2.Format' ? '2.Format' : (currentDataCaptureType === '4.RETURN' ? '4.RETURN' : '1.Text');
                                     console.log(`${modeName}: Row ${rowIndex} - adjusted id product from column ${targetCol + 1} (value: "${targetValue}") to first column`);
                                     break; // 找到后停止查找
                                 }
