@@ -480,6 +480,7 @@
 /* Process Accounting Inbox (需要算账) - 标题右侧 */
 .process-accounting-inbox-wrap {
     position: relative;
+    margin-top: var(--text-page-title-mt, 0);
 }
 
 .process-accounting-inbox-badge {
@@ -516,8 +517,8 @@
 .process-accounting-inbox-btn.process-accounting-inbox-main {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: 12px;
+    padding: 8px 28px;
     border-radius: 12px;
     background: #ffffff;
     font-weight: 800;
