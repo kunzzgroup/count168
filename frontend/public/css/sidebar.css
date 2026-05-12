@@ -794,7 +794,7 @@
     padding: clamp(4px, 0.52vw, 10px) clamp(10px, 0.83vw, 16px);
     color: rgba(255, 255, 255, 0.9);
     text-decoration: none;
-    font-size: clamp(8px, 0.84vw, 16px);
+    font-size: var(--sidebar-menu-font, 1.6rem);
     font-weight: bold;
     transition: all 0.2s ease;
     cursor: pointer;
@@ -1406,6 +1406,10 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title {
 body.ec-auth-shell .informationmenu .informationmenu-item {
     padding: var(--sidebar-submenu-pad-y, 0.8rem) var(--sidebar-menu-pad-x, 1.6rem) !important;
     font-size: var(--sidebar-submenu-font, 1.2rem) !important;
+}
+
+body.ec-auth-shell .informationmenu .submenu-item {
+    font-size: var(--sidebar-menu-font, 1.6rem) !important;
 }
 
 /* Narrow screens: keep shell visually aligned with base .informationmenu @media (max-width: 1024px) */

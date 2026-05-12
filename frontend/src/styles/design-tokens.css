@@ -42,7 +42,6 @@
   /* 图标与菜单字体 */
   --sidebar-icon-size: clamp(1.4rem, 1.35rem + 0.09vw, 1.8rem);
   --sidebar-menu-font: clamp(1.3rem, 1.35rem + 0.08vw, 1.6rem);
-  --sidebar-submenu-font: clamp(1rem, 0.97rem + 0.05vw, 1.2rem);
 
   /* 菜单内边距 (Padding) */
   --sidebar-menu-pad-y: clamp(0.95rem, 0.92rem + 0.05vw, 1.2rem);
