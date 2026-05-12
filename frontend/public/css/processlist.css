@@ -1498,9 +1498,18 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
     z-index: 10000;
 }
 
-/* 弹窗及到下拉之间的所有祖先都允许溢出，让 Account 下拉可以溢出弹窗显示（覆盖 processCSS 的 overflow: hidden） */
+/* modal-content 覆盖全局 88% 宽度：按内容自适应，随行数增加高度自然增长 */
+#profitSharingModal .modal-content {
+    width: auto !important;
+    min-width: min(500px, 90vw) !important;
+    max-width: min(640px, 92vw) !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+/* 弹窗及到下拉之间的所有祖先都允许溢出，让 Account 下拉可以溢出弹窗显示 */
 #profitSharingModal.modal,
-#profitSharingModal .modal-content,
 #profitSharingModal .modal-header,
 #profitSharingModal .modal-body,
 #profitSharingModal .bank-form,
@@ -1511,11 +1520,10 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
     overflow: visible !important;
 }
 
-/* 列表区域最高约 7 行高度，再多 Account 行时出现垂直滚动条 */
+/* 行数区域：无高度限制，随行增加自然撑开 */
 #profitSharingModal #profitSharingRowsContainer {
-    max-height: 500px;
-    overflow-y: auto !important;
-    overflow-x: visible;
+    max-height: none;
+    overflow: visible;
 }
 
 /* 下拉可向下溢出弹窗，不设 max-height 裁切，选项区内部滚动 */
