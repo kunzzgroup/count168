@@ -1092,9 +1092,12 @@ function updateBankProcess() {
         $price = money_optional($_POST['price'] ?? null);
         $profit = money_optional($_POST['profit'] ?? null);
         $profit_sharing = $_POST['profit_sharing'] ?? null;
-        $day_start = isset($_POST['day_start']) ? trim((string)$_POST['day_start']) : '';
-        $day_end = isset($_POST['day_end']) ? trim((string)$_POST['day_end']) : '';
-        $day_start_frequency = isset($_POST['day_start_frequency']) ? trim((string)$_POST['day_start_frequency']) : '1st_of_every_month';
+        $day_start_raw = $_POST['day_start'] ?? '';
+        $day_start = trim((string)(is_array($day_start_raw) ? (string)end($day_start_raw) : $day_start_raw));
+        $day_end_raw = $_POST['day_end'] ?? '';
+        $day_end = trim((string)(is_array($day_end_raw) ? (string)end($day_end_raw) : $day_end_raw));
+        $day_start_frequency_raw = $_POST['day_start_frequency'] ?? '1st_of_every_month';
+        $day_start_frequency = trim((string)(is_array($day_start_frequency_raw) ? (string)end($day_start_frequency_raw) : $day_start_frequency_raw));
         if (!in_array($day_start_frequency, ['monthly', 'once', '1st_of_every_month'], true)) {
             $day_start_frequency = '1st_of_every_month';
         }
@@ -1104,7 +1107,11 @@ function updateBankProcess() {
         if ($day_end === '') {
             $day_end = null;
         }
-        $dayEndMonthlyCapEnabled = isset($_POST['day_end_monthly_cap_enabled']) && (string) $_POST['day_end_monthly_cap_enabled'] === '1';
+        $day_end_cap_raw = $_POST['day_end_monthly_cap_enabled'] ?? null;
+        if (is_array($day_end_cap_raw)) {
+            $day_end_cap_raw = end($day_end_cap_raw);
+        }
+        $dayEndMonthlyCapEnabled = $day_end_cap_raw !== null && trim((string)$day_end_cap_raw) === '1';
         if ($day_start_frequency !== '1st_of_every_month' || $day_end === null) {
             $dayEndMonthlyCapEnabled = false;
         }

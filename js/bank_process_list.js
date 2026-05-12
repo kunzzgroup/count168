@@ -2150,6 +2150,14 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.disabled = true;
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
+        // 提交前强制把 hidden 与开关对齐（不判断 disabled，避免 UI 已 ON 但 hidden 仍为 0）
+        (function syncBankDayEndCapHiddenFromToggle() {
+            const sw = document.getElementById('bank_day_end_monthly_cap_switch');
+            const hidden = document.getElementById('bank_day_end_monthly_cap_enabled');
+            if (sw && hidden) {
+                hidden.value = sw.checked ? '1' : '0';
+            }
+        })();
         const formData = new FormData(this);
         if (editId) {
             ['country', 'bank', 'type', 'name'].forEach(function (key) {
@@ -2170,7 +2178,7 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
-        formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        formData.set('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
         let dayEndMonthlyCapEnabled = isBankDayEndMonthlyCapEnabled();
         const dayEndInputEl = document.getElementById('bank_day_end');
         const dayEndYmd = (dayEndInputEl && dayEndInputEl.value) ? String(dayEndInputEl.value).trim() : '';
@@ -2186,12 +2194,14 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             }
             return;
         }
+        formData.delete('day_end_monthly_cap_enabled');
         formData.set('day_end_monthly_cap_enabled', dayEndMonthlyCapEnabled ? '1' : '0');
         setBankDayEndMonthlyCapEnabled(dayEndMonthlyCapEnabled);
         if (freqEl && freqEl.value === 'once') {
             formData.set('day_end', '');
             formData.set('contract', '');
             formData.set('insurance', '');
+            formData.delete('day_end_monthly_cap_enabled');
             formData.set('day_end_monthly_cap_enabled', '0');
         }
         try {
@@ -4900,7 +4910,7 @@ function initBankProcessModule() {
     if (accountingInboxPost) accountingInboxPost.addEventListener('click', function () { postAccountingInboxToTransaction(); });
 }
 
-/** processlist.js 先执行并占用 __bankAddProcessSubmitBound 时，bindBankFieldErrorClear 不会走到本文件；此处仍绑定 Day end cap 开关与 Frequency→cap UI */
+/** Bank 表单 submit 在本文件绑定（processlist.js 在之后不再重复绑定）。此处仍绑定 Day end cap 开关与 Frequency→cap UI */
 (function bindBankDayEndCapControlsAlways() {
     if (window.__bankDayEndCapControlsAlways) return;
     window.__bankDayEndCapControlsAlways = true;
