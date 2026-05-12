@@ -124,11 +124,17 @@ export default function AccountListPage() {
     setCssReady(true);
 
     return () => {
-      document.body.classList.remove("account-page", "bg");
+      document.body.classList.remove("account-page", "account-page--show-all", "bg");
       document.body.classList.add("dashboard-page");
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (showAll) document.body.classList.add("account-page--show-all");
+    else document.body.classList.remove("account-page--show-all");
+    return () => document.body.classList.remove("account-page--show-all");
+  }, [showAll]);
 
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);

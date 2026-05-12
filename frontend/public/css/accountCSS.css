@@ -366,8 +366,16 @@ body.account-page--show-all .container {
 body.account-page--show-all .account-cards {
     display: flex;
     flex-direction: column;
+    /* Prevent hundreds of rows from flex-shrinking into one viewport band */
+    flex: 0 0 auto;
+    min-height: auto;
     max-height: none;
     overflow-y: visible;
+}
+
+body.account-page--show-all .account-card {
+    flex-shrink: 0;
+    min-height: auto;
 }
 
 body.account-page--show-all .content {
