@@ -30,6 +30,36 @@ function roleBadgeClass(role) {
   return `role-${String(role || "").toLowerCase().replace(/\s+/g, "-")}`;
 }
 
+const USER_ROW_AVATAR_BG = [
+  "#dbeafe",
+  "#d1fae5",
+  "#ffedd5",
+  "#ede9fe",
+  "#fce7f3",
+  "#ccfbf1",
+  "#e0e7ff",
+  "#fef3c7",
+];
+
+function userListRowInitial(row) {
+  const name = String(row.name || "").trim();
+  if (name) {
+    const ch = name[0];
+    return ch ? ch.toUpperCase() : "?";
+  }
+  const login = String(row.login_id || "").trim();
+  if (login) return login[0].toUpperCase();
+  return "?";
+}
+
+function userListAvatarBg(row, idx) {
+  const id = Number(row.id);
+  const i = Number.isFinite(id) && id !== 0
+    ? Math.abs(id) % USER_ROW_AVATAR_BG.length
+    : idx % USER_ROW_AVATAR_BG.length;
+  return USER_ROW_AVATAR_BG[i];
+}
+
 function normalizeCompanyRow(row) {
   if (!row || typeof row !== "object") return row;
   return {
@@ -525,31 +555,69 @@ export default function UserListPage() {
           </div>
           <div className="user-table-wrapper">
             <div className="table-header">
-              <div className="header-item">{t("no")}</div>
-              <div className="header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("loginId"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("loginId")} {sortColumn === "loginId" && (sortDirection === "asc" ? "▲" : "▼")}</div>
+              <div
+                className="header-item header-sortable"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  setSortColumn("loginId");
+                  setSortDirection((p) => (p === "asc" ? "desc" : "asc"));
+                }}
+                onClick={() => {
+                  setSortColumn("loginId");
+                  setSortDirection((p) => (p === "asc" ? "desc" : "asc"));
+                }}
+              >
+                {t("loginId")}
+                {sortColumn === "loginId" && <span className="sort-indicator">{sortDirection === "asc" ? "▲" : "▼"}</span>}
+              </div>
               <div className="header-item">{t("name")}</div>
               <div className="header-item">{t("email")}</div>
-              <div className="header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("role"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("role")} {sortColumn === "role" && (sortDirection === "asc" ? "▲" : "▼")}</div>
+              <div
+                className="header-item header-sortable"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  setSortColumn("role");
+                  setSortDirection((p) => (p === "asc" ? "desc" : "asc"));
+                }}
+                onClick={() => {
+                  setSortColumn("role");
+                  setSortDirection((p) => (p === "asc" ? "desc" : "asc"));
+                }}
+              >
+                {t("role")}
+                {sortColumn === "role" && <span className="sort-indicator">{sortDirection === "asc" ? "▲" : "▼"}</span>}
+              </div>
               <div className="header-item">{t("status")}</div>
               <div className="header-item">{t("lastLogin")}</div>
               <div className="header-item">{t("createdBy")}</div>
-              <div className="header-item">{t("action")} <input type="checkbox" checked={selectAllUsers} onChange={(e) => { const on = e.target.checked; const eligible = pageRows.filter(r => { const c = computeRowCapabilities(r, currentUserId, currentUserRole); return getDeleteCheckboxState(r, c).show; }).map(r => Number(r.id)); setSelectedDeleteIds(on ? new Set(eligible) : new Set()); setSelectAllUsers(on); }} /></div>
+              <div className="header-item header-item--action">
+                {t("action")}
+                <input type="checkbox" checked={selectAllUsers} onChange={(e) => { const on = e.target.checked; const eligible = pageRows.filter(r => { const c = computeRowCapabilities(r, currentUserId, currentUserRole); return getDeleteCheckboxState(r, c).show; }).map(r => Number(r.id)); setSelectedDeleteIds(on ? new Set(eligible) : new Set()); setSelectAllUsers(on); }} />
+              </div>
             </div>
             <div className="user-cards">
-              {(tableLoading || switchingCompany) ? <div className="user-card show-card">{t("loading")}</div> : pageRows.map((r, idx) => {
+              {(tableLoading || switchingCompany) ? <div className="user-card user-card--loading show-card">{t("loading")}</div> : pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
                 return (
                   <div key={`${r.id}-${r.is_owner_shadow ? "o" : "u"}`} className={`user-card show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}>
-                    <div className="card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
-                    <div className="card-item">{r.login_id}</div>
-                    <div className="card-item">{r.name}</div>
-                    <div className="card-item">{r.email || "-"}</div>
+                    <div className="card-item user-card__login-cell">
+                      <span className="user-row-avatar" style={{ backgroundColor: userListAvatarBg(r, idx) }} aria-hidden="true">{userListRowInitial(r)}</span>
+                      <span className="user-row-login">{r.login_id}</span>
+                    </div>
+                    <div className="card-item card-item--name">{r.name}</div>
+                    <div className="card-item card-item--email">{r.email || "-"}</div>
                     <div className="card-item"><span className={`role-badge ${roleBadgeClass(r.role)}`}>{String(r.role || "").toUpperCase()}</span></div>
                     <div className="card-item"><span className={`role-badge ${normRole(r.status) === "active" ? "status-active" : "status-inactive"} ${caps.canToggleStatus ? "status-clickable" : ""}`} onClick={() => caps.canToggleStatus && toggleUserStatus(r)}>{String(r.status || "").toUpperCase()}</span></div>
-                    <div className="card-item">{formatLastLogin(r.last_login)}</div>
+                    <div className="card-item card-item--muted">{formatLastLogin(r.last_login)}</div>
                     <div className="card-item">{String(r.created_by || "-").toUpperCase()}</div>
-                    <div className="card-item">
+                    <div className="card-item card-item--action">
                       <button className="btn btn-edit" onClick={() => openEdit(r)} disabled={!caps.canEditDelete} style={{ opacity: caps.canEditDelete ? 1 : 0.3 }}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
                       {del.show && <input type="checkbox" style={{ marginLeft: 10 }} disabled={del.disabled} checked={selectedDeleteIds.has(Number(r.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(r.id)); else n.delete(Number(r.id)); return n; })} />}
                     </div>
@@ -560,9 +628,12 @@ export default function UserListPage() {
           </div>
           {!showAll && (
             <div className="pagination-container">
-              <button className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>◀</button>
-            <span className="pagination-info">{t("paginationOf", { page: currentPage, total: totalPages })}</span>
-              <button className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>▶</button>
+              <span className="pagination-user-count">{t("userCount", { count: filteredSorted.length })}</span>
+              <div className="pagination-nav">
+                <button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)} aria-label={t("paginationPrev")}>{"<"}</button>
+                <span className="pagination-page-current" aria-current="page">{currentPage}</span>
+                <button type="button" className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => p + 1)} aria-label={t("paginationNext")}>{">"}</button>
+              </div>
             </div>
           )}
         </div>
