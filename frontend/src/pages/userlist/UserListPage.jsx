@@ -511,12 +511,6 @@ export default function UserListPage() {
                     </div>
                   )}
                 </div>
-                <button type="button" className="btn btn-add" onClick={openAdd}>
-                  <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                  {t("addUser")}
-                </button>
                 <div
                   ref={searchShellRef}
                   className={`search-container userlist-search-collapsible${searchExpanded ? " is-expanded" : ""}`}
@@ -550,24 +544,32 @@ export default function UserListPage() {
                 <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label htmlFor="showInactive">{t("showInactive")}</label></div>
                 <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label htmlFor="showAll">{t("showAll")}</label></div>
               </div>
-              <button
-                type="button"
-                className="btn btn-delete"
-                disabled={!selectedDeleteIds.size}
-                onClick={() => {
-                  const ids = Array.from(selectedDeleteIds);
-                  pendingDeleteRef.current = ids;
-                  const selectedUserNames = usersRaw
-                    .filter((u) => ids.includes(Number(u.id)))
-                    .map((u) => String(u.login_id || u.name || u.email || u.id || "").trim())
-                    .filter(Boolean);
-                  const details = selectedUserNames.length ? `\n\n${selectedUserNames.join("\n")}` : "";
-                  setConfirmMessage(`${t("deleteConfirmWithCount", { count: ids.length })}${details}`);
-                  setConfirmOpen(true);
-                }}
-              >
-                {t("deleteWithCount", { count: selectedDeleteIds.size })}
-              </button>
+              <div className="user-toolbar-actions-right">
+                <button type="button" className="btn btn-add" onClick={openAdd}>
+                  <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                  {t("addUser")}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-delete"
+                  disabled={!selectedDeleteIds.size}
+                  onClick={() => {
+                    const ids = Array.from(selectedDeleteIds);
+                    pendingDeleteRef.current = ids;
+                    const selectedUserNames = usersRaw
+                      .filter((u) => ids.includes(Number(u.id)))
+                      .map((u) => String(u.login_id || u.name || u.email || u.id || "").trim())
+                      .filter(Boolean);
+                    const details = selectedUserNames.length ? `\n\n${selectedUserNames.join("\n")}` : "";
+                    setConfirmMessage(`${t("deleteConfirmWithCount", { count: ids.length })}${details}`);
+                    setConfirmOpen(true);
+                  }}
+                >
+                  {t("deleteWithCount", { count: selectedDeleteIds.size })}
+                </button>
+              </div>
             </div>
           </div>
           <div className="user-table-wrapper">

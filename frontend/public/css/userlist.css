@@ -119,6 +119,17 @@ body.user-page.user-page--show-all .user-cards {
     gap: 12px;
 }
 
+.user-page .user-toolbar-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.user-page .user-toolbar-actions-right .btn-delete {
+    margin-left: 0;
+}
+
 .user-group-company-row {
     position: relative;
     display: inline-flex;
