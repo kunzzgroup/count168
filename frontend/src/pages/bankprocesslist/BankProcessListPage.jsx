@@ -979,7 +979,7 @@ export default function BankProcessListPage() {
     <div className="container">
       <div className="content">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 0, flexWrap: "wrap", gap: 12 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 12, position: "relative", top: 1, zIndex: 1 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
             <h1 className="page-title" style={{ margin: 0 }}>{t("bankProcessList")}</h1>
             <div className="process-accounting-inbox-wrap" style={{ marginTop: 0 }}>
               <button
