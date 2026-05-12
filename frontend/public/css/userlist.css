@@ -1694,9 +1694,10 @@ body.user-page .user-filter-chip__label {
 
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.75fr minmax(44px, 0.55fr);
+    /* 与 .user-card 完全一致，最后一列固定宽以便勾选与表头全选垂直对齐 */
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.75fr 48px;
     gap: 15px;
-    padding: 6px 20px;
+    padding: 6px 22px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
     margin-top: 20px;
@@ -1752,7 +1753,7 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
 
 .user-card {
     display: none;
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2.45fr 1.4fr minmax(44px, 0.55fr);
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.75fr 48px;
     gap: 15px;
     padding: clamp(1px, 0.21vw, 4px) 22px;
     background: #f0e5fb;
@@ -1799,15 +1800,27 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     text-transform: uppercase;
 }
 
-/* 删除勾选单独列（在 Action 右侧），与表头全选对齐 */
-.table-header .header-item--select,
-.user-card .card-item--select {
+/* 删除勾选单独列：与表头全选同一 48px 轨道垂直对齐（global-13inch 会给 .header-item/.card-item 加左右 10px） */
+body.ec-auth-shell.user-page .table-header .header-item--select,
+body.ec-auth-shell.user-page .user-card .card-item--select {
     justify-content: center;
+    align-items: center;
     min-width: 0;
+    padding: 0 !important;
+    box-sizing: border-box;
+}
+
+.table-header .header-item--select input[type="checkbox"],
+.user-card .card-item--select input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    vertical-align: middle;
 }
 
 .user-row-select-placeholder {
-    display: inline-block;
+    display: block;
     width: 16px;
     height: 16px;
     flex-shrink: 0;
