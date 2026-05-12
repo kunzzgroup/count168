@@ -2,7 +2,7 @@
 /**
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
- * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = day_end 超出合同自然结束日的尾段按比例（仅当 day_end_monthly_cap_enabled=ON 时允许入账；无列则与旧版一致），
+ * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = 尾段 prorateInclusiveDateRange（1st+cap 列 ON 时为 max(exclusiveEnd, day_end 月首)～day_end；否则 exclusiveEnd～day_end 且需 day_end≥exclusiveEnd；1st+cap OFF 不入账尾段），
  * resend_consolidated_range = 仅 Resend 弹窗同时填 day_start+day_end 时：按自然月切段 [day_start, day_end] 合并为一笔（与 Inbox 一致）。
  * 仅处理 status = 'active' 的 process。
  */
@@ -1021,6 +1021,7 @@ try {
         }
         $skipCurrentPair = false;
         $monthlyProrationPsRatio = null;
+        $dayEndTailAnchorYmd = null;
         $periodType = trim((string) ($pair['period_type'] ?? 'monthly'));
         $cost = money_normalize($p['cost'] ?? '0');
         $price = money_normalize($p['price'] ?? '0');
@@ -1083,7 +1084,7 @@ try {
             $price = $partial['price'];
             $profit = $partial['profit'];
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
-            if ($has_day_end_tail_switch_col) {
+            if ($has_day_end_tail_switch_col && $frequency === '1st_of_every_month') {
                 $raw = $p['day_end_monthly_cap_enabled'] ?? null;
                 $tailOn = in_array((string) $raw, ['1', 'true', 'TRUE'], true) || $raw === 1 || $raw === true;
                 if (!$tailOn) {
@@ -1100,13 +1101,31 @@ try {
             }
             $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
             $dayEndInc = date('Y-m-d', strtotime((string) $dayEndRaw));
-            if ($exclusiveEnd === null || $dayEndInc < $exclusiveEnd) {
+            if ($exclusiveEnd === null) {
                 continue;
             }
+            $useSwitchGatedTail = ($frequency === '1st_of_every_month' && $has_day_end_tail_switch_col);
+            if ($useSwitchGatedTail) {
+                try {
+                    $monthFirst = (new DateTimeImmutable($dayEndInc))->modify('first day of this month')->format('Y-m-d');
+                } catch (Throwable $e) {
+                    continue;
+                }
+                $tailFrom = max($exclusiveEnd, $monthFirst);
+                if ($tailFrom > $dayEndInc) {
+                    continue;
+                }
+            } else {
+                if ($dayEndInc < $exclusiveEnd) {
+                    continue;
+                }
+                $tailFrom = $exclusiveEnd;
+            }
+            $dayEndTailAnchorYmd = $tailFrom;
             if ($fallbackDate < maxYmd($dayStartYmd, $createdYmd)) {
                 continue;
             }
-            $tail = prorateInclusiveDateRange($exclusiveEnd, $dayEndInc, $cost, $price, $profit);
+            $tail = prorateInclusiveDateRange($tailFrom, $dayEndInc, $cost, $price, $profit);
             $cost = $tail['cost'];
             $price = $tail['price'];
             $profit = $tail['profit'];
@@ -1235,15 +1254,18 @@ try {
             $transactionDate = $fallbackDate;
             $postedDateForInbox = $fallbackDate;
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
-            // day_end_tail：交易归属日应落在尾段起始日（通常是合同自然结束次日；1st 频率下即该月1号），
-            // 这样 Payment History 会显示在正确账期（例如 4/1-4/15 挂在 4/1）。
-            // PAP.posted_date 仍用合同自然结束次日，保持 Inbox 去重口径。
-            $term = getBillingTermMonthsFromContract($p['contract'] ?? null);
-            if ($term !== null && $term >= 1) {
-                $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
-                if ($exclusiveEnd !== null) {
-                    $transactionDate = $exclusiveEnd;
-                    $postedDateForInbox = $exclusiveEnd;
+            // day_end_tail：归属日与 posted 锚点用尾段起点（1st+cap ON 时可能与 exclusiveEnd 相同或为 day_end 月首 max）
+            if ($dayEndTailAnchorYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayEndTailAnchorYmd)) {
+                $transactionDate = $dayEndTailAnchorYmd;
+                $postedDateForInbox = $dayEndTailAnchorYmd;
+            } else {
+                $term = getBillingTermMonthsFromContract($p['contract'] ?? null);
+                if ($term !== null && $term >= 1) {
+                    $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
+                    if ($exclusiveEnd !== null) {
+                        $transactionDate = $exclusiveEnd;
+                        $postedDateForInbox = $exclusiveEnd;
+                    }
                 }
             }
         } elseif ($periodType === 'once_one_off') {
