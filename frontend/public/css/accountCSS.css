@@ -42,6 +42,7 @@ body.account-page:not(.account-page--show-all) {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;
 }
 
 /* 表头 + 数据区：占据中间剩余高度，避免整页滚动 */
