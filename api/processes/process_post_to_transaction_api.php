@@ -2,7 +2,7 @@
 /**
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
- * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = 尾段 prorateInclusiveDateRange（1st+cap 列 ON 时为 max(exclusiveEnd, day_end 月首)～day_end；否则 exclusiveEnd～day_end 且需 day_end≥exclusiveEnd；1st+cap OFF 不入账尾段），
+ * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致）；frequency=1st_of_every_month 的 monthly 且 day_end_monthly_cap_enabled=ON 时，若 day_end 落在该账单自然月内则该期按「月初～day_end」比例（与 Inbox 一致）。day_end_tail = 尾段 prorateInclusiveDateRange（1st+cap 列 ON 时为 max(exclusiveEnd, day_end 月首)～day_end；否则 exclusiveEnd～day_end 且需 day_end≥exclusiveEnd；1st+cap OFF 不入账尾段），
  * resend_consolidated_range = 仅 Resend 弹窗同时填 day_start+day_end 时：按自然月切段 [day_start, day_end] 合并为一笔（与 Inbox 一致）。
  * 入账请求仅针对当前公司下选中的 Bank Process；Frequency=once 且 period_type=once_one_off 入账成功后，将该 process 的 status 置为 inactive（Accounting Due 的 Dismiss 不写 status）。
  */
@@ -408,6 +408,37 @@ function prorateInclusiveDateRange(string $fromYmd, string $toYmd, string $cost,
         'price' => txnTrunc2($tp),
         'profit' => txnTrunc2($tf),
     ];
+}
+
+/** 与 process_accounting_inbox_api::inboxTryDayEndMonthlyCapAmounts1stOfMonth 一致（入账端） */
+function txnTryDayEndMonthlyCapAmounts1stOfMonth(array $p, bool $hasCol, string $frequency, int $billYear, int $billMonth): ?array
+{
+    if (!$hasCol || $frequency !== '1st_of_every_month') {
+        return null;
+    }
+    $raw = $p['day_end_monthly_cap_enabled'] ?? null;
+    $on = in_array((string) $raw, ['1', 'true', 'TRUE'], true) || $raw === 1 || $raw === true;
+    if (!$on) {
+        return null;
+    }
+    $dayEndYmd = bankProcessDateFieldToYmd($p['day_end'] ?? null);
+    if ($dayEndYmd === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayEndYmd)) {
+        return null;
+    }
+    $tsM = mktime(0, 0, 0, $billMonth, 1, $billYear);
+    if ($tsM === false) {
+        return null;
+    }
+    $monthFirst = sprintf('%04d-%02d-01', $billYear, $billMonth);
+    $monthLast = date('Y-m-t', $tsM);
+    if ($dayEndYmd < $monthFirst || $dayEndYmd > $monthLast) {
+        return null;
+    }
+    $bc = money_normalize($p['cost'] ?? '0');
+    $bpAmt = money_normalize($p['price'] ?? '0');
+    $bf = money_normalize($p['profit'] ?? '0');
+
+    return prorateInclusiveDateRange($monthFirst, $dayEndYmd, $bc, $bpAmt, $bf);
 }
 
 /** 某月第 N 日（不超过该月最后一天） */
@@ -1228,6 +1259,29 @@ try {
                 }
             } catch (Throwable $e) {
                 // ignore
+            }
+        }
+
+        // 1st_of_every_month + Day end 旁开关 ON：day_end 落在该账单自然月内时按「月初～day_end」比例（与 Inbox 一致）。
+        if ($periodType === 'monthly' && $frequency === '1st_of_every_month' && $has_day_end_tail_switch_col
+            && $resolvedMonthlyBm !== '' && preg_match('/^(\d{4})-(\d{1,2})$/', $resolvedMonthlyBm, $mCapPost)) {
+            $capPost = txnTryDayEndMonthlyCapAmounts1stOfMonth(
+                $p,
+                $has_day_end_tail_switch_col,
+                $frequency,
+                (int) $mCapPost[1],
+                (int) $mCapPost[2]
+            );
+            if ($capPost !== null) {
+                $cost = $capPost['cost'];
+                $price = $capPost['price'];
+                $profit = $capPost['profit'];
+                $fpPs = money_normalize($p['profit'] ?? '0');
+                if (money_cmp($fpPs, '0') > 0) {
+                    $monthlyProrationPsRatio = money_div($profit, $fpPs, MONEY_CALC_SCALE);
+                } else {
+                    $monthlyProrationPsRatio = null;
+                }
             }
         }
 

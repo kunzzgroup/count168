@@ -271,3 +271,61 @@ function bankProcessDayEndProratedDescription(array $t, bool $withPrefix = true)
     $value = bankProcessResolveDisplayValueByAccount($t);
     return $prefix . $startDm . ' - ' . $endDm . ' | ' . $daysCount . " days)@Monthly {$value}";
 }
+
+/**
+ * 1st_of_every_month + Day end 开关 ON：day_end 落在 transaction_date 所在自然月且早于月末时，展示为 Prorated(月初-day_end|天数)@Monthly；否则 null（走 Full Month 等既有分支）。
+ */
+function bankProcessMonthlyDayEndCapHistoryDescription(array $t): ?string
+{
+    $capRaw = $t['bp_day_end_monthly_cap_enabled'] ?? null;
+    $capOn = in_array((string) $capRaw, ['1', 'true', 'TRUE'], true) || $capRaw === 1 || $capRaw === true;
+    if (!$capOn) {
+        return null;
+    }
+    $freq = strtolower(trim((string) ($t['bp_frequency'] ?? '')));
+    if (!in_array($freq, ['1st_of_every_month', ''], true)) {
+        return null;
+    }
+    $txnRaw = trim((string) ($t['transaction_date'] ?? ''));
+    $txnYmd = null;
+    if ($txnRaw !== '') {
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $txnRaw, $mx)) {
+            $txnYmd = $mx[1];
+        } else {
+            $ts0 = strtotime(str_replace('/', '-', $txnRaw));
+            if ($ts0 !== false) {
+                $txnYmd = date('Y-m-d', $ts0);
+            }
+        }
+    }
+    if ($txnYmd === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $txnYmd)) {
+        return null;
+    }
+    $tsTxn = strtotime($txnYmd . ' 12:00:00');
+    if ($tsTxn === false) {
+        return null;
+    }
+    $monthFirst = date('Y-m-01', $tsTxn);
+    $monthLast = date('Y-m-t', $tsTxn);
+    $endYmd = bankProcessParseDayStartToYmd($t['bp_day_end'] ?? null);
+    if ($endYmd === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $endYmd)) {
+        return null;
+    }
+    if ($endYmd < $monthFirst || $endYmd > $monthLast || $endYmd >= $monthLast) {
+        return null;
+    }
+    $tsStart = strtotime($monthFirst . ' 12:00:00');
+    $tsEnd = strtotime($endYmd . ' 12:00:00');
+    if ($tsStart === false || $tsEnd === false) {
+        return null;
+    }
+    $startDm = date('j/n', $tsStart);
+    $endDm = date('j/n', $tsEnd);
+    $daysCount = (int) floor(($tsEnd - $tsStart) / 86400) + 1;
+    if ($daysCount < 1) {
+        $daysCount = 1;
+    }
+    $value = bankProcessResolveDisplayValueByAccount($t);
+
+    return 'Prorated(' . $startDm . ' - ' . $endDm . ' | ' . $daysCount . " days)@Monthly {$value}";
+}

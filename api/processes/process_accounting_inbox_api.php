@@ -13,6 +13,7 @@
  * - Monthly = 每月 day_start 日为应付日；一期金额为「上一应付日到本期应付前一日」按日历天比例（例如 3/13 应付则服务 2/13–3/12），不按自然月末截断。
  * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
  * - day_end_tail（1st_of_every_month + 有 day_end_monthly_cap_enabled 列且开关 ON）：尾段区间为 max(合同 exclusiveEnd, day_end 所在月 1 号)～day_end（含），与 prorateInclusiveDateRange 旧算法一致；$today 达 tail 起点即入列。开关 OFF 时不排尾段。
+ * - 同上开关 ON 时，每一期 regular monthly（1st_of_every_month）若 day_end 落在该账单自然月内，该期金额按「该月 1 号～day_end」自然天比例折算（非仅合同尾段）；开关 OFF 则该期仍为整自然月价。
  * - 无 day_end_monthly_cap_enabled 列或非 1st 频率：仍为「day_end ≥ exclusiveEnd」时 exclusiveEnd～day_end 尾段（与旧版一致）；无列时仍排尾段。
  * - Resend 弹窗同时填 day_start 与 day_end（仅 relax 暂存）：Accounting Due 只列一行，金额按自然月切段 [day_start, day_end] 合并（与 process_post 的 resend_consolidated_range 一致）；不影响非 Resend 的 addprocess。
  */
@@ -448,6 +449,34 @@ function inboxDayEndTailSwitchOn(bool $hasDayEndMonthlyCapCol, array $row): bool
 }
 
 /**
+ * 1st_of_every_month + Day end 旁开关 ON：若 day_end 落在账单自然月 $billYear-$billMonth 内，则该期按 prorateInclusiveDateRange(月初, day_end) 用 process 整月价折算；否则返回 null（保持调用方已有金额）。
+ */
+function inboxTryDayEndMonthlyCapAmounts1stOfMonth(array $r, bool $hasDayEndMonthlyCapCol, string $frequency, int $billYear, int $billMonth): ?array
+{
+    if (!$hasDayEndMonthlyCapCol || $frequency !== '1st_of_every_month' || !inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r)) {
+        return null;
+    }
+    $dayEndYmd = inboxBankProcessDateFieldToYmd($r['day_end'] ?? null);
+    if ($dayEndYmd === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayEndYmd)) {
+        return null;
+    }
+    $tsM = mktime(0, 0, 0, $billMonth, 1, $billYear);
+    if ($tsM === false) {
+        return null;
+    }
+    $monthFirst = sprintf('%04d-%02d-01', $billYear, $billMonth);
+    $monthLast = date('Y-m-t', $tsM);
+    if ($dayEndYmd < $monthFirst || $dayEndYmd > $monthLast) {
+        return null;
+    }
+    $bc = money_normalize($r['cost'] ?? '0');
+    $bp = money_normalize($r['price'] ?? '0');
+    $bf = money_normalize($r['profit'] ?? '0');
+
+    return prorateInclusiveDateRange($monthFirst, $dayEndYmd, $bc, $bp, $bf);
+}
+
+/**
  * 追加一条 monthly 型 Accounting Due 行。frequency=monthly 时按「对日对月」服务区间比例（与 process_post 一致），不使用自然月末截断。
  *
  * @param '1st_of_every_month'|'monthly' $frequency
@@ -462,7 +491,8 @@ function inboxAppendMonthlyNeedToday(
     string $startDate,
     string $cost,
     string $price,
-    string $profit
+    string $profit,
+    bool $hasDayEndMonthlyCapCol = false
 ): void {
     $prorationRatio = null;
     try {
@@ -517,6 +547,14 @@ function inboxAppendMonthlyNeedToday(
         }
     } catch (Throwable $e) {
         // keep base amounts
+    }
+    if ($monthlyBillingMonth !== '' && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $monthlyBillingMonth, $mmCap)) {
+        $capTry = inboxTryDayEndMonthlyCapAmounts1stOfMonth($r, $hasDayEndMonthlyCapCol, $frequency, (int) $mmCap[1], (int) $mmCap[2]);
+        if ($capTry !== null) {
+            $cost = $capTry['cost'];
+            $price = $capTry['price'];
+            $profit = $capTry['profit'];
+        }
     }
     $needToday[] = [
         'id' => (int) $r['id'],
@@ -813,8 +851,8 @@ try {
         exit;
     }
 
-    //$today = date('Y-m-d');
-    $today = '2026-10-01';
+    $today = date('Y-m-d');
+    //$today = '2026-10-01';
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -1057,6 +1095,25 @@ try {
                 $mc = $pr['cost'];
                 $mp = $pr['price'];
                 $mf = $pr['profit'];
+                if ($hasDayEndMonthlyCapCol && $startDate !== '') {
+                    try {
+                        $dtCap0 = new DateTimeImmutable($startDate);
+                        $cap0 = inboxTryDayEndMonthlyCapAmounts1stOfMonth(
+                            $r,
+                            $hasDayEndMonthlyCapCol,
+                            '1st_of_every_month',
+                            (int) $dtCap0->format('Y'),
+                            (int) $dtCap0->format('n')
+                        );
+                        if ($cap0 !== null) {
+                            $mc = $cap0['cost'];
+                            $mp = $cap0['price'];
+                            $mf = $cap0['profit'];
+                        }
+                    } catch (Throwable $e) {
+                        // keep prorated first-month amounts
+                    }
+                }
                 if ($resendMulti) {
                     $queuedMonthlyBillingMonths[] = (string) $monthlyBillingMonth;
                 } else {
@@ -1159,7 +1216,8 @@ try {
                         $startDate,
                         $baseCost,
                         $basePrice,
-                        $baseProfit
+                        $baseProfit,
+                        $hasDayEndMonthlyCapCol
                     );
                 }
                 continue;
@@ -1258,7 +1316,8 @@ try {
                         $startDate,
                         $baseCost,
                         $basePrice,
-                        $baseProfit
+                        $baseProfit,
+                        $hasDayEndMonthlyCapCol
                     );
                 }
                 continue;
@@ -1276,7 +1335,8 @@ try {
                 $startDate,
                 $baseCost,
                 $basePrice,
-                $baseProfit
+                $baseProfit,
+                $hasDayEndMonthlyCapCol
             );
         }
     }
