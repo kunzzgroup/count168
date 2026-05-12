@@ -29,8 +29,8 @@ export default function ProfitSharingModal({
           <div className="bank-form" style={{ display: "block" }}>
             <div id="profitSharingRowsContainer">
               {profitShareRows.map((row, idx) => (
-                <div key={`ps-${idx}`} className="form-row bank-row-two-cols profit-sharing-row">
-                  <div className="form-group" style={{ flex: 1 }}>
+                <div key={`ps-${idx}`} className="form-row profit-sharing-row">
+                  <div className="form-group">
                     <label>{t("account")}</label>
                     <div className="account-select-with-buttons">
                       <BankSearchableAccountPick
@@ -46,7 +46,7 @@ export default function ProfitSharingModal({
                       <button type="button" className="bank-add-btn" title={t("addAccount")} onClick={() => onOpenAddAccountForField({ type: "profitRow", index: idx })}>+</button>
                     </div>
                   </div>
-                  <div className="form-group" style={{ width: 120 }}>
+                  <div className="form-group">
                     <label>{t("amount")}</label>
                     <input type="number" className="bank-input profit-sharing-amount" placeholder={t("amount")} step="0.01" min="0" value={row.amount} onChange={(e) => setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: e.target.value } : r)))} />
                   </div>
@@ -60,8 +60,8 @@ export default function ProfitSharingModal({
               <button type="button" className="bank-add-btn" title={t("addAnotherAccountAmount")} onClick={addRow}>+</button>
             </div>
             <div className="form-actions bank-actions" style={{ marginTop: 16 }}>
-              <button type="button" className="btn btn-save" onClick={onConfirm}>{t("add")}</button>
-              <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
+              <button type="button" className="btn btn-save profit-sharing-modal-btn" onClick={onConfirm}>{t("add")}</button>
+              <button type="button" className="btn btn-cancel profit-sharing-modal-btn" onClick={onClose}>{t("cancel")}</button>
             </div>
           </div>
         </div>

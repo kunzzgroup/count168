@@ -1540,8 +1540,22 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
 
 /* Profit Sharing 弹窗：所有行统一三列（Account | Amount | 占位/删除），保证列宽一致 */
 #profitSharingModal #profitSharingRowsContainer .profit-sharing-row {
+    display: grid;
     grid-template-columns: 1fr 1fr auto;
+    gap: 15px;
     align-items: end;
+    margin-bottom: 15px;
+}
+
+#profitSharingModal .profit-sharing-modal-btn {
+    width: 120px;
+    height: 38px;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 #profitSharingModal .profit-sharing-delete-cell {
