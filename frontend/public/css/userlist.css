@@ -1694,7 +1694,7 @@ body.user-page .user-filter-chip__label {
 
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.95fr;
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.75fr minmax(44px, 0.55fr);
     gap: 15px;
     padding: 6px 20px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
@@ -1752,7 +1752,7 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
 
 .user-card {
     display: none;
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2.45fr 1.53fr;
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2.45fr 1.4fr minmax(44px, 0.55fr);
     gap: 15px;
     padding: clamp(1px, 0.21vw, 4px) 22px;
     background: #f0e5fb;
@@ -1797,6 +1797,28 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
 /* Force uppercase for specific columns */
 .card-item.uppercase-text {
     text-transform: uppercase;
+}
+
+/* 删除勾选单独列（在 Action 右侧），与表头全选对齐 */
+.table-header .header-item--select,
+.user-card .card-item--select {
+    justify-content: center;
+    min-width: 0;
+}
+
+.user-row-select-placeholder {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.user-card.user-card--loading.show-card {
+    grid-column: 1 / -1;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    min-height: 48px;
 }
 
 /* 分页样式 - 修改为图片中的设计 */

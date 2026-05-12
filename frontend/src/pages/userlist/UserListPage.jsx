@@ -533,10 +533,28 @@ export default function UserListPage() {
               <div className="header-item">{t("status")}</div>
               <div className="header-item">{t("lastLogin")}</div>
               <div className="header-item">{t("createdBy")}</div>
-              <div className="header-item">{t("action")} <input type="checkbox" checked={selectAllUsers} onChange={(e) => { const on = e.target.checked; const eligible = pageRows.filter(r => { const c = computeRowCapabilities(r, currentUserId, currentUserRole); return getDeleteCheckboxState(r, c).show; }).map(r => Number(r.id)); setSelectedDeleteIds(on ? new Set(eligible) : new Set()); setSelectAllUsers(on); }} /></div>
+              <div className="header-item">{t("action")}</div>
+              <div className="header-item header-item--select">
+                <input
+                  type="checkbox"
+                  aria-label={t("selectAllDeletableAria")}
+                  checked={selectAllUsers}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    const eligible = pageRows
+                      .filter((r) => {
+                        const c = computeRowCapabilities(r, currentUserId, currentUserRole);
+                        return getDeleteCheckboxState(r, c).show;
+                      })
+                      .map((r) => Number(r.id));
+                    setSelectedDeleteIds(on ? new Set(eligible) : new Set());
+                    setSelectAllUsers(on);
+                  }}
+                />
+              </div>
             </div>
             <div className="user-cards">
-              {(tableLoading || switchingCompany) ? <div className="user-card show-card">{t("loading")}</div> : pageRows.map((r, idx) => {
+              {(tableLoading || switchingCompany) ? <div className="user-card user-card--loading show-card">{t("loading")}</div> : pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
                 return (
@@ -549,9 +567,27 @@ export default function UserListPage() {
                     <div className="card-item"><span className={`role-badge ${normRole(r.status) === "active" ? "status-active" : "status-inactive"} ${caps.canToggleStatus ? "status-clickable" : ""}`} onClick={() => caps.canToggleStatus && toggleUserStatus(r)}>{String(r.status || "").toUpperCase()}</span></div>
                     <div className="card-item">{formatLastLogin(r.last_login)}</div>
                     <div className="card-item">{String(r.created_by || "-").toUpperCase()}</div>
-                    <div className="card-item">
+                    <div className="card-item card-item--action">
                       <button className="btn btn-edit" onClick={() => openEdit(r)} disabled={!caps.canEditDelete} style={{ opacity: caps.canEditDelete ? 1 : 0.3 }}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
-                      {del.show && <input type="checkbox" style={{ marginLeft: 10 }} disabled={del.disabled} checked={selectedDeleteIds.has(Number(r.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(r.id)); else n.delete(Number(r.id)); return n; })} />}
+                    </div>
+                    <div className="card-item card-item--select">
+                      {del.show ? (
+                        <input
+                          type="checkbox"
+                          aria-label={t("rowDeleteCheckboxAria")}
+                          disabled={del.disabled}
+                          checked={selectedDeleteIds.has(Number(r.id))}
+                          onChange={(e) =>
+                            setSelectedDeleteIds((prev) => {
+                              const n = new Set(prev);
+                              if (e.target.checked) n.add(Number(r.id));
+                              else n.delete(Number(r.id));
+                              return n;
+                            })}
+                        />
+                      ) : (
+                        <span className="user-row-select-placeholder" aria-hidden="true" />
+                      )}
                     </div>
                   </div>
                 );
