@@ -89,6 +89,9 @@
   --page-pad-inline-end: 4rem;
   --page-pad-inline-start: clamp(18rem, 14.06vw, 27rem);
 
+
+  --table-header-height: 6px 22px;
+
   /* --- 壳层背景图（background-color 仍用 --color-page-bg）--- */
   --app-shell-bg-image: radial-gradient(
       circle at 15% 20%,
