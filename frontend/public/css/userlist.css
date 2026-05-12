@@ -129,8 +129,8 @@ body.user-page .user-gc-inline-row {
 
 body.user-page .user-gc-inline-label {
     justify-self: start;
-    font-size: clamp(12px, 0.85vw, 15px);
-    font-weight: 600;
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-bold);
     color: #1f2937;
     white-space: nowrap;
 }
