@@ -183,8 +183,8 @@ try {
         exit;
     }
 
-    $today = 01-06-2026;
-
+    $today = '2026-06-01';
+    
     $inserted = 0;
     bmp_ensureMaintenanceResendPendingTable($pdo);
     ensureAccountingDueDismissedTable($pdo);
