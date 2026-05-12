@@ -1001,6 +1001,12 @@ label.user-modal-col-title.acc-proc-label {
     font-size: 14px;
 }
 
+/* Add/Edit User — Login ID 字段标题 */
+#userModal label[for="login_id"] {
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
+}
+
 .user-page .form-group input,
 .user-page .form-group select {
     width: 100%;
