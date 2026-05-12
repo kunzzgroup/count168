@@ -8,13 +8,16 @@ import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCom
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/payment_maintenance.css";
-import { 
-  fetchCompanyPermissions, 
+import {
+  fetchCompanyPermissions,
   fetchCompanyCurrencies,
-  searchPaymentData, 
+  searchPaymentData,
   deletePaymentRecords,
-  updateSessionCompany 
+  updateSessionCompany,
 } from "./paymentMaintenanceLogic.js";
+import { useLoginLang } from "../../../utils/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
+import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 // Components
 import PaymentMaintenanceFilters from "./components/PaymentMaintenanceFilters.jsx";
@@ -23,6 +26,9 @@ import ConfirmDeleteModal from "../capture/components/ConfirmDeleteModal.jsx"; /
 
 export default function PaymentMaintenancePage() {
   const navigate = useNavigate();
+  const lang = useLoginLang();
+  const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
+  const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
   // -- Boot State --
   const [bootLoading, setBootLoading] = useState(true);
@@ -76,15 +82,15 @@ export default function PaymentMaintenancePage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("success") === "1") {
-      notify("Operation completed successfully!", "success");
+      notify(t("operationCompletedSuccess"), "success");
       window.history.replaceState({}, document.title, window.location.pathname);
       return;
     }
     if (params.get("error") === "1") {
-      notify("Operation failed. Please try again.", "error");
+      notify(t("operationFailedRetry"), "error");
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [notify]);
+  }, [notify, t]);
 
   // -- Initialization --
   useEffect(() => {
@@ -172,6 +178,14 @@ export default function PaymentMaintenancePage() {
 
     return () => clearTimeout(timer);
   }, [bootLoading, me]);
+
+  useEffect(() => {
+    if (bootLoading || !me) return;
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: t("selectDateRange"),
+      selectEndDateHint: t("selectEndDate"),
+    });
+  }, [bootLoading, me, lang, t]);
 
   // Handle sidebar company switch
   useEffect(() => {
@@ -278,10 +292,10 @@ export default function PaymentMaintenancePage() {
         
       } catch (err) {
         console.error("Meta data load error:", err);
-        notify("Failed to load company metadata", "error");
+        notify(t("failedLoadCompanyMetadata"), "error");
       }
     })();
-  }, [bootLoading, companyId, companyCode, notify]);
+  }, [bootLoading, companyId, companyCode, notify, t]);
 
   // -- Search Logic --
   const performSearch = useCallback(async () => {
@@ -299,9 +313,9 @@ export default function PaymentMaintenancePage() {
       setSelectedIds([]);
       setConfirmDelete(false);
       if (data.length === 0) {
-        notify("No data found", "info");
+        notify(t("noDataFound"), "info");
       } else {
-        notify(`Found ${data.length} record(s)`, "success");
+        notify(t("foundRecords", { n: data.length }), "success");
       }
     } catch (err) {
       notify(err.message, "error");
@@ -309,7 +323,7 @@ export default function PaymentMaintenancePage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, dateFrom, dateTo, transactionType, selectedCurrency, notify]);
+  }, [companyId, dateFrom, dateTo, transactionType, selectedCurrency, notify, t]);
 
   // Auto-search when filters change
   useEffect(() => {
@@ -333,9 +347,9 @@ export default function PaymentMaintenancePage() {
       else sessionStorage.removeItem("dashboard_group_filter");
       
       notifyCompanySessionUpdated();
-      notify(`Switched to ${c.company_id}`, "success");
+      notify(t("switchedTo", { company: c.company_id }), "success");
     } catch (err) {
-      notify(err.message || "Switch failed", "error");
+      notify(err.message || t("switchFailed"), "error");
     }
   };
 
@@ -372,11 +386,11 @@ export default function PaymentMaintenancePage() {
 
   const handleDeleteClick = () => {
     if (!confirmDelete) {
-      notify("Please confirm deletion by checking the checkbox", "error");
+      notify(t("pleaseConfirmDeletionCheckbox"), "error");
       return;
     }
     if (selectedIds.length === 0) {
-      notify("Please select at least one record", "error");
+      notify(t("pleaseSelectOneRecord"), "error");
       return;
     }
     setIsDeleteModalOpen(true);
@@ -386,10 +400,10 @@ export default function PaymentMaintenancePage() {
     setIsDeleteModalOpen(false);
     try {
       await deletePaymentRecords(selectedIds);
-      notify(`Successfully deleted ${selectedIds.length} record(s)`, "success");
+      notify(t("successfullyDeletedN", { n: selectedIds.length }), "success");
       performSearch();
     } catch (err) {
-      notify(err.message || "Delete failed", "error");
+      notify(err.message || t("deleteFailed"), "error");
     }
   };
 
@@ -398,10 +412,10 @@ export default function PaymentMaintenancePage() {
   return (
     <div className="container">
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">Maintenance - Payment</h1>
+        <h1 id="maintenance-page-title">{m.pageTitlePayment}</h1>
         {permissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
-            <span className="maintenance-company-label">Category:</span>
+            <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
               {permissions.map(p => (
                 <button 
@@ -436,47 +450,39 @@ export default function PaymentMaintenancePage() {
         confirmDelete={confirmDelete}
         setConfirmDelete={setConfirmDelete}
         deleteDisabled={selectedIds.length === 0 || !confirmDelete}
+        m={m}
       />
 
-      <PaymentMaintenanceTable 
+      <PaymentMaintenanceTable
         data={paymentData}
         loading={loading}
         selectedIds={selectedIds}
         toggleSelect={toggleSelect}
         toggleSelectAll={toggleSelectAll}
         selectAll={selectedIds.length > 0 && selectedIds.length === paymentData.filter(r => !(r.is_deleted === 1 || r.is_deleted === '1' || r.is_deleted === true)).length}
+        m={m}
       />
 
       {/* Modal & Notifications */}
-      <ConfirmDeleteModal 
+      <ConfirmDeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
-        message={`Are you sure you want to delete the selected ${selectedIds.length} record(s)? This action cannot be undone.`}
+        title={m.confirmDeleteTitle}
+        cancelText={m.cancel}
+        confirmText={m.delete}
+        message={t("deleteConfirmRecords", { count: selectedIds.length })}
       />
 
       {/* Notifications */}
       <div id="notificationContainer" className="maintenance-notification-container">
-        {toasts.map(t => (
-          <div key={t.id} className={`maintenance-notification maintenance-notification-${t.type} show`}>
-            {t.message}
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`maintenance-notification maintenance-notification-${toast.type} show`}>
+            {toast.message}
           </div>
         ))}
       </div>
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()}>
-            <select id="calendar-month-select" defaultValue="0"><option value="0">Jan</option><option value="1">Feb</option><option value="2">Mar</option><option value="3">Apr</option><option value="4">May</option><option value="5">Jun</option><option value="6">Jul</option><option value="7">Aug</option><option value="8">Sep</option><option value="9">Oct</option><option value="10">Nov</option><option value="11">Dec</option></select>
-            <select id="calendar-year-select" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
-        </div>
-        <div className="calendar-weekdays">
-          <div className="calendar-weekday">Sun</div><div className="calendar-weekday">Mon</div><div className="calendar-weekday">Tue</div><div className="calendar-weekday">Wed</div><div className="calendar-weekday">Thu</div><div className="calendar-weekday">Fri</div><div className="calendar-weekday">Sat</div>
-        </div>
-        <div className="calendar-days" id="calendar-days" />
-      </div>
+      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }

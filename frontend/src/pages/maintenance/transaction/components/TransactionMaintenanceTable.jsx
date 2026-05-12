@@ -1,19 +1,19 @@
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 
-export default function TransactionMaintenanceTable({ data, loading }) {
+export default function TransactionMaintenanceTable({ data, loading, m }) {
   if (loading) {
     return (
       <div className="maintenance-list-container" style={{ display: "block" }}>
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Created At</th><th>Process</th><th>Id_Product</th><th>Account</th><th>Description</th><th>Remark</th><th>Percent</th><th>Currency</th><th>Rate</th><th>Cr</th><th>Dr</th><th>Submitter</th>
+              <th>{m.tblNo}</th><th>{m.tblCreatedAt}</th><th>{m.tblProcess}</th><th>{m.tblIdProduct}</th><th>{m.tblAccount}</th><th>{m.tblDescription}</th><th>{m.tblRemark}</th><th>{m.tblPercent}</th><th>{m.tblCurrency}</th><th>{m.tblRate}</th><th>{m.tblCr}</th><th>{m.tblDr}</th><th>{m.tblSubmitter}</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td className="maintenance-table-cell" colSpan="13" style={{ textAlign: "center", padding: "20px" }}>
-                Loading...
+                {m.loading}
               </td>
             </tr>
           </tbody>
@@ -26,7 +26,7 @@ export default function TransactionMaintenanceTable({ data, loading }) {
     return (
       <div className="empty-state-container" style={{ display: "block" }}>
         <div className="empty-state">
-          <p>No data found. Please adjust your search criteria and try again.</p>
+          <p>{m.noDataAdjustSearch}</p>
         </div>
       </div>
     );
@@ -37,7 +37,7 @@ export default function TransactionMaintenanceTable({ data, loading }) {
       <table className="maintenance-table">
         <thead>
           <tr>
-            <th>No.</th><th>Created At</th><th>Process</th><th>Id_Product</th><th>Account</th><th>Description</th><th>Remark</th><th>Percent</th><th>Currency</th><th>Rate</th><th>Cr</th><th>Dr</th><th>Submitter</th>
+            <th>{m.tblNo}</th><th>{m.tblCreatedAt}</th><th>{m.tblProcess}</th><th>{m.tblIdProduct}</th><th>{m.tblAccount}</th><th>{m.tblDescription}</th><th>{m.tblRemark}</th><th>{m.tblPercent}</th><th>{m.tblCurrency}</th><th>{m.tblRate}</th><th>{m.tblCr}</th><th>{m.tblDr}</th><th>{m.tblSubmitter}</th>
           </tr>
         </thead>
         <tbody>

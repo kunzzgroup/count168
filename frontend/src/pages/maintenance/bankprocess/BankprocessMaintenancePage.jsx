@@ -20,9 +20,15 @@ import {
   searchBankprocessData,
   updateSessionCompany,
 } from "./bankprocessMaintenanceLogic.js";
+import { useLoginLang } from "../../../utils/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
+import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 export default function BankprocessMaintenancePage() {
   const navigate = useNavigate();
+  const lang = useLoginLang();
+  const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
+  const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
   const [bootLoading, setBootLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -47,6 +53,11 @@ export default function BankprocessMaintenancePage() {
   const today = useMemo(() => formatDmy(new Date()), []);
   const currentCompanyIdRef = useRef(null);
 
+  const pageTitle = useMemo(
+    () => t("pageTitleBankProcess", { category: selectedPermission || m.bankProcessCategoryFallback }),
+    [t, selectedPermission, m.bankProcessCategoryFallback]
+  );
+
   const notify = useCallback((message, type = "success") => {
     const id = Date.now() + Math.random();
     setToasts((prev) => {
@@ -54,7 +65,7 @@ export default function BankprocessMaintenancePage() {
       return next.length > 2 ? next.slice(1) : next;
     });
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
+      setToasts((prev) => prev.filter((item) => item.id !== id));
     }, 2000);
   }, []);
 
@@ -144,6 +155,14 @@ export default function BankprocessMaintenancePage() {
   }, [datePickerScriptReady, bootLoading, me]);
 
   useEffect(() => {
+    if (!datePickerScriptReady || bootLoading || !me) return;
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: t("selectDateRange"),
+      selectEndDateHint: t("selectEndDate"),
+    });
+  }, [datePickerScriptReady, bootLoading, me, lang, t]);
+
+  useEffect(() => {
     (async () => {
       try {
         const [meRes, compRes] = await Promise.all([
@@ -225,7 +244,7 @@ export default function BankprocessMaintenancePage() {
 
   const searchData = useCallback(async (silent = false) => {
     if (!dateFrom || !dateTo) {
-      if (!silent) notify("Please select date range", "error");
+      if (!silent) notify(t("pleaseSelectDateRange"), "error");
       return;
     }
     setLoading(true);
@@ -236,19 +255,19 @@ export default function BankprocessMaintenancePage() {
       setSelectedIds([]);
       if (!silent) {
         if (data?.length) {
-          notify(`Found ${data.length} record(s)`, "success");
+          notify(t("foundRecords", { n: data.length }), "success");
         } else {
-          notify("No bank process transactions found", "info");
+          notify(t("noBankProcessTransactions"), "info");
         }
       }
     } catch (err) {
       setRows([]);
       setHasSearched(true);
-      if (!silent) notify(err.message || "Search failed", "error");
+      if (!silent) notify(err.message || t("searchFailed"), "error");
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, companyId, selectedCurrency, query, notify]);
+  }, [dateFrom, dateTo, companyId, selectedCurrency, query, notify, t]);
 
   useEffect(() => {
     if (!bootLoading && companyId && selectedCurrency && dateFrom && dateTo) {
@@ -271,11 +290,11 @@ export default function BankprocessMaintenancePage() {
       setCompanyCode(targetCompany.company_id || "");
       currentCompanyIdRef.current = nextId;
       notifyCompanySessionUpdated();
-      notify(`Switched to ${targetCompany.company_id}`, "success");
+      notify(t("switchedTo", { company: targetCompany.company_id }), "success");
     } catch (err) {
-      notify(err.message || "Switch failed", "error");
+      notify(err.message || t("switchFailed"), "error");
     }
-  }, [notify]);
+  }, [notify, t]);
 
   const onGroupClick = async (gid) => {
     await applySharedGroupClickWithCompanySwitch({
@@ -321,11 +340,11 @@ export default function BankprocessMaintenancePage() {
 
   const onDelete = async () => {
     if (!confirmDelete) {
-      notify("Please confirm deletion by checking the checkbox", "error");
+      notify(t("pleaseConfirmDeletionCheckbox"), "error");
       return;
     }
     if (selectedIds.length === 0) {
-      notify("Please select at least one record", "error");
+      notify(t("pleaseSelectOneRecord"), "error");
       return;
     }
     setIsDeleteModalOpen(true);
@@ -342,12 +361,12 @@ export default function BankprocessMaintenancePage() {
       } catch {
         // ignore
       }
-      notify(result.message || `Deleted ${selectedIds.length} record(s)`, "success");
+      notify(result.message || t("successfullyDeletedN", { n: selectedIds.length }), "success");
       setSelectedIds([]);
       setConfirmDelete(false);
       await searchData(true);
     } catch (err) {
-      notify(err.message || "Delete failed", "error");
+      notify(err.message || t("deleteFailed"), "error");
     }
   };
 
@@ -379,6 +398,8 @@ export default function BankprocessMaintenancePage() {
         setConfirmDelete={setConfirmDelete}
         selectedIds={selectedIds}
         onDelete={onDelete}
+        pageTitle={pageTitle}
+        m={m}
       />
 
       <BankprocessMaintenanceTable
@@ -389,36 +410,27 @@ export default function BankprocessMaintenancePage() {
         onToggleRow={onToggleRow}
         selectAll={selectAll}
         onToggleSelectAll={onToggleSelectAll}
+        m={m}
       />
 
       <div id="notificationContainer" className="maintenance-notification-container">
-        {toasts.map((t) => (
-          <div key={t.id} className={`maintenance-notification maintenance-notification-${t.type} show`}>
-            {t.message}
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`maintenance-notification maintenance-notification-${toast.type} show`}>
+            {toast.message}
           </div>
         ))}
       </div>
 
       <BankprocessDeleteModal
         isOpen={isDeleteModalOpen}
-        selectedCount={selectedIds.length}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={onConfirmDelete}
+        title={m.confirmDeleteTitle}
+        cancelText={m.cancel}
+        confirmText={m.delete}
+        message={t("deleteConfirmBankProcess", { count: selectedIds.length })}
       />
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()}>
-            <select id="calendar-month-select" defaultValue="0"><option value="0">Jan</option><option value="1">Feb</option><option value="2">Mar</option><option value="3">Apr</option><option value="4">May</option><option value="5">Jun</option><option value="6">Jul</option><option value="7">Aug</option><option value="8">Sep</option><option value="9">Oct</option><option value="10">Nov</option><option value="11">Dec</option></select>
-            <select id="calendar-year-select" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
-        </div>
-        <div className="calendar-weekdays">
-          <div className="calendar-weekday">Sun</div><div className="calendar-weekday">Mon</div><div className="calendar-weekday">Tue</div><div className="calendar-weekday">Wed</div><div className="calendar-weekday">Thu</div><div className="calendar-weekday">Fri</div><div className="calendar-weekday">Sat</div>
-        </div>
-        <div className="calendar-days" id="calendar-days" />
-      </div>
+      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }

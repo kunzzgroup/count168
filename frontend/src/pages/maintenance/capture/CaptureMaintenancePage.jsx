@@ -11,13 +11,16 @@ import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDate
 import { formatYmd } from "../../../utils/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
-import { 
-  fetchCompanyPermissions, 
-  fetchProcesses, 
-  searchCaptureData, 
+import {
+  fetchCompanyPermissions,
+  fetchProcesses,
+  searchCaptureData,
   deleteCaptureItems,
-  updateSessionCompany 
+  updateSessionCompany,
 } from "./captureMaintenanceLogic.js";
+import { useLoginLang } from "../../../utils/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
+import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
@@ -26,6 +29,9 @@ import ConfirmDeleteModal from "./components/ConfirmDeleteModal.jsx";
 
 export default function CaptureMaintenancePage() {
   const navigate = useNavigate();
+  const lang = useLoginLang();
+  const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
+  const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
   // -- Boot State ---
   const [bootLoading, setBootLoading] = useState(true);
@@ -161,6 +167,14 @@ export default function CaptureMaintenancePage() {
     return () => clearTimeout(timer);
   }, [bootLoading, me, cssReady]);
 
+  useEffect(() => {
+    if (bootLoading || !me || !cssReady) return;
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: t("selectDateRange"),
+      selectEndDateHint: t("selectEndDate"),
+    });
+  }, [bootLoading, me, cssReady, lang, t]);
+
   // -- Boot Logic --
   useEffect(() => {
     (async () => {
@@ -261,10 +275,10 @@ export default function CaptureMaintenancePage() {
         }
       } catch (err) {
         console.error("Meta data load error:", err);
-        notify("Failed to load processes", "error");
+        notify(t("failedLoadProcesses"), "error");
       }
     })();
-  }, [bootLoading, companyId, companyCode, notify]);
+  }, [bootLoading, companyId, companyCode, notify, t]);
 
   // -- Search Logic --
   const performSearch = useCallback(async () => {
@@ -281,7 +295,7 @@ export default function CaptureMaintenancePage() {
       });
       setCaptureData(data);
       if (data.length > 0) {
-        notify(`Found ${data.length} record(s)`, "success");
+        notify(t("foundRecords", { n: data.length }), "success");
       }
     } catch (err) {
       notify(err.message, "error");
@@ -289,7 +303,7 @@ export default function CaptureMaintenancePage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify]);
+  }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t]);
 
   // Auto-search when filters change
   useEffect(() => {
@@ -319,9 +333,9 @@ export default function CaptureMaintenancePage() {
       else sessionStorage.removeItem("dashboard_group_filter");
       
       notifyCompanySessionUpdated();
-      notify(`Switched to ${c.company_id}`, "success");
+      notify(t("switchedTo", { company: c.company_id }), "success");
     } catch (err) {
-      notify(err.message || "Switch failed", "error");
+      notify(err.message || t("switchFailed"), "error");
       // Fallback redirect if something goes wrong during session update
       navigate("/dashboard", { replace: true });
     }
@@ -361,7 +375,7 @@ export default function CaptureMaintenancePage() {
 
   const handleDeleteClick = () => {
     if (selectedIds.length === 0) {
-      notify("Please select at least one record", "error");
+      notify(t("pleaseSelectOneRecord"), "error");
       return;
     }
     setShowDeleteModal(true);
@@ -385,7 +399,7 @@ export default function CaptureMaintenancePage() {
         dateTo
       });
 
-      notify("Delete successful", "success");
+      notify(t("deleteSuccessful"), "success");
       setConfirmDelete(false);
       setSelectedIds([]);
       await performSearch();
@@ -405,10 +419,10 @@ export default function CaptureMaintenancePage() {
   return (
     <div className="container">
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">Maintenance - Data Capture</h1>
+        <h1 id="maintenance-page-title">{m.pageTitleDataCapture}</h1>
         {permissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
-            <span className="maintenance-company-label">Category:</span>
+            <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
               {permissions.map(p => (
                 <button 
@@ -441,9 +455,10 @@ export default function CaptureMaintenancePage() {
         canDelete={selectedIds.length > 0}
         confirmDelete={confirmDelete}
         setConfirmDelete={setConfirmDelete}
+        m={m}
       />
 
-      <CaptureMaintenanceTable 
+      <CaptureMaintenanceTable
         data={captureData}
         loading={loading}
         selectedIds={selectedIds}
@@ -451,37 +466,28 @@ export default function CaptureMaintenancePage() {
         toggleSelectAll={toggleSelectAll}
         isAllSelected={isAllSelected}
         isIndeterminate={isIndeterminate}
+        m={m}
       />
 
       {/* Notifications */}
       <div id="notificationContainer" className="maintenance-notification-container">
-        {toasts.map(t => (
-          <div key={t.id} className={`maintenance-notification maintenance-notification-${t.type} show`}>
-            {t.message}
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`maintenance-notification maintenance-notification-${toast.type} show`}>
+            {toast.message}
           </div>
         ))}
       </div>
       {/* Confirm Modal */}
-      <ConfirmDeleteModal 
+      <ConfirmDeleteModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDeleteAction}
-        message={`Are you sure you want to delete the selected ${selectedIds.length} record(s)? This action cannot be undone.`}
+        title={m.confirmDeleteTitle}
+        cancelText={m.cancel}
+        confirmText={m.delete}
+        message={t("deleteConfirmRecords", { count: selectedIds.length })}
       />
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()}>
-            <select id="calendar-month-select" defaultValue="0"><option value="0">Jan</option><option value="1">Feb</option><option value="2">Mar</option><option value="3">Apr</option><option value="4">May</option><option value="5">Jun</option><option value="6">Jul</option><option value="7">Aug</option><option value="8">Sep</option><option value="9">Oct</option><option value="10">Nov</option><option value="11">Dec</option></select>
-            <select id="calendar-year-select" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
-        </div>
-        <div className="calendar-weekdays">
-          <div className="calendar-weekday">Sun</div><div className="calendar-weekday">Mon</div><div className="calendar-weekday">Tue</div><div className="calendar-weekday">Wed</div><div className="calendar-weekday">Thu</div><div className="calendar-weekday">Fri</div><div className="calendar-weekday">Sat</div>
-        </div>
-        <div className="calendar-days" id="calendar-days" />
-      </div>
+      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }
