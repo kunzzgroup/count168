@@ -3663,7 +3663,21 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.disabled = true;
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
+        // processlist.js 先于 bank_process_list.js 绑定 submit：此处须与 bank_process_list.js 一致地同步 Day-end cap 并写入 POST。
+        // 提交前将 hidden 与开关对齐，避免仅勾选开关、hidden 仍为 0 的竞态。
+        (function syncBankDayEndCapHiddenFromToggle() {
+            var sw = document.getElementById('bank_day_end_monthly_cap_switch');
+            var hidden = document.getElementById('bank_day_end_monthly_cap_enabled');
+            if (sw && hidden && !sw.disabled) {
+                hidden.value = sw.checked ? '1' : '0';
+            }
+        })();
         const formData = new FormData(this);
+        if (editId) {
+            ['country', 'bank', 'type', 'name'].forEach(function (key) {
+                formData.delete(key);
+            });
+        }
         // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
         const grossProfit = MoneyDecimal.sub(document.getElementById('bank_price').value || '0', document.getElementById('bank_cost').value || '0');
         formData.set('profit', MoneyDecimal.formatFixed(grossProfit, 8));
@@ -3678,11 +3692,36 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
-        formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        formData.set('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        var dayEndMonthlyCapEnabled = false;
+        var capHidden = document.getElementById('bank_day_end_monthly_cap_enabled');
+        var capSwitch = document.getElementById('bank_day_end_monthly_cap_switch');
+        if (capHidden) {
+            dayEndMonthlyCapEnabled = String(capHidden.value || '').trim() === '1';
+        } else if (capSwitch) {
+            dayEndMonthlyCapEnabled = !!capSwitch.checked;
+        }
+        var dayEndInputEl = document.getElementById('bank_day_end');
+        var dayEndYmd = (dayEndInputEl && dayEndInputEl.value) ? String(dayEndInputEl.value).trim() : '';
+        if (!freqEl || freqEl.value !== '1st_of_every_month') {
+            dayEndMonthlyCapEnabled = false;
+        }
         if (freqEl && freqEl.value === 'once') {
             formData.set('day_end', '');
             formData.set('contract', '');
             formData.set('insurance', '');
+            formData.set('day_end_monthly_cap_enabled', '0');
+        } else {
+            if (dayEndMonthlyCapEnabled && !/^\d{4}-\d{2}-\d{2}$/.test(dayEndYmd)) {
+                showNotification('Please select a valid Day end before enabling Day-end cap.', 'danger');
+                bankProcessSubmitInFlight = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = editId ? 'Update Process' : 'Add Process';
+                }
+                return;
+            }
+            formData.set('day_end_monthly_cap_enabled', dayEndMonthlyCapEnabled ? '1' : '0');
         }
         try {
             if (editId) {
