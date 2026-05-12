@@ -32,11 +32,11 @@ function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
     const code = String(codeRaw || '').trim();
     const name = String(nameRaw || '').trim();
     const fallback = String(fallbackRaw || '').trim();
-    // Always show account_id[name] when account_id exists.
-    // If name is empty, fall back to account_id itself: EXPENSES[EXPENSES].
+    // Always show account_id [name] when account_id exists.
+    // If name is empty, fall back to account_id itself: EXPENSES [EXPENSES].
     if (code) {
         const safeName = name || code;
-        return code + '[' + safeName + ']';
+        return code + ' [' + safeName + ']';
     }
     if (name) return name;
     return fallback;
@@ -3632,7 +3632,7 @@ function initBankAccountSelect(buttonId, dropdownId) {
             optionsContainer.appendChild(selectOpt);
         }
 
-        // Display as "account_id[name]" to show both code and name
+        // Display as "account_id [name]" to show both code and name
         function getDisplayText(account) {
             return formatBankAccountDisplay(account.account_id, account.name, account.id);
         }
