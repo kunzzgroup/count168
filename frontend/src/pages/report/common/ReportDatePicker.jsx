@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { formatDmy, parseYmd } from "../../../utils/dateUtils.js";
 
@@ -17,9 +17,15 @@ function dmyToYmd(dmy) {
   return `${year}-${month}-${day}`;
 }
 
-export default function ReportDatePicker({ dateFrom, dateTo, onRangeChange, label = "Date Range", containerClass = "report-date-range-group" }) {
-  const initializedRef = useRef(false);
-
+export default function ReportDatePicker({
+  dateFrom,
+  dateTo,
+  onRangeChange,
+  label = "Date Range",
+  containerClass = "report-date-range-group",
+  placeholder = "Select date range",
+  selectEndDateHint = "Select end date",
+}) {
   useEffect(() => {
     const fromEl = document.getElementById("date_from");
     const toEl = document.getElementById("date_to");
@@ -31,12 +37,11 @@ export default function ReportDatePicker({ dateFrom, dateTo, onRangeChange, labe
     let disposed = false;
 
     const initPicker = () => {
-      if (disposed || initializedRef.current) return;
-      if (!window?.MaintenanceDateRangePicker?.init) return;
-      initializedRef.current = true;
+      if (disposed || !window?.MaintenanceDateRangePicker?.init) return;
       window.MaintenanceDateRangePicker.init({
         allowEmpty: false,
-        placeholder: "Select date range",
+        placeholder,
+        selectEndDateHint,
         onChange: () => {
           const nextFromDmy = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
           const nextToDmy = window.MaintenanceDateRangePicker.getDateTo?.() || "";
@@ -53,7 +58,7 @@ export default function ReportDatePicker({ dateFrom, dateTo, onRangeChange, labe
     return () => {
       disposed = true;
     };
-  }, [onRangeChange]);
+  }, [onRangeChange, placeholder, selectEndDateHint]);
 
   return (
     <div className={`report-filter-group ${containerClass}`}>
