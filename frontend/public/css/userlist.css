@@ -1402,7 +1402,12 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 /* Input formatting */
-#login_id,
+#login_id {
+    text-transform: uppercase;
+    font-size: var(--text-small);
+    font-weight: 400;
+}
+
 #name {
     text-transform: uppercase;
 }
