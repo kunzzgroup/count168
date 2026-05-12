@@ -1397,7 +1397,7 @@ label.user-modal-col-title.acc-proc-label {
     display: grid;
     grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.95fr;
     gap: 15px;
-    padding: 0px 20px;
+    padding: 6px 20px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
     margin-top: 20px;
