@@ -39,9 +39,6 @@ function normalizeCompanyRow(row) {
   };
 }
 
-/** Skeleton row count while switching company / fetching (fills viewport ~like real rows). */
-const USERLIST_SKELETON_ROWS = 12;
-
 export default function UserListPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -143,7 +140,8 @@ export default function UserListPage() {
   }, [filteredSorted, currentPage, showAll]);
 
   const listBusy = tableLoading || switchingCompany;
-  const skeletonColCount = showBulkDeleteColumn ? 10 : 9;
+  /** 仅首次无数据时显示简单加载行；有缓存数据时保持表格行（切换公司/刷新不闪骨架条） */
+  const showInitialTableLoading = listBusy && usersRaw.length === 0;
 
   const permDisabledMap = useMemo(() => {
     const allowed = new Set(getCurrentUserRolePermissions(currentUserRole));
@@ -623,24 +621,12 @@ export default function UserListPage() {
               )}
             </div>
             <div className="user-cards" aria-busy={listBusy}>
-              {listBusy
-                ? Array.from({ length: USERLIST_SKELETON_ROWS }, (_, idx) => (
-                    <div
-                      key={`userlist-sk-${idx}`}
-                      className={`user-card user-card--skeleton show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
-                      aria-hidden
-                    >
-                      {Array.from({ length: skeletonColCount }, (_, ci) => (
-                        <div key={ci} className="card-item">
-                          <span
-                            className="userlist-skeleton-bar"
-                            style={{ width: ci === 0 ? "34%" : `${62 + (ci % 4) * 8}%` }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ))
-                : pageRows.map((r, idx) => {
+              {showInitialTableLoading ? (
+                <div key="userlist-initial-loading" className="user-card user-card--loading show-card row-even" role="status">
+                  {t("loading")}
+                </div>
+              ) : (
+                pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
                 return (
@@ -679,7 +665,8 @@ export default function UserListPage() {
                     )}
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           </div>
           {!showAll && (
