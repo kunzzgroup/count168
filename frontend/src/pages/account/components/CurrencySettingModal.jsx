@@ -186,8 +186,6 @@ export default function CurrencySettingModal({
                 <button
                   type="button"
                   className="account-btn account-btn-add currency-setting-selectall-btn"
-                  disabled={settingCurrencyId == null}
-                  title={settingCurrencyId == null ? t("pleaseSelectCurrencyFirst") : undefined}
                   onClick={() => {
                     const allIds = filteredAccounts.map(a => Number(a.id));
                     const allSelected = allIds.every(id => settingLinked.has(id));
