@@ -2262,7 +2262,7 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     font-weight: bold;
 }
 
-/* User modal — Account / Process：视觉对齐图一 — 浅紫底 + 紫蓝边、无阴影；选中略加深（checkbox 仍仅逻辑用） */
+/* User modal — Account / Process：未选中灰底灰边；选中时底/边/字色为你指定（checkbox 仅逻辑用） */
 #userModal .user-modal-select-card {
     display: flex;
     flex-direction: column;
@@ -2276,30 +2276,28 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     margin: 0;
     border-radius: 10px;
     padding: 10px 12px;
-    background: #f0f2ff;
-    border: 1px solid #818cf8;
+    background: #f1f5f9;
+    border: 1.5px solid #cbd5e1;
     box-shadow: none;
     cursor: pointer;
     transition:
         background-color 0.2s ease,
-        border-color 0.2s ease,
-        border-width 0.2s ease;
+        border-color 0.2s ease;
 }
 
 #userModal .user-modal-select-card:hover:not(:has(input[type="checkbox"]:disabled)) {
-    background-color: #e8ecff !important;
-    border-color: #6366f1 !important;
+    background-color: #e8eef5 !important;
+    border-color: #94a3b8 !important;
 }
 
 #userModal .user-modal-select-card:has(input[type="checkbox"]:checked) {
-    background-color: #e0e7ff;
-    border: 2px solid #6366f1;
-    padding: 9px 11px;
+    background-color: #ffffff;
+    border: 1.5px solid #0d60ff;
 }
 
 #userModal .user-modal-select-card:has(input[type="checkbox"]:checked):hover {
-    background-color: #c7d2fe !important;
-    border-color: #4f46e5 !important;
+    background-color: #f8fbff !important;
+    border-color: #0d60ff !important;
 }
 
 #userModal .user-modal-select-card .account-label,
@@ -2313,7 +2311,7 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     overflow-wrap: anywhere;
     word-break: break-word;
     line-height: 1.3;
-    color: #4f46e8;
+    color: #334155;
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -2329,13 +2327,17 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     font-size: 12px;
     font-weight: 500;
     line-height: 1.35;
-    color: #6366f1;
+    color: #64748b;
     letter-spacing: 0;
 }
 
+#userModal .user-modal-select-card:has(input[type="checkbox"]:checked) .account-label,
+#userModal .user-modal-select-card:has(input[type="checkbox"]:checked) .account-label.account-label--process {
+    color: #0d60ff;
+}
+
 #userModal .user-modal-select-card:has(input[type="checkbox"]:checked) .account-label-desc {
-    color: #4f46e5;
-    opacity: 0.9;
+    color: #797979;
 }
 
 #userModal .user-modal-select-card input[type="checkbox"] {
@@ -2359,12 +2361,12 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 }
 
 #userModal .user-modal-select-card input[type="checkbox"]:checked + .account-label {
-    color: #4338ca;
+    color: #0d60ff;
     font-weight: 700;
 }
 
 #userModal .user-modal-select-card:has(input[type="checkbox"]:focus-visible) {
-    outline: 2px solid #6366f1;
+    outline: 2px solid #0d60ff;
     outline-offset: 2px;
 }
 
