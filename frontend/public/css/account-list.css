@@ -512,7 +512,7 @@
     font-family: var(--font-heading-page);
     font-size: var(--text-h2);
     font-weight: var(--font-weight-bold);
-    color: #1a237e;
+    color: var(--color-heading);
     margin: 0;
     padding: 0;
     border-bottom: none;
