@@ -290,7 +290,7 @@ export function useTransactionForm({
           setRateTransferToAccount(null);
           setRateTransferFromAccount(null);
           setRateMiddlemanAccount(null);
-          await onSearch();
+          await onSearch({ forceRefresh: true });
           return;
         }
         pushToast(res?.message || "Submit failed", "error");
@@ -348,7 +348,7 @@ export function useTransactionForm({
         await refreshContraInboxBadge();
         setTxAmount("");
         setTxConfirm(false);
-        await onSearch();
+        await onSearch({ forceRefresh: true });
         return;
       }
       pushToast(res?.message || "Submit failed", "error");

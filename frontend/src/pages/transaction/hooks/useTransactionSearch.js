@@ -332,7 +332,7 @@ export function useTransactionSearch({
     ],
   );
 
-  const runSearch = useCallback(async ({ silent = false, isInitialLoad = false } = {}) => {
+  const runSearch = useCallback(async ({ silent = false, isInitialLoad = false, forceRefresh = false } = {}) => {
     const cid = filterSnapshot?.companyId;
     if (!cid) return;
     if (!effectiveDateFrom || !effectiveDateTo) {
@@ -369,7 +369,7 @@ export function useTransactionSearch({
       currencies: [...selectedCurrencies].sort().join(","),
     });
 
-    if (!silent && !isInitialLoad && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
+    if (!silent && !isInitialLoad && !forceRefresh && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
       return;
     }
 
@@ -546,6 +546,7 @@ export function useTransactionSearch({
     const pf = applyPaymentWinLossFilters(baseRowsPresentation.baseLeft, baseRowsPresentation.baseRight, {
       showPaymentOnly: searchState.showPaymentOnly,
       showCaptureOnly: searchState.showCaptureOnly,
+      showZeroBalance: searchState.showZeroBalance,
     });
     const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance);
     const sortedLeft = z.left;
