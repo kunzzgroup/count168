@@ -16,7 +16,7 @@ export const USER_LIST_I18N = {
     saved: "Saved",
     userList: "User List",
     addUser: "Add User",
-    searchPlaceholder: "Search LOGIN ID,Name,Email",
+    searchPlaceholder: "Search Login ID,Name,Email",
     showInactive: "Show Inactive",
     inactive: "Inactive",
     showAll: "Show All",
