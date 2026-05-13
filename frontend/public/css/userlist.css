@@ -2262,12 +2262,16 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     font-weight: bold;
 }
 
-/* User modal — Account / Process：文案左、勾选右；配色与全局 account 卡片一致；长文案换行不省略（不改 Permissions） */
+/* User modal — Account / Process：上排勾选靠右、下排全文案；配色同全局 account；长文案换行不省略（不改 Permissions） */
 #userModal .user-modal-select-card {
-    flex-direction: row-reverse;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+        ". chk"
+        "lbl lbl";
+    gap: 6px 8px;
+    align-items: start;
     min-height: auto;
     border-radius: 8px;
     padding: 8px 10px;
@@ -2287,11 +2291,10 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 
 #userModal .user-modal-select-card .account-label,
 #userModal .user-modal-select-card .account-label.account-label--process {
-    flex: 1 1 auto;
+    grid-area: lbl;
     min-width: 0;
     max-width: 100%;
     text-align: left;
-    align-self: flex-start;
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
@@ -2308,19 +2311,18 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 }
 
 #userModal .user-modal-select-card input[type="checkbox"] {
+    grid-area: chk;
+    justify-self: end;
     appearance: none;
     -webkit-appearance: none;
-    flex-shrink: 0;
     width: 22px;
     height: 22px;
     margin: 0;
-    margin-top: 2px;
     border-radius: 50%;
     border: 2px solid #cbd5e1;
     background: #fff;
     cursor: pointer;
     position: relative;
-    align-self: flex-start;
     accent-color: transparent;
 }
 
