@@ -214,32 +214,32 @@ export default function UserModal({
                       onChange={(e) => setForm((f) => ({ ...f, login_id: e.target.value.toUpperCase() }))}
                     />
                   </div>
-                  {isC168Company ? (
-                    <div className="form-group user-info-field password-row-container password-row-container--split">
-                      <div className="password-field-wrapper">
-                        <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
-                        <input id="password" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-                      </div>
-                      <div className="password-field-wrapper">
-                        <label htmlFor="secondary_password">{t("secondaryPassword6Digits")}</label>
-                        <input
-                          id="secondary_password"
-                          type="password"
-                          maxLength={6}
-                          pattern="[0-9]{6}"
-                          placeholder={t("secondaryPasswordPlaceholder")}
-                          value={form.secondary_password}
-                          onChange={(e) => setForm((f) => ({ ...f, secondary_password: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="form-group user-info-field">
+                </div>
+                {isC168Company ? (
+                  <div className="form-group user-info-field password-row-container password-row-container--split">
+                    <div className="password-field-wrapper">
                       <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
                       <input id="password" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
                     </div>
-                  )}
-                </div>
+                    <div className="password-field-wrapper">
+                      <label htmlFor="secondary_password">{t("secondaryPassword6Digits")}</label>
+                      <input
+                        id="secondary_password"
+                        type="password"
+                        maxLength={6}
+                        pattern="[0-9]{6}"
+                        placeholder={t("secondaryPasswordPlaceholder")}
+                        value={form.secondary_password}
+                        onChange={(e) => setForm((f) => ({ ...f, secondary_password: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="form-group user-info-field">
+                    <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
+                    <input id="password" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+                  </div>
+                )}
                 <div className="user-info-field-row">
                   <div className="form-group user-info-field">
                     <label htmlFor="name">{t("nameRequired")}</label>

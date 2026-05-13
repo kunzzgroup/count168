@@ -956,7 +956,7 @@ label.user-modal-col-title.acc-proc-label {
     flex-shrink: 0;
 }
 
-/* User modal — 基本信息两列：Login|Password，Name|Role */
+/* User modal — 基本信息：Login 独占一行，Name|Role 两列 */
 #userModal .user-info-field-row {
     display: flex;
     flex-wrap: wrap;
