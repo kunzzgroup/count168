@@ -317,6 +317,12 @@ body.process-page {
     transform: translateY(-1px);
 }
 
+/* 顶栏：Delete 与 Add 成组在右侧时，去掉原本为「紧贴左侧控件」加的 margin-left */
+.process-page .action-buttons .user-toolbar-actions-right .btn-delete,
+.process-page .action-buttons .user-toolbar-actions-right .btn.btn-delete {
+    margin-left: 0;
+}
+
 .process-page .checkbox-section {
     display: flex;
     align-items: center;

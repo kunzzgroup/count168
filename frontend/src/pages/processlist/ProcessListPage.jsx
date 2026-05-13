@@ -765,12 +765,6 @@ export default function ProcessListPage() {
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-add" onClick={openAdd}>
-                <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18v-2H6V4h7V2zm5 7V3.5L18.5 1 21 3.5V9h2v2h-2v6h-2v-6h-6v-2h6z" />
-                </svg>
-                {t("addProcess")}
-              </button>
               <div className="search-container userlist-search-bar">
                 <span className="userlist-search-bar__icon" aria-hidden="true">
                   <svg fill="currentColor" viewBox="0 0 24 24">
@@ -830,15 +824,23 @@ export default function ProcessListPage() {
                 </button>
               </div>
             </div>
-            <button
-              type="button"
-              className="btn btn-delete"
-              id="processDeleteSelectedBtn"
-              disabled={!selectedIds.size}
-              onClick={deleteSelected}
-            >
-              {selectedIds.size ? t("deleteWithCount", { count: selectedIds.size }) : t("delete")}
-            </button>
+            <div className="user-toolbar-actions-right" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+              <button
+                type="button"
+                className="btn btn-delete"
+                id="processDeleteSelectedBtn"
+                disabled={!selectedIds.size}
+                onClick={deleteSelected}
+              >
+                {selectedIds.size ? t("deleteWithCount", { count: selectedIds.size }) : t("delete")}
+              </button>
+              <button type="button" className="btn btn-add" onClick={openAdd}>
+                <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18v-2H6V4h7V2zm5 7V3.5L18.5 1 21 3.5V9h2v2h-2v6h-2v-6h-6v-2h6z" />
+                </svg>
+                {t("addProcess")}
+              </button>
+            </div>
           </div>
           <div className="user-gc-inline-panel">
             {groupIds.length > 0 && (
