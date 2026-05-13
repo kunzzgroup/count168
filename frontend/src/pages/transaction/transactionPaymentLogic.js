@@ -1,4 +1,5 @@
 import { parseBalanceValue } from "./transactionFormat.js";
+import { MoneyDecimal } from "../../utils/moneyDecimal.js";
 
 export const TRANSACTION_CURRENCY_FILTER_KEY_PREFIX = "transaction_currency_filter_v1_";
 export const TX_LIST_SESSION_PREFIX = "count168_txlist_v1_";
@@ -118,7 +119,7 @@ export function sanitizeSearchApiData(data) {
     totals: {
       left: totalsLeft,
       right: totalsRight,
-      summary: mergeTotals(totalsLeft, totalsRight),
+      summary: applySummaryWinLossDisplayTolerance(calculateTotals([...left, ...right])),
     },
   };
 }
@@ -218,32 +219,131 @@ export function applyZeroBalanceFilter(filteredLeft, filteredRight, showZeroBala
   };
 }
 
-export function calculateTotals(rows) {
-  const sumField = (field) =>
-    (rows || []).reduce((acc, row) => {
-      const n = parseBalanceValue(row[field]);
-      return acc + (n ?? 0);
-    }, 0);
-
-  const bf = sumField("bf");
-  const win_loss = sumField("win_loss");
-  const cr_dr = sumField("cr_dr");
-  const balance = sumField("balance");
-  return {
-    bf: bf.toFixed(2),
-    win_loss: win_loss.toFixed(2),
-    cr_dr: cr_dr.toFixed(2),
-    balance: balance.toFixed(2),
-  };
+/** Same as `js/transaction.js` winLossFullRawForTotals: sum full-precision W/L before half-up. */
+function winLossFullRawForTotals(row) {
+  const raw =
+    row && row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ""
+      ? row.win_loss_full
+      : row && row.win_loss != null
+        ? row.win_loss
+        : "0";
+  const s = raw === "-" ? "0" : String(raw).replace(/,/g, "").trim();
+  try {
+    MoneyDecimal.toDecimal(s, 0);
+    return s;
+  } catch {
+    return "0";
+  }
 }
 
+function cleanMoneyCell(value) {
+  const s = String(value ?? "")
+    .replace(/,/g, "")
+    .trim();
+  if (!s || s === "-") return "0";
+  return s;
+}
+
+/** Match `js/transaction.js` calculateTotals (bf/cr_dr sum; win_loss from win_loss_full; balance = bf+wl+cr). */
+export function calculateTotals(rows) {
+  let bfAcc = MoneyDecimal.toDecimal("0", 0);
+  let wlAcc = MoneyDecimal.toDecimal("0", 0);
+  let crAcc = MoneyDecimal.toDecimal("0", 0);
+  for (const row of rows || []) {
+    try {
+      bfAcc = bfAcc.plus(MoneyDecimal.toDecimal(cleanMoneyCell(row?.bf), 0));
+    } catch {
+      /* skip bad row */
+    }
+    try {
+      wlAcc = wlAcc.plus(MoneyDecimal.toDecimal(winLossFullRawForTotals(row), 0));
+    } catch {
+      /* skip */
+    }
+    try {
+      crAcc = crAcc.plus(MoneyDecimal.toDecimal(cleanMoneyCell(row?.cr_dr), 0));
+    } catch {
+      /* skip */
+    }
+  }
+  const bfTot = MoneyDecimal.formatFixed(bfAcc.toString(), 2);
+  const wlTot = MoneyDecimal.formatFixedHalfUp(wlAcc.toString(), 2);
+  const crTot = MoneyDecimal.formatFixed(crAcc.toString(), 2);
+  const balTot = MoneyDecimal.formatFixedHalfUp(MoneyDecimal.add(MoneyDecimal.add(bfTot, wlTot), crTot).toString(), 2);
+  return { bf: bfTot, win_loss: wlTot, cr_dr: crTot, balance: balTot };
+}
+
+/**
+ * Bottom Summary only: when `?tx_wl_tol=1`, show Total Win/Loss as 0.00 if |W/L| ≤ RM1.00 (legacy `transaction.php`).
+ * Does not alter per-side totals or API data.
+ */
+export function applySummaryWinLossDisplayTolerance(totals) {
+  if (totals == null || typeof totals !== "object") return totals;
+  let tolActive = false;
+  try {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search || "").get("tx_wl_tol") === "1") {
+      tolActive = true;
+    }
+  } catch {
+    return totals;
+  }
+  if (!tolActive) return totals;
+  const tolRaw = "1.00";
+  let tol;
+  try {
+    tol = MoneyDecimal.toDecimal(String(tolRaw).replace(/,/g, "").trim(), 0).abs();
+  } catch {
+    return totals;
+  }
+  if (tol.isZero()) return totals;
+  let absWl;
+  try {
+    absWl = MoneyDecimal.toDecimal(String(totals.win_loss ?? "0").replace(/,/g, "").trim(), 0).abs();
+  } catch {
+    return totals;
+  }
+  if (absWl.gt(tol)) return totals;
+  const bf2 = String(totals.bf ?? "0").replace(/,/g, "").trim();
+  const cr2 = String(totals.cr_dr ?? "0").replace(/,/g, "").trim();
+  const wl0 = MoneyDecimal.formatFixedHalfUp("0", 2);
+  const balance2 = MoneyDecimal.formatFixedHalfUp(MoneyDecimal.add(MoneyDecimal.add(bf2, wl0), cr2).toString(), 2);
+  return { bf: totals.bf, win_loss: wl0, cr_dr: totals.cr_dr, balance: balance2 };
+}
+
+/** Merge left+right footer totals (each already `calculateTotals` output). */
 export function mergeTotals(leftT, rightT) {
-  const add = (a, b) => (parseFloat(a || 0) + parseFloat(b || 0)).toFixed(2);
+  const bf = MoneyDecimal.formatFixed(MoneyDecimal.add(String(leftT?.bf ?? "0"), String(rightT?.bf ?? "0")).toString(), 2);
+  const wl = MoneyDecimal.formatFixedHalfUp(MoneyDecimal.add(String(leftT?.win_loss ?? "0"), String(rightT?.win_loss ?? "0")).toString(), 2);
+  const cr = MoneyDecimal.formatFixed(MoneyDecimal.add(String(leftT?.cr_dr ?? "0"), String(rightT?.cr_dr ?? "0")).toString(), 2);
+  const bal = MoneyDecimal.formatFixedHalfUp(MoneyDecimal.add(MoneyDecimal.add(bf, wl), cr).toString(), 2);
+  return { bf, win_loss: wl, cr_dr: cr, balance: bal };
+}
+
+/** Map search grid row → AccountSelect option (legacy accountDataMap match). */
+export function resolveGridRowToAccountOption(row, accountOptions) {
+  const list = Array.isArray(accountOptions) ? accountOptions : [];
+  const dbId = row?.account_db_id != null && String(row.account_db_id).trim() !== "" ? String(row.account_db_id).trim() : "";
+  const code = String(row?.account_id || "").trim();
+  if (dbId) {
+    const byDb = list.find((o) => String(o.id) === dbId);
+    if (byDb) return byDb;
+    const n = parseInt(dbId, 10);
+    if (!Number.isNaN(n)) {
+      const byNum = list.find((o) => parseInt(String(o.id), 10) === n);
+      if (byNum) return byNum;
+    }
+  }
+  if (code) {
+    const u = code.toUpperCase();
+    const byCode = list.find((o) => String(o.account_id || "").trim().toUpperCase() === u);
+    if (byCode) return byCode;
+  }
+  if (!dbId && !code) return null;
   return {
-    bf: add(leftT.bf, rightT.bf),
-    win_loss: add(leftT.win_loss, rightT.win_loss),
-    cr_dr: add(leftT.cr_dr, rightT.cr_dr),
-    balance: add(leftT.balance, rightT.balance),
+    id: dbId || code,
+    account_id: code || dbId,
+    display_text: code ? `${code}${row.account_name ? ` - ${row.account_name}` : ""}` : String(dbId),
+    currency: row.currency || null,
   };
 }
 
