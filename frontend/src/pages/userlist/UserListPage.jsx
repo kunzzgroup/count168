@@ -632,7 +632,6 @@ export default function UserListPage() {
                           className={`user-gc-segment${active ? " is-on" : ""}`}
                           onClick={() => {
                             if (!active) {
-                              setGroupFilterKind("follow");
                               void onSwitchCompany(c);
                             }
                           }}
