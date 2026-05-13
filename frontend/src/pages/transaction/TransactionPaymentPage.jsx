@@ -280,6 +280,7 @@ export default function TransactionPaymentPage() {
             rateExchangeRateRaw={form.rateExchangeRateRaw}
             setRateExchangeRateRaw={form.setRateExchangeRateRaw}
             rateCurrencyToAmount={form.rateCurrencyToAmount}
+            onRateCurrencyRowReverse={form.onRateCurrencyRowReverse}
             rateTransferToAccount={form.rateTransferToAccount}
             setRateTransferToAccount={form.setRateTransferToAccount}
             rateTransferFromAccount={form.rateTransferFromAccount}

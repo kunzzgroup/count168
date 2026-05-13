@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { parseRateExpression, buildClientRequestId, parseBalanceValue } from "../transactionFormat.js";
+import { parseRateExpression, buildClientRequestId, parseBalanceValue, countRateDecimalPlaces } from "../transactionFormat.js";
 import { formatRateAmount } from "../transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../transactionSubmitHelpers.js";
 import { submitTransaction } from "../transactionApi.js";
@@ -35,6 +35,10 @@ export function useTransactionForm({
   const [rateCurrencyFromAmount, setRateCurrencyFromAmount] = useState("");
   const [rateExchangeRateRaw, setRateExchangeRateRaw] = useState("");
   const [rateCurrencyToAmount, setRateCurrencyToAmount] = useState("");
+  /** Legacy `rate_currency_to_amount.dataset.grossAmount` — submit uses this, not the net preview in `rateCurrencyToAmount`. */
+  const [rateToAmountGrossStr, setRateToAmountGrossStr] = useState("");
+  /** Legacy `rate_currency_from_amount.dataset` gross slot (only populated after RATE row Reverse swap). */
+  const [rateFromAmountGrossStr, setRateFromAmountGrossStr] = useState("");
 
   const [rateTransferToAccount, setRateTransferToAccount] = useState(null);
   const [rateTransferFromAccount, setRateTransferFromAccount] = useState(null);
@@ -137,29 +141,66 @@ export function useTransactionForm({
   const fpTxDateRef = useRef(null);
   const fpRateDateRef = useRef(null);
 
-  // Rate calculation effects
+  // RATE: legacy `initMiddleManAmountCalculation` — MoneyDecimal chain, middle-man then gross/net preview.
   useEffect(() => {
     if (txType !== "RATE") return;
-    const parsed = parseRateExpression(rateExchangeRateRaw);
-    const fromAmt = Number(String(rateCurrencyFromAmount || "").replace(/,/g, "").trim());
-    if (!parsed.valid || !Number.isFinite(fromAmt) || fromAmt <= 0) {
-      setRateCurrencyToAmount("");
-      return;
-    }
-    const toAmt = fromAmt * parsed.value;
-    setRateCurrencyToAmount(formatRateAmount(toAmt));
-  }, [txType, rateExchangeRateRaw, rateCurrencyFromAmount]);
 
-  useEffect(() => {
-    if (txType !== "RATE") return;
-    const base = Number(String(rateCurrencyFromAmount || "").replace(/,/g, "").trim());
-    const mult = Number(String(rateMiddlemanRate || "").replace(/,/g, "").trim());
-    if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(mult) || mult <= 0) {
-      setRateMiddlemanAmount("");
-      return;
+    const clean = (v) => String(v ?? "").replace(/,/g, "").trim();
+
+    let middleStr = "";
+    try {
+      const fromDec = MoneyDecimal.toDecimal(clean(rateCurrencyFromAmount) || "0", 0);
+      const mmrDec = MoneyDecimal.toDecimal(clean(rateMiddlemanRate) || "0", 0);
+      if (fromDec.gt(0) && mmrDec.gt(0)) {
+        middleStr = formatRateAmount(fromDec.times(mmrDec).toString());
+      }
+    } catch {
+      middleStr = "";
     }
-    setRateMiddlemanAmount(formatRateAmount(base * mult));
-  }, [txType, rateCurrencyFromAmount, rateMiddlemanRate]);
+    setRateMiddlemanAmount(middleStr);
+
+    const parsed = parseRateExpression(rateExchangeRateRaw);
+    try {
+      const fromDec = MoneyDecimal.toDecimal(clean(rateCurrencyFromAmount) || "0", 0);
+      if (!parsed.valid || !fromDec.gt(0)) {
+        setRateCurrencyToAmount("");
+        setRateToAmountGrossStr("");
+        return;
+      }
+      const rateDec = MoneyDecimal.toDecimal(parsed.value, 0);
+      if (!rateDec.gt(0)) {
+        setRateCurrencyToAmount("");
+        setRateToAmountGrossStr("");
+        return;
+      }
+      const gross = fromDec.times(rateDec);
+      const grossDisplayStr = formatRateAmount(gross.toString());
+      setRateToAmountGrossStr(grossDisplayStr);
+
+      let displayVal = gross;
+      if (middleStr) {
+        try {
+          const fee = MoneyDecimal.toDecimal(middleStr.replace(/,/g, ""), 0);
+          if (fee.gt(0)) displayVal = gross.minus(fee);
+        } catch {
+          /* ignore */
+        }
+      }
+      setRateCurrencyToAmount(formatRateAmount(displayVal.toString()));
+    } catch {
+      setRateCurrencyToAmount("");
+      setRateToAmountGrossStr("");
+    }
+  }, [txType, rateCurrencyFromAmount, rateExchangeRateRaw, rateMiddlemanRate]);
+
+  const onRateCurrencyRowReverse = useCallback(() => {
+    const tmpAmt = rateCurrencyFromAmount;
+    setRateCurrencyFromAmount(rateCurrencyToAmount);
+    setRateCurrencyToAmount(tmpAmt);
+    const tmpGrossTo = rateToAmountGrossStr;
+    setRateToAmountGrossStr(rateFromAmountGrossStr);
+    setRateFromAmountGrossStr(tmpGrossTo);
+  }, [rateCurrencyFromAmount, rateCurrencyToAmount, rateToAmountGrossStr, rateFromAmountGrossStr]);
 
   const onSubmitTx = async () => {
     if (!txConfirm) return;
@@ -221,14 +262,16 @@ export function useTransactionForm({
         return;
       }
       const fromAmt = toNumberLike(rateCurrencyFromAmount);
-      const toAmt = toNumberLike(rateCurrencyToAmount);
-      if (!Number.isFinite(fromAmt) || fromAmt <= 0 || !Number.isFinite(toAmt) || toAmt <= 0) {
+      const toGrossRaw = String(rateToAmountGrossStr || "").trim().replace(/,/g, "");
+      const toGrossStr = toGrossRaw !== "" ? toGrossRaw : String(rateCurrencyToAmount || "").trim().replace(/,/g, "");
+      const grossNum = toNumberLike(toGrossStr);
+      if (!Number.isFinite(fromAmt) || fromAmt <= 0 || !Number.isFinite(grossNum) || grossNum <= 0) {
         pushToast("Please enter valid currency amounts", "error");
         return;
       }
       const parsedRate = parseRateExpression(rateExchangeRateRaw);
       if (!parsedRate.valid) {
-        pushToast("Please enter a valid rate value (supports * and /)", "error");
+        pushToast("Please enter a valid rate value (supports * and /, max 8 decimal places)", "error");
         return;
       }
       if (!rateDate) {
@@ -238,12 +281,19 @@ export function useTransactionForm({
 
       const middleId = rateMiddlemanAccount?.id ? String(rateMiddlemanAccount.id) : "";
 
-      if ((middleId || rateMiddlemanRate) && !middleId) {
+      if ((middleId || String(rateMiddlemanRate || "").trim()) && !middleId) {
         pushToast("Please select Middle-Man account", "error");
         return;
       }
-      if ((middleId || rateMiddlemanRate) && (!rateMiddlemanRate || Number(rateMiddlemanRate) <= 0)) {
+      if ((middleId || String(rateMiddlemanRate || "").trim()) && (!rateMiddlemanRate || Number(rateMiddlemanRate) <= 0)) {
         pushToast("Please enter Middle-Man rate multiplier", "error");
+        return;
+      }
+      const mmrNorm = String(rateMiddlemanRate ?? "")
+        .replace(/,/g, "")
+        .trim();
+      if (middleId && mmrNorm !== "" && countRateDecimalPlaces(mmrNorm) > 8) {
+        pushToast("Middle-Man rate supports max 8 decimal places", "error");
         return;
       }
 
@@ -253,13 +303,13 @@ export function useTransactionForm({
         const { payload } = buildRatePayload({
           toId,
           fromId,
-          fromAmt,
-          toAmt,
+          fromAmt: rateCurrencyFromAmount,
+          toGrossStr,
           rateDate,
           txRemark,
           rateCurrencyFrom,
           rateCurrencyTo,
-          parsedRateValue: parsedRate.value,
+          parsedRateNormalizedStr: parsedRate.value,
           rateMiddlemanRate,
           rateMiddlemanAmount,
           rateMiddlemanAccount,
@@ -283,6 +333,8 @@ export function useTransactionForm({
           setRateCurrencyFromAmount("");
           setRateExchangeRateRaw("");
           setRateCurrencyToAmount("");
+          setRateToAmountGrossStr("");
+          setRateFromAmountGrossStr("");
           setRateMiddlemanRate("");
           setRateMiddlemanAmount("");
           setRateToAccount(null);
@@ -401,6 +453,7 @@ export function useTransactionForm({
     setRateExchangeRateRaw,
     rateCurrencyToAmount,
     setRateCurrencyToAmount,
+    onRateCurrencyRowReverse,
     rateTransferToAccount,
     setRateTransferToAccount,
     rateTransferFromAccount,

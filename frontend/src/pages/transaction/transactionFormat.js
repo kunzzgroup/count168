@@ -64,7 +64,8 @@ export function formatHistoryMoney(v) {
 const RATE_MAX_DECIMALS = 8;
 const RATE_HISTORY_MAX_DECIMALS = 6;
 
-function countDecimalPlaces(value) {
+/** Same as legacy `js/transaction.js` countDecimalPlaces (RATE token width checks). */
+export function countRateDecimalPlaces(value) {
   const str = String(value ?? "").trim();
   if (!str.includes(".")) return 0;
   return str.split(".")[1].length;
@@ -92,7 +93,7 @@ function normalizeRateForSubmit(value) {
 }
 
 function hasTokenExceedingRateDecimals(token) {
-  return countDecimalPlaces(token) > RATE_MAX_DECIMALS;
+  return countRateDecimalPlaces(token) > RATE_MAX_DECIMALS;
 }
 
 /** Payment History Rate column — same as `js/transaction.js` formatRateForHistoryDisplay. */
@@ -110,72 +111,71 @@ export function formatRateForHistoryDisplay(value) {
   }
 }
 
-function rateExprToNumber(normalizedStr) {
-  const n = Number.parseFloat(normalizedStr);
-  return Number.isFinite(n) ? n : 0;
-}
-
-/** RATE field: same rules as `js/transaction.js` parseRateExpression (MoneyDecimal, max 8 dp). */
+/**
+ * RATE exchange-rate field: same as legacy `js/transaction.js` parseRateExpression.
+ * On success, `value` is the **8dp-truncated normalized string** (not a JS number).
+ */
 export function parseRateExpression(rawValue) {
+  const invalid = () => ({ valid: false, value: "0" });
   const raw = String(rawValue ?? "").trim();
-  if (!raw) return { valid: false, value: 0 };
+  if (!raw) return invalid();
 
   const normalized = raw.replace(/÷/g, "/").replace(/\s+/g, "");
-  if (!normalized) return { valid: false, value: 0 };
+  if (!normalized) return invalid();
 
   if (/^\/\d*\.?\d+$/.test(normalized)) {
-    if (hasTokenExceedingRateDecimals(normalized.slice(1))) return { valid: false, value: 0 };
+    if (hasTokenExceedingRateDecimals(normalized.slice(1))) return invalid();
     let divisor;
     try {
       divisor = MoneyDecimal.toDecimal(normalized.slice(1));
     } catch {
-      return { valid: false, value: 0 };
+      return invalid();
     }
-    if (divisor.lte(0)) return { valid: false, value: 0 };
+    if (divisor.lte(0)) return invalid();
     const out = normalizeRateForSubmit(MoneyDecimal.div("1", divisor).toString());
-    return { valid: true, value: rateExprToNumber(out) };
+    return { valid: true, value: out };
   }
 
-  if (!/^[0-9.*/]+$/.test(normalized)) return { valid: false, value: 0 };
-  if (/^[*/]|[*/]$|[*/]{2,}/.test(normalized)) return { valid: false, value: 0 };
+  if (!/^[0-9.*/]+$/.test(normalized)) return invalid();
+  if (/^[*/]|[*/]$|[*/]{2,}/.test(normalized)) return invalid();
 
   const tokens = normalized.split(/([*/])/).filter(Boolean);
-  if (tokens.length === 0) return { valid: false, value: 0 };
-  if (!/^\d*\.?\d+$/.test(tokens[0])) return { valid: false, value: 0 };
-  if (hasTokenExceedingRateDecimals(tokens[0])) return { valid: false, value: 0 };
+  if (tokens.length === 0) return invalid();
+  if (!/^\d*\.?\d+$/.test(tokens[0])) return invalid();
+  if (hasTokenExceedingRateDecimals(tokens[0])) return invalid();
 
   let result;
   try {
     result = MoneyDecimal.toDecimal(tokens[0]);
   } catch {
-    return { valid: false, value: 0 };
+    return invalid();
   }
-  if (result.lte(0)) return { valid: false, value: 0 };
+  if (result.lte(0)) return invalid();
 
   for (let i = 1; i < tokens.length; i += 2) {
     const op = tokens[i];
     const numToken = tokens[i + 1];
-    if (!numToken || !/^\d*\.?\d+$/.test(numToken)) return { valid: false, value: 0 };
-    if (hasTokenExceedingRateDecimals(numToken)) return { valid: false, value: 0 };
+    if (!numToken || !/^\d*\.?\d+$/.test(numToken)) return invalid();
+    if (hasTokenExceedingRateDecimals(numToken)) return invalid();
     let value;
     try {
       value = MoneyDecimal.toDecimal(numToken);
     } catch {
-      return { valid: false, value: 0 };
+      return invalid();
     }
     if (op === "*") {
       result = result.times(value);
     } else if (op === "/") {
-      if (value.isZero()) return { valid: false, value: 0 };
+      if (value.isZero()) return invalid();
       result = result.div(value);
     } else {
-      return { valid: false, value: 0 };
+      return invalid();
     }
   }
 
-  if (result.lte(0)) return { valid: false, value: 0 };
+  if (result.lte(0)) return invalid();
   const out = normalizeRateForSubmit(result.toString());
-  return { valid: true, value: rateExprToNumber(out) };
+  return { valid: true, value: out };
 }
 
 export function formatRateAmount(value) {
