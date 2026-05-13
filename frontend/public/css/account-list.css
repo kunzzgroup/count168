@@ -553,7 +553,7 @@
 
 .currency-setting-selected-count {
     font-family: inherit;
-    font-size: var(--text-tiny);
+    font-size: var(--text-medium);
     color: var(--color-muted-fg);
     font-weight: var(--font-weight-semibold);
 }
