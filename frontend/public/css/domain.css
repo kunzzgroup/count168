@@ -558,18 +558,25 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn:active {
 }
 
 body.domain-page .domain-react-page .btn-add {
+    /* 与 User List / Admin `.user-page .btn-add` 一致 */
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: 120px;
-    min-height: 35.5px;
-    padding: 8px 0;
-    font-size: 15.93px;
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
     flex-shrink: 0;
 }
 
@@ -580,24 +587,32 @@ body.domain-page .domain-react-page .btn-add:hover {
 }
 
 body.domain-page .domain-react-page .btn-fee-settings {
-    background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
-    color: white;
+    /* 与 Account List「币种设置」`.account-page .btn-currency-setting` 一致（Price 次级按钮） */
+    background: linear-gradient(180deg, #AAB8C2 0%, #657786 100%);
+    color: #ffffff;
     font-family: var(--font-heading-page);
-    width: 68.24px;
-    min-height: 35.5px;
-    padding: 8px 0;
-    font-size: 15.93px;
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(71, 85, 105, 0.35);
+    box-shadow: 0 2px 4px rgba(101, 119, 134, 0.2);
+    --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
     white-space: nowrap;
     flex-shrink: 0;
 }
 
 body.domain-page .domain-react-page .btn-fee-settings:hover {
-    background: linear-gradient(180deg, #64748b 0%, #334155 100%);
-    box-shadow: 0 4px 8px rgba(51, 65, 85, 0.4);
+    background: linear-gradient(180deg, #9ca9b4 0%, #5a6a78 100%);
+    box-shadow: 0 4px 8px rgba(101, 119, 134, 0.3);
     transform: translateY(-1px);
 }
 
@@ -2081,20 +2096,29 @@ body.domain-page .domain-react-page .btn-edit img {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
+body.domain-page .domain-react-page .domain-toolbar-right .btn-delete {
+    margin-left: 0;
+}
+
 body.domain-page .domain-react-page .btn-delete {
+    /* 与 User List `.user-page .btn-delete` 一致 */
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: 120px;
-    min-height: 35.5px;
-    padding: 8px 20px;
-    font-size: 15.93px;
+    width: var(--userlist-btn-delete-width);
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
     margin-left: 10px;
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 body.domain-page .domain-react-page .btn-delete:hover {
