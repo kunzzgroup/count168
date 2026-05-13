@@ -876,6 +876,15 @@
     transform: translateY(-1px);
 }
 
+#currencySettingModal .currency-setting-selectall-btn.account-btn-add:disabled,
+#currencySettingModal .currency-setting-selectall-btn.account-btn-add:disabled:hover {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%) !important;
+}
+
 /* Account List 顶栏药丸搜索：与 User List 共用样式，保留姓名/账号原大小写 */
 body.account-page .search-container.userlist-search-bar .userlist-search-input {
     text-transform: none !important;
