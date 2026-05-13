@@ -89,7 +89,7 @@ export default function ProcessListPage() {
 
   // Layout phase (with BankProcessListPage): avoid deferred useEffect cleanup stripping body.process-page after route swap.
   useLayoutEffect(() => {
-    document.body.classList.remove("bg", "account-page", "announcement-page");
+    document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page");
     setCssReady(true);
     return () => {
@@ -397,12 +397,17 @@ export default function ProcessListPage() {
 
   const onSwitchCompany = async (company) => {
     if (!company?.id || Number(company.id) === Number(companyId)) return;
+    setRows([]);
+    setSelectedIds(new Set());
+    setCurrentPage(1);
+    setTableLoading(true);
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${company.id}`), {
         credentials: "include",
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
+        setTableLoading(false);
         const reason = json?.data?.reason;
         if (reason === "expired" || reason === "no_set") {
           setExpirationCompanies([
@@ -413,14 +418,16 @@ export default function ProcessListPage() {
         notify(json.message || json.error || t("switchCompanyFailed"), "danger");
         return;
       }
-      setCompanyId(Number(company.id));
-      setSelectedGroup(company.group_id ? String(company.group_id).toUpperCase() : null);
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(company.company_id, buildApiUrl);
       if (bankCategory) {
         navigate(`/bank-process-list?company_id=${company.id}`, { replace: true });
+        return;
       }
+      setCompanyId(Number(company.id));
+      setSelectedGroup(company.group_id ? String(company.group_id).toUpperCase() : null);
     } catch {
+      setTableLoading(false);
       notify(t("switchCompanyFailed"), "danger");
     }
   };
