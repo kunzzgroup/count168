@@ -2267,7 +2267,11 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    justify-content: flex-start;
     position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
     min-height: auto;
     margin: 0;
     border-radius: 8px;

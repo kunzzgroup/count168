@@ -71,6 +71,62 @@ export default function UserModal({
 }) {
   const cardRef = useRef(null);
   const modalBodyRef = useRef(null);
+  const accountGridRef = useRef(null);
+  const processGridRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+
+    const clearMinHeights = (gridEl) => {
+      if (!gridEl) return;
+      gridEl.querySelectorAll(".user-modal-select-card").forEach((el) => {
+        el.style.minHeight = "";
+      });
+    };
+
+    const syncGridCardHeights = (gridEl) => {
+      if (!gridEl) return;
+      const cards = gridEl.querySelectorAll(".user-modal-select-card");
+      if (!cards.length) return;
+      cards.forEach((c) => {
+        c.style.minHeight = "";
+      });
+      let maxH = 0;
+      cards.forEach((c) => {
+        maxH = Math.max(maxH, c.getBoundingClientRect().height);
+      });
+      const px = maxH > 0 ? `${Math.ceil(maxH)}px` : "";
+      if (!px) return;
+      cards.forEach((c) => {
+        c.style.minHeight = px;
+      });
+    };
+
+    const syncAll = () => {
+      syncGridCardHeights(accountGridRef.current);
+      syncGridCardHeights(processGridRef.current);
+    };
+
+    syncAll();
+    const r1 = requestAnimationFrame(() => {
+      syncAll();
+    });
+
+    const ro = new ResizeObserver(() => {
+      syncAll();
+    });
+    if (accountGridRef.current) ro.observe(accountGridRef.current);
+    if (processGridRef.current) ro.observe(processGridRef.current);
+    window.addEventListener("resize", syncAll);
+
+    return () => {
+      cancelAnimationFrame(r1);
+      ro.disconnect();
+      window.removeEventListener("resize", syncAll);
+      clearMinHeights(accountGridRef.current);
+      clearMinHeights(processGridRef.current);
+    };
+  }, [open, modalAccounts, modalProcesses, selectedAccountIds, selectedProcessIds, editingRow?.is_owner_shadow]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -310,7 +366,7 @@ export default function UserModal({
 
             <div className="user-modal-col user-modal-col--account account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
-                <div className="account-grid account-grid--four account-grid--process">
+                <div ref={accountGridRef} className="account-grid account-grid--four account-grid--process">
                   {modalAccounts.map((a) => (
                     <label key={a.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
@@ -341,7 +397,7 @@ export default function UserModal({
 
             <div className="user-modal-col user-modal-col--process account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
-                <div className="account-grid account-grid--four account-grid--process">
+                <div ref={processGridRef} className="account-grid account-grid--four account-grid--process">
                   {modalProcesses.map((p) => (
                     <label key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
