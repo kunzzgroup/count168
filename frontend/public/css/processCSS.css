@@ -1517,6 +1517,55 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     grid-template-columns: 38px 0.88fr 1fr 0.4fr 0.35fr 1.15fr 0.28fr !important;
 }
 
+/* Show Inactive / Show All：Action 与批量勾选分两列（与 User List 勾选列对齐） */
+.process-page:not(.process-page--bank) .process-table-wrapper--select-col .table-header,
+.process-page:not(.process-page--bank) .process-table-wrapper--select-col .process-card {
+    grid-template-columns: 38px 0.88fr 1fr 0.4fr 0.35fr 1.15fr minmax(0, 0.26fr) 48px !important;
+}
+
+.process-page:not(.process-page--bank) .process-card .card-item--action {
+    justify-content: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.process-page:not(.process-page--bank) .process-table-wrapper--select-col .table-header .header-item--select {
+    justify-content: start;
+    align-items: center;
+    min-width: 0;
+    padding: 0 !important;
+    box-sizing: border-box;
+}
+
+.process-page:not(.process-page--bank) .process-card .card-item--select {
+    justify-content: start;
+    align-items: center;
+    min-width: 0;
+    padding: 0 !important;
+    box-sizing: border-box;
+}
+
+.process-page:not(.process-page--bank) .table-header .header-item--select input[type="checkbox"],
+.process-page:not(.process-page--bank) .process-card .card-item--select input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.process-page:not(.process-page--bank) .card-item--action .btn.btn-edit.edit-btn {
+    background: transparent;
+    border: transparent;
+    box-shadow: none;
+}
+
+.process-page:not(.process-page--bank) .card-item--action .btn.btn-edit.edit-btn:hover {
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
 .process-page:not(.process-page--bank) .table-header .header-item:first-child,
 .process-page:not(.process-page--bank) .process-card .card-item:first-child {
     justify-content: center;

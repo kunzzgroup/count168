@@ -771,38 +771,64 @@ export default function ProcessListPage() {
                 </svg>
                 {t("addProcess")}
               </button>
-              <div className="search-container">
+              <div className="search-container userlist-search-bar">
+                <span className="userlist-search-bar__icon" aria-hidden="true">
+                  <svg fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                  </svg>
+                </span>
                 <input
-                  className="search-input"
+                  type="text"
+                  className="search-input userlist-search-input"
                   placeholder={t("search")}
                   value={search}
                   onChange={onSearchChange}
                 />
               </div>
-              <label className="checkbox-section">
-                <input
-                  type="checkbox"
-                  checked={showAll}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setShowAll(v);
-                    if (v) setShowInactive(false);
+              <div className="userlist-filter-chips" role="group">
+                <button
+                  type="button"
+                  className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
+                  aria-pressed={showInactive && !showAll}
+                  onClick={() => {
+                    if (showInactive && !showAll) setShowInactive(false);
+                    else {
+                      setShowInactive(true);
+                      setShowAll(false);
+                    }
                   }}
-                />
-                <span>{t("showAll")}</span>
-              </label>
-              <label className="checkbox-section">
-                <input
-                  type="checkbox"
-                  checked={showInactive}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setShowInactive(v);
-                    if (v) setShowAll(false);
+                >
+                  <span className="user-filter-chip__dot" aria-hidden>
+                    {showInactive && !showAll ? (
+                      <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 12l4 4 8-8" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span className="user-filter-chip__label">{t("showInactive")}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`user-filter-chip${showAll ? " is-selected" : ""}`}
+                  aria-pressed={showAll}
+                  onClick={() => {
+                    if (showAll) setShowAll(false);
+                    else {
+                      setShowAll(true);
+                      setShowInactive(false);
+                    }
                   }}
-                />
-                <span>{t("showInactive")}</span>
-              </label>
+                >
+                  <span className="user-filter-chip__dot" aria-hidden>
+                    {showAll ? (
+                      <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 12l4 4 8-8" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span className="user-filter-chip__label">{t("showAll")}</span>
+                </button>
+              </div>
             </div>
             <button
               type="button"
@@ -864,6 +890,7 @@ export default function ProcessListPage() {
         <ProcessTable
           tableLoading={tableLoading}
           showAll={showAll}
+          showSelectColumn={showInactive || showAll}
           pageRows={pageRows}
           currentPage={currentPage}
           PAGE_SIZE={PAGE_SIZE}
