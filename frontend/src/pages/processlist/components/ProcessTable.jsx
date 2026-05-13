@@ -1,6 +1,6 @@
 import React from "react";
 import { assetUrl } from "../../../utils/apiUrl.js";
-import { GAMES_PROCESS_GRID_COLUMNS } from "../processListHelpers.js";
+import { GAMES_PROCESS_GRID_COLUMNS, GAMES_PROCESS_GRID_COLUMNS_WITH_SELECT } from "../processListHelpers.js";
 
 function upperCell(val) {
   if (val == null || val === "") return "";
@@ -10,6 +10,7 @@ function upperCell(val) {
 export default function ProcessTable({
   tableLoading,
   showAll,
+  showSelectColumn,
   pageRows,
   currentPage,
   PAGE_SIZE,
@@ -26,12 +27,13 @@ export default function ProcessTable({
   const allDeletableSelected =
     deletableRows.length > 0 && deletableRows.every((r) => selectedIds.has(r.id));
 
-  const headerStyle = { gridTemplateColumns: GAMES_PROCESS_GRID_COLUMNS };
-  const rowStyle = { gridTemplateColumns: GAMES_PROCESS_GRID_COLUMNS };
+  const gridCols = showSelectColumn ? GAMES_PROCESS_GRID_COLUMNS_WITH_SELECT : GAMES_PROCESS_GRID_COLUMNS;
+  const headerStyle = { gridTemplateColumns: gridCols };
+  const rowStyle = { gridTemplateColumns: gridCols };
 
   return (
     <div
-      className="process-table-wrapper"
+      className={`process-table-wrapper${showSelectColumn ? " process-table-wrapper--select-col" : ""}`}
       id="processTableWrapper"
       style={showAll ? { overflow: "visible" } : undefined}
     >
@@ -42,19 +44,20 @@ export default function ProcessTable({
         <div className="header-item gambling-header">{t("status")}</div>
         <div className="header-item gambling-header">{t("currency")}</div>
         <div className="header-item gambling-header">{t("dayUse")}</div>
-        <div className="header-item gambling-header">
-          {t("action")}
-          {deletableRows.length > 0 ? (
-            <input
-              type="checkbox"
-              title={t("selectAll")}
-              aria-label={t("selectAllInactiveOnPage")}
-              checked={allDeletableSelected}
-              onChange={(e) => toggleSelectAll(e.target.checked)}
-              style={{ marginLeft: 10, cursor: "pointer", display: "inline-block" }}
-            />
-          ) : null}
-        </div>
+        <div className="header-item gambling-header">{t("action")}</div>
+        {showSelectColumn ? (
+          <div className="header-item gambling-header header-item--select">
+            {deletableRows.length > 0 ? (
+              <input
+                type="checkbox"
+                title={t("selectAll")}
+                aria-label={t("selectAllInactiveOnPage")}
+                checked={allDeletableSelected}
+                onChange={(e) => toggleSelectAll(e.target.checked)}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div
         className="process-cards"
@@ -110,27 +113,33 @@ export default function ProcessTable({
               </div>
               <div className="card-item">{upperCell(row.currency)}</div>
               <div className="card-item">{upperCell(row.day_use)}</div>
-              <div className="card-item">
+              <div className="card-item card-item--action">
                 <button
                   type="button"
-                  className="edit-btn"
+                  className="btn btn-edit edit-btn"
                   onClick={() => openEdit(row.id)}
                   aria-label={t("edit")}
                   title={t("edit")}
                 >
                   <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
                 </button>
-                {String(row.status || "").toLowerCase() === "inactive" && !row.has_transactions && (
-                  <input
-                    type="checkbox"
-                    className="row-checkbox"
-                    title={t("selectForDeletion")}
-                    style={{ marginLeft: 10, cursor: "pointer" }}
-                    checked={selectedIds.has(row.id)}
-                    onChange={() => toggleSelectId(row.id)}
-                  />
-                )}
               </div>
+              {showSelectColumn ? (
+                <div className="card-item card-item--select">
+                  {String(row.status || "").toLowerCase() === "inactive" && !row.has_transactions ? (
+                    <input
+                      type="checkbox"
+                      className="row-checkbox"
+                      title={t("selectForDeletion")}
+                      aria-label={t("selectForDeletion")}
+                      checked={selectedIds.has(row.id)}
+                      onChange={() => toggleSelectId(row.id)}
+                    />
+                  ) : (
+                    <span className="user-row-select-placeholder" aria-hidden="true" />
+                  )}
+                </div>
+              ) : null}
             </div>
           ))}
       </div>
