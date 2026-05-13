@@ -65,8 +65,8 @@ export default function UserListPage() {
   const [showAll, setShowAll] = useState(false);
   const [sortColumn, setSortColumn] = useState("loginId");
   const [sortDirection, setSortDirection] = useState("asc");
-  /** 为 true 时 Company 行展示所有集团下的公司（Group 行点 ALL） */
-  const [showAllGroupCompanies, setShowAllGroupCompanies] = useState(false);
+  /** Group 筛选：follow=随当前公司所属组；all=全部公司；ungrouped=仅无 group_id 的公司 */
+  const [groupFilterKind, setGroupFilterKind] = useState("follow");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
   const [selectAllUsers, setSelectAllUsers] = useState(false);
@@ -131,7 +131,10 @@ export default function UserListPage() {
     [selectedCompany?.group_id]
   );
   const companiesForPicker = useMemo(() => {
-    if (showAllGroupCompanies) return allCompanyButtons;
+    if (groupFilterKind === "all") return allCompanyButtons;
+    if (groupFilterKind === "ungrouped") {
+      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+    }
     if (groupIds.length === 0) return allCompanyButtons;
     if (!selectedGroupKey) {
       const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
@@ -139,7 +142,7 @@ export default function UserListPage() {
     }
     const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
     return inG.length ? inG : allCompanyButtons;
-  }, [allCompanyButtons, groupIds.length, selectedGroupKey, showAllGroupCompanies]);
+  }, [allCompanyButtons, groupIds.length, selectedGroupKey, groupFilterKind]);
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
     return sortUsers(f, sortColumn, sortDirection);
@@ -323,17 +326,22 @@ export default function UserListPage() {
 
   const handlePickGroup = useCallback(
     (gid) => {
-      setShowAllGroupCompanies(false);
       const g = String(gid || "").trim().toUpperCase();
-      if (!g || g === selectedGroupKey) return;
+      if (!g) return;
+      if (groupFilterKind === "follow" && g === selectedGroupKey) {
+        setGroupFilterKind("ungrouped");
+        return;
+      }
+      setGroupFilterKind("follow");
+      if (g === selectedGroupKey) return;
       const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
       if (first) void onSwitchCompany(first);
     },
-    [allCompanyButtons, onSwitchCompany, selectedGroupKey]
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey]
   );
 
   const handlePickAllGroups = useCallback(() => {
-    setShowAllGroupCompanies(true);
+    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
   }, []);
 
   const fetchModalAccountsProcesses = async (cid) => {
@@ -580,7 +588,7 @@ export default function UserListPage() {
                       <button
                         type="button"
                         disabled={switchingCompany}
-                        className={`user-gc-segment${showAllGroupCompanies ? " is-on" : ""}`}
+                        className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
                         onClick={handlePickAllGroups}
                       >
                         {t("groupFilterAll")}
@@ -590,7 +598,7 @@ export default function UserListPage() {
                           key={gid}
                           type="button"
                           disabled={switchingCompany}
-                          className={`user-gc-segment${!showAllGroupCompanies && gid === selectedGroupKey ? " is-on" : ""}`}
+                          className={`user-gc-segment${groupFilterKind === "follow" && gid === selectedGroupKey ? " is-on" : ""}`}
                           onClick={() => handlePickGroup(gid)}
                         >
                           {gid}
@@ -614,7 +622,7 @@ export default function UserListPage() {
                           className={`user-gc-segment${active ? " is-on" : ""}`}
                           onClick={() => {
                             if (!active) {
-                              setShowAllGroupCompanies(false);
+                              setGroupFilterKind("follow");
                               void onSwitchCompany(c);
                             }
                           }}
