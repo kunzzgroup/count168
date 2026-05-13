@@ -32,6 +32,12 @@ function normalizeCompanyRow(row) {
   };
 }
 
+/** 与 User List 一致：隐藏集团分润/合并产生的虚拟公司行 */
+function isVirtualGroupLinkCompanyRow(c) {
+  const ls = c?.link_source_group ?? c?.linkSourceGroup;
+  return ls != null && String(ls).trim() !== "";
+}
+
 function buildAccountsFetchKey(companyId, searchTerm, showInactive, showAll) {
   return `${companyId || ""}|${String(searchTerm || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
 }
@@ -72,6 +78,7 @@ export default function AccountListPage() {
   const [sortColumn, setSortColumn] = useState("account");
   const [sortDirection, setSortDirection] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [groupFilterKind, setGroupFilterKind] = useState("follow");
   const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
 
   // -- Modals & Forms --
@@ -235,7 +242,10 @@ export default function AccountListPage() {
   }, [bootLoading, companyId, searchTerm, showInactive, showAll, fetchAccounts]);
 
   // -- Computed --
-  const allCompanyButtons = useMemo(() => companies.filter(c => c.company_id && String(c.company_id).trim() !== ""), [companies]);
+  const allCompanyButtons = useMemo(
+    () => companies.filter(c => c.company_id && String(c.company_id).trim() !== "" && !isVirtualGroupLinkCompanyRow(c)),
+    [companies]
+  );
   const groupIds = useMemo(
     () =>
       [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
@@ -250,6 +260,20 @@ export default function AccountListPage() {
     [selectedCompany?.group_id]
   );
   const companiesForPicker = useMemo(() => {
+    if (groupFilterKind === "all") {
+      const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
+      return [...allCompanyButtons].sort((a, b) => {
+        const ga = String(a.group_id || "").trim().toUpperCase();
+        const gb = String(b.group_id || "").trim().toUpperCase();
+        const ra = groupOrder.has(ga) ? groupOrder.get(ga) : Number.MAX_SAFE_INTEGER;
+        const rb = groupOrder.has(gb) ? groupOrder.get(gb) : Number.MAX_SAFE_INTEGER;
+        if (ra !== rb) return ra - rb;
+        return String(a.company_id || "").localeCompare(String(b.company_id || ""), undefined, { numeric: true });
+      });
+    }
+    if (groupFilterKind === "ungrouped") {
+      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+    }
     if (groupIds.length === 0) return allCompanyButtons;
     if (!selectedGroupKey) {
       const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
@@ -257,7 +281,7 @@ export default function AccountListPage() {
     }
     const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
     return inG.length ? inG : allCompanyButtons;
-  }, [allCompanyButtons, groupIds.length, selectedGroupKey]);
+  }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
 
   const sortedAccounts = useMemo(() => {
     const arr = [...accounts];
@@ -306,13 +330,25 @@ export default function AccountListPage() {
 
   const handlePickGroup = useCallback(
     (gid) => {
+      if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
-      if (!g || g === selectedGroupKey) return;
+      if (!g) return;
+      if (groupFilterKind === "follow" && g === selectedGroupKey) {
+        setGroupFilterKind("ungrouped");
+        return;
+      }
+      setGroupFilterKind("follow");
+      if (g === selectedGroupKey) return;
       const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
       if (first) void onSwitchCompany(first);
     },
-    [allCompanyButtons, onSwitchCompany, selectedGroupKey]
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany]
   );
+
+  const handlePickAllGroups = useCallback(() => {
+    if (switchingCompany) return;
+    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
+  }, [switchingCompany]);
 
   useEffect(() => {
     if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
@@ -686,12 +722,18 @@ export default function AccountListPage() {
                   <span className="user-gc-inline-label">{t("groupId")}</span>
                   <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                     <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                      <button
+                        type="button"
+                        className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
+                        onClick={handlePickAllGroups}
+                      >
+                        {t("groupFilterAll")}
+                      </button>
                       {groupIds.map((gid) => (
                         <button
                           key={gid}
                           type="button"
-                          disabled={switchingCompany}
-                          className={`user-gc-segment${gid === selectedGroupKey ? " is-on" : ""}`}
+                          className={`user-gc-segment${groupFilterKind === "follow" && gid === selectedGroupKey ? " is-on" : ""}`}
                           onClick={() => handlePickGroup(gid)}
                         >
                           {gid}
@@ -711,9 +753,9 @@ export default function AccountListPage() {
                         <button
                           key={c.id}
                           type="button"
-                          disabled={switchingCompany}
                           className={`user-gc-segment${active ? " is-on" : ""}`}
                           onClick={() => {
+                            if (switchingCompany) return;
                             if (!active) void onSwitchCompany(c);
                           }}
                         >
