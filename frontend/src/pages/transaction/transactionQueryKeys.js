@@ -26,13 +26,14 @@ export const transactionQueryKeys = {
   accounts: (companyId) => ["tx-accounts", Number(companyId ?? 0)],
   companyCurrencies: (companyId) => ["tx-company-currencies", Number(companyId ?? 0)],
   userCurrencyOrder: () => ["tx-user-currency-order"],
-  history: ({ companyId, accountDbId, dateFrom, dateTo, currency }) => [
+  history: ({ companyId, accountDbId, dateFrom, dateTo, currency, virtualCompanyCode }) => [
     "tx-history",
     Number(companyId ?? 0),
     String(accountDbId || ""),
     String(dateFrom || ""),
     String(dateTo || ""),
     String(currency || "").toUpperCase().trim(),
+    String(virtualCompanyCode || "").toUpperCase().trim(),
   ],
   contraInbox: (companyId) => ["tx-contra-inbox", Number(companyId ?? 0)],
   contraInboxRoot: () => ["tx-contra-inbox"],

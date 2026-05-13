@@ -85,7 +85,8 @@ export function dedupeRowsByAccountAndCurrency(rows) {
       toAbs(row.bf) * 10 +
       (toBoolFlag(row.has_win_loss_transactions) ? 5000 : 0) +
       (toBoolFlag(row.has_crdr_transactions) ? 5000 : 0) +
-      (toBoolFlag(row.has_win_loss_history) ? 2000 : 0);
+      (toBoolFlag(row.has_win_loss_history) ? 2000 : 0) +
+      (toBoolFlag(row.has_period_id_product_rows) ? 1500 : 0);
     return score;
   };
 
@@ -134,18 +135,35 @@ export function rowPassesHideZeroBalanceFilter(showZero, row) {
   if (showZero) return true;
   const num = parseBalanceValue(row.balance);
   if (num === null) return true;
-  if (Math.abs(num) > 1e-5) return true;
+  try {
+    if (MoneyDecimal.toDecimal(String(num), 0).abs().gt("0.00001")) return true;
+  } catch {
+    if (Math.abs(num) > 1e-5) return true;
+  }
   const flagToBool = (v) => {
     if (typeof v === "boolean") return v;
     if (typeof v === "number") return v !== 0;
     return parseInt(String(v || "0"), 10) !== 0;
   };
-  const absVal = (v) => Math.abs(parseBalanceValue(v) ?? 0);
+  const absVal = (v) => {
+    try {
+      return MoneyDecimal.toDecimal(String(v ?? "0").replace(/,/g, "").trim() || "0", 0).abs();
+    } catch {
+      return MoneyDecimal.toDecimal("0", 0).abs();
+    }
+  };
+  const eps = "0.00001";
+  const wlProbe =
+    row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ""
+      ? String(row.win_loss_full).replace(/,/g, "").trim()
+      : String(row.win_loss || "0").replace(/,/g, "").trim();
+  const hasAnyMoneyColumn = absVal(row.bf).gt(eps) || absVal(wlProbe).gt(eps) || absVal(row.cr_dr).gt(eps);
+  if (hasAnyMoneyColumn) return true;
   const hasTxnFlag =
-    flagToBool(row.has_win_loss_history) ||
     flagToBool(row.has_win_loss_transactions) ||
-    flagToBool(row.has_crdr_transactions);
-  return hasTxnFlag || absVal(row.bf) > 1e-5 || absVal(row.win_loss) > 1e-5 || absVal(row.cr_dr) > 1e-5;
+    flagToBool(row.has_crdr_transactions) ||
+    flagToBool(row.has_period_id_product_rows);
+  return hasTxnFlag;
 }
 
 export function normalizeRateRowsByCrDr(leftRows, rightRows, isRate) {

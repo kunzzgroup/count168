@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useEffect, useCallback, useRef } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, useLocation } from "react-router-dom";
 import TransactionAddSection from "./components/TransactionAddSection.jsx";
 import TransactionHeader from "./components/TransactionHeader.jsx";
 import TransactionHistoryModal from "./components/TransactionHistoryModal.jsx";
@@ -38,6 +38,7 @@ const ROUTE_BODY_CLASSES_TO_CLEAR = [
 
 export default function TransactionPaymentPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const todayDmy = useMemo(() => formatDmy(new Date()), []);
 
   // 1. UI State
@@ -153,6 +154,21 @@ export default function TransactionPaymentPage() {
 
   const onSearch = () => search.runSearch({ silent: false });
 
+  const singleCategoryFallbackRoleClass = useMemo(() => {
+    const raw = search.selectedCategories || [];
+    const sel = raw.filter((x) => x != null && String(x).trim() !== "" && String(x).trim().toUpperCase() !== "");
+    if (sel.length !== 1) return "";
+    return getRoleClass(String(sel[0]));
+  }, [search.selectedCategories]);
+
+  const txWlTolBannerActive = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search || "").get("tx_wl_tol") === "1";
+    } catch {
+      return false;
+    }
+  }, [location.search]);
+
   return (
     <div className="container-fluid transaction-container">
       <TransactionHeader
@@ -166,6 +182,22 @@ export default function TransactionPaymentPage() {
       />
 
       <main className="transaction-main">
+        {txWlTolBannerActive ? (
+          <div
+            className="transaction-tx-wl-tol-banner"
+            style={{
+              margin: "0 0 12px 0",
+              padding: "10px 12px",
+              background: "#fffbeb",
+              border: "1px solid #f59e0b",
+              borderRadius: 8,
+              color: "#78350f",
+              fontSize: 13,
+            }}
+          >
+            已启用 <strong>底部 Summary Win/Loss 展示容差</strong>（<code style={{ background: "#fde68a", padding: "2px 6px", borderRadius: 4 }}>tx_wl_tol=1</code>）：合计 Win/Loss 绝对值不超过 <strong>RM1.00</strong> 时将显示 <strong>0.00</strong>，并重算该行 Balance；各账户列与 API 仍为真实轧差。
+          </div>
+        ) : null}
         <div className="transaction-main-content">
           <TransactionSearchSection
             dateFrom={search.dateFrom}
@@ -264,9 +296,12 @@ export default function TransactionPaymentPage() {
           tp={search.tablePresentation}
           searchState={search.searchState}
           getRoleClass={getRoleClass}
-          fallbackRoleClass=""
+          fallbackRoleClass={singleCategoryFallbackRoleClass}
           openHistory={(row) =>
-            ui.onViewHistory(row, search.effectiveDateFrom, search.effectiveDateTo, filterSnapshot?.companyId)
+            ui.onViewHistory(row, search.effectiveDateFrom, search.effectiveDateTo, filterSnapshot?.companyId, {
+              selectedCurrencies: search.selectedCurrencies,
+              showAllCurrencies: search.showAllCurrencies,
+            })
           }
           handleBalanceCellClick={form.handleBalanceCellClick}
         />
