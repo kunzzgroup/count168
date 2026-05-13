@@ -47,6 +47,16 @@ function isVirtualGroupLinkCompanyRow(c) {
   return ls != null && String(ls).trim() !== "";
 }
 
+function buildModalCompanyList(raw) {
+  const seen = new Set();
+  return (Array.isArray(raw) ? raw : []).filter((c) => {
+    const key = String(c?.company_id || "").trim().toUpperCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export default function UserListPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -80,6 +90,11 @@ export default function UserListPage() {
   const hasLoadedUsersRef = useRef(false);
   const pendingDeleteRef = useRef(null);
   const listFetchAbortRef = useRef(null);
+  const modalCompaniesCacheRef = useRef([]);
+  const modalAccessCacheRef = useRef(new Map());
+  const modalAccessPendingRef = useRef(new Map());
+  const modalAccessCompanyIdRef = useRef(null);
+  const modalLoadSeqRef = useRef(0);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -307,6 +322,9 @@ export default function UserListPage() {
         const compJson = await compRes.json();
         const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
         setCompanies(rows);
+        const modalCompanyList = buildModalCompanyList(rows);
+        modalCompaniesCacheRef.current = modalCompanyList;
+        setModalCompanies(modalCompanyList);
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id");
         const effective = cid || meJson.data.company_id || rows[0]?.id || null;
@@ -369,31 +387,71 @@ export default function UserListPage() {
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
   }, [switchingCompany]);
 
-  const fetchModalAccountsProcesses = async (cid) => {
+  const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
+    const cacheKey = String(cid || "");
+    const cached = modalAccessCacheRef.current.get(cacheKey);
+    if (cached && !force) {
+      modalAccessCompanyIdRef.current = Number(cid);
+      setModalAccounts(cached.accounts);
+      setModalProcesses(cached.processes);
+      return cached;
+    }
+    const pending = modalAccessPendingRef.current.get(cacheKey);
+    if (pending) {
+      try {
+        const next = await pending;
+        modalAccessCompanyIdRef.current = Number(cid);
+        setModalAccounts(next.accounts);
+        setModalProcesses(next.processes);
+        return next;
+      } catch { setModalAccounts([]); setModalProcesses([]); return { accounts: [], processes: [] }; }
+    }
     try {
-      const [accRes, procRes] = await Promise.all([
+      const request = Promise.all([
         fetch(buildApiUrl(`api/accounts/accountlistapi.php?company_id=${cid}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/processes/processlist_api.php?company_id=${cid}&showAll=1`), { credentials: "include" }),
-      ]);
-      const accJ = await accRes.json(); const procJ = await procRes.json();
-      const accs = (accJ?.data?.accounts || []).filter((a) => String(a.status || "").toLowerCase() === "active").map((a) => ({ id: a.id, account_id: a.account_id, name: String(a.name || "").trim() }));
-      const procs = (Array.isArray(procJ?.data) ? procJ.data : []).filter((p) => String(p.status || "").toLowerCase() === "active").map((p) => ({ id: p.id, process_id: p.process_name || p.process_id || "", description: p.description_name || p.description || "" }));
-      setModalAccounts(accs); setModalProcesses(procs); return { accounts: accs, processes: procs };
-    } catch { setModalAccounts([]); setModalProcesses([]); return { accounts: [], processes: [] }; }
-  };
+      ]).then(async ([accRes, procRes]) => {
+        const accJ = await accRes.json(); const procJ = await procRes.json();
+        const accs = (accJ?.data?.accounts || []).filter((a) => String(a.status || "").toLowerCase() === "active").map((a) => ({ id: a.id, account_id: a.account_id, name: String(a.name || "").trim() }));
+        const procs = (Array.isArray(procJ?.data) ? procJ.data : []).filter((p) => String(p.status || "").toLowerCase() === "active").map((p) => ({ id: p.id, process_id: p.process_name || p.process_id || "", description: p.description_name || p.description || "" }));
+        return { accounts: accs, processes: procs };
+      });
+      modalAccessPendingRef.current.set(cacheKey, request);
+      const next = await request;
+      modalAccessCacheRef.current.set(cacheKey, next);
+      modalAccessCompanyIdRef.current = Number(cid);
+      setModalAccounts(next.accounts); setModalProcesses(next.processes); return next;
+    } catch {
+      if (cached) {
+        setModalAccounts(cached.accounts);
+        setModalProcesses(cached.processes);
+        return cached;
+      }
+      setModalAccounts([]); setModalProcesses([]); return { accounts: [], processes: [] };
+    }
+    finally { modalAccessPendingRef.current.delete(cacheKey); }
+  }, []);
+
+  useEffect(() => {
+    if (!bootLoading && companyId && me) void fetchModalAccountsProcesses(companyId);
+  }, [bootLoading, companyId, me, fetchModalAccountsProcesses]);
 
   const loadCompaniesForModal = async () => {
+    if (modalCompaniesCacheRef.current.length) {
+      setModalCompanies(modalCompaniesCacheRef.current);
+      return modalCompaniesCacheRef.current;
+    }
+    const currentList = buildModalCompanyList(companies);
+    if (currentList.length) {
+      modalCompaniesCacheRef.current = currentList;
+      setModalCompanies(currentList);
+      return currentList;
+    }
     try {
       const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
       const json = await res.json();
-      const raw = Array.isArray(json.data) ? json.data : [];
-      const seen = new Set();
-      const list = raw.filter((c) => {
-        const key = String(c?.company_id || "").trim().toUpperCase();
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const list = buildModalCompanyList(json.data);
+      modalCompaniesCacheRef.current = list;
       setModalCompanies(list); return list;
     } catch { setModalCompanies([]); return []; }
   };
@@ -402,16 +460,24 @@ export default function UserListPage() {
     if (!companyId) return;
     const avail = getAvailableRolesForCreation(currentUserRole);
     if (avail.length === 0) { notify(t("noPermissionCreateAccounts"), "danger"); return; }
+    const loadSeq = ++modalLoadSeqRef.current;
     setIsEditMode(false); setEditingRow(null);
     setForm({ id: "", login_id: "", name: "", email: "", role: "", password: "", secondary_password: "", status: "active", read_only: true });
     setRoleSelectDisabled(false); setLoginDisabled(false);
     setFieldLocks({ name: false, email: false, role: false, password: false, sidebar: false, company: false });
     const allP = new Set(PERMISSION_KEYS.filter((k) => !permDisabledMap[k])); setPermSelected(allP);
-    await loadCompaniesForModal();
-    const { accounts: accList, processes: procList } = await fetchModalAccountsProcesses(companyId);
-    setSelectedAccountIds(new Set(accList.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(procList.map((p) => Number(p.id))));
+    void loadCompaniesForModal();
+    const cachedAccess = modalAccessCacheRef.current.get(String(companyId || ""));
+    const currentAccess = Number(modalAccessCompanyIdRef.current) === Number(companyId) ? { accounts: modalAccounts, processes: modalProcesses } : null;
+    const initialAccess = cachedAccess || currentAccess || { accounts: [], processes: [] };
+    if (!cachedAccess && !currentAccess) { setModalAccounts([]); setModalProcesses([]); }
+    setSelectedAccountIds(new Set(initialAccess.accounts.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(initialAccess.processes.map((p) => Number(p.id))));
     if (currentUserRole === "admin" || currentUserRole === "owner") { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
     setModalOpen(true);
+    void fetchModalAccountsProcesses(companyId, true).then(({ accounts: accList, processes: procList }) => {
+      if (loadSeq !== modalLoadSeqRef.current) return;
+      setSelectedAccountIds(new Set(accList.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(procList.map((p) => Number(p.id))));
+    });
   };
 
   const applyPermTemplate = (role, force) => {
@@ -422,9 +488,10 @@ export default function UserListPage() {
   const openEdit = async (row) => {
     if (!companyId) return;
     if (row.is_owner_shadow && currentUserRole !== "owner") { notify(t("onlyOwnerCanEditOwner"), "danger"); return; }
+    modalLoadSeqRef.current += 1;
     setIsEditMode(true); setEditingRow(row);
     setForm({ id: String(row.id), login_id: row.login_id || "", name: row.name || "", email: row.email || "", role: normRole(row.role), password: "", secondary_password: "", status: normRole(row.status) || "active", read_only: true });
-    const { accounts: accList, processes: procList } = await fetchModalAccountsProcesses(companyId);
+    const { accounts: accList, processes: procList } = await fetchModalAccountsProcesses(companyId, true);
     await loadCompaniesForModal();
     setRoleSelectDisabled(!!row.is_owner_shadow); setLoginDisabled(true);
     const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
@@ -447,7 +514,7 @@ export default function UserListPage() {
     setModalOpen(true);
   };
 
-  const closeModal = () => { setModalOpen(false); setEditingRow(null); };
+  const closeModal = () => { modalLoadSeqRef.current += 1; setModalOpen(false); setEditingRow(null); };
 
   const toggleUserStatus = async (row) => {
     const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
