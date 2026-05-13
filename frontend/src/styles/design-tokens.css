@@ -69,6 +69,14 @@
   --color-danger: #ef4444;
   --color-success: #22c55e;
 
+  /* Add User「Account」/ 幣別設定帳號格 — 與 userlist #userModal .user-modal-select-card 一致 */
+  --account-select-card-bg: #f1f5f9;
+  --account-select-card-border: #cbd5e1;
+  --account-select-card-bg-checked: #ffffff;
+  --account-select-card-border-checked: #0d60ff;
+  --account-select-label-checked: #0d60ff;
+  --account-select-desc-checked: #797979;
+
   /* --- 圆角 / 阴影 --- */
   --radius-panel: 1rem;
   --radius-card: 1.2rem;

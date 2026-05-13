@@ -6,6 +6,7 @@ import { isBankCategoryCompany } from "../bankprocesslist/bankProcessHelpers.js"
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
+import "../../../public/css/userlist.css";
 import CompanyExpirationModal from "../domain/components/CompanyExpirationModal.jsx";
 import {
   PAGE_SIZE,
@@ -810,36 +811,49 @@ export default function ProcessListPage() {
               {selectedIds.size ? t("deleteWithCount", { count: selectedIds.size }) : t("delete")}
             </button>
           </div>
-          {groupIds.length > 0 && (
-            <div className="process-company-filter shared-group-wrapper">
-              <span className="process-company-label">{t("groupId")}</span>
-              <div className="process-company-buttons">
-                {groupIds.map((g) => (
-                  <button
-                    type="button"
-                    key={g}
-                    className={`process-company-btn shared-group-btn ${selectedGroup === g ? "active" : ""}`}
-                    onClick={() => setSelectedGroup(g)}
-                  >
-                    {g}
-                  </button>
-                ))}
+          <div className="user-gc-inline-panel">
+            {groupIds.length > 0 && (
+              <div className="user-gc-inline-row">
+                <span className="user-gc-inline-label">{t("groupId")}</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                    {groupIds.map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        disabled={tableLoading}
+                        className={`user-gc-segment${selectedGroup === g ? " is-on" : ""}`}
+                        onClick={() => setSelectedGroup(g)}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
-          <div className="process-company-filter shared-company-wrapper">
-            <span className="process-company-label">{t("company")}</span>
-            <div className="process-company-buttons">
-              {companyButtons.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`process-company-btn shared-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`}
-                  onClick={() => onSwitchCompany(c)}
-                >
-                  {c.company_id}
-                </button>
-              ))}
+            )}
+            <div className="user-gc-inline-row">
+              <span className="user-gc-inline-label">{t("company")}</span>
+              <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
+                  {companyButtons.map((c) => {
+                    const active = Number(c.id) === Number(companyId);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        disabled={tableLoading}
+                        className={`user-gc-segment${active ? " is-on" : ""}`}
+                        onClick={() => {
+                          if (!active) void onSwitchCompany(c);
+                        }}
+                      >
+                        {String(c.company_id || "").toUpperCase()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
