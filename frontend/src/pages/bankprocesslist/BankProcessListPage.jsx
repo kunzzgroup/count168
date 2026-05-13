@@ -1109,7 +1109,12 @@ export default function BankProcessListPage() {
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-add" onClick={openAdd}>{t("addProcess")}</button>
+              <button type="button" className="btn btn-add" onClick={openAdd}>
+                <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18v-2H6V4h7V2zm5 7V3.5L18.5 1 21 3.5V9h2v2h-2v6h-2v-6h-6v-2h6z" />
+                </svg>
+                {t("addProcess")}
+              </button>
               <div className="process-list-date-filter" id="processListDateFilter" style={{ display: "inline-flex" }}>
                 <div className="date-range-picker" id="date-range-picker">
                   <i className="fas fa-calendar-alt" aria-hidden="true" />
@@ -1126,36 +1131,52 @@ export default function BankProcessListPage() {
                 </svg>
                 <input type="text" className="search-input" placeholder={t("search")} value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-              <div className="checkbox-section">
-                <input
-                  type="checkbox"
-                  id="showAll"
-                  checked={showAll}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setShowAll(v);
-                    if (v) {
+              <div className="userlist-filter-chips" role="group">
+                <button
+                  type="button"
+                  className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
+                  aria-pressed={showInactive && !showAll}
+                  onClick={() => {
+                    if (showInactive && !showAll) setShowInactive(false);
+                    else {
+                      setShowInactive(true);
+                      setShowAll(false);
+                    }
+                  }}
+                >
+                  <span className="user-filter-chip__dot" aria-hidden>
+                    {showInactive && !showAll ? (
+                      <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 12l4 4 8-8" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span className="user-filter-chip__label">{t("showInactive")}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`user-filter-chip${showAll ? " is-selected" : ""}`}
+                  aria-pressed={showAll}
+                  onClick={() => {
+                    if (showAll) setShowAll(false);
+                    else {
+                      setShowAll(true);
                       setShowInactive(false);
                       setShowOfficial(false);
                       setShowEInvoice(false);
                       setShowBlock(false);
                     }
                   }}
-                />
-                <label htmlFor="showAll">{t("showAll")}</label>
-              </div>
-              <div className="checkbox-section">
-                <input
-                  type="checkbox"
-                  id="showInactive"
-                  checked={showInactive}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setShowInactive(v);
-                    if (v) setShowAll(false);
-                  }}
-                />
-                <label htmlFor="showInactive">{t("showInactive")}</label>
+                >
+                  <span className="user-filter-chip__dot" aria-hidden>
+                    {showAll ? (
+                      <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 12l4 4 8-8" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span className="user-filter-chip__label">{t("showAll")}</span>
+                </button>
               </div>
               <div className="checkbox-section">
                 <input

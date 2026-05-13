@@ -1927,9 +1927,10 @@ body.ec-auth-shell.account-page .search-container.userlist-search-bar .userlist-
     display: none !important;
 }
 
-/* User List / Account List — 名单范围筛选（chip，图二风格；与旧 checkbox 逻辑一致） */
+/* User List / Account List / Bank Process — 名单范围筛选（chip，图二风格；与旧 checkbox 逻辑一致） */
 body.user-page .userlist-filter-chips,
-body.account-page .userlist-filter-chips {
+body.account-page .userlist-filter-chips,
+body.process-page.process-page--bank .userlist-filter-chips {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1937,7 +1938,8 @@ body.account-page .userlist-filter-chips {
 }
 
 body.user-page .user-filter-chip,
-body.account-page .user-filter-chip {
+body.account-page .user-filter-chip,
+body.process-page.process-page--bank .user-filter-chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -1963,26 +1965,30 @@ body.account-page .user-filter-chip {
 }
 
 body.user-page .user-filter-chip:hover,
-body.account-page .user-filter-chip:hover {
+body.account-page .user-filter-chip:hover,
+body.process-page.process-page--bank .user-filter-chip:hover {
     border-color: #cbd5e1;
     box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
 }
 
 body.user-page .user-filter-chip:focus-visible,
-body.account-page .user-filter-chip:focus-visible {
+body.account-page .user-filter-chip:focus-visible,
+body.process-page.process-page--bank .user-filter-chip:focus-visible {
     outline: 2px solid #6366f1;
     outline-offset: 2px;
 }
 
 body.user-page .user-filter-chip.is-selected,
-body.account-page .user-filter-chip.is-selected {
+body.account-page .user-filter-chip.is-selected,
+body.process-page.process-page--bank .user-filter-chip.is-selected {
     border-color: rgba(13, 96, 255, 0.45);
     color: #0d60ff;
     box-shadow: 0 2px 6px rgba(13, 96, 255, 0.12);
 }
 
 body.user-page .user-filter-chip__dot,
-body.account-page .user-filter-chip__dot {
+body.account-page .user-filter-chip__dot,
+body.process-page.process-page--bank .user-filter-chip__dot {
     flex-shrink: 0;
     width: 18px;
     height: 18px;
@@ -1995,32 +2001,37 @@ body.account-page .user-filter-chip__dot {
 }
 
 body.user-page .user-filter-chip.is-selected .user-filter-chip__dot,
-body.account-page .user-filter-chip.is-selected .user-filter-chip__dot {
+body.account-page .user-filter-chip.is-selected .user-filter-chip__dot,
+body.process-page.process-page--bank .user-filter-chip.is-selected .user-filter-chip__dot {
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
     color: #ffffff;
 }
 
 body.user-page .user-filter-chip__check,
-body.account-page .user-filter-chip__check {
+body.account-page .user-filter-chip__check,
+body.process-page.process-page--bank .user-filter-chip__check {
     width: 11px;
     height: 11px;
     display: block;
 }
 
 body.user-page .user-filter-chip__label,
-body.account-page .user-filter-chip__label {
+body.account-page .user-filter-chip__label,
+body.process-page.process-page--bank .user-filter-chip__label {
     white-space: nowrap;
 }
 
 /* Show Inactive / Show All：按较长语言预留宽度，避免 chip 胶囊随文案伸缩 */
 body.user-page .userlist-filter-chips .user-filter-chip:nth-child(1),
-body.account-page .userlist-filter-chips .user-filter-chip:nth-child(1) {
+body.account-page .userlist-filter-chips .user-filter-chip:nth-child(1),
+body.process-page.process-page--bank .userlist-filter-chips .user-filter-chip:nth-child(1) {
     min-width: 8.25rem;
     justify-content: flex-start;
 }
 
 body.user-page .userlist-filter-chips .user-filter-chip:nth-child(2),
-body.account-page .userlist-filter-chips .user-filter-chip:nth-child(2) {
+body.account-page .userlist-filter-chips .user-filter-chip:nth-child(2),
+body.process-page.process-page--bank .userlist-filter-chips .user-filter-chip:nth-child(2) {
     min-width: 6.75rem;
     justify-content: flex-start;
 }
