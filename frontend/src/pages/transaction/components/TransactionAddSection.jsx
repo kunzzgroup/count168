@@ -33,6 +33,7 @@ export default function TransactionAddSection({
   rateCurrencyTo,
   setRateCurrencyTo,
   rateCurrencyToAmount,
+  onRateCurrencyRowReverse,
   rateTransferToAccount,
   setRateTransferToAccount,
   rateTransferFromAccount,
@@ -121,7 +122,7 @@ export default function TransactionAddSection({
             <div className="custom-select-wrapper">
               <AccountSelect placeholder="--Select From Account--" options={accountOptions} value={rateFromAccount} onChange={setRateFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
-            <button type="button" id="rate_account_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={() => { setRateToAccount(rateFromAccount); setRateFromAccount(rateToAccount); }}>
+            <button type="button" id="rate_account_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={() => { setRateToAccount(rateFromAccount); setRateFromAccount(rateToAccount); onRateCurrencyRowReverse?.(); }}>
               Reverse
             </button>
           </div>
