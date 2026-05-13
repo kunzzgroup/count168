@@ -38,7 +38,6 @@ export default function AuthenticatedLayout() {
   const [loading, setLoading] = useState(true);
   const [hoverSection, setHoverSection] = useState(null);
   const [submenuPos, setSubmenuPos] = useState({ report: { top: 0, left: 0 }, maintenance: { top: 0, left: 0 } });
-  const [optimisticPath, setOptimisticPath] = useState("");
   const reportTitleRef = useRef(null);
   const maintenanceTitleRef = useRef(null);
 
@@ -169,7 +168,6 @@ export default function AuthenticatedLayout() {
   }, []);
 
   useEffect(() => {
-    setOptimisticPath("");
     setHoverSection(null);
   }, [location.pathname]);
 
@@ -256,14 +254,8 @@ export default function AuthenticatedLayout() {
       navigate("/login", { replace: true });
     }
   };
-  const path = optimisticPath || location.pathname;
+  const path = location.pathname;
   const isProcessPage = path === "/process-list" || path === "/bank-process-list";
-  const navTo = (to) => {
-    if (!to || to === location.pathname) return;
-    setOptimisticPath(to);
-    setHoverSection(null);
-    navigate(to);
-  };
   const applyLanguage = (nextLang) => {
     const normalized = nextLang === "zh" ? "zh" : "en";
     setLang(normalized);
@@ -365,7 +357,7 @@ export default function AuthenticatedLayout() {
           <div className="content-separator" />
           {canAccess("home") && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} onClick={() => navTo("/dashboard")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} onClick={() => navigate("/dashboard")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                 </svg>
@@ -375,7 +367,7 @@ export default function AuthenticatedLayout() {
           )}
           {me?.has_c168_domain_page_access && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} onClick={() => navTo("/domain")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} onClick={() => navigate("/domain")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
                 </svg>
@@ -385,7 +377,7 @@ export default function AuthenticatedLayout() {
           )}
           {me?.has_c168_domain_page_access && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} onClick={() => navTo("/announcement")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} onClick={() => navigate("/announcement")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
                 </svg>
@@ -395,7 +387,7 @@ export default function AuthenticatedLayout() {
           )}
           {canAccess("admin") && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} onClick={() => navTo("/userlist")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} onClick={() => navigate("/userlist")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                 </svg>
@@ -408,7 +400,7 @@ export default function AuthenticatedLayout() {
               <div className="informationmenu-section">
                 <div
                   className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
-                  onClick={() => navTo("/account-list")}
+                  onClick={() => navigate("/account-list")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -420,7 +412,7 @@ export default function AuthenticatedLayout() {
               <div className="informationmenu-section">
                 <div
                   className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
-                  onClick={() => navTo("/ownership")}
+                  onClick={() => navigate("/ownership")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -435,7 +427,7 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`}
-                onClick={() => navTo(processSpaPath)}
+                onClick={() => navigate(processSpaPath)}
                 role="presentation"
               >
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -453,7 +445,7 @@ export default function AuthenticatedLayout() {
                   if (path === "/datacapturesummary") {
                     clearDataCaptureRoundLocalStorage();
                   }
-                  navTo("/datacapture");
+                  navigate("/datacapture");
                 }}
                 role="presentation"
               >
@@ -468,7 +460,7 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
-                onClick={() => navTo("/transaction")}
+                onClick={() => navigate("/transaction")}
                 role="presentation"
               >
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -516,7 +508,7 @@ export default function AuthenticatedLayout() {
                       className={`submenu-item ${path === "/customer-report" ? "current-page" : ""}`}
                       onClick={(e) => {
                         e.preventDefault();
-                        navTo("/customer-report");
+                        navigate("/customer-report");
                       }}
                     >
                       <span>{i18n.sidebarCustomerReport}</span>
@@ -526,7 +518,7 @@ export default function AuthenticatedLayout() {
                       className={`submenu-item ${path === "/domain-report" ? "current-page" : ""}`}
                       onClick={(e) => {
                         e.preventDefault();
-                        navTo("/domain-report");
+                        navigate("/domain-report");
                       }}
                     >
                       <span>{i18n.sidebarDomainReport}</span>
@@ -575,7 +567,7 @@ export default function AuthenticatedLayout() {
                         className={`submenu-item ${path === "/capture-maintenance" ? "current-page" : ""}`}
                         onClick={(e) => {
                           e.preventDefault();
-                          navTo("/capture-maintenance");
+                          navigate("/capture-maintenance");
                         }}
                       >
                         <span>{i18n.sidebarDataCapture}</span>
@@ -587,7 +579,7 @@ export default function AuthenticatedLayout() {
                         className={`submenu-item ${path === "/transaction-maintenance" ? "current-page" : ""}`}
                         onClick={(e) => {
                           e.preventDefault();
-                          navTo("/transaction-maintenance");
+                          navigate("/transaction-maintenance");
                         }}
                       >
                         <span>{i18n.sidebarTransaction}</span>
@@ -598,7 +590,7 @@ export default function AuthenticatedLayout() {
                       className={`submenu-item ${path === "/payment-maintenance" ? "current-page" : ""}`}
                       onClick={(e) => {
                         e.preventDefault();
-                        navTo("/payment-maintenance");
+                        navigate("/payment-maintenance");
                       }}
                     >
                       <span>{i18n.sidebarPayment}</span>
@@ -609,7 +601,7 @@ export default function AuthenticatedLayout() {
                         className={`submenu-item ${path === "/formula-maintenance" ? "current-page" : ""}`}
                         onClick={(e) => {
                           e.preventDefault();
-                          navTo("/formula-maintenance");
+                          navigate("/formula-maintenance");
                         }}
                       >
                         <span>{i18n.sidebarFormula}</span>
@@ -621,7 +613,7 @@ export default function AuthenticatedLayout() {
                         className={`submenu-item ${path === "/bankprocess-maintenance" ? "current-page" : ""}`}
                         onClick={(e) => {
                           e.preventDefault();
-                          navTo("/bankprocess-maintenance");
+                          navigate("/bankprocess-maintenance");
                         }}
                       >
                         <span>{i18n.sidebarProcess}</span>
