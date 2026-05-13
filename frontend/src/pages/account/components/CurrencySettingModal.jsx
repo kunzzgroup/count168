@@ -102,53 +102,55 @@ export default function CurrencySettingModal({
           <div className="currency-right-panel">
             <h3>{t("account")}</h3>
             <div className="currency-setting-filter-row">
-              <div className="currency-setting-search-wrap">
-                <svg className="currency-setting-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-                </svg>
-                <input
-                  type="text"
-                  className="currency-setting-search-input"
-                  placeholder={t("searchByAccountOrName")}
-                  value={settingSearch}
-                  onChange={(e) => setSettingSearch(e.target.value)}
-                />
+              <div className="currency-setting-filter-left">
+                <div className="currency-setting-search-wrap">
+                  <svg className="currency-setting-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                  </svg>
+                  <input
+                    type="text"
+                    className="currency-setting-search-input"
+                    placeholder={t("searchByAccountOrName")}
+                    value={settingSearch}
+                    onChange={(e) => setSettingSearch(e.target.value)}
+                  />
+                </div>
+                <div className="currency-setting-role-filter">
+                  <select
+                    className="currency-setting-select"
+                    value={settingRole}
+                    onChange={(e) => setSettingRole(e.target.value)}
+                  >
+                    <option value="">{t("filterRow")}</option>
+                    {roles.map(r => (
+                      <option key={r} value={r}>{toUpper(r)}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="currency-setting-role-filter">
-                <select
-                  className="currency-setting-select"
-                  value={settingRole}
-                  onChange={(e) => setSettingRole(e.target.value)}
-                >
-                  <option value="">{t("filterRow")}</option>
-                  {roles.map(r => (
-                    <option key={r} value={r}>{toUpper(r)}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
 
-            <div className="currency-setting-selectall-row">
-              <button
-                type="button"
-                className="account-btn account-btn-add currency-setting-selectall-btn"
-                onClick={() => {
-                  const allIds = filteredAccounts.map(a => Number(a.id));
-                  const allSelected = allIds.every(id => settingLinked.has(id));
-                  setSettingLinked(prev => {
-                    const n = new Set(prev);
-                    if (allSelected) {
-                      allIds.forEach(id => n.delete(id));
-                    } else {
-                      allIds.forEach(id => n.add(id));
-                    }
-                    return n;
-                  });
-                }}
-              >
-                {t("selectAll")}
-              </button>
-              <span className="currency-setting-selected-count">{t("selectedCount", { count: settingLinked.size })}</span>
+              <div className="currency-setting-selectall-row">
+                <span className="currency-setting-selected-count">{t("selectedCount", { count: settingLinked.size })}</span>
+                <button
+                  type="button"
+                  className="account-btn account-btn-add currency-setting-selectall-btn"
+                  onClick={() => {
+                    const allIds = filteredAccounts.map(a => Number(a.id));
+                    const allSelected = allIds.every(id => settingLinked.has(id));
+                    setSettingLinked(prev => {
+                      const n = new Set(prev);
+                      if (allSelected) {
+                        allIds.forEach(id => n.delete(id));
+                      } else {
+                        allIds.forEach(id => n.add(id));
+                      }
+                      return n;
+                    });
+                  }}
+                >
+                  {t("selectAll")}
+                </button>
+              </div>
             </div>
 
             <div className="currency-setting-account-list account-grid account-grid--four account-grid--process">

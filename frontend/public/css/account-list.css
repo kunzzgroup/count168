@@ -517,9 +517,17 @@
 .currency-setting-filter-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
     margin-bottom: 10px;
     flex-shrink: 0;
+}
+
+.currency-setting-filter-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
 }
 
 /* Select All row */
@@ -527,8 +535,8 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 12px;
     flex-shrink: 0;
+    margin-left: auto;
 }
 
 /* Select All：寬度；字級與高度由下方 #currencySettingModal … account-btn-add 統一 */
