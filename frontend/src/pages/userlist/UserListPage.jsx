@@ -47,6 +47,11 @@ function isVirtualGroupLinkCompanyRow(c) {
   return ls != null && String(ls).trim() !== "";
 }
 
+const BOOT_GROUP_PLACEHOLDERS = ["ALL", "AP", "IG"];
+const BOOT_COMPANY_PLACEHOLDERS = ["95", "AG", "CX", "GP", "RS", "VG"];
+const BOOT_TABLE_ROWS = 6;
+const BOOT_TABLE_COLS = 9;
+
 export default function UserListPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -599,6 +604,13 @@ export default function UserListPage() {
                   </svg>
                   {t("addUser")}
                 </button>
+                ) : pageBooting ? (
+                <button type="button" className="btn btn-add" disabled>
+                  <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                  {t("addUser")}
+                </button>
                 ) : null}
                 <button
                   type="button"
@@ -621,11 +633,19 @@ export default function UserListPage() {
               </div>
             </div>
             <div className="user-gc-inline-panel">
-              {groupIds.length > 0 && (
+              {(pageBooting || groupIds.length > 0) && (
                 <div className="user-gc-inline-row">
                   <span className="user-gc-inline-label">{t("groupId")}</span>
                   <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                     <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                      {pageBooting ? (
+                        BOOT_GROUP_PLACEHOLDERS.map((label) => (
+                          <span key={label} className="user-gc-segment user-gc-segment--skeleton">
+                            {label}
+                          </span>
+                        ))
+                      ) : (
+                      <>
                       <button
                         type="button"
                         className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
@@ -643,6 +663,8 @@ export default function UserListPage() {
                           {gid}
                         </button>
                       ))}
+                      </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -651,7 +673,14 @@ export default function UserListPage() {
                 <span className="user-gc-inline-label">{t("company")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
-                    {companiesForPicker.map((c) => {
+                    {pageBooting ? (
+                      BOOT_COMPANY_PLACEHOLDERS.map((label) => (
+                        <span key={label} className="user-gc-segment user-gc-segment--skeleton">
+                          {label}
+                        </span>
+                      ))
+                    ) : (
+                    companiesForPicker.map((c) => {
                       const active = Number(companyId) === Number(c.id);
                       return (
                         <button
@@ -668,7 +697,8 @@ export default function UserListPage() {
                           {String(c.company_id || "").toUpperCase()}
                         </button>
                       );
-                    })}
+                    })
+                    )}
                   </div>
                 </div>
               </div>
@@ -708,9 +738,15 @@ export default function UserListPage() {
             </div>
             <div className={`user-cards${tableSwapAnimating ? " user-cards--settling" : ""}`} aria-busy={listBusy}>
               {showInitialTableLoading ? (
-                <div key="userlist-initial-loading" className="user-card user-card--loading show-card row-even" role="status">
-                  {t("loading")}
-                </div>
+                Array.from({ length: BOOT_TABLE_ROWS }).map((_, rowIdx) => (
+                  <div key={`userlist-loading-${rowIdx}`} className={`user-card user-card--skeleton show-card ${rowIdx % 2 === 0 ? "row-even" : "row-odd"}`} role={rowIdx === 0 ? "status" : undefined} aria-label={rowIdx === 0 ? t("loading") : undefined}>
+                    {Array.from({ length: BOOT_TABLE_COLS }).map((__, colIdx) => (
+                      <div key={colIdx} className="card-item">
+                        <span className="userlist-skeleton-bar" style={{ width: `${colIdx === 3 ? 82 : colIdx === 4 ? 54 : 66}%` }} />
+                      </div>
+                    ))}
+                  </div>
+                ))
               ) : (
                 pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
