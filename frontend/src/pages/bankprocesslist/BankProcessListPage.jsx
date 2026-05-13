@@ -1093,7 +1093,6 @@ export default function BankProcessListPage() {
               <button
                 type="button"
                 className="process-accounting-inbox-btn process-accounting-inbox-main"
-                style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: "none" }}
                 onClick={() => { setAccountingOpen(true); void loadAccountingInbox(); }}
               >
                 <svg className="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
