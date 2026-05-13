@@ -158,8 +158,10 @@ body.dashboard-page.maintenance-page {
     flex-direction: column;
     gap: 10px;
     max-width: 1600px;
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
+    box-sizing: border-box;
 }
 
 /* 第一行三列：与 payment_maintenance.php / Payment 页一致（底对齐） */
@@ -465,11 +467,15 @@ body.dashboard-page.maintenance-page {
     border-color: #4a90e2;
 }
 
+/* 与上方 .maintenance-search-section 同宽（1600 居中），避免表格比白卡更宽 */
 .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
+    max-width: 1600px;
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
+    box-sizing: border-box;
 }
 
 .maintenance-table {
@@ -675,12 +681,20 @@ body.dashboard-page.maintenance-page {
 }
 
 .empty-state-container {
+    position: relative;
+    top: 10px;
     background: #ffffff;
     border: 1px solid #d0d7de;
     border-radius: 8px;
     padding: clamp(40px, 3.33vw, 64px);
     margin-bottom: clamp(20px, 1.67vw, 32px);
+    margin-top: 10px;
+    max-width: 1600px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
     text-align: center;
+    box-sizing: border-box;
 }
 
 .empty-state {
@@ -833,11 +847,6 @@ body.dashboard-page.maintenance-page {
 }
 
 
-
-.empty-state-container{
-    position:relative;
-    top: 10px;
-}
 
 @media (max-width: 1400px) {
 
