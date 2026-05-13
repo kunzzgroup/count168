@@ -340,6 +340,11 @@ export default function AccountListPage() {
     setAddModalOpen(true); loadSelectionMeta(null, false);
   };
 
+  const openCurrencySetting = () => {
+    setCurrencySettingOpen(true);
+    void loadSelectionMeta(null, false);
+  };
+
   const openEdit = async (id) => {
     try {
       const res = await fetch(buildApiUrl(`getaccountapi.php?id=${id}`), { credentials: "include" });
@@ -627,7 +632,7 @@ export default function AccountListPage() {
                 </div>
               </div>
               <div className="user-toolbar-actions-right">
-                <button type="button" className="btn btn-currency-setting" onClick={() => setCurrencySettingOpen(true)}>
+                <button type="button" className="btn btn-currency-setting" onClick={openCurrencySetting}>
                   {t("currencySetting")}
                 </button>
                 <button type="button" className="btn btn-add" onClick={openAdd}>
