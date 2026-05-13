@@ -123,9 +123,9 @@ export default function CurrencySettingModal({
 
           {/* Right Panel: Accounts — match User modal account-grid / process cards */}
           <div className="currency-right-panel">
-            <h3>{t("account")}</h3>
             <div className="currency-setting-filter-row">
               <div className="currency-setting-filter-left">
+                <h3>{t("account")}</h3>
                 <div className="currency-setting-search-wrap">
                   <svg className="currency-setting-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
