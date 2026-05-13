@@ -163,73 +163,96 @@ export default function TransactionSearchSection({
       </div>
 
       <div className="transaction-bottom-filters">
-        {fs.snapGroupIds.length > 0 && (
-          <div id="group-buttons-wrapper" className="transaction-company-filter shared-group-wrapper">
-            <span className="transaction-company-label">GroupID:</span>
-            <div id="group-buttons-container" className="transaction-company-buttons">
-              {fs.snapGroupIds.map((gid) => (
-                <button key={gid} type="button" className={`transaction-company-btn shared-group-btn ${fs.selectedGroup === gid ? "active" : ""}`} data-group-id={gid} onClick={() => onGroupButtonClick(gid)}>
-                  {gid}
-                </button>
-              ))}
-            </div>
+        {(fs.snapGroupIds.length > 0 || fs.snapCompanies.length > 0 || currencyRowsOrdered.length > 0) && (
+          <div className="user-gc-inline-panel">
+            {fs.snapGroupIds.length > 0 && (
+              <div id="group-buttons-wrapper" className="user-gc-inline-row">
+                <span className="user-gc-inline-label">GroupID:</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label="Group ID">
+                    {fs.snapGroupIds.map((gid) => (
+                      <button
+                        key={gid}
+                        type="button"
+                        className={`user-gc-segment${fs.selectedGroup === gid ? " is-on" : ""}`}
+                        data-group-id={gid}
+                        onClick={() => onGroupButtonClick(gid)}
+                      >
+                        {gid}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {fs.snapCompanies.length > 0 && (
+              <div id="company-buttons-wrapper" className="user-gc-inline-row">
+                <span className="user-gc-inline-label">Company:</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label="Company">
+                    {fs.snapCompanies.map((comp) => {
+                      const visible = isCompanyVisibleForSharedFilter(comp, fs.selectedGroup, hideGroupFilter);
+                      return (
+                        <button
+                          key={comp.id}
+                          type="button"
+                          style={{ display: visible ? undefined : "none" }}
+                          className={`user-gc-segment${Number(comp.id) === Number(fs.companyId) ? " is-on" : ""}`}
+                          data-company-id={comp.id}
+                          data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
+                          data-company-code={comp.company_id}
+                          onClick={() => {
+                            if (!visible) return;
+                            onCompanyButtonClick(comp);
+                          }}
+                        >
+                          {String(comp.company_id || "").toUpperCase()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {currencyRowsOrdered.length > 0 && (
+              <div id="currency-buttons-wrapper" className="user-gc-inline-row">
+                <span className="user-gc-inline-label">Currency:</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div id="currency-buttons-container" className="user-gc-segment-group" role="group" aria-label="Currency">
+                    <button
+                      type="button"
+                      className={`user-gc-segment${showAllCurrencies ? " is-on" : ""}`}
+                      data-currency-code="ALL"
+                      onClick={toggleAllCurrenciesBtn}
+                    >
+                      All
+                    </button>
+                    {currencyRowsOrdered.map((c) => {
+                      const code = c.code;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          className={`user-gc-segment${!showAllCurrencies && selectedCurrencies.includes(code) ? " is-on" : ""}`}
+                          data-currency-code={code}
+                          draggable
+                          onDragStart={() => onCurrencyDragStart(code)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => onCurrencyDropOn(code)}
+                          onClick={() => toggleCurrencyBtn(code)}
+                        >
+                          {code}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
-
-        {fs.snapCompanies.length > 0 && (
-          <div id="company-buttons-wrapper" className="transaction-company-filter shared-company-wrapper">
-            <span className="transaction-company-label">Company:</span>
-            <div id="company-buttons-container" className="transaction-company-buttons">
-              {fs.snapCompanies.map((comp) => {
-                const visible = isCompanyVisibleForSharedFilter(comp, fs.selectedGroup, hideGroupFilter);
-                return (
-                  <button
-                    key={comp.id}
-                    type="button"
-                    style={{ display: visible ? undefined : "none" }}
-                    className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(fs.companyId) ? "active" : ""}`}
-                    data-company-id={comp.id}
-                    data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
-                    data-company-code={comp.company_id}
-                    onClick={() => {
-                      if (!visible) return;
-                      onCompanyButtonClick(comp);
-                    }}
-                  >
-                    {comp.company_id}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div id="currency-buttons-wrapper" className="transaction-company-filter" style={{ display: currencyRowsOrdered.length > 0 ? "flex" : "none" }}>
-          <span className="transaction-company-label">Currency:</span>
-          <div id="currency-buttons-container" className="transaction-company-buttons">
-            <button type="button" className={`transaction-company-btn${showAllCurrencies ? " active" : ""}`} data-currency-code="ALL" onClick={toggleAllCurrenciesBtn}>
-              All
-            </button>
-            {currencyRowsOrdered.map((c) => {
-              const code = c.code;
-              return (
-                <button
-                  key={code}
-                  type="button"
-                  className={`transaction-company-btn${!showAllCurrencies && selectedCurrencies.includes(code) ? " active" : ""}`}
-                  data-currency-code={code}
-                  draggable
-                  onDragStart={() => onCurrencyDragStart(code)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => onCurrencyDropOn(code)}
-                  onClick={() => toggleCurrencyBtn(code)}
-                >
-                  {code}
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
     </div>
   );

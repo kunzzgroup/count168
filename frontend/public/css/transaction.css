@@ -52,6 +52,7 @@ body.transaction-page {
 .transaction-page .transaction-main-content {
     display: flex;
     gap: 24px;
+    /* 右侧保持内容高度；左侧单独拉高与该行最高项对齐 */
     align-items: flex-start;
 }
 
@@ -70,6 +71,7 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 0.52vw, 12px);
+    align-self: stretch;
 }
 
 /* 让右侧表单内部按列布局，底部按钮区域贴着卡片底边 */
@@ -77,18 +79,26 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 0.52vw, 12px);
+    align-self: flex-start;
 }
 
 /* Group / Company / Currency：紧跟筛选区，勿用 margin-top:auto（会与右侧表单等高时整块沉底，看起来像缺少 Group/Company） */
 .transaction-page .transaction-bottom-filters {
-    margin-top: clamp(6px, 0.52vw, 10px);
+    margin-top: clamp(0px, -0.48vw, 10px);
     display: flex;
     flex-direction: column;
-    gap: clamp(6px, 0.52vw, 10px);
+    gap: clamp(0px, -0.48vw, 10px);
 }
 
 .transaction-page .transaction-bottom-filters .transaction-company-filter {
     display: flex;
+}
+
+/* Process List 同款 user-gc 分段控件嵌在筛选白卡内：不要工具条式的顶部分隔线 */
+body.transaction-page .transaction-bottom-filters .user-gc-inline-panel {
+    border-top: none;
+    padding: 0;
+    background: transparent;
 }
 
 .transaction-page .transaction-form-group {
@@ -1634,10 +1644,12 @@ body.transaction-page .transaction-container * {
 }
 
 /* Currency 拖动（与 Member Win/Loss 一致） */
+#currency-buttons-container .user-gc-segment.transaction-currency-dragging,
 #currency-buttons-container .transaction-company-btn.transaction-currency-dragging {
     opacity: 0.6;
 }
 
+#currency-buttons-container .user-gc-segment.transaction-currency-drag-over,
 #currency-buttons-container .transaction-company-btn.transaction-currency-drag-over {
     outline: 2px dashed #3b82f6;
     outline-offset: 2px;
@@ -1974,4 +1986,12 @@ body.transaction-page:not(.member-winloss-page) .transaction-search-section,
 body.transaction-page:not(.member-winloss-page) .transaction-add-section {
     flex: 1;
     min-width: 0;
+}
+
+body.transaction-page:not(.member-winloss-page) .transaction-search-section {
+    align-self: stretch;
+}
+
+body.transaction-page:not(.member-winloss-page) .transaction-add-section {
+    align-self: flex-start;
 }
