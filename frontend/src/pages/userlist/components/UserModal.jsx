@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /** Inline so first paint is 3-column even if extracted CSS applies one frame late */
@@ -79,7 +79,7 @@ export default function UserModal({
   const [bulkSelectionSettling, setBulkSelectionSettling] = useState(false);
   const bulkSelectionTimerRef = useRef(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!open) return undefined;
 
     const clearMinHeights = (gridEl) => {
@@ -139,7 +139,7 @@ export default function UserModal({
     };
   }, []);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!open) return;
     const forceReflow = () => {
       const nodes = [modalBodyRef.current, cardRef.current];
@@ -197,14 +197,12 @@ export default function UserModal({
     return modalCompanies.filter((c) => String(c.company_id || "").toUpperCase().includes(q));
   }, [modalCompanies, companySearchQuery]);
 
-  if (!open) return null;
-
   const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
   const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
 
   return (
     <>
-    <div id="userModal" className="modal" style={{ display: "block" }}>
+    <div id="userModal" className="modal" style={{ display: open ? "block" : "none" }} aria-hidden={!open}>
       <div className={`modal-content user-modal-content${isEditMode ? " edit-mode" : ""}`}>
         <div className="modal-header-bar">
           <h2 id="modalTitle">{isEditMode ? (editingRow?.is_owner_shadow ? t("editOwner") : t("editUser")) : t("addUser")}</h2>
