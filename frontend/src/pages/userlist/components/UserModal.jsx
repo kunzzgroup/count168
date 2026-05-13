@@ -76,6 +76,8 @@ export default function UserModal({
   const processGridRef = useRef(null);
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
+  const [bulkSelectionSettling, setBulkSelectionSettling] = useState(false);
+  const bulkSelectionTimerRef = useRef(null);
 
   useLayoutEffect(() => {
     if (!open) return undefined;
@@ -129,7 +131,13 @@ export default function UserModal({
       clearMinHeights(accountGridRef.current);
       clearMinHeights(processGridRef.current);
     };
-  }, [open, modalAccounts, modalProcesses, selectedAccountIds, selectedProcessIds, editingRow?.is_owner_shadow]);
+  }, [open, modalAccounts, modalProcesses]);
+
+  useEffect(() => {
+    return () => {
+      if (bulkSelectionTimerRef.current) clearTimeout(bulkSelectionTimerRef.current);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -167,6 +175,16 @@ export default function UserModal({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [companyPickerOpen]);
+
+  const accountIdList = useMemo(() => modalAccounts.map((x) => Number(x.id)), [modalAccounts]);
+  const processIdList = useMemo(() => modalProcesses.map((x) => Number(x.id)), [modalProcesses]);
+
+  const runBulkSelection = (update) => {
+    if (bulkSelectionTimerRef.current) clearTimeout(bulkSelectionTimerRef.current);
+    setBulkSelectionSettling(true);
+    update();
+    bulkSelectionTimerRef.current = setTimeout(() => setBulkSelectionSettling(false), 120);
+  };
 
   const selectedCompanyLabels = useMemo(() => {
     const set = new Set(selectedCompanyIds.map(Number));
@@ -408,7 +426,7 @@ export default function UserModal({
 
             <div className="user-modal-col user-modal-col--account account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
-                <div ref={accountGridRef} className="account-grid account-grid--four account-grid--process">
+                <div ref={accountGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
                   {modalAccounts.map((a) => (
                     <label key={a.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
@@ -432,14 +450,14 @@ export default function UserModal({
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set(modalAccounts.map(x => Number(x.id))))}>{t("selectAll")}</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set())}>{t("clearAll")}</button>
+                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set(accountIdList)))}>{t("selectAll")}</button>
+                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set()))}>{t("clearAll")}</button>
                 </div>
               </div>
 
             <div className="user-modal-col user-modal-col--process account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
-                <div ref={processGridRef} className="account-grid account-grid--four account-grid--process">
+                <div ref={processGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
                   {modalProcesses.map((p) => (
                     <label key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
@@ -462,8 +480,8 @@ export default function UserModal({
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set(modalProcesses.map(x => Number(x.id))))}>{t("selectAll")}</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set())}>{t("clearAll")}</button>
+                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}>{t("selectAll")}</button>
+                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set()))}>{t("clearAll")}</button>
                 </div>
               </div>
           </div>
