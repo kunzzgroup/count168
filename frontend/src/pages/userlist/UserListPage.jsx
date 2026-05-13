@@ -71,6 +71,7 @@ export default function UserListPage() {
   const [tableLoading, setTableLoading] = useState(false);
   const [tableSwapAnimating, setTableSwapAnimating] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
+  const [pendingCompanyId, setPendingCompanyId] = useState(null);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -144,9 +145,10 @@ export default function UserListPage() {
         .sort(),
     [allCompanyButtons]
   );
+  const pickerCompanyId = pendingCompanyId ?? companyId;
   const selectedCompany = useMemo(
-    () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
-    [allCompanyButtons, companyId]
+    () => allCompanyButtons.find((c) => Number(c.id) === Number(pickerCompanyId)) || null,
+    [allCompanyButtons, pickerCompanyId]
   );
   const selectedGroupKey = useMemo(
     () => String(selectedCompany?.group_id || "").trim().toUpperCase(),
@@ -349,25 +351,28 @@ export default function UserListPage() {
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
   const onSwitchCompany = async (c) => {
-    if (!c?.id || (Number(c.id) === Number(companyId) && !switchingCompany)) {
+    const nextCompanyId = Number(c?.id);
+    if (!nextCompanyId || Number(nextCompanyId) === Number(pickerCompanyId) || switchingCompany) {
       return;
     }
+    setPendingCompanyId(nextCompanyId);
     setSwitchingCompany(true);
     setTableLoading(true);
     try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), { credentials: "include" });
       const json = await res.json();
       if (!json.success) {
         notify(json.error || json.message || t("couldNotSwitchCompany"), "danger");
         setTableLoading(false);
         return;
       }
-      setCompanyId(Number(c.id));
+      setCompanyId(nextCompanyId);
       notifyCompanySessionUpdated();
     } catch {
       notify(t("companySwitchFailed"), "danger");
       setTableLoading(false);
     } finally {
+      setPendingCompanyId(null);
       setSwitchingCompany(false);
     }
   };
@@ -791,7 +796,7 @@ export default function UserListPage() {
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
                     {companiesForPicker.map((c) => {
-                      const active = Number(companyId) === Number(c.id);
+                      const active = Number(pickerCompanyId) === Number(c.id);
                       return (
                         <button
                           key={c.id}
