@@ -1080,14 +1080,50 @@ label.user-modal-col-title.acc-proc-label {
     color: #0f172a;
 }
 
-.user-modal-company-picker-search {
+.user-modal-company-picker-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin: 10px 14px 0;
+    min-width: 0;
+}
+
+.user-modal-company-picker-filter-row .user-modal-company-picker-search {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    width: auto;
+}
+
+.user-modal-company-picker-search {
     padding: 8px 10px;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     font-size: 13px;
     box-sizing: border-box;
-    width: calc(100% - 28px);
+}
+
+.user-modal-company-picker-select-all {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #1a237e;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.user-modal-company-picker-select-all:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.user-modal-company-picker-select-all:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .user-modal-company-picker-list {

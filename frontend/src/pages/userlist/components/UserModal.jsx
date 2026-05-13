@@ -500,14 +500,26 @@ export default function UserModal({
                   ×
                 </button>
               </div>
-              <input
-                type="search"
-                className="user-modal-company-picker-search"
-                placeholder={t("companySearchPlaceholder")}
-                value={companySearchQuery}
-                onChange={(e) => setCompanySearchQuery(e.target.value)}
-                autoComplete="off"
-              />
+              <div className="user-modal-company-picker-filter-row">
+                <input
+                  type="search"
+                  className="user-modal-company-picker-search"
+                  placeholder={t("companySearchPlaceholder")}
+                  value={companySearchQuery}
+                  onChange={(e) => setCompanySearchQuery(e.target.value)}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  className="user-modal-company-picker-select-all"
+                  disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || modalCompanies.length === 0}
+                  onClick={() => {
+                    setSelectedCompanyIds(modalCompanies.map((c) => Number(c.id)));
+                  }}
+                >
+                  {t("selectAll")}
+                </button>
+              </div>
               <ul className="user-modal-company-picker-list">
                 {companyPickerFiltered.map((c) => {
                   const id = Number(c.id);

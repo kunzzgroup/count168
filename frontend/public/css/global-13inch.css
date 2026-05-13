@@ -88,6 +88,11 @@
         padding-bottom: 8px !important;
     }
 
+    body.ec-auth-shell.user-page .user-modal-company-picker-select-all {
+        font-size: 11px !important;
+        padding: clamp(6px, 0.45vw, 8px) clamp(8px, 0.5vw, 12px) !important;
+    }
+
     body.ec-auth-shell input:not([type="checkbox"]):not([type="radio"]),
     body.ec-auth-shell select,
     body.ec-auth-shell textarea,
