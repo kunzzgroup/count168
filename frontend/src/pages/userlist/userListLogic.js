@@ -91,7 +91,8 @@ export function getRoleTemplateSidebarList(role) {
 
 export function getAvailableRolesForCreation(currentUserRole) {
   const currentLevel = ROLE_HIERARCHY[normRole(currentUserRole)] ?? 999;
-  if (currentLevel >= 4) return [];
+  /** 与 js/userlist.js、userlist.php（$can_create_user = level < 5）一致：supervisor(4) 可建下级账号 */
+  if (currentLevel >= 5) return [];
   return ALL_ROLE_OPTIONS.filter((role) => {
     const roleLevel = ROLE_HIERARCHY[role.value] ?? 999;
     return roleLevel > currentLevel;
@@ -145,7 +146,8 @@ export function computeRowCapabilities(row, currentUserId, currentUserRole) {
   const isSelf = currentUserId && targetUserId === Number(currentUserId);
   const isSameLevel = currentLevel === targetLevel && !isSelf;
   const isHigherLevel = targetLevel < currentLevel;
-  const lowPrivilegeRoles = ["manager", "supervisor", "accountant", "audit", "customer service", "partnership"];
+  /** 与 userlist.php / js/userlist.js 一致：不含 partnership（partnership 可按层级编辑 admin 等） */
+  const lowPrivilegeRoles = ["manager", "supervisor", "accountant", "audit", "customer service"];
   const isLowPrivilegeUser = lowPrivilegeRoles.includes(normRole(currentUserRole));
   const isAdminUser = targetRole === "admin";
   const isOwnerUser = targetRole === "owner";
@@ -239,10 +241,16 @@ export function sortUsers(rows, sortColumn, sortDirection) {
       if (aKey < bKey) result = -1;
       else if (aKey > bKey) result = 1;
       else {
-        const al = String(a.login_id || "").toLowerCase();
-        const bl = String(b.login_id || "").toLowerCase();
-        if (al < bl) result = -1;
-        else if (al > bl) result = 1;
+        const aRoleN = String(a.role || "").toUpperCase().trim();
+        const bRoleN = String(b.role || "").toUpperCase().trim();
+        if (aRoleN < bRoleN) result = -1;
+        else if (aRoleN > bRoleN) result = 1;
+        else {
+          const al = String(a.login_id || "").toLowerCase();
+          const bl = String(b.login_id || "").toLowerCase();
+          if (al < bl) result = -1;
+          else if (al > bl) result = 1;
+        }
       }
       return result * dir;
     });

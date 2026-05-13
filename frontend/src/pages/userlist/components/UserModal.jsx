@@ -188,7 +188,7 @@ export default function UserModal({
                     onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.toLowerCase() }))}
                   />
                 </div>
-                {(currentUserRole === "admin" || currentUserRole === "owner" || currentUserRole === "partnership") && (
+                {(currentUserRole === "admin" || currentUserRole === "owner") && (
                   <div className="form-group user-info-field company-field-group">
                     <label>{t("companyRequired")}</label>
                     <div className="transaction-company-buttons user-modal-company-buttons">

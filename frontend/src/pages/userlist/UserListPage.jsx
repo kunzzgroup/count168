@@ -130,6 +130,8 @@ export default function UserListPage() {
     return sortUsers(f, sortColumn, sortDirection);
   }, [usersRaw, search, showInactive, showAll, currentUserRole, sortColumn, sortDirection]);
 
+  const canCreateUser = useMemo(() => getAvailableRolesForCreation(currentUserRole).length > 0, [currentUserRole]);
+
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
 
   /** 与顶部 chip 一致：仅「显示停用」或「显示全部」时展示批量删除勾选列（默认活跃分页不展示） */
@@ -268,7 +270,7 @@ export default function UserListPage() {
         const cid = url.searchParams.get("company_id");
         const effective = cid || meJson.data.company_id || rows[0]?.id || null;
         setCompanyId(effective ? Number(effective) : null);
-        setSearch(String(url.searchParams.get("search") || "").toUpperCase());
+        setSearch(String(url.searchParams.get("search") || "").replace(/[^A-Z0-9]/gi, "").toUpperCase());
         setShowAll(url.searchParams.get("showAll") === "1");
       } catch { navigate("/login", { replace: true }); } finally { setBootLoading(false); }
     })();
@@ -472,7 +474,7 @@ export default function UserListPage() {
                     className="search-input userlist-search-input"
                     placeholder={t("searchPlaceholder")}
                     value={search}
-                    onChange={(e) => setSearch(e.target.value.toUpperCase())}
+                    onChange={(e) => setSearch(e.target.value.replace(/[^A-Z0-9]/gi, "").toUpperCase())}
                   />
                 </div>
                 <div className="userlist-filter-chips" role="group">
@@ -521,12 +523,14 @@ export default function UserListPage() {
                 </div>
               </div>
               <div className="user-toolbar-actions-right">
+                {canCreateUser ? (
                 <button type="button" className="btn btn-add" onClick={openAdd}>
                   <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                   </svg>
                   {t("addUser")}
                 </button>
+                ) : null}
                 <button
                   type="button"
                   className="btn btn-delete"
