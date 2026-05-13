@@ -156,6 +156,11 @@ async function fetchAccounts() {
 
 function renderTable() {
     const container = document.getElementById('accountTableBody');
+    // Show All：先切到整页滚动布局，再插入大量行，避免 flex 压缩导致重叠。
+    if (showAll) {
+        updateAccountListScrollMode();
+    }
+
     container.innerHTML = '';
 
     if (accounts.length === 0) {
@@ -167,6 +172,9 @@ function renderTable() {
                     </div>
                 `;
         renderPagination();
+        if (!showAll) {
+            updateAccountListScrollMode();
+        }
         return;
     }
 
@@ -241,6 +249,10 @@ function renderTable() {
     });
     renderPagination();
     updateSelectAllAccountsVisibility();
+    // 关闭 Show All：须在行数减到分页后再恢复一屏 flex，否则会有一帧把多行压进固定高度。
+    if (!showAll) {
+        updateAccountListScrollMode();
+    }
 }
 
 function renderPagination() {
@@ -1760,8 +1772,7 @@ document.getElementById('showAll').addEventListener('change', function () {
     }
     // 切换 showAll 时始终回到第一页
     currentPage = 1;
-    updateAccountListScrollMode();
-    fetchAccounts(); // 瀹炴椂鑾峰彇鏁版嵁
+    fetchAccounts(); // 滚动模式在 renderTable 内与行数同步，避免先切 CSS 再拉数据造成一帧重叠
 });
 
 /** showAll 时允许页面纵向滚动；否则恢复 overflow hidden */
