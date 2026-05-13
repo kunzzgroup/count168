@@ -25,7 +25,23 @@ export default function DomainReportTable({ reportData, loading, error, t }) {
   );
 
   if (loading) return renderEmpty(t("loading"));
-  if (error) return renderEmpty(error);
+  if (error) {
+    return (
+      <div className="domain-report-list-container">
+        {tableHeader}
+        <div className="domain-report-cards">
+          <div className="domain-report-card">
+            <div
+              className="domain-report-card-item"
+              style={{ gridColumn: "1 / -1", textAlign: "center", justifyContent: "center", padding: 20, color: "red" }}
+            >
+              {error}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty(t("noDataFound"));
 
   const data = reportData.data;

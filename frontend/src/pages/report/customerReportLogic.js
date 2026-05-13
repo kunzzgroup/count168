@@ -1,29 +1,8 @@
 import { buildApiUrl } from "../../utils/apiUrl.js";
+import { formatReportAmount, reportAmountAdd } from "./reportAmountFormat.js";
 
-/**
- * Format currency with 2 decimal places (half-up) and thousands separator.
- * Matches legacy MoneyDecimal.formatFixedHalfUp(val, 2).
- */
-export function formatAmount(value) {
-  const val = parseFloat(value || 0);
-  if (isNaN(val)) return "0.00";
-
-  const rounded = Math.round((val + Number.EPSILON) * 100) / 100;
-
-  return rounded.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-/**
- * Add two values with precision (simple version of reportAdd)
- */
-export function reportAdd(a, b) {
-  const valA = parseFloat(a || 0);
-  const valB = parseFloat(b || 0);
-  return (valA + valB).toString();
-}
+export const formatAmount = formatReportAmount;
+export const reportAdd = reportAmountAdd;
 
 /**
  * Fetch company permissions

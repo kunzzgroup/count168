@@ -1,4 +1,4 @@
-import { formatAmount } from "../customerReportLogic.js";
+import { formatAmount, reportAdd } from "../customerReportLogic.js";
 
 export default function CustomerReportTable({ reportData, loading, error, currencyList = [], t }) {
   const tableHeader = (
@@ -75,8 +75,8 @@ export default function CustomerReportTable({ reportData, loading, error, curren
         {sortedCurrencies.map(c => {
           const items = grouped[c];
           // Use more robust sum
-          const win = items.reduce((acc, cur) => acc + (parseFloat(cur.win) || 0), 0);
-          const lose = items.reduce((acc, cur) => acc + (parseFloat(cur.lose) || 0), 0);
+          const win = items.reduce((acc, cur) => reportAdd(acc, cur.win), "0");
+          const lose = items.reduce((acc, cur) => reportAdd(acc, cur.lose), "0");
           return (
             <div key={c} className="customer-report-currency-section" style={{ marginBottom: 30 }}>
               <h3 style={{ margin: "20px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937" }}>
@@ -122,10 +122,10 @@ export default function CustomerReportTable({ reportData, loading, error, curren
             <div className="customer-report-total">
               <div className="customer-report-total-label">{t("totalColon")}</div>
               <div className="customer-report-amount win customer-report-total-win">
-                {formatAmount(grouped["null"].reduce((acc, cur) => acc + (parseFloat(cur.win) || 0), 0))}
+                {formatAmount(grouped["null"].reduce((acc, cur) => reportAdd(acc, cur.win), "0"))}
               </div>
               <div className="customer-report-amount lose customer-report-total-lose">
-                {formatAmount(grouped["null"].reduce((acc, cur) => acc + (parseFloat(cur.lose) || 0), 0))}
+                {formatAmount(grouped["null"].reduce((acc, cur) => reportAdd(acc, cur.lose), "0"))}
               </div>
             </div>
           </div>

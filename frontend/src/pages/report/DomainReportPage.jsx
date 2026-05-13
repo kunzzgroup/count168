@@ -175,6 +175,7 @@ export default function DomainReportPage() {
           sessionStorage.setItem("dashboard_group_filter", selGroup);
         }
         setSelectedGroup(selGroup);
+        if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
 
       } catch {
         navigate("/login", { replace: true });
@@ -233,6 +234,7 @@ export default function DomainReportPage() {
         const myr = curs.find((c) => c.code === "MYR");
         const def = myr || curs[0];
         setSelectedCurrencies([def.code]);
+        setShowAllCurrencies(false);
       }
     } catch (err) {
       console.error("Meta data load error:", err);
@@ -286,11 +288,8 @@ export default function DomainReportPage() {
   };
 
   const toggleAllCurrencies = () => {
-    setShowAllCurrencies((prev) => {
-      const next = !prev;
-      if (next) setSelectedCurrencies([]);
-      return next;
-    });
+    setShowAllCurrencies(!showAllCurrencies);
+    if (!showAllCurrencies) setSelectedCurrencies([]);
   };
 
   if (bootLoading || !me || !cssReady) return null;
@@ -320,6 +319,7 @@ export default function DomainReportPage() {
           dateFrom={dateFrom}
           dateTo={dateTo}
           onRangeChange={(s, e) => { setDateFrom(s); setDateTo(e); }}
+          quickRangeToDates={quickRangeToDates}
           t={t}
         />
 

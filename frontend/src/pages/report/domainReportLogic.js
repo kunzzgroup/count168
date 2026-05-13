@@ -1,21 +1,7 @@
 import { buildApiUrl } from "../../utils/apiUrl.js";
-import { formatYmd } from "../../utils/dateUtils.js";
+import { formatReportAmount } from "./reportAmountFormat.js";
 
-/**
- * Format currency with 2 decimal places and thousands separator
- */
-export function formatAmount(amount) {
-  // Parity with legacy MoneyDecimal logic:
-  // if abs(amount) < 0.005, treat as 0
-  const valStr = String(amount || "0");
-  const absVal = Math.abs(parseFloat(valStr));
-  const finalValue = absVal < 0.005 ? 0 : parseFloat(valStr);
-
-  return finalValue.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+export const formatAmount = formatReportAmount;
 
 /**
  * Fetch company permissions

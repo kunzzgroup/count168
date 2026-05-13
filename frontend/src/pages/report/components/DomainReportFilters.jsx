@@ -1,6 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import ReportDatePicker from "../common/ReportDatePicker.jsx";
-import { quickRangeToDates } from "../../../utils/dateUtils.js";
 
 const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
 
@@ -21,6 +20,7 @@ export default function DomainReportFilters({
   dateFrom,
   dateTo,
   onRangeChange,
+  quickRangeToDates,
   t,
 }) {
   const [processSearch, setProcessSearch] = useState("");
@@ -167,7 +167,7 @@ export default function DomainReportFilters({
 
         {/* Company Buttons */}
         {snapCompanies.length > 0 && (
-          <div className="transaction-company-filter shared-company-wrapper">
+          <div className="transaction-company-filter shared-company-wrapper" style={{ marginBottom: 10 }}>
             <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>{t("company")}</span>
             <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
               {snapCompanies.map((comp) => {
