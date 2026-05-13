@@ -268,29 +268,6 @@ body.account-page .user-gc-segment:disabled {
     margin-left: 0;
 }
 
-/* 顶栏 Add / Delete：User List 切换语言时保持同宽同形（Account List 仍用下方通用尺寸） */
-.user-page .user-toolbar-actions-right .btn-add {
-    flex: 0 0 auto;
-    width: 10.75rem;
-    min-width: 10.75rem;
-    max-width: 10.75rem;
-    box-sizing: border-box;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.user-page .user-toolbar-actions-right .btn-delete {
-    flex: 0 0 auto;
-    width: 12rem;
-    min-width: 12rem;
-    max-width: 12rem;
-    box-sizing: border-box;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 .user-group-company-row {
     position: relative;
     display: inline-flex;
