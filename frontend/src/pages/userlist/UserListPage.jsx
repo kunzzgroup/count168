@@ -59,6 +59,7 @@ export default function UserListPage() {
   const [companyId, setCompanyId] = useState(null);
   const [usersRaw, setUsersRaw] = useState([]);
   const [tableLoading, setTableLoading] = useState(false);
+  const [tableSwapAnimating, setTableSwapAnimating] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -75,6 +76,8 @@ export default function UserListPage() {
   const [confirmMessage, setConfirmMessage] = useState("");
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
+  const tableSwapTimerRef = useRef(null);
+  const hasLoadedUsersRef = useRef(false);
   const pendingDeleteRef = useRef(null);
   const listFetchAbortRef = useRef(null);
 
@@ -224,6 +227,7 @@ export default function UserListPage() {
       document.body.classList.add("dashboard-page");
       setCssReady(false);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (tableSwapTimerRef.current) clearTimeout(tableSwapTimerRef.current);
     };
   }, []);
 
@@ -268,7 +272,16 @@ export default function UserListPage() {
           if (ac.signal.aborted) return;
         }
       }
+      const shouldAnimateSwap = hasLoadedUsersRef.current;
+      if (shouldAnimateSwap) {
+        if (tableSwapTimerRef.current) clearTimeout(tableSwapTimerRef.current);
+        setTableSwapAnimating(true);
+      }
       setUsersRaw(list);
+      hasLoadedUsersRef.current = true;
+      if (shouldAnimateSwap) {
+        tableSwapTimerRef.current = setTimeout(() => setTableSwapAnimating(false), 180);
+      }
       setCurrentPage(1);
       setSelectedDeleteIds(new Set());
       setSelectAllUsers(false);
@@ -336,6 +349,7 @@ export default function UserListPage() {
 
   const handlePickGroup = useCallback(
     (gid) => {
+      if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
@@ -347,12 +361,13 @@ export default function UserListPage() {
       const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
       if (first) void onSwitchCompany(first);
     },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey]
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany]
   );
 
   const handlePickAllGroups = useCallback(() => {
+    if (switchingCompany) return;
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, []);
+  }, [switchingCompany]);
 
   const fetchModalAccountsProcesses = async (cid) => {
     try {
@@ -597,7 +612,6 @@ export default function UserListPage() {
                     <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
                       <button
                         type="button"
-                        disabled={switchingCompany}
                         className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
                         onClick={handlePickAllGroups}
                       >
@@ -607,7 +621,6 @@ export default function UserListPage() {
                         <button
                           key={gid}
                           type="button"
-                          disabled={switchingCompany}
                           className={`user-gc-segment${groupFilterKind === "follow" && gid === selectedGroupKey ? " is-on" : ""}`}
                           onClick={() => handlePickGroup(gid)}
                         >
@@ -628,11 +641,10 @@ export default function UserListPage() {
                         <button
                           key={c.id}
                           type="button"
-                          disabled={switchingCompany}
                           className={`user-gc-segment${active ? " is-on" : ""}`}
                           onClick={() => {
+                            if (switchingCompany) return;
                             if (!active) {
-                              setGroupFilterKind("follow");
                               void onSwitchCompany(c);
                             }
                           }}
@@ -678,7 +690,7 @@ export default function UserListPage() {
                 </div>
               )}
             </div>
-            <div className="user-cards" aria-busy={listBusy}>
+            <div className={`user-cards${tableSwapAnimating ? " user-cards--settling" : ""}`} aria-busy={listBusy}>
               {showInitialTableLoading ? (
                 <div key="userlist-initial-loading" className="user-card user-card--loading show-card row-even" role="status">
                   {t("loading")}
