@@ -2565,6 +2565,10 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
         border-color 0.2s ease;
 }
 
+#userModal .account-grid--bulk-settling .user-modal-select-card {
+    transition: none;
+}
+
 #userModal .user-modal-select-card:hover:not(:has(input[type="checkbox"]:disabled)) {
     background-color: #e8eef5 !important;
     border-color: #94a3b8 !important;
