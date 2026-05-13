@@ -41,27 +41,63 @@ body {
     font-family: var(--font-heading-page);
 }
 
+/* Match Transaction Capture Date: `date-range-picker.css` `.calendar-month-year select` */
 .domain-report-filter-group select,
 .domain-report-filter-group input:not([type="checkbox"]):not(.report-date-range-input) {
-    padding: clamp(8px, 0.65vw, 12px) clamp(10px, 1vw, 14px);
-    border: 0.125rem solid #e5e7eb;
-    border-radius: 0.5rem;
-    font-size: clamp(11px, 0.85vw, 14px);
-    font-weight: 700;
-    background: #ffffff;
-    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: clamp(4px, 0.3vw, 6px) clamp(6px, 0.4vw, 8px);
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: 600;
+    color: #000;
+    background: #fff;
     box-sizing: border-box;
-    transition: all 0.2s ease;
-    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font-heading-page);
+}
+
+.domain-report-filter-group input:not([type="checkbox"]):not(.report-date-range-input) {
+    cursor: text;
+}
+
+.domain-report-filter-group select:hover,
+.domain-report-filter-group input:not([type="checkbox"]):not(.report-date-range-input):hover {
+    border-color: #3b82f6;
 }
 
 .domain-report-filter-group select:focus,
-.domain-report-filter-group input[type="date"]:focus {
+.domain-report-filter-group input:not([type="checkbox"]):not(.report-date-range-input):focus {
     outline: none;
-    border-color: #007AFF;
-    box-shadow: 0 0 0 0.1875rem rgba(0, 122, 255, 0.1);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
+.domain-report-filter-group .custom-select-button {
+    width: 100%;
+    padding: clamp(4px, 0.3vw, 6px) clamp(26px, 2vw, 30px) clamp(4px, 0.3vw, 6px) clamp(6px, 0.4vw, 8px);
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #fff;
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: 600;
+    color: #000;
+    font-family: var(--font-heading-page);
+    transition: all 0.2s;
+    min-height: clamp(26px, 2.2vw, 32px);
+    box-sizing: border-box;
+}
+
+.domain-report-filter-group .custom-select-button:hover {
+    border-color: #3b82f6;
+}
+
+.domain-report-filter-group .custom-select-button:focus,
+.domain-report-filter-group .custom-select-button.open {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
 
 
 
@@ -238,17 +274,7 @@ body {
 
 @media (max-width: 1400px) {
 
-    .domain-report-filter-group .custom-select-button {
-        font-size: clamp(9px, 0.85vw, 14px);
-        padding: 5px 30px 6px 12px;
-    }
-
     .domain-select-option{
-        font-size: clamp(9px, 0.85vw, 14px);
-    }
-
-    .domain-report-filter-group select, 
-    .domain-report-filter-group input:not([type="checkbox"]):not(.report-date-range-input){
         font-size: clamp(9px, 0.85vw, 14px);
     }
 
@@ -263,17 +289,7 @@ body {
 
 @media (max-width: 1200px) {
 
-    .domain-report-filter-group .custom-select-button {
-        font-size: clamp(9px, 0.85vw, 14px);
-        padding: 5px 30px 6px 12px;
-    }
-
     .domain-select-option{
-        font-size: clamp(9px, 0.85vw, 14px);
-    }
-
-    .domain-report-filter-group select, 
-    .domain-report-filter-group input:not([type="checkbox"]):not(.report-date-range-input){
         font-size: clamp(9px, 0.85vw, 14px);
     }
 
