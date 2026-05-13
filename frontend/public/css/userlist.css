@@ -2315,8 +2315,8 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     justify-self: end;
     appearance: none;
     -webkit-appearance: none;
-    width: 22px;
-    height: 22px;
+    width: 15px;
+    height: 15px;
     margin: 0;
     border-radius: 50%;
     border: 2px solid #cbd5e1;
