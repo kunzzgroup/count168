@@ -153,6 +153,9 @@ body.account-page .user-gc-inline-label {
     font-weight: var(--font-weight-bold);
     color: #1f2937;
     white-space: nowrap;
+    /* EN「Company:」与 ZH「公司：」等切换时保持首列占位一致，避免整行 chip 区左右跳动 */
+    min-width: 6.75rem;
+    box-sizing: border-box;
 }
 
 body.user-page .user-gc-inline-pills,
@@ -257,6 +260,29 @@ body.account-page .user-gc-segment:disabled {
 .user-page .user-toolbar-actions-right .btn-delete,
 .account-page .user-toolbar-actions-right .btn-delete {
     margin-left: 0;
+}
+
+/* 顶栏 Add / Delete：User List 切换语言时保持同宽同形（Account List 仍用下方通用尺寸） */
+.user-page .user-toolbar-actions-right .btn-add {
+    flex: 0 0 auto;
+    width: 10.75rem;
+    min-width: 10.75rem;
+    max-width: 10.75rem;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-page .user-toolbar-actions-right .btn-delete {
+    flex: 0 0 auto;
+    width: 12rem;
+    min-width: 12rem;
+    max-width: 12rem;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .user-group-company-row {
@@ -1716,6 +1742,19 @@ body.account-page .user-filter-chip__label {
     white-space: nowrap;
 }
 
+/* Show Inactive / Show All：按较长语言预留宽度，避免 chip 胶囊随文案伸缩 */
+body.user-page .userlist-filter-chips .user-filter-chip:nth-child(1),
+body.account-page .userlist-filter-chips .user-filter-chip:nth-child(1) {
+    min-width: 8.25rem;
+    justify-content: flex-start;
+}
+
+body.user-page .userlist-filter-chips .user-filter-chip:nth-child(2),
+body.account-page .userlist-filter-chips .user-filter-chip:nth-child(2) {
+    min-width: 6.75rem;
+    justify-content: flex-start;
+}
+
 /* Checkbox section */
 .checkbox-section {
     display: flex;
@@ -1774,7 +1813,7 @@ body.account-page .user-filter-chip__label {
 .table-header {
     display: grid;
     /* 默认 9 列；勾选列见 .user-table-wrapper--bulk-delete-col */
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.95fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3.5fr) minmax(0, 2.6fr) minmax(0, 1.5fr) minmax(0, 2.5fr) minmax(0, 2fr) minmax(0, 1.95fr);
     gap: 15px;
     padding: 6px 22px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
@@ -1787,10 +1826,17 @@ body.account-page .user-filter-chip__label {
     /* 允许内容收缩 */
 }
 
+/* 表头文案 EN/中 切换时列宽不因 min-content 变化；超长表头在格内省略 */
+body.user-page .table-header .header-item:not(.header-item--select) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Show Inactive / Show All 时：第 10 列批量删除勾选（与表头全选对齐） */
 body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .table-header,
 body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .user-card {
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.75fr 48px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3.5fr) minmax(0, 2.6fr) minmax(0, 1.5fr) minmax(0, 2.5fr) minmax(0, 2fr) minmax(0, 1.75fr) 48px;
 }
 
 /* 可排序的表头项 */
@@ -1843,7 +1889,7 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
 
 .user-card {
     display: none;
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.95fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3.5fr) minmax(0, 2.6fr) minmax(0, 1.5fr) minmax(0, 2.5fr) minmax(0, 2fr) minmax(0, 1.95fr);
     gap: 15px;
     padding: clamp(1px, 0.21vw, 4px) 22px;
     background: #f0e5fb;
