@@ -21,6 +21,7 @@ import ProcessTable from "./components/ProcessTable.jsx";
 import ProcessFormModal from "./components/ProcessFormModal.jsx";
 import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
 import ProcessDeleteConfirmModal from "./components/ProcessDeleteConfirmModal.jsx";
+import AddProcessIcon from "./components/AddProcessIcon.jsx";
 import { getProcessListText } from "../../translateFile/processListTranslate.js";
 
 function filterSearchInput(raw) {
@@ -835,9 +836,7 @@ export default function ProcessListPage() {
                 {selectedIds.size ? t("deleteWithCount", { count: selectedIds.size }) : t("delete")}
               </button>
               <button type="button" className="btn btn-add" onClick={openAdd}>
-                <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18v-2H6V4h7V2zm5 7V3.5L18.5 1 21 3.5V9h2v2h-2v6h-2v-6h-6v-2h6z" />
-                </svg>
+                <AddProcessIcon />
                 {t("addProcess")}
               </button>
             </div>
