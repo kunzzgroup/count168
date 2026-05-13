@@ -28,7 +28,7 @@
   /* 基础侧边栏布局 */
   --sidebar-lock-width: clamp(160px, 12.98vw, 235px);
   --sidebar-logo-height: clamp(2.8rem, 2.67rem + 0.2vw, 3.6rem);
-  --sidebar-avatar-lock: clamp(3.2rem, 3.09rem + 0.18vw, 4rem);
+  --sidebar-avatar-lock: clamp(3.2rem, 4.09rem + 0.18vw, 4rem);
 
   /* 用户信息字体 */
   --sidebar-user-name-size: clamp(1.3rem, 1.25rem + 0.08vw, 1.6rem);
