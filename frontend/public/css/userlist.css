@@ -968,10 +968,59 @@ label.user-modal-col-title.acc-proc-label {
     margin-top: 8px;
 }
 
-.user-page .user-modal-company-buttons .transaction-company-btn {
-    padding: clamp(2px, 0.22vw, 4px) clamp(8px, 0.62vw, 12px);
-    font-size: clamp(9px, 0.63vw, 12px);
-    font-weight: 600;
+/* User modal — Company：图二分段条（外框胶囊 + 竖线分隔；选中蓝渐变白字、无阴影） */
+#userModal .user-modal-company-buttons {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #e2e8f0;
+    border-radius: 9999px;
+    overflow: hidden;
+    background: #ffffff;
+    padding: 0;
+}
+
+#userModal .user-modal-company-buttons .transaction-company-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    border-right: 1px solid #e2e8f0;
+    box-shadow: none;
+    background: #ffffff;
+    color: #1f2937;
+    font-weight: 700;
+    padding: clamp(6px, 0.45vw, 9px) clamp(4px, 0.35vw, 8px);
+    font-size: clamp(10px, 0.65vw, 12px);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+#userModal .user-modal-company-buttons .transaction-company-btn:last-child {
+    border-right: none;
+}
+
+#userModal .user-modal-company-buttons .transaction-company-btn:hover:not(:disabled):not(.active) {
+    background: #f8fafc;
+}
+
+#userModal .user-modal-company-buttons .transaction-company-btn.active {
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    color: #ffffff;
+    border-right-color: rgba(255, 255, 255, 0.22);
+    box-shadow: none;
+}
+
+#userModal .user-modal-company-buttons .transaction-company-btn.active:last-child {
+    border-right: none;
+}
+
+#userModal .user-modal-company-buttons .transaction-company-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* Account / Process：四欄格線（對齊原版） */

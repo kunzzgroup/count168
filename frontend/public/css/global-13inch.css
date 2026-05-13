@@ -77,6 +77,11 @@
         padding: 6px 14px !important;
     }
 
+    body.ec-auth-shell.user-page #userModal .user-modal-company-buttons .transaction-company-btn {
+        font-size: clamp(10px, 0.65vw, 12px) !important;
+        padding: clamp(6px, 0.45vw, 9px) clamp(4px, 0.35vw, 8px) !important;
+    }
+
     body.ec-auth-shell input:not([type="checkbox"]):not([type="radio"]),
     body.ec-auth-shell select,
     body.ec-auth-shell textarea,
