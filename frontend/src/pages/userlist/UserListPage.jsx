@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
@@ -46,11 +46,6 @@ function isVirtualGroupLinkCompanyRow(c) {
   const ls = c?.link_source_group ?? c?.linkSourceGroup;
   return ls != null && String(ls).trim() !== "";
 }
-
-const BOOT_GROUP_PLACEHOLDERS = ["ALL", "AP", "IG"];
-const BOOT_COMPANY_PLACEHOLDERS = ["95", "AG", "CX", "GP", "RS", "VG"];
-const BOOT_TABLE_ROWS = 6;
-const BOOT_TABLE_COLS = 9;
 
 export default function UserListPage() {
   const navigate = useNavigate();
@@ -179,8 +174,7 @@ export default function UserListPage() {
     return filteredSorted.slice(start, start + PAGE_SIZE);
   }, [filteredSorted, currentPage, showAll]);
 
-  const pageBooting = bootLoading || !me;
-  const listBusy = pageBooting || tableLoading || switchingCompany;
+  const listBusy = tableLoading || switchingCompany;
   /** 仅首次无数据时显示简单加载行；有缓存数据时保持表格行（切换公司/刷新不闪骨架条） */
   const showInitialTableLoading = listBusy && usersRaw.length === 0;
 
@@ -224,7 +218,7 @@ export default function UserListPage() {
     };
   }, []);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("user-page");
     setCssReady(true);
@@ -300,42 +294,27 @@ export default function UserListPage() {
   }, [companyId, me, notify]);
 
   useEffect(() => {
-    let cancelled = false;
-    let timerId = 0;
-    const rafId = requestAnimationFrame(() => {
-      timerId = window.setTimeout(async () => {
-        try {
-          const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-          const meJson = await meRes.json();
-          if (cancelled) return;
-          if (!meRes.ok || !meJson.success || !meJson.data) { navigate("/login", { replace: true }); return; }
-          if (String(meJson.data.user_type || "").toLowerCase() === "member") { window.location.assign(new URL("/member", window.location.origin).href); return; }
-          const perms = Array.isArray(meJson.data.permissions) ? meJson.data.permissions : [];
-          if (perms.length > 0 && !perms.includes("admin")) { navigate("/dashboard", { replace: true }); return; }
-          setMe(meJson.data);
-          const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-          const compJson = await compRes.json();
-          if (cancelled) return;
-          const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
-          setCompanies(rows);
-          const url = new URL(window.location.href);
-          const cid = url.searchParams.get("company_id");
-          const effective = cid || meJson.data.company_id || rows[0]?.id || null;
-          setCompanyId(effective ? Number(effective) : null);
-          setSearch(String(url.searchParams.get("search") || "").replace(/[^A-Z0-9]/gi, "").toUpperCase());
-          setShowAll(url.searchParams.get("showAll") === "1");
-        } catch {
-          navigate("/login", { replace: true });
-        } finally {
-          if (!cancelled) setBootLoading(false);
-        }
-      }, 0);
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafId);
-      window.clearTimeout(timerId);
-    };
+    (async () => {
+      try {
+        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const meJson = await meRes.json();
+        if (!meRes.ok || !meJson.success || !meJson.data) { navigate("/login", { replace: true }); return; }
+        if (String(meJson.data.user_type || "").toLowerCase() === "member") { window.location.assign(new URL("/member", window.location.origin).href); return; }
+        const perms = Array.isArray(meJson.data.permissions) ? meJson.data.permissions : [];
+        if (perms.length > 0 && !perms.includes("admin")) { navigate("/dashboard", { replace: true }); return; }
+        setMe(meJson.data);
+        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
+        const compJson = await compRes.json();
+        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
+        setCompanies(rows);
+        const url = new URL(window.location.href);
+        const cid = url.searchParams.get("company_id");
+        const effective = cid || meJson.data.company_id || rows[0]?.id || null;
+        setCompanyId(effective ? Number(effective) : null);
+        setSearch(String(url.searchParams.get("search") || "").replace(/[^A-Z0-9]/gi, "").toUpperCase());
+        setShowAll(url.searchParams.get("showAll") === "1");
+      } catch { navigate("/login", { replace: true }); } finally { setBootLoading(false); }
+    })();
   }, [navigate]);
 
   useEffect(() => {
@@ -525,7 +504,7 @@ export default function UserListPage() {
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
-  if (!cssReady) return null;
+  if (bootLoading || !me || !cssReady) return null;
 
   return (
     <>
@@ -604,13 +583,6 @@ export default function UserListPage() {
                   </svg>
                   {t("addUser")}
                 </button>
-                ) : pageBooting ? (
-                <button type="button" className="btn btn-add" disabled>
-                  <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                  {t("addUser")}
-                </button>
                 ) : null}
                 <button
                   type="button"
@@ -633,19 +605,11 @@ export default function UserListPage() {
               </div>
             </div>
             <div className="user-gc-inline-panel">
-              {(pageBooting || groupIds.length > 0) && (
+              {groupIds.length > 0 && (
                 <div className="user-gc-inline-row">
                   <span className="user-gc-inline-label">{t("groupId")}</span>
                   <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                     <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-                      {pageBooting ? (
-                        BOOT_GROUP_PLACEHOLDERS.map((label) => (
-                          <span key={label} className="user-gc-segment user-gc-segment--skeleton">
-                            {label}
-                          </span>
-                        ))
-                      ) : (
-                      <>
                       <button
                         type="button"
                         className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
@@ -663,8 +627,6 @@ export default function UserListPage() {
                           {gid}
                         </button>
                       ))}
-                      </>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -673,14 +635,7 @@ export default function UserListPage() {
                 <span className="user-gc-inline-label">{t("company")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
-                    {pageBooting ? (
-                      BOOT_COMPANY_PLACEHOLDERS.map((label) => (
-                        <span key={label} className="user-gc-segment user-gc-segment--skeleton">
-                          {label}
-                        </span>
-                      ))
-                    ) : (
-                    companiesForPicker.map((c) => {
+                    {companiesForPicker.map((c) => {
                       const active = Number(companyId) === Number(c.id);
                       return (
                         <button
@@ -697,8 +652,7 @@ export default function UserListPage() {
                           {String(c.company_id || "").toUpperCase()}
                         </button>
                       );
-                    })
-                    )}
+                    })}
                   </div>
                 </div>
               </div>
@@ -738,15 +692,9 @@ export default function UserListPage() {
             </div>
             <div className={`user-cards${tableSwapAnimating ? " user-cards--settling" : ""}`} aria-busy={listBusy}>
               {showInitialTableLoading ? (
-                Array.from({ length: BOOT_TABLE_ROWS }).map((_, rowIdx) => (
-                  <div key={`userlist-loading-${rowIdx}`} className={`user-card user-card--skeleton show-card ${rowIdx % 2 === 0 ? "row-even" : "row-odd"}`} role={rowIdx === 0 ? "status" : undefined} aria-label={rowIdx === 0 ? t("loading") : undefined}>
-                    {Array.from({ length: BOOT_TABLE_COLS }).map((__, colIdx) => (
-                      <div key={colIdx} className="card-item">
-                        <span className="userlist-skeleton-bar" style={{ width: `${colIdx === 3 ? 82 : colIdx === 4 ? 54 : 66}%` }} />
-                      </div>
-                    ))}
-                  </div>
-                ))
+                <div key="userlist-initial-loading" className="user-card user-card--loading show-card row-even" role="status">
+                  {t("loading")}
+                </div>
               ) : (
                 pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);

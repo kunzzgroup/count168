@@ -247,15 +247,6 @@ body.account-page .user-gc-segment.is-on {
     border-right-color: rgba(255, 255, 255, 0.28);
 }
 
-body.user-page .user-gc-segment.user-gc-segment--skeleton {
-    min-width: clamp(34px, 2.6vw, 52px);
-    color: transparent;
-    pointer-events: none;
-    background: linear-gradient(90deg, #e4dcf1 0%, #f6f1fc 42%, #ebe3f5 100%);
-    background-size: 220% 100%;
-    animation: userlist-skeleton-shimmer 1.05s ease-in-out infinite;
-}
-
 body.user-page .user-gc-segment:disabled,
 body.account-page .user-gc-segment:disabled {
     opacity: 0.6;
@@ -2280,11 +2271,6 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     }
 
     .user-card.user-card--skeleton .userlist-skeleton-bar {
-        animation: none;
-        background: #e8e0f2;
-    }
-
-    body.user-page .user-gc-segment.user-gc-segment--skeleton {
         animation: none;
         background: #e8e0f2;
     }
