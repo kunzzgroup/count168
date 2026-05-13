@@ -1,4 +1,4 @@
-import { formatPaymentHistoryMoney, toUpperDisplay } from "../transactionFormat.js";
+import { formatPaymentHistoryMoneyHalfUp, toUpperDisplay } from "../transactionFormat.js";
 
 export default function TransactionHeader({
   canApproveContra,
@@ -64,7 +64,7 @@ export default function TransactionHeader({
                           {it.to_account_name ? ` - ${it.to_account_name}` : ""}
                         </td>
                         <td>{toUpperDisplay(it.currency || "-")}</td>
-                        <td>{formatPaymentHistoryMoney(it.amount)}</td>
+                        <td>{formatPaymentHistoryMoneyHalfUp(it.amount)}</td>
                         <td>{toUpperDisplay(it.submitted_by || it.created_by || "-")}</td>
                         <td>{toUpperDisplay(it.description || "-")}</td>
                         <td>

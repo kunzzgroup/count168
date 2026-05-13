@@ -47,6 +47,43 @@ export async function saveUserCurrencyOrder(order) {
   return safeJson(res);
 }
 
+function appendTxSearchWlDebugToPath(pathWithQuery) {
+  if (typeof window === "undefined") return pathWithQuery;
+  const wl =
+    new URLSearchParams(window.location.search || "").get("tx_debug_wl") === "1" ||
+    window.DEBUG_TRANSACTION_WL_TOTAL === true;
+  if (!wl) return pathWithQuery;
+  const sep = pathWithQuery.includes("?") ? "&" : "?";
+  return `${pathWithQuery}${sep}debug_wl_total=1`;
+}
+
+function logTxSearchResponse(body) {
+  if (typeof window === "undefined" || !body) return;
+  if (window.DEBUG_TRANSACTION_SEARCH && body.data) {
+    console.log("✅ 搜索成功:", body.data);
+    console.log(
+      "📊 行数:",
+      (body.data.left_table?.length || 0) + (body.data.right_table?.length || 0),
+    );
+  }
+  const d = body.data?.debug_win_loss;
+  if (!d) return;
+  try {
+    console.groupCollapsed("[Transaction List] Win/Loss 诊断 (debug_wl_total)");
+    console.log("bucket_sums_hp", d.bucket_sums_hp);
+    console.log("totals_summary_from_api", d.totals_summary_from_api);
+    const small = d.nonzero_sorted_smallest_abs || [];
+    console.log("nonzero 按 |W/L| 升序（前 20 条）", small.slice(0, 20));
+    if ((d.bucket_mismatch_rows || []).length > 0) {
+      console.warn("bucket_mismatch_rows", d.bucket_mismatch_rows);
+    }
+    console.log("完整 debug_win_loss", d);
+    console.groupEnd();
+  } catch (e) {
+    console.warn("[Transaction List] debug_win_loss 打印失败", e);
+  }
+}
+
 export async function searchTransactions({
   companyId,
   dateFrom,
@@ -68,13 +105,19 @@ export async function searchTransactions({
   if (Array.isArray(currencyCodes) && currencyCodes.length > 0) params.set("currency", currencyCodes.join(","));
   if (Array.isArray(categories) && categories.length > 0) params.set("category", categories.join(","));
 
-  const res = await fetch(buildApiUrl(`api/transactions/search_api.php?${params.toString()}`), {
+  const base = `api/transactions/search_api.php?${params.toString()}`;
+  const withDebug = appendTxSearchWlDebugToPath(base);
+  const url = buildApiUrl(`${withDebug}&_t=${Date.now()}`);
+
+  const res = await fetch(url, {
     credentials: "include",
     cache: "no-cache",
     headers: { "Cache-Control": "no-cache" },
     signal,
   });
-  return safeJson(res);
+  const body = await safeJson(res);
+  logTxSearchResponse(body);
+  return body;
 }
 
 export async function submitTransaction({ companyId, payload, clientRequestId }) {

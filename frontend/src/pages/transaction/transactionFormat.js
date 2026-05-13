@@ -58,7 +58,132 @@ export function formatPaymentHistoryMoneyHalfUp(value) {
 }
 
 export function formatHistoryMoney(v) {
-  return v === "-" ? "-" : formatPaymentHistoryMoney(v);
+  return v === "-" ? "-" : formatPaymentHistoryMoneyHalfUp(v);
+}
+
+const RATE_MAX_DECIMALS = 8;
+const RATE_HISTORY_MAX_DECIMALS = 6;
+
+function countDecimalPlaces(value) {
+  const str = String(value ?? "").trim();
+  if (!str.includes(".")) return 0;
+  return str.split(".")[1].length;
+}
+
+function truncateDecimalString(value, scale) {
+  const str = String(value ?? "").trim();
+  if (!str || !str.includes(".")) return str || "0";
+  const negative = str.startsWith("-");
+  const unsigned = negative ? str.slice(1) : str;
+  const [intPartRaw, fracRaw = ""] = unsigned.split(".");
+  const intPart = intPartRaw === "" ? "0" : intPartRaw;
+  const frac = fracRaw.slice(0, Math.max(0, scale));
+  if (!frac) return negative ? `-${intPart}` : intPart;
+  return negative ? `-${intPart}.${frac}` : `${intPart}.${frac}`;
+}
+
+function normalizeRateForSubmit(value) {
+  try {
+    const normalized = MoneyDecimal.toDecimal(value || "0").toString();
+    return truncateDecimalString(normalized, RATE_MAX_DECIMALS);
+  } catch {
+    return "0";
+  }
+}
+
+function hasTokenExceedingRateDecimals(token) {
+  return countDecimalPlaces(token) > RATE_MAX_DECIMALS;
+}
+
+/** Payment History Rate column — same as `js/transaction.js` formatRateForHistoryDisplay. */
+export function formatRateForHistoryDisplay(value) {
+  if (value === "-" || value === null || value === undefined) return "-";
+  const s = String(value).trim();
+  if (s === "" || s === "-") return "-";
+  try {
+    const normalized = MoneyDecimal.toDecimal(s.replace(/,/g, "").trim() || "0").toString();
+    const truncated = truncateDecimalString(normalized, RATE_HISTORY_MAX_DECIMALS);
+    if (!truncated.includes(".")) return truncated;
+    return truncated.replace(/(\.\d*?[1-9])0+$/u, "$1").replace(/\.0+$/u, "");
+  } catch {
+    return s;
+  }
+}
+
+function rateExprToNumber(normalizedStr) {
+  const n = Number.parseFloat(normalizedStr);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** RATE field: same rules as `js/transaction.js` parseRateExpression (MoneyDecimal, max 8 dp). */
+export function parseRateExpression(rawValue) {
+  const raw = String(rawValue ?? "").trim();
+  if (!raw) return { valid: false, value: 0 };
+
+  const normalized = raw.replace(/÷/g, "/").replace(/\s+/g, "");
+  if (!normalized) return { valid: false, value: 0 };
+
+  if (/^\/\d*\.?\d+$/.test(normalized)) {
+    if (hasTokenExceedingRateDecimals(normalized.slice(1))) return { valid: false, value: 0 };
+    let divisor;
+    try {
+      divisor = MoneyDecimal.toDecimal(normalized.slice(1));
+    } catch {
+      return { valid: false, value: 0 };
+    }
+    if (divisor.lte(0)) return { valid: false, value: 0 };
+    const out = normalizeRateForSubmit(MoneyDecimal.div("1", divisor).toString());
+    return { valid: true, value: rateExprToNumber(out) };
+  }
+
+  if (!/^[0-9.*/]+$/.test(normalized)) return { valid: false, value: 0 };
+  if (/^[*/]|[*/]$|[*/]{2,}/.test(normalized)) return { valid: false, value: 0 };
+
+  const tokens = normalized.split(/([*/])/).filter(Boolean);
+  if (tokens.length === 0) return { valid: false, value: 0 };
+  if (!/^\d*\.?\d+$/.test(tokens[0])) return { valid: false, value: 0 };
+  if (hasTokenExceedingRateDecimals(tokens[0])) return { valid: false, value: 0 };
+
+  let result;
+  try {
+    result = MoneyDecimal.toDecimal(tokens[0]);
+  } catch {
+    return { valid: false, value: 0 };
+  }
+  if (result.lte(0)) return { valid: false, value: 0 };
+
+  for (let i = 1; i < tokens.length; i += 2) {
+    const op = tokens[i];
+    const numToken = tokens[i + 1];
+    if (!numToken || !/^\d*\.?\d+$/.test(numToken)) return { valid: false, value: 0 };
+    if (hasTokenExceedingRateDecimals(numToken)) return { valid: false, value: 0 };
+    let value;
+    try {
+      value = MoneyDecimal.toDecimal(numToken);
+    } catch {
+      return { valid: false, value: 0 };
+    }
+    if (op === "*") {
+      result = result.times(value);
+    } else if (op === "/") {
+      if (value.isZero()) return { valid: false, value: 0 };
+      result = result.div(value);
+    } else {
+      return { valid: false, value: 0 };
+    }
+  }
+
+  if (result.lte(0)) return { valid: false, value: 0 };
+  const out = normalizeRateForSubmit(result.toString());
+  return { valid: true, value: rateExprToNumber(out) };
+}
+
+export function formatRateAmount(value) {
+  try {
+    return MoneyDecimal.formatFixedHalfUp(value || "0", 2);
+  } catch {
+    return "0.00";
+  }
 }
 
 export function parseBalanceValue(value) {
@@ -75,49 +200,9 @@ export function formatDmy(date) {
 }
 
 export function buildClientRequestId() {
-  if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+  if (typeof window !== "undefined" && window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
   return `tx_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
-
-export function parseRateExpression(rawValue) {
-  const raw = String(rawValue ?? "").trim();
-  if (!raw) return { valid: false, value: 0 };
-  const normalized = raw.replace(/÷/g, "/").replace(/\s+/g, "");
-  if (!normalized) return { valid: false, value: 0 };
-
-  // Support "/3" meaning 1/3
-  if (/^\/\d*\.?\d+$/.test(normalized)) {
-    const divisor = Number(normalized.slice(1));
-    if (!Number.isFinite(divisor) || divisor <= 0) return { valid: false, value: 0 };
-    return { valid: true, value: 1 / divisor };
-  }
-
-  if (!/^[0-9.*/]+$/.test(normalized)) return { valid: false, value: 0 };
-  if (/^[*/]|[*/]$|[*/]{2,}/.test(normalized)) return { valid: false, value: 0 };
-
-  const tokens = normalized.split(/([*/])/).filter(Boolean);
-  if (tokens.length === 0) return { valid: false, value: 0 };
-  if (!/^\d*\.?\d+$/.test(tokens[0])) return { valid: false, value: 0 };
-
-  let result = Number(tokens[0]);
-  if (!Number.isFinite(result) || result <= 0) return { valid: false, value: 0 };
-
-  for (let i = 1; i < tokens.length; i += 2) {
-    const op = tokens[i];
-    const rhs = Number(tokens[i + 1]);
-    if (!Number.isFinite(rhs) || rhs <= 0) return { valid: false, value: 0 };
-    if (op === "*") result *= rhs;
-    else if (op === "/") result /= rhs;
-    else return { valid: false, value: 0 };
-    if (!Number.isFinite(result) || result <= 0) return { valid: false, value: 0 };
-  }
-  return { valid: true, value: result };
-}
-
-export function formatRateAmount(value) {
-  const n = Number(String(value ?? "").replace(/,/g, "").trim());
-  if (!Number.isFinite(n)) return "0.00";
-  // Backend normalizes; keep 2dp string for stability.
-  return n.toFixed(2);
 }
 

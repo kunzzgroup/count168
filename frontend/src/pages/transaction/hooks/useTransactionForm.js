@@ -52,7 +52,7 @@ export function useTransactionForm({
     },
   });
 
-  const handleBalanceCellClick = useCallback(
+    const handleBalanceCellClick = useCallback(
     (row, side) => {
       if (!row) return;
       const isLeftTable = side === "left";

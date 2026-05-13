@@ -33,14 +33,21 @@ export function useTransactionUI() {
   }, []);
 
   const onViewHistory = useCallback(
-    async (row, dateFrom, dateTo, companyId) => {
+    async (row, dateFrom, dateTo, companyId, opts = {}) => {
       if (!row || !companyId) return;
       const title = paymentHistoryTitle(row, null);
       setHistory({ open: true, title, rows: [], loading: true });
       try {
         const accountDbId = row.account_db_id ? String(row.account_db_id) : "";
         const virtualCompanyCode = !accountDbId ? String(row.account_id || "").trim().toUpperCase() : "";
-        const currency = String(row.currency || "").toUpperCase().trim();
+        const { selectedCurrencies = [], showAllCurrencies = true } = opts;
+        let currency = String(row.currency || "").toUpperCase().trim();
+        if (!currency && !showAllCurrencies && Array.isArray(selectedCurrencies) && selectedCurrencies.length > 0) {
+          currency = [...selectedCurrencies]
+            .map((c) => String(c || "").toUpperCase().trim())
+            .filter(Boolean)
+            .join(",");
+        }
         const res = await queryClient.fetchQuery({
           queryKey: transactionQueryKeys.history({
             companyId,

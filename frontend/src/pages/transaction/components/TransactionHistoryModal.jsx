@@ -1,4 +1,4 @@
-import { getHistoryRemark, toUpperDisplay } from "../transactionFormat.js";
+import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../transactionFormat.js";
 
 export default function TransactionHistoryModal({
   history,
@@ -76,7 +76,9 @@ export default function TransactionHistoryModal({
                       <td className="transaction-history-col-date">{r.date || "-"}</td>
                       <td className="transaction-history-col-product">{String(idProductDisplay)}</td>
                       <td className="transaction-history-col-currency">{r.currency || "-"}</td>
-                      <td className="transaction-history-col-rate">{r.rate || "-"}</td>
+                      <td className="transaction-history-col-rate">
+                        {r.rate && r.rate !== "-" ? formatRateForHistoryDisplay(r.rate) : "-"}
+                      </td>
                       <td className="transaction-history-col-winloss">{histMoney(r.win_loss)}</td>
                       <td className="transaction-history-col-crdr">{histMoney(r.cr_dr)}</td>
                       <td className="transaction-history-col-balance">{histMoney(r.balance)}</td>
