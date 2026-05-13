@@ -1042,7 +1042,7 @@ label.user-modal-col-title.acc-proc-label {
 .user-modal-company-picker {
     position: relative;
     z-index: 1;
-    width: min(420px, 100%);
+    width: min(540px, 100%);
     max-height: min(70vh, 520px);
     display: flex;
     flex-direction: column;
@@ -1134,8 +1134,8 @@ label.user-modal-col-title.acc-proc-label {
     flex: 1;
     min-height: 120px;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px 10px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px 8px;
     align-content: start;
 }
 
