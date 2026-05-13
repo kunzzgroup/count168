@@ -796,7 +796,7 @@ body.account-page .user-gc-segment:disabled {
 .user-page .modal-header-bar h2 {
     margin: 0;
     padding: clamp(6px, 0.42vw, 8px) 0;
-    font-size: 39.984px;
+    font-size: var(--text-title);
     font-weight: 700;
     color: #1e293b;
     letter-spacing: 0.2px;
@@ -893,7 +893,7 @@ label.user-modal-col-title.acc-proc-label {
     padding: 0 clamp(14px, 1.04vw, 22px) clamp(8px, 0.52vw, 10px);
     color: #0f172a;
     border-bottom: 2px solid #1a237e;
-    font-size: clamp(16px, 1.05vw, 20px);
+    font-size: var(--text-h2);
     font-weight: 700;
     flex-shrink: 0;
 }
@@ -936,7 +936,7 @@ label.user-modal-col-title.acc-proc-label {
     padding: 0 19.968px 11.984px;
     color: #0f172a;
     border-bottom: 2px solid #1a237e;
-    font-size: clamp(14px, 0.94vw, 18px);
+    font-size: var(--text-h2);
     font-weight: 700;
     flex-shrink: 0;
 }
