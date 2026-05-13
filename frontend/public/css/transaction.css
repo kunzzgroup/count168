@@ -86,6 +86,10 @@ body.transaction-page {
     gap: clamp(6px, 0.52vw, 10px);
 }
 
+.transaction-page .transaction-bottom-filters .transaction-company-filter {
+    display: flex;
+}
+
 .transaction-page .transaction-form-group {
     display: flex;
     align-items: center;

@@ -263,7 +263,7 @@ export default function BankProcessListPage() {
   };
 
   useLayoutEffect(() => {
-    document.body.classList.remove("bg", "account-page", "announcement-page");
+    document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page", "process-page--bank");
     return () => {
       document.body.classList.remove("process-page", "process-page--bank", "process-page--bank-show-all");
@@ -665,7 +665,10 @@ export default function BankProcessListPage() {
   const onSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
     // Immediately show loading state so there's no "No data found" flash
+    listAbortRef.current?.abort();
     setRows([]);
+    setSelectedIds(new Set());
+    setCurrentPage(1);
     setTableLoading(true);
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
@@ -674,12 +677,14 @@ export default function BankProcessListPage() {
         setTableLoading(false);
         return notify(json.message || json.error || t("switchCompanyFailed"), "danger");
       }
-      setCompanyId(Number(c.id));
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
       if (!bankCategory) {
         navigate(`/process-list?company_id=${c.id}`, { replace: true });
+        return;
       }
+      setCompanyId(Number(c.id));
+      setSelectedGroup(c.group_id ? String(c.group_id).toUpperCase() : null);
       if (accountingOpen) void loadAccountingInbox();
     } catch {
       setTableLoading(false);
