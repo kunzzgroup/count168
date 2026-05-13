@@ -52,8 +52,7 @@ body.transaction-page {
 .transaction-page .transaction-main-content {
     display: flex;
     gap: 24px;
-    /* 右侧保持内容高度；左侧单独拉高与该行最高项对齐 */
-    align-items: flex-start;
+    align-items: stretch;
 }
 
 .transaction-page .transaction-search-section,
@@ -71,7 +70,6 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 0.52vw, 12px);
-    align-self: stretch;
 }
 
 /* 让右侧表单内部按列布局，底部按钮区域贴着卡片底边 */
@@ -79,7 +77,6 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 0.52vw, 12px);
-    align-self: flex-start;
 }
 
 /* Group / Company / Currency：紧跟筛选区，勿用 margin-top:auto（会与右侧表单等高时整块沉底，看起来像缺少 Group/Company） */
@@ -1977,7 +1974,7 @@ body.transaction-page:not(.member-winloss-page) .transaction-main-content {
     display: flex;
     flex-direction: row;
     gap: 24px;
-    align-items: flex-start;
+    align-items: stretch;
     margin-bottom: 0;
     overflow: visible;
 }
@@ -1986,12 +1983,4 @@ body.transaction-page:not(.member-winloss-page) .transaction-search-section,
 body.transaction-page:not(.member-winloss-page) .transaction-add-section {
     flex: 1;
     min-width: 0;
-}
-
-body.transaction-page:not(.member-winloss-page) .transaction-search-section {
-    align-self: stretch;
-}
-
-body.transaction-page:not(.member-winloss-page) .transaction-add-section {
-    align-self: flex-start;
 }
