@@ -53,7 +53,9 @@ export default function TransactionHistoryModal({
             </div>
           ) : null}
           <div className="transaction-history-table-frame">
-            <table className="transaction-table">
+            <table
+              className={`transaction-table ${showDescriptionColumn ? "transaction-history-table--with-desc" : "transaction-history-table--no-desc"}`}
+            >
               <thead>
                 <tr className="transaction-table-header">
                   <th className="transaction-history-col-date">Date</th>
