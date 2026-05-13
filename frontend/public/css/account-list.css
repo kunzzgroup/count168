@@ -224,41 +224,49 @@
     color: #9ca3af;
 }
 
-/* Currency Setting Modal */
+/* Currency Setting Modal — 字型與 design-tokens.css 對齊 */
+#currencySettingModal {
+    font-family: var(--font-ui);
+    color: var(--color-page-fg);
+}
+
 .currency-setting-pill {
     padding: 6px 30px;
     border-radius: 4px;
-    border: 1px solid #ddd;
-    background-color: #fff;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
     cursor: pointer;
-    font-size: 14px;
-    color: #333;
-    transition: all 0.2s;
-    font-weight: 500;
+    font-family: inherit;
+    font-size: var(--text-medium);
+    color: var(--color-body-strong);
+    transition: all var(--duration-fast) var(--ease-out-soft);
+    font-weight: var(--font-weight-semibold);
 }
 
+.currency-setting-pill.active,
 .currency-setting-pill.selected {
     background: linear-gradient(180deg, #60A5FA 0%, #3B82F6 100%);
     color: #fff;
     border-color: #3B82F6;
 }
 
-.currency-setting-pill:hover:not(.selected) {
+.currency-setting-pill:hover:not(.selected):not(.active) {
     background-color: #f3f4f6;
 }
 
 .currency-setting-account-item {
     padding: 10px 15px;
-    background-color: #ffffff;
+    background-color: var(--color-surface);
     border-radius: 6px;
-    font-size: 13px;
-    color: #333;
+    font-size: var(--text-small);
+    font-family: inherit;
+    color: var(--color-body-strong);
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
     border: 1px solid #777777;
-    transition: all 0.2s;
+    transition: all var(--duration-fast) var(--ease-out-soft);
 }
 
 .currency-setting-account-item:hover {
@@ -269,14 +277,14 @@
     background-color: #3B82F6;
     color: #fff;
     border-color: #2563eb;
-    font-weight: 500;
+    font-weight: var(--font-weight-semibold);
 }
 
 .currency-setting-select:focus,
 .currency-setting-search-input:focus,
 .currency-setting-input:focus {
     outline: none;
-    border-color: #3b82f6 !important;
+    border-color: var(--color-primary) !important;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
@@ -312,10 +320,11 @@
     min-width: 120px;
     padding: 0 15px;
     border-radius: 6px;
-    font-weight: 500;
-    font-size: 13px;
+    font-family: inherit;
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-small);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--duration-fast) var(--ease-out-soft);
     background: linear-gradient(180deg, #AAB8C2 0%, #657786 100%);
     color: #fff;
     border: 1px solid #657786;
@@ -362,9 +371,10 @@
 
 .currency-fullscreen-modal-header-bar h2 {
     margin: 0;
-    font-size: clamp(16px, 1.25vw, 24px);
-    font-weight: 700;
-    color: #1e293b;
+    font-family: var(--font-heading-page);
+    font-size: var(--text-h2);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-heading);
 }
 
 .currency-btn-back {
@@ -375,11 +385,12 @@
     background: #f1f5f9;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-    font-size: clamp(12px, 0.83vw, 15px);
-    font-weight: 600;
-    color: #475569;
+    font-family: inherit;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-body-strong);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--duration-fast) var(--ease-out-soft);
 }
 
 .currency-btn-back svg {
@@ -419,10 +430,11 @@
 .currency-left-panel h3 {
     margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(10px, 0.73vw, 14px);
     padding: 0 clamp(14px, 1.04vw, 20px) clamp(6px, 0.52vw, 10px);
-    color: #1e293b;
+    font-family: var(--font-heading-page);
+    color: var(--color-heading);
     border-bottom: 2px solid #1a237e;
-    font-size: clamp(13px, 0.94vw, 18px);
-    font-weight: 700;
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
     flex-shrink: 0;
 }
 
@@ -434,17 +446,19 @@
 }
 
 .currency-setting-add-row-stacked label {
-    font-weight: 600;
-    font-size: 14px;
-    color: #374151;
+    font-family: inherit;
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-medium);
+    color: var(--color-body-strong);
 }
 
 .currency-setting-input {
     width: 100%;
     padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: var(--text-base);
     box-sizing: border-box;
 }
 
@@ -461,15 +475,16 @@
 }
 
 .currency-setting-list-row-stacked label {
-    font-weight: 600;
-    font-size: 14px;
-    color: #374151;
+    font-family: inherit;
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-medium);
+    color: var(--color-body-strong);
     margin: 0;
 }
 
 .currency-setting-pill-list {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
 }
 
@@ -485,8 +500,9 @@
 
 .currency-right-panel h3 {
     display: block;
-    font-size: clamp(14px, 0.94vw, 18px);
-    font-weight: 700;
+    font-family: var(--font-heading-page);
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
     color: #1a237e;
     margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(8px, 0.63vw, 12px);
     padding: 0 clamp(14px, 1.04vw, 20px) clamp(6px, 0.52vw, 10px);
@@ -510,36 +526,23 @@
     flex-shrink: 0;
 }
 
-.currency-setting-selectall-btn {
-    height: 30px;
-    min-width: 100px;
-    padding: 0 14px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
-    color: #374151;
-    border: 1px solid #94a3b8;
-}
-
-.currency-setting-selectall-btn:hover {
-    background: linear-gradient(180deg, #bfdbfe 0%, #93c5fd 100%);
-    border-color: #3b82f6;
-    color: #1d4ed8;
-}
-
-.currency-setting-selectall-btn.active {
-    background: linear-gradient(180deg, #93c5fd 0%, #3b82f6 100%);
-    color: #fff;
-    border-color: #2563eb;
+/* Select All：與主題藍按鈕一致（搭配 .account-btn-add） */
+#currencySettingModal .currency-setting-selectall-btn.account-btn-add {
+    width: auto;
+    min-width: clamp(96px, 7vw, 120px);
+    height: auto;
+    min-height: 32px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-bold);
 }
 
 .currency-setting-selected-count {
-    font-size: 12px;
-    color: #6b7280;
-    font-weight: 500;
+    font-family: inherit;
+    font-size: var(--text-tiny);
+    color: var(--color-muted-fg);
+    font-weight: var(--font-weight-semibold);
 }
 
 
@@ -562,35 +565,130 @@
     width: 100%;
     box-sizing: border-box;
     padding: 8px 12px 8px 36px;
-    border: 1px solid #ddd;
-    border-radius: 20px;
-    font-size: 13px;
-    color: #555;
-    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: var(--text-small);
+    color: var(--color-body-strong);
+    background: var(--color-surface);
 }
 
 .currency-setting-select {
     padding: 8px 30px 8px 15px;
-    border: 1px solid #ddd;
-    border-radius: 20px;
-    font-size: 13px;
-    color: #999;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: var(--text-small);
+    color: var(--color-body-strong);
     appearance: none;
-    background: #fff;
+    background: var(--color-surface);
     min-width: 150px;
     background-image: url('data:image/svg+xml;utf8,<svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="%23ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
     background-repeat: no-repeat;
     background-position: right 12px center;
 }
 
-.currency-setting-account-list {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+/* 與 user modal 相同：account-grid--four 由 userlist.css 提供四欄 */
+.currency-setting-account-list.account-grid--four {
     flex: 1;
-    overflow-y: auto;
+    min-height: 0;
     padding-right: 5px;
-    align-content: start;
+}
+
+/* ── Currency Setting：Account 網格卡片（圖一 grid + 圖四選中填色） ── */
+#currencySettingModal .currency-setting-select-card.account-item-compact {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: auto;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    box-shadow: none;
+    cursor: pointer;
+    transition:
+        background-color var(--duration-fast) var(--ease-out-soft),
+        border-color var(--duration-fast) var(--ease-out-soft),
+        box-shadow var(--duration-fast) var(--ease-out-soft);
+}
+
+#currencySettingModal .currency-setting-select-card.account-item-compact:hover:not(:has(input[type="checkbox"]:checked)) {
+    background: #f8fbff !important;
+    border-color: #93c5fd !important;
+    box-shadow: 0 1px 6px rgba(13, 96, 255, 0.12);
+}
+
+#currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:checked) {
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    border-color: #0d60ff;
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.35);
+}
+
+#currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:checked):hover {
+    filter: brightness(1.02);
+}
+
+#currencySettingModal .currency-setting-select-card .account-label.account-label--process {
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.25;
+    font-family: inherit;
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--color-primary-strong);
+}
+
+#currencySettingModal .currency-setting-select-card .account-label-desc {
+    display: block;
+    margin-top: 4px;
+    font-family: inherit;
+    font-size: var(--text-tiny);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.35;
+    color: var(--color-muted-fg);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+#currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:checked) .account-label.account-label--process {
+    color: #ffffff;
+    font-weight: var(--font-weight-bold);
+}
+
+#currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:checked) .account-label-desc {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+#currencySettingModal .currency-setting-select-card input[type="checkbox"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    pointer-events: none;
+}
+
+#currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:focus-visible) {
+    outline: 2px solid var(--color-primary-strong);
+    outline-offset: 2px;
 }
 
 /* Modal Actions */

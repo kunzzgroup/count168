@@ -92,8 +92,9 @@ export default function CurrencySettingModal({
             </div>
           </div>
 
-          {/* Right Panel: Accounts */}
+          {/* Right Panel: Accounts — match User modal account-grid / process cards */}
           <div className="currency-right-panel">
+            <h3>{t("account")}</h3>
             <div className="currency-setting-filter-row">
               <div className="currency-setting-search-wrap">
                 <svg className="currency-setting-search-icon" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2">
@@ -124,7 +125,7 @@ export default function CurrencySettingModal({
             <div className="currency-setting-selectall-row">
               <button
                 type="button"
-                className="account-btn currency-setting-selectall-btn"
+                className="account-btn account-btn-add currency-setting-selectall-btn"
                 onClick={() => {
                   const allIds = filteredAccounts.map(a => Number(a.id));
                   const allSelected = allIds.every(id => settingLinked.has(id));
@@ -144,9 +145,9 @@ export default function CurrencySettingModal({
               <span className="currency-setting-selected-count">{t("selectedCount", { count: settingLinked.size })}</span>
             </div>
 
-            <div className="currency-setting-account-list">
+            <div className="currency-setting-account-list account-grid account-grid--four account-grid--process">
               {filteredAccounts.map(a => (
-                <div key={a.id} className="account-item-compact">
+                <label key={a.id} className="account-item-compact account-item-compact--process currency-setting-select-card">
                   <input
                     type="checkbox"
                     checked={settingLinked.has(Number(a.id))}
@@ -159,8 +160,11 @@ export default function CurrencySettingModal({
                       });
                     }}
                   />
-                  <label className="account-label">{toUpper(a.account_id)}</label>
-                </div>
+                  <span className="account-label account-label--process">
+                    {toUpper(a.account_id)}
+                    {a.name ? <span className="account-label-desc">{a.name}</span> : null}
+                  </span>
+                </label>
               ))}
             </div>
           </div>
