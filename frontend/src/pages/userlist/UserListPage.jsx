@@ -105,6 +105,7 @@ export default function UserListPage() {
   const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
   const [modalAccounts, setModalAccounts] = useState([]);
   const [modalProcesses, setModalProcesses] = useState([]);
+  const [modalAccessReadyCompanyId, setModalAccessReadyCompanyId] = useState(null);
   const [selectedAccountIds, setSelectedAccountIds] = useState(new Set());
   const [selectedProcessIds, setSelectedProcessIds] = useState(new Set());
   const [roleSelectDisabled, setRoleSelectDisabled] = useState(false);
@@ -177,6 +178,7 @@ export default function UserListPage() {
   }, [usersRaw, search, showInactive, showAll, currentUserRole, sortColumn, sortDirection]);
 
   const canCreateUser = useMemo(() => getAvailableRolesForCreation(currentUserRole).length > 0, [currentUserRole]);
+  const modalAccessReady = companyId != null && modalAccessReadyCompanyId != null && Number(modalAccessReadyCompanyId) === Number(companyId);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
 
@@ -394,6 +396,7 @@ export default function UserListPage() {
       modalAccessCompanyIdRef.current = Number(cid);
       setModalAccounts(cached.accounts);
       setModalProcesses(cached.processes);
+      setModalAccessReadyCompanyId(Number(cid));
       return cached;
     }
     const pending = modalAccessPendingRef.current.get(cacheKey);
@@ -403,6 +406,7 @@ export default function UserListPage() {
         modalAccessCompanyIdRef.current = Number(cid);
         setModalAccounts(next.accounts);
         setModalProcesses(next.processes);
+        setModalAccessReadyCompanyId(Number(cid));
         return next;
       } catch { setModalAccounts([]); setModalProcesses([]); return { accounts: [], processes: [] }; }
     }
@@ -420,20 +424,25 @@ export default function UserListPage() {
       const next = await request;
       modalAccessCacheRef.current.set(cacheKey, next);
       modalAccessCompanyIdRef.current = Number(cid);
-      setModalAccounts(next.accounts); setModalProcesses(next.processes); return next;
+      setModalAccounts(next.accounts); setModalProcesses(next.processes); setModalAccessReadyCompanyId(Number(cid)); return next;
     } catch {
       if (cached) {
         setModalAccounts(cached.accounts);
         setModalProcesses(cached.processes);
+        setModalAccessReadyCompanyId(Number(cid));
         return cached;
       }
+      setModalAccessReadyCompanyId(null);
       setModalAccounts([]); setModalProcesses([]); return { accounts: [], processes: [] };
     }
     finally { modalAccessPendingRef.current.delete(cacheKey); }
   }, []);
 
   useEffect(() => {
-    if (!bootLoading && companyId && me) void fetchModalAccountsProcesses(companyId);
+    if (!bootLoading && companyId && me) {
+      if (!modalAccessCacheRef.current.has(String(companyId))) setModalAccessReadyCompanyId(null);
+      void fetchModalAccountsProcesses(companyId);
+    }
   }, [bootLoading, companyId, me, fetchModalAccountsProcesses]);
 
   const loadCompaniesForModal = async () => {
@@ -458,6 +467,7 @@ export default function UserListPage() {
 
   const openAdd = async () => {
     if (!companyId) return;
+    if (!modalAccessReady) return;
     const avail = getAvailableRolesForCreation(currentUserRole);
     if (avail.length === 0) { notify(t("noPermissionCreateAccounts"), "danger"); return; }
     const loadSeq = ++modalLoadSeqRef.current;
@@ -644,7 +654,7 @@ export default function UserListPage() {
               </div>
               <div className="user-toolbar-actions-right">
                 {canCreateUser ? (
-                <button type="button" className="btn btn-add" onClick={openAdd}>
+                <button type="button" className="btn btn-add" onClick={openAdd} disabled={!modalAccessReady}>
                   <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                   </svg>
