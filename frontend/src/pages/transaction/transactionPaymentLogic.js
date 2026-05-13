@@ -195,12 +195,21 @@ export function normalizeRateRowsByCrDr(leftRows, rightRows, isRate) {
   return { leftRows: normalizedLeft, rightRows: normalizedRight };
 }
 
-export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly, showCaptureOnly }) {
+export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly, showCaptureOnly, showZeroBalance = false }) {
   let filteredLeft = rawLeft;
   let filteredRight = rawRight;
   if (!showPaymentOnly) {
     return { filteredLeft, filteredRight };
   }
+  const isZeroBalanceRow = (row) => {
+    const bal = parseBalanceValue(row.balance);
+    if (bal === null) return false;
+    try {
+      return MoneyDecimal.toDecimal(String(bal), 0).abs().lte("0.00001");
+    } catch {
+      return Math.abs(bal) <= 1e-5;
+    }
+  };
   const hasCrdr = (row) => {
     const byFlag =
       typeof row.has_crdr_transactions === "boolean"
@@ -223,7 +232,12 @@ export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly,
     const byValue = wl !== null && Math.abs(wl) > 1e-5;
     return byFlag || byValue;
   };
-  const shouldShow = showCaptureOnly ? (row) => hasCrdr(row) || hasWinLoss(row) : hasCrdr;
+  /** 与 `js/transaction.js` handlePaymentOnlyFilter 中 shouldShow 一致 */
+  const shouldShow = showCaptureOnly
+    ? (row) => hasCrdr(row) || hasWinLoss(row)
+    : showZeroBalance
+      ? (row) => hasCrdr(row) || isZeroBalanceRow(row)
+      : hasCrdr;
   filteredLeft = rawLeft.filter(shouldShow);
   filteredRight = rawRight.filter(shouldShow);
   return { filteredLeft, filteredRight };
@@ -426,6 +440,7 @@ export function countDisplayedRows(rawSearchData, searchState, txType) {
   const pf = applyPaymentWinLossFilters(rawLeft, rawRight, {
     showPaymentOnly: searchState.showPaymentOnly,
     showCaptureOnly: searchState.showCaptureOnly,
+    showZeroBalance: searchState.showZeroBalance,
   });
   const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance);
   const norm = normalizeRateRowsByCrDr(z.left, z.right, txType === "RATE");
