@@ -95,6 +95,8 @@ export default function UserListPage() {
   const modalAccessPendingRef = useRef(new Map());
   const modalAccessCompanyIdRef = useRef(null);
   const modalLoadSeqRef = useRef(0);
+  const editUserDetailCacheRef = useRef(new Map());
+  const editUserDetailPendingRef = useRef(new Map());
 
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -106,6 +108,7 @@ export default function UserListPage() {
   const [modalAccounts, setModalAccounts] = useState([]);
   const [modalProcesses, setModalProcesses] = useState([]);
   const [modalAccessReadyCompanyId, setModalAccessReadyCompanyId] = useState(null);
+  const [editReadyIds, setEditReadyIds] = useState(() => new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState(new Set());
   const [selectedProcessIds, setSelectedProcessIds] = useState(new Set());
   const [roleSelectDisabled, setRoleSelectDisabled] = useState(false);
@@ -295,6 +298,8 @@ export default function UserListPage() {
         setTableSwapAnimating(true);
       }
       setUsersRaw(list);
+      editUserDetailCacheRef.current.clear();
+      setEditReadyIds(new Set());
       hasLoadedUsersRef.current = true;
       if (shouldAnimateSwap) {
         tableSwapTimerRef.current = setTimeout(() => setTableSwapAnimating(false), 180);
@@ -465,6 +470,76 @@ export default function UserListPage() {
     } catch { setModalCompanies([]); return []; }
   };
 
+  const markEditReady = useCallback((id) => {
+    const nId = Number(id);
+    if (!nId) return;
+    setEditReadyIds((prev) => {
+      if (prev.has(nId)) return prev;
+      const next = new Set(prev);
+      next.add(nId);
+      return next;
+    });
+  }, []);
+
+  const fetchEditUserDetail = useCallback(async (id, force = false) => {
+    const cacheKey = String(id || "");
+    if (!cacheKey) return null;
+    const cached = editUserDetailCacheRef.current.get(cacheKey);
+    if (cached && !force) {
+      markEditReady(id);
+      return cached;
+    }
+    const pending = editUserDetailPendingRef.current.get(cacheKey);
+    if (pending) {
+      try {
+        const next = await pending;
+        markEditReady(id);
+        return next;
+      } catch { return cached || null; }
+    }
+    const request = fetch(buildApiUrl("api/users/userlist_api.php"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ action: "get", id }),
+    }).then(async (res) => {
+      const json = await res.json();
+      if (!json.success || !json.data) throw new Error(json.message || "Load user failed");
+      return json.data;
+    });
+    editUserDetailPendingRef.current.set(cacheKey, request);
+    try {
+      const next = await request;
+      editUserDetailCacheRef.current.set(cacheKey, next);
+      markEditReady(id);
+      return next;
+    } catch {
+      return cached || null;
+    } finally {
+      editUserDetailPendingRef.current.delete(cacheKey);
+    }
+  }, [markEditReady]);
+
+  const applyEditDetail = useCallback((row, detail, accList, procList) => {
+    let perms = []; try { perms = detail.permissions ? JSON.parse(detail.permissions) : []; } catch { perms = []; }
+    setPermSelected(new Set(perms.map((p) => String(p).toLowerCase())));
+    setForm((f) => ({ ...f, read_only: detail.read_only !== undefined ? parseInt(detail.read_only, 10) === 1 : true }));
+    let ap = null, pp = null; try { if (detail.account_permissions != null) ap = typeof detail.account_permissions === "string" ? JSON.parse(detail.account_permissions) : detail.account_permissions; } catch { ap = []; }
+    try { if (detail.process_permissions != null) pp = typeof detail.process_permissions === "string" ? JSON.parse(detail.process_permissions) : detail.process_permissions; } catch { pp = []; }
+    setSelectedAccountIds(ap === null ? new Set(accList.map(a => Number(a.id))) : new Set((Array.isArray(ap) ? ap : []).map(x => Number(x.id || x))));
+    setSelectedProcessIds(pp === null ? new Set(procList.map(p => Number(p.id))) : new Set((Array.isArray(pp) ? pp : []).map(x => Number(x.id || x))));
+    if (Array.isArray(detail.company_ids) && (currentUserRole === "admin" || currentUserRole === "owner")) { setSelectedCompanyIds(detail.company_ids.map(Number)); } else { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
+    if (row.is_owner_shadow) { setPermSelected(new Set(PERMISSION_KEYS)); setSelectedAccountIds(new Set(accList.map(a => Number(a.id)))); setSelectedProcessIds(new Set(procList.map(p => Number(p.id)))); setSelectedCompanyIds([]); }
+  }, [companyId, currentUserRole]);
+
+  useEffect(() => {
+    if (!modalAccessReady) return;
+    pageRows.forEach((row) => {
+      const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
+      if (caps.canEditDelete && !editUserDetailCacheRef.current.has(String(row.id))) void fetchEditUserDetail(row.id);
+    });
+  }, [currentUserId, currentUserRole, fetchEditUserDetail, modalAccessReady, pageRows]);
+
   const openAdd = async () => {
     if (!companyId) return;
     if (!modalAccessReady) return;
@@ -498,30 +573,25 @@ export default function UserListPage() {
   const openEdit = async (row) => {
     if (!companyId) return;
     if (row.is_owner_shadow && currentUserRole !== "owner") { notify(t("onlyOwnerCanEditOwner"), "danger"); return; }
-    modalLoadSeqRef.current += 1;
+    if (!modalAccessReady) return;
+    const cachedDetail = editUserDetailCacheRef.current.get(String(row.id));
+    if (!cachedDetail) return;
+    const loadSeq = ++modalLoadSeqRef.current;
+    const cachedAccess = modalAccessCacheRef.current.get(String(companyId || "")) || { accounts: modalAccounts, processes: modalProcesses };
     setIsEditMode(true); setEditingRow(row);
     setForm({ id: String(row.id), login_id: row.login_id || "", name: row.name || "", email: row.email || "", role: normRole(row.role), password: "", secondary_password: "", status: normRole(row.status) || "active", read_only: true });
-    const { accounts: accList, processes: procList } = await fetchModalAccountsProcesses(companyId, true);
-    await loadCompaniesForModal();
     setRoleSelectDisabled(!!row.is_owner_shadow); setLoginDisabled(true);
     const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
     const curLevel = ROLE_HIERARCHY[currentUserRole] ?? 999; const editLevel = ROLE_HIERARCHY[normRole(row.role)] ?? 999;
     const isSelf = caps.isSelf; const isSame = !isSelf && curLevel === editLevel; const isLower = !isSelf && curLevel > editLevel;
     setFieldLocks({ name: isSame || isLower, email: isSame || isLower, role: isSame || isLower, password: false, sidebar: isSelf || isSame || isLower, company: isSelf || isSame || isLower || !(currentUserRole === "admin" || currentUserRole === "owner") });
-    try {
-      const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ action: "get", id: row.id }) });
-      const json = await res.json(); if (!json.success || !json.data) { notify(json.message || t("loadUserFailed"), "danger"); setModalOpen(false); return; }
-      const d = json.data; let perms = []; try { perms = d.permissions ? JSON.parse(d.permissions) : []; } catch { perms = []; }
-      setPermSelected(new Set(perms.map((p) => String(p).toLowerCase())));
-      setForm((f) => ({ ...f, read_only: d.read_only !== undefined ? parseInt(d.read_only, 10) === 1 : true }));
-      let ap = null, pp = null; try { if (d.account_permissions != null) ap = typeof d.account_permissions === "string" ? JSON.parse(d.account_permissions) : d.account_permissions; } catch { ap = []; }
-      try { if (d.process_permissions != null) pp = typeof d.process_permissions === "string" ? JSON.parse(d.process_permissions) : d.process_permissions; } catch { pp = []; }
-      setSelectedAccountIds(ap === null ? new Set(accList.map(a => Number(a.id))) : new Set((Array.isArray(ap) ? ap : []).map(x => Number(x.id || x))));
-      setSelectedProcessIds(pp === null ? new Set(procList.map(p => Number(p.id))) : new Set((Array.isArray(pp) ? pp : []).map(x => Number(x.id || x))));
-      if (Array.isArray(d.company_ids) && (currentUserRole === "admin" || currentUserRole === "owner")) { setSelectedCompanyIds(d.company_ids.map(Number)); } else { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
-      if (row.is_owner_shadow) { setPermSelected(new Set(PERMISSION_KEYS)); setSelectedAccountIds(new Set(accList.map(a => Number(a.id)))); setSelectedProcessIds(new Set(procList.map(p => Number(p.id)))); setSelectedCompanyIds([]); }
-    } catch { notify(t("loadUserFailed"), "danger"); setModalOpen(false); }
+    void loadCompaniesForModal();
+    applyEditDetail(row, cachedDetail, cachedAccess.accounts, cachedAccess.processes);
     setModalOpen(true);
+    void Promise.all([fetchModalAccountsProcesses(companyId, true), fetchEditUserDetail(row.id, true)]).then(([access, detail]) => {
+      if (loadSeq !== modalLoadSeqRef.current || !detail) return;
+      applyEditDetail(row, detail, access.accounts, access.processes);
+    });
   };
 
   const closeModal = () => { modalLoadSeqRef.current += 1; setModalOpen(false); setEditingRow(null); };
@@ -574,6 +644,14 @@ export default function UserListPage() {
     try {
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(payload) });
       const json = await res.json(); if (!json.success) { notify(json.message || t("saveFailed"), "danger"); return; }
+      if (isEditMode && form.id) {
+        editUserDetailCacheRef.current.delete(String(form.id));
+        setEditReadyIds((prev) => {
+          const next = new Set(prev);
+          next.delete(Number(form.id));
+          return next;
+        });
+      }
       notify(json.message || t("saved"), "success"); closeModal();
       if (isEditMode && json.data?.will_lose_access) { setUsersRaw((prev) => prev.filter((u) => Number(u.id) !== Number(form.id))); }
       else if (json.data) { setUsersRaw((prev) => isEditMode ? prev.map((u) => (Number(u.id) === Number(json.data.id) ? { ...u, ...json.data, is_owner_shadow: u.is_owner_shadow } : u)) : [...prev, { ...json.data, is_owner_shadow: false }]); }
@@ -776,6 +854,7 @@ export default function UserListPage() {
                 pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
+                const editReady = caps.canEditDelete && modalAccessReady && editReadyIds.has(Number(r.id));
                 return (
                   <div key={`${r.id}-${r.is_owner_shadow ? "o" : "u"}`} className={`user-card show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}>
                     <div className="card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
@@ -787,7 +866,7 @@ export default function UserListPage() {
                     <div className="card-item">{formatLastLogin(r.last_login)}</div>
                     <div className="card-item">{String(r.created_by || "-").toUpperCase()}</div>
                     <div className="card-item card-item--action">
-                      <button className="btn btn-edit" onClick={() => openEdit(r)} disabled={!caps.canEditDelete} style={{ opacity: caps.canEditDelete ? 1 : 0.3 }}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
+                      <button className="btn btn-edit" onClick={() => openEdit(r)} disabled={!editReady} style={{ opacity: editReady ? 1 : 0.3 }}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
                     </div>
                     {showBulkDeleteColumn && (
                       <div className="card-item card-item--select">
