@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../transactionFormat.js";
 
 export default function TransactionHistoryModal({
@@ -6,6 +7,19 @@ export default function TransactionHistoryModal({
   histMoney,
   showDescriptionColumn,
 }) {
+  // Align `js/transaction.js`: close Payment History on × and on ESC (document keydown when modal visible).
+  useEffect(() => {
+    if (!history.open) return;
+    function onKeyDown(e) {
+      if (e.key !== "Escape") return;
+      setHistory((h) => ({ ...h, open: false }));
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [history.open, setHistory]);
+
+  const closeModal = () => setHistory((h) => ({ ...h, open: false }));
+
   return (
     <div id="historyModal" className="transaction-modal" style={{ display: history.open ? "flex" : "none" }}>
       <div className="transaction-modal-content transaction-history-modal">
@@ -15,7 +29,7 @@ export default function TransactionHistoryModal({
             type="button"
             id="modal_close"
             className="transaction-modal-close"
-            onClick={() => setHistory((h) => ({ ...h, open: false }))}
+            onClick={closeModal}
           >
             ×
           </button>
