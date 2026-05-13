@@ -2262,6 +2262,86 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     font-weight: bold;
 }
 
+/* User modal — Account / Process：文案左、圆形勾选右；白底描边，选中加粗色边（不改 Permissions） */
+#userModal .user-modal-select-card {
+    flex-direction: row-reverse;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 56px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    box-shadow: none;
+}
+
+#userModal .user-modal-select-card:hover {
+    background-color: #f8fafc !important;
+    border-color: #c7d2fe !important;
+}
+
+#userModal .user-modal-select-card:has(input[type="checkbox"]:checked) {
+    border-color: #5850ec;
+}
+
+#userModal .user-modal-select-card .account-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+    align-self: flex-start;
+}
+
+#userModal .user-modal-select-card input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    margin-top: 2px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    cursor: pointer;
+    position: relative;
+    align-self: flex-start;
+    accent-color: transparent;
+}
+
+#userModal .user-modal-select-card input[type="checkbox"]:checked {
+    background: #5850ec;
+    border-color: #5850ec;
+}
+
+#userModal .user-modal-select-card input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    width: 4px;
+    height: 8px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -50%) rotate(45deg);
+    box-sizing: border-box;
+}
+
+#userModal .user-modal-select-card input[type="checkbox"]:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+#userModal .user-modal-select-card input[type="checkbox"]:checked + .account-label {
+    color: #5850ec;
+    font-weight: 700;
+}
+
+#userModal .user-modal-select-card:has(input[type="checkbox"]:focus-visible) {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
 @media (max-width: 1024px) {
     .modal-content.edit-mode .user-info-panel .form-group label {
         font-size: clamp(9px, 0.85vw, 15px);

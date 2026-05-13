@@ -312,7 +312,7 @@ export default function UserModal({
                 <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
                 <div className="account-grid account-grid--four account-grid--process">
                   {modalAccounts.map((a) => (
-                    <div key={a.id} className="account-item-compact account-item-compact--process">
+                    <div key={a.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
                         type="checkbox"
                         id={`acc-${a.id}`}
@@ -343,7 +343,7 @@ export default function UserModal({
                 <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
                 <div className="account-grid account-grid--four account-grid--process">
                   {modalProcesses.map((p) => (
-                    <div key={p.id} className="account-item-compact account-item-compact--process">
+                    <div key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
                         type="checkbox"
                         id={`proc-${p.id}`}
