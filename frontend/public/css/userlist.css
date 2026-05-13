@@ -828,7 +828,9 @@ body.process-page .user-gc-segment:disabled {
 .btn-back {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    min-width: 76px;
     padding: clamp(6px, 0.42vw, 8px) clamp(14px, 1.04vw, 20px);
     background: #ffffff;
     border: 1px solid #cbd5e1;
@@ -836,6 +838,8 @@ body.process-page .user-gc-segment:disabled {
     font-size: clamp(12px, 0.83vw, 15px);
     font-weight: 600;
     color: #64748b;
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
     cursor: pointer;
     transition: all 0.2s;
 }
