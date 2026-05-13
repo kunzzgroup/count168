@@ -2152,6 +2152,22 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     /* 添加新class来显示 */
 }
 
+.user-cards--settling .user-card.show-card {
+    animation: userlist-row-settle 180ms ease-out both;
+}
+
+@keyframes userlist-row-settle {
+    from {
+        opacity: 0.88;
+        transform: translateY(2px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Zebra striping for cards - 基于索引而不是 DOM 位置 */
 .user-card.row-even {
     background: #cceeff99;
@@ -2244,6 +2260,10 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .user-cards--settling .user-card.show-card {
+        animation: none;
+    }
+
     .user-card.user-card--skeleton .userlist-skeleton-bar {
         animation: none;
         background: #e8e0f2;

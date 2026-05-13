@@ -59,6 +59,7 @@ export default function UserListPage() {
   const [companyId, setCompanyId] = useState(null);
   const [usersRaw, setUsersRaw] = useState([]);
   const [tableLoading, setTableLoading] = useState(false);
+  const [tableSwapAnimating, setTableSwapAnimating] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -75,6 +76,8 @@ export default function UserListPage() {
   const [confirmMessage, setConfirmMessage] = useState("");
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
+  const tableSwapTimerRef = useRef(null);
+  const hasLoadedUsersRef = useRef(false);
   const pendingDeleteRef = useRef(null);
   const listFetchAbortRef = useRef(null);
 
@@ -224,6 +227,7 @@ export default function UserListPage() {
       document.body.classList.add("dashboard-page");
       setCssReady(false);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (tableSwapTimerRef.current) clearTimeout(tableSwapTimerRef.current);
     };
   }, []);
 
@@ -268,7 +272,16 @@ export default function UserListPage() {
           if (ac.signal.aborted) return;
         }
       }
+      const shouldAnimateSwap = hasLoadedUsersRef.current;
+      if (shouldAnimateSwap) {
+        if (tableSwapTimerRef.current) clearTimeout(tableSwapTimerRef.current);
+        setTableSwapAnimating(true);
+      }
       setUsersRaw(list);
+      hasLoadedUsersRef.current = true;
+      if (shouldAnimateSwap) {
+        tableSwapTimerRef.current = setTimeout(() => setTableSwapAnimating(false), 180);
+      }
       setCurrentPage(1);
       setSelectedDeleteIds(new Set());
       setSelectAllUsers(false);
@@ -677,7 +690,7 @@ export default function UserListPage() {
                 </div>
               )}
             </div>
-            <div className="user-cards" aria-busy={listBusy}>
+            <div className={`user-cards${tableSwapAnimating ? " user-cards--settling" : ""}`} aria-busy={listBusy}>
               {showInitialTableLoading ? (
                 <div key="userlist-initial-loading" className="user-card user-card--loading show-card row-even" role="status">
                   {t("loading")}
