@@ -45,6 +45,8 @@ const USERLIST_SKELETON_ROWS = 12;
 export default function UserListPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const langRef = useRef(lang);
+  langRef.current = lang;
   const t = useCallback((key, params) => getUserListText(lang, key, params), [lang]);
   const [bootLoading, setBootLoading] = useState(true);
   const [me, setMe] = useState(null);
@@ -212,7 +214,7 @@ export default function UserListPage() {
       const json = await res.json();
       if (ac.signal.aborted) return;
       if (!res.ok || !json.success) {
-        notify(json.message || t("failedToLoadUsers"), "danger");
+        notify(json.message || getUserListText(langRef.current, "failedToLoadUsers"), "danger");
         setUsersRaw([]);
         return;
       }
@@ -242,11 +244,11 @@ export default function UserListPage() {
       setSelectAllUsers(false);
     } catch (e) {
       if (ac.signal.aborted) return;
-      notify(t("failedToLoadUsers"), "danger");
+      notify(getUserListText(langRef.current, "failedToLoadUsers"), "danger");
     } finally {
       if (!ac.signal.aborted) setTableLoading(false);
     }
-  }, [companyId, me, notify, t]);
+  }, [companyId, me, notify]);
 
   useEffect(() => {
     (async () => {

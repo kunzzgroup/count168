@@ -35,6 +35,8 @@ function normalizeCompanyRow(row) {
 export default function AccountListPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const langRef = useRef(lang);
+  langRef.current = lang;
   const t = useCallback((key, params) => getAccountText(lang, key, params), [lang]);
 
   // -- Status --
@@ -159,14 +161,14 @@ export default function AccountListPage() {
       if (showAll) url.searchParams.set("showAll", "1");
       const res = await fetch(url.toString(), { credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notify(json.message || t("failedToLoadAccounts"), "danger");
+      if (!json.success) return notify(json.message || getAccountText(langRef.current, "failedToLoadAccounts"), "danger");
       setAccounts(Array.isArray(json?.data?.accounts) ? json.data.accounts : []);
       setSelectedDeleteIds(new Set());
       setCurrentPage(1);
       syncUrl();
-    } catch { notify(t("networkError"), "danger"); }
+    } catch { notify(getAccountText(langRef.current, "networkError"), "danger"); }
     finally { setTableLoading(false); }
-  }, [companyId, searchTerm, showInactive, showAll, syncUrl, notify, t]);
+  }, [companyId, searchTerm, showInactive, showAll, syncUrl, notify]);
 
   // -- Boot --
   useEffect(() => {
