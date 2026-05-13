@@ -82,7 +82,6 @@ export default function UserListPage() {
   const listFetchAbortRef = useRef(null);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalBootLoading, setModalBootLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingRow, setEditingRow] = useState(null);
   const [form, setForm] = useState({ id: "", login_id: "", name: "", email: "", role: "", password: "", secondary_password: "", status: "active", read_only: true });
@@ -408,21 +407,11 @@ export default function UserListPage() {
     setRoleSelectDisabled(false); setLoginDisabled(false);
     setFieldLocks({ name: false, email: false, role: false, password: false, sidebar: false, company: false });
     const allP = new Set(PERMISSION_KEYS.filter((k) => !permDisabledMap[k])); setPermSelected(allP);
-    setModalCompanies([]); setModalAccounts([]); setModalProcesses([]);
-    setSelectedAccountIds(new Set()); setSelectedProcessIds(new Set());
+    await loadCompaniesForModal();
+    const { accounts: accList, processes: procList } = await fetchModalAccountsProcesses(companyId);
+    setSelectedAccountIds(new Set(accList.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(procList.map((p) => Number(p.id))));
     if (currentUserRole === "admin" || currentUserRole === "owner") { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
-    setModalBootLoading(true);
     setModalOpen(true);
-    try {
-      const [, { accounts: accList, processes: procList }] = await Promise.all([
-        loadCompaniesForModal(),
-        fetchModalAccountsProcesses(companyId),
-      ]);
-      setSelectedAccountIds(new Set(accList.map((a) => Number(a.id))));
-      setSelectedProcessIds(new Set(procList.map((p) => Number(p.id))));
-    } finally {
-      setModalBootLoading(false);
-    }
   };
 
   const applyPermTemplate = (role, force) => {
@@ -458,7 +447,7 @@ export default function UserListPage() {
     setModalOpen(true);
   };
 
-  const closeModal = () => { setModalOpen(false); setEditingRow(null); setModalBootLoading(false); };
+  const closeModal = () => { setModalOpen(false); setEditingRow(null); };
 
   const toggleUserStatus = async (row) => {
     const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
@@ -760,7 +749,7 @@ export default function UserListPage() {
         </div>
       </div>
       {toast && <div id="notificationContainer" className="notification-container"><div className={`notification notification-${toast.type} show`}>{toast.message}</div></div>}
-      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} modalBootLoading={modalBootLoading} t={t} />
+      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} t={t} />
       <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} t={t} />
     </>
   );
