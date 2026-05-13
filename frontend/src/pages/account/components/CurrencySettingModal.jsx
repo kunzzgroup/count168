@@ -48,6 +48,9 @@ export default function CurrencySettingModal({
 
   const roleOptions = [{ value: "", label: t("filterRow") }, ...roles.map(r => ({ value: r, label: toUpper(r) }))];
   const roleLabel = settingRole ? toUpper(settingRole) : t("filterRow");
+  const selectedCurrencyMatchesList =
+    settingCurrencyId != null &&
+    currencies.some((c) => Number(c.id) === Number(settingCurrencyId));
   const filteredAccounts = accounts.filter(a => {
     const text = `${a.account_id || ""} ${a.name || ""}`.toLowerCase();
     const matchesQ = !settingSearch || text.includes(settingSearch.toLowerCase());
@@ -186,7 +189,10 @@ export default function CurrencySettingModal({
                 <button
                   type="button"
                   className="account-btn account-btn-add currency-setting-selectall-btn"
+                  disabled={!selectedCurrencyMatchesList}
+                  title={!selectedCurrencyMatchesList ? t("pleaseSelectCurrencyFirst") : undefined}
                   onClick={() => {
+                    if (!selectedCurrencyMatchesList) return;
                     const allIds = filteredAccounts.map(a => Number(a.id));
                     const allSelected = allIds.every(id => settingLinked.has(id));
                     setSettingLinked(prev => {
@@ -235,8 +241,8 @@ export default function CurrencySettingModal({
           <button
             type="button"
             className="account-btn account-btn-save currency-setting-submit-btn"
-            disabled={settingCurrencyId == null}
-            title={settingCurrencyId == null ? t("pleaseSelectCurrencyFirst") : undefined}
+            disabled={!selectedCurrencyMatchesList}
+            title={!selectedCurrencyMatchesList ? t("pleaseSelectCurrencyFirst") : undefined}
             onClick={onSave}
           >
             {t("save")}
