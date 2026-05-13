@@ -955,6 +955,29 @@ body.process-page {
     flex-shrink: 0;
 }
 
+/* Bank：Action 与勾选分两列时，勾选与 User List 同宽（48px 轨道） */
+body.process-page.process-page--bank .process-table-wrapper--select-col .table-header .header-item--select,
+body.process-page.process-page--bank .process-card .bank-row-select-cell.card-item--select {
+    justify-content: start;
+    align-items: center;
+    min-width: 0;
+    padding: 0 !important;
+    box-sizing: border-box;
+}
+
+body.process-page.process-page--bank .process-table-wrapper--select-col .header-item--select .header-action-checkbox {
+    margin-left: 0;
+}
+
+body.process-page.process-page--bank .process-table-wrapper--select-col .table-header .header-item--select input[type="checkbox"],
+body.process-page.process-page--bank .process-card .bank-row-select-cell input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
 /* Games Show All：列宽与分页模式一致；在列表区内纵向滚动；行不参与 flex 压缩（避免重叠） */
 body.process-page.process-page--show-all:not(.process-page--bank) .process-table-wrapper {
     min-height: 0;

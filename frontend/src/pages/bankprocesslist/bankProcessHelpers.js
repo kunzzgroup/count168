@@ -4,6 +4,10 @@ export const PAGE_SIZE = 20;
 export const BANK_GRID_TEMPLATE_COLUMNS =
   "0.2fr 0.64fr 0.48fr 0.62fr 0.44fr 0.78fr 0.56fr 0.44fr 0.48fr 0.28fr 0.28fr 0.28fr 0.42fr 0.4fr 0.34fr";
 
+/** Action 与批量勾选分两列（与 User List / Games Process 一致） */
+export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT =
+  "0.2fr 0.64fr 0.48fr 0.62fr 0.44fr 0.78fr 0.56fr 0.44fr 0.48fr 0.28fr 0.28fr 0.28fr 0.42fr 0.4fr minmax(0, 0.3fr) 48px";
+
 export function normalizeRows(data) {
   if (!Array.isArray(data)) return [];
   return data.map((row) => {

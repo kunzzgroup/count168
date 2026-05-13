@@ -1268,7 +1268,9 @@ export default function BankProcessListPage() {
         </div>
 
         <BankProcessTable
-          tableLoading={tableLoading} showAll={showAll} pageRows={pageRows} currentPage={currentPage}
+          tableLoading={tableLoading} showAll={showAll}
+          showSelectColumn={showInactive || showAll || showOfficial || showEInvoice || showBlock}
+          pageRows={pageRows} currentPage={currentPage}
           PAGE_SIZE={PAGE_SIZE} selectedIds={selectedIds} setSelectedIds={setSelectedIds}
           showHeaderSelectAll={showInactive || showOfficial || showEInvoice || showBlock}
           notify={notify} fetchRows={fetchRows} openEdit={openEdit} openRemarkModal={(row) => { setRemarkRow(row); setRemarkDraft(String(row.remark || "")); setRemarkModalOpen(true); }}
