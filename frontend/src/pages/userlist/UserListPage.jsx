@@ -19,6 +19,8 @@ import {
   getRoleTemplateSidebarList,
   normRole,
   sortUsers,
+  roleHasReadOnlyToggle,
+  canInteractWithReadOnlyToggle,
 } from "./userListLogic.js";
 
 // Components
@@ -421,7 +423,10 @@ export default function UserListPage() {
     let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: form.email.trim().toLowerCase(), role: form.role, status: form.status };
     if (form.password.trim()) payload.password = form.password;
     if (isC168Company && form.secondary_password.trim()) { if (!/^\d{6}$/.test(form.secondary_password.trim())) { notify(t("secondaryPasswordMustBe6Digits"), "danger"); return; } payload.secondary_password = form.secondary_password.trim(); }
-    if (normRole(form.role) === "partnership" || normRole(editingRow?.role) === "partnership") payload.read_only = form.read_only ? 1 : 0;
+    const roleForReadOnly = normRole(form.role) || normRole(editingRow?.role);
+    if (roleForReadOnly && roleHasReadOnlyToggle(roleForReadOnly) && canInteractWithReadOnlyToggle(currentUserRole, roleForReadOnly)) {
+      payload.read_only = form.read_only ? 1 : 0;
+    }
     if (editingRow?.is_owner_shadow) { delete payload.role; } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = selectedCompanyIds; } else {
       const caps = computeRowCapabilities(editingRow, currentUserId, currentUserRole);
       if (caps.isSelf || caps.isHigherLevel || caps.isSameLevel) {

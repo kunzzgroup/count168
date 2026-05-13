@@ -44,6 +44,24 @@ export function normRole(r) {
   return String(r || "").trim().toLowerCase();
 }
 
+/** Partnership / Audit 显示 Read Only 开关（与 userlist.js / userlist.php 一致） */
+export function roleHasReadOnlyToggle(role) {
+  const r = normRole(role);
+  return r === "partnership" || r === "audit";
+}
+
+/**
+ * Audit：manager 及以上可操作；Partnership：仅 owner（与 userlist.js canInteractWithReadOnlyToggle + API canSetUserReadOnly 一致）
+ */
+export function canInteractWithReadOnlyToggle(currentUserRole, targetUserRole) {
+  const r = normRole(targetUserRole);
+  const curLevel = ROLE_HIERARCHY[normRole(currentUserRole)] ?? 999;
+  const managerLevel = ROLE_HIERARCHY.manager ?? 999;
+  if (r === "audit") return curLevel <= managerLevel;
+  if (r === "partnership") return normRole(currentUserRole) === "owner";
+  return false;
+}
+
 export function getCurrentUserRolePermissions(currentUserRole) {
   const rolePermissions = {
     owner: ["home", "admin", "account", "ownership", "process", "datacapture", "payment", "report", "maintenance"],

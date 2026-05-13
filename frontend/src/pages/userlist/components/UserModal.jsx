@@ -37,6 +37,8 @@ import {
   normRole,
   getAvailableRolesForCreation,
   getAvailableRolesForEdit,
+  roleHasReadOnlyToggle,
+  canInteractWithReadOnlyToggle,
 } from "../userListLogic.js";
 
 export default function UserModal({
@@ -89,6 +91,9 @@ export default function UserModal({
   }, [open]);
 
   if (!open) return null;
+
+  const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
+  const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
 
   return (
     <div id="userModal" className="modal" style={{ display: "block" }}>
@@ -212,15 +217,30 @@ export default function UserModal({
               <div className="sidebar-permissions-section">
                 <h3 className="sidebar-permissions-title user-modal-permissions-title">
                   {t("permissions")}
-                  {normRole(currentUserRole) === "owner" && (normRole(form.role) === "partnership" || normRole(editingRow?.role) === "partnership") && (
-                    <span className="read-only-toggle-inline read-only-toggle-after-title">
+                  {readOnlyToggleVisible ? (
+                    <span
+                      className="read-only-toggle-inline read-only-toggle-after-title"
+                      style={{
+                        opacity: readOnlyToggleCanInteract ? 1 : 0.6,
+                      }}
+                    >
                       <span className="read-only-label">{t("readOnly")}</span>
-                      <label className="toggle-switch">
-                        <input type="checkbox" checked={form.read_only} onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))} />
+                      <label
+                        className="toggle-switch"
+                        style={{
+                          cursor: readOnlyToggleCanInteract ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.read_only}
+                          disabled={!readOnlyToggleCanInteract}
+                          onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))}
+                        />
                         <span className="toggle-slider" />
                       </label>
                     </span>
-                  )}
+                  ) : null}
                 </h3>
                 <div className="permissions-container">
                   {PERMISSION_KEYS.map((key) => (
