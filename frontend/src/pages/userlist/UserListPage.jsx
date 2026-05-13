@@ -311,7 +311,7 @@ export default function UserListPage() {
         const cid = url.searchParams.get("company_id");
         const effective = cid || meJson.data.company_id || rows[0]?.id || null;
         setCompanyId(effective ? Number(effective) : null);
-        setSearch(String(url.searchParams.get("search") || "").replace(/[^A-Z0-9]/gi, "").toUpperCase());
+        setSearch(String(url.searchParams.get("search") || ""));
         setShowAll(url.searchParams.get("showAll") === "1");
       } catch { navigate("/login", { replace: true }); } finally { setBootLoading(false); }
     })();
@@ -527,7 +527,7 @@ export default function UserListPage() {
                     className="search-input userlist-search-input"
                     placeholder={t("searchPlaceholder")}
                     value={search}
-                    onChange={(e) => setSearch(e.target.value.replace(/[^A-Z0-9]/gi, "").toUpperCase())}
+                    onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
                 <div className="userlist-filter-chips" role="group">
