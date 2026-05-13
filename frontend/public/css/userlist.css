@@ -2048,6 +2048,12 @@ body.process-page .userlist-filter-chips .user-filter-chip:nth-child(2) {
     justify-content: flex-start;
 }
 
+/* Bank Process：第二组（Official / E-Invoice / Block）第三颗 chip */
+body.process-page.process-page--bank .action-controls-row .userlist-filter-chips + .userlist-filter-chips .user-filter-chip:nth-child(3) {
+    min-width: 6.5rem;
+    justify-content: flex-start;
+}
+
 /* Checkbox section */
 .checkbox-section {
     display: flex;
