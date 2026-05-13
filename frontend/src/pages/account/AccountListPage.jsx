@@ -63,6 +63,7 @@ export default function AccountListPage() {
   const [cssReady, setCssReady] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
+  const [pendingCompanyId, setPendingCompanyId] = useState(null);
 
   // -- Data --
   const [accounts, setAccounts] = useState([]);
@@ -251,9 +252,10 @@ export default function AccountListPage() {
       [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
     [allCompanyButtons]
   );
+  const pickerCompanyId = pendingCompanyId ?? companyId;
   const selectedCompany = useMemo(
-    () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
-    [allCompanyButtons, companyId]
+    () => allCompanyButtons.find((c) => Number(c.id) === Number(pickerCompanyId)) || null,
+    [allCompanyButtons, pickerCompanyId]
   );
   const selectedGroupKey = useMemo(
     () => String(selectedCompany?.group_id || "").trim().toUpperCase(),
@@ -315,17 +317,19 @@ export default function AccountListPage() {
 
   // -- Handlers --
   const onSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId) || switchingCompany) return;
+    const nextCompanyId = Number(c?.id);
+    if (!nextCompanyId || Number(nextCompanyId) === Number(pickerCompanyId) || switchingCompany) return;
+    setPendingCompanyId(nextCompanyId);
     setSwitchingCompany(true);
     try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), { credentials: "include" });
       const json = await res.json();
       if (!json.success) return notify(json.message || t("failedToSwitchCompany"), "danger");
-      setCompanyId(Number(c.id));
+      setCompanyId(nextCompanyId);
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }));
     } catch { notify(t("failedToSwitchCompany"), "danger"); }
-    finally { setSwitchingCompany(false); }
+    finally { setPendingCompanyId(null); setSwitchingCompany(false); }
   };
 
   const handlePickGroup = useCallback(
@@ -748,7 +752,7 @@ export default function AccountListPage() {
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
                     {companiesForPicker.map((c) => {
-                      const active = Number(companyId) === Number(c.id);
+                      const active = Number(pickerCompanyId) === Number(c.id);
                       return (
                         <button
                           key={c.id}
