@@ -131,7 +131,17 @@ export default function UserListPage() {
     [selectedCompany?.group_id]
   );
   const companiesForPicker = useMemo(() => {
-    if (groupFilterKind === "all") return allCompanyButtons;
+    if (groupFilterKind === "all") {
+      const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
+      return [...allCompanyButtons].sort((a, b) => {
+        const ga = String(a.group_id || "").trim().toUpperCase();
+        const gb = String(b.group_id || "").trim().toUpperCase();
+        const ra = groupOrder.has(ga) ? groupOrder.get(ga) : Number.MAX_SAFE_INTEGER;
+        const rb = groupOrder.has(gb) ? groupOrder.get(gb) : Number.MAX_SAFE_INTEGER;
+        if (ra !== rb) return ra - rb;
+        return String(a.company_id || "").localeCompare(String(b.company_id || ""), undefined, { numeric: true });
+      });
+    }
     if (groupFilterKind === "ungrouped") {
       return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
     }
@@ -142,7 +152,7 @@ export default function UserListPage() {
     }
     const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
     return inG.length ? inG : allCompanyButtons;
-  }, [allCompanyButtons, groupIds.length, selectedGroupKey, groupFilterKind]);
+  }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
     return sortUsers(f, sortColumn, sortDirection);
