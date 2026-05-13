@@ -547,19 +547,19 @@
 
 .currency-setting-search-wrap {
     position: relative;
-    width: clamp(420px, 38vw, 640px);
-    max-width: 100%;
+    width: clamp(200px, 28vw, 320px);
+    max-width: clamp(200px, 28vw, 320px);
     flex: 0 1 auto;
     color: #64748b;
 }
 
 .currency-setting-search-icon {
     position: absolute;
-    left: 20px;
+    left: 12px;
     top: 50%;
     transform: translateY(-50%);
-    width: 24px;
-    height: 24px;
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(14px, 0.83vw, 16px);
     color: #64748b;
     pointer-events: none;
 }
@@ -567,12 +567,12 @@
 .currency-setting-search-input {
     width: 100%;
     box-sizing: border-box;
-    height: clamp(42px, 3.2vw, 56px);
-    padding: 0 22px 0 58px;
+    min-height: calc(18px + 12px + 2px);
+    padding: 6px clamp(10px, 0.9vw, 14px) 6px 30px;
     border: 1px solid #e5e7eb;
     border-radius: 999px;
     font-family: inherit;
-    font-size: var(--text-base);
+    font-size: var(--text-small);
     font-weight: 400;
     color: #334155;
     background: #ffffff;
