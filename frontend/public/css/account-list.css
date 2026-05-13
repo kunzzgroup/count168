@@ -513,9 +513,9 @@
     font-size: var(--text-h2);
     font-weight: var(--font-weight-bold);
     color: #1a237e;
-    margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(8px, 0.63vw, 12px);
-    padding: 0 clamp(14px, 1.04vw, 20px) clamp(6px, 0.52vw, 10px);
-    border-bottom: 2px solid #1a237e;
+    margin: 0;
+    padding: 0;
+    border-bottom: none;
     flex-shrink: 0;
 }
 
@@ -524,7 +524,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 10px;
+    margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) 10px;
+    padding: 0 clamp(14px, 1.04vw, 20px) clamp(6px, 0.52vw, 10px);
+    border-bottom: 2px solid #1a237e;
     flex-shrink: 0;
 }
 
