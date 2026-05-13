@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useEffect, useCallback, useRef } from "react";
-import { useNavigate, Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import TransactionAddSection from "./components/TransactionAddSection.jsx";
 import TransactionHeader from "./components/TransactionHeader.jsx";
 import TransactionHistoryModal from "./components/TransactionHistoryModal.jsx";
@@ -37,7 +37,6 @@ const ROUTE_BODY_CLASSES_TO_CLEAR = [
 ];
 
 export default function TransactionPaymentPage() {
-  const navigate = useNavigate();
   const location = useLocation();
   const todayDmy = useMemo(() => formatDmy(new Date()), []);
 
@@ -145,15 +144,7 @@ export default function TransactionPaymentPage() {
     return installTransactionExcelCopy();
   }, []);
 
-  if (forbidden) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  if (loading || !filterSnapshot) {
-    return null;
-  }
-
-  const onSearch = () => search.runSearch({ silent: false });
-
+  /** Hooks must run every render — never after `return null` / `Navigate` (React #310). */
   const singleCategoryFallbackRoleClass = useMemo(() => {
     const raw = search.selectedCategories || [];
     const sel = raw.filter((x) => x != null && String(x).trim() !== "" && String(x).trim().toUpperCase() !== "");
@@ -168,6 +159,17 @@ export default function TransactionPaymentPage() {
       return false;
     }
   }, [location.search]);
+
+  const onSearch = useCallback(() => {
+    search.runSearch({ silent: false });
+  }, [search.runSearch]);
+
+  if (forbidden) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  if (loading || !filterSnapshot) {
+    return null;
+  }
 
   return (
     <div className="container-fluid transaction-container">

@@ -21,7 +21,7 @@ export function formatYmd(d) {
 }
 
 /**
- * Parse 'YYYY-MM-DD' to Date object
+ * Parse 'YYYY-MM-DD' to Date object.
  */
 export function parseYmd(s) {
   if (!s) return null;
