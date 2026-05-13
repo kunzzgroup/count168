@@ -956,6 +956,31 @@ label.user-modal-col-title.acc-proc-label {
     flex-shrink: 0;
 }
 
+/* User modal — 基本信息两列：Login|Password，Name|Role */
+#userModal .user-info-field-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 12px 0;
+    align-items: flex-start;
+}
+
+#userModal .user-info-field-row > .form-group.user-info-field,
+#userModal .user-info-field-row > .form-group.password-row-container {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+@media (max-width: 440px) {
+    #userModal .user-info-field-row > .form-group.user-info-field,
+    #userModal .user-info-field-row > .form-group.password-row-container {
+        flex-basis: 100%;
+    }
+}
+
 .password-row-container--split {
     display: flex;
     flex-wrap: wrap;
