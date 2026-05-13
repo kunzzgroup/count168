@@ -336,6 +336,7 @@ export default function UserListPage() {
 
   const handlePickGroup = useCallback(
     (gid) => {
+      if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
@@ -347,12 +348,13 @@ export default function UserListPage() {
       const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
       if (first) void onSwitchCompany(first);
     },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey]
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany]
   );
 
   const handlePickAllGroups = useCallback(() => {
+    if (switchingCompany) return;
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, []);
+  }, [switchingCompany]);
 
   const fetchModalAccountsProcesses = async (cid) => {
     try {
@@ -597,7 +599,6 @@ export default function UserListPage() {
                     <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
                       <button
                         type="button"
-                        disabled={switchingCompany}
                         className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
                         onClick={handlePickAllGroups}
                       >
@@ -607,7 +608,6 @@ export default function UserListPage() {
                         <button
                           key={gid}
                           type="button"
-                          disabled={switchingCompany}
                           className={`user-gc-segment${groupFilterKind === "follow" && gid === selectedGroupKey ? " is-on" : ""}`}
                           onClick={() => handlePickGroup(gid)}
                         >
@@ -628,9 +628,9 @@ export default function UserListPage() {
                         <button
                           key={c.id}
                           type="button"
-                          disabled={switchingCompany}
                           className={`user-gc-segment${active ? " is-on" : ""}`}
                           onClick={() => {
+                            if (switchingCompany) return;
                             if (!active) {
                               void onSwitchCompany(c);
                             }
