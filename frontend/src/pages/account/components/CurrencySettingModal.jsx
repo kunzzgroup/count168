@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { toUpper } from "../accountLogic.js";
 
 export default function CurrencySettingModal({
@@ -23,8 +23,31 @@ export default function CurrencySettingModal({
   onCreateCurrency,
   t,
 }) {
+  const roleDropdownRef = useRef(null);
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open || !roleDropdownOpen) return undefined;
+    const onPointerDown = (e) => {
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target)) {
+        setRoleDropdownOpen(false);
+      }
+    };
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setRoleDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, roleDropdownOpen]);
+
   if (!open) return null;
 
+  const roleOptions = [{ value: "", label: t("filterRow") }, ...roles.map(r => ({ value: r, label: toUpper(r) }))];
+  const roleLabel = settingRole ? toUpper(settingRole) : t("filterRow");
   const filteredAccounts = accounts.filter(a => {
     const text = `${a.account_id || ""} ${a.name || ""}`.toLowerCase();
     const matchesQ = !settingSearch || text.includes(settingSearch.toLowerCase());
@@ -115,17 +138,46 @@ export default function CurrencySettingModal({
                     onChange={(e) => setSettingSearch(e.target.value)}
                   />
                 </div>
-                <div className="currency-setting-role-filter">
-                  <select
-                    className="currency-setting-select"
-                    value={settingRole}
-                    onChange={(e) => setSettingRole(e.target.value)}
+                <div className={`currency-setting-role-filter${roleDropdownOpen ? " is-open" : ""}`} ref={roleDropdownRef}>
+                  <button
+                    type="button"
+                    className="currency-setting-role-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded={roleDropdownOpen}
+                    onClick={() => setRoleDropdownOpen((openNow) => !openNow)}
                   >
-                    <option value="">{t("filterRow")}</option>
-                    {roles.map(r => (
-                      <option key={r} value={r}>{toUpper(r)}</option>
-                    ))}
-                  </select>
+                    <span>{roleLabel}</span>
+                    <svg className="currency-setting-role-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6 15l6-6 6 6" />
+                    </svg>
+                  </button>
+                  {roleDropdownOpen ? (
+                    <div className="currency-setting-role-menu" role="listbox">
+                      {roleOptions.map((option) => {
+                        const selected = String(settingRole || "") === String(option.value || "");
+                        return (
+                          <button
+                            key={option.value || "all"}
+                            type="button"
+                            className={`currency-setting-role-option${selected ? " is-selected" : ""}`}
+                            role="option"
+                            aria-selected={selected}
+                            onClick={() => {
+                              setSettingRole(option.value);
+                              setRoleDropdownOpen(false);
+                            }}
+                          >
+                            <span>{option.label}</span>
+                            {selected ? (
+                              <svg className="currency-setting-role-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M20 6L9 17l-5-5" />
+                              </svg>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
