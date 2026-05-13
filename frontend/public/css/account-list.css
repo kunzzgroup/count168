@@ -593,21 +593,23 @@
     padding-right: 5px;
 }
 
-/* ── Currency Setting：Account 網格卡片（圖一 grid + 圖四選中填色） ── */
+/* ── Currency Setting：Account 卡片 — 與 Add User「Account」欄一致（選中＝白底藍框；未選＝淺灰底）── */
 #currencySettingModal .currency-setting-select-card.account-item-compact {
     margin: 0;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
+    position: relative;
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
     min-height: auto;
     padding: 10px 12px;
     border-radius: 10px;
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
+    /* 未選：同 user modal 預設（圖二） */
+    background: var(--account-select-card-bg);
+    border: 1.5px solid var(--account-select-card-border);
     box-shadow: none;
     cursor: pointer;
     transition:
@@ -616,22 +618,35 @@
         box-shadow var(--duration-fast) var(--ease-out-soft);
 }
 
-#currencySettingModal .currency-setting-select-card.account-item-compact:hover:not(:has(input[type="checkbox"]:checked)) {
-    background: #f8fbff !important;
-    border-color: #93c5fd !important;
-    box-shadow: 0 1px 6px rgba(13, 96, 255, 0.12);
+#currencySettingModal .currency-setting-select-card:hover:not(:has(input[type="checkbox"]:checked)):not(:has(input[type="checkbox"]:disabled)) {
+    background: #e8eef5 !important;
+    border-color: #94a3b8 !important;
 }
 
 #currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:checked) {
-    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
-    border-color: #0d60ff;
-    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.35);
+    /* 選中：同 user modal checked（圖一） */
+    background-color: var(--account-select-card-bg-checked);
+    border: 1.5px solid var(--account-select-card-border-checked);
+    box-shadow: none;
 }
 
 #currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:checked):hover {
-    filter: brightness(1.02);
+    background-color: #f8fbff !important;
+    border-color: var(--account-select-card-border-checked) !important;
 }
 
+/* 未選：主行副行（深灰主色 + muted） */
+#currencySettingModal .currency-setting-select-card:not(:has(input[type="checkbox"]:checked)) .account-label.account-label--process {
+    color: var(--color-page-fg);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+}
+
+#currencySettingModal .currency-setting-select-card:not(:has(input[type="checkbox"]:checked)) .account-label-desc {
+    color: var(--color-muted-fg);
+}
+
+/* 選中：藍主標 + 灰副標（與 user modal 一致） */
 #currencySettingModal .currency-setting-select-card .account-label.account-label--process {
     min-width: 0;
     max-width: 100%;
@@ -639,34 +654,30 @@
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
-    line-height: 1.25;
+    line-height: 1.3;
     font-family: inherit;
     font-size: var(--text-small);
-    font-weight: var(--font-weight-bold);
     letter-spacing: 0.02em;
-    text-transform: uppercase;
-    color: var(--color-primary-strong);
+}
+
+#currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:checked) .account-label.account-label--process {
+    color: var(--account-select-label-checked);
+    font-weight: var(--font-weight-bold);
 }
 
 #currencySettingModal .currency-setting-select-card .account-label-desc {
     display: block;
-    margin-top: 4px;
+    margin-top: 5px;
     font-family: inherit;
     font-size: var(--text-tiny);
     font-weight: var(--font-weight-semibold);
     line-height: 1.35;
-    color: var(--color-muted-fg);
-    text-transform: none;
     letter-spacing: 0;
-}
-
-#currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:checked) .account-label.account-label--process {
-    color: #ffffff;
-    font-weight: var(--font-weight-bold);
+    text-transform: none;
 }
 
 #currencySettingModal .currency-setting-select-card:has(input[type="checkbox"]:checked) .account-label-desc {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--account-select-desc-checked);
 }
 
 #currencySettingModal .currency-setting-select-card input[type="checkbox"] {

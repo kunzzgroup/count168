@@ -8,6 +8,7 @@ import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/account-list.css";
+import "../../../public/css/userlist.css";
 import "../../../public/css/date-range-picker.css";
 
 import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../account/accountLogic.js";
@@ -1198,8 +1199,51 @@ export default function BankProcessListPage() {
             </div>
             <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
           </div>
-          {groupIds.length > 0 && <div className="process-company-filter"><span className="process-company-label">{t("groupId")}</span><div className="process-company-buttons">{groupIds.map((g) => <button key={g} type="button" className={`process-company-btn ${selectedGroup === g ? "active" : ""}`} onClick={() => setSelectedGroup(g)}>{g}</button>)}</div></div>}
-          <div className="process-company-filter"><span className="process-company-label">{t("company")}</span><div className="process-company-buttons">{companyButtons.map((c) => <button key={c.id} type="button" className={`process-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`} onClick={() => onSwitchCompany(c)}>{c.company_id}</button>)}</div></div>
+          <div className="user-gc-inline-panel">
+            {groupIds.length > 0 && (
+              <div className="user-gc-inline-row">
+                <span className="user-gc-inline-label">{t("groupId")}</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                    {groupIds.map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        disabled={tableLoading}
+                        className={`user-gc-segment${selectedGroup === g ? " is-on" : ""}`}
+                        onClick={() => setSelectedGroup(g)}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="user-gc-inline-row">
+              <span className="user-gc-inline-label">{t("company")}</span>
+              <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
+                  {companyButtons.map((c) => {
+                    const active = Number(c.id) === Number(companyId);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        disabled={tableLoading}
+                        className={`user-gc-segment${active ? " is-on" : ""}`}
+                        onClick={() => {
+                          if (!active) void onSwitchCompany(c);
+                        }}
+                      >
+                        {String(c.company_id || "").toUpperCase()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <BankProcessTable
