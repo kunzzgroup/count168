@@ -226,7 +226,8 @@ body.process-page {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: clamp(90px, 7vw, 130px);
+    width: auto;
+    min-width: clamp(90px, 7vw, 130px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: clamp(10px, 0.83vw, 16px);
     border: none;
@@ -238,6 +239,14 @@ body.process-page {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+}
+
+.process-page .content .btn-add .btn-add__icon {
+    flex-shrink: 0;
+    width: clamp(14px, 1.1vw, 18px);
+    height: clamp(14px, 1.1vw, 18px);
+    display: block;
 }
 
 .process-page .content .btn-add:hover {
