@@ -1178,44 +1178,70 @@ export default function BankProcessListPage() {
                   <span className="user-filter-chip__label">{t("showAll")}</span>
                 </button>
               </div>
-              <div className="checkbox-section">
-                <input
-                  type="checkbox"
-                  id="showOfficial"
-                  checked={showOfficial}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setShowOfficial(v);
-                    if (v) setShowAll(false);
+              <div className="userlist-filter-chips" role="group">
+                <button
+                  type="button"
+                  className={`user-filter-chip${showOfficial ? " is-selected" : ""}`}
+                  aria-pressed={showOfficial}
+                  onClick={() => {
+                    if (showOfficial) setShowOfficial(false);
+                    else {
+                      setShowOfficial(true);
+                      setShowAll(false);
+                    }
                   }}
-                />
-                <label htmlFor="showOfficial">{t("showOfficial")}</label>
-              </div>
-              <div className="checkbox-section">
-                <input
-                  type="checkbox"
-                  id="showEInvoice"
-                  checked={showEInvoice}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setShowEInvoice(v);
-                    if (v) setShowAll(false);
+                >
+                  <span className="user-filter-chip__dot" aria-hidden>
+                    {showOfficial ? (
+                      <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 12l4 4 8-8" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span className="user-filter-chip__label">{t("showOfficial")}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`user-filter-chip${showEInvoice ? " is-selected" : ""}`}
+                  aria-pressed={showEInvoice}
+                  onClick={() => {
+                    if (showEInvoice) setShowEInvoice(false);
+                    else {
+                      setShowEInvoice(true);
+                      setShowAll(false);
+                    }
                   }}
-                />
-                <label htmlFor="showEInvoice">{t("showEInvoice")}</label>
-              </div>
-              <div className="checkbox-section">
-                <input
-                  type="checkbox"
-                  id="showBlock"
-                  checked={showBlock}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setShowBlock(v);
-                    if (v) setShowAll(false);
+                >
+                  <span className="user-filter-chip__dot" aria-hidden>
+                    {showEInvoice ? (
+                      <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 12l4 4 8-8" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span className="user-filter-chip__label">{t("showEInvoice")}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`user-filter-chip${showBlock ? " is-selected" : ""}`}
+                  aria-pressed={showBlock}
+                  onClick={() => {
+                    if (showBlock) setShowBlock(false);
+                    else {
+                      setShowBlock(true);
+                      setShowAll(false);
+                    }
                   }}
-                />
-                <label htmlFor="showBlock">{t("showBlock")}</label>
+                >
+                  <span className="user-filter-chip__dot" aria-hidden>
+                    {showBlock ? (
+                      <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 12l4 4 8-8" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span className="user-filter-chip__label">{t("showBlock")}</span>
+                </button>
               </div>
             </div>
             <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
