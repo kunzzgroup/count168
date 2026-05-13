@@ -716,6 +716,15 @@
     border-radius: 0.5rem !important;
 }
 
+#currencySettingModal .currency-fullscreen-bottom-bar .account-btn-save:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 0.125rem 0.25rem rgba(0, 0, 0, 0.12);
+}
+
 /* Add / Select All 与输入框同高，避免「按钮比输入矮一截」 */
 #currencySettingModal .currency-setting-add-btn.account-btn-add,
 #currencySettingModal .currency-setting-selectall-btn.account-btn-add {

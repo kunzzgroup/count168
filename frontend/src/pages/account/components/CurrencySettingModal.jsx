@@ -14,6 +14,7 @@ export default function CurrencySettingModal({
   settingRole,
   setSettingRole,
   onLoadCurrencyLinks,
+  onClearCurrencySelection,
   onSave,
   accounts,
   roles,
@@ -79,10 +80,15 @@ export default function CurrencySettingModal({
                     key={c.id}
                     type="button"
                     className={`currency-setting-pill ${settingCurrencyId === Number(c.id) ? "active" : ""}`}
+                    aria-pressed={settingCurrencyId === Number(c.id)}
                     onClick={() => {
                       const id = Number(c.id);
-                      setSettingCurrencyId(id);
-                      onLoadCurrencyLinks(id);
+                      if (settingCurrencyId === id) {
+                        onClearCurrencySelection();
+                      } else {
+                        setSettingCurrencyId(id);
+                        onLoadCurrencyLinks(id);
+                      }
                     }}
                   >
                     {c.code}
@@ -172,7 +178,13 @@ export default function CurrencySettingModal({
 
         {/* Fixed Bottom Bar */}
         <div className="currency-fullscreen-bottom-bar">
-          <button type="button" className="account-btn account-btn-save currency-setting-submit-btn" onClick={onSave}>
+          <button
+            type="button"
+            className="account-btn account-btn-save currency-setting-submit-btn"
+            disabled={settingCurrencyId == null}
+            title={settingCurrencyId == null ? t("pleaseSelectCurrencyFirst") : undefined}
+            onClick={onSave}
+          >
             {t("save")}
           </button>
           <button type="button" className="account-btn account-btn-cancel currency-setting-cancel-btn" onClick={onClose}>
