@@ -516,7 +516,8 @@
 
 .currency-setting-filter-row {
     display: flex;
-    gap: 15px;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 10px;
     flex-shrink: 0;
 }
@@ -546,29 +547,42 @@
 
 .currency-setting-search-wrap {
     position: relative;
-    width: 250px;
+    width: clamp(420px, 38vw, 640px);
+    max-width: 100%;
+    flex: 0 1 auto;
+    color: #64748b;
 }
 
 .currency-setting-search-icon {
     position: absolute;
-    left: 12px;
+    left: 20px;
     top: 50%;
     transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
-    stroke: #ccc;
+    width: 24px;
+    height: 24px;
+    color: #64748b;
+    pointer-events: none;
 }
 
 .currency-setting-search-input {
     width: 100%;
     box-sizing: border-box;
-    padding: 8px 12px 8px 36px;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
+    height: clamp(42px, 3.2vw, 56px);
+    padding: 0 22px 0 58px;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
     font-family: inherit;
-    font-size: var(--text-small);
-    color: var(--color-body-strong);
-    background: var(--color-surface);
+    font-size: var(--text-base);
+    font-weight: 400;
+    color: #334155;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    outline: none;
+}
+
+.currency-setting-search-input::placeholder {
+    color: #64748b;
+    opacity: 1;
 }
 
 .currency-setting-select {
