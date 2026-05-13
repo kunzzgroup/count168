@@ -964,86 +964,187 @@ label.user-modal-col-title.acc-proc-label {
     align-items: flex-start;
 }
 
-.user-modal-company-buttons {
-    margin-top: 0;
-}
-
-/* User modal — Company：横向滚动 + 图二分段条；滚轮纵转横、按住拖动平移 */
-#userModal .user-modal-company-scroll {
+/* User modal — Company：折叠摘要 + 弹层多选 */
+.user-modal-company-collapsed {
     margin-top: 8px;
-    max-width: 100%;
-    box-sizing: border-box;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border: 1px solid #e2e8f0;
-    border-radius: 9999px;
-    background: #ffffff;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin;
-}
-
-#userModal .user-modal-company-scroll::-webkit-scrollbar {
-    height: 6px;
-}
-
-#userModal .user-modal-company-scroll::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 9999px;
-}
-
-#userModal .user-modal-company-buttons {
     display: flex;
-    flex-wrap: nowrap;
-    gap: 0;
-    width: max-content;
-    min-width: 100%;
-    box-sizing: border-box;
-    border: none;
-    border-radius: 0;
-    overflow: visible;
-    background: #ffffff;
-    padding: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
 }
 
-#userModal .user-modal-company-buttons .transaction-company-btn {
-    flex: 1 1 0;
-    min-width: clamp(40px, 2.75rem, 72px);
-    margin: 0;
-    border: none;
-    border-radius: 0;
-    border-right: 1px solid #e2e8f0;
-    box-shadow: none;
+.user-modal-company-summary {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
     background: #ffffff;
-    color: #1f2937;
+}
+
+.user-modal-company-summary-text {
     font-weight: 700;
-    padding: clamp(6px, 0.45vw, 9px) clamp(4px, 0.35vw, 8px);
-    font-size: clamp(10px, 0.65vw, 12px);
-    transition: background-color 0.15s ease, color 0.15s ease;
+    color: #1f2937;
+    font-size: clamp(11px, 0.75vw, 13px);
+    word-break: break-all;
 }
 
-#userModal .user-modal-company-buttons .transaction-company-btn:last-child {
-    border-right: none;
+.user-modal-company-summary-empty {
+    color: #94a3b8;
+    font-size: clamp(11px, 0.75vw, 13px);
 }
 
-#userModal .user-modal-company-buttons .transaction-company-btn:hover:not(:disabled):not(.active) {
+#userModal .user-modal-company-open-btn {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #1a237e;
+    background: #ffffff;
+    color: #1a237e;
+    font-weight: 600;
+    font-size: clamp(11px, 0.75vw, 13px);
+    cursor: pointer;
+}
+
+#userModal .user-modal-company-open-btn:hover:not(:disabled) {
+    background: #eef2ff;
+}
+
+#userModal .user-modal-company-open-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.user-modal-company-picker-root {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    pointer-events: none;
+}
+
+.user-modal-company-picker-backdrop {
+    position: absolute;
+    inset: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(15, 23, 42, 0.45);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.user-modal-company-picker {
+    position: relative;
+    z-index: 1;
+    width: min(420px, 100%);
+    max-height: min(70vh, 520px);
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.user-modal-company-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 15px;
+}
+
+.user-modal-company-picker-close {
+    border: none;
+    background: transparent;
+    font-size: 22px;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+.user-modal-company-picker-close:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.user-modal-company-picker-search {
+    margin: 10px 14px 0;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+    box-sizing: border-box;
+    width: calc(100% - 28px);
+}
+
+.user-modal-company-picker-list {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0 8px 8px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 120px;
+}
+
+.user-modal-company-picker-row {
+    margin: 0;
+}
+
+.user-modal-company-picker-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    color: #334155;
+}
+
+.user-modal-company-picker-label:hover {
     background: #f8fafc;
 }
 
-#userModal .user-modal-company-buttons .transaction-company-btn.active {
+.user-modal-company-picker-label.is-checked {
+    background: #eff6ff;
+}
+
+.user-modal-company-picker-label input {
+    flex-shrink: 0;
+}
+
+.user-modal-company-picker-footer {
+    padding: 12px 14px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.user-modal-company-picker-done {
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 8px;
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
     color: #ffffff;
-    border-right-color: rgba(255, 255, 255, 0.22);
-    box-shadow: none;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
 }
 
-#userModal .user-modal-company-buttons .transaction-company-btn.active:last-child {
-    border-right: none;
-}
-
-#userModal .user-modal-company-buttons .transaction-company-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.user-modal-company-picker-done:hover {
+    filter: brightness(1.02);
 }
 
 /* Account / Process：四欄格線（對齊原版） */

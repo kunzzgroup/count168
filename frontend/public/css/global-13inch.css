@@ -77,9 +77,15 @@
         padding: 6px 14px !important;
     }
 
-    body.ec-auth-shell.user-page #userModal .user-modal-company-buttons .transaction-company-btn {
+    body.ec-auth-shell.user-page #userModal .user-modal-company-open-btn {
         font-size: clamp(10px, 0.65vw, 12px) !important;
-        padding: clamp(6px, 0.45vw, 9px) clamp(4px, 0.35vw, 8px) !important;
+        padding: clamp(6px, 0.45vw, 9px) clamp(10px, 0.55vw, 14px) !important;
+    }
+
+    body.ec-auth-shell.user-page .user-modal-company-picker-search {
+        font-size: 11px !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
     }
 
     body.ec-auth-shell input:not([type="checkbox"]):not([type="radio"]),

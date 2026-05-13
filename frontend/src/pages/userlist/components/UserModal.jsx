@@ -1,4 +1,5 @@
-import React, { useEffect, useLayoutEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 /** Inline so first paint is 3-column even if extracted CSS applies one frame late */
 const modalBodyStyle = {
@@ -73,7 +74,8 @@ export default function UserModal({
   const modalBodyRef = useRef(null);
   const accountGridRef = useRef(null);
   const processGridRef = useRef(null);
-  const companyScrollRef = useRef(null);
+  const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
+  const [companySearchQuery, setCompanySearchQuery] = useState("");
 
   useLayoutEffect(() => {
     if (!open) return undefined;
@@ -148,70 +150,34 @@ export default function UserModal({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return undefined;
-    const outer = companyScrollRef.current;
-    if (!outer) return undefined;
-    const inner = outer.querySelector(".user-modal-company-buttons");
-    if (!inner) return undefined;
+    if (!open) {
+      setCompanyPickerOpen(false);
+      setCompanySearchQuery("");
+    }
+  }, [open]);
 
-    const onWheel = (e) => {
-      if (outer.scrollWidth <= outer.clientWidth + 1) return;
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      e.preventDefault();
-      outer.scrollLeft += e.deltaY;
-    };
-
-    let dragStartX = 0;
-    let dragStartScroll = 0;
-    let isDragging = false;
-    let suppressNextClick = false;
-
-    const onDown = (e) => {
-      if (e.button !== 0) return;
-      dragStartX = e.clientX;
-      dragStartScroll = outer.scrollLeft;
-      isDragging = false;
-    };
-
-    const onMove = (e) => {
-      if ((e.buttons & 1) === 0) return;
-      if (outer.scrollWidth <= outer.clientWidth + 1) return;
-      const dx = e.clientX - dragStartX;
-      if (!isDragging && Math.abs(dx) > 6) {
-        isDragging = true;
-      }
-      if (isDragging) {
-        e.preventDefault();
-        outer.scrollLeft = dragStartScroll - (e.clientX - dragStartX);
+  useEffect(() => {
+    if (!companyPickerOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        setCompanyPickerOpen(false);
+        setCompanySearchQuery("");
       }
     };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [companyPickerOpen]);
 
-    const onUp = () => {
-      if (isDragging) suppressNextClick = true;
-      isDragging = false;
-    };
+  const selectedCompanyLabels = useMemo(() => {
+    const set = new Set(selectedCompanyIds.map(Number));
+    return modalCompanies.filter((c) => set.has(Number(c.id))).map((c) => String(c.company_id || "").toUpperCase());
+  }, [modalCompanies, selectedCompanyIds]);
 
-    const onClickCapture = (e) => {
-      if (!suppressNextClick) return;
-      e.preventDefault();
-      e.stopPropagation();
-      suppressNextClick = false;
-    };
-
-    outer.addEventListener("wheel", onWheel, { passive: false });
-    inner.addEventListener("mousedown", onDown);
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    inner.addEventListener("click", onClickCapture, true);
-
-    return () => {
-      outer.removeEventListener("wheel", onWheel);
-      inner.removeEventListener("mousedown", onDown);
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      inner.removeEventListener("click", onClickCapture, true);
-    };
-  }, [open, modalCompanies]);
+  const companyPickerFiltered = useMemo(() => {
+    const q = companySearchQuery.trim().toUpperCase();
+    if (!q) return modalCompanies;
+    return modalCompanies.filter((c) => String(c.company_id || "").toUpperCase().includes(q));
+  }, [modalCompanies, companySearchQuery]);
 
   if (!open) return null;
 
@@ -219,6 +185,7 @@ export default function UserModal({
   const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
 
   return (
+    <>
     <div id="userModal" className="modal" style={{ display: "block" }}>
       <div className={`modal-content user-modal-content${isEditMode ? " edit-mode" : ""}`}>
         <div className="modal-header-bar">
@@ -313,27 +280,26 @@ export default function UserModal({
                 </div>
                 {(currentUserRole === "admin" || currentUserRole === "owner") && (
                   <div className="form-group user-info-field company-field-group">
-                    <label>{t("companyRequired")}</label>
-                    <div ref={companyScrollRef} className="user-modal-company-scroll">
-                      <div className="transaction-company-buttons user-modal-company-buttons">
-                      {modalCompanies.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          className={`transaction-company-btn${selectedCompanyIds.includes(Number(c.id)) ? " active" : ""}`}
-                          disabled={fieldLocks.company || !!editingRow?.is_owner_shadow}
-                          onClick={() =>
-                            setSelectedCompanyIds((prev) => {
-                              const id = Number(c.id);
-                              if (prev.includes(id)) return prev.filter((x) => x !== id);
-                              return [...prev, id];
-                            })
-                          }
-                        >
-                          {c.company_id}
-                        </button>
-                      ))}
+                    <label id="user-modal-company-trigger-label">{t("companyRequired")}</label>
+                    <div className="user-modal-company-collapsed">
+                      <div className="user-modal-company-summary" aria-labelledby="user-modal-company-trigger-label">
+                        {selectedCompanyLabels.length ? (
+                          <span className="user-modal-company-summary-text">{selectedCompanyLabels.join(", ")}</span>
+                        ) : (
+                          <span className="user-modal-company-summary-empty">{t("companyNoneSelected")}</span>
+                        )}
                       </div>
+                      <button
+                        type="button"
+                        className="user-modal-company-open-btn"
+                        disabled={fieldLocks.company || !!editingRow?.is_owner_shadow}
+                        onClick={() => {
+                          setCompanySearchQuery("");
+                          setCompanyPickerOpen(true);
+                        }}
+                      >
+                        {t("selectCompanies")}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -501,5 +467,89 @@ export default function UserModal({
         </div>
       </div>
     </div>
+    {companyPickerOpen && (currentUserRole === "admin" || currentUserRole === "owner")
+      ? createPortal(
+          <div className="user-modal-company-picker-root">
+            <button
+              type="button"
+              className="user-modal-company-picker-backdrop"
+              aria-label={t("cancel")}
+              onClick={() => {
+                setCompanyPickerOpen(false);
+                setCompanySearchQuery("");
+              }}
+            />
+            <div
+              className="user-modal-company-picker"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="user-modal-company-picker-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="user-modal-company-picker-header">
+                <span id="user-modal-company-picker-title">{t("companyPickerTitle")}</span>
+                <button
+                  type="button"
+                  className="user-modal-company-picker-close"
+                  aria-label={t("cancel")}
+                  onClick={() => {
+                    setCompanyPickerOpen(false);
+                    setCompanySearchQuery("");
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <input
+                type="search"
+                className="user-modal-company-picker-search"
+                placeholder={t("companySearchPlaceholder")}
+                value={companySearchQuery}
+                onChange={(e) => setCompanySearchQuery(e.target.value)}
+                autoComplete="off"
+              />
+              <ul className="user-modal-company-picker-list">
+                {companyPickerFiltered.map((c) => {
+                  const id = Number(c.id);
+                  const checked = selectedCompanyIds.includes(id);
+                  const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow;
+                  return (
+                    <li key={c.id} className="user-modal-company-picker-row">
+                      <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={rowDisabled}
+                          onChange={() =>
+                            setSelectedCompanyIds((prev) => {
+                              if (prev.includes(id)) return prev.filter((x) => x !== id);
+                              return [...prev, id];
+                            })
+                          }
+                        />
+                        <span>{String(c.company_id || "").toUpperCase()}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="user-modal-company-picker-footer">
+                <button
+                  type="button"
+                  className="user-modal-company-picker-done"
+                  onClick={() => {
+                    setCompanyPickerOpen(false);
+                    setCompanySearchQuery("");
+                  }}
+                >
+                  {t("companyPickerDone")}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+    </>
   );
 }
