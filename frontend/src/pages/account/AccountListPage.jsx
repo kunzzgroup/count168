@@ -32,6 +32,19 @@ function normalizeCompanyRow(row) {
   };
 }
 
+function buildAccountsFetchKey(companyId, searchTerm, showInactive, showAll) {
+  return `${companyId || ""}|${String(searchTerm || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
+}
+
+function buildAccountsUrl(companyId, searchTerm, showInactive, showAll) {
+  const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+  url.searchParams.set("company_id", String(companyId));
+  if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
+  if (showInactive) url.searchParams.set("showInactive", "1");
+  if (showAll) url.searchParams.set("showAll", "1");
+  return url;
+}
+
 export default function AccountListPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -91,6 +104,7 @@ export default function AccountListPage() {
   const [settingRole, setSettingRole] = useState("");
 
   const toastTimerRef = useRef(null);
+  const bootFetchedAccountsKeyRef = useRef(null);
 
   const accountModalCurrencies = useMemo(
     () => currencies.filter((c) => !hiddenCurrencyIds.includes(Number(c.id))),
@@ -154,11 +168,7 @@ export default function AccountListPage() {
     if (!companyId) return;
     setTableLoading(true);
     try {
-      const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
-      url.searchParams.set("company_id", String(companyId));
-      if (searchTerm.trim()) url.searchParams.set("search", searchTerm.trim());
-      if (showInactive) url.searchParams.set("showInactive", "1");
-      if (showAll) url.searchParams.set("showAll", "1");
+      const url = buildAccountsUrl(companyId, searchTerm, showInactive, showAll);
       const res = await fetch(url.toString(), { credentials: "include" });
       const json = await res.json();
       if (!json.success) return notify(json.message || getAccountText(langRef.current, "failedToLoadAccounts"), "danger");
@@ -191,10 +201,22 @@ export default function AccountListPage() {
 
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id") || meJson.data.company_id || rows[0]?.id;
-        setCompanyId(cid ? Number(cid) : null);
-        setSearchTerm(url.searchParams.get("search") || "");
-        setShowInactive(url.searchParams.get("showInactive") === "1");
-        setShowAll(url.searchParams.get("showAll") === "1");
+        const initialCompanyId = cid ? Number(cid) : null;
+        const initialSearchTerm = url.searchParams.get("search") || "";
+        const initialShowInactive = url.searchParams.get("showInactive") === "1";
+        const initialShowAll = url.searchParams.get("showAll") === "1";
+        if (initialCompanyId) {
+          const accountRes = await fetch(buildAccountsUrl(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll).toString(), { credentials: "include" });
+          const accountJson = await accountRes.json();
+          if (accountJson.success) {
+            setAccounts(Array.isArray(accountJson?.data?.accounts) ? accountJson.data.accounts : []);
+            bootFetchedAccountsKeyRef.current = buildAccountsFetchKey(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll);
+          }
+        }
+        setCompanyId(initialCompanyId);
+        setSearchTerm(initialSearchTerm);
+        setShowInactive(initialShowInactive);
+        setShowAll(initialShowAll);
 
       } catch { navigate("/login"); }
       finally { setBootLoading(false); }
@@ -202,8 +224,15 @@ export default function AccountListPage() {
   }, [navigate]);
 
   useEffect(() => {
-    if (!bootLoading && companyId) fetchAccounts();
-  }, [bootLoading, companyId, fetchAccounts]);
+    if (!bootLoading && companyId) {
+      const key = buildAccountsFetchKey(companyId, searchTerm, showInactive, showAll);
+      if (bootFetchedAccountsKeyRef.current === key) {
+        bootFetchedAccountsKeyRef.current = null;
+        return;
+      }
+      fetchAccounts();
+    }
+  }, [bootLoading, companyId, searchTerm, showInactive, showAll, fetchAccounts]);
 
   // -- Computed --
   const allCompanyButtons = useMemo(() => companies.filter(c => c.company_id && String(c.company_id).trim() !== ""), [companies]);
@@ -711,7 +740,7 @@ export default function AccountListPage() {
               <div className="account-header-item">{t("action")}</div>
             </div>
             <div className="account-cards">
-              {(tableLoading || switchingCompany) ? <div className="account-card">{t("loading")}</div> : pageRows.map((a, idx) => {
+              {pageRows.map((a, idx) => {
                 const alertOn = String(a.payment_alert) === "1";
                 const isInactive = String(a.status || "").toLowerCase() === "inactive";
                 return (
