@@ -2582,6 +2582,21 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     transition: none;
 }
 
+#userModal .user-modal-select-card--skeleton {
+    pointer-events: none;
+    cursor: default;
+}
+
+#userModal .user-modal-select-card-skeleton-line {
+    width: 68%;
+    margin-top: 2px;
+}
+
+#userModal .user-modal-select-card-skeleton-line--short {
+    width: 44%;
+    margin-top: 10px;
+}
+
 #userModal .user-modal-select-card:hover:not(:has(input[type="checkbox"]:disabled)) {
     background-color: #e8eef5 !important;
     border-color: #94a3b8 !important;

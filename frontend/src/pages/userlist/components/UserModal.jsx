@@ -42,6 +42,8 @@ import {
   canInteractWithReadOnlyToggle,
 } from "../userListLogic.js";
 
+const MODAL_BOOT_SKELETON_CARDS = 16;
+
 export default function UserModal({
   open,
   onClose,
@@ -68,6 +70,7 @@ export default function UserModal({
   setSelectedProcessIds,
   applyPermTemplate,
   onSave,
+  modalBootLoading = false,
   t,
 }) {
   const cardRef = useRef(null);
@@ -310,7 +313,7 @@ export default function UserModal({
                         id="user-modal-company-open-btn"
                         type="button"
                         className="user-modal-company-open-btn"
-                        disabled={fieldLocks.company || !!editingRow?.is_owner_shadow}
+                        disabled={modalBootLoading || fieldLocks.company || !!editingRow?.is_owner_shadow}
                         onClick={() => {
                           setCompanySearchQuery("");
                           setCompanyPickerOpen(true);
@@ -427,7 +430,14 @@ export default function UserModal({
             <div className="user-modal-col user-modal-col--account account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
                 <div ref={accountGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
-                  {modalAccounts.map((a) => (
+                  {modalBootLoading ? (
+                    Array.from({ length: MODAL_BOOT_SKELETON_CARDS }).map((_, idx) => (
+                      <div key={`account-skeleton-${idx}`} className="account-item-compact account-item-compact--process user-modal-select-card user-modal-select-card--skeleton">
+                        <span className="userlist-skeleton-bar user-modal-select-card-skeleton-line" />
+                        <span className="userlist-skeleton-bar user-modal-select-card-skeleton-line user-modal-select-card-skeleton-line--short" />
+                      </div>
+                    ))
+                  ) : modalAccounts.map((a) => (
                     <label key={a.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
                         type="checkbox"
@@ -450,15 +460,22 @@ export default function UserModal({
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set(accountIdList)))}>{t("selectAll")}</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set()))}>{t("clearAll")}</button>
+                  <button type="button" className="btn-account-control" disabled={modalBootLoading || !!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set(accountIdList)))}>{t("selectAll")}</button>
+                  <button type="button" className="btn-clearall" disabled={modalBootLoading || !!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set()))}>{t("clearAll")}</button>
                 </div>
               </div>
 
             <div className="user-modal-col user-modal-col--process account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
                 <div ref={processGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
-                  {modalProcesses.map((p) => (
+                  {modalBootLoading ? (
+                    Array.from({ length: MODAL_BOOT_SKELETON_CARDS }).map((_, idx) => (
+                      <div key={`process-skeleton-${idx}`} className="account-item-compact account-item-compact--process user-modal-select-card user-modal-select-card--skeleton">
+                        <span className="userlist-skeleton-bar user-modal-select-card-skeleton-line" />
+                        <span className="userlist-skeleton-bar user-modal-select-card-skeleton-line user-modal-select-card-skeleton-line--short" />
+                      </div>
+                    ))
+                  ) : modalProcesses.map((p) => (
                     <label key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
                         type="checkbox"
@@ -480,14 +497,14 @@ export default function UserModal({
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}>{t("selectAll")}</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set()))}>{t("clearAll")}</button>
+                  <button type="button" className="btn-account-control" disabled={modalBootLoading || !!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}>{t("selectAll")}</button>
+                  <button type="button" className="btn-clearall" disabled={modalBootLoading || !!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set()))}>{t("clearAll")}</button>
                 </div>
               </div>
           </div>
         </div>
         <div className="user-modal-footer">
-          <button type="submit" form="userForm" className="btn btn-save">{t("save")}</button>
+          <button type="submit" form="userForm" className="btn btn-save" disabled={modalBootLoading}>{t("save")}</button>
           <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
         </div>
       </div>

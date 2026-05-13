@@ -134,7 +134,7 @@ export const USER_LIST_I18N = {
     permissions: "权限",
     permHome: "首页",
     permAdmin: "管理",
-    permOwnership: "Ownership",
+    permOwnership: "股权",
     permReport: "报表",
     permMaintenance: "维护",
     readOnly: "只读",
