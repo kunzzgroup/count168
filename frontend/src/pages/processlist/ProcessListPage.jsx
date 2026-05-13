@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { isBankCategoryCompany } from "../bankprocesslist/bankProcessHelpers.js";
@@ -45,6 +45,7 @@ function ProcessToastStack({ items }) {
 
 export default function ProcessListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getProcessListText(lang, key, params), [lang]);
   const [cssReady, setCssReady] = useState(false);
@@ -73,6 +74,7 @@ export default function ProcessListPage() {
   const [expirationCompanies, setExpirationCompanies] = useState(null);
   const fetchAbortRef = useRef(null);
   const searchDebounceRef = useRef(null);
+  const skipNextFetchRef = useRef(false);
 
   const [existingProcesses, setExistingProcesses] = useState([]);
 
@@ -145,6 +147,43 @@ export default function ProcessListPage() {
     (async () => {
       let skipLoadingDone = false;
       try {
+        const routePrefetch = location.state?.processListPrefetch;
+        const prefetchCompanyId = routePrefetch?.companyId ? Number(routePrefetch.companyId) : null;
+        const currentUrl = new URL(window.location.href);
+        const prefetchQueryCompany = currentUrl.searchParams.get("company_id");
+
+        if (routePrefetch && prefetchCompanyId && (!prefetchQueryCompany || Number(prefetchQueryCompany) === prefetchCompanyId)) {
+          const prefetchedCompanies = Array.isArray(routePrefetch.companies) ? routePrefetch.companies : [];
+          const prefetchedMeta = routePrefetch.meta || {};
+          setCompanies(prefetchedCompanies);
+          setCompanyId(prefetchCompanyId);
+          setSelectedGroup(routePrefetch.selectedGroup || null);
+
+          const normalizedSearch = filterSearchInput(currentUrl.searchParams.get("search") || "");
+          setSearch(normalizedSearch);
+          setDebouncedSearch(normalizedSearch);
+
+          const showAllChecked = currentUrl.searchParams.has("showAll");
+          const showInactiveChecked = !showAllChecked && currentUrl.searchParams.has("showInactive");
+          setShowAll(showAllChecked);
+          setShowInactive(showInactiveChecked);
+
+          setCurrencies(Array.isArray(prefetchedMeta.currencies) ? prefetchedMeta.currencies : []);
+          setDescriptions(Array.isArray(prefetchedMeta.descriptions) ? prefetchedMeta.descriptions : []);
+          setDays(Array.isArray(prefetchedMeta.days) ? prefetchedMeta.days : []);
+          setExistingProcesses(Array.isArray(prefetchedMeta.existingProcesses) ? prefetchedMeta.existingProcesses : []);
+
+          if (Array.isArray(routePrefetch.rows)) {
+            setRows(sortProcessRows(normalizeRows(routePrefetch.rows)));
+            skipNextFetchRef.current = true;
+            setTableLoading(false);
+          } else {
+            setTableLoading(true);
+          }
+          setLoading(false);
+          return;
+        }
+
         const [meRes, companiesRes] = await Promise.all([
           fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
           fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
@@ -208,7 +247,7 @@ export default function ProcessListPage() {
         if (!skipLoadingDone) setLoading(false);
       }
     })();
-  }, [loadFormMeta, navigate]);
+  }, [loadFormMeta, location.state, navigate]);
 
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
@@ -257,6 +296,10 @@ export default function ProcessListPage() {
 
   useEffect(() => {
     if (loading || !companyId) return;
+    if (skipNextFetchRef.current) {
+      skipNextFetchRef.current = false;
+      return;
+    }
     void fetchRows();
   }, [loading, companyId, debouncedSearch, showInactive, showAll, fetchRows]);
 
@@ -711,22 +754,7 @@ export default function ProcessListPage() {
     setSearch(filterSearchInput(e.target.value));
   };
 
-  if (loading || !cssReady) {
-    return (
-      <div className="container">
-        <div className="content">
-          <h1 className="page-title">{t("pageTitle")}</h1>
-          <div className="process-table-wrapper" id="processTableWrapper">
-            <div className="process-cards" id="processTableBody">
-              <div className="process-card">
-                <div className="card-item">{t("loadingData")}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading || !cssReady) return null;
 
   return (
     <div className="container">
