@@ -65,6 +65,14 @@
         font-weight: var(--font-weight-semibold) !important;
     }
 
+    /* Account List「币别设定」全屏模态：与顶栏主按钮同档，不受上条 .account-btn 12px 压扁 */
+    body.ec-auth-shell #currencySettingModal .account-btn {
+        font-size: var(--text-medium) !important;
+        font-weight: var(--font-weight-semibold) !important;
+        padding: clamp(9px, 0.65vw, 11px) clamp(16px, 1.5vw, 22px) !important;
+        min-height: 40px !important;
+    }
+
     .account-company-btn,
     .transaction-company-btn,
     .process-company-btn,
