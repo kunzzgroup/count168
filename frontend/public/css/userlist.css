@@ -216,6 +216,12 @@ body.account-page .user-gc-segment {
         color 0.15s ease;
 }
 
+body.user-page .user-gc-inline-label,
+body.user-page .user-gc-segment {
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
+}
+
 body.user-page .user-gc-segment:last-child,
 body.account-page .user-gc-segment:last-child {
     border-right: none;
