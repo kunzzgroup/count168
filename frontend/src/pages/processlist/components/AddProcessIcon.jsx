@@ -1,26 +1,15 @@
 import React from "react";
 
-/** Explicit “new” plus + horizontal step flow — Process / Bank Process “Add Process” toolbar. */
+/** Stacked ISO sheets + peeled corner + add plus — branded “Add Process” affordance. */
 export default function AddProcessIcon() {
   return (
-    <svg className="btn-add__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 4.5v5M9.5 7h5"
-        stroke="currentColor"
-        strokeWidth={2.25}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6 18h12"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        opacity={0.9}
-      />
-      <circle cx={6} cy={18} r={3} fill="currentColor" />
-      <circle cx={12} cy={18} r={3} fill="currentColor" />
-      <circle cx={18} cy={18} r={3} fill="currentColor" />
+    <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      {/* Back sheet */}
+      <path opacity={0.7} d="M4.4 15.65 12 19.82 19.6 15.65 12 11.48z" />
+      {/* Front sheet — pentagon suggests lifted top-right corner */}
+      <path d="M4.35 11.22 12 15.42 17.92 12.18 19.74 10.95 12 7.12z" />
+      {/* Floating plus */}
+      <path d="M15.72 3.12h2.1v3.42h3.42v2.08h-3.42v3.42h-2.1v-3.42H12.3V6.54h3.42z" />
     </svg>
   );
 }
