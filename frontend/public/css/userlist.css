@@ -965,27 +965,50 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .user-modal-company-buttons {
-    margin-top: 8px;
+    margin-top: 0;
 }
 
-/* User modal — Company：图二分段条（外框胶囊 + 竖线分隔；选中蓝渐变白字、无阴影） */
+/* User modal — Company：横向滚动 + 图二分段条；滚轮纵转横、按住拖动平移 */
+#userModal .user-modal-company-scroll {
+    margin-top: 8px;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 9999px;
+    background: #ffffff;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+#userModal .user-modal-company-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+#userModal .user-modal-company-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+}
+
 #userModal .user-modal-company-buttons {
     display: flex;
     flex-wrap: nowrap;
     gap: 0;
-    width: 100%;
-    max-width: 100%;
+    width: max-content;
+    min-width: 100%;
     box-sizing: border-box;
-    border: 1px solid #e2e8f0;
-    border-radius: 9999px;
-    overflow: hidden;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
     background: #ffffff;
     padding: 0;
 }
 
 #userModal .user-modal-company-buttons .transaction-company-btn {
     flex: 1 1 0;
-    min-width: 0;
+    min-width: clamp(40px, 2.75rem, 72px);
     margin: 0;
     border: none;
     border-radius: 0;

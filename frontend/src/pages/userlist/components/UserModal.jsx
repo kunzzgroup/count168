@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 
 /** Inline so first paint is 3-column even if extracted CSS applies one frame late */
 const modalBodyStyle = {
@@ -73,6 +73,7 @@ export default function UserModal({
   const modalBodyRef = useRef(null);
   const accountGridRef = useRef(null);
   const processGridRef = useRef(null);
+  const companyScrollRef = useRef(null);
 
   useLayoutEffect(() => {
     if (!open) return undefined;
@@ -145,6 +146,72 @@ export default function UserModal({
     });
     return () => cancelAnimationFrame(a);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const outer = companyScrollRef.current;
+    if (!outer) return undefined;
+    const inner = outer.querySelector(".user-modal-company-buttons");
+    if (!inner) return undefined;
+
+    const onWheel = (e) => {
+      if (outer.scrollWidth <= outer.clientWidth + 1) return;
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      e.preventDefault();
+      outer.scrollLeft += e.deltaY;
+    };
+
+    let dragStartX = 0;
+    let dragStartScroll = 0;
+    let isDragging = false;
+    let suppressNextClick = false;
+
+    const onDown = (e) => {
+      if (e.button !== 0) return;
+      dragStartX = e.clientX;
+      dragStartScroll = outer.scrollLeft;
+      isDragging = false;
+    };
+
+    const onMove = (e) => {
+      if ((e.buttons & 1) === 0) return;
+      if (outer.scrollWidth <= outer.clientWidth + 1) return;
+      const dx = e.clientX - dragStartX;
+      if (!isDragging && Math.abs(dx) > 6) {
+        isDragging = true;
+      }
+      if (isDragging) {
+        e.preventDefault();
+        outer.scrollLeft = dragStartScroll - (e.clientX - dragStartX);
+      }
+    };
+
+    const onUp = () => {
+      if (isDragging) suppressNextClick = true;
+      isDragging = false;
+    };
+
+    const onClickCapture = (e) => {
+      if (!suppressNextClick) return;
+      e.preventDefault();
+      e.stopPropagation();
+      suppressNextClick = false;
+    };
+
+    outer.addEventListener("wheel", onWheel, { passive: false });
+    inner.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    inner.addEventListener("click", onClickCapture, true);
+
+    return () => {
+      outer.removeEventListener("wheel", onWheel);
+      inner.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      inner.removeEventListener("click", onClickCapture, true);
+    };
+  }, [open, modalCompanies]);
 
   if (!open) return null;
 
@@ -247,7 +314,8 @@ export default function UserModal({
                 {(currentUserRole === "admin" || currentUserRole === "owner") && (
                   <div className="form-group user-info-field company-field-group">
                     <label>{t("companyRequired")}</label>
-                    <div className="transaction-company-buttons user-modal-company-buttons">
+                    <div ref={companyScrollRef} className="user-modal-company-scroll">
+                      <div className="transaction-company-buttons user-modal-company-buttons">
                       {modalCompanies.map((c) => (
                         <button
                           key={c.id}
@@ -265,6 +333,7 @@ export default function UserModal({
                           {c.company_id}
                         </button>
                       ))}
+                      </div>
                     </div>
                   </div>
                 )}
