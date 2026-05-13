@@ -32,11 +32,11 @@ function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
     const code = String(codeRaw || '').trim();
     const name = String(nameRaw || '').trim();
     const fallback = String(fallbackRaw || '').trim();
-    // Always show account_id[name] when account_id exists.
-    // If name is empty, fall back to account_id itself: EXPENSES[EXPENSES].
+    // Always show account_id [name] when account_id exists.
+    // If name is empty, fall back to account_id itself: EXPENSES [EXPENSES].
     if (code) {
         const safeName = name || code;
-        return code + '[' + safeName + ']';
+        return code + ' [' + safeName + ']';
     }
     if (name) return name;
     return fallback;
@@ -949,7 +949,8 @@ function renderBankTable() {
         const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
         const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
         if (isOnceRow) {
-            contractCell = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('ONCE') + '</span>';
+            const onceContractClass = baseContractClass === 'contract-active' ? 'contract-1month-active' : baseContractClass;
+            contractCell = '<span class="contract-badge ' + onceContractClass + '">' + escapeHtml('ONCE') + '</span>';
         } else {
             contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
             const contractClass = (grayContracts.indexOf(contract) !== -1 && baseContractClass === 'contract-active')
@@ -1045,9 +1046,11 @@ function openAddProcessForSelectedPermission() {
                     setBankFormDayInputYmd(dayStartEl, '');
                 }
                 const freqEl = document.getElementById('bank_day_start_frequency');
-                if (freqEl) freqEl.value = 'once';
+                if (freqEl) freqEl.value = '1st_of_every_month';
                 updateBankFrequencyOptions();
             }
+            if (typeof setBankDayEndMonthlyCapEnabled === 'function') setBankDayEndMonthlyCapEnabled(false);
+            if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
             if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
             if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi();
             setBankModalLoadingState(false, 'Add Process');
@@ -1187,6 +1190,8 @@ function closeAddBankModal() {
         dayEndClear.removeAttribute('min');
         delete dayEndClear.dataset.bankContractEndHint;
     }
+    if (typeof setBankDayEndMonthlyCapEnabled === 'function') setBankDayEndMonthlyCapEnabled(false);
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
     if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi();
 }
 
@@ -1321,6 +1326,13 @@ async function openBankEditModal(id) {
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
         if (freqEl) freqEl.value = bankProcessFrequencyNormalized(process.day_start_frequency);
+        if (typeof setBankDayEndMonthlyCapEnabled === 'function') {
+            const isFirst = bankProcessFrequencyNormalized(process.day_start_frequency) === '1st_of_every_month';
+            const cr = process.day_end_monthly_cap_enabled;
+            const capOn = isFirst && (cr === 1 || cr === true || String(cr) === '1');
+            setBankDayEndMonthlyCapEnabled(!!capOn);
+        }
+        if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         if (typeof updateBankFrequencyOptions === 'function') updateBankFrequencyOptions();
         if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi({ preserveValues: true });
         document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
@@ -1493,19 +1505,27 @@ function updatePostToTransactionButton() {
 }
 
 window.__accountingInboxList = [];
+let __accountingInboxLoadSeq = 0;
 function loadAccountingInbox() {
+    const seq = ++__accountingInboxLoadSeq;
     const urlStr = buildApiUrl('api/processes/process_accounting_inbox_api.php');
     const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
     const u = new URL(urlStr);
     if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
+    u.searchParams.set('_t', String(Date.now()));
     return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
         .then(r => r.json())
         .then(data => {
+            if (seq !== __accountingInboxLoadSeq) return;
             const list = (data && data.success && data.data) ? data.data : [];
             window.__accountingInboxList = list;
             renderAccountingInbox(list);
         })
-        .catch(err => { console.error('Accounting inbox load failed:', err); renderAccountingInbox([]); });
+        .catch(err => {
+            if (seq !== __accountingInboxLoadSeq) return;
+            console.error('Accounting inbox load failed:', err);
+            renderAccountingInbox([]);
+        });
 }
 function renderAccountingInbox(items) {
     const tbody = document.getElementById('processAccountingInboxTbody');
@@ -1723,7 +1743,7 @@ async function confirmAccountingDueDelete() {
         const result = await response.json();
         if (result.success) {
             showNotification(result.message || 'Removed from Accounting Due', 'success');
-            loadAccountingInbox();
+            await loadAccountingInbox();
             if (typeof fetchProcesses === 'function') {
                 fetchProcesses();
             }
@@ -1857,7 +1877,8 @@ async function performToggleStatus(processId) {
                         const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
                         let contractCellHtml;
                         if (isOnceRow) {
-                            contractCellHtml = '<span class="contract-badge ' + baseContractClass + '">' + escapeHtml('ONCE') + '</span>';
+                            const onceContractClass = baseContractClass === 'contract-active' ? 'contract-1month-active' : baseContractClass;
+                            contractCellHtml = '<span class="contract-badge ' + onceContractClass + '">' + escapeHtml('ONCE') + '</span>';
                         } else {
                             const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
                             const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
@@ -2080,8 +2101,10 @@ function bindBankFieldErrorClear() {
         freqSelectEl.addEventListener('change', function () {
             if (typeof syncBankOnceFrequencyUi === 'function') syncBankOnceFrequencyUi();
             syncBankDayEndContractMin();
+            if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         });
     }
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }
 
 // 处理 Bank Add/Edit Process 表单提交（Edit 时走 update_process）
@@ -2129,6 +2152,14 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.disabled = true;
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
+        // 提交前强制把 hidden 与开关对齐（不判断 disabled，避免 UI 已 ON 但 hidden 仍为 0）
+        (function syncBankDayEndCapHiddenFromToggle() {
+            const sw = document.getElementById('bank_day_end_monthly_cap_switch');
+            const hidden = document.getElementById('bank_day_end_monthly_cap_enabled');
+            if (sw && hidden) {
+                hidden.value = sw.checked ? '1' : '0';
+            }
+        })();
         const formData = new FormData(this);
         if (editId) {
             ['country', 'bank', 'type', 'name'].forEach(function (key) {
@@ -2149,11 +2180,31 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
-        formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        formData.set('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        let dayEndMonthlyCapEnabled = isBankDayEndMonthlyCapEnabled();
+        const dayEndInputEl = document.getElementById('bank_day_end');
+        const dayEndYmd = (dayEndInputEl && dayEndInputEl.value) ? String(dayEndInputEl.value).trim() : '';
+        if (!freqEl || freqEl.value !== '1st_of_every_month') {
+            dayEndMonthlyCapEnabled = false;
+        }
+        if (dayEndMonthlyCapEnabled && !/^\d{4}-\d{2}-\d{2}$/.test(dayEndYmd)) {
+            showNotification('Please select a valid Day end before enabling Day-end cap.', 'danger');
+            bankProcessSubmitInFlight = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = editId ? 'Update Process' : 'Add Process';
+            }
+            return;
+        }
+        formData.delete('day_end_monthly_cap_enabled');
+        formData.set('day_end_monthly_cap_enabled', dayEndMonthlyCapEnabled ? '1' : '0');
+        setBankDayEndMonthlyCapEnabled(dayEndMonthlyCapEnabled);
         if (freqEl && freqEl.value === 'once') {
             formData.set('day_end', '');
             formData.set('contract', '');
             formData.set('insurance', '');
+            formData.delete('day_end_monthly_cap_enabled');
+            formData.set('day_end_monthly_cap_enabled', '0');
         }
         try {
             if (editId) {
@@ -2216,6 +2267,80 @@ allowOnlyNumberCommaPeriod(document.getElementById('bank_insurance'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_cost'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
+/** Day end 开关只控制是否跑 1st 自动链，不锁日历；仅 Frequency=Once 时禁用 Day end 与合约相关控件 */
+function syncBankDayEndCapDatePickersLocked() {
+    if (typeof isBankProcessBillingScheduleLocked === 'function' && isBankProcessBillingScheduleLocked()) {
+        return;
+    }
+    const startPick = document.getElementById('bank_day_start_picker');
+    const endPick = document.getElementById('bank_day_end_picker');
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    const once = freqEl && freqEl.value === 'once';
+    if (startPick) {
+        startPick.disabled = false;
+        startPick.style.opacity = '';
+        startPick.style.cursor = '';
+    }
+    if (once && endPick) {
+        endPick.disabled = true;
+        endPick.style.opacity = '0.55';
+        endPick.style.cursor = 'not-allowed';
+    } else if (endPick) {
+        endPick.disabled = false;
+        endPick.style.opacity = '';
+        endPick.style.cursor = '';
+    }
+}
+
+function syncBankDayEndMonthlyCapSwitchLabel() {
+    const sw = document.getElementById('bank_day_end_monthly_cap_switch');
+    const lab = document.getElementById('bank_day_end_monthly_cap_label_text');
+    if (!sw || !lab) return;
+    lab.textContent = sw.checked ? 'ON' : 'OFF';
+}
+
+function setBankDayEndMonthlyCapEnabled(enabled) {
+    const hiddenEl = document.getElementById('bank_day_end_monthly_cap_enabled');
+    const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
+    const on = !!enabled;
+    if (hiddenEl) hiddenEl.value = on ? '1' : '0';
+    if (switchEl) switchEl.checked = on;
+    syncBankDayEndMonthlyCapSwitchLabel();
+    syncBankDayEndCapDatePickersLocked();
+}
+
+function isBankDayEndMonthlyCapEnabled() {
+    const hiddenEl = document.getElementById('bank_day_end_monthly_cap_enabled');
+    const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
+    if (hiddenEl) {
+        return String(hiddenEl.value || '').trim() === '1';
+    }
+    return !!(switchEl && switchEl.checked);
+}
+
+function syncBankDayEndMonthlyCapUi() {
+    const wrapEl = document.getElementById('bank_day_end_monthly_cap_wrap');
+    const switchEl = document.getElementById('bank_day_end_monthly_cap_switch');
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    const editIdEl = document.getElementById('bank_edit_id');
+    const inEditMode = !!(editIdEl && String(editIdEl.value || '').trim() !== '');
+    const enabledByFrequency = !!(freqEl && freqEl.value === '1st_of_every_month');
+    const showTailSwitch = inEditMode && enabledByFrequency;
+    if (wrapEl) {
+        wrapEl.style.display = showTailSwitch ? '' : 'none';
+    }
+    if (!showTailSwitch) {
+        setBankDayEndMonthlyCapEnabled(false);
+    }
+    if (switchEl) {
+        const locked = (typeof isBankProcessBillingScheduleLocked === 'function' && isBankProcessBillingScheduleLocked());
+        switchEl.disabled = !showTailSwitch || locked;
+        switchEl.style.cursor = switchEl.disabled ? 'not-allowed' : 'pointer';
+    }
+    syncBankDayEndMonthlyCapSwitchLabel();
+    syncBankDayEndCapDatePickersLocked();
+}
+
 /** Frequency = Once：禁用 Day end / Contract / Insurance；切换为非 Once 时恢复 */
 function syncBankOnceFrequencyUi(opts) {
     opts = opts || {};
@@ -2275,6 +2400,7 @@ function syncBankOnceFrequencyUi(opts) {
         }
         if (dayEndWrap) dayEndWrap.style.opacity = '';
     }
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }
 window.syncBankOnceFrequencyUi = syncBankOnceFrequencyUi;
 
@@ -2295,24 +2421,14 @@ function updateBankFrequencyOptions() {
         dayEndEl.value = dayEndEl.min;
     }
 
-    const hasDayEnd = !!dayEndEl.value;
     const monthlyOption = freqEl.querySelector('option[value="monthly"]');
-
-    if (hasDayEnd) {
-        // If day end is set, force to 1st of every month
-        freqEl.value = '1st_of_every_month';
-        if (monthlyOption) {
-            monthlyOption.disabled = true;
-        }
-    } else {
-        // If no day end, allow monthly selection
-        if (monthlyOption) {
-            monthlyOption.disabled = false;
-        }
+    if (monthlyOption) {
+        monthlyOption.disabled = false;
     }
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }
 
-/** 与 api/processes/billing_schedule.php getBillingTermMonthsFromContract 一致 */
+/** 与 api/processes/billing_schedule.php getBillingTermMonthsFromContract 一致（账单期数；1+1→2 等） */
 function parseBankContractTermMonths(contract) {
     if (contract == null || String(contract).trim() === '') {
         return null;
@@ -2327,6 +2443,18 @@ function parseBankContractTermMonths(contract) {
         return Math.max(1, parseInt(m[1], 10));
     }
     return null;
+}
+
+/** Add Process Day end 租期月数：凡「1+N」（1+1 / 1+2 / 1+3）均只算首段 1 个月租期；+N 为损坏罚金不参与租期终点（与入账侧 active 按 1 个月一致） */
+function parseBankContractRentalMonthsForDayEnd(contract) {
+    if (contract == null || String(contract).trim() === '') {
+        return null;
+    }
+    const c = String(contract).trim();
+    if (/^1\+\d+/i.test(c)) {
+        return 1;
+    }
+    return parseBankContractTermMonths(contract);
 }
 
 function addCalendarMonthsToYmd(ymd, months) {
@@ -2348,47 +2476,51 @@ function addCalendarMonthsToYmd(ymd, months) {
     return y + '-' + mo + '-' + day;
 }
 
-/** 与 api/processes/billing_schedule.php billingContractExclusiveEndYmdFirstOfMonth 一致（每月1号结算锚点） */
-function billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths) {
-    if (!startYmd || termMonths < 1) {
-        return null;
-    }
-    const p = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!p) {
-        return null;
-    }
-    const y = parseInt(p[1], 10);
-    const mo = parseInt(p[2], 10);
-    const day = parseInt(p[3], 10);
-    const start = new Date(y, mo - 1, day);
-    if (isNaN(start.getTime())) {
-        return null;
-    }
-    if (day === 1) {
-        start.setMonth(start.getMonth() + termMonths);
-    } else {
-        const firstAnchor = new Date(y, mo, 1);
-        firstAnchor.setMonth(firstAnchor.getMonth() + (termMonths - 1));
-        return firstAnchor.getFullYear() + '-' + String(firstAnchor.getMonth() + 1).padStart(2, '0') + '-' + String(firstAnchor.getDate()).padStart(2, '0');
-    }
-    return start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-' + String(start.getDate()).padStart(2, '0');
+/** 与 billing_schedule.php：exclusive 归还日的前一天 = day_end 最后一天计入 */
+function subtractOneDayFromYmd(ymd) {
+    if (!ymd) return null;
+    const head = String(ymd).trim().substring(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(head)) return null;
+    const p = head.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-/** 与 contractExclusiveEndYmdForFrequency：monthly = 起始日+N月；否则 = 1st 锚点规则 */
+/**
+ * 仅用于 Bank 表单 Day end 自动填 / min / dataset.bankContractEndHint；不参与入账。
+ * 合同边界以服务端 contractExclusiveEndYmdForFrequency 为准；入账仍用 PHP，本函数不改变合同定义。
+ * 起租日当月 1 号：monthly 与 1st 均用 addCalendarMonthsToYmd（如 5/1+3M→8/1）。
+ * 起租日非 1 号：monthly 与 1st 均用「起租日 + N 个自然月」再减一天为含尾日（如 4/15+3M→7/14），不用 1st 锚点 exclusive，避免填成 8/1。
+ * @param {string} frequency 保留供调用方兼容，非 1 号起租时不再分支。
+ */
 function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
     if (!startYmd || termMonths == null || termMonths < 1) {
         return null;
     }
-    if (frequency === 'monthly') {
+    const head = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!head) {
+        return null;
+    }
+    const startDay = parseInt(head[3], 10);
+    if (startDay === 1) {
         return addCalendarMonthsToYmd(startYmd, termMonths);
     }
-    return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+    const exclusiveCal = addCalendarMonthsToYmd(startYmd, termMonths);
+    if (!exclusiveCal) {
+        return null;
+    }
+    return subtractOneDayFromYmd(exclusiveCal) || null;
 }
 
 /**
- * 不自动填写空的 Day end。设置合约对应的 min；早于 min 则上调。
+ * Day start + Contract 有有效月数时自动填入 Day end（与 dd/mm 显示同步）。
+ * 设置合约对应的 min；早于 min 则上调。
+ * 若 Day end 仍等于上次算出的合约结束日，起始日/合约/Frequency 变化后随新结果更新。
  * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
  * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
+ * Day end 自动填由 contractBillingEndYmdForBankForm：1 号起租为起租+N 月；非 1 号为起租+N 月再减一天（与 frequency 入账规则独立）。
  */
 function autoCalculateBankDayEnd() {
     if (isBankProcessBillingScheduleLocked()) return;
@@ -2403,6 +2535,7 @@ function autoCalculateBankDayEnd() {
         dayEndEl.removeAttribute('min');
         delete dayEndEl.dataset.bankContractEndHint;
         updateBankFrequencyOptions();
+        if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         return;
     }
     const start = (dayStartEl && dayStartEl.value || '').trim();
@@ -2414,28 +2547,37 @@ function autoCalculateBankDayEnd() {
         dayEndEl.removeAttribute('min');
         delete dayEndEl.dataset.bankContractEndHint;
         updateBankFrequencyOptions();
+        if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
         return;
     }
-    const term = parseBankContractTermMonths(contract);
+    const term = parseBankContractRentalMonthsForDayEnd(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
+    function setEndYmd(ymd) {
+        if (typeof setBankFormDayInputYmd === 'function') {
+            setBankFormDayInputYmd(dayEndEl, ymd);
+        } else {
+            dayEndEl.value = ymd || '';
+        }
+    }
     if (!calculated) {
-        dayEndEl.min = start;
+        dayEndEl.setAttribute('min', start);
         delete dayEndEl.dataset.bankContractEndHint;
         if (dayEndEl.value && dayEndEl.value < start) {
-            dayEndEl.value = start;
+            setEndYmd(start);
         }
         updateBankFrequencyOptions();
         return;
     }
-    dayEndEl.min = calculated;
+    dayEndEl.setAttribute('min', calculated);
     const cur = (dayEndEl.value || '').trim();
-    if (cur && cur < calculated) {
-        dayEndEl.value = calculated;
+    if (!cur || cur < calculated || (prevContractEnd && cur === prevContractEnd && calculated !== cur)) {
+        setEndYmd(calculated);
     } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
-        dayEndEl.value = calculated;
+        setEndYmd(calculated);
     }
     dayEndEl.dataset.bankContractEndHint = calculated;
     updateBankFrequencyOptions();
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }
 
 
@@ -3094,7 +3236,11 @@ if (addAccountFormEl && !window.__globalAddAccountSubmitHandlerBound) {
                 if (newAccountId && triggerFieldId) {
                     const targetBtn = document.getElementById(triggerFieldId);
                     if (targetBtn) {
-                        const displayText = result.data.account_id || result.data.name || String(newAccountId);
+                        const displayText = formatBankAccountDisplay(
+                            result.data && result.data.account_id,
+                            result.data && result.data.name,
+                            newAccountId
+                        );
                         targetBtn.textContent = displayText;
                         targetBtn.setAttribute('data-value', newAccountId);
                         targetBtn.classList.remove('bank-field-error');
@@ -3486,7 +3632,7 @@ function initBankAccountSelect(buttonId, dropdownId) {
             optionsContainer.appendChild(selectOpt);
         }
 
-        // Display as "account_id[name]" to show both code and name
+        // Display as "account_id [name]" to show both code and name
         function getDisplayText(account) {
             return formatBankAccountDisplay(account.account_id, account.name, account.id);
         }
@@ -4519,20 +4665,21 @@ function closeEditAccountModalFromBank() {
 
 function refreshBankAccountDropdowns() {
     const accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
-    ['bank_card_merchant', 'bank_customer'].forEach(buttonId => {
+    ['bank_card_merchant', 'bank_customer', 'bank_profit_account'].forEach(function (buttonId) {
         const btn = document.getElementById(buttonId);
         const dropdown = document.getElementById(buttonId + '_dropdown');
-        const optionsContainer = dropdown?.querySelector('.custom-select-options');
+        const optionsContainer = dropdown && dropdown.querySelector('.custom-select-options');
         if (!optionsContainer) return;
         optionsContainer.innerHTML = '';
-        accounts.forEach(account => {
+        accounts.forEach(function (account) {
             const option = document.createElement('div');
             option.className = 'custom-select-option';
             option.setAttribute('data-value', account.id);
-            option.textContent = account.account_id || account.name || '';
-            option.addEventListener('click', () => {
+            const label = formatBankAccountDisplay(account.account_id, account.name, account.id);
+            option.textContent = label;
+            option.addEventListener('click', function () {
                 if (btn) {
-                    btn.textContent = account.account_id || account.name || '';
+                    btn.textContent = label;
                     btn.setAttribute('data-value', account.id);
                 }
                 if (dropdown) dropdown.style.display = 'none';
@@ -4540,6 +4687,9 @@ function refreshBankAccountDropdowns() {
             optionsContainer.appendChild(option);
         });
     });
+    if (typeof syncBankFormAccountButtonLabelsFromAccounts === 'function') {
+        syncBankFormAccountButtonLabelsFromAccounts();
+    }
 }
 
 function addProfitSharingRow() {
@@ -4747,6 +4897,39 @@ function initBankProcessModule() {
     const accountingInboxPost = document.getElementById('processAccountingInboxPostBtn');
     if (accountingInboxPost) accountingInboxPost.addEventListener('click', function () { postAccountingInboxToTransaction(); });
 }
+
+/** Bank 表单 submit 在本文件绑定（processlist.js 在之后不再重复绑定）。此处仍绑定 Day end cap 开关与 Frequency→cap UI */
+(function bindBankDayEndCapControlsAlways() {
+    if (window.__bankDayEndCapControlsAlways) return;
+    window.__bankDayEndCapControlsAlways = true;
+    const sw = document.getElementById('bank_day_end_monthly_cap_switch');
+    if (sw && !sw._bankCapSwitchAlwaysBound) {
+        sw._bankCapSwitchAlwaysBound = true;
+        function applyCapFromSwitch() {
+            if (typeof setBankDayEndMonthlyCapEnabled === 'function') {
+                setBankDayEndMonthlyCapEnabled(!!sw.checked);
+            }
+        }
+        sw.addEventListener('change', applyCapFromSwitch);
+        sw.addEventListener('click', function () {
+            var self = this;
+            window.setTimeout(function () {
+                if (typeof setBankDayEndMonthlyCapEnabled === 'function') {
+                    setBankDayEndMonthlyCapEnabled(!!self.checked);
+                }
+            }, 0);
+        });
+    }
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    if (freqEl && !freqEl._bankMonthlyCapUiFromBankModule) {
+        freqEl._bankMonthlyCapUiFromBankModule = true;
+        freqEl.addEventListener('change', function () {
+            if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
+        });
+    }
+    if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
+})();
+
 return {
     init: initBankProcessModule,
     toggleBankSupplierSort: toggleBankSupplierSort,

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/ensure_bank_process_day_end_monthly_cap_column.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -25,8 +26,13 @@ function jsonResponse(bool $success, string $message = '', $data = null): void
 
 function bankProcessHasColumn(PDO $pdo, string $column): bool
 {
-    static $cache = [];
-    if (array_key_exists($column, $cache)) return $cache[$column];
+    $cache = &$GLOBALS['__bank_process_column_exists_cache'];
+    if (!is_array($cache)) {
+        $cache = [];
+    }
+    if (array_key_exists($column, $cache)) {
+        return $cache[$column];
+    }
     try {
         $stmt = $pdo->prepare("SHOW COLUMNS FROM bank_process LIKE ?");
         $stmt->execute([$column]);
@@ -262,6 +268,10 @@ if ($req_company_id) {
     }
 }
 // --- END DATA-LEVEL CATEGORY PERMISSION VALIDATION ---
+
+if (isset($pdo) && $pdo instanceof PDO) {
+    ensureBankProcessDayEndMonthlyCapEnabledColumn($pdo);
+}
 
 switch ($action) {
     case 'get_process':
@@ -813,6 +823,8 @@ function getBankProcesses() {
         $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $hasFlagColumn = bankProcessHasColumn($pdo, 'flag');
         $hasAnyIssueFlagColumn = $hasIssueFlagColumn || $hasFlagColumn;
+        $hasDayEndMonthlyCapColumn = bankProcessHasColumn($pdo, 'day_end_monthly_cap_enabled');
+        $dayEndMonthlyCapSelect = $hasDayEndMonthlyCapColumn ? "bp.day_end_monthly_cap_enabled" : "0 AS day_end_monthly_cap_enabled";
         $hasTxnSubquery = $hasSourceBankProcessId
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
@@ -856,6 +868,7 @@ function getBankProcesses() {
                     bp.day_start,
                     bp.day_start_frequency,
                     bp.day_end,
+                    $dayEndMonthlyCapSelect,
                     bp.status,
                     $issueFlagSelect,
                     bp.dts_modified,
@@ -955,6 +968,7 @@ function getBankProcesses() {
                 'day_start' => $r['day_start'] ?? null,
                 'day_start_frequency' => $r['day_start_frequency'] ?? '1st_of_every_month',
                 'day_end' => $r['day_end'] ?? null,
+                'day_end_monthly_cap_enabled' => ((int)($r['day_end_monthly_cap_enabled'] ?? 0)) === 1 ? '1' : '0',
                 'has_transactions' => ((int)($r['has_transactions'] ?? 0)) > 0,
                 'maintenance_resend_pending' => ((int) ($r['maintenance_resend_pending'] ?? 0)) === 1,
                 'resend_today_day_start_locked' => ((int) ($r['resend_today_day_start_locked'] ?? 0)) === 1,
@@ -985,15 +999,17 @@ function getBankProcess() {
             return;
         }
         $hasSopColumn = bankProcessHasColumn($pdo, 'sop');
+        $hasDayEndTailSwitchCol = bankProcessHasColumn($pdo, 'day_end_monthly_cap_enabled');
         $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $hasFlagColumn = bankProcessHasColumn($pdo, 'flag');
         $hasAnyIssueFlagColumn = $hasIssueFlagColumn || $hasFlagColumn;
         $sopSelect = $hasSopColumn ? "bp.sop" : "NULL AS sop";
         $issueFlagSelect = $hasAnyIssueFlagColumn ? getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn) . " AS issue_flag" : "NULL AS issue_flag";
+        $dayEndMonthlyCapSelect = $hasDayEndTailSwitchCol ? "bp.day_end_monthly_cap_enabled" : "0 AS day_end_monthly_cap_enabled";
         $stmt = $pdo->prepare("SELECT 
                 bp.id, bp.country, bp.bank, bp.type, bp.name,
                 bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance, bp.remark, $sopSelect,
-                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, bp.status, $issueFlagSelect,
+                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, $dayEndMonthlyCapSelect, bp.status, $issueFlagSelect,
                 bp.dts_modified, bp.dts_created,
                 a_cm.account_id as card_merchant_account_id, a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name,
                 a_pa.account_id as profit_account_account_id, a_pa.name as profit_account_name
@@ -1035,6 +1051,7 @@ function getBankProcess() {
             'day_start' => $process['day_start'],
             'day_start_frequency' => $process['day_start_frequency'] ?? '1st_of_every_month',
             'day_end' => $process['day_end'] ?? null,
+            'day_end_monthly_cap_enabled' => ((int)($process['day_end_monthly_cap_enabled'] ?? 0)) === 1 ? '1' : '0',
             'status' => $process['status'],
             'issue_flag' => normalizeBankIssueFlagValue($process['issue_flag'] ?? null),
             'dts_modified' => $process['dts_modified'],
@@ -1085,9 +1102,12 @@ function updateBankProcess() {
         $price = money_optional($_POST['price'] ?? null);
         $profit = money_optional($_POST['profit'] ?? null);
         $profit_sharing = $_POST['profit_sharing'] ?? null;
-        $day_start = isset($_POST['day_start']) ? trim((string)$_POST['day_start']) : '';
-        $day_end = isset($_POST['day_end']) ? trim((string)$_POST['day_end']) : '';
-        $day_start_frequency = isset($_POST['day_start_frequency']) ? trim((string)$_POST['day_start_frequency']) : '1st_of_every_month';
+        $day_start_raw = $_POST['day_start'] ?? '';
+        $day_start = trim((string)(is_array($day_start_raw) ? (string)end($day_start_raw) : $day_start_raw));
+        $day_end_raw = $_POST['day_end'] ?? '';
+        $day_end = trim((string)(is_array($day_end_raw) ? (string)end($day_end_raw) : $day_end_raw));
+        $day_start_frequency_raw = $_POST['day_start_frequency'] ?? '1st_of_every_month';
+        $day_start_frequency = trim((string)(is_array($day_start_frequency_raw) ? (string)end($day_start_frequency_raw) : $day_start_frequency_raw));
         if (!in_array($day_start_frequency, ['monthly', 'once', '1st_of_every_month'], true)) {
             $day_start_frequency = '1st_of_every_month';
         }
@@ -1096,6 +1116,14 @@ function updateBankProcess() {
         }
         if ($day_end === '') {
             $day_end = null;
+        }
+        $day_end_cap_raw = $_POST['day_end_monthly_cap_enabled'] ?? null;
+        if (is_array($day_end_cap_raw)) {
+            $day_end_cap_raw = end($day_end_cap_raw);
+        }
+        $dayEndMonthlyCapEnabled = $day_end_cap_raw !== null && trim((string)$day_end_cap_raw) === '1';
+        if ($day_start_frequency !== '1st_of_every_month' || $day_end === null) {
+            $dayEndMonthlyCapEnabled = false;
         }
         $status = $_POST['status'] ?? 'active';
         if (!in_array($status, ['active', 'inactive', 'waiting'], true)) {
@@ -1106,6 +1134,7 @@ function updateBankProcess() {
         $modifiedByOwnerId = $isOwner ? ($_SESSION['owner_id'] ?? null) : null;
         $currentUserId = $isOwner ? null : getCurrentUserId($pdo);
         $hasSopColumn = bankProcessHasColumn($pdo, 'sop');
+        $hasDayEndTailSwitchCol = bankProcessHasColumn($pdo, 'day_end_monthly_cap_enabled');
         $sql = "UPDATE bank_process SET 
             country=?, bank=?, type=?, name=?, card_merchant_id=?, customer_id=?, profit_account_id=?,
             contract=?, insurance=?, ";
@@ -1117,12 +1146,23 @@ function updateBankProcess() {
             $sql .= "sop=?, ";
             $params[] = $sop;
         }
-        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, day_start_frequency=?, status=?,
+        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, day_start_frequency=?";
+        if ($hasDayEndTailSwitchCol) {
+            $sql .= ", day_end_monthly_cap_enabled=?";
+        }
+        $sql .= ", status=?,
             dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
             WHERE id=? AND company_id=?";
         array_push(
             $params,
-            $remark, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $day_start_frequency, $status,
+            $remark, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $day_start_frequency
+        );
+        if ($hasDayEndTailSwitchCol) {
+            $params[] = $dayEndMonthlyCapEnabled ? 1 : 0;
+        }
+        array_push(
+            $params,
+            $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         );
         $stmt = $pdo->prepare($sql);
