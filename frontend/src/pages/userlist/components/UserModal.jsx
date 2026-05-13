@@ -312,7 +312,7 @@ export default function UserModal({
                 <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
                 <div className="account-grid account-grid--four account-grid--process">
                   {modalAccounts.map((a) => (
-                    <div key={a.id} className="account-item-compact account-item-compact--process user-modal-select-card">
+                    <label key={a.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
                         type="checkbox"
                         id={`acc-${a.id}`}
@@ -326,11 +326,11 @@ export default function UserModal({
                           });
                         }}
                       />
-                      <label htmlFor={`acc-${a.id}`} className="account-label account-label--process">
+                      <span className="account-label account-label--process">
                         {a.account_id}
                         {a.name ? <span className="account-label-desc">{a.name}</span> : null}
-                      </label>
-                    </div>
+                      </span>
+                    </label>
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
@@ -343,7 +343,7 @@ export default function UserModal({
                 <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
                 <div className="account-grid account-grid--four account-grid--process">
                   {modalProcesses.map((p) => (
-                    <div key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
+                    <label key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
                       <input
                         type="checkbox"
                         id={`proc-${p.id}`}
@@ -357,10 +357,10 @@ export default function UserModal({
                           });
                         }}
                       />
-                      <label htmlFor={`proc-${p.id}`} className="account-label account-label--process">
+                      <span className="account-label account-label--process">
                         {p.process_id}{p.description ? <span className="account-label-desc">{p.description}</span> : null}
-                      </label>
-                    </div>
+                      </span>
+                    </label>
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
