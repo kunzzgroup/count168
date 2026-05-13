@@ -1086,15 +1086,6 @@ body.dashboard-page {
         font-size: 18px;
     }
 
-    .date-range-picker {
-        min-width: 130px;
-    }
-
-    .date-range-picker span,
-    .date-range-picker i {
-        font-size: 12px;
-    }
-
     .enhanced-date-picker.month-only {
         min-width: 72px;
     }
@@ -1217,39 +1208,6 @@ body.dashboard-page {
     gap: clamp(10px, 1.5vw, 30px);
     align-items: center;
     margin-bottom: clamp(6px, 0.8vw, 8px);
-}
-
-/* 日期范围选择器样式 */
-.date-range-picker {
-    display: flex;
-    align-items: center;
-    gap: clamp(4px, 0.42vw, 8px);
-    background: var(--scd-card);
-    border: 1px solid var(--scd-input-border);
-    border-radius: clamp(4px, 0.42vw, 8px);
-    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-    min-width: clamp(120px, 12vw, 240px);
-    z-index: 1;
-}
-
-.date-range-picker:hover {
-    border-color: var(--scd-primary);
-    box-shadow: 0 0 0 3px var(--scd-ring);
-}
-
-.date-range-picker i {
-    color: var(--scd-primary);
-    font-size: clamp(9px, 0.82vw, 15px);
-    margin: 0 clamp(2px, 0.32vw, 6px);
-}
-
-.date-range-picker span {
-    color: var(--scd-foreground);
-    font-size: clamp(9px, 0.82vw, 15px);
-    font-weight: 500;
 }
 
 /* 增强的日期选择器样式 */
@@ -1569,8 +1527,8 @@ body.dashboard-page {
     font-family: var(--font-heading-page);
 }
 
-/* 日历弹窗样式 */
-.calendar-popup {
+/* 日历弹窗：仅 dashboard 图表工具栏（.calendar-popup--toolbar），避免覆盖 transaction/report 共用的 date-range-picker.css */
+.calendar-popup.calendar-popup--toolbar {
     position: fixed;
     background: var(--scd-card);
     border: 1px solid var(--scd-input-border);
@@ -1583,14 +1541,14 @@ body.dashboard-page {
     overflow: visible;
 }
 
-.calendar-header {
+.calendar-popup.calendar-popup--toolbar .calendar-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 10px;
 }
 
-.calendar-nav-btn {
+.calendar-popup.calendar-popup--toolbar .calendar-nav-btn {
     background: transparent;
     border: 0px solid var(--scd-input-border);
     border-radius: 4px;
@@ -1603,23 +1561,23 @@ body.dashboard-page {
     transition: all 0.2s;
 }
 
-.calendar-nav-btn:hover {
+.calendar-popup.calendar-popup--toolbar .calendar-nav-btn:hover {
     background-color: var(--scd-primary-soft-hover);
     border-color: var(--scd-primary);
 }
 
-.calendar-nav-btn i {
+.calendar-popup.calendar-popup--toolbar .calendar-nav-btn i {
     color: var(--scd-foreground);
     font-size: clamp(9px, 0.57vw, 11px);
 }
 
-.calendar-month-year {
+.calendar-popup.calendar-popup--toolbar .calendar-month-year {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-.calendar-month-year select {
+.calendar-popup.calendar-popup--toolbar .calendar-month-year select {
     border: 1px solid var(--scd-input-border);
     border-radius: 4px;
     padding: clamp(4px, 0.3vw, 6px) clamp(6px, 0.4vw, 8px);
@@ -1632,24 +1590,24 @@ body.dashboard-page {
     font-family: var(--font-heading-page);
 }
 
-.calendar-month-year select:hover {
+.calendar-popup.calendar-popup--toolbar .calendar-month-year select:hover {
     border-color: var(--scd-primary);
 }
 
-.calendar-month-year select:focus {
+.calendar-popup.calendar-popup--toolbar .calendar-month-year select:focus {
     outline: none;
     border-color: var(--scd-primary);
     box-shadow: 0 0 0 2px var(--scd-ring);
 }
 
-.calendar-weekdays {
+.calendar-popup.calendar-popup--toolbar .calendar-weekdays {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 2px;
     margin-bottom: 4px;
 }
 
-.calendar-weekday {
+.calendar-popup.calendar-popup--toolbar .calendar-weekday {
     text-align: center;
     font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 600;
@@ -1658,13 +1616,13 @@ body.dashboard-page {
     font-family: var(--font-heading-page);
 }
 
-.calendar-days {
+.calendar-popup.calendar-popup--toolbar .calendar-days {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 0px;
 }
 
-.calendar-day {
+.calendar-popup.calendar-popup--toolbar .calendar-day {
     aspect-ratio: 1;
     display: flex;
     align-items: center;
@@ -1682,70 +1640,70 @@ body.dashboard-page {
     font-family: var(--font-heading-page);
 }
 
-.calendar-day:hover {
+.calendar-popup.calendar-popup--toolbar .calendar-day:hover {
     background-color: var(--scd-primary-soft-hover);
 }
 
-.calendar-day.today {
+.calendar-popup.calendar-popup--toolbar .calendar-day.today {
     border-color: var(--scd-primary);
     font-weight: 600;
 }
 
-.calendar-day.selected {
+.calendar-popup.calendar-popup--toolbar .calendar-day.selected {
     background-color: var(--scd-primary);
     color: white;
     font-weight: 600;
 }
 
-.calendar-day.in-range {
+.calendar-popup.calendar-popup--toolbar .calendar-day.in-range {
     background-color: var(--scd-primary-soft);
     color: var(--scd-foreground);
     border-radius: 0px;
 }
 
-.calendar-day.start-date {
+.calendar-popup.calendar-popup--toolbar .calendar-day.start-date {
     background-color: var(--scd-primary);
     color: white;
     border-radius: 6px 0 0 6px;
 }
 
-.calendar-day.end-date {
+.calendar-popup.calendar-popup--toolbar .calendar-day.end-date {
     background-color: var(--scd-primary);
     color: white;
     border-radius: 0 6px 6px 0;
 }
 
-.calendar-day.start-date.end-date {
+.calendar-popup.calendar-popup--toolbar .calendar-day.start-date.end-date {
     border-radius: 6px;
 }
 
-.calendar-day.start-date.selecting {
+.calendar-popup.calendar-popup--toolbar .calendar-day.start-date.selecting {
     border-radius: 6px;
 }
 
-.calendar-day.preview-range {
+.calendar-popup.calendar-popup--toolbar .calendar-day.preview-range {
     background-color: rgba(59, 130, 246, 0.15);
     color: var(--scd-foreground);
     border-radius: 0px;
 }
 
-.calendar-day.preview-end {
+.calendar-popup.calendar-popup--toolbar .calendar-day.preview-end {
     background-color: rgba(59, 130, 246, 0.4);
     color: var(--scd-foreground);
     font-weight: 600;
     border: 1px dashed var(--scd-primary);
 }
 
-.calendar-day.other-month {
+.calendar-popup.calendar-popup--toolbar .calendar-day.other-month {
     color: var(--scd-input-border);
 }
 
-.calendar-day.disabled {
+.calendar-popup.calendar-popup--toolbar .calendar-day.disabled {
     color: var(--scd-input-border);
     cursor: not-allowed;
 }
 
-.calendar-day.disabled:hover {
+.calendar-popup.calendar-popup--toolbar .calendar-day.disabled:hover {
     background-color: transparent;
 }
 
