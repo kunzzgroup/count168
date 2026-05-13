@@ -12,6 +12,15 @@ body {
     min-height: 100vh;
 }
 
+/* Report 路由使用 .container；与 Transaction 主区域一致：左侧留 sidebar、右侧与左侧视觉留白协调 */
+body.dashboard-page.report-page .container {
+    max-width: none;
+    margin: 0;
+    padding: 1px clamp(20px, 2.08vw, 40px) 20px clamp(180px, 14.06vw, 270px);
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .domain-report-filter-container {
     background: white;
     border-radius: 12px;
