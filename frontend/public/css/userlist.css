@@ -1097,21 +1097,34 @@ label.user-modal-col-title.acc-proc-label {
     overflow-y: auto;
     flex: 1;
     min-height: 120px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 10px;
+    align-content: start;
 }
 
 .user-modal-company-picker-row {
     margin: 0;
+    min-width: 0;
 }
 
 .user-modal-company-picker-label {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 8px 6px;
     border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
     color: #334155;
+    min-width: 0;
+}
+
+.user-modal-company-picker-label > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .user-modal-company-picker-label:hover {
