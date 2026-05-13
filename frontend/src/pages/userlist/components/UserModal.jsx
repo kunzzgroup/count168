@@ -280,16 +280,12 @@ export default function UserModal({
                 </div>
                 {(currentUserRole === "admin" || currentUserRole === "owner") && (
                   <div className="form-group user-info-field company-field-group">
-                    <label id="user-modal-company-trigger-label">{t("companyRequired")}</label>
-                    <div className="user-modal-company-collapsed">
-                      <div className="user-modal-company-summary" aria-labelledby="user-modal-company-trigger-label">
-                        {selectedCompanyLabels.length ? (
-                          <span className="user-modal-company-summary-text">{selectedCompanyLabels.join(", ")}</span>
-                        ) : (
-                          <span className="user-modal-company-summary-empty">{t("companyNoneSelected")}</span>
-                        )}
-                      </div>
+                    <div className="user-modal-company-heading-row">
+                      <label id="user-modal-company-trigger-label" htmlFor="user-modal-company-open-btn">
+                        {t("companyRequired")}
+                      </label>
                       <button
+                        id="user-modal-company-open-btn"
                         type="button"
                         className="user-modal-company-open-btn"
                         disabled={fieldLocks.company || !!editingRow?.is_owner_shadow}
@@ -300,6 +296,13 @@ export default function UserModal({
                       >
                         {t("selectCompanies")}
                       </button>
+                    </div>
+                    <div className="user-modal-company-summary" aria-labelledby="user-modal-company-trigger-label">
+                      {selectedCompanyLabels.length ? (
+                        <span className="user-modal-company-summary-text">{selectedCompanyLabels.join(", ")}</span>
+                      ) : (
+                        <span className="user-modal-company-summary-empty">{t("companyNoneSelected")}</span>
+                      )}
                     </div>
                   </div>
                 )}

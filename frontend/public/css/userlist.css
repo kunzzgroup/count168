@@ -964,19 +964,26 @@ label.user-modal-col-title.acc-proc-label {
     align-items: flex-start;
 }
 
-/* User modal — Company：折叠摘要 + 弹层多选 */
-.user-modal-company-collapsed {
-    margin-top: 8px;
+/* User modal — Company：标题行（标签 + 右侧按钮）+ 下方摘要 */
+#userModal .company-field-group .user-modal-company-heading-row {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
     width: 100%;
     min-width: 0;
 }
 
+#userModal .company-field-group .user-modal-company-heading-row label {
+    display: block;
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 0;
+    padding: 0 4px;
+}
+
 .user-modal-company-summary {
-    flex: 1 1 auto;
+    margin-top: 8px;
     min-width: 0;
     padding: 8px 12px;
     border: 1px solid #e2e8f0;
