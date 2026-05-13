@@ -28,8 +28,6 @@ export default defineConfig(({ mode }) => {
     ],
     base: mode === "production" ? "/frontend/dist/" : "/",
     server: {
-      port: 5173,
-      strictPort: true,
       proxy: {
         "/dashboard.php": { target: phpTarget, changeOrigin: true },
         "/member.php": { target: phpTarget, changeOrigin: true },
