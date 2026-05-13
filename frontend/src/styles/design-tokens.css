@@ -35,7 +35,7 @@
   --sidebar-user-role-size: clamp(0.95rem, 0.92rem + 0.05vw, 1.1rem);
 
   /* 语言切换栏 */
-  --sidebar-lang-width: clamp(8.5rem, 8.19rem + 0.49vw, 10.8rem);
+  --sidebar-lang-width: clamp(8.5rem, 10.19rem + .49vw, 10.8rem);
   --sidebar-lang-height: clamp(2.5rem, 2.4rem + 0.16vw, 3.2rem);
   --sidebar-lang-font: clamp(0.95rem, 0.92rem + 0.05vw, 1.1rem);
 
