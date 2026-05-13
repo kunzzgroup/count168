@@ -94,8 +94,29 @@ body.transaction-page {
 /* Process List 同款 user-gc 分段控件嵌在筛选白卡内：不要工具条式的顶部分隔线 */
 body.transaction-page .transaction-bottom-filters .user-gc-inline-panel {
     border-top: none;
-    padding: 0;
+    /* 工具条同款控件在窄卡内：保留一点内边距与行距，避免与上方 checkbox 贴死、三行标签挤成一团 */
+    padding: 10px 0 4px;
     background: transparent;
+    row-gap: 14px;
+}
+
+/* 窄卡：略增内边距 + segment 不换行不收缩（userlist 的 segment-scroll 原为宽工具条横向滚动） */
+body.transaction-page .transaction-bottom-filters .user-gc-inline-pills--segment-scroll {
+    padding-top: 2px;
+    padding-bottom: 6px;
+    scrollbar-gutter: stable;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-segment-group {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-segment {
+    flex: 0 0 auto;
+    flex-shrink: 0;
 }
 
 .transaction-page .transaction-form-group {
