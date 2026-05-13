@@ -98,6 +98,40 @@ body.process-page {
     color: #475569;
 }
 
+/* Date range：与 userlist-search-bar / filter chip 一致的药丸框（Bank Process 工具条） */
+.process-page .process-list-date-filter--pill .date-range-picker {
+    border-radius: 999px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    background: var(--color-surface, #ffffff);
+    min-height: calc(18px + 12px + 2px);
+    padding: 6px clamp(10px, 0.85vw, 14px) 6px clamp(6px, 0.5vw, 10px);
+    gap: clamp(4px, 0.42vw, 8px);
+}
+
+.process-page .process-list-date-filter--pill .date-range-picker:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+.process-page .process-list-date-filter--pill .date-range-picker i.fas {
+    flex: 0 0 30px;
+    width: 30px;
+    min-width: 30px;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: clamp(11px, 0.85vw, 15px);
+}
+
+.process-page .process-list-date-filter--pill .date-range-picker span {
+    font-size: var(--text-small);
+    font-weight: 500;
+    color: #0f172a;
+}
+
 .process-page .search-icon {
     position: absolute;
     left: 10px;
@@ -833,16 +867,25 @@ body.process-page {
     flex-shrink: 0;
 }
 
-/* Bank 搜索框宽度稍窄，给 checkbox 留空间 */
-.process-page.process-page--bank .search-input {
-    width: clamp(110px, 8.5vw, 200px);
+/* Bank：Search（userlist 药丸）与 Date range（药丸）同宽 */
+.process-page.process-page--bank .action-controls-row .search-container.userlist-search-bar {
+    width: clamp(150px, 17vw, 240px);
+    max-width: clamp(150px, 17vw, 240px);
 }
 
-/* Bank 日期选择器宽度稍窄 */
-.process-page.process-page--bank .process-list-date-filter,
-.process-page.process-page--bank .process-list-date-filter .date-range-picker {
-    min-width: clamp(140px, 11vw, 200px);
-    width: clamp(140px, 11vw, 200px);
+.process-page.process-page--bank .action-controls-row .process-list-date-filter--pill .date-range-picker {
+    min-width: clamp(150px, 17vw, 240px);
+    width: clamp(150px, 17vw, 240px);
+}
+
+/* Bank 搜索：供应商/卡号大小写敏感，不强制大写 */
+body.process-page.process-page--bank .search-container.userlist-search-bar .userlist-search-input {
+    text-transform: none !important;
+}
+
+/* Bank 旧式 search-input（无 userlist 外壳时） */
+.process-page.process-page--bank .search-container:not(.userlist-search-bar) .search-input {
+    width: clamp(110px, 8.5vw, 200px);
 }
 
 @media (max-height: 820px) {
