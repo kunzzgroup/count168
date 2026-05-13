@@ -55,7 +55,12 @@
     body.ec-auth-shell.user-page .btn-delete,
     body.ec-auth-shell.account-page .btn-add,
     body.ec-auth-shell.account-page .btn-delete,
-    body.ec-auth-shell.account-page .btn-currency-setting {
+    body.ec-auth-shell.account-page .btn-currency-setting,
+    body.ec-auth-shell.user-page #userModal .btn-save,
+    body.ec-auth-shell.user-page #userModal .btn-cancel,
+    body.ec-auth-shell.user-page #userModal .btn-secondary,
+    body.ec-auth-shell.user-page #userModal .btn-account-control,
+    body.ec-auth-shell.user-page #userModal .btn-clearall {
         font-size: var(--text-medium) !important;
         font-weight: var(--font-weight-semibold) !important;
     }

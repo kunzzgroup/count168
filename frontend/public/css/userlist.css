@@ -628,9 +628,11 @@ body.account-page .user-gc-segment:disabled {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: var(--userlist-btn-add-width);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
     padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: clamp(10px, 0.83vw, 16px);
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
@@ -639,6 +641,7 @@ body.account-page .user-gc-segment:disabled {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
     text-align: center;
 }
 
@@ -1054,10 +1057,9 @@ label.user-modal-col-title.acc-proc-label {
 
 .user-page .modal-content .user-modal-footer .btn-save,
 .user-page .modal-content .user-modal-footer .btn-cancel {
-    border-radius: 8px;
-    min-width: clamp(108px, 7.8vw, 140px);
-    min-height: 36px;
-    font-size: clamp(12px, 0.84vw, 15px);
+    border-radius: 6px;
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
 }
 
 /* ── Form fields ── */
@@ -1402,21 +1404,25 @@ label.user-modal-col-title.acc-proc-label {
     transform: translate(-50%, -50%);
 }
 
-/* ── btn-save (shared with sidebar area) ───────────────────── */
+/* ── btn-save：与顶栏 .btn-add 同款尺寸与字重（底色仍为蓝渐变）── */
 .user-page .btn-save {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: var(--userlist-btn-add-width);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
     padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: clamp(10px, 0.83vw, 16px);
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
     text-align: center;
 }
 
@@ -1429,21 +1435,24 @@ label.user-modal-col-title.acc-proc-label {
 
 .user-page .btn-secondary,
 .user-page .btn-account-control {
+    /* 与顶栏 .btn-add 同款盒模型；保留绿色主操作 */
     background: linear-gradient(180deg, #44e44d 0%, #227426 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: 120px;
-    min-height: 35.5px;
-    padding: 8px 0;
-    font-size: 15.936px;
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: 0 2px 4px rgba(0, 141, 28, 0.25);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
     text-align: center;
 }
 
@@ -1455,13 +1464,15 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .user-page .btn-clearall {
+    /* 与顶栏 .btn-delete 同款（红渐变 + 宽度 token） */
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: var(--font-heading-page);
-    width: 120px;
-    min-height: 35.5px;
-    padding: 8px 20px;
-    font-size: 15.936px;
+    width: var(--userlist-btn-delete-width);
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
+    margin-left: 0;
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
