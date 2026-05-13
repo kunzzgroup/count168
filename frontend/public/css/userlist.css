@@ -153,9 +153,15 @@ body.account-page .user-gc-inline-label {
     font-weight: var(--font-weight-bold);
     color: #1f2937;
     white-space: nowrap;
-    /* EN「Company:」与 ZH「公司：」等切换时保持首列占位一致，避免整行 chip 区左右跳动 */
+    /* EN「Company:」等与切换时保持首列占位一致 */
     min-width: 6.75rem;
     box-sizing: border-box;
+}
+
+/* 中文「集团：」「公司：」较短，单独收紧首列占位 */
+body.lang-zh.user-page .user-gc-inline-label,
+body.lang-zh.account-page .user-gc-inline-label {
+    min-width: 4.75rem;
 }
 
 body.user-page .user-gc-inline-pills,
