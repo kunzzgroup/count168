@@ -134,8 +134,12 @@ export function notifyTransactionDataChanged(sourceTag) {
   }
 }
 
+const bankCategoryCompanyCache = new Map();
+
 export async function isBankCategoryCompany(companyCode, buildApiUrl) {
-  if (!companyCode) return false;
+  const cacheKey = String(companyCode || "").trim().toUpperCase();
+  if (!cacheKey) return false;
+  if (bankCategoryCompanyCache.has(cacheKey)) return bankCategoryCompanyCache.get(cacheKey);
   try {
     const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
       method: "POST",
@@ -146,7 +150,9 @@ export async function isBankCategoryCompany(companyCode, buildApiUrl) {
     const json = await res.json();
     const permissions = Array.isArray(json?.data?.permissions) ? json.data.permissions : [];
     const normalized = permissions.map((p) => String(p || "").toLowerCase());
-    return normalized.includes("bank") && !normalized.includes("games") && !normalized.includes("gambling");
+    const isBankOnly = normalized.includes("bank") && !normalized.includes("games") && !normalized.includes("gambling");
+    bankCategoryCompanyCache.set(cacheKey, isBankOnly);
+    return isBankOnly;
   } catch {
     return false;
   }

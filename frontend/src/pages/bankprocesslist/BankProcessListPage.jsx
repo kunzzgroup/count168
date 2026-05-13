@@ -680,7 +680,39 @@ export default function BankProcessListPage() {
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
       if (!bankCategory) {
-        navigate(`/process-list?company_id=${c.id}`, { replace: true });
+        let processListPrefetch = {
+          companyId: Number(c.id),
+          companies,
+          selectedGroup: c.group_id ? String(c.group_id).toUpperCase() : null,
+        };
+        try {
+          const listUrl = new URL(buildApiUrl("api/processes/processlist_api.php"));
+          listUrl.searchParams.set("permission", "Games");
+          listUrl.searchParams.set("company_id", String(c.id));
+
+          const metaUrl = new URL(buildApiUrl("api/processes/addprocess_api.php"));
+          metaUrl.searchParams.set("company_id", String(c.id));
+
+          const [listRes, metaRes] = await Promise.all([
+            fetch(listUrl.toString(), { credentials: "include" }),
+            fetch(metaUrl.toString(), { credentials: "include" }),
+          ]);
+          const [listJson, metaJson] = await Promise.all([listRes.json(), metaRes.json()]);
+          const metaData = metaJson?.data || metaJson || {};
+          processListPrefetch = {
+            ...processListPrefetch,
+            rows: listRes.ok && listJson?.success && Array.isArray(listJson.data) ? listJson.data : null,
+            meta: {
+              currencies: Array.isArray(metaData.currencies) ? metaData.currencies : [],
+              descriptions: Array.isArray(metaData.descriptions) ? metaData.descriptions : [],
+              days: Array.isArray(metaData.days) ? metaData.days : [],
+              existingProcesses: Array.isArray(metaData.existingProcesses) ? metaData.existingProcesses : [],
+            },
+          };
+        } catch {
+          /* ProcessList will fetch normally if the warmup fails. */
+        }
+        navigate(`/process-list?company_id=${c.id}`, { replace: true, state: { processListPrefetch } });
         return;
       }
       setCompanyId(Number(c.id));
