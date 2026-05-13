@@ -32,6 +32,7 @@ const userModalColStyle = {
 };
 import {
   PERMISSION_KEYS,
+  PERMISSION_ICONS,
   ALL_ROLE_OPTIONS,
   normRole,
   getAvailableRolesForCreation,
@@ -245,7 +246,22 @@ export default function UserModal({
                   {PERMISSION_KEYS.map((key) => (
                     <div key={key} className="permission-item" style={{ opacity: permDisabledMap[key] ? 0.6 : 1 }}>
                       <label className="permission-label">
+                        <input
+                          type="checkbox"
+                          className="permission-checkbox"
+                          disabled={fieldLocks.sidebar || permDisabledMap[key] || !!editingRow?.is_owner_shadow}
+                          checked={permSelected.has(key)}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setPermSelected((prev) => {
+                              const n = new Set(prev);
+                              if (on) n.add(key); else n.delete(key);
+                              return n;
+                            });
+                          }}
+                        />
                         <span className="permission-name">
+                          <svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d={PERMISSION_ICONS[key]} /></svg>
                           {key === "home"
                             ? t("permHome")
                             : key === "admin"
@@ -266,20 +282,6 @@ export default function UserModal({
                                             ? t("process")
                                             : key.charAt(0).toUpperCase() + key.slice(1)}
                         </span>
-                        <input
-                          type="checkbox"
-                          className="permission-checkbox user-modal-check-ring"
-                          disabled={fieldLocks.sidebar || permDisabledMap[key] || !!editingRow?.is_owner_shadow}
-                          checked={permSelected.has(key)}
-                          onChange={(e) => {
-                            const on = e.target.checked;
-                            setPermSelected((prev) => {
-                              const n = new Set(prev);
-                              if (on) n.add(key); else n.delete(key);
-                              return n;
-                            });
-                          }}
-                        />
                       </label>
                     </div>
                   ))}
@@ -310,15 +312,10 @@ export default function UserModal({
                 <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
                 <div className="account-grid account-grid--four account-grid--process">
                   {modalAccounts.map((a) => (
-                    <div key={a.id} className="account-item-compact account-item-compact--process user-modal-select-card">
-                      <label htmlFor={`acc-${a.id}`} className="account-label account-label--process">
-                        {a.account_id}
-                        {a.name ? <span className="account-label-desc">{a.name}</span> : null}
-                      </label>
+                    <div key={a.id} className="account-item-compact account-item-compact--process">
                       <input
                         type="checkbox"
                         id={`acc-${a.id}`}
-                        className="user-modal-check-ring"
                         checked={selectedAccountIds.has(Number(a.id))}
                         disabled={!!editingRow?.is_owner_shadow}
                         onChange={(e) => {
@@ -329,6 +326,10 @@ export default function UserModal({
                           });
                         }}
                       />
+                      <label htmlFor={`acc-${a.id}`} className="account-label account-label--process">
+                        {a.account_id}
+                        {a.name ? <span className="account-label-desc">{a.name}</span> : null}
+                      </label>
                     </div>
                   ))}
                 </div>
@@ -342,14 +343,10 @@ export default function UserModal({
                 <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
                 <div className="account-grid account-grid--four account-grid--process">
                   {modalProcesses.map((p) => (
-                    <div key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
-                      <label htmlFor={`proc-${p.id}`} className="account-label account-label--process">
-                        {p.process_id}{p.description ? <span className="account-label-desc">{p.description}</span> : null}
-                      </label>
+                    <div key={p.id} className="account-item-compact account-item-compact--process">
                       <input
                         type="checkbox"
                         id={`proc-${p.id}`}
-                        className="user-modal-check-ring"
                         checked={selectedProcessIds.has(Number(p.id))}
                         disabled={!!editingRow?.is_owner_shadow}
                         onChange={(e) => {
@@ -360,6 +357,9 @@ export default function UserModal({
                           });
                         }}
                       />
+                      <label htmlFor={`proc-${p.id}`} className="account-label account-label--process">
+                        {p.process_id}{p.description ? <span className="account-label-desc">{p.description}</span> : null}
+                      </label>
                     </div>
                   ))}
                 </div>
