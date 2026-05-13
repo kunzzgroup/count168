@@ -2262,34 +2262,49 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     font-weight: bold;
 }
 
-/* User modal — Account / Process：文案左、圆形勾选右；白底描边，选中加粗色边（不改 Permissions） */
+/* User modal — Account / Process：文案左、勾选右；配色与全局 account 卡片一致；长文案换行不省略（不改 Permissions） */
 #userModal .user-modal-select-card {
     flex-direction: row-reverse;
     align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
-    min-height: 56px;
-    border-radius: 10px;
-    padding: 10px 12px;
-    background: #ffffff;
-    border: 2px solid #e5e7eb;
+    min-height: auto;
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: #f8fbff;
+    border: 1px solid #e2e8f0;
     box-shadow: none;
 }
 
 #userModal .user-modal-select-card:hover {
-    background-color: #f8fafc !important;
-    border-color: #c7d2fe !important;
+    background-color: #f0f8ff !important;
+    border-color: #6366f1 !important;
 }
 
 #userModal .user-modal-select-card:has(input[type="checkbox"]:checked) {
-    border-color: #5850ec;
+    border-color: #6366f1;
 }
 
-#userModal .user-modal-select-card .account-label {
+#userModal .user-modal-select-card .account-label,
+#userModal .user-modal-select-card .account-label.account-label--process {
     flex: 1 1 auto;
     min-width: 0;
+    max-width: 100%;
     text-align: left;
     align-self: flex-start;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.25;
+}
+
+#userModal .user-modal-select-card .account-label-desc {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
 }
 
 #userModal .user-modal-select-card input[type="checkbox"] {
@@ -2310,8 +2325,8 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 }
 
 #userModal .user-modal-select-card input[type="checkbox"]:checked {
-    background: #5850ec;
-    border-color: #5850ec;
+    background: #6366f1;
+    border-color: #6366f1;
 }
 
 #userModal .user-modal-select-card input[type="checkbox"]:checked::after {
@@ -2333,7 +2348,7 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 }
 
 #userModal .user-modal-select-card input[type="checkbox"]:checked + .account-label {
-    color: #5850ec;
+    color: #6366f1;
     font-weight: 700;
 }
 
