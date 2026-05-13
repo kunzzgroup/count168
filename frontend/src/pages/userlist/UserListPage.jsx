@@ -41,6 +41,12 @@ function normalizeCompanyRow(row) {
   };
 }
 
+/** 集团分润/合并虚拟行（get_companies_helper _applyGroupLinkVirtualRows）；User List 分组只按库表真实 group_id */
+function isVirtualGroupLinkCompanyRow(c) {
+  const ls = c?.link_source_group ?? c?.linkSourceGroup;
+  return ls != null && String(ls).trim() !== "";
+}
+
 export default function UserListPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -101,7 +107,13 @@ export default function UserListPage() {
     return c && String(c.company_id || "").toUpperCase() === "C168";
   }, [companies, companyId]);
 
-  const allCompanyButtons = useMemo(() => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""), [companies]);
+  const allCompanyButtons = useMemo(
+    () =>
+      companies.filter(
+        (c) => c.company_id && String(c.company_id).trim() !== "" && !isVirtualGroupLinkCompanyRow(c)
+      ),
+    [companies]
+  );
   const groupIds = useMemo(
     () =>
       [...new Set(allCompanyButtons
