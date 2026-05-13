@@ -799,7 +799,7 @@ body.process-page {
 /* action-buttons-container 和 action-buttons 不再 override，与 Games 完全统一（margin-top: 20px, padding: 10px 20px）使 separator line 正确显示 */
 
 .process-page.process-page--bank .action-buttons-container .user-gc-inline-panel {
-    padding: 0 16px 8px 16px;
+    padding: 8px 16px 8px 16px;
 }
 
 .process-page.process-page--bank .pagination-container {
