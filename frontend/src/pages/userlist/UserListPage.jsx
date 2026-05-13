@@ -39,6 +39,9 @@ function normalizeCompanyRow(row) {
   };
 }
 
+/** Skeleton row count while switching company / fetching (fills viewport ~like real rows). */
+const USERLIST_SKELETON_ROWS = 12;
+
 export default function UserListPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -64,6 +67,7 @@ export default function UserListPage() {
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
   const pendingDeleteRef = useRef(null);
+  const listFetchAbortRef = useRef(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -136,6 +140,9 @@ export default function UserListPage() {
     return filteredSorted.slice(start, start + PAGE_SIZE);
   }, [filteredSorted, currentPage, showAll]);
 
+  const listBusy = tableLoading || switchingCompany;
+  const skeletonColCount = showBulkDeleteColumn ? 10 : 9;
+
   const permDisabledMap = useMemo(() => {
     const allowed = new Set(getCurrentUserRolePermissions(currentUserRole));
     const m = {};
@@ -190,21 +197,55 @@ export default function UserListPage() {
 
   const fetchUsers = useCallback(async () => {
     if (!companyId || !me) return;
+    listFetchAbortRef.current?.abort();
+    const ac = new AbortController();
+    listFetchAbortRef.current = ac;
     setTableLoading(true);
     try {
-      const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ action: "get" }) });
+      const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "get" }),
+        signal: ac.signal,
+      });
       const json = await res.json();
-      if (!res.ok || !json.success) { notify(json.message || t("failedToLoadUsers"), "danger"); setUsersRaw([]); return; }
+      if (ac.signal.aborted) return;
+      if (!res.ok || !json.success) {
+        notify(json.message || t("failedToLoadUsers"), "danger");
+        setUsersRaw([]);
+        return;
+      }
       let list = Array.isArray(json.data) ? json.data.map((u) => ({ ...u, is_owner_shadow: false })) : [];
       if (normRole(me.role) === "owner" && me.user_id) {
         try {
-          const r2 = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ action: "get", id: me.user_id }) });
+          const r2 = await fetch(buildApiUrl("api/users/userlist_api.php"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ action: "get", id: me.user_id }),
+            signal: ac.signal,
+          });
           const j2 = await r2.json();
-          if (j2.success && j2.data && normRole(j2.data.role) === "owner") { const shadow = { ...j2.data, is_owner_shadow: true }; if (!list.some((u) => Number(u.id) === Number(shadow.id))) { list = [shadow, ...list]; } }
-        } catch { /* ignore */ }
+          if (ac.signal.aborted) return;
+          if (j2.success && j2.data && normRole(j2.data.role) === "owner") {
+            const shadow = { ...j2.data, is_owner_shadow: true };
+            if (!list.some((u) => Number(u.id) === Number(shadow.id))) list = [shadow, ...list];
+          }
+        } catch {
+          if (ac.signal.aborted) return;
+        }
       }
-      setUsersRaw(list); setCurrentPage(1); setSelectedDeleteIds(new Set()); setSelectAllUsers(false);
-    } catch { notify(t("failedToLoadUsers"), "danger"); } finally { setTableLoading(false); }
+      setUsersRaw(list);
+      setCurrentPage(1);
+      setSelectedDeleteIds(new Set());
+      setSelectAllUsers(false);
+    } catch (e) {
+      if (ac.signal.aborted) return;
+      notify(t("failedToLoadUsers"), "danger");
+    } finally {
+      if (!ac.signal.aborted) setTableLoading(false);
+    }
   }, [companyId, me, notify, t]);
 
   useEffect(() => {
@@ -231,20 +272,34 @@ export default function UserListPage() {
     })();
   }, [navigate]);
 
-  useEffect(() => { if (!bootLoading && companyId && me) void fetchUsers(); }, [bootLoading, companyId, me, fetchUsers]);
+  useEffect(() => {
+    if (!bootLoading && companyId && me) void fetchUsers();
+  }, [bootLoading, companyId, me, fetchUsers]);
+
+  useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
   const onSwitchCompany = async (c) => {
     if (!c?.id || (Number(c.id) === Number(companyId) && !switchingCompany)) {
       return;
     }
     setSwitchingCompany(true);
+    setTableLoading(true);
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
-      if (!json.success) { notify(json.error || json.message || t("couldNotSwitchCompany"), "danger"); return; }
+      if (!json.success) {
+        notify(json.error || json.message || t("couldNotSwitchCompany"), "danger");
+        setTableLoading(false);
+        return;
+      }
       setCompanyId(Number(c.id));
       notifyCompanySessionUpdated();
-    } catch { notify(t("companySwitchFailed"), "danger"); } finally { setSwitchingCompany(false); }
+    } catch {
+      notify(t("companySwitchFailed"), "danger");
+      setTableLoading(false);
+    } finally {
+      setSwitchingCompany(false);
+    }
   };
 
   const handlePickGroup = useCallback(
@@ -565,8 +620,25 @@ export default function UserListPage() {
                 </div>
               )}
             </div>
-            <div className="user-cards">
-              {(tableLoading || switchingCompany) ? <div className="user-card user-card--loading show-card">{t("loading")}</div> : pageRows.map((r, idx) => {
+            <div className="user-cards" aria-busy={listBusy}>
+              {listBusy
+                ? Array.from({ length: USERLIST_SKELETON_ROWS }, (_, idx) => (
+                    <div
+                      key={`userlist-sk-${idx}`}
+                      className={`user-card user-card--skeleton show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
+                      aria-hidden
+                    >
+                      {Array.from({ length: skeletonColCount }, (_, ci) => (
+                        <div key={ci} className="card-item">
+                          <span
+                            className="userlist-skeleton-bar"
+                            style={{ width: ci === 0 ? "34%" : `${62 + (ci % 4) * 8}%` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                : pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
                 return (

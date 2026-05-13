@@ -20,7 +20,7 @@ export function normalizeOwnerCompanyRow(row) {
   };
 }
 
-/** One pill per company code; prefer the row matching `preferredCompanyId` when duplicates exist (same as maintenance transaction filters).. */
+/** One pill per company code; prefer the row matching `preferredCompanyId` when duplicates exist (same as maintenance transaction filters). */
 export function dedupeOwnerCompaniesByCode(companies, preferredCompanyId) {
   const list = filterCompaniesWithDisplayId(companies);
   const byCode = new Map();
