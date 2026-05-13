@@ -125,12 +125,6 @@ export function sanitizeSearchApiData(data) {
   };
 }
 
-function absDecimalGt(value, eps = 1e-5) {
-  const n = parseBalanceValue(value);
-  if (n === null) return false;
-  return Math.abs(n) > eps;
-}
-
 export function rowPassesHideZeroBalanceFilter(showZero, row) {
   if (showZero) return true;
   const num = parseBalanceValue(row.balance);
@@ -195,52 +189,77 @@ export function normalizeRateRowsByCrDr(leftRows, rightRows, isRate) {
   return { leftRows: normalizedLeft, rightRows: normalizedRight };
 }
 
+/**
+ * Show Payment Only / Show Win/Loss Only 行筛选 — 与 `js/transaction.js` `applyZeroBalanceFilterAndRender`
+ * 内「先应用 Show Payment Only / Show Win/Loss 过滤」分支一致（含仅 W/L、双勾选+Show 0 balance 的 OR 规则；W/L 以 win_loss_full 优先的金额非零为准，不用 has_win_loss_transactions）。
+ */
 export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly, showCaptureOnly, showZeroBalance = false }) {
-  let filteredLeft = rawLeft;
-  let filteredRight = rawRight;
-  if (!showPaymentOnly) {
-    return { filteredLeft, filteredRight };
+  const safeLeft = Array.isArray(rawLeft) ? rawLeft : [];
+  const safeRight = Array.isArray(rawRight) ? rawRight : [];
+  if (!showPaymentOnly && !showCaptureOnly) {
+    return { filteredLeft: safeLeft, filteredRight: safeRight };
   }
-  const isZeroBalanceRow = (row) => {
-    const bal = parseBalanceValue(row.balance);
-    if (bal === null) return false;
-    try {
-      return MoneyDecimal.toDecimal(String(bal), 0).abs().lte("0.00001");
-    } catch {
-      return Math.abs(bal) <= 1e-5;
-    }
-  };
+
+  const eps = "0.00001";
+
   const hasCrdr = (row) => {
     const byFlag =
       typeof row.has_crdr_transactions === "boolean"
         ? row.has_crdr_transactions
         : typeof row.has_crdr_transactions === "number"
           ? row.has_crdr_transactions !== 0
-          : parseInt(row.has_crdr_transactions || "0", 10) !== 0;
+          : parseInt(String(row.has_crdr_transactions || "0"), 10) !== 0;
     const crdr = parseBalanceValue(row.cr_dr);
-    const byValue = crdr !== null && Math.abs(crdr) > 1e-5;
+    let byValue = false;
+    if (crdr !== null) {
+      try {
+        byValue = MoneyDecimal.toDecimal(crdr, 0).abs().gt(eps);
+      } catch {
+        byValue = Math.abs(crdr) > 1e-5;
+      }
+    }
     return byFlag || byValue;
   };
+
+  const isZeroBalance = (row) => {
+    const bal = parseBalanceValue(row.balance);
+    if (bal === null) return false;
+    try {
+      return MoneyDecimal.toDecimal(bal, 0).abs().lte(eps);
+    } catch {
+      return Math.abs(bal) <= 1e-5;
+    }
+  };
+
   const hasWinLoss = (row) => {
-    const byFlag =
-      typeof row.has_win_loss_transactions === "boolean"
-        ? row.has_win_loss_transactions
-        : typeof row.has_win_loss_transactions === "number"
-          ? row.has_win_loss_transactions !== 0
-          : parseInt(row.has_win_loss_transactions || "0", 10) !== 0;
-    const wl = parseBalanceValue(row.win_loss);
-    const byValue = wl !== null && Math.abs(wl) > 1e-5;
-    return byFlag || byValue;
+    const rawWinLoss =
+      row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ""
+        ? String(row.win_loss_full).replace(/,/g, "").trim()
+        : row.win_loss;
+    const wl = parseBalanceValue(rawWinLoss);
+    if (wl === null) return false;
+    try {
+      return MoneyDecimal.toDecimal(wl, 0).abs().gt(eps);
+    } catch {
+      return Math.abs(wl) > 1e-5;
+    }
   };
-  /** 与 `js/transaction.js` handlePaymentOnlyFilter 中 shouldShow 一致 */
-  const shouldShow = showCaptureOnly
-    ? (row) => hasCrdr(row) || hasWinLoss(row)
-    : showZeroBalance
-      ? (row) => hasCrdr(row) || isZeroBalanceRow(row)
-      : hasCrdr;
-  filteredLeft = rawLeft.filter(shouldShow);
-  filteredRight = rawRight.filter(shouldShow);
-  return { filteredLeft, filteredRight };
+
+  let shouldShow = () => true;
+  if (showPaymentOnly && showCaptureOnly) {
+    shouldShow = showZeroBalance
+      ? (row) => isZeroBalance(row) || hasCrdr(row) || hasWinLoss(row)
+      : (row) => hasCrdr(row) || hasWinLoss(row);
+  } else if (showPaymentOnly) {
+    shouldShow = showZeroBalance ? (row) => isZeroBalance(row) || hasCrdr(row) : hasCrdr;
+  } else if (showCaptureOnly) {
+    shouldShow = showZeroBalance ? (row) => isZeroBalance(row) || hasWinLoss(row) : hasWinLoss;
+  }
+
+  return {
+    filteredLeft: safeLeft.filter(shouldShow),
+    filteredRight: safeRight.filter(shouldShow),
+  };
 }
 
 export function applyZeroBalanceFilter(filteredLeft, filteredRight, showZeroBalance) {
