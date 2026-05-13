@@ -75,6 +75,7 @@ export default function ProcessListPage() {
   const fetchAbortRef = useRef(null);
   const searchDebounceRef = useRef(null);
   const skipNextFetchRef = useRef(false);
+  const rowsRef = useRef([]);
 
   const [existingProcesses, setExistingProcesses] = useState([]);
 
@@ -124,6 +125,10 @@ export default function ProcessListPage() {
     }, 300);
     return () => window.clearTimeout(searchDebounceRef.current);
   }, [search]);
+
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
 
   const loadFormMeta = useCallback(async (cid) => {
     if (!cid) return;
@@ -267,7 +272,7 @@ export default function ProcessListPage() {
     if (fetchAbortRef.current) fetchAbortRef.current.abort();
     const ac = new AbortController();
     fetchAbortRef.current = ac;
-    setTableLoading(true);
+    if (rowsRef.current.length === 0) setTableLoading(true);
     try {
       const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
       url.searchParams.set("permission", "Games");
@@ -440,17 +445,13 @@ export default function ProcessListPage() {
 
   const onSwitchCompany = async (company) => {
     if (!company?.id || Number(company.id) === Number(companyId)) return;
-    setRows([]);
     setSelectedIds(new Set());
-    setCurrentPage(1);
-    setTableLoading(true);
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${company.id}`), {
         credentials: "include",
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setTableLoading(false);
         const reason = json?.data?.reason;
         if (reason === "expired" || reason === "no_set") {
           setExpirationCompanies([
@@ -461,6 +462,7 @@ export default function ProcessListPage() {
         notify(json.message || json.error || t("switchCompanyFailed"), "danger");
         return;
       }
+      setCurrentPage(1);
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(company.company_id, buildApiUrl);
       if (bankCategory) {
@@ -470,7 +472,6 @@ export default function ProcessListPage() {
       setCompanyId(Number(company.id));
       setSelectedGroup(company.group_id ? String(company.group_id).toUpperCase() : null);
     } catch {
-      setTableLoading(false);
       notify(t("switchCompanyFailed"), "danger");
     }
   };
