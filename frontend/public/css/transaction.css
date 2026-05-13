@@ -52,6 +52,7 @@ body.transaction-page {
 .transaction-page .transaction-main-content {
     display: flex;
     gap: 24px;
+    align-items: flex-start;
 }
 
 .transaction-page .transaction-search-section,
@@ -1964,6 +1965,7 @@ body.transaction-page:not(.member-winloss-page) .transaction-main-content {
     display: flex;
     flex-direction: row;
     gap: 24px;
+    align-items: flex-start;
     margin-bottom: 0;
     overflow: visible;
 }
