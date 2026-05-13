@@ -18,6 +18,7 @@ import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./transactionPaymentPageUti
 import { getRoleClass } from "./transactionPaymentLogic.js";
 import "flatpickr/dist/flatpickr.min.css";
 import "../../../public/css/transaction.css";
+import "../../../public/css/userlist.css";
 
 /** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
 const ROUTE_BODY_CLASSES_TO_CLEAR = [

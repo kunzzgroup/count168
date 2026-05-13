@@ -34,7 +34,8 @@ body.dashboard-page.maintenance-page {
 .container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
+    /* 与 Domain/Customer Report、Transaction 主区一致：左侧 sidebar 留白 + 右侧响应式边距 */
+    padding: 1px clamp(20px, 2.08vw, 40px) 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
     min-height: 100vh;
     height: auto;
@@ -168,8 +169,10 @@ body.dashboard-page.maintenance-page {
     flex-direction: column;
     gap: 10px;
     max-width: 1600px;
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
+    box-sizing: border-box;
 }
 
 .maintenance-filters {
@@ -424,15 +427,15 @@ body.dashboard-page.maintenance-page {
     border-color: #4a90e2;
 }
 
-/* List Styles - 使用 table 保持表头与内容对齐 */
+/* List Styles - 使用 table 保持表头与内容对齐；与 .maintenance-search-section 同宽 */
 .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
-    max-width: 1500px;
+    max-width: 1600px;
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: clamp(8px, 0.9vw, 16px);
-    padding-right: clamp(8px, 0.9vw, 16px);
+    box-sizing: border-box;
 }
 
 .maintenance-table {
@@ -618,7 +621,12 @@ body.dashboard-page.maintenance-page {
     padding: clamp(48px, 4vw, 72px) clamp(24px, 2vw, 40px);
     margin-top: 10px;
     margin-bottom: clamp(20px, 1.67vw, 32px);
+    max-width: 1600px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
     text-align: center;
+    box-sizing: border-box;
 }
 
 .empty-state {
