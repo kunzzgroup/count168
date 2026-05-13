@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
@@ -174,7 +174,8 @@ export default function UserListPage() {
     return filteredSorted.slice(start, start + PAGE_SIZE);
   }, [filteredSorted, currentPage, showAll]);
 
-  const listBusy = tableLoading || switchingCompany;
+  const pageBooting = bootLoading || !me;
+  const listBusy = pageBooting || tableLoading || switchingCompany;
   /** 仅首次无数据时显示简单加载行；有缓存数据时保持表格行（切换公司/刷新不闪骨架条） */
   const showInitialTableLoading = listBusy && usersRaw.length === 0;
 
@@ -218,7 +219,7 @@ export default function UserListPage() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("user-page");
     setCssReady(true);
@@ -294,27 +295,42 @@ export default function UserListPage() {
   }, [companyId, me, notify]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) { navigate("/login", { replace: true }); return; }
-        if (String(meJson.data.user_type || "").toLowerCase() === "member") { window.location.assign(new URL("/member", window.location.origin).href); return; }
-        const perms = Array.isArray(meJson.data.permissions) ? meJson.data.permissions : [];
-        if (perms.length > 0 && !perms.includes("admin")) { navigate("/dashboard", { replace: true }); return; }
-        setMe(meJson.data);
-        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-        const compJson = await compRes.json();
-        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
-        setCompanies(rows);
-        const url = new URL(window.location.href);
-        const cid = url.searchParams.get("company_id");
-        const effective = cid || meJson.data.company_id || rows[0]?.id || null;
-        setCompanyId(effective ? Number(effective) : null);
-        setSearch(String(url.searchParams.get("search") || "").replace(/[^A-Z0-9]/gi, "").toUpperCase());
-        setShowAll(url.searchParams.get("showAll") === "1");
-      } catch { navigate("/login", { replace: true }); } finally { setBootLoading(false); }
-    })();
+    let cancelled = false;
+    let timerId = 0;
+    const rafId = requestAnimationFrame(() => {
+      timerId = window.setTimeout(async () => {
+        try {
+          const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+          const meJson = await meRes.json();
+          if (cancelled) return;
+          if (!meRes.ok || !meJson.success || !meJson.data) { navigate("/login", { replace: true }); return; }
+          if (String(meJson.data.user_type || "").toLowerCase() === "member") { window.location.assign(new URL("/member", window.location.origin).href); return; }
+          const perms = Array.isArray(meJson.data.permissions) ? meJson.data.permissions : [];
+          if (perms.length > 0 && !perms.includes("admin")) { navigate("/dashboard", { replace: true }); return; }
+          setMe(meJson.data);
+          const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
+          const compJson = await compRes.json();
+          if (cancelled) return;
+          const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
+          setCompanies(rows);
+          const url = new URL(window.location.href);
+          const cid = url.searchParams.get("company_id");
+          const effective = cid || meJson.data.company_id || rows[0]?.id || null;
+          setCompanyId(effective ? Number(effective) : null);
+          setSearch(String(url.searchParams.get("search") || "").replace(/[^A-Z0-9]/gi, "").toUpperCase());
+          setShowAll(url.searchParams.get("showAll") === "1");
+        } catch {
+          navigate("/login", { replace: true });
+        } finally {
+          if (!cancelled) setBootLoading(false);
+        }
+      }, 0);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+      window.clearTimeout(timerId);
+    };
   }, [navigate]);
 
   useEffect(() => {
@@ -504,7 +520,7 @@ export default function UserListPage() {
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
-  if (bootLoading || !me || !cssReady) return null;
+  if (!cssReady) return null;
 
   return (
     <>
