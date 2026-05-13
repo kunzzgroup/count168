@@ -29,7 +29,7 @@
 
 .date-range-picker span {
     color: #374151;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: var(--text-small);
     font-weight: 500;
 }
 
@@ -115,7 +115,7 @@
 
 .calendar-weekday {
     text-align: center;
-    font-size: clamp(9px, 0.63vw, 12px);
+    font-size: var(--text-small);
     font-weight: 600;
     color: #898989;
     padding: clamp(2px, 0.21vw, 4px) 0;
@@ -134,7 +134,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    font-size: clamp(9px, 0.63vw, 12px);
+    font-size: var(--text-tiny);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;

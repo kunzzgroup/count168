@@ -121,7 +121,7 @@ body.transaction-page {
     margin-bottom: 0;
     font-weight: bold;
     color: #374151;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: var(--text-small);
     font-family: var(--font-heading-page);
     width: clamp(60px, 5.5vw, 105px);
     flex-shrink: 0;
@@ -135,7 +135,7 @@ body.transaction-page {
     padding: clamp(3px, 0.31vw, 6px) clamp(6px, 0.52vw, 10px);
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: var(--text-small);
     box-sizing: border-box;
     transition: all 0.2s;
     background-color: #f3f3f3;
@@ -240,7 +240,7 @@ body.transaction-page {
     background: #f3f3f3;
     cursor: pointer;
     text-align: left;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: var(--text-small);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -561,15 +561,16 @@ body.transaction-page {
     padding: clamp(4px, 0.42vw, 5px) clamp(6px, 0.52vw, 10px);
     text-align: left;
     border: 1px solid #d0d7de;
-    font-weight: bold;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-base);
 }
 
 .transaction-page .transaction-table-row td {
     border: 1px solid #d0d7de;
     min-height: 28px;
     background-color: transparent;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
 }
 
 .transaction-page .transaction-table-row:hover td {
@@ -581,8 +582,8 @@ body.transaction-page {
     background-color: #f6f8fa;
     padding: clamp(4px, 0.42vw, 5px) clamp(6px, 0.52vw, 10px);
     border: 1px solid #d0d7de;
-    font-weight: 800;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--text-medium);
 }
 
 /* B/F, Win/Loss, Cr/Dr, Balance 列右对齐（主表头 + 主表行 + 主表合计行） */
@@ -623,15 +624,15 @@ body.transaction-page {
     padding: clamp(4px, 0.42vw, 5px) clamp(6px, 0.52vw, 10px);
     text-align: center;
     border: 1px solid #d0d7de;
-    font-weight: bold;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-base);
 }
 
 .transaction-page .transaction-summary-table .transaction-table-row td {
     padding: clamp(3px, 0.31vw, 6px) clamp(6px, 0.52vw, 10px);
     border: 1px solid #d0d7de;
     background-color: transparent;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: var(--text-medium);
 }
 
 /* Summary 表中数值列右对齐 */
