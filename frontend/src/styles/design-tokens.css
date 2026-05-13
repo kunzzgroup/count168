@@ -95,8 +95,6 @@
   --text-page-title-mb: clamp(1.6rem, 1.35vw, 2.6rem);
   --font-weight-page-title: 600;
   --letter-spacing-page-title: -0.025em;
-  /* 全屏 Add/Edit User 等弹层顶栏主标题 */
-  --text-title: var(--text-page-title);
 
   /* --- 主区水平留白（userlist / ownership 容器）--- */
   --page-pad-inline-end: 4rem;

@@ -796,7 +796,7 @@ body.account-page .user-gc-segment:disabled {
 .user-page .modal-header-bar h2 {
     margin: 0;
     padding: clamp(6px, 0.42vw, 8px) 0;
-    font-size: var(--text-title);
+    font-size: var(--text-page-title);
     font-weight: 700;
     color: #1e293b;
     letter-spacing: 0.2px;
