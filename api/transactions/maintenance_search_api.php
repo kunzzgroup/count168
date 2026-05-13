@@ -53,8 +53,11 @@ function formatMaintenanceIdProductLikeDataSummary(array $row): string
 
     if ($productType === 'sub' && $idSub !== '') {
         $product = $idSub;
+        // 优先 description_sub；若为空回退 description_main，兼容旧前端把 sub 行描述误写到 description_main 的历史数据。
         if ($descSub !== '') {
             $productDescription = $descSub;
+        } elseif ($descMain !== '') {
+            $productDescription = $descMain;
         }
     } elseif ($idMain !== '') {
         $product = $idMain;
