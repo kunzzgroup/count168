@@ -541,8 +541,7 @@
 
 /* Select All：寬度；字級與高度由下方 #currencySettingModal … account-btn-add 統一 */
 #currencySettingModal .currency-setting-selectall-btn.account-btn-add {
-    width: auto;
-    min-width: clamp(108px, 9vw, 140px);
+    min-width: var(--userlist-btn-add-width);
 }
 
 .currency-setting-selected-count {
@@ -758,13 +757,34 @@
         0 0.125rem 0.25rem rgba(0, 0, 0, 0.12);
 }
 
-/* Add / Select All 与输入框同高，避免「按钮比输入矮一截」 */
+/* Add / Select All：沿用 User List / Admin 顶栏 Add User 按钮 */
 #currencySettingModal .currency-setting-add-btn.account-btn-add,
 #currencySettingModal .currency-setting-selectall-btn.account-btn-add {
-    align-self: stretch;
-    min-height: 40px !important;
-    padding: 10px 18px !important;
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%) !important;
+    color: white !important;
+    font-family: var(--font-heading-page) !important;
+    min-width: var(--userlist-btn-add-width) !important;
+    width: auto !important;
+    padding: clamp(6px, 0.42vw, 8px) 20px !important;
     font-size: var(--text-medium) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    border: none !important;
+    border-radius: 6px !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+    --sweep-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
+}
+
+#currencySettingModal .currency-setting-add-btn.account-btn-add:hover,
+#currencySettingModal .currency-setting-selectall-btn.account-btn-add:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%) !important;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4) !important;
+    transform: translateY(-1px);
 }
 
 /* Account List 顶栏药丸搜索：与 User List 共用样式，保留姓名/账号原大小写 */
