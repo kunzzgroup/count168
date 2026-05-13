@@ -1,4 +1,4 @@
-/** User list page — pure helpers (parity with js/userlist.js + userlist.php) */
+/** User list page — pure helpers (rules aligned with api/users/userlist_api.php + former legacy page) */
 
 export const PAGE_SIZE = 20;
 
@@ -14,7 +14,7 @@ export const ROLE_HIERARCHY = {
   company: 8,
 };
 
-/** Role options in `<select>` order (matches userlist.php) */
+/** Role options in `<select>` order (matches userlist_api valid roles) */
 export const ALL_ROLE_OPTIONS = [
   { value: "partnership", label: "Partnership" },
   { value: "admin", label: "Admin" },
@@ -44,14 +44,14 @@ export function normRole(r) {
   return String(r || "").trim().toLowerCase();
 }
 
-/** Partnership / Audit 显示 Read Only 开关（与 userlist.js / userlist.php 一致） */
+/** Partnership / Audit：显示 Read Only 开关 */
 export function roleHasReadOnlyToggle(role) {
   const r = normRole(role);
   return r === "partnership" || r === "audit";
 }
 
 /**
- * Audit：manager 及以上可操作；Partnership：仅 owner（与 userlist.js canInteractWithReadOnlyToggle + API canSetUserReadOnly 一致）
+ * Audit：manager 及以上可操作；Partnership：仅 owner（与 API canSetUserReadOnly 一致）
  */
 export function canInteractWithReadOnlyToggle(currentUserRole, targetUserRole) {
   const r = normRole(targetUserRole);
@@ -91,7 +91,7 @@ export function getRoleTemplateSidebarList(role) {
 
 export function getAvailableRolesForCreation(currentUserRole) {
   const currentLevel = ROLE_HIERARCHY[normRole(currentUserRole)] ?? 999;
-  /** 与 js/userlist.js、userlist.php（$can_create_user = level < 5）一致：supervisor(4) 可建下级账号 */
+  /** level < 5 可建账号：supervisor(4) 可建下级 */
   if (currentLevel >= 5) return [];
   return ALL_ROLE_OPTIONS.filter((role) => {
     const roleLevel = ROLE_HIERARCHY[role.value] ?? 999;
@@ -134,7 +134,7 @@ export function getFinalPermissionsForCreation(selectedRole, manuallySelected, c
 }
 
 /**
- * Row capabilities (matches userlist.php card rules).
+ * Row capabilities（列表行编辑/删除/状态规则）.
  * @param {object} row — user row with id, role, status, is_owner_shadow
  */
 export function computeRowCapabilities(row, currentUserId, currentUserRole) {
@@ -146,7 +146,7 @@ export function computeRowCapabilities(row, currentUserId, currentUserRole) {
   const isSelf = currentUserId && targetUserId === Number(currentUserId);
   const isSameLevel = currentLevel === targetLevel && !isSelf;
   const isHigherLevel = targetLevel < currentLevel;
-  /** 与 userlist.php / js/userlist.js 一致：不含 partnership（partnership 可按层级编辑 admin 等） */
+  /** 不含 partnership：partnership 可按层级编辑 admin 等 */
   const lowPrivilegeRoles = ["manager", "supervisor", "accountant", "audit", "customer service"];
   const isLowPrivilegeUser = lowPrivilegeRoles.includes(normRole(currentUserRole));
   const isAdminUser = targetRole === "admin";

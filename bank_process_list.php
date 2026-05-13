@@ -91,7 +91,7 @@ if (!function_exists('renderBankProcessModals')) {
     {
         ?>
         <style>
-            /* 与 userlist.php Read Only 同款开关（作用域限 Bank 弹窗） */
+            /* 与 User List 弹窗 Read Only 同款开关（作用域限 Bank 弹窗） */
             #addBankModal .read-only-toggle-inline {
                 display: inline-flex;
                 align-items: center;
