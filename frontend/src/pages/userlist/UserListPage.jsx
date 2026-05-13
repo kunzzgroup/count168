@@ -59,6 +59,8 @@ export default function UserListPage() {
   const [showAll, setShowAll] = useState(false);
   const [sortColumn, setSortColumn] = useState("loginId");
   const [sortDirection, setSortDirection] = useState("asc");
+  /** 为 true 时 Company 行展示所有集团下的公司（Group 行点 ALL） */
+  const [showAllGroupCompanies, setShowAllGroupCompanies] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
   const [selectAllUsers, setSelectAllUsers] = useState(false);
@@ -117,6 +119,7 @@ export default function UserListPage() {
     [selectedCompany?.group_id]
   );
   const companiesForPicker = useMemo(() => {
+    if (showAllGroupCompanies) return allCompanyButtons;
     if (groupIds.length === 0) return allCompanyButtons;
     if (!selectedGroupKey) {
       const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
@@ -124,7 +127,7 @@ export default function UserListPage() {
     }
     const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
     return inG.length ? inG : allCompanyButtons;
-  }, [allCompanyButtons, groupIds.length, selectedGroupKey]);
+  }, [allCompanyButtons, groupIds.length, selectedGroupKey, showAllGroupCompanies]);
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
     return sortUsers(f, sortColumn, sortDirection);
@@ -308,6 +311,7 @@ export default function UserListPage() {
 
   const handlePickGroup = useCallback(
     (gid) => {
+      setShowAllGroupCompanies(false);
       const g = String(gid || "").trim().toUpperCase();
       if (!g || g === selectedGroupKey) return;
       const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
@@ -315,6 +319,10 @@ export default function UserListPage() {
     },
     [allCompanyButtons, onSwitchCompany, selectedGroupKey]
   );
+
+  const handlePickAllGroups = useCallback(() => {
+    setShowAllGroupCompanies(true);
+  }, []);
 
   const fetchModalAccountsProcesses = async (cid) => {
     try {
@@ -557,12 +565,20 @@ export default function UserListPage() {
                   <span className="user-gc-inline-label">{t("groupId")}</span>
                   <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                     <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                      <button
+                        type="button"
+                        disabled={switchingCompany}
+                        className={`user-gc-segment${showAllGroupCompanies ? " is-on" : ""}`}
+                        onClick={handlePickAllGroups}
+                      >
+                        {t("groupFilterAll")}
+                      </button>
                       {groupIds.map((gid) => (
                         <button
                           key={gid}
                           type="button"
                           disabled={switchingCompany}
-                          className={`user-gc-segment${gid === selectedGroupKey ? " is-on" : ""}`}
+                          className={`user-gc-segment${!showAllGroupCompanies && gid === selectedGroupKey ? " is-on" : ""}`}
                           onClick={() => handlePickGroup(gid)}
                         >
                           {gid}
@@ -585,7 +601,10 @@ export default function UserListPage() {
                           disabled={switchingCompany}
                           className={`user-gc-segment${active ? " is-on" : ""}`}
                           onClick={() => {
-                            if (!active) void onSwitchCompany(c);
+                            if (!active) {
+                              setShowAllGroupCompanies(false);
+                              void onSwitchCompany(c);
+                            }
                           }}
                         >
                           {String(c.company_id || "").toUpperCase()}
