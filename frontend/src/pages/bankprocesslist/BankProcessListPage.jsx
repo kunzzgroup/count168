@@ -1108,12 +1108,6 @@ export default function BankProcessListPage() {
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-add" onClick={openAdd}>
-                <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18v-2H6V4h7V2zm5 7V3.5L18.5 1 21 3.5V9h2v2h-2v6h-2v-6h-6v-2h6z" />
-                </svg>
-                {t("addProcess")}
-              </button>
               <div className="process-list-date-filter process-list-date-filter--pill" id="processListDateFilter" style={{ display: "inline-flex" }}>
                 <div className="date-range-picker" id="date-range-picker">
                   <i className="fas fa-calendar-alt" aria-hidden="true" />
@@ -1251,7 +1245,15 @@ export default function BankProcessListPage() {
                 </button>
               </div>
             </div>
-            <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
+            <div className="user-toolbar-actions-right" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+              <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
+              <button type="button" className="btn btn-add" onClick={openAdd}>
+                <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18v-2H6V4h7V2zm5 7V3.5L18.5 1 21 3.5V9h2v2h-2v6h-2v-6h-6v-2h6z" />
+                </svg>
+                {t("addProcess")}
+              </button>
+            </div>
           </div>
           <div className="user-gc-inline-panel">
             {groupIds.length > 0 && (
