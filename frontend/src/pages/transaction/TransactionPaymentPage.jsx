@@ -60,6 +60,7 @@ export default function TransactionPaymentPage() {
     onSearch: onFormSearch,
     refreshContraInboxBadge: ui.refreshContraInboxBadge,
     filterSnapshot,
+    accountOptions: data.accountOptions,
   });
 
   // 4. Search Logic

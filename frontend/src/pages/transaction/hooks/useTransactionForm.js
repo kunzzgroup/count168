@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { parseRateExpression, buildClientRequestId } from "../transactionFormat.js";
+import { parseRateExpression, buildClientRequestId, parseBalanceValue } from "../transactionFormat.js";
 import { formatRateAmount } from "../transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../transactionSubmitHelpers.js";
 import { submitTransaction } from "../transactionApi.js";
 import { transactionQueryKeys } from "../transactionQueryKeys.js";
+import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
+import { resolveGridRowToAccountOption } from "../transactionPaymentLogic.js";
 
 export function useTransactionForm({
   todayDmy,
@@ -12,6 +14,7 @@ export function useTransactionForm({
   onSearch,
   refreshContraInboxBadge,
   filterSnapshot,
+  accountOptions,
 }) {
   const [txType, setTxType] = useState("CONTRA");
   const [txDate, setTxDate] = useState(null);
@@ -49,18 +52,75 @@ export function useTransactionForm({
     },
   });
 
-  const handleBalanceCellClick = useCallback((account, side) => {
-    if (!account) return;
-    if (side === "left") {
-      setTxToAccount(account);
-      setTxCurrency(account.currency || "");
-      setTxAmount(String(account.balance || ""));
-    } else {
-      setTxFromAccount(account);
-      setTxCurrency(account.currency || "");
-      setTxAmount(String(account.balance || ""));
-    }
-  }, []);
+  const handleBalanceCellClick = useCallback(
+    (row, side) => {
+      if (!row) return;
+      const isLeftTable = side === "left";
+      const balanceAttr =
+        row.balance_full != null && String(row.balance_full).trim() !== "" ? row.balance_full : row.balance;
+      const rowCurrency =
+        row.currency && String(row.currency).trim() ? String(row.currency).trim().toUpperCase() : "";
+      const resolved = resolveGridRowToAccountOption(row, accountOptions);
+      if (!resolved) {
+        pushToast("Could not resolve account for this row", "error");
+        return;
+      }
+      const accountCurrency = resolved.currency ? String(resolved.currency).trim().toUpperCase() : "";
+      const syncCurrency = rowCurrency || accountCurrency || null;
+
+      const parsedBalance = parseBalanceValue(balanceAttr);
+      const isRateView = txType === "RATE";
+      const isProfitType = !isRateView && txType === "PROFIT";
+      const treatAsPositiveRow = isRateView
+        ? isLeftTable
+        : isProfitType
+          ? (parsedBalance === null ? isLeftTable : parsedBalance >= 0)
+          : isLeftTable;
+
+      const parts = [];
+      let amountSet = false;
+      let amountDisplay = "";
+
+      if (parsedBalance !== null) {
+        const absStr = MoneyDecimal.abs(String(parsedBalance)).toString();
+        amountDisplay = MoneyDecimal.formatFixedHalfUp(absStr, 2);
+        amountSet = true;
+      }
+
+      if (isRateView) {
+        if (treatAsPositiveRow) {
+          setRateToAccount(resolved);
+          setRateTransferFromAccount(resolved);
+        } else {
+          setRateFromAccount(resolved);
+          setRateTransferToAccount(resolved);
+        }
+        if (amountSet) setRateCurrencyFromAmount(amountDisplay);
+        if (syncCurrency) setRateCurrencyFrom(syncCurrency);
+        parts.push(`${treatAsPositiveRow ? "From" : "To"} Account: ${row.account_id || resolved.account_id}`);
+        if (amountSet) parts.push(`Amount: ${amountDisplay}`);
+        if (syncCurrency) parts.push(`Currency: ${syncCurrency}`);
+        if (parts.length) pushToast(`Synced ${parts.join(", ")}`, "success");
+        else if (amountSet) pushToast(`Synced Amount: ${amountDisplay}`, "success");
+        return;
+      }
+
+      if (treatAsPositiveRow) {
+        setTxToAccount(resolved);
+      } else {
+        setTxFromAccount(resolved);
+      }
+      if (amountSet) setTxAmount(amountDisplay);
+      if (syncCurrency) setTxCurrency(syncCurrency);
+
+      parts.push(`${treatAsPositiveRow ? "From" : "To"} Account: ${row.account_id || resolved.account_id}`);
+      if (amountSet) parts.push(`Amount: ${amountDisplay}`);
+      if (syncCurrency) parts.push(`Currency: ${syncCurrency}`);
+      if (parts.length) pushToast(`Synced ${parts.join(", ")}`, "success");
+      else if (amountSet) pushToast(`Synced Amount: ${amountDisplay}`, "success");
+    },
+    [accountOptions, pushToast, txType],
+  );
 
   const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
   const showStandardFromAndReverse = txType !== "RATE" && needsFromTo;

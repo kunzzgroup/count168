@@ -7,10 +7,10 @@ import {
   TX_LIST_INVALIDATE_LS_KEY,
   applyPaymentWinLossFilters,
   applyZeroBalanceFilter,
+  applySummaryWinLossDisplayTolerance,
   buildTxListSessionKey,
   calculateTotals,
   countDisplayedRows,
-  mergeTotals,
   normalizeRateRowsByCrDr,
   readTransactionCurrencyFilterState,
   sortByRole,
@@ -459,7 +459,7 @@ export function useTransactionSearch({
             totals: {
               left: calculateTotals(fbLeft),
               right: calculateTotals(fbRight),
-              summary: mergeTotals(calculateTotals(fbLeft), calculateTotals(fbRight)),
+              summary: applySummaryWinLossDisplayTolerance(calculateTotals([...fbLeft, ...fbRight])),
             },
           };
         }
@@ -538,7 +538,7 @@ export function useTransactionSearch({
         defaultRight: [],
         totalsLeft: calculateTotals([]),
         totalsRight: calculateTotals([]),
-        totalsSummary: mergeTotals(calculateTotals([]), calculateTotals([])),
+        totalsSummary: applySummaryWinLossDisplayTolerance(calculateTotals([])),
         grouped: [],
         singleCurrencyTitle: null,
       };
@@ -552,7 +552,7 @@ export function useTransactionSearch({
     const sortedRight = z.right;
     const totalsLeft = calculateTotals(sortedLeft);
     const totalsRight = calculateTotals(sortedRight);
-    const totalsSummary = mergeTotals(totalsLeft, totalsRight);
+    const totalsSummary = applySummaryWinLossDisplayTolerance(calculateTotals([...sortedLeft, ...sortedRight]));
 
     const multi = showAllCurrencies || selectedCurrencies.length > 1;
     const codesOrdered = currencyRowsOrdered.map((c) => String(c.code || "").toUpperCase().trim()).filter(Boolean);
@@ -601,7 +601,7 @@ export function useTransactionSearch({
       const r = sortByRole(gr);
       const tL = calculateTotals(l);
       const tR = calculateTotals(r);
-      const tS = mergeTotals(tL, tR);
+      const tS = applySummaryWinLossDisplayTolerance(calculateTotals([...l, ...r]));
       return { currency, left: l, right: r, totalsLeft: tL, totalsRight: tR, totalsSummary: tS };
     });
 
