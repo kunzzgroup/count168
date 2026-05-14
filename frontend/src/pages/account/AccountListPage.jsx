@@ -802,7 +802,7 @@ export default function AccountListPage() {
               <div className="account-header-item">{t("remark")}</div>
               <div className="account-header-item">{t("action")}</div>
             </div>
-            <div className="account-cards">
+            <div className={`account-cards${showAll ? " account-cards--show-all" : ""}`}>
               {pageRows.map((a, idx) => {
                 const alertOn = String(a.payment_alert) === "1";
                 const isInactive = String(a.status || "").toLowerCase() === "inactive";
