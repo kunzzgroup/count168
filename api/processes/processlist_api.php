@@ -67,6 +67,98 @@ function normalizeBankIssueFlagValue($value): ?string
     return null;
 }
 
+/**
+ * 与入账 API 一致：将 bank_process 日期字段规范为 Y-m-d，供与「今天」比较。
+ */
+function processlistBankProcessDateFieldToYmd($raw): ?string
+{
+    if ($raw === null) {
+        return null;
+    }
+    $s = trim((string) $raw);
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $d = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
+        $d = (int) $m[1];
+        $mo = (int) $m[2];
+        $y = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    $dateStr = str_replace('/', '-', $s);
+    if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+        $dateStr .= '-' . date('Y');
+    }
+    $ts = strtotime($dateStr);
+    return $ts !== false ? date('Y-m-d', $ts) : null;
+}
+
+/**
+ * BLOCK + 合同已过期（今天 > day_end）：自动改为 inactive 并清空 issue_flag/flag（与列表 Contract 灰色逻辑一致）。
+ */
+function processlistAutoExpireBlockedBankProcessRow(PDO $pdo, array &$row, int $companyId, bool $hasIssueFlagColumn, bool $hasFlagColumn): bool
+{
+    if (!$hasIssueFlagColumn && !$hasFlagColumn) {
+        return false;
+    }
+    $issueVal = normalizeBankIssueFlagValue($row['issue_flag'] ?? null);
+    if ($issueVal !== 'block') {
+        return false;
+    }
+    if (strtolower(trim((string) ($row['status'] ?? ''))) !== 'active') {
+        return false;
+    }
+    $dayEndYmd = processlistBankProcessDateFieldToYmd($row['day_end'] ?? null);
+    if ($dayEndYmd === null) {
+        return false;
+    }
+    $todayYmd = date('Y-m-d');
+    if ($todayYmd <= $dayEndYmd) {
+        return false;
+    }
+    $id = (int) ($row['id'] ?? 0);
+    if ($id <= 0) {
+        return false;
+    }
+    $setParts = ['`status` = ?', '`dts_modified` = NOW()'];
+    $params = ['inactive'];
+    if ($hasIssueFlagColumn) {
+        $setParts[] = '`issue_flag` = NULL';
+    }
+    if ($hasFlagColumn) {
+        $setParts[] = '`flag` = NULL';
+    }
+    $sql = 'UPDATE bank_process SET ' . implode(', ', $setParts) . ' WHERE id = ? AND company_id = ?';
+    $params[] = $id;
+    $params[] = $companyId;
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $row['status'] = 'inactive';
+    $row['issue_flag'] = null;
+    return true;
+}
+
+/**
+ * @param array<int, array<string, mixed>> $rows
+ */
+function processlistAutoExpireBlockedBankProcessesInList(PDO $pdo, array &$rows, int $companyId, bool $hasIssueFlagColumn, bool $hasFlagColumn): void
+{
+    foreach ($rows as &$r) {
+        processlistAutoExpireBlockedBankProcessRow($pdo, $r, $companyId, $hasIssueFlagColumn, $hasFlagColumn);
+    }
+    unset($r);
+}
+
 // 获取当前登录用户的数值 ID
 function getCurrentUserId(PDO $pdo) {
     // 检查是否是 owner 登录
@@ -938,6 +1030,7 @@ function getBankProcesses() {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        processlistAutoExpireBlockedBankProcessesInList($pdo, $rows, $targetCompanyId, $hasIssueFlagColumn, $hasFlagColumn);
 
         $formattedProcesses = [];
         foreach ($rows as $r) {
@@ -1024,6 +1117,7 @@ function getBankProcess() {
             jsonResponse(false, 'Process not found', null);
             return;
         }
+        processlistAutoExpireBlockedBankProcessRow($pdo, $process, (int) $currentCompanyId, $hasIssueFlagColumn, $hasFlagColumn);
         $formatted = [
             'id' => $process['id'],
             'process_name' => $process['name'] ?: $process['bank'],
