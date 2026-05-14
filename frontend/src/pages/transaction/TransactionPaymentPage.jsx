@@ -103,6 +103,7 @@ export default function TransactionPaymentPage() {
     setRateDate: form.setRateDate,
     fpTxDateRef: form.fpTxDateRef,
     fpRateDateRef: form.fpRateDateRef,
+    txType: form.txType,
   });
 
   // 7. Sync & Lifecycle

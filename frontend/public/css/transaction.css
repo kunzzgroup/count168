@@ -117,6 +117,19 @@ body.transaction-page .transaction-add-section .tx-add-field-col--full {
     min-width: 0;
 }
 
+body.transaction-page .transaction-add-section .tx-add-form-row--triple {
+    align-items: flex-end;
+}
+
+body.transaction-page .transaction-add-section .tx-add-form-row--triple .tx-add-field-col {
+    flex: 1 1 0;
+    min-width: min(100px, 33%);
+}
+
+body.transaction-page .transaction-add-section .tx-add-rate-fields {
+    margin-top: 2px;
+}
+
 body.transaction-page .transaction-add-section .tx-add-account-reverse {
     flex: 0 0 auto;
     align-self: center;

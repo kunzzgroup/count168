@@ -19,6 +19,8 @@ export function useTransactionDateRange({
   setRateDate,
   fpTxDateRef,
   fpRateDateRef,
+  /** Re-init flatpickr when Type toggles RATE (only one of #transaction_date / #rate_transaction_date exists). */
+  txType,
 }) {
   const txDateRangePickerReadyRef = useRef(false);
 
@@ -64,14 +66,27 @@ export function useTransactionDateRange({
     };
   }, [loading, forbidden, filterSnapshot, setDateFrom, setDateTo]);
 
-  /** Flatpickr on transaction / rate single-date fields */
+  /** Flatpickr on transaction / rate single-date fields (re-run when txType swaps which input is mounted). */
   useEffect(() => {
     if (loading || forbidden || !filterSnapshot) return;
+
+    try {
+      fpTxDateRef.current?.destroy?.();
+    } catch {
+      /* ignore */
+    }
+    fpTxDateRef.current = null;
+    try {
+      fpRateDateRef.current?.destroy?.();
+    } catch {
+      /* ignore */
+    }
+    fpRateDateRef.current = null;
 
     const txInput = document.getElementById("transaction_date");
     const rateInput = document.getElementById("rate_transaction_date");
 
-    if (txInput && !fpTxDateRef.current) {
+    if (txInput) {
       fpTxDateRef.current = flatpickr(txInput, {
         dateFormat: "d/m/Y",
         allowInput: false,
@@ -81,7 +96,7 @@ export function useTransactionDateRange({
         },
       });
     }
-    if (rateInput && !fpRateDateRef.current) {
+    if (rateInput) {
       fpRateDateRef.current = flatpickr(rateInput, {
         dateFormat: "d/m/Y",
         allowInput: false,
@@ -106,7 +121,7 @@ export function useTransactionDateRange({
       }
       fpRateDateRef.current = null;
     };
-  }, [loading, forbidden, filterSnapshot, setTxDate, setRateDate, todayDmy, fpTxDateRef, fpRateDateRef]);
+  }, [loading, forbidden, filterSnapshot, txType, setTxDate, setRateDate, todayDmy, fpTxDateRef, fpRateDateRef]);
 
   // Sync flatpickr instances with state changes
   useEffect(() => {
