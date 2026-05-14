@@ -395,8 +395,8 @@ body.transaction-page .calendar-popup.calendar-popup--transaction-range[style*="
 body.transaction-page .transaction-calendar-presets {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 7px 6px;
+    gap: 4px;
+    padding: 9px 6px;
     border-right: 1px solid rgba(226, 232, 240, 0.95);
     background: linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%);
 }
@@ -406,8 +406,8 @@ body.transaction-page .transaction-calendar-preset {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    min-height: 22px;
-    padding: 4px 6px;
+    min-height: 25px;
+    padding: 5px 6px;
     border: none;
     border-radius: 6px;
     background: transparent;
@@ -438,7 +438,7 @@ body.transaction-page .transaction-calendar-preset.is-active {
 }
 
 body.transaction-page .transaction-calendar-panel {
-    padding: 8px 10px 10px;
+    padding: 10px 10px 12px;
     background: #ffffff;
 }
 
@@ -449,7 +449,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-header {
     max-width: 250px;
     margin-left: auto;
     margin-right: auto;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     padding: 0;
 }
 
@@ -492,7 +492,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-nav-btn:hover
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-weekdays {
-    margin-bottom: 3px;
+    margin-bottom: 5px;
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-weekday {
@@ -509,7 +509,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-days {
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-day {
-    min-height: 21px;
+    min-height: 25px;
     border-radius: 6px;
     color: #111827;
     font-size: var(--text-tiny);
