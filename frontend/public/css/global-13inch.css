@@ -160,6 +160,11 @@
         font-size: var(--text-base) !important;
     }
 
+    /* Process List（非 Bank）：表头与 User / Account div 表头同一字号 */
+    body.ec-auth-shell.process-page:not(.process-page--bank) .table-header {
+        font-size: var(--text-base) !important;
+    }
+
     body.ec-auth-shell .table-header .header-item,
     body.ec-auth-shell .account-table-header .header-item,
     body.ec-auth-shell .card-item,
