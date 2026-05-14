@@ -803,7 +803,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || t("addCountryFailed"), "danger");
       setCountriesList((prev) => [...new Set([...prev, name])].sort());
-      setSelectedCountryChips([name]);
+      setSelectedCountryChips((prev) => (prev.includes(name) ? prev : [...prev, name]));
       setNewCountryName("");
       notify(t("countryAdded"));
     } catch { notify(t("addCountryFailed"), "danger"); }

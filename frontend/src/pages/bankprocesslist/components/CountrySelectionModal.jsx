@@ -24,7 +24,9 @@ export default function CountrySelectionModal({
   notify,
   t,
 }) {
-  const selectedCode = selectedCountryChips[0] ?? null;
+  const togglePickCountry = (c) => {
+    setSelectedCountryChips((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+  };
 
   return (
     <div id="countrySelectionModal" className="modal country-selection-modal-wrap" style={{ display: "block" }}>
@@ -67,14 +69,14 @@ export default function CountrySelectionModal({
                   .map((c) => (
                     <div
                       key={c}
-                      className={`country-item${selectedCode === c ? " is-picked" : ""}`}
+                      className={`country-item${selectedCountryChips.includes(c) ? " is-picked" : ""}`}
                       role="button"
                       tabIndex={0}
-                      onClick={() => setSelectedCountryChips(selectedCode === c ? [] : [c])}
+                      onClick={() => togglePickCountry(c)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setSelectedCountryChips(selectedCode === c ? [] : [c]);
+                          togglePickCountry(c);
                         }
                       }}
                     >

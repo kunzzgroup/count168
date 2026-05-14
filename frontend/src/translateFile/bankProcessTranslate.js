@@ -131,7 +131,7 @@ export const BANK_PROCESS_I18N = {
     removeSelectedCountryAria: "Remove {country} from selection",
     selectedCountries: "Selected Countries",
     none: "None",
-    selectExactlyOneCountry: "Please choose one country from the list on the left, or clear the selection and pick again.",
+    selectExactlyOneCountry: "You can select several on the left, but this process uses one country only — leave exactly one in “Selected” (remove extras with ×) before confirming.",
     confirm: "Confirm",
 
     selectOrAddBank: "Select or Add Bank",
@@ -301,7 +301,7 @@ export const BANK_PROCESS_I18N = {
     removeSelectedCountryAria: "从已选中移除 {country}",
     selectedCountries: "已选国家",
     none: "无",
-    selectExactlyOneCountry: "请从左侧列表选择一个国家；可点击右侧标签上的 × 清除后重选。",
+    selectExactlyOneCountry: "左侧可多选，但一条流程只能对应一个国家——请在右侧「已选」中只保留一个（可用 × 去掉多余的）再点确认。",
     confirm: "确认",
 
     selectOrAddBank: "选择或新增银行",
