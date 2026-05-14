@@ -2271,19 +2271,32 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 .process-page .modal .day-use-pill-row .user-gc-inline-pills.day-use-pill-wrap {
     flex: none;
+    flex-wrap: nowrap;
     min-width: 0;
     width: 100%;
     gap: 0;
     overflow-x: visible;
 }
 
+/* Day Use segments: single row — equal flex so all 8 fit without wrapping */
 .process-page .modal .day-use-pill-row .user-gc-inline-pills.day-use-pill-wrap .user-gc-segment-group {
-    flex-wrap: wrap;
+    display: flex;
+    flex-wrap: nowrap;
+    flex: 1 1 0;
     flex-shrink: 1;
     min-width: 0;
+    width: 100%;
     max-width: 100%;
-    align-self: flex-start;
-    overflow: visible;
+    align-self: stretch;
+    overflow: hidden;
+}
+
+.process-page .modal .day-use-pill-row .user-gc-segment-group .user-gc-segment {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-block: 6px;
+    padding-inline: clamp(4px, 0.9vw, 12px);
+    font-size: clamp(10px, 0.78vw, 13px);
 }
 
 .process-page .day-use-header {
