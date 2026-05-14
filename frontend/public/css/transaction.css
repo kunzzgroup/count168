@@ -77,6 +77,7 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     gap: clamp(10px, 0.85vw, 16px);
+    --tx-add-reverse-col: clamp(54px, 4.2vw, 72px);
 }
 
 /* Outlined two-column rows (Type|Date, Currency|Amount) + accounts + remark.
@@ -112,17 +113,26 @@ body.transaction-page .transaction-add-section .tx-add-form-row--accounts .tx-ad
     min-width: 0;
 }
 
-/* To / From share remaining width 50–50; Reverse stays fixed-width (flex: 0 0 auto) */
+/* Keep the right column aligned by reserving the same Reverse column on matching rows. */
+body.transaction-page .transaction-add-section .tx-add-form-row--reserve-reverse,
 body.transaction-page .transaction-add-section .tx-add-form-row--accounts.tx-add-form-row--with-reverse {
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--tx-add-reverse-col);
+    align-items: flex-start;
 }
 
+body.transaction-page .transaction-add-section .tx-add-form-row--reserve-reverse .tx-add-field-col,
 body.transaction-page .transaction-add-section .tx-add-form-row--accounts.tx-add-form-row--with-reverse .tx-add-field-col {
-    flex: 1 1 0;
     min-width: 0;
 }
 
 @media (max-width: 520px) {
+    body.transaction-page .transaction-add-section .tx-add-form-row--reserve-reverse,
+    body.transaction-page .transaction-add-section .tx-add-form-row--accounts.tx-add-form-row--with-reverse {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
     body.transaction-page .transaction-add-section .tx-add-form-row--pair {
         flex-wrap: wrap;
     }
@@ -147,8 +157,10 @@ body.transaction-page .transaction-add-section .tx-add-field-col--full {
 
 body.transaction-page .transaction-add-section .tx-add-account-reverse {
     flex: 0 0 auto;
-    align-self: center;
-    margin-top: 0;
+    align-self: flex-start;
+    margin-top: 10px;
+    width: var(--tx-add-reverse-col);
+    min-height: clamp(30px, 2.25vw, 38px);
 }
 
 body.transaction-page .transaction-add-section .tx-add-icon-field {
