@@ -2254,23 +2254,36 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     font-style: italic;
 }
 
-/* Process modal: Day Use — label + segmented pills (user-gc-inline-pills–segment-scroll) */
+/* Process modal: Day Use — heading above segmented group, no horizontal scroll */
 .process-page .modal .day-use-pill-row {
     display: flex;
-    align-items: center;
-    gap: 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.375rem;
     width: 100%;
     box-sizing: border-box;
 }
 
-.process-page .modal .day-use-pill-row .user-gc-inline-label {
+.process-page .modal .day-use-pill-row .user-gc-inline-label.day-use-pill-heading {
     margin-bottom: 0;
-    align-self: center;
+    align-self: flex-start;
 }
 
-.process-page .modal .day-use-pill-row .user-gc-inline-pills {
-    flex: 1 1 0%;
+.process-page .modal .day-use-pill-row .user-gc-inline-pills.day-use-pill-wrap {
+    flex: none;
     min-width: 0;
+    width: 100%;
+    gap: 0;
+    overflow-x: visible;
+}
+
+.process-page .modal .day-use-pill-row .user-gc-inline-pills.day-use-pill-wrap .user-gc-segment-group {
+    flex-wrap: wrap;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+    align-self: flex-start;
+    overflow: visible;
 }
 
 .process-page .day-use-header {

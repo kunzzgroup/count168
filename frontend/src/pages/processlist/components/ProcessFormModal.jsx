@@ -383,10 +383,10 @@ export default function ProcessFormModal({
               <div className="form-row">
                 <div className="form-group">
                   <div className="day-use-pill-row">
-                    <span className="user-gc-inline-label">{t("dayUse")}</span>
+                    <span className="user-gc-inline-label day-use-pill-heading">{t("dayUse")}</span>
                     <div
                       id={editMode ? "edit_day_checkboxes" : "day_checkboxes"}
-                      className="user-gc-inline-pills user-gc-inline-pills--segment-scroll"
+                      className="user-gc-inline-pills day-use-pill-wrap"
                     >
                       <div className="user-gc-segment-group" role="group" aria-label={t("dayUse")}>
                         <button

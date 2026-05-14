@@ -34,6 +34,7 @@ import {
   matchesCurrentBankFilters,
   bankProcessFrequencyNormalized,
 } from "./bankProcessHelpers.js";
+import { dedupeCompanyRowsForSwitcher } from "../processlist/processListHelpers.js";
 import ProcessDeleteConfirmModal from "../processlist/components/ProcessDeleteConfirmModal.jsx";
 import AddProcessIcon from "../processlist/components/AddProcessIcon.jsx";
 
@@ -1096,7 +1097,7 @@ export default function BankProcessListPage() {
     finally { setDeleteSubmitting(false); }
   };
 
-  const allCompanyButtons = useMemo(() => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""), [companies]);
+  const allCompanyButtons = useMemo(() => dedupeCompanyRowsForSwitcher(companies, companyId), [companies, companyId]);
   const groupIds = useMemo(
     () =>
       [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),

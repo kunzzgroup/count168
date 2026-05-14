@@ -13,6 +13,7 @@ import {
   PAGE_SIZE,
   EMPTY_FORM,
   normalizeRows,
+  dedupeCompanyRowsForSwitcher,
   sortProcessRows,
   notifyTransactionDataChanged,
   parseRemarkForForm,
@@ -469,10 +470,7 @@ export default function ProcessListPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [modalOpen, descriptionPickerOpen]);
 
-  const allCompanyButtons = useMemo(
-    () => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""),
-    [companies]
-  );
+  const allCompanyButtons = useMemo(() => dedupeCompanyRowsForSwitcher(companies, companyId), [companies, companyId]);
   const groupIds = useMemo(
     () =>
       [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
