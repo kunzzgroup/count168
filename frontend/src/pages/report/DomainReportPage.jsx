@@ -7,6 +7,7 @@ import "../../../public/css/accountCSS.css";
 import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/domain_report.css";
+import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/date-range-picker.css";
 import {
   fetchDomainReport,
