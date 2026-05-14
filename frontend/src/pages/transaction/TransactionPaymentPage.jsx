@@ -17,6 +17,7 @@ import { installTransactionExcelCopy } from "./transactionExcelCopy.js";
 import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./transactionPaymentPageUtils.js";
 import { getRoleClass } from "./transactionPaymentLogic.js";
 import "flatpickr/dist/flatpickr.min.css";
+import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
 

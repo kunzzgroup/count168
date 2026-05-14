@@ -279,22 +279,32 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     min-width: 0;
 }
 
-/* Capture Date：标签在左，select bar 与上方 Category 下拉左对齐 */
-.transaction-page .transaction-date-quick-row {
+/* Category + Capture Date: one row with outlined floating labels (see report-outlined-fields.css) */
+.transaction-page .transaction-category-date-row {
     display: flex;
-    align-items: center;
-    gap: 0;
     flex-wrap: wrap;
+    align-items: flex-end;
+    gap: clamp(12px, 1.25vw, 20px);
+    width: 100%;
+    margin-bottom: 5px;
 }
 
-.transaction-page .transaction-date-quick-row .transaction-capture-date-label {
-    flex-shrink: 0;
-    width: clamp(60px, 5.5vw, 105px);
-    margin: 0;
+body.transaction-page .transaction-outlined-field-col {
+    flex: 1 1 280px;
+    min-width: 0;
 }
 
-.transaction-page .transaction-date-quick-row .transaction-date-range-group {
-    margin-right: clamp(8px, 1vw, 16px);
+body.transaction-page .transaction-outlined-field-col--category {
+    flex: 1.25 1 300px;
+}
+
+body.transaction-page .transaction-outlined-field-col--date {
+    flex: 1 1 min(336px, 100%);
+}
+
+body.transaction-page .transaction-category-date-row .transaction-category-multiselect {
+    min-width: 0;
+    width: 100%;
 }
 
 .transaction-page .transaction-date-range-group {
@@ -370,10 +380,6 @@ body.transaction-page .transaction-date-range-chevron {
 body.transaction-page .transaction-date-range-group .date-range-picker:hover .transaction-date-range-chevron {
     color: #2563eb !important;
     transform: translateY(1px);
-}
-
-.transaction-page .transaction-date-quick-row .quick-select-dropdown {
-    flex: 0 0 auto;
 }
 
 body.transaction-page .calendar-popup.calendar-popup--transaction-range {
@@ -2535,4 +2541,32 @@ body.transaction-page:not(.member-winloss-page) .transaction-search-section,
 body.transaction-page:not(.member-winloss-page) .transaction-add-section {
     flex: 1;
     min-width: 0;
+}
+
+/* Capture Date bar inside outlined shell — single outer border; inner keeps calendar pill */
+body.transaction-page .transaction-search-section .report-outlined-inner .transaction-date-range-group {
+    min-width: 0 !important;
+    width: 100%;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .transaction-date-range-group .date-range-picker {
+    min-width: 0 !important;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
+    border-radius: clamp(5px, 0.42vw, 7px);
+    background: #ffffff !important;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .transaction-date-range-group .date-range-picker:hover {
+    background: #ffffff !important;
+    box-shadow: none !important;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .transaction-date-range-group .date-range-picker:focus-visible {
+    box-shadow: none !important;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+    border-radius: clamp(5px, 0.42vw, 7px) 0 0 clamp(5px, 0.42vw, 7px);
 }

@@ -53,93 +53,121 @@ export default function TransactionSearchSection({
 
   return (
     <div className="transaction-search-section">
-      <div className="transaction-form-group">
-        <label className="transaction-label">Category</label>
-        <div id="filter_category" className="transaction-category-multiselect">
-          <div className="category-dropdown">
-            <button type="button" className="category-dropdown-button" id="category_dropdown_button" onClick={toggleCategory}>
-              <div id="category_selected_tags" className="category-selected-tags">
-                {selectedCategories.length === 0 ? (
-                  <span className="category-placeholder">--Select All--</span>
-                ) : (
-                  selectedCategories.map((c) => (
-                    <div key={c} className="category-tag" data-category-value={c}>
-                      <span>{c}</span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        className="category-tag-remove"
-                        data-category-value={c}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          removeCategoryTag(c);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            removeCategoryTag(c);
-                          }
-                        }}
-                      >
-                        ×
-                      </span>
+      <div className="transaction-category-date-row">
+        <div
+          className={`report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--category${categoryOpen ? " is-select-open" : ""}`}
+        >
+          <div className={`report-outlined-shell${categoryOpen ? " report-outlined-shell--menu-open" : ""}`}>
+            <span className="report-outlined-label" id="transaction-category-outlined-label">
+              Category
+            </span>
+            <div className="report-outlined-inner">
+              <div id="filter_category" className="transaction-category-multiselect">
+                <div className="category-dropdown">
+                  <button
+                    type="button"
+                    className="category-dropdown-button"
+                    id="category_dropdown_button"
+                    aria-labelledby="transaction-category-outlined-label"
+                    onClick={toggleCategory}
+                  >
+                    <div id="category_selected_tags" className="category-selected-tags">
+                      {selectedCategories.length === 0 ? (
+                        <span className="category-placeholder">--Select All--</span>
+                      ) : (
+                        selectedCategories.map((c) => (
+                          <div key={c} className="category-tag" data-category-value={c}>
+                            <span>{c}</span>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="category-tag-remove"
+                              data-category-value={c}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeCategoryTag(c);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  removeCategoryTag(c);
+                                }
+                              }}
+                            >
+                              ×
+                            </span>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  ))
-                )}
-              </div>
-              <i className="fas fa-chevron-down" />
-            </button>
-            <div className="category-dropdown-menu" id="category_dropdown_menu" style={{ display: categoryOpen ? "block" : "none" }}>
-              <div className="category-option">
-                <label className="category-checkbox-label">
-                  <input
-                    ref={categoryAllCheckboxRef}
-                    type="checkbox"
-                    value=""
-                    className="category-checkbox"
-                    id="category_all"
-                    checked={
-                      selectedCategories.length === 0 ||
-                      (categories.length > 0 && selectedCategories.length === categories.length)
-                    }
-                    onChange={(e) => onCategoryAllChange(e.target.checked)}
-                  />
-                  <span>--Select All--</span>
-                </label>
-              </div>
-              <div id="category_options_container">
-                {categories.map((c) => (
-                  <div className="category-option" key={c}>
-                    <label className="category-checkbox-label">
-                      <input
-                        type="checkbox"
-                        className="category-checkbox"
-                        value={c}
-                        checked={selectedCategories.length === 0 ? false : selectedCategories.includes(c)}
-                        onChange={() => toggleCategoryValue(c)}
-                      />
-                      <span>{c}</span>
-                    </label>
+                    <i className="fas fa-chevron-down" />
+                  </button>
+                  <div className="category-dropdown-menu" id="category_dropdown_menu" style={{ display: categoryOpen ? "block" : "none" }}>
+                    <div className="category-option">
+                      <label className="category-checkbox-label">
+                        <input
+                          ref={categoryAllCheckboxRef}
+                          type="checkbox"
+                          value=""
+                          className="category-checkbox"
+                          id="category_all"
+                          checked={
+                            selectedCategories.length === 0 ||
+                            (categories.length > 0 && selectedCategories.length === categories.length)
+                          }
+                          onChange={(e) => onCategoryAllChange(e.target.checked)}
+                        />
+                        <span>--Select All--</span>
+                      </label>
+                    </div>
+                    <div id="category_options_container">
+                      {categories.map((c) => (
+                        <div className="category-option" key={c}>
+                          <label className="category-checkbox-label">
+                            <input
+                              type="checkbox"
+                              className="category-checkbox"
+                              value={c}
+                              checked={selectedCategories.length === 0 ? false : selectedCategories.includes(c)}
+                              onChange={() => toggleCategoryValue(c)}
+                            />
+                            <span>{c}</span>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="transaction-date-quick-row">
-        <label className="transaction-label transaction-capture-date-label">Capture Date</label>
-        <div className="transaction-date-range-group">
-          <div className="date-range-picker" id="date-range-picker">
-            <i className="fas fa-calendar-alt" />
-            <span id="date-range-display">{effectiveDateRangeText}</span>
-            <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+        <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
+          <div className="report-outlined-shell">
+            <span className="report-outlined-label" id="transaction-capture-date-outlined-label">
+              Capture Date
+            </span>
+            <div className="report-outlined-inner">
+              <div className="transaction-date-range-group">
+                <div
+                  className="date-range-picker"
+                  id="date-range-picker"
+                  role="button"
+                  tabIndex={0}
+                  aria-labelledby="transaction-capture-date-outlined-label"
+                >
+                  <i className="fas fa-calendar-alt" />
+                  <span id="date-range-display">{effectiveDateRangeText}</span>
+                  <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+                </div>
+                <input type="hidden" id="date_from" readOnly />
+                <input type="hidden" id="date_to" readOnly />
+              </div>
+            </div>
           </div>
-          <input type="hidden" id="date_from" readOnly />
-          <input type="hidden" id="date_to" readOnly />
         </div>
       </div>
 
