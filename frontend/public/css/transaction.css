@@ -79,10 +79,10 @@ body.transaction-page {
     gap: clamp(6px, 0.52vw, 12px);
 }
 
-/* Group / Company / Currency：与上方 chip 行用分隔线区分（同 process / 其他页 user-gc） */
+/* Group / Company / Currency：与上方 chip 行用分隔线区分；线与上下内容留间距 */
 .transaction-page .transaction-bottom-filters {
-    margin-top: 0;
-    padding-top: clamp(10px, 0.85vw, 14px);
+    margin-top: clamp(10px, 0.9vw, 16px);
+    padding-top: clamp(12px, 1vw, 18px);
     border-top: 1px solid #e5e7eb;
     display: flex;
     flex-direction: column;
@@ -894,6 +894,23 @@ body.transaction-page .transaction-search-section .transaction-checkboxes,
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
+}
+
+/* 单行 chip：窄屏或文案较长时横向滚动，不折行撑高区块 */
+body.transaction-page .transaction-search-section .transaction-checkboxes.userlist-filter-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0;
+    width: 100%;
+    align-items: center;
+    padding-bottom: 4px;
+}
+
+body.transaction-page .transaction-search-section .transaction-checkboxes.userlist-filter-chips .user-filter-chip {
+    flex-shrink: 0;
 }
 
 body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter-chip {
