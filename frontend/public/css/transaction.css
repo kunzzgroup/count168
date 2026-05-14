@@ -1115,7 +1115,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     vertical-align: middle;
 }
 
-/* 列宽在 table-layout:fixed 下按百分比分配，避免撑出横向滚动 */
+/* 列宽在 table-layout:fixed 下按百分比分配，避免撑出横向滚动. */
 /* Date 约 9%；Id Product 略宽；Description 仍最宽但略收；其余列压缩 */
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-date {
     width: 7%;
@@ -1130,7 +1130,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-rate {
-    width: 5%;
+    width: 7%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-winloss {
@@ -1146,11 +1146,11 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-description {
-    width: 32%;
+    width: 29%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-remark {
-    width: 9%;
+    width: 15%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-created {
