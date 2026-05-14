@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import CompanySettingsModal from "./CompanySettingsModal.jsx";
@@ -65,33 +65,19 @@ export default function DomainFormModal({
   const [isMultipleChoiceMode, setIsMultipleChoiceMode] = useState(false);
   const [companyInput, setCompanyInput] = useState("");
   const [groupInput, setGroupInput] = useState("");
-  /** Inline validation: toasts can be hidden by host/CSS; this always shows inside the modal */
-  const [inlineDanger, setInlineDanger] = useState("");
-  const inlineDangerTimerRef = useRef(null);
+  /** Field-level errors next to Group / Company inputs (toast only would be redundant / easy to miss) */
+  const [groupAddError, setGroupAddError] = useState("");
+  const [companyAddError, setCompanyAddError] = useState("");
 
   // Company Settings sub-modal
   const [csModalCompanyId, setCsModalCompanyId] = useState(null);
 
-  function alertDanger(message) {
-    setInlineDanger(message);
+  function toastDanger(message) {
     showDomainAlert(message, "danger");
-    if (inlineDangerTimerRef.current) window.clearTimeout(inlineDangerTimerRef.current);
-    inlineDangerTimerRef.current = window.setTimeout(() => {
-      setInlineDanger("");
-      inlineDangerTimerRef.current = null;
-    }, 6000);
   }
 
   const showSecondaryPwd =
     !isEditMode || (hasC168Context && isOwnerOrAdmin);
-
-  useEffect(() => {
-    return () => {
-      if (inlineDangerTimerRef.current) {
-        window.clearTimeout(inlineDangerTimerRef.current);
-      }
-    };
-  }, []);
 
   // On mount, load data if editing
   useEffect(() => {
@@ -141,13 +127,13 @@ export default function DomainFormModal({
 
   function addCompany() {
     const cid = companyInput.trim().toUpperCase();
-    if (!cid) { alertDanger(t("pleaseEnterCompanyId")); return; }
+    if (!cid) { setCompanyAddError(t("pleaseEnterCompanyId")); return; }
     if (tempGroups.some((g) => normalizeDomainCode(g) === cid)) {
-      alertDanger(t("cannotAddCompanyUsesGroupId", { id: cid }));
+      setCompanyAddError(t("cannotAddCompanyUsesGroupId", { id: cid }));
       return;
     }
     if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === cid)) {
-      alertDanger(t("companyIdAlreadyAdded"));
+      setCompanyAddError(t("companyIdAlreadyAdded"));
       return;
     }
     const isC168 = cid === "C168";
@@ -165,11 +151,7 @@ export default function DomainFormModal({
     };
     setTempCompanies((prev) => [...prev, newCo]);
     setCompanyInput("");
-    setInlineDanger("");
-    if (inlineDangerTimerRef.current) {
-      window.clearTimeout(inlineDangerTimerRef.current);
-      inlineDangerTimerRef.current = null;
-    }
+    setCompanyAddError("");
   }
 
   function removeCompany(cid) {
@@ -178,22 +160,18 @@ export default function DomainFormModal({
 
   function addGroup() {
     const gid = groupInput.trim().toUpperCase();
-    if (!gid) { alertDanger(t("pleaseEnterGroupId")); return; }
+    if (!gid) { setGroupAddError(t("pleaseEnterGroupId")); return; }
     if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === gid)) {
-      alertDanger(t("cannotAddGroupUsesCompanyId", { id: gid }));
+      setGroupAddError(t("cannotAddGroupUsesCompanyId", { id: gid }));
       return;
     }
     if (tempGroups.some((g) => normalizeDomainCode(g) === gid)) {
-      alertDanger(t("groupIdAlreadyExists"));
+      setGroupAddError(t("groupIdAlreadyExists"));
       return;
     }
     setTempGroups((prev) => [...prev, gid]);
     setGroupInput("");
-    setInlineDanger("");
-    if (inlineDangerTimerRef.current) {
-      window.clearTimeout(inlineDangerTimerRef.current);
-      inlineDangerTimerRef.current = null;
-    }
+    setGroupAddError("");
     showDomainAlert(t("groupAdded", { gid }));
   }
 
@@ -215,7 +193,7 @@ export default function DomainFormModal({
   }
 
   function toggleMultipleChoice() {
-    if (!selectedGroupId) { alertDanger(t("pleaseSelectGroupFirst")); return; }
+    if (!selectedGroupId) { toastDanger(t("pleaseSelectGroupFirst")); return; }
     setIsMultipleChoiceMode((prev) => !prev);
   }
 
@@ -264,12 +242,12 @@ export default function DomainFormModal({
   async function handleSubmit(e) {
     e.preventDefault();
     if (!email.toLowerCase().endsWith("@gmail.com")) {
-      alertDanger(t("onlyGmailAllowed"));
+      toastDanger(t("onlyGmailAllowed"));
       return;
     }
     const overlap = findGroupCompanyCodeOverlap(tempGroups, tempCompanies);
     if (overlap) {
-      alertDanger(t("groupCompanyIdOverlapSave", { id: overlap }));
+      toastDanger(t("groupCompanyIdOverlapSave", { id: overlap }));
       return;
     }
     const data = {
@@ -303,10 +281,10 @@ export default function DomainFormModal({
         onSaved(json.data);
         onClose();
       } else {
-        alertDanger(json.message || t("operationFailed"));
+        toastDanger(json.message || t("operationFailed"));
       }
     } catch {
-      alertDanger(t("saveOwnerError"));
+      toastDanger(t("saveOwnerError"));
     }
   }
 
@@ -479,39 +457,62 @@ export default function DomainFormModal({
                       <label htmlFor="df_group_input">Group ID</label>
                       <div className="dfm-input-with-btn flex min-w-0">
                         <input
-                          type="text" id="df_group_input"
-                          placeholder={t("groupIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          type="text"
+                          id="df_group_input"
+                          aria-invalid={!!groupAddError}
+                          aria-describedby={groupAddError ? "df_group_input_err" : undefined}
+                          placeholder={t("groupIdPlaceholder")}
+                          className={`min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 px-3.5 py-2.5 text-[15px] uppercase focus:outline-none focus:ring-2 ${
+                            groupAddError
+                              ? "border-red-500 focus:border-red-600 focus:ring-red-600/15"
+                              : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500/10"
+                          }`}
                           value={groupInput}
-                          onChange={(e) => setGroupInput(forceUppercaseValue(e.target.value))}
+                          onChange={(e) => {
+                            setGroupInput(forceUppercaseValue(e.target.value));
+                            if (groupAddError) setGroupAddError("");
+                          }}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
                         />
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addGroup}>{t("add")}</button>
                       </div>
+                      {groupAddError ? (
+                        <p id="df_group_input_err" role="alert" className="mt-1 text-[13px] leading-snug text-red-600">
+                          {groupAddError}
+                        </p>
+                      ) : null}
                     </div>
                     {/* Company input */}
                     <div className="dfm-field min-w-0 flex-1">
                       <label htmlFor="df_company_input">Company ID</label>
                       <div className="dfm-input-with-btn flex min-w-0">
                         <input
-                          type="text" id="df_company_input"
-                          placeholder={t("companyIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          type="text"
+                          id="df_company_input"
+                          aria-invalid={!!companyAddError}
+                          aria-describedby={companyAddError ? "df_company_input_err" : undefined}
+                          placeholder={t("companyIdPlaceholder")}
+                          className={`min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 px-3.5 py-2.5 text-[15px] uppercase focus:outline-none focus:ring-2 ${
+                            companyAddError
+                              ? "border-red-500 focus:border-red-600 focus:ring-red-600/15"
+                              : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500/10"
+                          }`}
                           value={companyInput}
-                          onChange={(e) => setCompanyInput(forceUppercaseValue(e.target.value))}
+                          onChange={(e) => {
+                            setCompanyInput(forceUppercaseValue(e.target.value));
+                            if (companyAddError) setCompanyAddError("");
+                          }}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
                         />
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addCompany}>{t("add")}</button>
                       </div>
+                      {companyAddError ? (
+                        <p id="df_company_input_err" role="alert" className="mt-1 text-[13px] leading-snug text-red-600">
+                          {companyAddError}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
-
-                  {inlineDanger ? (
-                    <div
-                      role="alert"
-                      className="mb-3 rounded-lg border border-red-400 bg-red-50 px-3 py-2.5 text-[14px] font-semibold leading-snug text-red-900 shadow-sm"
-                    >
-                      {inlineDanger}
-                    </div>
-                  ) : null}
 
                   {/* Group pills */}
                   <div className="dfm-field" id="groupPillsSection">
