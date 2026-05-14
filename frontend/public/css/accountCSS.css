@@ -1300,10 +1300,35 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-form-group select,
 #account-editModal .account-form-group textarea {
     font-size: clamp(13px, 0.9vw, 14px);
+    height: 2.55rem;
     min-height: 2.55rem;
     border: 1px solid #dbe3ee;
     border-radius: 0.52rem;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+#account-addModal .account-form-column > .account-form-group,
+#account-addModal .account-form-column > .account-form-row,
+#account-editModal .account-form-column > .account-form-group,
+#account-editModal .account-form-column > .account-form-row {
+    min-height: 5.2rem;
+    margin-bottom: 0.75rem;
+}
+
+#account-addModal .account-form-column .account-form-row .account-form-group,
+#account-editModal .account-form-column .account-form-row .account-form-group {
+    min-height: 5.2rem;
+    margin-bottom: 0;
+}
+
+#account-addModal .account-form-column .account-form-group:has(.account-radio-group),
+#account-editModal .account-form-column .account-form-group:has(.account-radio-group) {
+    margin-bottom: 0.75rem;
+}
+
+#account-addModal .account-form-column .account-radio-group,
+#account-editModal .account-form-column .account-radio-group {
+    min-height: 2.55rem;
 }
 
 /* Start Date：整框可点展开（WebKit 扩大日历触发区；配合 JS showPicker） */
