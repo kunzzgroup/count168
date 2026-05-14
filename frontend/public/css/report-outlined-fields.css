@@ -147,6 +147,11 @@ body.transaction-page .transaction-add-section .report-outlined-shell.report-out
     margin-top: 0;
 }
 
+body.transaction-page .transaction-add-section .report-outlined-shell--no-label .transaction-input::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+}
+
 body.transaction-page .transaction-add-section .report-outlined-label {
     position: absolute;
     left: clamp(10px, 0.83vw, 14px);

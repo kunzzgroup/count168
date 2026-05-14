@@ -535,15 +535,12 @@ export default function TransactionAddSection({
         <div className="rate-section rate-section--middleman-outlined">
           <div className="tx-add-form-row tx-add-form-row--rate-three-cols">
             <div className="report-outlined-anchor tx-add-field-col">
-              <div className="report-outlined-shell">
-                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-middleman-acc-label">
-                  Middle-Man
-                </span>
+              <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
                     <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-handshake" /></span>
                     <AccountSelect
-                      ariaLabelledBy="rate-middleman-acc-label"
+                      ariaLabel="Middle-man account"
                       placeholder="--Select Account--"
                       options={accountOptions}
                       value={rateMiddlemanAccount}
@@ -555,10 +552,7 @@ export default function TransactionAddSection({
               </div>
             </div>
             <div className="report-outlined-anchor tx-add-field-col">
-              <div className="report-outlined-shell">
-                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-middleman-rate-label">
-                  Rate multiplier
-                </span>
+              <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
                     <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-percent" /></span>
@@ -567,19 +561,17 @@ export default function TransactionAddSection({
                       step="0.0001"
                       id="rate_middleman_rate"
                       className="transaction-input"
+                      placeholder="Rate multiplier"
                       value={rateMiddlemanRate}
                       onChange={(e) => setRateMiddlemanRate(e.target.value)}
-                      aria-labelledby="rate-middleman-rate-label"
+                      aria-label="Rate multiplier"
                     />
                   </div>
                 </div>
               </div>
             </div>
             <div className="report-outlined-anchor tx-add-field-col">
-              <div className="report-outlined-shell">
-                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-middleman-amt-label">
-                  Amount
-                </span>
+              <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
                     <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-dollar-sign" /></span>
@@ -588,9 +580,10 @@ export default function TransactionAddSection({
                       step="0.01"
                       id="rate_middleman_amount"
                       className="transaction-input"
+                      placeholder="Amount"
                       readOnly
                       value={rateMiddlemanAmount}
-                      aria-labelledby="rate-middleman-amt-label"
+                      aria-label="Middle-man amount"
                     />
                   </div>
                 </div>
