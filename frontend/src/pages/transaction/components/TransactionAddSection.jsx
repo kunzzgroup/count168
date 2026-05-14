@@ -53,11 +53,12 @@ export default function TransactionAddSection({
   searchLoading,
 }) {
   const standardHidden = txType === "RATE";
+  const reserveReverseColumnClass = showStandardFromAndReverse && !standardHidden ? " tx-add-form-row--reserve-reverse" : "";
 
   return (
     <div className="transaction-add-section">
       {/* Row: Type | Date (Date hidden in RATE mode) */}
-      <div className={`tx-add-form-row tx-add-form-row--pair${standardHidden ? " tx-add-form-row--type-only" : ""}`}>
+      <div className={`tx-add-form-row tx-add-form-row--pair${standardHidden ? " tx-add-form-row--type-only" : ""}${reserveReverseColumnClass}`}>
         <div className="report-outlined-anchor tx-add-field-col">
           <div className="report-outlined-shell">
             <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-type-label">
@@ -187,7 +188,7 @@ export default function TransactionAddSection({
         </div>
 
         {/* Row: Currency | Amount */}
-        <div className="tx-add-form-row tx-add-form-row--pair">
+        <div className={`tx-add-form-row tx-add-form-row--pair${reserveReverseColumnClass}`}>
           <div className="report-outlined-anchor tx-add-field-col">
             <div className="report-outlined-shell">
               <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-currency-label">
