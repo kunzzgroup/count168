@@ -474,6 +474,30 @@ export default function DomainFormModal({
     ? tempCompanies.find((c) => c.company_id === csModalCompanyId)
     : null;
 
+  const showMcAssignPanel = isMultipleChoiceMode && selectedGroupId;
+  const multiChoiceToggle =
+    selectedGroupId ? (
+      <button
+        type="button"
+        className={`dfm-multi-choice-btn ${
+          isMultipleChoiceMode ? "dfm-multi-choice-btn--on" : "dfm-multi-choice-btn--off"
+        }`}
+        aria-pressed={isMultipleChoiceMode}
+        onClick={toggleMultipleChoice}
+      >
+        {isMultipleChoiceMode ? (
+          <span className="dfm-mc-done-content">
+            <span>{t("doneCompact")}</span>
+            <span className="dfm-mc-done-icon" aria-hidden="true">
+              <span className="dfm-mc-done-icon-check" />
+            </span>
+          </span>
+        ) : (
+          t("multipleChoice")
+        )}
+      </button>
+    ) : null;
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <DomainModalPortal>
@@ -635,39 +659,26 @@ export default function DomainFormModal({
                   </div>
 
                   <div className="dfm-field dfm-field--stretch flex flex-1 flex-col">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <label>{t("selectedCompanies")}</label>
-                      {selectedGroupId && (
-                        <button
-                          type="button"
-                          className={`dfm-multi-choice-btn ${
-                            isMultipleChoiceMode ? "dfm-multi-choice-btn--on" : "dfm-multi-choice-btn--off"
-                          }`}
-                          aria-pressed={isMultipleChoiceMode}
-                          onClick={toggleMultipleChoice}
-                        >
-                          {isMultipleChoiceMode ? (
-                            <span className="dfm-mc-done-content">
-                              <span>{t("doneCompact")}</span>
-                              <span className="dfm-mc-done-icon" aria-hidden="true">
-                                <span className="dfm-mc-done-icon-check" />
-                              </span>
-                            </span>
-                          ) : (
-                            t("multipleChoice")
-                          )}
-                        </button>
-                      )}
-                    </div>
+                    {!showMcAssignPanel && (
+                      <div className="dfm-selected-companies-row mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <span className="dfm-selected-companies-label">{t("selectedCompanies")}</span>
+                        {multiChoiceToggle}
+                      </div>
+                    )}
                     <div
-                      className={`dfm-selected-list${
-                        isMultipleChoiceMode && selectedGroupId ? " dfm-selected-list--mc-mode" : ""
-                      }`}
+                      className={`dfm-selected-list${showMcAssignPanel ? " dfm-selected-list--mc-mode" : ""}`}
                     >
-                      {tempCompanies.length === 0
-                        ? <span className="dfm-empty-hint">{t("noCompaniesAddedYet")}</span>
-                        : renderCompanyList()
-                      }
+                      {showMcAssignPanel && (
+                        <div className="dfm-mc-panel-head">
+                          <span className="dfm-selected-companies-label">{t("selectedCompanies")}</span>
+                          {multiChoiceToggle}
+                        </div>
+                      )}
+                      {tempCompanies.length === 0 ? (
+                        <span className="dfm-empty-hint">{t("noCompaniesAddedYet")}</span>
+                      ) : (
+                        renderCompanyList()
+                      )}
                     </div>
                   </div>
                 </div>

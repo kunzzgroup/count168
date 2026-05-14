@@ -131,11 +131,11 @@ export default function CountrySelectionModal({
             className="btn btn-save"
             id="confirmCountriesBtn"
             onClick={() => {
-              if (selectedCountryChips.length !== 1) {
-                notify(t("selectExactlyOneCountry"), "warning");
+              if (selectedCountryChips.length === 0) {
+                notify(t("selectAtLeastOneCountry"), "warning");
                 return;
               }
-              onConfirm(selectedCountryChips[0]);
+              onConfirm(selectedCountryChips);
             }}
           >
             {t("confirm")}

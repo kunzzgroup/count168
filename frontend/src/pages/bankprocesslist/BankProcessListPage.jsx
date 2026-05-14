@@ -1579,7 +1579,26 @@ export default function BankProcessListPage() {
           countriesList={countriesList} selectedCountryChips={selectedCountryChips} setSelectedCountryChips={setSelectedCountryChips}
           countrySearch={countrySearch} setCountrySearch={setCountrySearch} newCountryName={newCountryName} setNewCountryName={setNewCountryName}
           onSubmitNewCountry={submitNewCountry} onRemoveAvailableCountry={removeAvailableCountry}
-          onConfirm={(country) => { setForm((f) => ({ ...f, country, bank: "" })); setCountryModalOpen(false); }}
+          onConfirm={(codes) => {
+            const ordered = [];
+            const seen = new Set();
+            for (const c of codes || []) {
+              const u = String(c || "").trim().toUpperCase();
+              if (!u || seen.has(u)) continue;
+              seen.add(u);
+              ordered.push(u);
+            }
+            if (!ordered.length) return;
+            setCountriesList((prev) => [...new Set([...prev, ...ordered])].sort());
+            setForm((f) => {
+              const cur = String(f.country || "").trim().toUpperCase();
+              const nextCountry = ordered.includes(cur) ? f.country : ordered[0];
+              const countryChanged =
+                String(nextCountry || "").trim().toUpperCase() !== cur;
+              return { ...f, country: nextCountry, bank: countryChanged ? "" : f.bank };
+            });
+            setCountryModalOpen(false);
+          }}
           onClose={() => setCountryModalOpen(false)} notify={notify}
           t={t}
         />
