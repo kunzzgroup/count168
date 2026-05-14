@@ -58,8 +58,8 @@ export default function TransactionAddSection({
 
   return (
     <div className="transaction-add-section">
-      {/* Row: Type | Date (RATE uses rate_transaction_date id in 2nd col) */}
-      <div className="tx-add-form-row tx-add-form-row--pair">
+      {/* Row: Type | Date (Date hidden in RATE mode) */}
+      <div className={`tx-add-form-row tx-add-form-row--pair${standardHidden ? " tx-add-form-row--type-only" : ""}`}>
         <div className="report-outlined-anchor tx-add-field-col">
           <div className="report-outlined-shell">
             <span className="report-outlined-label" id="tx-add-type-label">
@@ -86,24 +86,13 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="report-outlined-anchor tx-add-field-col">
-          <div className="report-outlined-shell">
-            <span className="report-outlined-label" id="tx-add-date-label">
-              Date
-            </span>
-            <div className="report-outlined-inner">
-              {txType === "RATE" ? (
-                <input
-                  type="text"
-                  id="rate_transaction_date"
-                  className="transaction-input"
-                  value={rateDate || todayDmy}
-                  placeholder="dd/mm/yyyy"
-                  readOnly
-                  style={{ cursor: "pointer" }}
-                  aria-labelledby="tx-add-date-label"
-                />
-              ) : (
+        {!standardHidden && (
+          <div className="report-outlined-anchor tx-add-field-col">
+            <div className="report-outlined-shell">
+              <span className="report-outlined-label" id="tx-add-date-label">
+                Date
+              </span>
+              <div className="report-outlined-inner">
                 <input
                   type="text"
                   id="transaction_date"
@@ -115,10 +104,10 @@ export default function TransactionAddSection({
                   style={{ cursor: "pointer" }}
                   aria-labelledby="tx-add-date-label"
                 />
-              )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div
@@ -271,265 +260,67 @@ export default function TransactionAddSection({
         </div>
       </div>
 
-      <div
-        id="rate-transaction-fields"
-        className="rate-fields tx-add-rate-fields"
-        style={{
-          display: txType === "RATE" ? "flex" : "none",
-          flexDirection: "column",
-          gap: "clamp(8px, 0.7vw, 14px)",
-        }}
-      >
-        {/* Account (rate pair) */}
-        <div className="tx-add-form-row tx-add-form-row--accounts tx-add-form-row--with-reverse">
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-acc-to-label">
-                To Account
-              </span>
-              <div className="report-outlined-inner">
-                <AccountSelect
-                  ariaLabelledBy="tx-rate-acc-to-label"
-                  placeholder="--Select To Account--"
-                  options={accountOptions}
-                  value={rateToAccount}
-                  onChange={setRateToAccount}
-                  selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-acc-from-label">
-                From Account
-              </span>
-              <div className="report-outlined-inner">
-                <AccountSelect
-                  ariaLabelledBy="tx-rate-acc-from-label"
-                  placeholder="--Select From Account--"
-                  options={accountOptions}
-                  value={rateFromAccount}
-                  onChange={setRateFromAccount}
-                  selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                />
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            id="rate_account_reverse_btn"
-            className="transaction-account-reverse-btn tx-add-account-reverse rate-reverse-btn"
-            title="Reverse accounts"
-            aria-label="Reverse accounts"
-            onClick={() => {
-              setRateToAccount(rateFromAccount);
-              setRateFromAccount(rateToAccount);
-              onRateCurrencyRowReverse?.();
-            }}
-          >
-            Reverse
-          </button>
+      <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>
+        <div className="rate-section">
+          <label className="transaction-label">Date</label>
+          <input type="text" id="rate_transaction_date" className="transaction-input" value={rateDate || todayDmy} placeholder="dd/mm/yyyy" readOnly style={{ cursor: "pointer" }} />
         </div>
 
-        {/* From CCY | From Amt | Rate | To CCY | To Amt — single row */}
-        <div className="tx-add-form-row tx-add-form-row--rate-currency" aria-label="Currency exchange">
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-ccy-from-label">
-                From Currency
-              </span>
-              <div className="report-outlined-inner">
-                <select id="rate_currency_from" className="transaction-select" value={rateCurrencyFrom} onChange={(e) => setRateCurrencyFrom(e.target.value)} aria-labelledby="tx-rate-ccy-from-label">
-                  <option value="">Currency</option>
-                  {currencyOptions.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
+        <div className="rate-section">
+          <label className="transaction-label">Account</label>
+          <div className="rate-row rate-row-two-cols">
+            <div className="custom-select-wrapper">
+              <AccountSelect placeholder="--Select To Account--" options={accountOptions} value={rateToAccount} onChange={setRateToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
-          </div>
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-amt-from-label">
-                From Amount
-              </span>
-              <div className="report-outlined-inner">
-                <input
-                  type="number"
-                  step="0.01"
-                  id="rate_currency_from_amount"
-                  className="transaction-input"
-                  placeholder="Amount"
-                  value={rateCurrencyFromAmount}
-                  onChange={(e) => setRateCurrencyFromAmount(e.target.value)}
-                  aria-labelledby="tx-rate-amt-from-label"
-                />
-              </div>
+            <div className="custom-select-wrapper">
+              <AccountSelect placeholder="--Select From Account--" options={accountOptions} value={rateFromAccount} onChange={setRateFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
-          </div>
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-ex-label">
-                Rate
-              </span>
-              <div className="report-outlined-inner">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  id="rate_exchange_rate"
-                  className="transaction-input"
-                  placeholder="Rate"
-                  value={rateExchangeRateRaw}
-                  onChange={(e) => setRateExchangeRateRaw(e.target.value)}
-                  aria-labelledby="tx-rate-ex-label"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-ccy-to-label">
-                To Currency
-              </span>
-              <div className="report-outlined-inner">
-                <select id="rate_currency_to" className="transaction-select" value={rateCurrencyTo} onChange={(e) => setRateCurrencyTo(e.target.value)} aria-labelledby="tx-rate-ccy-to-label">
-                  <option value="">Currency</option>
-                  {currencyOptions.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-amt-to-label">
-                To Amount
-              </span>
-              <div className="report-outlined-inner">
-                <input
-                  type="number"
-                  step="0.01"
-                  id="rate_currency_to_amount"
-                  className="transaction-input"
-                  placeholder="Amount"
-                  readOnly
-                  value={rateCurrencyToAmount}
-                  aria-labelledby="tx-rate-amt-to-label"
-                />
-              </div>
-            </div>
+            <button type="button" id="rate_account_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={() => { setRateToAccount(rateFromAccount); setRateFromAccount(rateToAccount); onRateCurrencyRowReverse?.(); }}>
+              Reverse
+            </button>
           </div>
         </div>
 
-        {/* Transfer account row */}
-        <div className="tx-add-form-row tx-add-form-row--accounts tx-add-form-row--with-reverse">
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-tr-to-label">
-                Transfer To
-              </span>
-              <div className="report-outlined-inner">
-                <AccountSelect
-                  ariaLabelledBy="tx-rate-tr-to-label"
-                  placeholder="--Select To Account--"
-                  options={accountOptions}
-                  value={rateTransferToAccount}
-                  onChange={setRateTransferToAccount}
-                  selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                />
-              </div>
-            </div>
+        <div className="rate-section">
+          <label className="transaction-label">Currency</label>
+          <div className="rate-row rate-row-five-cols">
+            <select id="rate_currency_from" className="transaction-select" value={rateCurrencyFrom} onChange={(e) => setRateCurrencyFrom(e.target.value)}>
+              <option value="">Currency</option>
+              {currencyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input type="number" step="0.01" id="rate_currency_from_amount" className="transaction-input" placeholder="Amount" value={rateCurrencyFromAmount} onChange={(e) => setRateCurrencyFromAmount(e.target.value)} />
+            <input type="text" inputMode="decimal" id="rate_exchange_rate" className="transaction-input" placeholder="Rate" value={rateExchangeRateRaw} onChange={(e) => setRateExchangeRateRaw(e.target.value)} />
+            <select id="rate_currency_to" className="transaction-select" value={rateCurrencyTo} onChange={(e) => setRateCurrencyTo(e.target.value)}>
+              <option value="">Currency</option>
+              {currencyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input type="number" step="0.01" id="rate_currency_to_amount" className="transaction-input" placeholder="Amount" readOnly value={rateCurrencyToAmount} />
           </div>
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-tr-from-label">
-                Transfer From
-              </span>
-              <div className="report-outlined-inner">
-                <AccountSelect
-                  ariaLabelledBy="tx-rate-tr-from-label"
-                  placeholder="--Select From Account--"
-                  options={accountOptions}
-                  value={rateTransferFromAccount}
-                  onChange={setRateTransferFromAccount}
-                  selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                />
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            id="rate_transfer_reverse_btn"
-            className="transaction-account-reverse-btn tx-add-account-reverse rate-reverse-btn"
-            title="Reverse accounts"
-            aria-label="Reverse accounts"
-            onClick={() => {
-              setRateTransferToAccount(rateTransferFromAccount);
-              setRateTransferFromAccount(rateTransferToAccount);
-            }}
-          >
-            Reverse
-          </button>
         </div>
 
-        {/* Middle-Man */}
-        <div className="tx-add-form-row tx-add-form-row--triple">
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-mm-acc-label">
-                Middle-Man
-              </span>
-              <div className="report-outlined-inner">
-                <AccountSelect
-                  ariaLabelledBy="tx-rate-mm-acc-label"
-                  placeholder="--Select Account--"
-                  options={accountOptions}
-                  value={rateMiddlemanAccount}
-                  onChange={setRateMiddlemanAccount}
-                  selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                />
-              </div>
+        <div className="rate-section">
+          <label className="transaction-label">Account</label>
+          <div className="rate-row rate-row-two-cols">
+            <div className="custom-select-wrapper">
+              <AccountSelect placeholder="--Select To Account--" options={accountOptions} value={rateTransferToAccount} onChange={setRateTransferToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
+            <div className="custom-select-wrapper">
+              <AccountSelect placeholder="--Select From Account--" options={accountOptions} value={rateTransferFromAccount} onChange={setRateTransferFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+            </div>
+            <button type="button" id="rate_transfer_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={() => { setRateTransferToAccount(rateTransferFromAccount); setRateTransferFromAccount(rateTransferToAccount); }}>
+              Reverse
+            </button>
           </div>
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-mm-rate-label">
-                Rate ×
-              </span>
-              <div className="report-outlined-inner">
-                <input
-                  type="number"
-                  step="0.0001"
-                  id="rate_middleman_rate"
-                  className="transaction-input"
-                  placeholder="Rate multiplier"
-                  value={rateMiddlemanRate}
-                  onChange={(e) => setRateMiddlemanRate(e.target.value)}
-                  aria-labelledby="tx-rate-mm-rate-label"
-                />
-              </div>
+        </div>
+
+        <div className="rate-section">
+          <label className="transaction-label">Middle-Man</label>
+          <div className="rate-row rate-row-three-cols">
+            <div className="custom-select-wrapper">
+              <AccountSelect placeholder="--Select Account--" options={accountOptions} value={rateMiddlemanAccount} onChange={setRateMiddlemanAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
-          </div>
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-rate-mm-amt-label">
-                MM Amount
-              </span>
-              <div className="report-outlined-inner">
-                <input
-                  type="number"
-                  step="0.01"
-                  id="rate_middleman_amount"
-                  className="transaction-input"
-                  placeholder="Amount"
-                  readOnly
-                  value={rateMiddlemanAmount}
-                  aria-labelledby="tx-rate-mm-amt-label"
-                />
-              </div>
-            </div>
+            <input type="number" step="0.0001" id="rate_middleman_rate" className="transaction-input" placeholder="Rate multiplier" value={rateMiddlemanRate} onChange={(e) => setRateMiddlemanRate(e.target.value)} />
+            <input type="number" step="0.01" id="rate_middleman_amount" className="transaction-input" placeholder="Amount" readOnly value={rateMiddlemanAmount} />
           </div>
         </div>
       </div>
