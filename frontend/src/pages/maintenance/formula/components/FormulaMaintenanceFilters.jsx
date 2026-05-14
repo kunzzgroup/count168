@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import ProcessSelect from "./ProcessSelect.jsx";
 
 export default function FormulaMaintenanceFilters({
@@ -22,96 +23,115 @@ export default function FormulaMaintenanceFilters({
   const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
   const showClear = Boolean(searchFilter || selectedProcess);
 
+  const visibleCompanies = useMemo(() => {
+    return snapCompanies.filter((comp) => {
+      const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
+      if (selectedGroup) return cGid === selectedGroup;
+      return true;
+    });
+  }, [snapCompanies, selectedGroup]);
+
   return (
     <div className="maintenance-search-section formula-maintenance-filters-wrap">
       <div className="maintenance-filters">
-        <div className="maintenance-form-group">
-          <label className="maintenance-label">{m.process}</label>
-          <div className="custom-select-wrapper formula-process-control">
-            <ProcessSelect
-              processes={processes}
-              selectedValue={selectedProcess}
-              onSelect={setSelectedProcess}
-              placeholder={m.selectAllProcesses}
-              searchPlaceholder={m.searchProcessPlaceholder}
-              noResultsText={m.noResultsFound}
-            />
-            <button
-              type="button"
-              id="clear_filters_btn"
-              title={m.clearFiltersTitle}
-              className="formula-clear-icon-btn"
-              onClick={onClearFilters}
-              style={{ opacity: showClear ? 1 : 0, pointerEvents: showClear ? "auto" : "none" }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-              </svg>
-            </button>
+        <div className="maintenance-form-group maintenance-outlined-field">
+          <div className="maintenance-outlined-field__wrap">
+            <span id="formula-maint-process-legend" className="maintenance-outlined-field__label">
+              {m.process}
+            </span>
+            <div className="custom-select-wrapper formula-process-control">
+              <ProcessSelect
+                processes={processes}
+                selectedValue={selectedProcess}
+                onSelect={setSelectedProcess}
+                placeholder={m.selectAllProcesses}
+                searchPlaceholder={m.searchProcessPlaceholder}
+                noResultsText={m.noResultsFound}
+                ariaLabelledBy="formula-maint-process-legend"
+              />
+              <button
+                type="button"
+                id="clear_filters_btn"
+                title={m.clearFiltersTitle}
+                className="formula-clear-icon-btn"
+                onClick={onClearFilters}
+                style={{ opacity: showClear ? 1 : 0, pointerEvents: showClear ? "auto" : "none" }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="maintenance-form-group">
-          <label className="maintenance-label">{m.search}</label>
-          <div className="search-input-container formula-search-input-container">
-            <i className="fas fa-search search-icon" />
-            <input 
-              type="text" 
-              id="search_filter" 
-              className="maintenance-input" 
-              placeholder={m.searchFormulaPlaceholder}
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              style={{ paddingLeft: "30px", width: "100%" }}
-            />
+        <div className="maintenance-form-group maintenance-outlined-field">
+          <div className="maintenance-outlined-field__wrap">
+            <span id="formula-maint-search-legend" className="maintenance-outlined-field__label">
+              {m.search}
+            </span>
+            <div className="search-input-container formula-search-input-container">
+              <i className="fas fa-search search-icon" aria-hidden={true} />
+              <input
+                type="text"
+                id="search_filter"
+                className="maintenance-input"
+                placeholder={m.searchFormulaPlaceholder}
+                value={searchFilter}
+                aria-labelledby="formula-maint-search-legend"
+                onChange={(e) => setSearchFilter(e.target.value)}
+                style={{ paddingLeft: "30px", width: "100%" }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
       <div className="maintenance-filter-row">
         <div className="maintenance-filter-left">
-          {snapGroupIds.length > 0 && (
-            <div className="maintenance-company-filter shared-group-wrapper">
-              <span className="maintenance-company-label">{m.groupId}</span>
-              <div className="maintenance-company-buttons">
-                {snapGroupIds.map((gid) => (
-                  <button 
-                    key={gid} 
-                    type="button" 
-                    className={`maintenance-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
-                    onClick={() => onGroupClick(gid)}
-                  >
-                    {gid}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {(snapGroupIds.length > 0 || snapCompanies.length > 0) && (
+            <div className="user-gc-inline-panel maintenance-gc-panel">
+              {snapGroupIds.length > 0 && (
+                <div className="user-gc-inline-row">
+                  <span className="user-gc-inline-label">{m.groupId}</span>
+                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                    <div className="user-gc-segment-group" role="group" aria-label={m.groupId}>
+                      {snapGroupIds.map((gid) => (
+                        <button
+                          key={gid}
+                          type="button"
+                          className={`user-gc-segment${selectedGroup === gid ? " is-on" : ""}`}
+                          onClick={() => onGroupClick(gid)}
+                        >
+                          {gid}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-          {snapCompanies.length > 0 && (
-            <div className="maintenance-company-filter shared-company-wrapper">
-              <span className="maintenance-company-label">{m.company}</span>
-              <div className="maintenance-company-buttons">
-                {snapCompanies.map((comp) => {
-                  const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-                  let visible = true;
-                  if (selectedGroup) visible = cGid === selectedGroup;
-
-                  return (
-                    <button
-                      key={comp.id}
-                      type="button"
-                      style={{ display: visible ? "inline-block" : "none" }}
-                      className={`maintenance-company-btn shared-company-btn ${Number(comp.id) === Number(companyId) ? "active" : ""}`}
-                      onClick={() => onSwitchCompany(comp)}
-                    >
-                      {comp.company_id}
-                    </button>
-                  );
-                })}
-              </div>
+              {snapCompanies.length > 0 && (
+                <div className="user-gc-inline-row">
+                  <span className="user-gc-inline-label">{m.company}</span>
+                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                    <div className="user-gc-segment-group" role="group" aria-label={m.company}>
+                      {visibleCompanies.map((comp) => (
+                        <button
+                          key={comp.id}
+                          type="button"
+                          className={`user-gc-segment${Number(comp.id) === Number(companyId) ? " is-on" : ""}`}
+                          onClick={() => onSwitchCompany(comp)}
+                        >
+                          {String(comp.company_id || "").toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -126,16 +146,32 @@ export default function FormulaMaintenanceFilters({
           >
             {m.delete}
           </button>
-          <label className="maintenance-confirm-delete-label">
-            <input
-              type="checkbox"
+          <div className="userlist-filter-chips maintenance-confirm-filter-chips" role="group" aria-label={m.confirmDelete}>
+            <button
+              type="button"
               id="confirmDelete"
-              className="maintenance-checkbox"
-              checked={confirmDelete}
-              onChange={(e) => setConfirmDelete(e.target.checked)}
-            />
-            <span>{m.confirmDelete}</span>
-          </label>
+              className={`user-filter-chip${confirmDelete ? " is-selected" : ""}`}
+              aria-pressed={confirmDelete}
+              onClick={() => setConfirmDelete(!confirmDelete)}
+            >
+              <span className="user-filter-chip__dot" aria-hidden={true}>
+                {confirmDelete ? (
+                  <svg
+                    className="user-filter-chip__check"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M6 12l4 4 8-8" />
+                  </svg>
+                ) : null}
+              </span>
+              <span className="user-filter-chip__label">{m.confirmDelete}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

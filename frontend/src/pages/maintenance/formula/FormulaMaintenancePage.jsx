@@ -7,6 +7,8 @@ import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceSty
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/userlist.css";
+import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/transaction.css";
 import "../../../../public/css/formula_maintenance.css";
 import { 

@@ -27,7 +27,6 @@ export default function TransactionMaintenanceFilters({
         byCode.set(key, comp);
         continue;
       }
-      // Keep currently selected company row if duplicates share the same company code.
       const existingIsCurrent = Number(existing.id) === Number(companyId);
       const currentIsCurrent = Number(comp.id) === Number(companyId);
       if (!existingIsCurrent && currentIsCurrent) byCode.set(key, comp);
@@ -35,26 +34,54 @@ export default function TransactionMaintenanceFilters({
     return Array.from(byCode.values());
   })();
 
+  const visibleCompanies = useMemo(() => {
+    return dedupedCompanies.filter((comp) => {
+      const cGid = comp.group_id != null ? normalize(comp.group_id) : "";
+      const isC168 = normalize(comp.company_id) === "C168";
+      if (selectedGroup) return cGid === selectedGroup || isC168;
+      return !cGid || isC168;
+    });
+  }, [dedupedCompanies, selectedGroup]);
+
   return (
     <div className="maintenance-search-section">
       <div className="maintenance-filters">
-        <div className="maintenance-form-group">
-          <label className="maintenance-label">{m.process}</label>
-          <ProcessSelect
-            processes={processes}
-            selectedValue={selectedProcess}
-            onSelect={setSelectedProcess}
-            placeholder={m.selectAllProcesses}
-            searchPlaceholder={m.searchProcessPlaceholder}
-            noResultsText={m.noResultsFound}
-          />
+        <div className="maintenance-form-group maintenance-outlined-field">
+          <div className="maintenance-outlined-field__wrap">
+            <span
+              id="transaction-maintenance-process-legend"
+              className="maintenance-outlined-field__label"
+            >
+              {m.process}
+            </span>
+            <ProcessSelect
+              processes={processes}
+              selectedValue={selectedProcess}
+              onSelect={setSelectedProcess}
+              placeholder={m.selectAllProcesses}
+              searchPlaceholder={m.searchProcessPlaceholder}
+              noResultsText={m.noResultsFound}
+              ariaLabelledBy="transaction-maintenance-process-legend"
+            />
+          </div>
         </div>
 
-        <div className="maintenance-form-group maintenance-date-inline">
-          <label className="maintenance-label">{m.dateRange}</label>
-          <div className="date-range-picker" id="date-range-picker">
-            <i className="fas fa-calendar-alt" />
-            <span id="date-range-display">{m.selectDateRange}</span>
+        <div className="maintenance-form-group maintenance-date-inline maintenance-outlined-field">
+          <div className="maintenance-outlined-field__wrap">
+            <span
+              id="transaction-maintenance-date-range-legend"
+              className="maintenance-outlined-field__label"
+            >
+              {m.dateRange}
+            </span>
+            <div
+              className="date-range-picker"
+              id="date-range-picker"
+              aria-labelledby="transaction-maintenance-date-range-legend"
+            >
+              <i className="fas fa-calendar-alt" aria-hidden={true} />
+              <span id="date-range-display">{m.selectDateRange}</span>
+            </div>
           </div>
           <input type="hidden" id="date_from" defaultValue={dateFrom || today} />
           <input type="hidden" id="date_to" defaultValue={dateTo || today} />
@@ -65,24 +92,43 @@ export default function TransactionMaintenanceFilters({
             <i className="fas fa-clock" /> {m.quickSelect}
           </label>
           <div className="quick-select-dropdown quick-select-dropdown-toggle">
-            <button 
-              type="button" 
-              className="dropdown-toggle" 
-              onClick={(e) => { e.stopPropagation(); window.toggleQuickSelectDropdown?.(); }}
+            <button
+              type="button"
+              className="dropdown-toggle"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.toggleQuickSelectDropdown?.();
+              }}
             >
               <i className="fas fa-calendar-alt" />
               <span id="quick-select-text">{m.period}</span>
               <i className="fas fa-chevron-down" />
             </button>
             <div className="dropdown-menu" id="quick-select-dropdown">
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("today")}>{m.today}</button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("yesterday")}>{m.yesterday}</button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisWeek")}>{m.thisWeek}</button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastWeek")}>{m.lastWeek}</button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisMonth")}>{m.thisMonth}</button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastMonth")}>{m.lastMonth}</button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisYear")}>{m.thisYear}</button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastYear")}>{m.lastYear}</button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("today")}>
+                {m.today}
+              </button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("yesterday")}>
+                {m.yesterday}
+              </button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisWeek")}>
+                {m.thisWeek}
+              </button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastWeek")}>
+                {m.lastWeek}
+              </button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisMonth")}>
+                {m.thisMonth}
+              </button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastMonth")}>
+                {m.lastMonth}
+              </button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisYear")}>
+                {m.thisYear}
+              </button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastYear")}>
+                {m.lastYear}
+              </button>
             </div>
           </div>
         </div>
@@ -90,48 +136,53 @@ export default function TransactionMaintenanceFilters({
 
       <div className="maintenance-filter-row">
         <div className="maintenance-filter-left">
-          {snapGroupIds.length > 0 && (
-            <div className="maintenance-company-filter shared-group-wrapper">
-              <span className="maintenance-company-label">{m.groupId}</span>
-              <div className="maintenance-company-buttons">
-                {snapGroupIds.map((gid) => (
-                  <button 
-                    key={gid} 
-                    type="button" 
-                    className={`maintenance-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
-                    onClick={() => onGroupClick(gid)}
+          {(snapGroupIds.length > 0 || snapCompanies.length > 0) && (
+            <div className="user-gc-inline-panel maintenance-gc-panel">
+              {snapGroupIds.length > 0 && (
+                <div className="user-gc-inline-row">
+                  <span className="user-gc-inline-label">{m.groupId}</span>
+                  <div
+                    className="user-gc-inline-pills user-gc-inline-pills--segment-scroll"
+                    id="group-buttons-wrapper"
                   >
-                    {gid}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+                    <div className="user-gc-segment-group" role="group" aria-label={m.groupId}>
+                      {snapGroupIds.map((gid) => (
+                        <button
+                          key={gid}
+                          type="button"
+                          className={`user-gc-segment${selectedGroup === gid ? " is-on" : ""}`}
+                          onClick={() => onGroupClick(gid)}
+                        >
+                          {gid}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-          {snapCompanies.length > 0 && (
-            <div className="maintenance-company-filter shared-company-wrapper">
-              <span className="maintenance-company-label">{m.company}</span>
-              <div className="maintenance-company-buttons">
-                {dedupedCompanies.map((comp) => {
-                  const cGid = comp.group_id != null ? normalize(comp.group_id) : "";
-                  const isC168 = normalize(comp.company_id) === "C168";
-                  let visible = true;
-                  if (selectedGroup) visible = cGid === selectedGroup || isC168;
-                  else visible = !cGid || isC168;
-
-                  return (
-                    <button
-                      key={comp.id}
-                      type="button"
-                      style={{ display: visible ? "inline-block" : "none" }}
-                      className={`maintenance-company-btn shared-company-btn ${Number(comp.id) === Number(companyId) ? "active" : ""}`}
-                      onClick={() => onSwitchCompany(comp)}
-                    >
-                      {comp.company_id}
-                    </button>
-                  );
-                })}
-              </div>
+              {snapCompanies.length > 0 && (
+                <div className="user-gc-inline-row">
+                  <span className="user-gc-inline-label">{m.company}</span>
+                  <div
+                    className="user-gc-inline-pills user-gc-inline-pills--segment-scroll"
+                    id="company-buttons-wrapper"
+                  >
+                    <div className="user-gc-segment-group" role="group" aria-label={m.company}>
+                      {visibleCompanies.map((comp) => (
+                        <button
+                          key={comp.id}
+                          type="button"
+                          className={`user-gc-segment${Number(comp.id) === Number(companyId) ? " is-on" : ""}`}
+                          onClick={() => onSwitchCompany(comp)}
+                        >
+                          {String(comp.company_id || "").toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

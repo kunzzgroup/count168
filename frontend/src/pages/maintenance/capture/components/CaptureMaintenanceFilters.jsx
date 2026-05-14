@@ -33,11 +33,11 @@ export default function CaptureMaintenanceFilters({
   return (
     <div className="maintenance-search-section">
       <div className="maintenance-filters">
-        <div className="maintenance-form-group capture-maintenance-process-field">
-          <div className="capture-maintenance-process-field__wrap">
+        <div className="maintenance-form-group maintenance-outlined-field">
+          <div className="maintenance-outlined-field__wrap">
             <span
               id="capture-maintenance-process-legend"
-              className="capture-maintenance-process-field__label"
+              className="maintenance-outlined-field__label"
             >
               {m.process}
             </span>
@@ -53,11 +53,11 @@ export default function CaptureMaintenanceFilters({
           </div>
         </div>
 
-        <div className="maintenance-form-group maintenance-date-inline capture-maintenance-date-range-field">
-          <div className="capture-maintenance-date-range-field__wrap">
+        <div className="maintenance-form-group maintenance-date-inline maintenance-outlined-field">
+          <div className="maintenance-outlined-field__wrap">
             <span
               id="capture-maintenance-date-range-legend"
-              className="capture-maintenance-date-range-field__label"
+              className="maintenance-outlined-field__label"
             >
               {m.dateRange}
             </span>
@@ -124,7 +124,7 @@ export default function CaptureMaintenanceFilters({
       <div className="maintenance-filter-row">
         <div className="maintenance-filter-left">
           {(snapGroupIds.length > 0 || snapCompanies.length > 0) && (
-            <div className="user-gc-inline-panel capture-maintenance-gc-panel">
+            <div className="user-gc-inline-panel maintenance-gc-panel">
               {snapGroupIds.length > 0 && (
                 <div className="user-gc-inline-row">
                   <span className="user-gc-inline-label">{m.groupId}</span>
@@ -184,15 +184,32 @@ export default function CaptureMaintenanceFilters({
           >
             {m.delete}
           </button>
-          <label className="maintenance-confirm-delete-label">
-            <input
-              type="checkbox"
-              className="maintenance-checkbox"
-              checked={confirmDelete}
-              onChange={(e) => setConfirmDelete(e.target.checked)}
-            />
-            <span>{m.confirmDelete}</span>
-          </label>
+          <div className="userlist-filter-chips maintenance-confirm-filter-chips" role="group" aria-label={m.confirmDelete}>
+            <button
+              type="button"
+              id="confirmDelete"
+              className={`user-filter-chip${confirmDelete ? " is-selected" : ""}`}
+              aria-pressed={confirmDelete}
+              onClick={() => setConfirmDelete(!confirmDelete)}
+            >
+              <span className="user-filter-chip__dot" aria-hidden={true}>
+                {confirmDelete ? (
+                  <svg
+                    className="user-filter-chip__check"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M6 12l4 4 8-8" />
+                  </svg>
+                ) : null}
+              </span>
+              <span className="user-filter-chip__label">{m.confirmDelete}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

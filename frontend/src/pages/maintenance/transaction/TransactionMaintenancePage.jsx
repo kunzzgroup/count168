@@ -6,8 +6,10 @@ import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDate
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/userlist.css";
 import "../../../../public/css/transaction.css";
 import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/transaction_maintenance.css";
 import {
   fetchCompanyPermissions,
