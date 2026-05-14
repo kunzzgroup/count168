@@ -61,45 +61,53 @@ export default function DomainReportFilters({
   return (
     <div className="domain-report-filter-container">
       <div className="domain-report-filters">
-        {/* Process Select */}
-        <div className="domain-report-filter-group">
-          <label className="maintenance-label">{t("process")}</label>
-          <div className="custom-select-wrapper" ref={processDropdownRef}>
-            <button
-              type="button"
-              className={`custom-select-button ${processDropdownOpen ? "open" : ""}`}
-              onClick={() => setProcessDropdownOpen(!processDropdownOpen)}
-            >
-              {selectedProcessLabel}
-            </button>
-            {processDropdownOpen && (
-              <div className="custom-select-dropdown show">
-                <div className="custom-select-search">
-                  <input
-                    type="text"
-                    placeholder={t("searchProcess")}
-                    autoComplete="off"
-                    value={processSearch}
-                    onChange={(e) => setProcessSearch(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-                <div className="custom-select-options">
-                  {filteredProcesses.map(p => (
-                    <div
-                      key={p.id || "all"}
-                      className={`custom-select-option ${String(p.id) === String(processId) ? "selected" : ""}`}
-                      onClick={() => { setProcessId(p.id); setProcessDropdownOpen(false); }}
-                    >
-                      {p.display_text}
+        {/* Process Select — outlined floating label */}
+        <div className="domain-report-filter-group report-outlined-anchor">
+          <div className="report-outlined-shell">
+            <span className="report-outlined-label" id="report-process-outlined-label">
+              {t("process")}
+            </span>
+            <div className="report-outlined-inner">
+              <div className="custom-select-wrapper" ref={processDropdownRef}>
+                <button
+                  type="button"
+                  id="dr-process-dropdown-btn"
+                  aria-labelledby="report-process-outlined-label"
+                  className={`custom-select-button ${processDropdownOpen ? "open" : ""}`}
+                  onClick={() => setProcessDropdownOpen(!processDropdownOpen)}
+                >
+                  {selectedProcessLabel}
+                </button>
+                {processDropdownOpen && (
+                  <div className="custom-select-dropdown show">
+                    <div className="custom-select-search">
+                      <input
+                        type="text"
+                        placeholder={t("searchProcess")}
+                        autoComplete="off"
+                        value={processSearch}
+                        onChange={(e) => setProcessSearch(e.target.value)}
+                        autoFocus
+                      />
                     </div>
-                  ))}
-                  {filteredProcesses.length === 0 && (
-                    <div className="custom-select-no-results">{t("noResultsFound")}</div>
-                  )}
-                </div>
+                    <div className="custom-select-options">
+                      {filteredProcesses.map(p => (
+                        <div
+                          key={p.id || "all"}
+                          className={`custom-select-option ${String(p.id) === String(processId) ? "selected" : ""}`}
+                          onClick={() => { setProcessId(p.id); setProcessDropdownOpen(false); }}
+                        >
+                          {p.display_text}
+                        </div>
+                      ))}
+                      {filteredProcesses.length === 0 && (
+                        <div className="custom-select-no-results">{t("noResultsFound")}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -112,6 +120,7 @@ export default function DomainReportFilters({
           label={t("dateRange")}
           placeholder={t("selectDateRange")}
           selectEndDateHint={t("selectEndDate")}
+          outlinedFloatingLabel
         />
 
         {/* Quick Select */}

@@ -63,17 +63,17 @@ export default function CustomerReportFilters({
     <div className="customer-report-filter-container">
       <div className="customer-report-filters">
         {/* Account Select — outlined floating label */}
-        <div className="customer-report-filter-group customer-report-outlined-anchor">
-          <div className="customer-report-outlined-shell">
-            <span className="customer-report-outlined-label" id="cr-account-outlined-label">
+        <div className="customer-report-filter-group report-outlined-anchor">
+          <div className="report-outlined-shell">
+            <span className="report-outlined-label" id="report-account-outlined-label">
               {t("account")}
             </span>
-            <div className="customer-report-outlined-inner customer-report-account-outlined-inner">
+            <div className="report-outlined-inner">
               <div className="custom-select-wrapper" ref={accountDropdownRef}>
                 <button
                   type="button"
                   id="cr-account-dropdown-btn"
-                  aria-labelledby="cr-account-outlined-label"
+                  aria-labelledby="report-account-outlined-label"
                   className={`custom-select-button ${accountDropdownOpen ? "open" : ""}`}
                   onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
                 >

@@ -66,7 +66,7 @@ export default function ReportDatePicker({
       className="date-range-picker"
       id="date-range-picker"
       {...(outlinedFloatingLabel
-        ? { role: "button", tabIndex: 0, "aria-labelledby": "cr-date-range-outlined-label" }
+        ? { role: "button", tabIndex: 0, "aria-labelledby": "report-date-range-outlined-label" }
         : {})}
     >
       <i className="fas fa-calendar-alt" />
@@ -110,12 +110,12 @@ export default function ReportDatePicker({
 
   if (outlinedFloatingLabel) {
     return (
-      <div className={`report-filter-group ${containerClass} customer-report-outlined-anchor`}>
-        <div className="customer-report-outlined-shell customer-report-date-outlined-shell">
-          <span className="customer-report-outlined-label" id="cr-date-range-outlined-label">
+      <div className={`report-filter-group ${containerClass} report-outlined-anchor`}>
+        <div className="report-outlined-shell">
+          <span className="report-outlined-label" id="report-date-range-outlined-label">
             {label}
           </span>
-          <div className="customer-report-outlined-inner customer-report-date-outlined-inner">
+          <div className="report-outlined-inner">
             {dateBar}
             {hiddenInputs}
           </div>
