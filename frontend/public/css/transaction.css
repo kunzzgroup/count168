@@ -304,7 +304,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 
 body.transaction-page .transaction-date-range-group .date-range-picker {
     min-width: clamp(316px, 22vw, 336px);
-    min-height: clamp(32px, 2.45vw, 42px);
+    min-height: clamp(32px, 2.45vw, 38px);
     gap: clamp(8px, 0.7vw, 12px);
     padding: 0 clamp(9px, 0.85vw, 14px) 0 0;
     border: 1px solid rgba(148, 163, 184, 0.62);
