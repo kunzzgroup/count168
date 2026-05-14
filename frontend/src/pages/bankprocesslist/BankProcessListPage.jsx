@@ -737,6 +737,7 @@ export default function BankProcessListPage() {
           companyId: Number(c.id),
           companies,
           selectedGroup: c.group_id ? String(c.group_id).toUpperCase() : null,
+          groupFilterKind,
         };
         try {
           const listUrl = new URL(buildApiUrl("api/processes/processlist_api.php"));
@@ -769,7 +770,7 @@ export default function BankProcessListPage() {
         return;
       }
       setCompanyId(Number(c.id));
-      setGroupFilterKind("follow");
+      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
       if (accountingOpen) void loadAccountingInbox();
     } catch {
       setTableLoading(false);
@@ -1137,7 +1138,7 @@ export default function BankProcessListPage() {
 
   const handlePickGroup = useCallback(
     (gid) => {
-      if (switchingCompany || tableLoading) return;
+      if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
@@ -1149,13 +1150,13 @@ export default function BankProcessListPage() {
       const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
       if (first) void onSwitchCompany(first);
     },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany, tableLoading]
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany]
   );
 
   const handlePickAllGroups = useCallback(() => {
-    if (switchingCompany || tableLoading) return;
+    if (switchingCompany) return;
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, [switchingCompany, tableLoading]);
+  }, [switchingCompany]);
 
   const supplierSortedRows = useMemo(() => {
     const arr = [...rows];
@@ -1454,7 +1455,6 @@ export default function BankProcessListPage() {
                   <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
                     <button
                       type="button"
-                      disabled={switchingCompany || tableLoading}
                       className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
                       onClick={handlePickAllGroups}
                     >
@@ -1464,7 +1464,6 @@ export default function BankProcessListPage() {
                       <button
                         key={g}
                         type="button"
-                        disabled={switchingCompany || tableLoading}
                         className={`user-gc-segment${groupFilterKind === "follow" && g === selectedGroupKey ? " is-on" : ""}`}
                         onClick={() => handlePickGroup(g)}
                       >
@@ -1485,9 +1484,9 @@ export default function BankProcessListPage() {
                       <button
                         key={c.id}
                         type="button"
-                        disabled={switchingCompany || tableLoading}
                         className={`user-gc-segment${active ? " is-on" : ""}`}
                         onClick={() => {
+                          if (switchingCompany) return;
                           if (!active) void onSwitchCompany(c);
                         }}
                       >
@@ -1505,7 +1504,6 @@ export default function BankProcessListPage() {
                   <div className="user-gc-segment-group" role="group" aria-label={t("currency")}>
                     <button
                       type="button"
-                      disabled={switchingCompany || tableLoading}
                       className={`user-gc-segment${!currencyFilterCode ? " is-on" : ""}`}
                       onClick={() => setCurrencyFilterCode("")}
                     >
@@ -1516,7 +1514,6 @@ export default function BankProcessListPage() {
                         key={code}
                         type="button"
                         draggable
-                        disabled={switchingCompany || tableLoading}
                         title={t("currencyDragHint")}
                         className={`user-gc-segment user-gc-segment--draggable-pill${currencyFilterCode === code ? " is-on" : ""}`}
                         onDragStart={(e) => {
