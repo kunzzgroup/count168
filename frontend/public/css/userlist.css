@@ -59,6 +59,7 @@ body.user-page:not(.user-page--show-all) {
 
 .user-page .user-table-wrapper .table-header {
     flex-shrink: 0;
+    margin-top: 8px;
 }
 
 /* Show All：整页纵向滚动，展示全部过滤结果（与 account / process 一致） */
