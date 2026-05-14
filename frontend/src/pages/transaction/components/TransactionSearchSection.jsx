@@ -38,6 +38,12 @@ export default function TransactionSearchSection({
   toggleCurrencyBtn,
 }) {
   const hideGroupFilter = !fs.snapGroupIds?.length;
+  const displayFilterChips = [
+    { id: "show_name", key: "showName", label: "Show Name" },
+    { id: "show_capture_only", key: "showCaptureOnly", label: "Show Win/Loss Only" },
+    { id: "show_inactive", key: "showPaymentOnly", label: "Show Payment Only" },
+    { id: "show_zero_balance", key: "showZeroBalance", label: "Show 0 balance" },
+  ];
 
   const companiesForCompanyStrip = useMemo(() => {
     const list = fs.snapCompanies || [];
@@ -137,23 +143,29 @@ export default function TransactionSearchSection({
         </div>
       </div>
 
-      <div className="transaction-checkboxes">
-        <label className="transaction-checkbox-label">
-          <input type="checkbox" id="show_name" className="transaction-checkbox" checked={searchState.showName} onChange={(e) => setSearchState((s) => ({ ...s, showName: e.target.checked }))} />
-          Show Name
-        </label>
-        <label className="transaction-checkbox-label">
-          <input type="checkbox" id="show_capture_only" className="transaction-checkbox" checked={searchState.showCaptureOnly} onChange={(e) => setSearchState((s) => ({ ...s, showCaptureOnly: e.target.checked }))} />
-          Show Win/Loss Only
-        </label>
-        <label className="transaction-checkbox-label">
-          <input type="checkbox" id="show_inactive" className="transaction-checkbox" checked={searchState.showPaymentOnly} onChange={(e) => setSearchState((s) => ({ ...s, showPaymentOnly: e.target.checked }))} />
-          Show Payment Only
-        </label>
-        <label className="transaction-checkbox-label">
-          <input type="checkbox" id="show_zero_balance" className="transaction-checkbox" checked={searchState.showZeroBalance} onChange={(e) => setSearchState((s) => ({ ...s, showZeroBalance: e.target.checked }))} />
-          Show 0 balance
-        </label>
+      <div className="transaction-checkboxes userlist-filter-chips" role="group" aria-label="Display filters">
+        {displayFilterChips.map((chip) => {
+          const selected = !!searchState[chip.key];
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              id={chip.id}
+              className={`user-filter-chip${selected ? " is-selected" : ""}`}
+              aria-pressed={selected}
+              onClick={() => setSearchState((s) => ({ ...s, [chip.key]: !s[chip.key] }))}
+            >
+              <span className="user-filter-chip__dot" aria-hidden>
+                {selected ? (
+                  <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 12l4 4 8-8" />
+                  </svg>
+                ) : null}
+              </span>
+              <span className="user-filter-chip__label">{chip.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="transaction-bottom-filters">
