@@ -1,9 +1,27 @@
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 
+const SKELETON_ROW_COUNT = 10;
+
+function SkeletonRows() {
+  return (
+    <>
+      {Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => (
+        <tr key={`skel-${i}`} className="maintenance-table-skeleton-row" aria-hidden>
+          {Array.from({ length: 13 }, (_, j) => (
+            <td key={j} className="maintenance-table-cell">
+              <span className="maintenance-skel-bar" />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
 export default function TransactionMaintenanceTable({ data, loading, m }) {
   if (loading) {
     return (
-      <div className="maintenance-list-container" style={{ display: "block" }}>
+      <div className="maintenance-list-container maintenance-list-container--loading" style={{ display: "block" }}>
         <table className="maintenance-table">
           <thead>
             <tr>
@@ -11,11 +29,12 @@ export default function TransactionMaintenanceTable({ data, loading, m }) {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td className="maintenance-table-cell" colSpan="13" style={{ textAlign: "center", padding: "20px" }}>
+            <tr className="maintenance-table-loading-caption-row">
+              <td className="maintenance-table-cell maintenance-table-loading-caption" colSpan="13">
                 {m.loading}
               </td>
             </tr>
+            <SkeletonRows />
           </tbody>
         </table>
       </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
@@ -60,7 +60,10 @@ export default function TransactionMaintenancePage() {
   const [transactionData, setTransactionData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  
+  const searchAbortRef = useRef(null);
+  /** When set, meta effect reuses permissions from the last company switch instead of calling domain_api again. */
+  const switchPermsCacheRef = useRef(null);
+
   // -- UI State --
   const [toasts, setToasts] = useState([]);
   const [cssReady, setCssReady] = useState(false);
@@ -259,31 +262,51 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     if (bootLoading || !companyId) return;
 
+    let cancelled = false;
+    const cid = companyId;
+    const ccode = companyCode;
+
     (async () => {
       try {
-        const [procList, permList] = await Promise.all([
-          fetchProcesses(companyId),
-          fetchCompanyPermissions(companyCode)
-        ]);
+        const procList = await fetchProcesses(cid);
+        if (cancelled) return;
         setProcesses(procList);
+
+        const cached = switchPermsCacheRef.current;
+        let permList;
+        if (cached && cached.companyCode === ccode) {
+          permList = cached.perms;
+          switchPermsCacheRef.current = null;
+        } else {
+          permList = await fetchCompanyPermissions(ccode);
+        }
+        if (cancelled) return;
         setPermissions(permList);
-        
-        const saved = localStorage.getItem(`selectedPermission_${companyCode}`);
+
+        const saved = localStorage.getItem(`selectedPermission_${ccode}`);
         if (saved && permList.includes(saved)) {
           setActivePermission(saved);
         } else if (permList.length > 0) {
           setActivePermission(permList[0]);
         }
       } catch (err) {
+        if (cancelled) return;
         console.error("Meta data load error:", err);
         notify(t("failedLoadMetaData"), "error");
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [bootLoading, companyId, companyCode, notify, t]);
 
   // -- Search Logic --
   const performSearch = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;
+    searchAbortRef.current?.abort();
+    const ac = new AbortController();
+    searchAbortRef.current = ac;
     setLoading(true);
     try {
       const data = await searchTransactionData({
@@ -291,7 +314,8 @@ export default function TransactionMaintenancePage() {
         dateTo,
         process: selectedProcess,
         companyId,
-        category: activePermission
+        category: activePermission,
+        signal: ac.signal,
       });
       setTransactionData(data);
       setHasSearched(true);
@@ -299,10 +323,13 @@ export default function TransactionMaintenancePage() {
         notify(t("foundRecords", { n: data.length }), "success");
       }
     } catch (err) {
+      if (err?.name === "AbortError") return;
       notify(err.message, "error");
       setTransactionData([]);
     } finally {
-      setLoading(false);
+      if (searchAbortRef.current === ac) {
+        setLoading(false);
+      }
     }
   }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t]);
 
@@ -317,23 +344,32 @@ export default function TransactionMaintenancePage() {
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
     try {
-      const res = await updateSessionCompany(c.id);
-      
+      const [res, perms] = await Promise.all([
+        updateSessionCompany(c.id),
+        fetchCompanyPermissions(c.company_id),
+      ]);
+
       // Legacy Redirect logic
       if (res.has_gambling === false) {
         navigate("/process-list", { replace: true });
         return;
       }
-      
-      // Fetch permissions for the new company to check Bank-only category
-      const perms = await fetchCompanyPermissions(c.company_id);
+
       if (isBankOnlyCategoryCompany(perms)) {
         navigate("/process-list", { replace: true });
         return;
       }
 
+      const code = c.company_id || "";
+      const saved = localStorage.getItem(`selectedPermission_${code}`);
+      const nextActive =
+        saved && perms.includes(saved) ? saved : perms.length > 0 ? perms[0] : "";
+      switchPermsCacheRef.current = { companyCode: code, perms };
+      setActivePermission(nextActive);
+      setPermissions(perms);
+
       setCompanyId(Number(c.id));
-      setCompanyCode(c.company_id || "");
+      setCompanyCode(code);
       
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       setSelectedGroup(newGroup);
@@ -388,22 +424,24 @@ export default function TransactionMaintenancePage() {
         )}
       </div>
 
-      <TransactionMaintenanceFilters 
-        processes={processes}
-        selectedProcess={selectedProcess}
-        setSelectedProcess={setSelectedProcess}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        today={todayDmy}
-        companyId={companyId}
-        companies={companies}
-        selectedGroup={selectedGroup}
-        onGroupClick={handleGroupClick}
-        onSwitchCompany={handleSwitchCompany}
-        m={m}
-      />
+      <div className="transaction-maintenance-page-root">
+        <TransactionMaintenanceFilters 
+          processes={processes}
+          selectedProcess={selectedProcess}
+          setSelectedProcess={setSelectedProcess}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          today={todayDmy}
+          companyId={companyId}
+          companies={companies}
+          selectedGroup={selectedGroup}
+          onGroupClick={handleGroupClick}
+          onSwitchCompany={handleSwitchCompany}
+          m={m}
+        />
 
-      <TransactionMaintenanceTable data={transactionData} loading={loading} m={m} />
+        <TransactionMaintenanceTable data={transactionData} loading={loading} m={m} />
+      </div>
 
       {/* Notifications */}
       <div id="notificationContainer" className="maintenance-notification-container">

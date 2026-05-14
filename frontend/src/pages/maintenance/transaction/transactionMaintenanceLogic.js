@@ -52,7 +52,7 @@ export async function fetchProcesses(companyId) {
 /**
  * Search transaction data
  */
-export async function searchTransactionData({ dateFrom, dateTo, process, companyId, category }) {
+export async function searchTransactionData({ dateFrom, dateTo, process, companyId, category, signal }) {
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);
   params.append("date_to", dateTo);
@@ -67,7 +67,7 @@ export async function searchTransactionData({ dateFrom, dateTo, process, company
   }
   
   const url = buildApiUrl(`api/transactions/maintenance_search_api.php?${params.toString()}`);
-  const response = await fetch(url);
+  const response = await fetch(url, signal ? { signal } : undefined);
   const data = await response.json();
   
   if (!data.success) {
