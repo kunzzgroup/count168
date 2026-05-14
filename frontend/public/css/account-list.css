@@ -377,7 +377,7 @@
 .currency-fullscreen-modal-header-bar h2 {
     margin: 0;
     font-family: var(--font-heading-page);
-    font-size: var(--text-h2);
+    font-size: var(--text-page-title);
     font-weight: var(--font-weight-bold);
     color: var(--color-heading);
 }
