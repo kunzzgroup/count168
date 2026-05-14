@@ -553,10 +553,10 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-stack {
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all {
-    display: flex !important;
-    flex-direction: row !important;
+    display: grid !important;
+    grid-template-columns: 16px minmax(0, 1fr) !important;
     align-items: center !important;
-    gap: 8px !important;
+    column-gap: 8px !important;
     margin: 0 !important;
     padding: 2px 0 !important;
     min-height: 0 !important;
@@ -569,24 +569,22 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all {
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all > span {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    min-height: 16px !important;
+    display: block !important;
     margin: 0 !important;
     padding: 0 !important;
     font-family: inherit !important;
     font-size: inherit !important;
     font-weight: inherit !important;
     color: inherit !important;
-    line-height: 16px !important;
+    line-height: 1.25 !important;
     letter-spacing: 0 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all .dfm-assign-select-all-checkbox {
     cursor: pointer !important;
-    flex-shrink: 0 !important;
     margin: 0 !important;
+    justify-self: center !important;
+    align-self: center !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list {
@@ -632,16 +630,17 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-row.company-item {
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-row .company-item-left {
-    display: flex !important;
-    flex-direction: row !important;
+    display: grid !important;
+    grid-template-columns: 16px minmax(0, 1fr) !important;
     align-items: center !important;
-    gap: 8px !important;
+    column-gap: 8px !important;
     flex: 1 1 auto !important;
     min-width: 0 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-row .dfm-assign-row-checkbox {
-    flex-shrink: 0 !important;
+    margin: 0 !important;
+    justify-self: center !important;
     align-self: center !important;
 }
 
@@ -669,19 +668,20 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-name {
     cursor: pointer !important;
     letter-spacing: 0 !important;
     user-select: none !important;
-    line-height: 1 !important;
-    display: inline-flex !important;
-    align-items: center !important;
+    line-height: 1.25 !important;
+    display: block !important;
     margin: 0 !important;
-    padding-top: 1px !important;
+    padding: 0 !important;
 }
 
-/* 勾选与标签垂直中线对齐：方框与字高一致 */
+/* 多选区勾选：统一 16px 槽位，避免原生 checkbox 与文字基线不齐 */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-stack .dfm-assign-ref-checkbox {
+    display: block !important;
     width: 16px !important;
     height: 16px !important;
     border-width: 1.5px !important;
     border-radius: 3px !important;
+    flex: none !important;
 }
 
 /* 备选：下方为旧版双列宫格（保留以便回退） */
@@ -749,15 +749,15 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-ref-checkbox {
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-ref-checkbox:checked {
     background-color: var(--color-control-accent) !important;
     border-color: var(--color-control-accent-border) !important;
-    /* 24×24 viewBox 填充对勾，几何居中，避免描边路径视觉偏左上 */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") !important;
+    /* Bootstrap Icons check2，官方 16×16 字框，勾在视图中自然居中 */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23ffffff' d='M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.747.747 0 0 1 1.05-.019z'/%3E%3C/svg%3E") !important;
     background-repeat: no-repeat !important;
     background-position: 50% 50% !important;
     background-size: 12px 12px !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-stack .dfm-assign-ref-checkbox:checked {
-    background-size: 11px 11px !important;
+    background-size: 10px 10px !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-ref-checkbox:focus-visible {
