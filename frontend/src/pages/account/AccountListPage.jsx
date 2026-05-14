@@ -545,7 +545,9 @@ export default function AccountListPage() {
 
   const loadCurrencyLinks = async (curId) => {
     try {
-      const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?action=get_linked_accounts_by_currency&currency_id=${curId}`), { method: "POST", credentials: "include" });
+      const params = new URLSearchParams({ action: "get_linked_accounts_by_currency", currency_id: String(curId) });
+      if (companyId) params.set("company_id", String(companyId));
+      const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", credentials: "include" });
       const json = await res.json();
       const ids = new Set((json.data?.linked_account_ids || []).map(Number));
       setSettingLinked(ids); setSettingInitial(new Set(ids));
@@ -559,7 +561,9 @@ export default function AccountListPage() {
       if (now && !was) linked.push(id); if (!now && was) unlinked.push(id);
     });
     try {
-      const res = await fetch(buildApiUrl("api/accounts/bulk_account_currency_api.php?action=bulk_update"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
+      const params = new URLSearchParams({ action: "bulk_update" });
+      if (companyId) params.set("company_id", String(companyId));
+      const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
       if (res.ok) { setCurrencySettingOpen(false); notify(t("currencySettingsSaved")); fetchAccounts(); }
     } catch { notify(t("saveFailed"), "danger"); }
   };
