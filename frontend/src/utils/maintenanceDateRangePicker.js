@@ -331,7 +331,7 @@ export function ensureMaintenanceDateRangePicker() {
         }
       }
       if (popup.classList.contains("calendar-popup--transaction-range")) {
-        const popupWidth = Math.min(Math.max(window.innerWidth * 0.25, 340), 426);
+        const popupWidth = Math.min(Math.max(window.innerWidth * 0.22, 316), 336);
         const maxLeft = window.innerWidth - popupWidth - 12;
         popup.style.left = `${Math.max(12, Math.min(rect.left, maxLeft))}px`;
         popup.style.width = "";
