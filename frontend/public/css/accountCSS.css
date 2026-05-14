@@ -332,7 +332,7 @@ body.account-page:not(.account-page--show-all) {
     user-select: none;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 5px;
     transition: background-color 0.2s ease;
     padding: 2px 4px;
