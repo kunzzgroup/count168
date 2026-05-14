@@ -160,6 +160,7 @@ body.transaction-page .transaction-add-section .tx-add-account-reverse {
     align-self: center;
     margin-top: 0;
     width: var(--tx-add-reverse-col);
+    min-height: clamp(30px, 2.25vw, 38px);
 }
 
 body.transaction-page .transaction-add-section .tx-add-icon-field {
