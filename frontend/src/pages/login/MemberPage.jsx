@@ -697,7 +697,6 @@ export default function MemberPage() {
 
       <div className="transaction-container">
         <h1 className="transaction-title">Win/Loss</h1>
-        <div className="transaction-separator-line" />
         <div className="transaction-main-content">
           <div className="transaction-search-section" style={{ flex: 1 }}>
             <div className="transaction-form-group transaction-capture-date-group">

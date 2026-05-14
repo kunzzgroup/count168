@@ -653,7 +653,6 @@ export default function AccountListPage() {
       <div className="container">
         <div className="content">
           <h1 className="account-page-title">{t("accountList")}</h1>
-          <div className="account-separator-line" />
           <div className="action-buttons-container" style={{ marginBottom: 20 }}>
             <div className="action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>

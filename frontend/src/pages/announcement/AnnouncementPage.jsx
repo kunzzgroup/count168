@@ -180,7 +180,6 @@ export default function AnnouncementPage() {
             <button type="button" className={`page-tab${activeTab === "maintenance" ? " active" : ""}`} onClick={() => setActiveTab("maintenance")}>{t("maintenanceTab")}</button>
           </div>
         </div>
-        <div className="separator-line" />
         {activeTab === "announcement" && <AnnouncementPanel t={t} announcements={announcements} onEdit={handleAnnouncementEdit} onDelete={handleAnnouncementDelete} />}
         {activeTab === "maintenance" && <MaintenancePanel t={t} maintenanceList={maintenanceList} onEdit={handleMaintenanceEdit} onDelete={handleMaintenanceDelete} />}
       </div>

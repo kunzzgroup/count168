@@ -186,7 +186,6 @@ export default function DeletedLogPage() {
       <div className="container">
         <div className="content">
           <h1 className="account-page-title">Deleted Log</h1>
-          <div className="deleted-log-separator-line" />
           {scopeHintHtml !== "" ? (
             <p className="deleted-log-scope-hint" dangerouslySetInnerHTML={{ __html: scopeHintHtml }} />
           ) : null}

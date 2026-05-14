@@ -129,9 +129,6 @@ $default_date_to = $today_dt->format('d/m/Y');
         </div>
         <?php endif; ?>
 
-        <!-- Separator line -->
-        <div class="transaction-separator-line"></div>
-        
         <div class="transaction-main-content">
             <!-- Left Search Form -->
             <div class="transaction-search-section">
