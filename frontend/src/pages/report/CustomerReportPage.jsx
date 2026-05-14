@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../utils/sharedCompanyFilter.js";
+import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../utils/sharedCompanyFilter.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/transaction.css";
+import "../../../public/css/userlist.css";
 import "../../../public/css/customer_report.css";
 import "../../../public/css/date-range-picker.css";
 import {
@@ -20,6 +21,7 @@ import { getReportText } from "../../translateFile/reportTranslate.js";
 // Components
 import CustomerReportFilters from "./components/CustomerReportFilters.jsx";
 import CustomerReportTable from "./components/CustomerReportTable.jsx";
+import { useReportGcSwitcher } from "./hooks/useReportGcSwitcher.js";
 
 export default function CustomerReportPage() {
   const navigate = useNavigate();
@@ -33,7 +35,9 @@ export default function CustomerReportPage() {
 
   // -- State: Filters --
   const [companyId, setCompanyId] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  /** Process List 同款：all | follow | ungrouped */
+  const [groupFilterKind, setGroupFilterKind] = useState("follow");
+  const [switchingCompany, setSwitchingCompany] = useState(false);
   const [accountId, setAccountId] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
@@ -55,6 +59,12 @@ export default function CustomerReportPage() {
   const [toast, setToast] = useState(null);
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
+
+  const { allCompanyButtons, groupIds, selectedGroupKey, companyButtons } = useReportGcSwitcher(
+    companies,
+    companyId,
+    groupFilterKind,
+  );
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -150,7 +160,7 @@ export default function CustomerReportPage() {
 
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
-        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
+        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeOwnerCompanyRow) : [];
         setCompanies(rows);
 
         const url = new URL(window.location.href);
@@ -159,24 +169,8 @@ export default function CustomerReportPage() {
         effective = effective ? Number(effective) : null;
 
         setCompanyId(effective);
+        setGroupFilterKind("follow");
         if (effective) await checkBankOnly(effective);
-
-        const cur = rows.find((c) => Number(c.id) === Number(effective));
-        const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-        const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-
-        let selGroup = null;
-        if (savedGroup && groups.includes(savedGroup) && cur?.group_id && String(cur.group_id).toUpperCase().trim() === savedGroup) {
-          selGroup = savedGroup;
-        } else if (savedGroup && !groups.includes(savedGroup)) {
-          sessionStorage.removeItem("dashboard_group_filter");
-        }
-        if (!selGroup && cur?.group_id?.trim()) {
-          selGroup = String(cur.group_id).toUpperCase().trim();
-          sessionStorage.setItem("dashboard_group_filter", selGroup);
-        }
-        setSelectedGroup(selGroup);
-        if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
 
       } catch {
         navigate("/login", { replace: true });
@@ -258,33 +252,47 @@ export default function CustomerReportPage() {
   }, [bootLoading, companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies, loadReport]);
 
   // -- Handlers --
-  const onSwitchCompany = async (c) => {
+  const onSwitchCompany = useCallback(async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
+    setSwitchingCompany(true);
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
       if (!json.success) { notify(json.error || t("switchFailed"), "danger"); return; }
       setCompanyId(Number(c.id));
+      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-      setSelectedGroup(newGroup);
-      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
-      else sessionStorage.removeItem("dashboard_group_filter");
-      
+      persistDashboardGroupFilter(newGroup || null);
+
       await checkBankOnly(c.id);
       notifyCompanySessionUpdated();
     } catch { notify(t("switchFailed"), "danger"); }
-  };
+    finally { setSwitchingCompany(false); }
+  }, [companyId, notify, t, checkBankOnly]);
 
-  const onGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: onSwitchCompany,
-    });
-  };
+  const handlePickGroup = useCallback(
+    (gid) => {
+      if (switchingCompany) return;
+      const g = String(gid || "").trim().toUpperCase();
+      if (!g) return;
+      if (groupFilterKind === "follow" && g === selectedGroupKey) {
+        setGroupFilterKind("ungrouped");
+        persistDashboardGroupFilter(null);
+        return;
+      }
+      setGroupFilterKind("follow");
+      persistDashboardGroupFilter(g);
+      if (g === selectedGroupKey) return;
+      const first = allCompanyButtons.find((row) => String(row.group_id || "").trim().toUpperCase() === g);
+      if (first) void onSwitchCompany(first);
+    },
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany],
+  );
+
+  const handlePickAllGroups = useCallback(() => {
+    if (switchingCompany) return;
+    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
+  }, [switchingCompany]);
 
   const toggleCurrency = (code) => {
     setShowAllCurrencies(false);
@@ -311,9 +319,13 @@ export default function CustomerReportPage() {
         <CustomerReportFilters
           companyId={companyId}
           onSwitchCompany={onSwitchCompany}
-          companies={companies}
-          selectedGroup={selectedGroup}
-          onGroupClick={onGroupClick}
+          groupIds={groupIds}
+          groupFilterKind={groupFilterKind}
+          selectedGroupKey={selectedGroupKey}
+          onPickAllGroups={handlePickAllGroups}
+          onPickGroup={handlePickGroup}
+          companyButtons={companyButtons}
+          switchingCompany={switchingCompany}
           accountId={accountId}
           setAccountId={setAccountId}
           accounts={accounts}

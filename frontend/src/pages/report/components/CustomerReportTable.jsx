@@ -1,10 +1,17 @@
 import { formatAmount, reportAdd } from "../customerReportLogic.js";
 
+function cellUpperOrDash(v) {
+  if (v == null || String(v).trim() === "") return "-";
+  return String(v).trim().toUpperCase();
+}
+
 export default function CustomerReportTable({ reportData, loading, error, currencyList = [], t }) {
   const tableHeader = (
     <div className="customer-report-table-header">
       <div>{t("colAccount")}</div>
       <div>{t("colName")}</div>
+      <div>{t("colGroupId")}</div>
+      <div>{t("colCompanyId")}</div>
       <div>{t("colCurrency")}</div>
       <div>{t("colWin")}</div>
       <div>{t("colLose")}</div>
@@ -52,13 +59,13 @@ export default function CustomerReportTable({ reportData, loading, error, curren
   // Sort currencies by currencyList order, then any leftovers alphabetically
   const reportCurrencies = Object.keys(grouped).filter(c => c !== "null");
   const sortedCurrencies = [];
-  
+
   currencyList.forEach(cItem => {
     if (reportCurrencies.includes(cItem.code)) {
       sortedCurrencies.push(cItem.code);
     }
   });
-  
+
   // Add leftovers
   reportCurrencies.forEach(c => {
     if (!sortedCurrencies.includes(c)) {
@@ -67,6 +74,18 @@ export default function CustomerReportTable({ reportData, loading, error, curren
   });
 
   const hasNull = !!grouped["null"];
+
+  const rowCells = (it) => (
+    <>
+      <div className="customer-report-card-item">{(it.account_id || "").toUpperCase()}</div>
+      <div className="customer-report-card-item">{(it.name || "").toUpperCase()}</div>
+      <div className="customer-report-card-item">{cellUpperOrDash(it.group_id)}</div>
+      <div className="customer-report-card-item">{cellUpperOrDash(it.company_id)}</div>
+      <div className="customer-report-card-item">{cellUpperOrDash(it.currency)}</div>
+      <div className="customer-report-card-item customer-report-amount win">{formatAmount(it.win)}</div>
+      <div className="customer-report-card-item customer-report-amount lose">{formatAmount(it.lose)}</div>
+    </>
+  );
 
   // If multiple currencies or null+one, show grouped
   if (sortedCurrencies.length > 1 || (sortedCurrencies.length >= 1 && hasNull)) {
@@ -86,11 +105,7 @@ export default function CustomerReportTable({ reportData, loading, error, curren
               <div className="customer-report-cards">
                 {items.map((it, idx) => (
                   <div key={idx} className="customer-report-card">
-                    <div className="customer-report-card-item">{(it.account_id || "").toUpperCase()}</div>
-                    <div className="customer-report-card-item">{(it.name || "").toUpperCase()}</div>
-                    <div className="customer-report-card-item">{(it.currency || "-").toUpperCase()}</div>
-                    <div className="customer-report-card-item customer-report-amount win">{formatAmount(it.win)}</div>
-                    <div className="customer-report-card-item customer-report-amount lose">{formatAmount(it.lose)}</div>
+                    {rowCells(it)}
                   </div>
                 ))}
               </div>
@@ -111,11 +126,7 @@ export default function CustomerReportTable({ reportData, loading, error, curren
             <div className="customer-report-cards">
               {grouped["null"].map((it, idx) => (
                 <div key={idx} className="customer-report-card">
-                  <div className="customer-report-card-item">{(it.account_id || "").toUpperCase()}</div>
-                  <div className="customer-report-card-item">{(it.name || "").toUpperCase()}</div>
-                  <div className="customer-report-card-item">-</div>
-                  <div className="customer-report-card-item customer-report-amount win">{formatAmount(it.win)}</div>
-                  <div className="customer-report-card-item customer-report-amount lose">{formatAmount(it.lose)}</div>
+                  {rowCells(it)}
                 </div>
               ))}
             </div>
@@ -141,11 +152,7 @@ export default function CustomerReportTable({ reportData, loading, error, curren
       <div className="customer-report-cards">
         {data.map((it, idx) => (
           <div key={idx} className="customer-report-card">
-            <div className="customer-report-card-item">{(it.account_id || "").toUpperCase()}</div>
-            <div className="customer-report-card-item">{(it.name || "").toUpperCase()}</div>
-            <div className="customer-report-card-item">{(it.currency || "-").toUpperCase()}</div>
-            <div className="customer-report-card-item customer-report-amount win">{formatAmount(it.win)}</div>
-            <div className="customer-report-card-item customer-report-amount lose">{formatAmount(it.lose)}</div>
+            {rowCells(it)}
           </div>
         ))}
       </div>

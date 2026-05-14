@@ -51,6 +51,26 @@ function columnExists(PDO $pdo, string $table, string $column): bool {
     return $stmt && $stmt->rowCount() > 0;
 }
 
+/**
+ * 与 Transaction 列表一致：公司代码 + 集团 ID（大写），供报表行展示。
+ */
+function fetchCompanyReportMeta(PDO $pdo, int $companyId): array {
+    $stmt = $pdo->prepare("SELECT company_id, group_id FROM company WHERE id = ? LIMIT 1");
+    $stmt->execute([$companyId]);
+    $r = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$r) {
+        return ['company_id' => null, 'group_id' => null];
+    }
+    $cid = isset($r['company_id']) ? strtoupper(trim((string) $r['company_id'])) : '';
+    $gidRaw = $r['group_id'] ?? null;
+    $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '')
+        ? strtoupper(trim((string) $gidRaw)) : null;
+    return [
+        'company_id' => $cid !== '' ? $cid : null,
+        'group_id' => $gid,
+    ];
+}
+
 function getAccountsForReport(PDO $pdo, int $companyId, string $accountIdFilter): array {
     $useAccountCompany = tableExists($pdo, 'account_company');
     if ($useAccountCompany) {
@@ -140,6 +160,7 @@ function getWinLoseNoCurrency(PDO $pdo, int $accountId, string $dateFrom, string
 
 function buildReportData(PDO $pdo, int $companyId, string $accountId, string $dateFrom, string $dateTo, bool $showAll, string $currencyFilter): array {
     $accounts = getAccountsForReport($pdo, $companyId, $accountId);
+    $coMeta = fetchCompanyReportMeta($pdo, $companyId);
     $reportData = [];
     $totalWin = '0.00000000';
     $totalLose = '0.00000000';
@@ -161,7 +182,9 @@ function buildReportData(PDO $pdo, int $companyId, string $accountId, string $da
                     'id' => $account['id'],
                     'account_id' => $account['account_id'],
                     'name' => $account['name'],
-                    'currency' => $cur['currency_code'],
+                    'group_id' => $coMeta['group_id'],
+                    'company_id' => $coMeta['company_id'],
+                    'currency' => strtoupper(trim((string) $cur['currency_code'])),
                     'win' => $wl['win'],
                     'lose' => $wl['lose']
                 ];
@@ -182,6 +205,8 @@ function buildReportData(PDO $pdo, int $companyId, string $accountId, string $da
                 'id' => $account['id'],
                 'account_id' => $account['account_id'],
                 'name' => $account['name'],
+                'group_id' => $coMeta['group_id'],
+                'company_id' => $coMeta['company_id'],
                 'currency' => null,
                 'win' => $wl['win'],
                 'lose' => $wl['lose']

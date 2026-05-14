@@ -26,6 +26,7 @@ export const REPORT_I18N = {
 
     showAll: "Show All",
     groupId: "GroupID:",
+    groupFilterAll: "ALL",
     company: "Company:",
     currency: "Currency:",
     all: "All",
@@ -36,6 +37,8 @@ export const REPORT_I18N = {
 
     colAccount: "Account",
     colName: "Name",
+    colGroupId: "Group ID",
+    colCompanyId: "Company",
     colCurrency: "Currency",
     colWin: "Win",
     colLose: "Lose",
@@ -78,6 +81,7 @@ export const REPORT_I18N = {
 
     showAll: "显示全部",
     groupId: "集团:",
+    groupFilterAll: "全部",
     company: "公司:",
     currency: "币种:",
     all: "全部",
@@ -88,6 +92,8 @@ export const REPORT_I18N = {
 
     colAccount: "账号",
     colName: "名称",
+    colGroupId: "集团",
+    colCompanyId: "公司",
     colCurrency: "币种",
     colWin: "赢",
     colLose: "输",
