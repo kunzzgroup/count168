@@ -283,23 +283,70 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 .transaction-page .transaction-category-date-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: stretch;
     gap: clamp(12px, 1.25vw, 20px);
     width: 100%;
     margin-bottom: 5px;
 }
 
-body.transaction-page .transaction-outlined-field-col {
-    flex: 1 1 280px;
+body.transaction-page .transaction-search-section .transaction-category-date-row .transaction-outlined-field-col {
+    flex: 1 1 0;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
 }
 
-body.transaction-page .transaction-outlined-field-col--category {
-    flex: 1.25 1 300px;
+body.transaction-page .transaction-search-section .transaction-category-date-row .report-outlined-shell {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
 }
 
-body.transaction-page .transaction-outlined-field-col--date {
-    flex: 1 1 min(336px, 100%);
+body.transaction-page .transaction-search-section .transaction-category-date-row .report-outlined-inner {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+}
+
+body.transaction-page .transaction-search-section .transaction-category-date-row .transaction-outlined-field-col--category .report-outlined-inner {
+    justify-content: flex-start;
+}
+
+body.transaction-page .transaction-search-section .transaction-category-date-row .category-dropdown {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button {
+    min-height: clamp(38px, 2.45vw, 40px);
+    max-height: clamp(38px, 2.45vw, 40px);
+    height: clamp(38px, 2.45vw, 40px);
+    overflow: hidden;
+    padding: 4px 10px;
+    box-sizing: border-box;
+    align-items: stretch;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button > .fas.fa-chevron-down {
+    align-self: center;
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .category-selected-tags {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+    align-items: center;
+    align-content: center;
 }
 
 body.transaction-page .transaction-category-date-row .transaction-category-multiselect {
@@ -2553,6 +2600,7 @@ body.transaction-page .transaction-search-section .report-outlined-inner .transa
     min-width: 0 !important;
     width: 100%;
     max-width: 100%;
+    min-height: clamp(38px, 2.45vw, 40px) !important;
     padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
     border-radius: clamp(5px, 0.42vw, 7px);
     background: #ffffff !important;
