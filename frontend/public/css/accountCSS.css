@@ -1500,13 +1500,13 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: none;
 }
 
-/* Add/Edit Account · Other Currency soft pill */
+/* Add/Edit Account · Other Currency compact rectangular chip */
 #account-addModal .account-currency-item.currency-toggle-item,
 #account-editModal .account-currency-item.currency-toggle-item {
-    border-radius: 999px;
+    border-radius: 6px;
     font-family: var(--font-heading-page);
     font-weight: 600;
-    padding: 0.45rem 0.55rem 0.45rem 0.85rem;
+    padding: 0.45rem 0.65rem 0.45rem 0.85rem;
     min-height: 2.55rem;
     align-items: center;
     gap: 0.5rem;
@@ -1583,11 +1583,11 @@ body.account-page:not(.account-page--show-all) .account-card {
     flex-shrink: 0;
     position: relative;
     z-index: 1;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     font-size: 14px;
     opacity: 1;
-    background: rgba(220, 38, 38, 0.08);
+    background: transparent;
 }
 
 #account-addModal .account-currency-item.currency-toggle-item.selected .currency-delete-btn,
