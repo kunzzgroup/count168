@@ -13,7 +13,6 @@ export function useTransactionDateRange({
   setDateFrom,
   setDateTo,
   todayDmy,
-  runSearch,
   txDate,
   setTxDate,
   rateDate,
@@ -53,13 +52,7 @@ export function useTransactionDateRange({
           const to = window.MaintenanceDateRangePicker.getDateTo?.() || "";
           setDateFrom(from);
           setDateTo(to);
-          queueMicrotask(() =>
-            runSearch?.({
-              silent: true,
-              notifyErrors: true,
-              showBlockingOverlay: false,
-            }),
-          );
+          /* 搜索由 useTransactionSearch 在 dateFrom/dateTo 写入 state 后的 effect 触发，避免 queueMicrotask 读到旧 effectiveDate */
         },
       });
       txDateRangePickerReadyRef.current = true;
@@ -69,7 +62,7 @@ export function useTransactionDateRange({
       cancelled = true;
       txDateRangePickerReadyRef.current = false;
     };
-  }, [loading, forbidden, filterSnapshot, setDateFrom, setDateTo, runSearch]);
+  }, [loading, forbidden, filterSnapshot, setDateFrom, setDateTo]);
 
   /** Flatpickr on transaction / rate single-date fields */
   useEffect(() => {

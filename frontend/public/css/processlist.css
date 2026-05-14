@@ -85,8 +85,10 @@
 .selected-countries-section h3 {
     margin-top: 0;
     margin-bottom: clamp(6px, 0.52vw, 10px);
-    color: #495057;
-    font-size: clamp(12px, 0.83vw, 16px);
+    color: #0f172a;
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
+    font-weight: 600;
 }
 
 .add-country-bar {
@@ -97,9 +99,10 @@
 
 .add-country-bar h3 {
     margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
-    color: #495057;
-    font-size: clamp(12px, 0.83vw, 16px);
-    font-weight: bold;
+    color: #0f172a;
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
+    font-weight: 600;
 }
 
 .add-country-form {
@@ -114,11 +117,14 @@
 
 .add-country-input-group input {
     width: 100%;
-    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
-    border: 1px solid #d1d5db;
-    border-radius: clamp(4px, 0.42vw, 8px);
-    font-size: clamp(8px, 0.73vw, 14px);
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.52rem;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
+    min-height: 2.55rem;
     box-sizing: border-box;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .country-search {
@@ -127,11 +133,14 @@
 
 .country-search input {
     width: 100%;
-    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
-    border: 1px solid #d1d5db;
-    border-radius: clamp(4px, 0.42vw, 8px);
-    font-size: clamp(8px, 0.73vw, 14px);
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.52rem;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
+    min-height: 2.55rem;
     box-sizing: border-box;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .country-list {
@@ -307,8 +316,10 @@
 .selected-banks-section h3 {
     margin-top: 0;
     margin-bottom: clamp(6px, 0.52vw, 10px);
-    color: #495057;
-    font-size: clamp(12px, 0.83vw, 16px);
+    color: #0f172a;
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
+    font-weight: 600;
 }
 
 .add-bank-bar {
@@ -319,9 +330,10 @@
 
 .add-bank-bar h3 {
     margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
-    color: #495057;
-    font-size: clamp(12px, 0.83vw, 16px);
-    font-weight: bold;
+    color: #0f172a;
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
+    font-weight: 600;
 }
 
 .add-bank-form {
@@ -336,11 +348,14 @@
 
 .add-bank-input-group input {
     width: 100%;
-    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
-    border: 1px solid #d1d5db;
-    border-radius: clamp(4px, 0.42vw, 8px);
-    font-size: clamp(8px, 0.73vw, 14px);
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.52rem;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
+    min-height: 2.55rem;
     box-sizing: border-box;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .bank-search {
@@ -349,11 +364,14 @@
 
 .bank-search input {
     width: 100%;
-    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
-    border: 1px solid #d1d5db;
-    border-radius: clamp(4px, 0.42vw, 8px);
-    font-size: clamp(8px, 0.73vw, 14px);
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.52rem;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
+    min-height: 2.55rem;
     box-sizing: border-box;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .bank-list {
@@ -854,7 +872,11 @@
     text-align: left;
     align-self: flex-start;
     width: 100%;
-    font-size: 13px;
+    font-size: var(--text-medium);
+    font-weight: 600;
+    font-family: var(--font-heading-page);
+    letter-spacing: 0.015em;
+    color: #0f172a;
 }
 
 #addBankModal .bank-section-title {
@@ -870,24 +892,8 @@
     text-align: left;
 }
 
-#addBankModal .bank-input,
-#addBankModal .bank-select {
-    min-height: 50px;
-    padding: 14px 18px;
-    font-size: 1.2rem;
-    line-height: 1.4;
-}
-
 #addBankModal .bank-select {
     text-align: left;
-}
-
-#addBankModal .account-select-with-buttons .custom-select-button {
-    min-height: 50px;
-    padding: 14px 18px;
-    padding-right: 2.75rem;
-    font-size: 1.2rem;
-    line-height: 1.4;
 }
 
 /* Compact "+" next to fields (was oversized vs inputs) */
@@ -904,33 +910,37 @@
 }
 
 #addBankModal .no-profit-sharing p {
-    font-size: 1.2rem;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
 }
 
 #addBankModal .bank-profit-sharing-item {
-    font-size: 1.2rem;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
 }
 
-/* Footer: Cancel 字号与 Add Process 一致（覆盖全局 btn-cancel 偏小） */
-#addBankModal .bank-actions .btn-cancel {
-    font-family: var(--font-heading-page), inherit;
-    font-size: clamp(10px, 0.83vw, 16px);
-    padding: clamp(6px, 0.42vw, 8px) 20px;
-    width: clamp(90px, 7vw, 130px);
-    border-radius: 6px;
+/* Bank modal footer: same cancel/save typography as .process-page .btn-* */
+.process-page #addBankModal .bank-actions .btn-cancel {
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-semibold);
+    width: clamp(5rem, 6.25vw, 7.5rem);
+    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
+    border-radius: 0.375rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     white-space: nowrap;
 }
 
-body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
-    font-size: clamp(10px, 0.83vw, 16px) !important;
-    padding: clamp(6px, 0.42vw, 8px) 20px !important;
-    width: clamp(90px, 7vw, 130px) !important;
-    border-radius: 6px !important;
+body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
+    font-size: var(--text-medium) !important;
+    font-family: var(--font-heading-page) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    width: clamp(5rem, 6.25vw, 7.5rem) !important;
+    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem !important;
+    border-radius: 0.375rem !important;
 }
-
 
 /* Bank Modal Styles - Separate from Gambling modal */
 .bank-modal .bank-modal-content {
@@ -1188,9 +1198,11 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
 }
 
 .bank-form .form-group label {
-    font-size: 13px;
+    font-size: var(--text-medium);
     font-weight: 600;
-    color: #374151;
+    font-family: var(--font-heading-page);
+    letter-spacing: 0.015em;
+    color: #0f172a;
     margin-bottom: 0;
 }
 
@@ -1229,21 +1241,24 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
 .bank-input,
 .bank-select {
     width: 100%;
-    padding: 12px 16px;
-    border: 0.125rem solid #e5e7eb;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.52rem;
+    font-size: var(--text-small);
     box-sizing: border-box;
     background: #ffffff;
     color: #374151;
-    font-family: inherit;
+    font-family: var(--font-ui);
+    min-height: 2.55rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    line-height: 1.4;
 }
 
 .bank-input:focus,
 .bank-select:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: #0D60FF;
+    box-shadow: 0 0 0 4px rgba(13, 96, 255, 0.08);
 }
 
 .account-select-with-buttons {
@@ -1256,18 +1271,19 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
     flex: 1;
 }
 
-/* Card Merchant / Customer select bar: same design as other bank select bars */
+/* Card Merchant / Customer select bar: match Add Process / Account modal */
 .bank-form .account-select-with-buttons .custom-select-button {
     width: 100%;
-    padding: 12px 16px;
-    padding-right: 2.5rem;
-    border: 0.125rem solid #e5e7eb;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
+    padding: 0.625rem 2.75rem 0.625rem 0.875rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.52rem;
+    font-size: var(--text-small);
     box-sizing: border-box;
     background: #ffffff;
     color: #374151;
-    font-family: inherit;
+    font-family: var(--font-ui);
+    min-height: 2.55rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
     cursor: pointer;
     text-align: left;
     overflow: hidden;
@@ -1278,8 +1294,8 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
 
 .bank-form .account-select-with-buttons .custom-select-button:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: #0D60FF;
+    box-shadow: 0 0 0 4px rgba(13, 96, 255, 0.08);
 }
 
 .account-add-btn {
@@ -1482,10 +1498,32 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
     max-height: min(460px, 80vh) !important;
 }
 
+/* Bank flow custom-select: trigger + list match Add Process / Account modal */
+#addBankModal .custom-select-button,
+#profitSharingModal .custom-select-button,
+.bank-modal .custom-select-button {
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
+    border: 1px solid #dbe3ee !important;
+    border-radius: 0.52rem !important;
+    min-height: 2.55rem !important;
+    box-sizing: border-box;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    padding: 0.625rem 2.75rem 0.625rem 0.875rem !important;
+    line-height: 1.4;
+}
+
 #addBankModal .custom-select-search input,
 #addBankModal .custom-select-option,
-#addBankModal .custom-select-no-results {
-    font-size: 1.2rem;
+#addBankModal .custom-select-no-results,
+#profitSharingModal .custom-select-search input,
+#profitSharingModal .custom-select-option,
+#profitSharingModal .custom-select-no-results,
+.bank-modal .custom-select-search input,
+.bank-modal .custom-select-option,
+.bank-modal .custom-select-no-results {
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
 }
 
 /* Add Account 弹窗优先级最高，在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
@@ -1572,10 +1610,11 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
 }
 
 #profitSharingModal .profit-sharing-modal-btn {
-    width: 120px;
-    height: 38px;
-    font-size: 14px;
-    font-weight: bold;
+    width: clamp(90px, 7vw, 130px);
+    min-height: 2.35rem;
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-semibold);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1655,6 +1694,18 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
     width: 100%;
     resize: none;
     box-sizing: border-box;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
+    border: 1px solid #dbe3ee;
+    border-radius: 0.52rem;
+    padding: 0.625rem 0.875rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.sop-modal .sop-modal-textarea:focus {
+    outline: none;
+    border-color: #0D60FF;
+    box-shadow: 0 0 0 4px rgba(13, 96, 255, 0.08);
 }
 
 .sop-modal .sop-modal-actions {
@@ -1665,10 +1716,13 @@ body.ec-auth-shell #addBankModal .bank-actions .btn-cancel {
 }
 
 .sop-modal .sop-modal-actions .btn {
-    width: 120px;
-    min-width: 120px;
-    padding: 8px 20px;
-    font-size: 14px;
+    width: clamp(90px, 7vw, 130px);
+    min-width: clamp(90px, 7vw, 130px);
+    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-semibold);
+    box-sizing: border-box;
 }
 
 /* --- Beautified Selected Profit Sharing --- */

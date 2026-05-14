@@ -96,7 +96,6 @@ export default function TransactionPaymentPage() {
     setDateFrom: search.setDateFrom,
     setDateTo: search.setDateTo,
     todayDmy,
-    runSearch: search.runSearch,
     txDate: form.txDate,
     setTxDate: form.setTxDate,
     rateDate: form.rateDate,
