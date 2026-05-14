@@ -399,20 +399,44 @@ body.account-page--show-all .account-cards {
     justify-content: flex-start;
 }
 
+body.ec-auth-shell.account-page .account-cards.account-cards--show-all,
+.account-page .account-cards.account-cards--show-all,
+.account-cards.account-cards--show-all {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    justify-content: flex-start !important;
+    align-content: flex-start !important;
+}
+
 /* Show All：保留表内滚动，但不要让全部资料挤成超密集行 */
-body.account-page--show-all .account-card {
+body.account-page--show-all .account-card,
+body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .account-card,
+.account-page .account-cards.account-cards--show-all > .account-card,
+.account-cards.account-cards--show-all > .account-card {
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
     min-height: 34px !important;
-    padding-top: 8px !important;
-    padding-bottom: 8px !important;
+    height: auto !important;
+    padding: 8px 22px !important;
 }
 
-body.account-page--show-all .account-card-item {
+body.account-page--show-all .account-card-item,
+body.ec-auth-shell.account-page .account-cards.account-cards--show-all .account-card-item,
+.account-page .account-cards.account-cards--show-all .account-card-item,
+.account-cards.account-cards--show-all .account-card-item {
     line-height: 1.45 !important;
+    min-height: 18px !important;
 }
 
-body.account-page--show-all .account-role-badge {
+body.account-page--show-all .account-role-badge,
+body.ec-auth-shell.account-page .account-cards.account-cards--show-all .account-role-badge,
+.account-page .account-cards.account-cards--show-all .account-role-badge,
+.account-cards.account-cards--show-all .account-role-badge {
     line-height: 1.25 !important;
 }
 
