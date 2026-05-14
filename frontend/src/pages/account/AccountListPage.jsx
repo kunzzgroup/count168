@@ -428,6 +428,7 @@ export default function AccountListPage() {
   const openCurrencySetting = () => {
     setCurrencySettingOpen(true);
     void loadSelectionMeta(null, false);
+    if (settingCurrencyId) void loadCurrencyLinks(settingCurrencyId);
   };
 
   const clearCurrencySettingSelection = () => {
@@ -489,27 +490,38 @@ export default function AccountListPage() {
         const after = new Set(selectedCurrencyIds.map(Number));
         const toAdd = [...after].filter((id) => !before.has(id));
         const toRemove = [...before].filter((id) => !after.has(id));
+        const currencyChangeUrl = (action) => {
+          const params = new URLSearchParams({ action });
+          if (companyId) params.set("company_id", String(companyId));
+          return buildApiUrl(`api/accounts/account_currency_api.php?${params.toString()}`);
+        };
         for (const cid of toAdd) {
-          await fetch(buildApiUrl("api/accounts/account_currency_api.php?action=add_currency"), {
+          const currencyRes = await fetch(currencyChangeUrl("add_currency"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ account_id: Number(form.id), currency_id: Number(cid) }),
             credentials: "include",
           });
+          const currencyJson = await currencyRes.json();
+          if (!currencyRes.ok || !currencyJson.success) return notify(currencyJson.message || t("saveFailed"), "danger");
         }
         for (const cid of toRemove) {
-          await fetch(buildApiUrl("api/accounts/account_currency_api.php?action=remove_currency"), {
+          const currencyRes = await fetch(currencyChangeUrl("remove_currency"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ account_id: Number(form.id), currency_id: Number(cid) }),
             credentials: "include",
           });
+          const currencyJson = await currencyRes.json();
+          if (!currencyRes.ok || !currencyJson.success) return notify(currencyJson.message || t("saveFailed"), "danger");
         }
+        setInitialEditCurrencyIds([...after]);
+        if (settingCurrencyId) void loadCurrencyLinks(settingCurrencyId);
       }
       setAddModalOpen(false); setEditModalOpen(false);
       setHiddenCurrencyIds([]);
       notify(t("accountSavedSuccessfully"));
-      fetchAccounts();
+      void fetchAccounts();
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
@@ -564,7 +576,13 @@ export default function AccountListPage() {
       const params = new URLSearchParams({ action: "bulk_update" });
       if (companyId) params.set("company_id", String(companyId));
       const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
-      if (res.ok) { setCurrencySettingOpen(false); notify(t("currencySettingsSaved")); fetchAccounts(); }
+      const json = await res.json();
+      if (!res.ok || !json.success) return notify(json.message || t("saveFailed"), "danger");
+      setSettingInitial(new Set(settingLinked));
+      setCurrencySettingOpen(false);
+      notify(t("currencySettingsSaved"));
+      void fetchAccounts();
+      if (editModalOpen && form.id) void loadSelectionMeta(form.id, true);
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
