@@ -107,10 +107,15 @@ export function applySharedGroupButtonClick({ clickedGroupId, currentSelectedGro
   return { selectedGroup: gid, companyToActivate: first };
 }
 
-/** Whether a company row should be visible for the shared filter strip (when group strip is shown). */
-export function isCompanyVisibleForSharedFilter(comp, selectedGroup, hideGroupFilter) {
+/**
+ * Whether a company row should be visible for the shared filter strip (when group strip is shown).
+ * @param {"follow"|"all"|"ungrouped"} [groupViewMode="follow"] — same semantics as User List `groupFilterKind`.
+ */
+export function isCompanyVisibleForSharedFilter(comp, selectedGroup, hideGroupFilter, groupViewMode = "follow") {
   if (hideGroupFilter) return true;
+  if (groupViewMode === "all") return true;
   const g = normalizeCompanyGroupId(comp);
+  if (groupViewMode === "ungrouped") return !g;
   if (!selectedGroup) return !g;
   return g === selectedGroup;
 }

@@ -4,8 +4,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import {
-  applySharedGroupButtonClick,
   dedupeOwnerCompaniesByCode,
+  filterCompaniesWithDisplayId,
+  normalizeCompanyGroupId,
   normalizeOwnerCompanyRow,
   persistDashboardGroupFilter,
   resolveInitialSelectedGroupFromSession,
@@ -96,6 +97,8 @@ export function useTransactionData({
           setFilterSnapshot({
             companyId: effective,
             selectedGroup: selGroup,
+            /** Same as User List: follow = filter companies by selected group; all = every company; ungrouped = no group_id only */
+            groupFilterKind: "follow",
             snapCompanies: snapRows,
             snapGroupIds: sortedUniqueGroupIds(snapRows),
             viewerRole: String(u.role || "").toLowerCase(),
@@ -225,23 +228,48 @@ export function useTransactionData({
     [queryClient],
   );
 
+  /**
+   * Match User List `handlePickGroup`: use **current company's group** for "same group" detection,
+   * not `selectedGroup` alone — after ALL, `selectedGroup` can still be AP while `groupFilterKind` is `all`;
+   * clicking AP must enter follow for AP, not run legacy toggle-off (empty company row).
+   */
   const onGroupButtonClick = useCallback(
     async (gid) => {
       const snap = filterSnapshotRef.current;
       if (!snap) return;
-      const { selectedGroup, companyToActivate } = applySharedGroupButtonClick({
-        clickedGroupId: gid,
-        currentSelectedGroup: snap.selectedGroup,
-        companies: snap.snapCompanies,
-      });
-      persistDashboardGroupFilter(selectedGroup);
-      setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup } : prev));
-      if (companyToActivate && Number(companyToActivate.id) !== Number(snap.companyId)) {
-        await onCompanyButtonClick(companyToActivate);
+      const g = String(gid || "").trim().toUpperCase();
+      if (!g) return;
+
+      const currentCo = snap.snapCompanies.find((c) => Number(c.id) === Number(snap.companyId));
+      const selectedGroupKey = String(currentCo?.group_id || "").trim().toUpperCase();
+
+      if (snap.groupFilterKind === "follow" && g === selectedGroupKey) {
+        setFilterSnapshot((prev) => (prev ? { ...prev, groupFilterKind: "ungrouped" } : prev));
+        return;
+      }
+
+      persistDashboardGroupFilter(g);
+      setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup: g, groupFilterKind: "follow" } : prev));
+
+      if (g === selectedGroupKey) return;
+
+      const list = filterCompaniesWithDisplayId(snap.snapCompanies);
+      const first = list.find((c) => normalizeCompanyGroupId(c) === g) ?? null;
+      if (first && Number(first.id) !== Number(snap.companyId)) {
+        await onCompanyButtonClick(first);
       }
     },
     [onCompanyButtonClick],
   );
+
+  /** Matches User List: ALL toggles between show-all companies and ungrouped-only companies. */
+  const onGroupFilterAllClick = useCallback(() => {
+    setFilterSnapshot((prev) => {
+      if (!prev) return prev;
+      const next = prev.groupFilterKind === "all" ? "ungrouped" : "all";
+      return { ...prev, groupFilterKind: next };
+    });
+  }, []);
 
   return {
     loading,
@@ -260,6 +288,7 @@ export function useTransactionData({
     setCurrencyRowsOrdered,
     currencyInitCompanyRef,
     onGroupButtonClick,
+    onGroupFilterAllClick,
     onCompanyButtonClick,
   };
 }
