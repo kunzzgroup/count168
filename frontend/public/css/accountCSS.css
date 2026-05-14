@@ -390,10 +390,6 @@ body.account-page--show-all .account-table-header {
     flex-shrink: 0;
 }
 
-body.account-page--show-all .action-buttons-container {
-    box-shadow: none !important;
-}
-
 /* 覆盖 global-13inch：Show All 不压缩行，资料区自然展开 */
 body.ec-auth-shell.account-page--show-all .account-cards,
 body.account-page--show-all .account-cards {
