@@ -316,3 +316,34 @@ body.dashboard-page.report-page .domain-report-filter-container .report-gc-inlin
         font-size: clamp(9px, 0.85vw, 14px);
     }
 }
+
+/* 与 Customer Report 一致：静默刷新顶栏细条，无整表 Loading 闪动 */
+.domain-report-table-region {
+    position: relative;
+}
+
+.domain-report-sync-track {
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    background: rgba(229, 231, 235, 0.9);
+}
+
+.domain-report-sync-bar {
+    height: 100%;
+    width: 38%;
+    max-width: 180px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.95), rgba(59, 130, 246, 0.15));
+    animation: domain-report-sync-slide 0.95s ease-in-out infinite;
+}
+
+@keyframes domain-report-sync-slide {
+    0% {
+        transform: translateX(-120%);
+    }
+    100% {
+        transform: translateX(420%);
+    }
+}

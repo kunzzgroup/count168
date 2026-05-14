@@ -37,7 +37,11 @@ export function isBankOnlyCategoryCompany(permissions) {
 /**
  * API function to load report
  */
-export async function fetchDomainReport({ dateFrom, dateTo, processId, companyId, selectedCurrencies = [], showAllCurrencies = true }) {
+export async function fetchDomainReport(
+  { dateFrom, dateTo, processId, companyId, selectedCurrencies = [], showAllCurrencies = true },
+  options = {},
+) {
+  const { signal } = options;
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);
   params.append("date_to", dateTo);
@@ -48,7 +52,8 @@ export async function fetchDomainReport({ dateFrom, dateTo, processId, companyId
   }
 
   const res = await fetch(buildApiUrl(`api/reports/domain_report_api.php?${params.toString()}`), {
-    credentials: "include"
+    credentials: "include",
+    signal,
   });
   const json = await res.json();
   if (!res.ok || !json.success) {

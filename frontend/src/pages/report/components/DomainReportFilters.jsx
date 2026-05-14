@@ -6,6 +6,7 @@ const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMon
 
 export default function DomainReportFilters({
   companyId,
+  highlightCompanyId,
   onSwitchCompany,
   groupIds,
   groupFilterKind,
@@ -154,6 +155,7 @@ export default function DomainReportFilters({
         onPickGroup={onPickGroup}
         companyButtons={companyButtons}
         companyId={companyId}
+        highlightCompanyId={highlightCompanyId}
         onSwitchCompany={onSwitchCompany}
         currencyList={currencyList}
         showAllCurrencies={showAllCurrencies}

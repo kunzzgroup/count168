@@ -5,7 +5,16 @@ function cellUpperOrDash(v) {
   return String(v).trim().toUpperCase();
 }
 
-export default function DomainReportTable({ reportData, loading, error, t }) {
+function rowKey(item, idx) {
+  const p = String(item.process ?? "").trim();
+  const d = String(item.description ?? "").trim();
+  const c = String(item.currency ?? "").trim();
+  const g = String(item.group_id ?? "").trim();
+  const co = String(item.company_id ?? "").trim();
+  return `${p}|${d}|${c}|${g}|${co}|${idx}`;
+}
+
+export default function DomainReportTable({ reportData, loading, reportSyncing = false, error, t }) {
   const tableHeader = (
     <div className="domain-report-table-header">
       <div>{t("colProcess")}</div>
@@ -32,7 +41,6 @@ export default function DomainReportTable({ reportData, loading, error, t }) {
     </div>
   );
 
-  if (loading) return renderEmpty(t("loading"));
   if (error) {
     return (
       <div className="domain-report-list-container">
@@ -50,7 +58,16 @@ export default function DomainReportTable({ reportData, loading, error, t }) {
       </div>
     );
   }
-  if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty(t("noDataFound"));
+
+  if (loading && reportData == null) {
+    return renderEmpty(t("loading"));
+  }
+
+  const isEmpty = !reportData?.data?.length;
+  if (isEmpty) {
+    const busy = loading || reportSyncing;
+    return renderEmpty(busy ? t("updatingReport") : t("noDataFound"));
+  }
 
   const data = reportData.data;
   const totals = reportData.totals;
@@ -66,7 +83,7 @@ export default function DomainReportTable({ reportData, loading, error, t }) {
           const winLoseClass = wl > 0 ? "domain-report-win-lose-positive" : (wl < 0 ? "domain-report-win-lose-negative" : "");
 
           return (
-            <div key={idx} className="domain-report-card">
+            <div key={rowKey(item, idx)} className="domain-report-card">
               <div className="domain-report-card-item">{label}</div>
               <div className="domain-report-card-item">{cellUpperOrDash(item.group_id)}</div>
               <div className="domain-report-card-item">{cellUpperOrDash(item.company_id)}</div>

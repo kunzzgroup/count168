@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../utils/sharedCompanyFilter.js";
@@ -36,7 +36,8 @@ export default function DomainReportPage() {
   // -- State: Filters --
   const [companyId, setCompanyId] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
-  const [switchingCompany, setSwitchingCompany] = useState(false);
+  const [companyHighlightId, setCompanyHighlightId] = useState(null);
+  const switchCompanySeqRef = useRef(0);
   const [processId, setProcessId] = useState("");
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
@@ -50,13 +51,21 @@ export default function DomainReportPage() {
   const [processes, setProcesses] = useState([]);
   const [currencyList, setCurrencyList] = useState([]);
   const [reportData, setReportData] = useState(null);
+  const reportDataRef = useRef(null);
   const [loading, setLoading] = useState(false);
+  const [reportSyncing, setReportSyncing] = useState(false);
   const [error, setError] = useState("");
 
   // -- State: UI --
   const [toast, setToast] = useState(null);
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
+  const domainReportSeqRef = useRef(0);
+  const domainReportAbortRef = useRef(null);
+
+  useEffect(() => {
+    reportDataRef.current = reportData;
+  }, [reportData]);
 
   const { allCompanyButtons, groupIds, selectedGroupKey, companyButtons } = useReportGcSwitcher(
     companies,
@@ -181,23 +190,41 @@ export default function DomainReportPage() {
   // -- Data Fetching --
   const loadReport = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;
-    setLoading(true);
+    domainReportAbortRef.current?.abort();
+    const ac = new AbortController();
+    domainReportAbortRef.current = ac;
+    const seq = ++domainReportSeqRef.current;
+    const quietRefresh = reportDataRef.current != null;
+    if (!quietRefresh) setLoading(true);
+    if (quietRefresh) setReportSyncing(true);
     setError("");
     try {
-      const data = await fetchDomainReport({
-        processId,
-        dateFrom,
-        dateTo,
-        companyId,
-        selectedCurrencies,
-        showAllCurrencies,
+      const data = await fetchDomainReport(
+        {
+          processId,
+          dateFrom,
+          dateTo,
+          companyId,
+          selectedCurrencies,
+          showAllCurrencies,
+        },
+        { signal: ac.signal },
+      );
+      if (seq !== domainReportSeqRef.current) return;
+      startTransition(() => {
+        setReportData(data);
       });
-      setReportData(data);
     } catch (err) {
+      if (err?.name === "AbortError" || seq !== domainReportSeqRef.current) return;
       setError(err.message);
-      setReportData(null);
+      startTransition(() => {
+        setReportData(null);
+      });
     } finally {
-      setLoading(false);
+      if (seq === domainReportSeqRef.current) {
+        setLoading(false);
+        setReportSyncing(false);
+      }
     }
   }, [companyId, processId, dateFrom, dateTo, selectedCurrencies, showAllCurrencies]);
 
@@ -242,32 +269,45 @@ export default function DomainReportPage() {
     if (!bootLoading && companyId) {
       const handler = setTimeout(() => {
         loadReport();
-      }, 300);
+      }, 0);
       return () => clearTimeout(handler);
     }
   }, [bootLoading, companyId, processId, dateFrom, dateTo, selectedCurrencies, showAllCurrencies, loadReport]);
 
+  useEffect(() => () => {
+    domainReportAbortRef.current?.abort();
+  }, []);
+
   // -- Handlers --
   const onSwitchCompany = useCallback(async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
-    setSwitchingCompany(true);
+    const effectiveId = companyHighlightId ?? companyId;
+    if (!c?.id || Number(c.id) === Number(effectiveId)) return;
+    const reqId = ++switchCompanySeqRef.current;
+    setCompanyHighlightId(Number(c.id));
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
-      if (!json.success) { notify(json.error || t("switchFailed"), "danger"); return; }
+      if (reqId !== switchCompanySeqRef.current) return;
+      if (!json.success) {
+        setCompanyHighlightId(null);
+        notify(json.error || t("switchFailed"), "danger");
+        return;
+      }
       setCompanyId(Number(c.id));
       setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       persistDashboardGroupFilter(newGroup || null);
-      await checkBankOnly(c.id);
+      setCompanyHighlightId(null);
+      void checkBankOnly(c.id);
       notifyCompanySessionUpdated();
-    } catch { notify(t("switchFailed"), "danger"); }
-    finally { setSwitchingCompany(false); }
-  }, [companyId, notify, t, checkBankOnly]);
+    } catch {
+      if (reqId === switchCompanySeqRef.current) setCompanyHighlightId(null);
+      notify(t("switchFailed"), "danger");
+    }
+  }, [companyId, companyHighlightId, notify, t, checkBankOnly]);
 
   const handlePickGroup = useCallback(
     (gid) => {
-      if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
@@ -281,13 +321,12 @@ export default function DomainReportPage() {
       const first = allCompanyButtons.find((row) => String(row.group_id || "").trim().toUpperCase() === g);
       if (first) void onSwitchCompany(first);
     },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany],
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey],
   );
 
   const handlePickAllGroups = useCallback(() => {
-    if (switchingCompany) return;
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, [switchingCompany]);
+  }, []);
 
   const toggleCurrency = (code) => {
     setShowAllCurrencies(false);
@@ -310,6 +349,7 @@ export default function DomainReportPage() {
 
         <DomainReportFilters
           companyId={companyId}
+          highlightCompanyId={companyHighlightId}
           onSwitchCompany={onSwitchCompany}
           groupIds={groupIds}
           groupFilterKind={groupFilterKind}
@@ -332,12 +372,20 @@ export default function DomainReportPage() {
           t={t}
         />
 
-        <DomainReportTable
-          reportData={reportData}
-          loading={loading}
-          error={error}
-          t={t}
-        />
+        <div className="domain-report-table-region">
+          {reportSyncing && (
+            <div className="domain-report-sync-track" aria-hidden>
+              <div className="domain-report-sync-bar" />
+            </div>
+          )}
+          <DomainReportTable
+            reportData={reportData}
+            loading={loading}
+            reportSyncing={reportSyncing}
+            error={error}
+            t={t}
+          />
+        </div>
       </div>
 
       {/* Notifications */}
