@@ -1506,11 +1506,13 @@ body.account-page:not(.account-page--show-all) .account-card {
     border-radius: 6px;
     font-family: var(--font-heading-page);
     font-weight: 600;
-    padding: 0.55rem 0.8rem 0.55rem 1rem;
+    padding: 1rem 2rem;
     min-height: 3rem;
     align-items: center;
     gap: 0.65rem;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+    user-select: none;
 }
 
 #account-addModal .account-currency-item.currency-toggle-item.selected,
@@ -1561,13 +1563,13 @@ body.account-page:not(.account-page--show-all) .account-card {
     background: #f8fafc;
     border-color: #cbd5e1;
     color: #334155;
-    transform: translateY(-1px);
+    transform: none;
     box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
 }
 
 #account-addModal .account-currency-item.currency-toggle-item.selected:hover,
 #account-editModal .account-currency-item.currency-toggle-item.selected:hover {
-    transform: translateY(-1px);
+    transform: none;
     box-shadow: 0 3px 8px rgba(13, 96, 255, 0.28);
 }
 
