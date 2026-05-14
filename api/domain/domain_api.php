@@ -1727,6 +1727,108 @@ function domainApiNormalizeCompaniesPayload($companies): array {
     return $out;
 }
 
+/**
+ * Group ID 与 Company ID 不得使用相同代码（同一 owner 提交的 companies payload）
+ */
+function domainApiValidateGroupCompanyIdMutualExclusivity(array $rows): ?string
+{
+    $companyKeys = [];
+    $groupKeys = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        $gidRaw = $row['group_id'] ?? null;
+        $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
+        if ($cid !== '') {
+            $companyKeys[$cid] = true;
+        }
+        if ($gid !== '') {
+            $groupKeys[$gid] = true;
+        }
+    }
+    foreach (array_keys($companyKeys) as $code) {
+        if (isset($groupKeys[$code])) {
+            return 'Group ID and Company ID cannot use the same code: ' . $code;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * 全局：任意 owner 的 company_id 集与任意 owner 的 group_id 集不得出现相同代码（避免跨 owner 语义冲突）
+ * update 时 $excludeOwnerId 排除该 owner 当前库中行，避免事务前“删公司再添同名分组”误报
+ */
+function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $rows, ?int $excludeOwnerId): ?string
+{
+    $payloadCompany = [];
+    $payloadGroup = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        $gidRaw = $row['group_id'] ?? null;
+        $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
+        if ($cid !== '') {
+            $payloadCompany[$cid] = true;
+        }
+        if ($gid !== '') {
+            $payloadGroup[$gid] = true;
+        }
+    }
+    if ($payloadCompany === [] && $payloadGroup === []) {
+        return null;
+    }
+
+    if ($excludeOwnerId !== null && $excludeOwnerId > 0) {
+        $sqlC = "SELECT DISTINCT UPPER(TRIM(CAST(company_id AS CHAR))) AS v FROM company WHERE owner_id != ? AND company_id IS NOT NULL AND TRIM(CAST(company_id AS CHAR)) <> ''";
+        $sqlG = "SELECT DISTINCT UPPER(TRIM(CAST(group_id AS CHAR))) AS v FROM company WHERE owner_id != ? AND group_id IS NOT NULL AND TRIM(CAST(group_id AS CHAR)) <> ''";
+        $stC = $pdo->prepare($sqlC);
+        $stC->execute([(int) $excludeOwnerId]);
+        $stG = $pdo->prepare($sqlG);
+        $stG->execute([(int) $excludeOwnerId]);
+    } else {
+        $sqlC = "SELECT DISTINCT UPPER(TRIM(CAST(company_id AS CHAR))) AS v FROM company WHERE company_id IS NOT NULL AND TRIM(CAST(company_id AS CHAR)) <> ''";
+        $sqlG = "SELECT DISTINCT UPPER(TRIM(CAST(group_id AS CHAR))) AS v FROM company WHERE group_id IS NOT NULL AND TRIM(CAST(group_id AS CHAR)) <> ''";
+        $stC = $pdo->query($sqlC);
+        $stG = $pdo->query($sqlG);
+    }
+    if ($stC === false || $stG === false) {
+        return null;
+    }
+
+    $othersCompany = [];
+    foreach ($stC->fetchAll(PDO::FETCH_COLUMN) as $v) {
+        if ($v === null || $v === '') {
+            continue;
+        }
+        $othersCompany[strtoupper(trim((string) $v))] = true;
+    }
+    $othersGroup = [];
+    foreach ($stG->fetchAll(PDO::FETCH_COLUMN) as $v) {
+        if ($v === null || $v === '') {
+            continue;
+        }
+        $othersGroup[strtoupper(trim((string) $v))] = true;
+    }
+
+    foreach (array_keys($payloadCompany) as $code) {
+        if (isset($othersGroup[$code])) {
+            return 'Company ID "' . $code . '" is already used as a Group ID under another owner.';
+        }
+    }
+    foreach (array_keys($payloadGroup) as $code) {
+        if (isset($othersCompany[$code])) {
+            return 'Group ID "' . $code . '" is already used as a Company ID under another owner.';
+        }
+    }
+
+    return null;
+}
+
 function domainApiExtractProvisionCompanyIds($companies): array {
     $ids = [];
     foreach (domainApiNormalizeCompaniesPayload($companies) as $row) {
@@ -2218,6 +2320,19 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Secondary password must be exactly 6 digits', 'data' => null]);
                 exit;
             }
+
+            $companies_data = domainApiNormalizeCompaniesPayload($companies);
+            $overlapErr = domainApiValidateGroupCompanyIdMutualExclusivity($companies_data);
+            if ($overlapErr !== null) {
+                echo json_encode(['success' => false, 'message' => $overlapErr, 'data' => null]);
+                exit;
+            }
+
+            $crossOwnerErr = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $companies_data, null);
+            if ($crossOwnerErr !== null) {
+                echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
+                exit;
+            }
             
             // Hash passwords
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -2239,7 +2354,6 @@ try {
                 $owner_id = $pdo->lastInsertId();
                 
                 // Insert companies if any（companies 可为 JSON 字符串或已解析数组）
-                $companies_data = domainApiNormalizeCompaniesPayload($companies);
                 if (!empty($companies_data)) {
                     $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id, fee_share_allocations) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     foreach ($companies_data as $company) {
@@ -2314,6 +2428,19 @@ try {
                     exit;
                 }
             }
+
+            $companies_data = domainApiNormalizeCompaniesPayload($companies);
+            $overlapErr = domainApiValidateGroupCompanyIdMutualExclusivity($companies_data);
+            if ($overlapErr !== null) {
+                echo json_encode(['success' => false, 'message' => $overlapErr, 'data' => null]);
+                exit;
+            }
+
+            $crossOwnerErr = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $companies_data, (int) $id);
+            if ($crossOwnerErr !== null) {
+                echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
+                exit;
+            }
             
             // DDL 在 MySQL 中会隐式提交并结束当前事务，须在 beginTransaction 之前执行
             ensureCompanyFeeShareColumn($pdo);
@@ -2362,7 +2489,7 @@ try {
                 
                 // Get new company IDs from input（companies 可为 JSON 字符串或已解析数组）
                 $new_companies_data = [];
-                foreach (domainApiNormalizeCompaniesPayload($companies) as $company) {
+                foreach ($companies_data as $company) {
                     $company_id = strtoupper(trim((string) ($company['company_id'] ?? '')));
                     $group_id = !empty($company['group_id']) ? strtoupper(trim((string) $company['group_id'])) : null;
                     if (!empty($company_id) || !empty($group_id)) {

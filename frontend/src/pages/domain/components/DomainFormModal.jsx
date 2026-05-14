@@ -16,6 +16,20 @@ import {
 import { getDomainText } from "../../../translateFile/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 
+function normalizeDomainCode(value) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+/** @returns {string|null} conflicting code if any group id equals a company id */
+function findGroupCompanyCodeOverlap(tempGroups, tempCompanies) {
+  const groupSet = new Set(tempGroups.map((g) => normalizeDomainCode(g)).filter(Boolean));
+  for (const c of tempCompanies) {
+    const cid = normalizeDomainCode(c.company_id);
+    if (cid && groupSet.has(cid)) return cid;
+  }
+  return null;
+}
+
 /**
  * Domain Add/Edit Modal
  * Props:
@@ -77,13 +91,13 @@ export default function DomainFormModal({
             const allGroups = new Set();
             const validCompanies = [];
             data.data.companies.forEach((c) => {
-              if (c.group_id) allGroups.add(c.group_id);
+              if (c.group_id) allGroups.add(normalizeDomainCode(c.group_id));
               if (c.company_id) {
                 const co = {
                   company_id: c.company_id,
                   expiration_date: c.expiration_date || null,
                   permissions: Array.isArray(c.permissions) ? c.permissions : [],
-                  group_id: c.group_id || null,
+                  group_id: c.group_id ? normalizeDomainCode(c.group_id) : null,
                   fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations),
                 };
                 ensureCompanyFeeShare(co);
@@ -95,7 +109,7 @@ export default function DomainFormModal({
               }
             });
             setTempCompanies(validCompanies);
-            setTempGroups(Array.from(allGroups));
+            setTempGroups([...allGroups].map(normalizeDomainCode).filter(Boolean).sort());
           }
         })
         .catch(() => {});
@@ -107,6 +121,9 @@ export default function DomainFormModal({
   function addCompany() {
     const cid = companyInput.trim().toUpperCase();
     if (!cid) { showDomainAlert(t("pleaseEnterCompanyId"), "danger"); return; }
+    if (tempGroups.some((g) => normalizeDomainCode(g) === cid)) {
+      showDomainAlert(t("cannotAddCompanyUsesGroupId", { id: cid }), "danger"); return;
+    }
     if (tempCompanies.some((c) => c.company_id === cid)) {
       showDomainAlert(t("companyIdAlreadyAdded"), "danger"); return;
     }
@@ -134,6 +151,9 @@ export default function DomainFormModal({
   function addGroup() {
     const gid = groupInput.trim().toUpperCase();
     if (!gid) { showDomainAlert(t("pleaseEnterGroupId"), "danger"); return; }
+    if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === gid)) {
+      showDomainAlert(t("cannotAddGroupUsesCompanyId", { id: gid }), "danger"); return;
+    }
     if (tempGroups.includes(gid)) { showDomainAlert(t("groupIdAlreadyExists"), "danger"); return; }
     setTempGroups((prev) => [...prev, gid]);
     setGroupInput("");
@@ -208,6 +228,11 @@ export default function DomainFormModal({
     e.preventDefault();
     if (!email.toLowerCase().endsWith("@gmail.com")) {
       showDomainAlert(t("onlyGmailAllowed"), "danger"); return;
+    }
+    const overlap = findGroupCompanyCodeOverlap(tempGroups, tempCompanies);
+    if (overlap) {
+      showDomainAlert(t("groupCompanyIdOverlapSave", { id: overlap }), "danger");
+      return;
     }
     const data = {
       action: isEditMode ? "update" : "create",
