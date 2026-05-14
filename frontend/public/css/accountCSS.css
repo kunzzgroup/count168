@@ -1506,7 +1506,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     border-radius: 6px;
     font-family: var(--font-heading-page);
     font-weight: 600;
-    padding: 0.55rem 0.8rem 0.55rem 1rem;
+    padding: 1rem 2rem;
     min-height: 3rem;
     align-items: center;
     gap: 0.65rem;
