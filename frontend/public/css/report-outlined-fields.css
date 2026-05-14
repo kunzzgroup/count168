@@ -138,6 +138,8 @@ body.transaction-page .transaction-add-section .report-outlined-shell {
     border-radius: clamp(6px, 0.52vw, 8px);
     background: #fff;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    width: 100%;
+    min-width: 0;
 }
 
 body.transaction-page .transaction-add-section .report-outlined-label {
