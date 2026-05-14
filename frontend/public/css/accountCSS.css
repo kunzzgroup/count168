@@ -1301,7 +1301,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-form-group input,
 #account-editModal .account-form-group select,
 #account-editModal .account-form-group textarea {
-    font-size: clamp(13px, 0.9vw, 14px);
+    font-size: var(--text-small);
     min-height: 2.55rem;
     border: 1px solid #dbe3ee;
     border-radius: 0.52rem;
