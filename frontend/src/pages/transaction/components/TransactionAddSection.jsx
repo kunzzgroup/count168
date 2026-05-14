@@ -3,9 +3,7 @@ import AccountSelect from "./AccountSelect.jsx";
 export default function TransactionAddSection({
   txType,
   setTxType,
-  txDate,
   todayDmy,
-  setTxDate,
   accountOptions,
   txToAccount,
   setTxToAccount,
@@ -89,21 +87,29 @@ export default function TransactionAddSection({
         {!standardHidden && (
           <div className="report-outlined-anchor tx-add-field-col">
             <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-add-date-label">
-                Date
+              <span className="report-outlined-label report-outlined-label--txn-add-date" id="tx-add-date-label">
+                Date range
               </span>
               <div className="report-outlined-inner">
-                <input
-                  type="text"
-                  id="transaction_date"
-                  className="transaction-input"
-                  value={txDate || todayDmy}
-                  onChange={(e) => setTxDate(e.target.value)}
-                  placeholder="dd/mm/yyyy"
-                  readOnly
-                  style={{ cursor: "pointer" }}
-                  aria-labelledby="tx-add-date-label"
-                />
+                <div className="transaction-date-range-group">
+                  <div
+                    className="date-range-picker"
+                    id="add-tx-date-range-picker"
+                    role="button"
+                    tabIndex={0}
+                    aria-labelledby="tx-add-date-label"
+                    data-drp-from="add_tx_date_from"
+                    data-drp-to="add_tx_date_to"
+                    data-drp-display="add-tx-date-range-display"
+                    data-drp-hide-presets="true"
+                  >
+                    <i className="fas fa-calendar-alt" />
+                    <span id="add-tx-date-range-display" />
+                    <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+                  </div>
+                  <input type="hidden" id="add_tx_date_from" readOnly aria-hidden="true" />
+                  <input type="hidden" id="add_tx_date_to" readOnly aria-hidden="true" />
+                </div>
               </div>
             </div>
           </div>

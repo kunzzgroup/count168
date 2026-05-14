@@ -101,7 +101,6 @@ export default function TransactionPaymentPage() {
     setTxDate: form.setTxDate,
     rateDate: form.rateDate,
     setRateDate: form.setRateDate,
-    fpTxDateRef: form.fpTxDateRef,
     fpRateDateRef: form.fpRateDateRef,
   });
 
@@ -237,9 +236,7 @@ export default function TransactionPaymentPage() {
           <TransactionAddSection
             txType={form.txType}
             setTxType={form.setTxType}
-            txDate={form.txDate}
             todayDmy={todayDmy}
-            setTxDate={form.setTxDate}
             txToAccount={form.txToAccount}
             setTxToAccount={form.setTxToAccount}
             txFromAccount={form.txFromAccount}

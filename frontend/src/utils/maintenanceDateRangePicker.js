@@ -16,12 +16,33 @@ export function ensureMaintenanceDateRangePicker() {
   let config = {
     dateFromId: "date_from",
     dateToId: "date_to",
+    /** Visible span id for the “search” / primary date-range bar (Capture Date, etc.). */
+    rangeDisplayId: "date-range-display",
     onChange: null,
     allowEmpty: false,
     placeholder: "Select date range",
     /** Shown after user picked start date and before end date (range selection). */
     selectEndDateHint: "Select end date",
   };
+
+  /** Which hidden inputs + display span the shared #calendar-popup edits (multi-trigger support). */
+  let activeRangeBinding = {
+    dateFromId: "date_from",
+    dateToId: "date_to",
+    displayId: "date-range-display",
+    hidePresets: false,
+  };
+
+  function setActiveRangeBindingFromTrigger(pickerEl) {
+    const el = pickerEl?.closest?.(".date-range-picker") || pickerEl;
+    if (!el || !el.classList?.contains("date-range-picker")) return;
+    activeRangeBinding = {
+      dateFromId: el.dataset.drpFrom || config.dateFromId,
+      dateToId: el.dataset.drpTo || config.dateToId,
+      displayId: el.dataset.drpDisplay || config.rangeDisplayId || "date-range-display",
+      hidePresets: el.dataset.drpHidePresets === "true",
+    };
+  }
 
   function formatDateDisplay(date) {
     const year = date.getFullYear();
@@ -30,8 +51,8 @@ export function ensureMaintenanceDateRangePicker() {
     return `${day}/${month}/${year}`;
   }
 
-  function updateDateRangeDisplay() {
-    const display = document.getElementById("date-range-display");
+  function updateDateRangeDisplay(displayIdOverride) {
+    const display = document.getElementById(displayIdOverride || activeRangeBinding.displayId);
     if (!display) return;
     if (calendarStartDate && calendarEndDate) {
       display.textContent = `${formatDateDisplay(calendarStartDate)} - ${formatDateDisplay(calendarEndDate)}`;
@@ -73,9 +94,26 @@ export function ensureMaintenanceDateRangePicker() {
     }
   }
 
+  function paintDisplayFromDomHiddens(binding) {
+    const b = binding || activeRangeBinding;
+    const display = document.getElementById(b.displayId);
+    if (!display) return;
+    const fv = document.getElementById(b.dateFromId)?.value?.trim();
+    const tv = document.getElementById(b.dateToId)?.value?.trim();
+    const fd = parseDmy(fv);
+    const td = parseDmy(tv);
+    if (fd && td) {
+      display.textContent = `${formatDateDisplay(fd)} - ${formatDateDisplay(td)}`;
+    } else if (fd) {
+      display.textContent = `${formatDateDisplay(fd)} - ${formatDateDisplay(fd)}`;
+    } else {
+      display.textContent = config.placeholder || "Select date range";
+    }
+  }
+
   function syncToHiddenInputs() {
-    const fromEl = document.getElementById(config.dateFromId);
-    const toEl = document.getElementById(config.dateToId);
+    const fromEl = document.getElementById(activeRangeBinding.dateFromId);
+    const toEl = document.getElementById(activeRangeBinding.dateToId);
     if (fromEl) fromEl.value = calendarStartDate ? formatDateDisplay(calendarStartDate) : "";
     if (toEl) toEl.value = calendarEndDate ? formatDateDisplay(calendarEndDate) : "";
   }
@@ -154,8 +192,8 @@ export function ensureMaintenanceDateRangePicker() {
 
   /** Same as legacy: refresh internal range from hidden #date_from / #date_to when opening the popup. */
   function syncRangeStateFromHiddenInputs() {
-    const fromEl = document.getElementById(config.dateFromId);
-    const toEl = document.getElementById(config.dateToId);
+    const fromEl = document.getElementById(activeRangeBinding.dateFromId);
+    const toEl = document.getElementById(activeRangeBinding.dateToId);
     const fromDate = fromEl ? parseDmy(fromEl.value) : null;
     const toDate = toEl ? parseDmy(toEl.value) : null;
     if (fromDate && toDate) {
@@ -425,10 +463,19 @@ export function ensureMaintenanceDateRangePicker() {
     updateDateRangeDisplay();
   }
 
-  function toggleCalendar() {
+  function toggleCalendar(pickerEl) {
+    const picker = pickerEl?.closest?.(".date-range-picker") || pickerEl || document.getElementById("date-range-picker");
+    if (pickerEl || picker) setActiveRangeBindingFromTrigger(picker || pickerEl);
+
     const popup = document.getElementById("calendar-popup");
-    const picker = document.getElementById("date-range-picker");
     if (!popup || !picker) return;
+
+    const presets = document.querySelector(".transaction-calendar-presets");
+    if (presets) {
+      presets.style.display = activeRangeBinding.hidePresets ? "none" : "";
+      presets.setAttribute("aria-hidden", activeRangeBinding.hidePresets ? "true" : "false");
+    }
+
     if (popup.style.display === "none" || !popup.style.display) {
       syncRangeStateFromHiddenInputs();
       const rect = picker.getBoundingClientRect();
@@ -438,8 +485,7 @@ export function ensureMaintenanceDateRangePicker() {
         const parentRect = parent.getBoundingClientRect();
         if (
           parent.classList &&
-          (parent.classList.contains("transaction-capture-date-row") ||
-            parent.classList.contains("transaction-date-range-group"))
+          (parent.classList.contains("transaction-capture-date-row") || parent.classList.contains("transaction-date-range-group"))
         ) {
           barWidth = parentRect.width;
         } else if (parentRect.width > barWidth) {
@@ -508,12 +554,26 @@ export function ensureMaintenanceDateRangePicker() {
     setLocaleStrings(partial) {
       if (!partial || typeof partial !== "object") return;
       config = { ...config, ...partial };
-      updateDateRangeDisplay();
+      updateDateRangeDisplay(config.rangeDisplayId || "date-range-display");
+    },
+    getActiveRangeBinding() {
+      return { ...activeRangeBinding };
+    },
+    /** Update the visible range text from DOM hidden inputs (e.g. after React writes #add_tx_date_*). */
+    refreshInputsDisplay(binding) {
+      paintDisplayFromDomHiddens(binding || activeRangeBinding);
     },
     init(options) {
       if (options) {
         config = { ...config, ...options };
       }
+      activeRangeBinding = {
+        dateFromId: config.dateFromId,
+        dateToId: config.dateToId,
+        displayId: config.rangeDisplayId || "date-range-display",
+        hidePresets: false,
+      };
+
       const fromEl = document.getElementById(config.dateFromId);
       const toEl = document.getElementById(config.dateToId);
       const fromDate = parseDmy(fromEl?.value);
@@ -533,13 +593,12 @@ export function ensureMaintenanceDateRangePicker() {
       syncToHiddenInputs();
       updateDateRangeDisplay();
 
-      const picker = document.getElementById("date-range-picker");
-      if (picker) {
-        picker.onclick = (e) => {
+      document.querySelectorAll(".date-range-picker").forEach((pick) => {
+        pick.onclick = (e) => {
           e.stopPropagation();
-          toggleCalendar();
+          toggleCalendar(pick);
         };
-      }
+      });
       const monthSelect = document.getElementById("calendar-month-select");
       const yearSelect = document.getElementById("calendar-year-select");
       if (monthSelect) {
@@ -578,10 +637,10 @@ export function ensureMaintenanceDateRangePicker() {
 
   if (!window.__maintenanceDatePickerDocClickBound) {
     document.addEventListener("click", (e) => {
-      const calendar = document.getElementById("date-range-picker");
+      const inRangePicker = e.target.closest?.(".date-range-picker");
       const popup = document.getElementById("calendar-popup");
       const bankPick = e.target.closest && e.target.closest(".bank-form-day-picker");
-      if (calendar && popup && !calendar.contains(e.target) && !popup.contains(e.target) && !bankPick) {
+      if (popup && !inRangePicker && !popup.contains(e.target) && !bankPick) {
         popup.style.display = "none";
       }
       const dropdown = document.getElementById("quick-select-dropdown");

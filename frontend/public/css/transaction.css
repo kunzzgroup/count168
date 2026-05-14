@@ -2771,3 +2771,35 @@ body.transaction-page .transaction-search-section .transaction-outlined-field-co
     border-radius: clamp(5px, 0.42vw, 7px) 0 0 clamp(5px, 0.42vw, 7px);
 }
 
+/* Add form (right card): same date-range bar as Capture Date; period presets hidden when opening from this trigger. */
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-date-range-group {
+    min-width: 0 !important;
+    width: 100%;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-date-range-group .date-range-picker {
+    min-width: 0 !important;
+    width: 100%;
+    max-width: 100%;
+    min-height: clamp(30px, 2.25vw, 38px) !important;
+    padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
+    border-radius: clamp(4px, 0.42vw, 6px);
+    background: #ffffff !important;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-date-range-group .date-range-picker:hover,
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-date-range-group .date-range-picker:focus-visible {
+    background: #ffffff !important;
+    box-shadow: none !important;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-label--txn-add-date {
+    left: clamp(46px, 3.35vw, 58px);
+}
+
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+    position: relative;
+    z-index: 5;
+    border-radius: clamp(4px, 0.42vw, 6px) 0 0 clamp(4px, 0.42vw, 6px);
+}
+

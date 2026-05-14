@@ -138,7 +138,6 @@ export function useTransactionForm({
   }, [txToAccount, txFromAccount]);
 
   const prevTxTypeRef = useRef(txType);
-  const fpTxDateRef = useRef(null);
   const fpRateDateRef = useRef(null);
 
   // RATE: legacy `initMiddleManAmountCalculation` — MoneyDecimal chain, middle-man then gross/net preview.
@@ -465,7 +464,6 @@ export function useTransactionForm({
     rateMiddlemanAmount,
     setRateMiddlemanAmount,
     prevTxTypeRef,
-    fpTxDateRef,
     fpRateDateRef,
     onSubmitTx,
     handleBalanceCellClick,

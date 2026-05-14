@@ -17,7 +17,6 @@ export function useTransactionDateRange({
   setTxDate,
   rateDate,
   setRateDate,
-  fpTxDateRef,
   fpRateDateRef,
 }) {
   const txDateRangePickerReadyRef = useRef(false);
@@ -48,10 +47,16 @@ export function useTransactionDateRange({
 
       window.MaintenanceDateRangePicker.init({
         onChange: () => {
-          const from = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const to = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(from);
-          setDateTo(to);
+          const b = window.MaintenanceDateRangePicker.getActiveRangeBinding?.() || {};
+          if (b.dateFromId === "add_tx_date_from") {
+            const from = document.getElementById("add_tx_date_from")?.value?.trim() || "";
+            setTxDate(from || todayDmy);
+          } else {
+            const from = document.getElementById("date_from")?.value || "";
+            const to = document.getElementById("date_to")?.value || "";
+            setDateFrom(from);
+            setDateTo(to);
+          }
           /* 搜索由 useTransactionSearch 在 dateFrom/dateTo 写入 state 后的 effect 触发，避免 queueMicrotask 读到旧 effectiveDate */
         },
       });
@@ -62,25 +67,31 @@ export function useTransactionDateRange({
       cancelled = true;
       txDateRangePickerReadyRef.current = false;
     };
-  }, [loading, forbidden, filterSnapshot, setDateFrom, setDateTo]);
+  }, [loading, forbidden, filterSnapshot, setDateFrom, setDateTo, setTxDate, todayDmy]);
 
-  /** Flatpickr on transaction / rate single-date fields */
+  /** Keep add-form hidden range inputs + label text in sync with txDate (submit uses range start = transaction_date). */
+  useEffect(() => {
+    if (loading || forbidden || !filterSnapshot) return;
+    ensureMaintenanceDateRangePicker();
+    const f = document.getElementById("add_tx_date_from");
+    const t = document.getElementById("add_tx_date_to");
+    if (!f || !t) return;
+    const td = (txDate || todayDmy).trim();
+    if (f.value !== td) f.value = td;
+    if (t.value !== td) t.value = td;
+    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.({
+      dateFromId: "add_tx_date_from",
+      dateToId: "add_tx_date_to",
+      displayId: "add-tx-date-range-display",
+    });
+  }, [txDate, todayDmy, loading, forbidden, filterSnapshot]);
+
+  /** Flatpickr on RATE single-date field */
   useEffect(() => {
     if (loading || forbidden || !filterSnapshot) return;
 
-    const txInput = document.getElementById("transaction_date");
     const rateInput = document.getElementById("rate_transaction_date");
 
-    if (txInput && !fpTxDateRef.current) {
-      fpTxDateRef.current = flatpickr(txInput, {
-        dateFormat: "d/m/Y",
-        allowInput: false,
-        defaultDate: parseDmyToDate(txDate || todayDmy) || new Date(),
-        onChange: (_d, dateStr) => {
-          if (dateStr) setTxDate(dateStr);
-        },
-      });
-    }
     if (rateInput && !fpRateDateRef.current) {
       fpRateDateRef.current = flatpickr(rateInput, {
         dateFormat: "d/m/Y",
@@ -94,27 +105,13 @@ export function useTransactionDateRange({
 
     return () => {
       try {
-        fpTxDateRef.current?.destroy?.();
-      } catch {
-        /* ignore */
-      }
-      fpTxDateRef.current = null;
-      try {
         fpRateDateRef.current?.destroy?.();
       } catch {
         /* ignore */
       }
       fpRateDateRef.current = null;
     };
-  }, [loading, forbidden, filterSnapshot, setTxDate, setRateDate, todayDmy, fpTxDateRef, fpRateDateRef]);
-
-  // Sync flatpickr instances with state changes
-  useEffect(() => {
-    const fp = fpTxDateRef.current;
-    if (!fp?.setDate) return;
-    const d = parseDmyToDate(txDate || todayDmy);
-    if (d) fp.setDate(d, false);
-  }, [txDate, todayDmy, fpTxDateRef]);
+  }, [loading, forbidden, filterSnapshot, setRateDate, todayDmy, fpRateDateRef]);
 
   useEffect(() => {
     const fp = fpRateDateRef.current;
