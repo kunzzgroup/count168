@@ -845,6 +845,10 @@ function rebuildBankCurrencyFilterPills() {
             escapeHtml(code) + '"' + (isActive ? ' active' : '') + '>' + escapeHtml(code) + '</button>';
     });
     container.innerHTML = html;
+    const noCurrencyFilter = !String(typeof bankCountryFilterCode !== 'undefined' ? bankCountryFilterCode : '').trim().toUpperCase();
+    if (noCurrencyFilter && typeof window.resetBankCurrencyFilterToAll === 'function') {
+        window.resetBankCurrencyFilterToAll();
+    }
 }
 
 (function bindBankCurrencyFilterDelegation() {

@@ -32,6 +32,7 @@ function resetBankCurrencyFilterToAll() {
         allBtn.classList.add('active');
     }
 }
+window.resetBankCurrencyFilterToAll = resetBankCurrencyFilterToAll;
 
 function getBankProcessModule() {
     return (typeof window !== 'undefined' && window.BankProcessList) ? window.BankProcessList : null;

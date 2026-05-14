@@ -770,6 +770,21 @@ body.process-page {
     cursor: default;
 }
 
+/* All 选中态：与 Company 药丸一致，避免其它规则覆盖导致进入页面看不出默认选中 */
+.process-page.process-page--bank #bankCurrencyButtons .bank-currency-filter-all.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    cursor: default;
+}
+
+.process-page.process-page--bank #bankCurrencyButtons .bank-currency-filter-all.active:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    color: #fff;
+    border-color: transparent;
+}
+
 .process-page.process-page--bank .pagination-container {
     flex-shrink: 0;
     margin-top: 3px;
