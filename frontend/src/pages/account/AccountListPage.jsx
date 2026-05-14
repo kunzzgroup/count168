@@ -387,7 +387,13 @@ export default function AccountListPage() {
       const json = await res.json();
       if (json.success) {
         const next = json.newStatus || json.data?.newStatus;
-        setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a));
+        setAccounts(prev => {
+          const updated = prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a);
+          if (showInactive) return updated.filter(a => String(a.status || "").toLowerCase() === "inactive");
+          if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
+          return updated;
+        });
+        void fetchAccounts();
       }
     } catch { notify(t("toggleFailed"), "danger"); }
   };
