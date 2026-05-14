@@ -215,8 +215,8 @@ body.process-page .user-gc-segment {
     border-right: 1px solid var(--color-border, #e5e7eb);
     background: var(--color-surface, #ffffff);
     color: #1f2937;
-    font-size: clamp(11px, 0.82vw, 14px);
-    font-weight: 600;
+    font-size: var(--text-medium) !important;
+    font-weight: var(--font-weight-semibold) !important;
     font-family: inherit;
     cursor: pointer;
     white-space: nowrap;
@@ -224,11 +224,6 @@ body.process-page .user-gc-segment {
     transition:
         background 0.15s ease,
         color 0.15s ease;
-}
-
-body.user-page .user-gc-segment {
-    font-size: var(--text-medium);
-    font-weight: var(--font-weight-semibold);
 }
 
 body.user-page .user-gc-segment:last-child,
