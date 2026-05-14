@@ -138,7 +138,7 @@ export default function CurrencySettingModal({
                     className="currency-setting-search-input"
                     placeholder={t("searchByAccountOrName")}
                     value={settingSearch}
-                    onChange={(e) => setSettingSearch(e.target.value)}
+                    onChange={(e) => setSettingSearch(toUpper(e.target.value))}
                   />
                 </div>
                 <div className={`currency-setting-role-filter${roleDropdownOpen ? " is-open" : ""}`} ref={roleDropdownRef}>
