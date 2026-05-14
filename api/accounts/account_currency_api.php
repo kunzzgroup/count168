@@ -74,6 +74,16 @@ function resolveCompanyId($pdo) {
     return $company_id;
 }
 
+function getAccountCurrencyIdColumn(PDO $pdo) {
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM account LIKE 'currency_id'");
+        $column = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+        return $column ?: null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
 /**
  * 获取账户关联的货币列表（当前公司）
  */
@@ -157,8 +167,7 @@ function dbGetLinkedCurrencyIds($pdo, $account_id) {
  */
 function dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id) {
     try {
-        $check = $pdo->query("SHOW COLUMNS FROM account LIKE 'currency_id'");
-        if (!$check || $check->rowCount() === 0) {
+        if (!getAccountCurrencyIdColumn($pdo)) {
             return null;
         }
         $stmt = $pdo->prepare("
@@ -173,6 +182,40 @@ function dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id) {
         return $id ? (int) $id : null;
     } catch (PDOException $e) {
         return null;
+    }
+}
+
+function dbSyncLegacyCurrencyAfterRemoval(PDO $pdo, int $account_id, int $removed_currency_id, int $company_id): void {
+    $column = getAccountCurrencyIdColumn($pdo);
+    if (!$column) {
+        return;
+    }
+
+    $currentStmt = $pdo->prepare("SELECT currency_id FROM account WHERE id = ? LIMIT 1");
+    $currentStmt->execute([$account_id]);
+    if ((int)$currentStmt->fetchColumn() !== $removed_currency_id) {
+        return;
+    }
+
+    $nextStmt = $pdo->prepare("
+        SELECT ac.currency_id
+        FROM account_currency ac
+        INNER JOIN currency c ON c.id = ac.currency_id
+        WHERE ac.account_id = ? AND c.company_id = ?
+        ORDER BY c.code ASC, ac.currency_id ASC
+        LIMIT 1
+    ");
+    $nextStmt->execute([$account_id, $company_id]);
+    $next_currency_id = $nextStmt->fetchColumn();
+    if ($next_currency_id) {
+        $stmt = $pdo->prepare("UPDATE account SET currency_id = ? WHERE id = ? AND currency_id = ?");
+        $stmt->execute([(int)$next_currency_id, $account_id, $removed_currency_id]);
+        return;
+    }
+
+    if (strtoupper((string)($column['Null'] ?? '')) === 'YES') {
+        $stmt = $pdo->prepare("UPDATE account SET currency_id = NULL WHERE id = ? AND currency_id = ?");
+        $stmt->execute([$account_id, $removed_currency_id]);
     }
 }
 
@@ -339,6 +382,7 @@ try {
                 jsonResponse(false, '关联不存在', null, 400);
                 exit;
             }
+            dbSyncLegacyCurrencyAfterRemoval($pdo, $account_id, $currency_id, $company_id);
             jsonResponse(true, '货币移除成功');
             exit;
         }

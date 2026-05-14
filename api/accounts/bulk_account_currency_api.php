@@ -46,6 +46,58 @@ function resolveCompanyId($pdo) {
     return $company_id;
 }
 
+function getAccountCurrencyIdColumn(PDO $pdo) {
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM account LIKE 'currency_id'");
+        $column = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+        return $column ?: null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
+function syncLegacyAccountCurrencyAfterRemoval(PDO $pdo, array $accountIds, int $removedCurrencyId, int $companyId): void {
+    $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), function ($id) {
+        return $id > 0;
+    })));
+    if (empty($accountIds)) {
+        return;
+    }
+
+    $column = getAccountCurrencyIdColumn($pdo);
+    if (!$column) {
+        return;
+    }
+
+    $canSetNull = strtoupper((string)($column['Null'] ?? '')) === 'YES';
+    $currentStmt = $pdo->prepare("SELECT currency_id FROM account WHERE id = ? LIMIT 1");
+    $nextStmt = $pdo->prepare("
+        SELECT ac.currency_id
+        FROM account_currency ac
+        INNER JOIN currency c ON c.id = ac.currency_id
+        WHERE ac.account_id = ? AND c.company_id = ?
+        ORDER BY c.code ASC, ac.currency_id ASC
+        LIMIT 1
+    ");
+    $setNextStmt = $pdo->prepare("UPDATE account SET currency_id = ? WHERE id = ? AND currency_id = ?");
+    $setNullStmt = $canSetNull ? $pdo->prepare("UPDATE account SET currency_id = NULL WHERE id = ? AND currency_id = ?") : null;
+
+    foreach ($accountIds as $accountId) {
+        $currentStmt->execute([$accountId]);
+        if ((int)$currentStmt->fetchColumn() !== $removedCurrencyId) {
+            continue;
+        }
+
+        $nextStmt->execute([$accountId, $companyId]);
+        $nextCurrencyId = $nextStmt->fetchColumn();
+        if ($nextCurrencyId) {
+            $setNextStmt->execute([(int)$nextCurrencyId, $accountId, $removedCurrencyId]);
+        } elseif ($setNullStmt) {
+            $setNullStmt->execute([$accountId, $removedCurrencyId]);
+        }
+    }
+}
+
 try {
     if (!isset($_SESSION['company_id'])) {
         jsonResponse(false, '用户未登录或缺少公司信息', null, 401);
@@ -84,15 +136,21 @@ try {
             exit;
         }
         
-        // 获取所有与此货币关联的该公司账户
+        // 获取所有与此货币关联的该公司账户；兼容旧账号的 account.currency_id。
+        $hasLegacyCurrencyId = (bool)getAccountCurrencyIdColumn($pdo);
+        $legacyCondition = $hasLegacyCurrencyId ? " OR a.currency_id = ?" : "";
         $stmt = $pdo->prepare("
-            SELECT a.id 
+            SELECT DISTINCT a.id 
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
-            INNER JOIN account_currency accurr ON a.id = accurr.account_id
-            WHERE ac.company_id = ? AND accurr.currency_id = ?
+            LEFT JOIN account_currency accurr ON a.id = accurr.account_id AND accurr.currency_id = ?
+            WHERE ac.company_id = ? AND (accurr.currency_id IS NOT NULL{$legacyCondition})
         ");
-        $stmt->execute([$company_id, $currency_id]);
+        $params = [$currency_id, $company_id];
+        if ($hasLegacyCurrencyId) {
+            $params[] = $currency_id;
+        }
+        $stmt->execute($params);
         $linked_account_ids = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id');
         
         jsonResponse(true, '成功获取关联账户', ['linked_account_ids' => $linked_account_ids]);
@@ -180,6 +238,7 @@ try {
                     $delParams = array_merge([$currency_id], $valid_unlinked_ids);
                     $stmt = $pdo->prepare("DELETE FROM account_currency WHERE currency_id = ? AND account_id IN ($delPlaceholders)");
                     $stmt->execute($delParams);
+                    syncLegacyAccountCurrencyAfterRemoval($pdo, $valid_unlinked_ids, $currency_id, (int)$company_id);
                 }
             }
 
