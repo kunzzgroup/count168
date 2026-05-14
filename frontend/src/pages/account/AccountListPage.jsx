@@ -317,9 +317,8 @@ export default function AccountListPage() {
   const orderedRoles = useMemo(() => getOrderedRoles(roles), [roles]);
 
   const filteredForMode = useMemo(() => {
-    if (showAll) return sortedAccounts.filter(a => a.status === "active");
     return sortedAccounts;
-  }, [sortedAccounts, showAll]);
+  }, [sortedAccounts]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredForMode.length / PAGE_SIZE)), [filteredForMode]);
   const pageRows = useMemo(() => {
