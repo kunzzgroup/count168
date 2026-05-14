@@ -3,11 +3,11 @@ export const DOMAIN_I18N = {
     pleaseEnterCompanyId: "Please enter a company ID",
     companyIdAlreadyAdded: "Company ID already added",
     cannotAddGroupUsesCompanyId:
-      'This ID had been taken.',
+      '"{id}" is already a Company ID. Use a different Group ID.',
     cannotAddCompanyUsesGroupId:
-      'This ID had been taken.',
+      '"{id}" is already a Group ID. Use a different Company ID or rename/remove that group.',
     groupCompanyIdOverlapSave:
-      "This ID had been taken.",
+      'Cannot save — "{id}" is used as both Group ID and Company ID. Rename or remove one.',
     pleaseEnterGroupId: "Please enter a Group ID",
     groupIdAlreadyExists: "Group ID already exists",
     groupAdded: 'Group "{gid}" added!',
@@ -168,11 +168,11 @@ export const DOMAIN_I18N = {
     pleaseEnterCompanyId: "请输入公司 ID",
     companyIdAlreadyAdded: "该公司 ID 已添加",
     cannotAddGroupUsesCompanyId:
-      '这 ID 已经被使用了。',
+      "「{id}」已是公司 ID，不能作为分组 ID。请换一个分组编码。",
     cannotAddCompanyUsesGroupId:
-      '这 ID 已经被使用了。',
+      "「{id}」已是分组 ID，不能作为公司 ID。请换一个公司编码，或先修改/删除该分组。",
     groupCompanyIdOverlapSave:
-      "这 ID 已经被使用了。",
+      "无法保存：「{id}」同时作为分组 ID 与公司 ID，请只保留其一或更名。",
     pleaseEnterGroupId: "请输入 Group ID",
     groupIdAlreadyExists: "Group ID 已存在",
     groupAdded: '分组 "{gid}" 已添加！',
