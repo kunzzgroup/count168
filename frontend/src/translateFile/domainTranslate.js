@@ -2,6 +2,12 @@ export const DOMAIN_I18N = {
   en: {
     pleaseEnterCompanyId: "Please enter a company ID",
     companyIdAlreadyAdded: "Company ID already added",
+    cannotAddGroupUsesCompanyId:
+      'This ID had been taken.',
+    cannotAddCompanyUsesGroupId:
+      'This ID had been taken.',
+    groupCompanyIdOverlapSave:
+      "This ID had been taken.",
     pleaseEnterGroupId: "Please enter a Group ID",
     groupIdAlreadyExists: "Group ID already exists",
     groupAdded: 'Group "{gid}" added!',
@@ -161,6 +167,12 @@ export const DOMAIN_I18N = {
   zh: {
     pleaseEnterCompanyId: "请输入公司 ID",
     companyIdAlreadyAdded: "该公司 ID 已添加",
+    cannotAddGroupUsesCompanyId:
+      '这 ID 已经被使用了。',
+    cannotAddCompanyUsesGroupId:
+      '这 ID 已经被使用了。',
+    groupCompanyIdOverlapSave:
+      "这 ID 已经被使用了。",
     pleaseEnterGroupId: "请输入 Group ID",
     groupIdAlreadyExists: "Group ID 已存在",
     groupAdded: '分组 "{gid}" 已添加！',
