@@ -82,8 +82,20 @@ export default function AccountModal({
           const id = Number(c.id);
           const selected = selectedCurrencyIds.includes(id);
           return (
-            <div key={c.id} className={`account-currency-item currency-toggle-item ${selected ? "selected" : ""}`}>
-              <span className="currency-code-text" onClick={() => setSelectedCurrencyIds((prev) => toggleId(prev, id))} role="presentation">
+            <div
+              key={c.id}
+              className={`account-currency-item currency-toggle-item ${selected ? "selected" : ""}`}
+              onClick={() => setSelectedCurrencyIds((prev) => toggleId(prev, id))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedCurrencyIds((prev) => toggleId(prev, id));
+                }
+              }}
+              role="button"
+              tabIndex={0}
+            >
+              <span className="currency-code-text">
                 {upper(c.code)}
               </span>
               <button
