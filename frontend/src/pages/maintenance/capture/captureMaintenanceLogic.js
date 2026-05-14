@@ -43,8 +43,10 @@ export async function fetchProcesses(companyId) {
 
 /**
  * Search capture data
+ * @param {AbortSignal} [options.signal] — 切换公司等场景取消过时请求，避免列表闪动与竞态
  */
-export async function searchCaptureData({ dateFrom, dateTo, process, companyId, category }) {
+export async function searchCaptureData({ dateFrom, dateTo, process, companyId, category }, options = {}) {
+  const { signal } = options;
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);
   params.append("date_to", dateTo);
@@ -59,7 +61,7 @@ export async function searchCaptureData({ dateFrom, dateTo, process, companyId, 
   }
   
   const url = buildApiUrl(`api/capture_maintenance/search_api.php?${params.toString()}`);
-  const response = await fetch(url);
+  const response = await fetch(url, { signal, credentials: "include" });
   const data = await response.json();
   
   if (!data.success) {
@@ -97,7 +99,9 @@ export async function deleteCaptureItems({ items, dateFrom, dateTo }) {
  * Update session company
  */
 export async function updateSessionCompany(companyId) {
-  const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`));
+  const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`), {
+    credentials: "include",
+  });
   const result = await response.json();
   if (!result.success) {
     throw new Error(result.error || 'Failed to update session company');

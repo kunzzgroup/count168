@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 /* 与 DataCapture 相同：打进 Vite 产物，避免 dynamic import 在生产包中被拆成空 chunk、样式从未加载 */
 import "../../../../public/css/capture_maintenance.css";
+import "../../../../public/css/userlist.css";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
 import "../../../../public/css/date-range-picker.css";
@@ -60,6 +61,8 @@ export default function CaptureMaintenancePage() {
   const [processes, setProcesses] = useState([]);
   const [captureData, setCaptureData] = useState([]);
   const [loading, setLoading] = useState(false);
+  /** 与 Report 页一致：非首次拉数时用细条 + 保留旧表，避免切换公司整表 Loading 卡顿感 */
+  const [listSyncing, setListSyncing] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   
@@ -67,6 +70,12 @@ export default function CaptureMaintenancePage() {
   const [toasts, setToasts] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [cssReady, setCssReady] = useState(false);
+
+  const captureSeqRef = useRef(0);
+  const captureAbortRef = useRef(null);
+  const initialCaptureSearchDoneRef = useRef(false);
+  /** 切换公司已手动触发拉数时跳过 useEffect 里下一次重复请求，少等一轮渲染 */
+  const suppressNextSearchEffectRef = useRef(false);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -281,62 +290,121 @@ export default function CaptureMaintenancePage() {
   }, [bootLoading, companyId, companyCode, notify, t]);
 
   // -- Search Logic --
-  const performSearch = useCallback(async () => {
-    if (!companyId || !dateFrom || !dateTo) return;
-    setLoading(true);
+  const performSearch = useCallback(async (overrides = {}) => {
+    const effectiveCompanyId = overrides.companyId ?? companyId;
+    if (!effectiveCompanyId || !dateFrom || !dateTo) return;
+    captureAbortRef.current?.abort();
+    const ac = new AbortController();
+    captureAbortRef.current = ac;
+    const seq = ++captureSeqRef.current;
+    const quietRefresh = initialCaptureSearchDoneRef.current;
+    if (!quietRefresh) setLoading(true);
+    else {
+      setLoading(false);
+      setListSyncing(true);
+    }
     setSelectedIds([]);
     try {
-      const data = await searchCaptureData({
-        dateFrom,
-        dateTo,
-        process: selectedProcess,
-        companyId,
-        category: activePermission
-      });
+      const data = await searchCaptureData(
+        {
+          dateFrom,
+          dateTo,
+          process: selectedProcess,
+          companyId: effectiveCompanyId,
+          category: activePermission,
+        },
+        { signal: ac.signal },
+      );
+      if (seq !== captureSeqRef.current) return;
       setCaptureData(data);
-      if (data.length > 0) {
+      if (!quietRefresh && data.length > 0) {
         notify(t("foundRecords", { n: data.length }), "success");
       }
     } catch (err) {
+      if (err?.name === "AbortError" || seq !== captureSeqRef.current) return;
       notify(err.message, "error");
       setCaptureData([]);
     } finally {
-      setLoading(false);
+      initialCaptureSearchDoneRef.current = true;
+      if (seq === captureSeqRef.current) {
+        setLoading(false);
+        setListSyncing(false);
+      }
     }
   }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t]);
 
-  // Auto-search when filters change
+  // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
   useEffect(() => {
     if (!bootLoading && companyId && cssReady) {
-      performSearch();
+      if (suppressNextSearchEffectRef.current) {
+        suppressNextSearchEffectRef.current = false;
+        return;
+      }
+      const h = setTimeout(() => {
+        void performSearch();
+      }, 0);
+      return () => clearTimeout(h);
     }
   }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch, cssReady]);
+
+  useEffect(
+    () => () => {
+      captureAbortRef.current?.abort();
+    },
+    [],
+  );
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
+    const nextId = Number(c.id);
+    const nextCode = c.company_id || "";
+    const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    const isOwner = String(me?.role || "").toLowerCase() === "owner";
+
+    if (isOwner) {
+      suppressNextSearchEffectRef.current = true;
+      setCompanyId(nextId);
+      setCompanyCode(nextCode);
+      setSelectedGroup(newGroup);
+      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
+      else sessionStorage.removeItem("dashboard_group_filter");
+      void performSearch({ companyId: nextId });
+      notify(t("switchedTo", { company: nextCode }), "success");
+      try {
+        const sessionData = await updateSessionCompany(c.id);
+        if (sessionData && sessionData.has_gambling === false) {
+          navigate("/process-list", { replace: true });
+          return;
+        }
+        notifyCompanySessionUpdated();
+      } catch (err) {
+        notify(err.message || t("switchFailed"), "error");
+        navigate("/dashboard", { replace: true });
+      }
+      return;
+    }
+
     try {
       const sessionData = await updateSessionCompany(c.id);
-      
-      // Redirect to process list for bank-only companies (legacy parity).
+
       if (sessionData && sessionData.has_gambling === false) {
         navigate("/process-list", { replace: true });
         return;
       }
 
-      setCompanyId(Number(c.id));
-      setCompanyCode(c.company_id || "");
-      
-      const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      suppressNextSearchEffectRef.current = true;
+      setCompanyId(nextId);
+      setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
-      
+
       notifyCompanySessionUpdated();
-      notify(t("switchedTo", { company: c.company_id }), "success");
+      notify(t("switchedTo", { company: nextCode }), "success");
+      void performSearch({ companyId: nextId });
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
-      // Fallback redirect if something goes wrong during session update
       navigate("/dashboard", { replace: true });
     }
   };
@@ -383,7 +451,6 @@ export default function CaptureMaintenancePage() {
 
   const confirmDeleteAction = async () => {
     setShowDeleteModal(false);
-    setLoading(true);
     try {
       const itemsToDelete = captureData
         .filter(row => selectedIds.includes(row.capture_id))
@@ -405,8 +472,6 @@ export default function CaptureMaintenancePage() {
       await performSearch();
     } catch (err) {
       notify(err.message, "error");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -439,35 +504,46 @@ export default function CaptureMaintenancePage() {
         )}
       </div>
 
-      <CaptureMaintenanceFilters 
-        processes={processes}
-        selectedProcess={selectedProcess}
-        setSelectedProcess={setSelectedProcess}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        today={todayDmy}
-        companyId={companyId}
-        companies={companies}
-        selectedGroup={selectedGroup}
-        onGroupClick={handleGroupClick}
-        onSwitchCompany={handleSwitchCompany}
-        onDelete={handleDeleteClick}
-        canDelete={selectedIds.length > 0}
-        confirmDelete={confirmDelete}
-        setConfirmDelete={setConfirmDelete}
-        m={m}
-      />
+      {/* Scope table CSS: other maintenance pages share .maintenance-* and win in bundle order */}
+      <div className="capture-maintenance-page-root">
+        <CaptureMaintenanceFilters
+          processes={processes}
+          selectedProcess={selectedProcess}
+          setSelectedProcess={setSelectedProcess}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          today={todayDmy}
+          companyId={companyId}
+          companies={companies}
+          selectedGroup={selectedGroup}
+          onGroupClick={handleGroupClick}
+          onSwitchCompany={handleSwitchCompany}
+          onDelete={handleDeleteClick}
+          canDelete={selectedIds.length > 0}
+          confirmDelete={confirmDelete}
+          setConfirmDelete={setConfirmDelete}
+          m={m}
+        />
 
-      <CaptureMaintenanceTable
-        data={captureData}
-        loading={loading}
-        selectedIds={selectedIds}
-        toggleSelect={toggleSelect}
-        toggleSelectAll={toggleSelectAll}
-        isAllSelected={isAllSelected}
-        isIndeterminate={isIndeterminate}
-        m={m}
-      />
+        <div className="capture-maintenance-table-region">
+          {listSyncing && (
+            <div className="capture-maintenance-sync-track" aria-hidden>
+              <div className="capture-maintenance-sync-bar" />
+            </div>
+          )}
+          <CaptureMaintenanceTable
+            data={captureData}
+            loading={loading}
+            listSyncing={listSyncing}
+            selectedIds={selectedIds}
+            toggleSelect={toggleSelect}
+            toggleSelectAll={toggleSelectAll}
+            isAllSelected={isAllSelected}
+            isIndeterminate={isIndeterminate}
+            m={m}
+          />
+        </div>
+      </div>
 
       {/* Notifications */}
       <div id="notificationContainer" className="maintenance-notification-container">

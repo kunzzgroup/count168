@@ -163,16 +163,30 @@ export default function CustomerReportFilters({
             </div>
           </div>
           <div className="customer-report-filter-group customer-report-showall-group">
-            <div className="customer-report-checkbox-section">
-              <label className="transaction-checkbox-label">
-                <input
-                  type="checkbox"
-                  className="transaction-checkbox"
-                  checked={showAll}
-                  onChange={(e) => setShowAll(e.target.checked)}
-                />
-                {t("showAll")}
-              </label>
+            <div className="userlist-filter-chips" role="group">
+              <button
+                type="button"
+                className={`user-filter-chip${showAll ? " is-selected" : ""}`}
+                aria-pressed={showAll}
+                onClick={() => setShowAll(!showAll)}
+              >
+                <span className="user-filter-chip__dot" aria-hidden>
+                  {showAll ? (
+                    <svg
+                      className="user-filter-chip__check"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M6 12l4 4 8-8" />
+                    </svg>
+                  ) : null}
+                </span>
+                <span className="user-filter-chip__label">{t("showAll")}</span>
+              </button>
             </div>
           </div>
         </div>
