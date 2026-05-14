@@ -455,7 +455,7 @@ body.dashboard-page.maintenance-page {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: #ffffff;
     font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
 }
 
 .maintenance-table thead th {
@@ -887,4 +887,329 @@ body.dashboard-page.maintenance-page {
     text-align: center;
     color: #999;
     font-size: 14px;
+}
+
+/* Transaction 列表：与 Capture 同级单元格/表头间距；表可横向滚动，避免 Created At 等列被挤成省略号 */
+.transaction-maintenance-page-root .maintenance-list-container {
+    margin-bottom: clamp(20px, 1.67vw, 32px);
+    margin-top: 10px;
+    max-width: none;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.transaction-maintenance-page-root .maintenance-table {
+    width: 100%;
+    min-width: 1520px;
+    border-collapse: separate;
+    table-layout: fixed;
+    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+}
+
+.transaction-maintenance-page-root .maintenance-table thead th {
+    padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1vw, 18px);
+    text-align: center;
+    min-height: clamp(30px, 2.1vw, 38px);
+    box-sizing: border-box;
+}
+
+.transaction-maintenance-page-root .maintenance-table-cell {
+    font-size: var(--text-medium);
+    font-weight: bold;
+    color: #374151;
+    padding: clamp(4px, 0.5vw, 8px) clamp(10px, 1vw, 18px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    text-align: center;
+    min-height: clamp(28px, 1.95vw, 36px);
+    box-sizing: border-box;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(1),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(1) {
+    width: 3%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(2),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(2) {
+    width: 13%;
+    min-width: 192px;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(3),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(3) {
+    width: 10%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(4),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(4) {
+    width: 19%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(5),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(5) {
+    width: 9%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(6),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(6) {
+    width: 14%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(7),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(7) {
+    width: 9%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(8),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(8) {
+    width: 5%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(9),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(9) {
+    width: 5%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(10),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(10) {
+    width: 6%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(11),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(11) {
+    width:7%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(12),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(12) {
+    width: 7%;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(13),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(13) {
+    width: 7%;
+}
+
+.transaction-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(4),
+.transaction-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(4) {
+    padding-left: clamp(8px, 0.9vw, 14px);
+    padding-right: clamp(10px, 1.1vw, 18px);
+}
+
+.transaction-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(5),
+.transaction-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(5) {
+    padding-left: clamp(8px, 0.9vw, 14px);
+    padding-right: clamp(10px, 1.1vw, 18px);
+}
+
+.transaction-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(6),
+.transaction-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(6) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(10px, 1.05vw, 18px);
+}
+
+.transaction-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(7),
+.transaction-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(7) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(10px, 1.05vw, 18px);
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(3),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(3),
+.transaction-maintenance-page-root .maintenance-table th:nth-child(4),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(4),
+.transaction-maintenance-page-root .maintenance-table th:nth-child(5),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(5),
+.transaction-maintenance-page-root .maintenance-table th:nth-child(6),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(6),
+.transaction-maintenance-page-root .maintenance-table th:nth-child(7),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(7),
+.transaction-maintenance-page-root .maintenance-table th:nth-child(13),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(13) {
+    text-align: left;
+}
+
+.transaction-maintenance-page-root .maintenance-table th:nth-child(10),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(10),
+.transaction-maintenance-page-root .maintenance-table th:nth-child(11),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(11),
+.transaction-maintenance-page-root .maintenance-table th:nth-child(12),
+.transaction-maintenance-page-root .maintenance-table td:nth-child(12) {
+    text-align: right;
+}
+
+.transaction-maintenance-page-root .maintenance-table td:nth-child(2).maintenance-table-cell {
+    font-variant-numeric: tabular-nums;
+}
+
+/* 切换公司 / 搜索时：保留表头 + 骨架行，减少整表被单行 “Loading…” 替换的突兀感 */
+.maintenance-list-container--loading {
+    position: relative;
+}
+
+.maintenance-table-loading-caption-row .maintenance-table-loading-caption {
+    text-align: center;
+    padding: clamp(8px, 0.75vw, 14px) clamp(10px, 1vw, 18px);
+    font-size: clamp(11px, 0.95vw, 15px);
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.maintenance-table-skeleton-row .maintenance-table-cell {
+    vertical-align: middle;
+}
+
+.maintenance-skel-bar {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: clamp(10px, 0.85em, 14px);
+    border-radius: 4px;
+    background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 40%, #e2e8f0 80%);
+    background-size: 200% 100%;
+    animation: maintenance-skel-shimmer 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .maintenance-skel-bar {
+        animation: none;
+        background: #e2e8f0;
+    }
+}
+
+@keyframes maintenance-skel-shimmer {
+    0% {
+        background-position: 100% 0;
+    }
+    100% {
+        background-position: -100% 0;
+    }
+}
+
+/* —— TanStack Virtual：全量数据只挂载视口附近行 —— */
+.transaction-maintenance-page-root .maintenance-virtual-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.maintenance-virtual-table-inner {
+    min-width: 1520px;
+    width: 100%;
+    box-sizing: border-box;
+    border-collapse: separate;
+}
+
+.maintenance-virtual-table--refreshing .maintenance-virtual-scroll {
+    opacity: 0.92;
+    transition: opacity 0.15s ease;
+}
+
+.maintenance-virtual-thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.maintenance-virtual-head-row,
+.maintenance-virtual-data-row {
+    display: grid;
+    grid-template-columns:
+        minmax(28px, 3fr) minmax(150px, 13fr) minmax(56px, 8fr) minmax(64px, 8.5fr) minmax(68px, 9fr)
+        minmax(96px, 14fr) minmax(64px, 9fr) minmax(40px, 5fr) minmax(40px, 5fr) minmax(48px, 6fr)
+        minmax(52px, 6fr) minmax(52px, 6fr) minmax(68px, 8fr);
+    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.maintenance-virtual-th {
+    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
+    color: #ffffff;
+    font-weight: bold;
+    font-size: clamp(10px, 0.89vw, 17px);
+    padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1vw, 18px);
+    text-align: center;
+    min-height: clamp(30px, 2.1vw, 38px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.maintenance-virtual-th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.maintenance-virtual-th:last-child {
+    border-top-right-radius: 8px;
+}
+
+.maintenance-virtual-scroll {
+    max-height: min(72vh, 900px);
+    overflow: auto;
+    border-radius: 0 0 8px 8px;
+    background: #fff;
+}
+
+.maintenance-virtual-row-wrap {
+    box-sizing: border-box;
+}
+
+.maintenance-virtual-data-row {
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.maintenance-virtual-data-row--stripe {
+    background: #cceeff99;
+}
+
+.maintenance-virtual-data-row:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+.maintenance-virtual-cell {
+    font-size: clamp(10px, 0.88vw, 15px);
+    font-weight: bold;
+    color: #374151;
+    padding: clamp(4px, 0.5vw, 8px) clamp(10px, 1vw, 18px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    min-height: clamp(28px, 1.95vw, 36px);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.maintenance-virtual-cell--left {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.maintenance-virtual-cell--right {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.maintenance-virtual-cell--mono {
+    font-variant-numeric: tabular-nums;
+}
+
+.maintenance-virtual-data-row .maintenance-cell-currency {
+    text-align: center;
+    justify-content: center;
 }

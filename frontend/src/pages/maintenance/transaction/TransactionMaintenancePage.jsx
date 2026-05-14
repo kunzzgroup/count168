@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
@@ -55,15 +56,43 @@ export default function TransactionMaintenancePage() {
   const [dateFrom, setDateFrom] = useState(todayDmy);
   const [dateTo, setDateTo] = useState(todayDmy);
 
-  // -- Data State --
-  const [processes, setProcesses] = useState([]);
-  const [transactionData, setTransactionData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  
-  // -- UI State --
   const [toasts, setToasts] = useState([]);
   const [cssReady, setCssReady] = useState(false);
+
+  // -- Data State --
+  const [processes, setProcesses] = useState([]);
+  /** When set, meta effect reuses permissions from the last company switch instead of calling domain_api again. */
+  const switchPermsCacheRef = useRef(null);
+
+  const listQueryEnabled = Boolean(!bootLoading && companyId && dateFrom && dateTo && cssReady);
+
+  const transactionQuery = useQuery({
+    queryKey: [
+      "transaction-maintenance",
+      companyId,
+      dateFrom,
+      dateTo,
+      selectedProcess || "",
+      activePermission || "",
+    ],
+    queryFn: ({ signal }) =>
+      searchTransactionData({
+        dateFrom,
+        dateTo,
+        process: selectedProcess,
+        companyId,
+        category: activePermission,
+        signal,
+      }),
+    enabled: listQueryEnabled,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  const transactionData = transactionQuery.data ?? [];
+  const txLoading = listQueryEnabled && transactionQuery.isLoading;
+  const lastToastKeyRef = useRef(null);
+  const lastErrorMsgRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -259,81 +288,91 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     if (bootLoading || !companyId) return;
 
+    let cancelled = false;
+    const cid = companyId;
+    const ccode = companyCode;
+
     (async () => {
       try {
-        const [procList, permList] = await Promise.all([
-          fetchProcesses(companyId),
-          fetchCompanyPermissions(companyCode)
-        ]);
+        const procList = await fetchProcesses(cid);
+        if (cancelled) return;
         setProcesses(procList);
+
+        const cached = switchPermsCacheRef.current;
+        let permList;
+        if (cached && cached.companyCode === ccode) {
+          permList = cached.perms;
+          switchPermsCacheRef.current = null;
+        } else {
+          permList = await fetchCompanyPermissions(ccode);
+        }
+        if (cancelled) return;
         setPermissions(permList);
-        
-        const saved = localStorage.getItem(`selectedPermission_${companyCode}`);
+
+        const saved = localStorage.getItem(`selectedPermission_${ccode}`);
         if (saved && permList.includes(saved)) {
           setActivePermission(saved);
         } else if (permList.length > 0) {
           setActivePermission(permList[0]);
         }
       } catch (err) {
+        if (cancelled) return;
         console.error("Meta data load error:", err);
         notify(t("failedLoadMetaData"), "error");
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [bootLoading, companyId, companyCode, notify, t]);
 
-  // -- Search Logic --
-  const performSearch = useCallback(async () => {
-    if (!companyId || !dateFrom || !dateTo) return;
-    setLoading(true);
-    try {
-      const data = await searchTransactionData({
-        dateFrom,
-        dateTo,
-        process: selectedProcess,
-        companyId,
-        category: activePermission
-      });
-      setTransactionData(data);
-      setHasSearched(true);
-      if (data.length > 0) {
-        notify(t("foundRecords", { n: data.length }), "success");
-      }
-    } catch (err) {
-      notify(err.message, "error");
-      setTransactionData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t]);
-
-  // Auto-search when filters change (if has searched before or just loaded)
   useEffect(() => {
-    if (!bootLoading && companyId && cssReady) {
-      performSearch();
-    }
-  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch, cssReady]);
+    if (!transactionQuery.isSuccess || !transactionData.length) return;
+    const key = `${transactionQuery.dataUpdatedAt}:${transactionData.length}`;
+    if (lastToastKeyRef.current === key) return;
+    lastToastKeyRef.current = key;
+    notify(t("foundRecords", { n: transactionData.length }), "success");
+  }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt, transactionData.length, notify, t]);
+
+  useEffect(() => {
+    if (!transactionQuery.isError || !transactionQuery.error) return;
+    const msg = transactionQuery.error.message || t("searchFailed");
+    if (lastErrorMsgRef.current === msg) return;
+    lastErrorMsgRef.current = msg;
+    notify(msg, "error");
+  }, [transactionQuery.isError, transactionQuery.error, notify, t]);
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
     try {
-      const res = await updateSessionCompany(c.id);
-      
+      const [res, perms] = await Promise.all([
+        updateSessionCompany(c.id),
+        fetchCompanyPermissions(c.company_id),
+      ]);
+
       // Legacy Redirect logic
       if (res.has_gambling === false) {
         navigate("/process-list", { replace: true });
         return;
       }
-      
-      // Fetch permissions for the new company to check Bank-only category
-      const perms = await fetchCompanyPermissions(c.company_id);
+
       if (isBankOnlyCategoryCompany(perms)) {
         navigate("/process-list", { replace: true });
         return;
       }
 
+      const code = c.company_id || "";
+      const saved = localStorage.getItem(`selectedPermission_${code}`);
+      const nextActive =
+        saved && perms.includes(saved) ? saved : perms.length > 0 ? perms[0] : "";
+      switchPermsCacheRef.current = { companyCode: code, perms };
+      setActivePermission(nextActive);
+      setPermissions(perms);
+
       setCompanyId(Number(c.id));
-      setCompanyCode(c.company_id || "");
+      setCompanyCode(code);
       
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       setSelectedGroup(newGroup);
@@ -388,22 +427,31 @@ export default function TransactionMaintenancePage() {
         )}
       </div>
 
-      <TransactionMaintenanceFilters 
-        processes={processes}
-        selectedProcess={selectedProcess}
-        setSelectedProcess={setSelectedProcess}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        today={todayDmy}
-        companyId={companyId}
-        companies={companies}
-        selectedGroup={selectedGroup}
-        onGroupClick={handleGroupClick}
-        onSwitchCompany={handleSwitchCompany}
-        m={m}
-      />
+      <div className="transaction-maintenance-page-root">
+        <TransactionMaintenanceFilters 
+          processes={processes}
+          selectedProcess={selectedProcess}
+          setSelectedProcess={setSelectedProcess}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          today={todayDmy}
+          companyId={companyId}
+          companies={companies}
+          selectedGroup={selectedGroup}
+          onGroupClick={handleGroupClick}
+          onSwitchCompany={handleSwitchCompany}
+          m={m}
+        />
 
-      <TransactionMaintenanceTable data={transactionData} loading={loading} m={m} />
+        <TransactionMaintenanceTable
+          data={transactionData}
+          isLoading={txLoading}
+          isFetching={transactionQuery.isFetching}
+          isError={transactionQuery.isError}
+          error={transactionQuery.error}
+          m={m}
+        />
+      </div>
 
       {/* Notifications */}
       <div id="notificationContainer" className="maintenance-notification-container">
