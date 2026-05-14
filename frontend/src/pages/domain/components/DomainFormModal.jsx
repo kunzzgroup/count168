@@ -304,20 +304,28 @@ export default function DomainFormModal({
         return <span style={{ color: "#94a3b8", fontSize: 12 }}>{t("noUngroupedCompaniesAvailable")}</span>;
       }
       return (
-        <div className="grid grid-cols-2 gap-1">
+        <div className="dfm-assign-ref-grid">
           {candidates.map((c) => (
             <div
               key={c.company_id}
-              className="flex cursor-pointer items-center gap-2 rounded border border-gray-200 bg-white px-2.5 py-1.5 transition-colors hover:bg-sky-50"
+              className="dfm-assign-ref-cell"
               onClick={() => toggleCompanyGroup(c.company_id)}
             >
               <input
                 type="checkbox"
+                id={`dfm-ar-${c.company_id}`}
+                className="dfm-assign-ref-checkbox"
                 checked={c.group_id === selectedGroupId}
                 onChange={() => toggleCompanyGroup(c.company_id)}
                 onClick={(e) => e.stopPropagation()}
               />
-              <label>{c.company_id}</label>
+              <label
+                className="dfm-assign-ref-label"
+                htmlFor={`dfm-ar-${c.company_id}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {c.company_id}
+              </label>
             </div>
           ))}
         </div>
@@ -527,16 +535,30 @@ export default function DomainFormModal({
                       {selectedGroupId && (
                         <button
                           type="button"
-                          className={`dfm-multi-choice-btn cursor-pointer rounded-[10px] border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                          className={`dfm-multi-choice-btn ${
                             isMultipleChoiceMode ? "dfm-multi-choice-btn--on" : "dfm-multi-choice-btn--off"
                           }`}
+                          aria-pressed={isMultipleChoiceMode}
                           onClick={toggleMultipleChoice}
                         >
-                          {isMultipleChoiceMode ? t("done") : t("multipleChoice")}
+                          {isMultipleChoiceMode ? (
+                            <span className="dfm-mc-done-content">
+                              <span>{t("doneCompact")}</span>
+                              <span className="dfm-mc-done-icon" aria-hidden="true">
+                                <span className="dfm-mc-done-icon-check" />
+                              </span>
+                            </span>
+                          ) : (
+                            t("multipleChoice")
+                          )}
                         </button>
                       )}
                     </div>
-                    <div className="dfm-selected-list">
+                    <div
+                      className={`dfm-selected-list${
+                        isMultipleChoiceMode && selectedGroupId ? " dfm-selected-list--assign-ref" : ""
+                      }`}
+                    >
                       {tempCompanies.length === 0
                         ? <span className="dfm-empty-hint">{t("noCompaniesAddedYet")}</span>
                         : renderCompanyList()

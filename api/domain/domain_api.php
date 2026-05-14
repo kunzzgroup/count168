@@ -1758,11 +1758,37 @@ function domainApiValidateGroupCompanyIdMutualExclusivity(array $rows): ?string
 }
 
 /**
- * 全局唯一：payload 中出现的每个非空代码（任一行的 company_id 或 group_id）不可与「其他 domain owner」已有的
- * company 行中的 company_id 或 group_id 重复（两行视为同一命名空间）。
- * create：与全库比对；update：传入 $excludeOwnerId，忽略该行所属 owner 的现有数据以便整单重存。
+ * 同一笔保存里，company_id / group_id 汇入同一全局命名空间后不得出现两次（否则会写入多行同名代码）。
+ */
+function domainApiValidateCompanyGroupCodesUniqueWithinPayload(array $rows): ?string
+{
+    $seen = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        $gidRaw = $row['group_id'] ?? null;
+        $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
+        foreach ([$cid, $gid] as $token) {
+            if ($token === '') {
+                continue;
+            }
+            if (isset($seen[$token])) {
+                return 'Duplicate ID in this form: "' . $token . '". Each Company ID and Group ID must be unique system-wide.';
+            }
+            $seen[$token] = true;
+        }
+    }
+    return null;
+}
+
+/**
+ * 全局唯一：payload 中出现的每个非空代码（任一行的 company_id 或 group_id）在数据库中不可再出现在
+ * 任意 owner 的 company 行上（company_id 与 group_id 同一命名空间）。
+ * create：与全库比对；update：传入 $excludeOwnerId，排除该 owner 当前已有 company 行，便于整单重存而不误报「与自身冲突」。
  *
- * （仍须与 domainApiValidateGroupCompanyIdMutualExclusivity 配合：同一 payload 内不可同一代码既是 group 又是 company。）
+ * （须与 domainApiValidateGroupCompanyIdMutualExclusivity、domainApiValidateCompanyGroupCodesUniqueWithinPayload 配合。）
  */
 function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $rows, ?int $excludeOwnerId): ?string
 {
@@ -1787,27 +1813,31 @@ function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $row
     $codes = array_keys($codesSet);
     $in = implode(',', array_fill(0, count($codes), '?'));
 
-    $ownerClause = '';
-    $params = [];
-    if ($excludeOwnerId !== null && $excludeOwnerId > 0) {
-        $ownerClause = 'owner_id <> ? AND ';
-        $params[] = (int) $excludeOwnerId;
+    /*
+     * 与 owner_id <> ? 等价，但语义为「不排除其它 owner」，只排除本条 domain 正要覆盖的旧行，
+     * 避免误解为可按 owner 分立命名空间。
+     */
+    $excludeBranchClause = '';
+    $excludeRepeatParams = [];
+    if ($excludeOwnerId !== null && (int) $excludeOwnerId > 0) {
+        $excludeBranchClause = ' id NOT IN (SELECT id FROM company WHERE owner_id = ?) AND ';
+        $excludeRepeatParams[] = (int) $excludeOwnerId;
     }
 
     $sql = 'SELECT z.v FROM ('
-        . ' SELECT UPPER(TRIM(CAST(company_id AS CHAR))) AS v FROM company WHERE ' . $ownerClause
+        . ' SELECT UPPER(TRIM(CAST(company_id AS CHAR))) AS v FROM company WHERE ' . $excludeBranchClause
         . " company_id IS NOT NULL AND TRIM(CAST(company_id AS CHAR)) <> ''"
         . " AND UPPER(TRIM(CAST(company_id AS CHAR))) IN ($in)"
         . ' UNION'
-        . ' SELECT UPPER(TRIM(CAST(group_id AS CHAR))) AS v FROM company WHERE ' . $ownerClause
+        . ' SELECT UPPER(TRIM(CAST(group_id AS CHAR))) AS v FROM company WHERE ' . $excludeBranchClause
         . " group_id IS NOT NULL AND TRIM(CAST(group_id AS CHAR)) <> ''"
         . " AND UPPER(TRIM(CAST(group_id AS CHAR))) IN ($in)"
         . ' ) AS z WHERE z.v <> \'\' LIMIT 1';
 
     try {
         $stmt = $pdo->prepare($sql);
-        if ($excludeOwnerId !== null && $excludeOwnerId > 0) {
-            $execParams = array_merge($params, $codes, $params, $codes);
+        if ($excludeOwnerId !== null && (int) $excludeOwnerId > 0) {
+            $execParams = array_merge($excludeRepeatParams, $codes, $excludeRepeatParams, $codes);
             $stmt->execute($execParams);
         } else {
             $stmt->execute(array_merge($codes, $codes));
@@ -1823,7 +1853,7 @@ function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $row
     }
     $code = strtoupper(trim((string) $hit));
 
-    return 'This ID "' . $code . '" is already in use globally as another company or group. Choose a different code.';
+    return 'This ID "' . $code . '" is already in use by another domain (not allowed). Choose a different Company ID or Group ID.';
 }
 
 function domainApiExtractProvisionCompanyIds($companies): array {
@@ -2325,6 +2355,12 @@ try {
                 exit;
             }
 
+            $dupInPayloadErr = domainApiValidateCompanyGroupCodesUniqueWithinPayload($companies_data);
+            if ($dupInPayloadErr !== null) {
+                echo json_encode(['success' => false, 'message' => $dupInPayloadErr, 'data' => null]);
+                exit;
+            }
+
             $crossOwnerErr = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $companies_data, null);
             if ($crossOwnerErr !== null) {
                 echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
@@ -2430,6 +2466,12 @@ try {
             $overlapErr = domainApiValidateGroupCompanyIdMutualExclusivity($companies_data);
             if ($overlapErr !== null) {
                 echo json_encode(['success' => false, 'message' => $overlapErr, 'data' => null]);
+                exit;
+            }
+
+            $dupInPayloadErr = domainApiValidateCompanyGroupCodesUniqueWithinPayload($companies_data);
+            if ($dupInPayloadErr !== null) {
+                echo json_encode(['success' => false, 'message' => $dupInPayloadErr, 'data' => null]);
                 exit;
             }
 
