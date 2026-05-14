@@ -1080,9 +1080,9 @@ export default function ProcessListPage() {
             </div>
             {currencyPillCodes.length > 0 && (
               <div className="user-gc-inline-row">
-                <span className="user-gc-inline-label">{t("currencyFilterRow")}</span>
+                <span className="user-gc-inline-label">{t("currency")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                  <div className="user-gc-segment-group" role="group" aria-label={t("currencyFilterRow")}>
+                  <div className="user-gc-segment-group" role="group" aria-label={t("currency")}>
                     <button
                       type="button"
                       disabled={switchingCompany || tableLoading}

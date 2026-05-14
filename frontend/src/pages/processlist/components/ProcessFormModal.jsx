@@ -292,7 +292,7 @@ export default function ProcessFormModal({
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>{t("currency")}</label>
+                  <label>{t("currencyColumn")}</label>
                   <select
                     value={form.currency_id}
                     onChange={(e) => setForm((prev) => ({ ...prev, currency_id: e.target.value }))}

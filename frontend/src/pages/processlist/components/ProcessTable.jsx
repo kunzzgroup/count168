@@ -42,7 +42,7 @@ export default function ProcessTable({
         <div className="header-item gambling-header">{t("processId")}</div>
         <div className="header-item gambling-header">{t("description")}</div>
         <div className="header-item gambling-header">{t("status")}</div>
-        <div className="header-item gambling-header">{t("currency")}</div>
+        <div className="header-item gambling-header">{t("currencyColumn")}</div>
         <div className="header-item gambling-header">{t("dayUse")}</div>
         <div className="header-item gambling-header">{t("action")}</div>
         {showSelectColumn ? (
