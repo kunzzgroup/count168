@@ -342,11 +342,9 @@ export default function TransactionPaymentPage() {
               <i className="fas fa-chevron-left" />
             </button>
             <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
-              <select id="calendar-month-select" aria-label="Month">
-                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
-                  <option key={m} value={i}>{m}</option>
-                ))}
-              </select>
+              <button type="button" id="calendar-month-select" className="calendar-month-trigger" value="4" aria-label="Month">
+                May
+              </button>
               <select id="calendar-year-select" aria-label="Year" />
             </div>
             <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
