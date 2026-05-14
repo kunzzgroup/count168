@@ -838,9 +838,9 @@ body.process-page {
 
 /* action-buttons-container 和 action-buttons 不再 override，与 Games 完全统一（margin-top: 20px, padding: 10px 20px）使 separator line 正确显示 */
 
-/* Games + Bank Process：白卡區 segmented 篩選（標籤↔膠囊、膠囊內距勿過緊） */
+/* Games + Bank Process：白卡區 segmented 篩選（標籤↔膠囊、膠囊內距勿過緊）；底邊加厚使最後一行（Currency）下至白卡邊緣與各行 row-gap 節奏一致 */
 .process-page .action-buttons-container .user-gc-inline-panel {
-    padding: 10px 18px 10px 18px;
+    padding: 10px 18px 18px 18px;
     column-gap: 20px;
     row-gap: 12px;
 }
@@ -934,7 +934,7 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     }
 
     .process-page .action-buttons-container .user-gc-inline-panel {
-        padding: 6px 16px 8px 16px;
+        padding: 6px 16px 14px 16px;
         column-gap: 18px;
         row-gap: 10px;
     }
@@ -1557,7 +1557,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 }
 
 .process-page:not(.process-page--bank) .table-header {
-    margin-top: 24px;
+    margin-top: 32px;
 }
 
 .process-page:not(.process-page--bank) .process-table-wrapper {
