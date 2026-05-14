@@ -23,9 +23,6 @@ export default function TransactionSearchSection({
   onCategoryAllChange,
   toggleCategoryValue,
   effectiveDateRangeText,
-  quickOpen,
-  toggleQuick,
-  selectQuickRange,
   searchState,
   setSearchState,
   fs,
@@ -136,30 +133,6 @@ export default function TransactionSearchSection({
           </div>
           <input type="hidden" id="date_from" readOnly />
           <input type="hidden" id="date_to" readOnly />
-        </div>
-        <div className="quick-select-dropdown quick-select-dropdown-toggle">
-          <button
-            type="button"
-            className="dropdown-toggle"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleQuick();
-            }}
-          >
-            <i className="fas fa-calendar-alt" />
-            <span id="quick-select-text">Period</span>
-            <i className="fas fa-chevron-down" />
-          </button>
-          <div className={`dropdown-menu${quickOpen ? " show" : ""}`} id="quick-select-dropdown">
-            <button type="button" className="dropdown-item" onClick={() => selectQuickRange("today")}>Today</button>
-            <button type="button" className="dropdown-item" onClick={() => selectQuickRange("yesterday")}>Yesterday</button>
-            <button type="button" className="dropdown-item" onClick={() => selectQuickRange("thisWeek")}>This Week</button>
-            <button type="button" className="dropdown-item" onClick={() => selectQuickRange("lastWeek")}>Last Week</button>
-            <button type="button" className="dropdown-item" onClick={() => selectQuickRange("thisMonth")}>This Month</button>
-            <button type="button" className="dropdown-item" onClick={() => selectQuickRange("lastMonth")}>Last Month</button>
-            <button type="button" className="dropdown-item" onClick={() => selectQuickRange("thisYear")}>This Year</button>
-            <button type="button" className="dropdown-item" onClick={() => selectQuickRange("lastYear")}>Last Year</button>
-          </div>
         </div>
       </div>
 
