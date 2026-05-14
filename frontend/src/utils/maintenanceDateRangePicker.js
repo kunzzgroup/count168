@@ -486,9 +486,13 @@ export function ensureMaintenanceDateRangePicker() {
     calendarStartDate = quickRange.startDate;
     calendarEndDate = quickRange.endDate;
     isSelectingRange = false;
+    calendarCurrentDate = new Date(calendarStartDate.getFullYear(), calendarStartDate.getMonth(), 1);
+    setMonthControlValue(calendarCurrentDate.getMonth());
+    setYearControlValue(calendarCurrentDate.getFullYear());
     syncToHiddenInputs();
     updateDateRangeDisplay();
     updateQuickPresetActive(range);
+    renderCalendar();
     if (typeof config.onChange === "function") config.onChange();
     const qd = document.getElementById("quick-select-dropdown");
     if (qd) qd.classList.remove("show");
