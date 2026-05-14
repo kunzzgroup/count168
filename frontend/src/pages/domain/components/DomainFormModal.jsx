@@ -65,9 +65,6 @@ export default function DomainFormModal({
   const [isMultipleChoiceMode, setIsMultipleChoiceMode] = useState(false);
   const [companyInput, setCompanyInput] = useState("");
   const [groupInput, setGroupInput] = useState("");
-  /** Field-level errors next to Group / Company inputs (toast only would be redundant / easy to miss) */
-  const [groupAddError, setGroupAddError] = useState("");
-  const [companyAddError, setCompanyAddError] = useState("");
 
   // Company Settings sub-modal
   const [csModalCompanyId, setCsModalCompanyId] = useState(null);
@@ -127,13 +124,13 @@ export default function DomainFormModal({
 
   function addCompany() {
     const cid = companyInput.trim().toUpperCase();
-    if (!cid) { setCompanyAddError(t("pleaseEnterCompanyId")); return; }
+    if (!cid) { toastDanger(t("pleaseEnterCompanyId")); return; }
     if (tempGroups.some((g) => normalizeDomainCode(g) === cid)) {
-      setCompanyAddError(t("cannotAddCompanyUsesGroupId", { id: cid }));
+      toastDanger(t("cannotAddCompanyUsesGroupId", { id: cid }));
       return;
     }
     if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === cid)) {
-      setCompanyAddError(t("companyIdAlreadyAdded"));
+      toastDanger(t("companyIdAlreadyAdded"));
       return;
     }
     const isC168 = cid === "C168";
@@ -151,7 +148,6 @@ export default function DomainFormModal({
     };
     setTempCompanies((prev) => [...prev, newCo]);
     setCompanyInput("");
-    setCompanyAddError("");
   }
 
   function removeCompany(cid) {
@@ -160,18 +156,17 @@ export default function DomainFormModal({
 
   function addGroup() {
     const gid = groupInput.trim().toUpperCase();
-    if (!gid) { setGroupAddError(t("pleaseEnterGroupId")); return; }
+    if (!gid) { toastDanger(t("pleaseEnterGroupId")); return; }
     if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === gid)) {
-      setGroupAddError(t("cannotAddGroupUsesCompanyId", { id: gid }));
+      toastDanger(t("cannotAddGroupUsesCompanyId", { id: gid }));
       return;
     }
     if (tempGroups.some((g) => normalizeDomainCode(g) === gid)) {
-      setGroupAddError(t("groupIdAlreadyExists"));
+      toastDanger(t("groupIdAlreadyExists"));
       return;
     }
     setTempGroups((prev) => [...prev, gid]);
     setGroupInput("");
-    setGroupAddError("");
     showDomainAlert(t("groupAdded", { gid }));
   }
 
@@ -459,28 +454,14 @@ export default function DomainFormModal({
                         <input
                           type="text"
                           id="df_group_input"
-                          aria-invalid={!!groupAddError}
-                          aria-describedby={groupAddError ? "df_group_input_err" : undefined}
                           placeholder={t("groupIdPlaceholder")}
-                          className={`min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 px-3.5 py-2.5 text-[15px] uppercase focus:outline-none focus:ring-2 ${
-                            groupAddError
-                              ? "border-red-500 focus:border-red-600 focus:ring-red-600/15"
-                              : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500/10"
-                          }`}
+                          className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={groupInput}
-                          onChange={(e) => {
-                            setGroupInput(forceUppercaseValue(e.target.value));
-                            if (groupAddError) setGroupAddError("");
-                          }}
+                          onChange={(e) => setGroupInput(forceUppercaseValue(e.target.value))}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
                         />
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addGroup}>{t("add")}</button>
                       </div>
-                      {groupAddError ? (
-                        <p id="df_group_input_err" role="alert" className="mt-1 text-[13px] leading-snug text-red-600">
-                          {groupAddError}
-                        </p>
-                      ) : null}
                     </div>
                     {/* Company input */}
                     <div className="dfm-field min-w-0 flex-1">
@@ -489,28 +470,14 @@ export default function DomainFormModal({
                         <input
                           type="text"
                           id="df_company_input"
-                          aria-invalid={!!companyAddError}
-                          aria-describedby={companyAddError ? "df_company_input_err" : undefined}
                           placeholder={t("companyIdPlaceholder")}
-                          className={`min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 px-3.5 py-2.5 text-[15px] uppercase focus:outline-none focus:ring-2 ${
-                            companyAddError
-                              ? "border-red-500 focus:border-red-600 focus:ring-red-600/15"
-                              : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500/10"
-                          }`}
+                          className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={companyInput}
-                          onChange={(e) => {
-                            setCompanyInput(forceUppercaseValue(e.target.value));
-                            if (companyAddError) setCompanyAddError("");
-                          }}
+                          onChange={(e) => setCompanyInput(forceUppercaseValue(e.target.value))}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
                         />
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addCompany}>{t("add")}</button>
                       </div>
-                      {companyAddError ? (
-                        <p id="df_company_input_err" role="alert" className="mt-1 text-[13px] leading-snug text-red-600">
-                          {companyAddError}
-                        </p>
-                      ) : null}
                     </div>
                   </div>
 
