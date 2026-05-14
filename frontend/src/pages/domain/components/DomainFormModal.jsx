@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import CompanySettingsModal from "./CompanySettingsModal.jsx";
@@ -65,12 +65,33 @@ export default function DomainFormModal({
   const [isMultipleChoiceMode, setIsMultipleChoiceMode] = useState(false);
   const [companyInput, setCompanyInput] = useState("");
   const [groupInput, setGroupInput] = useState("");
+  /** Inline validation: toasts can be hidden by host/CSS; this always shows inside the modal */
+  const [inlineDanger, setInlineDanger] = useState("");
+  const inlineDangerTimerRef = useRef(null);
 
   // Company Settings sub-modal
   const [csModalCompanyId, setCsModalCompanyId] = useState(null);
 
+  function alertDanger(message) {
+    setInlineDanger(message);
+    showDomainAlert(message, "danger");
+    if (inlineDangerTimerRef.current) window.clearTimeout(inlineDangerTimerRef.current);
+    inlineDangerTimerRef.current = window.setTimeout(() => {
+      setInlineDanger("");
+      inlineDangerTimerRef.current = null;
+    }, 6000);
+  }
+
   const showSecondaryPwd =
     !isEditMode || (hasC168Context && isOwnerOrAdmin);
+
+  useEffect(() => {
+    return () => {
+      if (inlineDangerTimerRef.current) {
+        window.clearTimeout(inlineDangerTimerRef.current);
+      }
+    };
+  }, []);
 
   // On mount, load data if editing
   useEffect(() => {
@@ -120,12 +141,14 @@ export default function DomainFormModal({
 
   function addCompany() {
     const cid = companyInput.trim().toUpperCase();
-    if (!cid) { showDomainAlert(t("pleaseEnterCompanyId"), "danger"); return; }
+    if (!cid) { alertDanger(t("pleaseEnterCompanyId")); return; }
     if (tempGroups.some((g) => normalizeDomainCode(g) === cid)) {
-      showDomainAlert(t("cannotAddCompanyUsesGroupId", { id: cid }), "danger"); return;
+      alertDanger(t("cannotAddCompanyUsesGroupId", { id: cid }));
+      return;
     }
-    if (tempCompanies.some((c) => c.company_id === cid)) {
-      showDomainAlert(t("companyIdAlreadyAdded"), "danger"); return;
+    if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === cid)) {
+      alertDanger(t("companyIdAlreadyAdded"));
+      return;
     }
     const isC168 = cid === "C168";
     const today = new Date().toISOString().split("T")[0];
@@ -142,6 +165,11 @@ export default function DomainFormModal({
     };
     setTempCompanies((prev) => [...prev, newCo]);
     setCompanyInput("");
+    setInlineDanger("");
+    if (inlineDangerTimerRef.current) {
+      window.clearTimeout(inlineDangerTimerRef.current);
+      inlineDangerTimerRef.current = null;
+    }
   }
 
   function removeCompany(cid) {
@@ -150,16 +178,22 @@ export default function DomainFormModal({
 
   function addGroup() {
     const gid = groupInput.trim().toUpperCase();
-    if (!gid) { showDomainAlert(t("pleaseEnterGroupId"), "danger"); return; }
+    if (!gid) { alertDanger(t("pleaseEnterGroupId")); return; }
     if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === gid)) {
-      showDomainAlert(t("cannotAddGroupUsesCompanyId", { id: gid }), "danger"); return;
+      alertDanger(t("cannotAddGroupUsesCompanyId", { id: gid }));
+      return;
     }
     if (tempGroups.some((g) => normalizeDomainCode(g) === gid)) {
-      showDomainAlert(t("groupIdAlreadyExists"), "danger");
+      alertDanger(t("groupIdAlreadyExists"));
       return;
     }
     setTempGroups((prev) => [...prev, gid]);
     setGroupInput("");
+    setInlineDanger("");
+    if (inlineDangerTimerRef.current) {
+      window.clearTimeout(inlineDangerTimerRef.current);
+      inlineDangerTimerRef.current = null;
+    }
     showDomainAlert(t("groupAdded", { gid }));
   }
 
@@ -181,7 +215,7 @@ export default function DomainFormModal({
   }
 
   function toggleMultipleChoice() {
-    if (!selectedGroupId) { showDomainAlert(t("pleaseSelectGroupFirst"), "danger"); return; }
+    if (!selectedGroupId) { alertDanger(t("pleaseSelectGroupFirst")); return; }
     setIsMultipleChoiceMode((prev) => !prev);
   }
 
@@ -230,11 +264,12 @@ export default function DomainFormModal({
   async function handleSubmit(e) {
     e.preventDefault();
     if (!email.toLowerCase().endsWith("@gmail.com")) {
-      showDomainAlert(t("onlyGmailAllowed"), "danger"); return;
+      alertDanger(t("onlyGmailAllowed"));
+      return;
     }
     const overlap = findGroupCompanyCodeOverlap(tempGroups, tempCompanies);
     if (overlap) {
-      showDomainAlert(t("groupCompanyIdOverlapSave", { id: overlap }), "danger");
+      alertDanger(t("groupCompanyIdOverlapSave", { id: overlap }));
       return;
     }
     const data = {
@@ -268,10 +303,10 @@ export default function DomainFormModal({
         onSaved(json.data);
         onClose();
       } else {
-        showDomainAlert(json.message || t("operationFailed"), "danger");
+        alertDanger(json.message || t("operationFailed"));
       }
     } catch {
-      showDomainAlert(t("saveOwnerError"), "danger");
+      alertDanger(t("saveOwnerError"));
     }
   }
 
@@ -448,7 +483,7 @@ export default function DomainFormModal({
                           placeholder={t("groupIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={groupInput}
                           onChange={(e) => setGroupInput(forceUppercaseValue(e.target.value))}
-                          onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
                         />
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addGroup}>{t("add")}</button>
                       </div>
@@ -462,12 +497,21 @@ export default function DomainFormModal({
                           placeholder={t("companyIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={companyInput}
                           onChange={(e) => setCompanyInput(forceUppercaseValue(e.target.value))}
-                          onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
                         />
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addCompany}>{t("add")}</button>
                       </div>
                     </div>
                   </div>
+
+                  {inlineDanger ? (
+                    <div
+                      role="alert"
+                      className="mb-3 rounded-lg border border-red-400 bg-red-50 px-3 py-2.5 text-[14px] font-semibold leading-snug text-red-900 shadow-sm"
+                    >
+                      {inlineDanger}
+                    </div>
+                  ) : null}
 
                   {/* Group pills */}
                   <div className="dfm-field" id="groupPillsSection">

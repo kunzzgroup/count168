@@ -8,8 +8,24 @@ export function showDomainAlert(message, type = "success") {
   if (_notifyFn) _notifyFn(message, type);
 }
 
-/** Must stay above DomainModalPortal overlays (e.g. form modal inline z-index 2147483000) */
-const TOAST_Z = 2147483647;
+/** Full-viewport anchor so toasts are never trapped under #root or modal backdrops */
+function getDomainToastAnchor() {
+  if (typeof document === "undefined" || !document.body) return null;
+  let el = document.getElementById("domain-toast-anchor");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "domain-toast-anchor";
+    el.setAttribute("aria-live", "polite");
+    Object.assign(el.style, {
+      position: "fixed",
+      inset: "0",
+      pointerEvents: "none",
+      zIndex: "2147483647",
+    });
+    document.body.appendChild(el);
+  }
+  return el;
+}
 
 export default function DomainNotification() {
   const [notes, setNotes] = useState([]);
@@ -43,8 +59,8 @@ export default function DomainNotification() {
 
   const layer = (
     <div
-      className="pointer-events-none fixed right-5 top-5 flex max-w-[400px] flex-col gap-3 isolate"
-      style={{ zIndex: TOAST_Z }}
+      className="pointer-events-none fixed right-5 top-5 flex max-w-[min(400px,calc(100vw-2.5rem))] flex-col gap-3 isolate"
+      style={{ zIndex: 1 }}
     >
       {notes.map((n) => (
         <div
@@ -63,6 +79,7 @@ export default function DomainNotification() {
     </div>
   );
 
-  if (typeof document === "undefined" || !document.body) return null;
-  return createPortal(layer, document.body);
+  const anchor = getDomainToastAnchor();
+  if (!anchor) return null;
+  return createPortal(layer, anchor);
 }
