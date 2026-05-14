@@ -266,7 +266,11 @@ export function ensureMaintenanceDateRangePicker() {
       }
       popup.style.top = `${rect.bottom + 8}px`;
       popup.style.left = `${rect.left}px`;
-      popup.style.width = `${barWidth}px`;
+      if (popup.classList.contains("calendar-popup--transaction-range")) {
+        popup.style.width = "";
+      } else {
+        popup.style.width = `${barWidth}px`;
+      }
       popup.style.boxSizing = "border-box";
       popup.style.display = "block";
       initCalendar();
@@ -338,6 +342,8 @@ export function ensureMaintenanceDateRangePicker() {
     if (typeof config.onChange === "function") config.onChange();
     const qd = document.getElementById("quick-select-dropdown");
     if (qd) qd.classList.remove("show");
+    const popup = document.getElementById("calendar-popup");
+    if (popup) popup.style.display = "none";
   }
 
   window.changeMonth = changeMonth;

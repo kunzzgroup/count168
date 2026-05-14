@@ -311,30 +311,56 @@ export default function TransactionPaymentPage() {
         />
       </main>
 
-      {/* Same popup markup as legacy page, now driven by React-side picker module. */}
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
-            <i className="fas fa-chevron-left" />
-          </button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
-            <select id="calendar-month-select" aria-label="Month">
-              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
-                <option key={m} value={i}>{m}</option>
-              ))}
-            </select>
-            <select id="calendar-year-select" aria-label="Year" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
-            <i className="fas fa-chevron-right" />
-          </button>
-        </div>
-        <div className="calendar-weekdays">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="calendar-weekday">{d}</div>
+      {/* Same date logic as legacy page, with Transaction-specific range picker layout. */}
+      <div className="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style={{ display: "none" }}>
+        <div className="transaction-calendar-presets" aria-label="Period shortcuts">
+          {[
+            ["today", "Today"],
+            ["yesterday", "Yesterday"],
+            ["thisWeek", "This Week"],
+            ["lastWeek", "Last Week"],
+            ["thisMonth", "This Month"],
+            ["lastMonth", "Last Month"],
+            ["thisYear", "This Year"],
+            ["lastYear", "Last Year"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className="transaction-calendar-preset"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.selectQuickRange?.(key);
+              }}
+            >
+              {label}
+            </button>
           ))}
         </div>
-        <div className="calendar-days" id="calendar-days" />
+        <div className="transaction-calendar-panel">
+          <div className="calendar-header">
+            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
+              <i className="fas fa-chevron-left" />
+            </button>
+            <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
+              <select id="calendar-month-select" aria-label="Month">
+                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
+                  <option key={m} value={i}>{m}</option>
+                ))}
+              </select>
+              <select id="calendar-year-select" aria-label="Year" />
+            </div>
+            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
+              <i className="fas fa-chevron-right" />
+            </button>
+          </div>
+          <div className="calendar-weekdays">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              <div key={d} className="calendar-weekday">{d}</div>
+            ))}
+          </div>
+          <div className="calendar-days" id="calendar-days" />
+        </div>
       </div>
 
       <TransactionHistoryModal
