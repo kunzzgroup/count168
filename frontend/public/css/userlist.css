@@ -133,7 +133,8 @@ body.user-page .user-gc-inline-panel,
 body.account-page .user-gc-inline-panel,
 body.process-page .user-gc-inline-panel {
     display: grid;
-    grid-template-columns: auto 1fr;
+    /* 首列固定宽度：各行「胶囊」起始位置一致（避免仅 min-width + auto 时观感不齐） */
+    grid-template-columns: var(--user-gc-inline-label-w, 9rem) 1fr;
     column-gap: 14px;
     row-gap: 10px;
     align-items: center;
@@ -151,21 +152,21 @@ body.process-page .user-gc-inline-row {
 body.user-page .user-gc-inline-label,
 body.account-page .user-gc-inline-label,
 body.process-page .user-gc-inline-label {
-    justify-self: start;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
     font-size: var(--text-base);
     font-weight: var(--font-weight-bold);
     color: #1f2937;
     white-space: nowrap;
-    /* EN「Company:」等与切换时保持首列占位一致 */
-    min-width: 6.75rem;
     box-sizing: border-box;
 }
 
 /* 中文「集团：」「公司：」较短，单独收紧首列占位 */
-body.lang-zh.user-page .user-gc-inline-label,
-body.lang-zh.account-page .user-gc-inline-label,
-body.lang-zh.process-page .user-gc-inline-label {
-    min-width: 4.75rem;
+body.lang-zh.user-page .user-gc-inline-panel,
+body.lang-zh.account-page .user-gc-inline-panel,
+body.lang-zh.process-page .user-gc-inline-panel {
+    --user-gc-inline-label-w: 6.75rem;
 }
 
 body.user-page .user-gc-inline-pills,
