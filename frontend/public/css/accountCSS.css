@@ -1290,7 +1290,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 /* Make fields/readability closer to reference */
 #account-addModal .account-form-group label,
 #account-editModal .account-form-group label {
-    font-size: clamp(12px, 0.85vw, 14px);
+    font-size: var(--text-medium);
     font-weight: 600;
     letter-spacing: 0.015em;
 }
@@ -1330,7 +1330,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 /* Advanced Account · devtools reference: 15px · #1E293B · margin 15px 0 8px · pad bottom 4px */
 #account-addModal .account-advance-section h3,
 #account-editModal .account-advance-section h3 {
-    font-size: 15px;
+    font-size: var(--text-h2);
     font-weight: 700;
     color: #1e293b;
     margin: 15px 0 8px;
@@ -1659,8 +1659,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-modal-header h2,
 #account-editModal .account-modal-header h2 {
-    font-size: clamp(22px, 1.85vw, 28px);
-    padding-left: clamp(1.35rem, 2.05vw, 1.95rem);
+    font-size: var(--text-page-title);
+    padding: clamp(6px, 0.42vw, 8px) 0;
     color: #1f2937;
 }
 
@@ -1673,7 +1673,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-form-column .account-section-header,
 #account-editModal .account-form-column .account-section-header {
-    font-size: clamp(13px, 0.92vw, 15px);
+    font-size: var(--text-h2);
     color: #111827;
     border-bottom-color: #e5e7eb;
 }
@@ -1707,6 +1707,15 @@ body.account-page:not(.account-page--show-all) .account-card {
     background-color: #ffffff;
     padding-bottom: 0.5rem;
     border-radius: 1rem 1rem 0 0;
+}
+
+#account-addModal .account-modal-header,
+#account-editModal .account-modal-header {
+    margin: -10px -20px 0;
+    padding: 3px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 0.9rem 0.9rem 0 0;
 }
 
 .account-modal-header h2 {
@@ -2219,6 +2228,11 @@ body.account-page:not(.account-page--show-all) .account-card {
     .account-form-group label {
         font-size: 0.8125rem !important;
         margin-bottom: 0.25rem !important;
+    }
+
+    #account-addModal .account-form-group label,
+    #account-editModal .account-form-group label {
+        font-size: var(--text-medium) !important;
     }
 
     .account-form-column .account-form-group:has(.account-radio-group) label {
