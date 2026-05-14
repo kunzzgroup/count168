@@ -62,51 +62,59 @@ export default function CustomerReportFilters({
   return (
     <div className="customer-report-filter-container">
       <div className="customer-report-filters">
-        {/* Account Select */}
-        <div className="customer-report-filter-group">
-          <label className="maintenance-label">{t("account")}</label>
-          <div className="custom-select-wrapper" ref={accountDropdownRef}>
-            <button
-              type="button"
-              className={`custom-select-button ${accountDropdownOpen ? "open" : ""}`}
-              onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
-            >
-              {selectedAccountLabel}
-            </button>
-            {accountDropdownOpen && (
-              <div className="custom-select-dropdown show">
-                <div className="custom-select-search">
-                  <input
-                    type="text"
-                    placeholder={t("searchAccount")}
-                    autoComplete="off"
-                    value={accountSearch}
-                    onChange={(e) => setAccountSearch(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-                <div className="custom-select-options">
-                  <div
-                    className={`custom-select-option ${!accountId ? "selected" : ""}`}
-                    onClick={() => { setAccountId(""); setAccountDropdownOpen(false); }}
-                  >
-                    {t("allAccounts")}
-                  </div>
-                  {filteredAccounts.map(a => (
-                    <div
-                      key={a.id}
-                      className={`custom-select-option ${String(a.id) === String(accountId) ? "selected" : ""}`}
-                      onClick={() => { setAccountId(a.id); setAccountDropdownOpen(false); }}
-                    >
-                      {a.display_text || `${a.account_id} - ${a.name}`}
+        {/* Account Select — outlined floating label */}
+        <div className="customer-report-filter-group customer-report-outlined-anchor">
+          <div className="customer-report-outlined-shell">
+            <span className="customer-report-outlined-label" id="cr-account-outlined-label">
+              {t("account")}
+            </span>
+            <div className="customer-report-outlined-inner customer-report-account-outlined-inner">
+              <div className="custom-select-wrapper" ref={accountDropdownRef}>
+                <button
+                  type="button"
+                  id="cr-account-dropdown-btn"
+                  aria-labelledby="cr-account-outlined-label"
+                  className={`custom-select-button ${accountDropdownOpen ? "open" : ""}`}
+                  onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
+                >
+                  {selectedAccountLabel}
+                </button>
+                {accountDropdownOpen && (
+                  <div className="custom-select-dropdown show">
+                    <div className="custom-select-search">
+                      <input
+                        type="text"
+                        placeholder={t("searchAccount")}
+                        autoComplete="off"
+                        value={accountSearch}
+                        onChange={(e) => setAccountSearch(e.target.value)}
+                        autoFocus
+                      />
                     </div>
-                  ))}
-                  {filteredAccounts.length === 0 && (
-                    <div className="custom-select-no-results">{t("noResultsFound")}</div>
-                  )}
-                </div>
+                    <div className="custom-select-options">
+                      <div
+                        className={`custom-select-option ${!accountId ? "selected" : ""}`}
+                        onClick={() => { setAccountId(""); setAccountDropdownOpen(false); }}
+                      >
+                        {t("allAccounts")}
+                      </div>
+                      {filteredAccounts.map(a => (
+                        <div
+                          key={a.id}
+                          className={`custom-select-option ${String(a.id) === String(accountId) ? "selected" : ""}`}
+                          onClick={() => { setAccountId(a.id); setAccountDropdownOpen(false); }}
+                        >
+                          {a.display_text || `${a.account_id} - ${a.name}`}
+                        </div>
+                      ))}
+                      {filteredAccounts.length === 0 && (
+                        <div className="custom-select-no-results">{t("noResultsFound")}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -119,6 +127,7 @@ export default function CustomerReportFilters({
           label={t("dateRange")}
           placeholder={t("selectDateRange")}
           selectEndDateHint={t("selectEndDate")}
+          outlinedFloatingLabel
         />
 
         {/* Quick Select & Show All */}

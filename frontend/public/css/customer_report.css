@@ -133,6 +133,96 @@ body.dashboard-page.report-page .customer-report-filter-container .report-gc-inl
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
+/* ---------- Outlined floating label (Material-style notch on top edge) ---------- */
+body.dashboard-page.report-page .customer-report-filter-group.customer-report-outlined-anchor {
+    gap: 0;
+}
+
+body.dashboard-page.report-page .customer-report-outlined-shell {
+    position: relative;
+    box-sizing: border-box;
+    margin-top: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: clamp(6px, 0.52vw, 8px);
+    background: #fff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.dashboard-page.report-page .customer-report-outlined-label {
+    position: absolute;
+    left: clamp(10px, 0.83vw, 14px);
+    top: 0;
+    transform: translateY(-50%);
+    z-index: 3;
+    padding: 0 clamp(5px, 0.42vw, 7px);
+    margin: 0;
+    font-size: clamp(11px, 0.85vw, 13px);
+    font-weight: 600;
+    font-family: var(--font-heading-page);
+    color: #374151;
+    background-color: #fff;
+    pointer-events: none;
+    line-height: 1.15;
+}
+
+body.dashboard-page.report-page .customer-report-outlined-shell:hover,
+body.dashboard-page.report-page .customer-report-outlined-shell:focus-within,
+body.dashboard-page.report-page .customer-report-outlined-shell:has(.custom-select-button.open),
+body.dashboard-page.report-page .customer-report-date-outlined-shell:has(.date-range-picker:focus-visible) {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+body.dashboard-page.report-page .customer-report-outlined-shell:focus-within .customer-report-outlined-label,
+body.dashboard-page.report-page .customer-report-outlined-shell:has(.custom-select-button.open) .customer-report-outlined-label,
+body.dashboard-page.report-page .customer-report-date-outlined-shell:has(.date-range-picker:focus-visible) .customer-report-outlined-label {
+    color: #3b82f6;
+}
+
+/* Account dropdown: border lives on shell only */
+body.dashboard-page.report-page .customer-report-account-outlined-inner .custom-select-button {
+    margin: 0;
+    border: none !important;
+    border-radius: inherit;
+    box-shadow: none !important;
+    background: transparent;
+}
+
+body.dashboard-page.report-page .customer-report-account-outlined-inner .custom-select-button:hover {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+body.dashboard-page.report-page .customer-report-account-outlined-inner .custom-select-button:focus,
+body.dashboard-page.report-page .customer-report-account-outlined-inner .custom-select-button.open {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none;
+}
+
+body.dashboard-page.report-page .customer-report-outlined-anchor .custom-select-wrapper {
+    position: relative;
+    z-index: 1;
+}
+
+body.dashboard-page.report-page .customer-report-outlined-anchor:has(.custom-select-button.open) .custom-select-wrapper {
+    z-index: 40;
+}
+
+/* Date range bar: border lives on shell only */
+body.dashboard-page.report-page .customer-report-date-outlined-inner .date-range-picker {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent;
+    min-height: clamp(26px, 2.2vw, 32px);
+    border-radius: inherit;
+}
+
+body.dashboard-page.report-page .customer-report-date-outlined-inner .date-range-picker:hover {
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
 .customer-report-checkbox-section {
     margin-top: 20px;
 }

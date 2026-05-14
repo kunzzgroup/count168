@@ -25,6 +25,7 @@ export default function ReportDatePicker({
   containerClass = "report-date-range-group",
   placeholder = "Select date range",
   selectEndDateHint = "Select end date",
+  outlinedFloatingLabel = false,
 }) {
   useEffect(() => {
     const fromEl = document.getElementById("date_from");
@@ -60,18 +61,30 @@ export default function ReportDatePicker({
     };
   }, [onRangeChange, placeholder, selectEndDateHint]);
 
-  return (
-    <div className={`report-filter-group ${containerClass}`}>
-      <label className="maintenance-label">{label}</label>
-      <div className="date-range-picker" id="date-range-picker">
-        <i className="fas fa-calendar-alt" />
-        <span className="report-date-range-input" id="date-range-display">
-          {ymdToDmy(dateFrom)} - {ymdToDmy(dateTo)}
-        </span>
-      </div>
+  const dateBar = (
+    <div
+      className="date-range-picker"
+      id="date-range-picker"
+      {...(outlinedFloatingLabel
+        ? { role: "button", tabIndex: 0, "aria-labelledby": "cr-date-range-outlined-label" }
+        : {})}
+    >
+      <i className="fas fa-calendar-alt" />
+      <span className="report-date-range-input" id="date-range-display">
+        {ymdToDmy(dateFrom)} - {ymdToDmy(dateTo)}
+      </span>
+    </div>
+  );
+
+  const hiddenInputs = (
+    <>
       <input type="hidden" id="date_from" defaultValue={ymdToDmy(dateFrom)} />
       <input type="hidden" id="date_to" defaultValue={ymdToDmy(dateTo)} />
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
+    </>
+  );
+
+  const calendarPopup = (
+    <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
         <div className="calendar-header">
           <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
             <i className="fas fa-chevron-left" />
@@ -93,6 +106,31 @@ export default function ReportDatePicker({
         </div>
         <div className="calendar-days" id="calendar-days" />
       </div>
+  );
+
+  if (outlinedFloatingLabel) {
+    return (
+      <div className={`report-filter-group ${containerClass} customer-report-outlined-anchor`}>
+        <div className="customer-report-outlined-shell customer-report-date-outlined-shell">
+          <span className="customer-report-outlined-label" id="cr-date-range-outlined-label">
+            {label}
+          </span>
+          <div className="customer-report-outlined-inner customer-report-date-outlined-inner">
+            {dateBar}
+            {hiddenInputs}
+          </div>
+        </div>
+        {calendarPopup}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`report-filter-group ${containerClass}`}>
+      <label className="maintenance-label">{label}</label>
+      {dateBar}
+      {hiddenInputs}
+      {calendarPopup}
     </div>
   );
 }
