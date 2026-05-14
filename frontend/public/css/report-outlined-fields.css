@@ -189,6 +189,11 @@ body.transaction-page .transaction-add-section .report-outlined-inner .custom-se
     outline: none;
 }
 
+/* 盖住 transaction.css 里通用灰底按钮样式，避免在 outlined 内仍显示 #f3f3f3 */
+body.transaction-page .transaction-add-section .tx-add-icon-field .custom-select-button {
+    background: transparent !important;
+}
+
 body.transaction-page .transaction-add-section .report-outlined-anchor .custom-select-wrapper {
     position: relative;
     z-index: 1;

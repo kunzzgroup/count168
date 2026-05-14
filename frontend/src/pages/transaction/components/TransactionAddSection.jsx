@@ -311,16 +311,60 @@ export default function TransactionAddSection({
       </div>
 
       <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>
-        <div className="rate-section">
-          <label className="transaction-label">Account</label>
-          <div className="rate-row rate-row-two-cols">
-            <div className="custom-select-wrapper">
-              <AccountSelect placeholder="--Select To Account--" options={accountOptions} value={rateToAccount} onChange={setRateToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+        <div className="rate-section rate-section--accounts-outlined">
+          <div className="tx-add-form-row tx-add-form-row--accounts tx-add-form-row--with-reverse">
+            <div className="report-outlined-anchor tx-add-field-col">
+              <div className="report-outlined-shell">
+                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-line1-to-acc-label">
+                  To Account
+                </span>
+                <div className="report-outlined-inner">
+                  <div className="tx-add-icon-field">
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
+                    <AccountSelect
+                      ariaLabelledBy="rate-line1-to-acc-label"
+                      placeholder="--Select To Account--"
+                      options={accountOptions}
+                      value={rateToAccount}
+                      onChange={setRateToAccount}
+                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="custom-select-wrapper">
-              <AccountSelect placeholder="--Select From Account--" options={accountOptions} value={rateFromAccount} onChange={setRateFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+            <div className="report-outlined-anchor tx-add-field-col">
+              <div className="report-outlined-shell">
+                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-line1-from-acc-label">
+                  From Account
+                </span>
+                <div className="report-outlined-inner">
+                  <div className="tx-add-icon-field">
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
+                    <AccountSelect
+                      ariaLabelledBy="rate-line1-from-acc-label"
+                      placeholder="--Select From Account--"
+                      options={accountOptions}
+                      value={rateFromAccount}
+                      onChange={setRateFromAccount}
+                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <button type="button" id="rate_account_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={() => { setRateToAccount(rateFromAccount); setRateFromAccount(rateToAccount); onRateCurrencyRowReverse?.(); }}>
+            <button
+              type="button"
+              id="rate_account_reverse_btn"
+              className="transaction-account-reverse-btn tx-add-account-reverse rate-reverse-btn"
+              title="Reverse accounts"
+              aria-label="Reverse accounts"
+              onClick={() => {
+                setRateToAccount(rateFromAccount);
+                setRateFromAccount(rateToAccount);
+                onRateCurrencyRowReverse?.();
+              }}
+            >
               Reverse
             </button>
           </div>
@@ -343,16 +387,59 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section">
-          <label className="transaction-label">Account</label>
-          <div className="rate-row rate-row-two-cols">
-            <div className="custom-select-wrapper">
-              <AccountSelect placeholder="--Select To Account--" options={accountOptions} value={rateTransferToAccount} onChange={setRateTransferToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+        <div className="rate-section rate-section--accounts-outlined">
+          <div className="tx-add-form-row tx-add-form-row--accounts tx-add-form-row--with-reverse">
+            <div className="report-outlined-anchor tx-add-field-col">
+              <div className="report-outlined-shell">
+                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-line2-to-acc-label">
+                  To Account
+                </span>
+                <div className="report-outlined-inner">
+                  <div className="tx-add-icon-field">
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
+                    <AccountSelect
+                      ariaLabelledBy="rate-line2-to-acc-label"
+                      placeholder="--Select To Account--"
+                      options={accountOptions}
+                      value={rateTransferToAccount}
+                      onChange={setRateTransferToAccount}
+                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="custom-select-wrapper">
-              <AccountSelect placeholder="--Select From Account--" options={accountOptions} value={rateTransferFromAccount} onChange={setRateTransferFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+            <div className="report-outlined-anchor tx-add-field-col">
+              <div className="report-outlined-shell">
+                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-line2-from-acc-label">
+                  From Account
+                </span>
+                <div className="report-outlined-inner">
+                  <div className="tx-add-icon-field">
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
+                    <AccountSelect
+                      ariaLabelledBy="rate-line2-from-acc-label"
+                      placeholder="--Select From Account--"
+                      options={accountOptions}
+                      value={rateTransferFromAccount}
+                      onChange={setRateTransferFromAccount}
+                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <button type="button" id="rate_transfer_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={() => { setRateTransferToAccount(rateTransferFromAccount); setRateTransferFromAccount(rateTransferToAccount); }}>
+            <button
+              type="button"
+              id="rate_transfer_reverse_btn"
+              className="transaction-account-reverse-btn tx-add-account-reverse rate-reverse-btn"
+              title="Reverse accounts"
+              aria-label="Reverse accounts"
+              onClick={() => {
+                setRateTransferToAccount(rateTransferFromAccount);
+                setRateTransferFromAccount(rateTransferToAccount);
+              }}
+            >
               Reverse
             </button>
           </div>

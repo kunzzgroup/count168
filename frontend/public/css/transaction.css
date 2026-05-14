@@ -2551,6 +2551,18 @@ body.transaction-page .transaction-container * {
     margin-bottom: 5px;
 }
 
+/* RATE：Account 双下拉与标准表单同款 outlined floating label + 三列栅格对齐 Reverse */
+body.transaction-page .transaction-add-section .rate-section.rate-section--accounts-outlined {
+    flex-direction: column;
+    align-items: stretch;
+    align-self: stretch;
+    width: 100%;
+}
+
+body.transaction-page .transaction-add-section .rate-section.rate-section--accounts-outlined > .tx-add-form-row--accounts {
+    width: 100%;
+}
+
 .rate-section>.transaction-label {
     white-space: nowrap;
 }
