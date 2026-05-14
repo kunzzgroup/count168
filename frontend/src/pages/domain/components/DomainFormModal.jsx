@@ -65,12 +65,44 @@ export default function DomainFormModal({
   const [isMultipleChoiceMode, setIsMultipleChoiceMode] = useState(false);
   const [companyInput, setCompanyInput] = useState("");
   const [groupInput, setGroupInput] = useState("");
+  /** 多选分配模式：公司名称筛选 */
+  const [companyAssignSearch, setCompanyAssignSearch] = useState("");
 
   // Company Settings sub-modal
   const [csModalCompanyId, setCsModalCompanyId] = useState(null);
 
   function toastDanger(message) {
     showDomainAlert(message, "danger");
+  }
+
+  /** 与库中任一 owner 的 company_id / group_id 冲突则失败；编辑时可排除当前 owner 已有行（见 domain_api validate_domain_code） */
+  async function validateCodeGlobally(code) {
+    const trimmed = String(code ?? "").trim();
+    if (!trimmed) return false;
+    try {
+      const payload = {
+        action: "validate_domain_code",
+        code: trimmed,
+      };
+      if (isEditMode && editingDomain?.id !== undefined && editingDomain?.id !== null && editingDomain?.id !== "") {
+        payload.exclude_owner_id = Number(editingDomain.id);
+      }
+      const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        toastDanger(json.message || t("operationFailed"));
+        return false;
+      }
+      return true;
+    } catch {
+      toastDanger(t("validateDomainCodeUnavailable"));
+      return false;
+    }
   }
 
   const showSecondaryPwd =
@@ -122,7 +154,7 @@ export default function DomainFormModal({
 
   // ── Company helpers ────────────────────────────────────────────────────────
 
-  function addCompany() {
+  async function addCompany() {
     const cid = companyInput.trim().toUpperCase();
     if (!cid) { toastDanger(t("pleaseEnterCompanyId")); return; }
     if (tempGroups.some((g) => normalizeDomainCode(g) === cid)) {
@@ -133,6 +165,7 @@ export default function DomainFormModal({
       toastDanger(t("companyIdAlreadyAdded"));
       return;
     }
+    if (!(await validateCodeGlobally(cid))) return;
     const isC168 = cid === "C168";
     const today = new Date().toISOString().split("T")[0];
     const newExpDate = isC168 ? null : calculateExpirationDate("1month", today);
@@ -154,7 +187,7 @@ export default function DomainFormModal({
     setTempCompanies((prev) => prev.filter((c) => c.company_id !== cid));
   }
 
-  function addGroup() {
+  async function addGroup() {
     const gid = groupInput.trim().toUpperCase();
     if (!gid) { toastDanger(t("pleaseEnterGroupId")); return; }
     if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === gid)) {
@@ -165,6 +198,7 @@ export default function DomainFormModal({
       toastDanger(t("groupIdAlreadyExists"));
       return;
     }
+    if (!(await validateCodeGlobally(gid))) return;
     setTempGroups((prev) => [...prev, gid]);
     setGroupInput("");
     showDomainAlert(t("groupAdded", { gid }));
@@ -189,7 +223,11 @@ export default function DomainFormModal({
 
   function toggleMultipleChoice() {
     if (!selectedGroupId) { toastDanger(t("pleaseSelectGroupFirst")); return; }
-    setIsMultipleChoiceMode((prev) => !prev);
+    setIsMultipleChoiceMode((prev) => {
+      const next = !prev;
+      if (!next) setCompanyAssignSearch("");
+      return next;
+    });
   }
 
   function toggleCompanyGroup(cid) {
@@ -199,6 +237,22 @@ export default function DomainFormModal({
         ? { ...c, group_id: c.group_id === selectedGroupId ? null : selectedGroupId }
         : c
     ));
+  }
+
+  /** 多选：对当前搜索结果内公司全部归入 / 撤出当前分组 */
+  function toggleAssignSelectAll(candidateRows) {
+    if (!selectedGroupId || candidateRows.length === 0) return;
+    const allIn = candidateRows.every((c) => c.group_id === selectedGroupId);
+    const idsInFilter = new Set(candidateRows.map((c) => c.company_id));
+    setTempCompanies((prev) =>
+      prev.map((c) => {
+        if (!idsInFilter.has(c.company_id)) return c;
+        if (allIn) {
+          return c.group_id === selectedGroupId ? { ...c, group_id: null } : c;
+        }
+        return { ...c, group_id: selectedGroupId };
+      })
+    );
   }
 
   // ── Company Settings sub-modal callbacks ──────────────────────────────────
@@ -296,38 +350,89 @@ export default function DomainFormModal({
     }
 
     if (isMultipleChoiceMode && selectedGroupId) {
-      const candidates = tempCompanies
+      const pool = tempCompanies
         .filter((c) => !c.group_id || c.group_id === selectedGroupId)
         .sort((a, b) => a.company_id.localeCompare(b.company_id));
+      const q = companyAssignSearch.trim().toLowerCase();
+      const candidates = q
+        ? pool.filter((c) => c.company_id.toLowerCase().includes(q))
+        : pool;
 
-      if (candidates.length === 0) {
-        return <span style={{ color: "#94a3b8", fontSize: 12 }}>{t("noUngroupedCompaniesAvailable")}</span>;
+      if (pool.length === 0) {
+        return <span className="dfm-empty-hint">{t("noUngroupedCompaniesAvailable")}</span>;
       }
+
+      const allAssigned =
+        candidates.length > 0 && candidates.every((c) => c.group_id === selectedGroupId);
+
       return (
-        <div className="dfm-assign-ref-grid">
-          {candidates.map((c) => (
-            <div
-              key={c.company_id}
-              className="dfm-assign-ref-cell"
-              onClick={() => toggleCompanyGroup(c.company_id)}
-            >
-              <input
-                type="checkbox"
-                id={`dfm-ar-${c.company_id}`}
-                className="dfm-assign-ref-checkbox"
-                checked={c.group_id === selectedGroupId}
-                onChange={() => toggleCompanyGroup(c.company_id)}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <label
-                className="dfm-assign-ref-label"
-                htmlFor={`dfm-ar-${c.company_id}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {c.company_id}
-              </label>
-            </div>
-          ))}
+        <div className="dfm-assign-mc-stack">
+          <div className="dfm-assign-mc-search">
+            <span className="dfm-assign-mc-search-icon" aria-hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M10.5 18a7.5 7.5 0 110-15 7.5 7.5 0 010 15z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path d="M16 16l4.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </span>
+            <input
+              type="search"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder={t("searchCompanyPlaceholder")}
+              className="dfm-assign-mc-search-input"
+              value={companyAssignSearch}
+              onChange={(e) => setCompanyAssignSearch(e.target.value)}
+              aria-label={t("searchCompanyPlaceholder")}
+            />
+          </div>
+          <label className="dfm-assign-mc-select-all">
+            <input
+              type="checkbox"
+              className="dfm-assign-ref-checkbox dfm-assign-select-all-checkbox"
+              checked={allAssigned}
+              onChange={() => toggleAssignSelectAll(candidates)}
+            />
+            <span>{t("selectAll")}</span>
+          </label>
+          <div className="dfm-assign-mc-list">
+            {candidates.length === 0 ? (
+              <span className="dfm-empty-hint">{t("noCompaniesFound")}</span>
+            ) : (
+              candidates.map((c) => (
+                <div key={c.company_id} className="company-item dfm-assign-mc-row">
+                  <div className="company-item-left">
+                    <input
+                      type="checkbox"
+                      id={`dfm-mc-${c.company_id}`}
+                      className="dfm-assign-ref-checkbox dfm-assign-row-checkbox"
+                      checked={c.group_id === selectedGroupId}
+                      onChange={() => toggleCompanyGroup(c.company_id)}
+                    />
+                    <label className="dfm-assign-mc-name" htmlFor={`dfm-mc-${c.company_id}`}>
+                      {c.company_id}
+                    </label>
+                  </div>
+                  <div className="company-item-right">
+                    <span className="exp-date-display">
+                      {c.expiration_date ? formatDate(c.expiration_date) : t("notSet")}
+                    </span>
+                    <button
+                      type="button"
+                      className="company-reset-btn"
+                      onClick={() => openCompanySettings(c.company_id)}
+                      title={t("setExpirationDate")}
+                    >
+                      {t("set")}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       );
     }
@@ -337,7 +442,7 @@ export default function DomainFormModal({
       const msg = selectedGroupId
         ? t("noCompaniesInGroup", { gid: selectedGroupId })
         : t("noUngroupedCompanies");
-      return <span style={{ color: "#94a3b8", fontSize: 12 }}>{msg}</span>;
+      return <span className="dfm-empty-hint">{msg}</span>;
     }
 
     return sorted.map((c) => (
@@ -556,7 +661,7 @@ export default function DomainFormModal({
                     </div>
                     <div
                       className={`dfm-selected-list${
-                        isMultipleChoiceMode && selectedGroupId ? " dfm-selected-list--assign-ref" : ""
+                        isMultipleChoiceMode && selectedGroupId ? " dfm-selected-list--mc-mode" : ""
                       }`}
                     >
                       {tempCompanies.length === 0
