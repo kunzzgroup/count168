@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { parseRateExpression, buildClientRequestId, parseBalanceValue, countRateDecimalPlaces } from "../transactionFormat.js";
 import { formatRateAmount } from "../transactionFormat.js";
@@ -136,9 +136,6 @@ export function useTransactionForm({
     setTxToAccount(from);
     setTxFromAccount(to);
   }, [txToAccount, txFromAccount]);
-
-  const prevTxTypeRef = useRef(txType);
-  const fpRateDateRef = useRef(null);
 
   // RATE: legacy `initMiddleManAmountCalculation` — MoneyDecimal chain, middle-man then gross/net preview.
   useEffect(() => {
@@ -463,8 +460,6 @@ export function useTransactionForm({
     setRateMiddlemanRate,
     rateMiddlemanAmount,
     setRateMiddlemanAmount,
-    prevTxTypeRef,
-    fpRateDateRef,
     onSubmitTx,
     handleBalanceCellClick,
   };

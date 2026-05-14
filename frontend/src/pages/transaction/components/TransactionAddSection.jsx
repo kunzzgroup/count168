@@ -57,8 +57,8 @@ export default function TransactionAddSection({
 
   return (
     <div className="transaction-add-section">
-      {/* Row: Type | Date (Date hidden in RATE mode) */}
-      <div className={`tx-add-form-row tx-add-form-row--pair${standardHidden ? " tx-add-form-row--type-only" : ""}${reserveReverseColumnClass}`}>
+      {/* Row: Type | Date range (standard + RATE 同一套 outlined + transaction-date-range-group；两 picker 同页挂载供 init 绑定) */}
+      <div className={`tx-add-form-row tx-add-form-row--pair${reserveReverseColumnClass}`}>
         <div className="report-outlined-anchor tx-add-field-col">
           <div className="report-outlined-shell">
             <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-type-label">
@@ -88,36 +88,61 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        {!standardHidden && (
-          <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label report-outlined-label--txn-add-date" id="tx-add-date-label">
-                Date range
-              </span>
-              <div className="report-outlined-inner">
-                <div className="transaction-date-range-group">
-                  <div
-                    className="date-range-picker"
-                    id="add-tx-date-range-picker"
-                    role="button"
-                    tabIndex={0}
-                    aria-labelledby="tx-add-date-label"
-                    data-drp-from="add_tx_date_from"
-                    data-drp-to="add_tx_date_to"
-                    data-drp-display="add-tx-date-range-display"
-                    data-drp-hide-presets="true"
-                  >
-                    <i className="fas fa-calendar-alt" />
-                    <span id="add-tx-date-range-display" />
-                    <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
-                  </div>
-                  <input type="hidden" id="add_tx_date_from" readOnly aria-hidden="true" />
-                  <input type="hidden" id="add_tx_date_to" readOnly aria-hidden="true" />
+        <div className="report-outlined-anchor tx-add-field-col">
+          <div className="report-outlined-shell">
+            <span className="report-outlined-label report-outlined-label--txn-add-date" id="tx-add-date-label">
+              Date range
+            </span>
+            <div className="report-outlined-inner">
+              <div
+                className="transaction-date-range-group tx-add-date-range-stack"
+                style={{ display: txType === "RATE" ? "none" : "block" }}
+                aria-hidden={txType === "RATE"}
+              >
+                <div
+                  className="date-range-picker"
+                  id="add-tx-date-range-picker"
+                  role="button"
+                  tabIndex={0}
+                  aria-labelledby="tx-add-date-label"
+                  data-drp-from="add_tx_date_from"
+                  data-drp-to="add_tx_date_to"
+                  data-drp-display="add-tx-date-range-display"
+                  data-drp-hide-presets="true"
+                >
+                  <i className="fas fa-calendar-alt" />
+                  <span id="add-tx-date-range-display" />
+                  <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                 </div>
+                <input type="hidden" id="add_tx_date_from" readOnly aria-hidden="true" />
+                <input type="hidden" id="add_tx_date_to" readOnly aria-hidden="true" />
+              </div>
+              <div
+                className="transaction-date-range-group tx-add-date-range-stack"
+                style={{ display: txType === "RATE" ? "block" : "none" }}
+                aria-hidden={txType !== "RATE"}
+              >
+                <div
+                  className="date-range-picker"
+                  id="rate-tx-date-range-picker"
+                  role="button"
+                  tabIndex={0}
+                  aria-labelledby="tx-add-date-label"
+                  data-drp-from="rate_tx_date_from"
+                  data-drp-to="rate_tx_date_to"
+                  data-drp-display="rate-tx-date-range-display"
+                  data-drp-hide-presets="true"
+                >
+                  <i className="fas fa-calendar-alt" />
+                  <span id="rate-tx-date-range-display" />
+                  <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+                </div>
+                <input type="hidden" id="rate_tx_date_from" readOnly aria-hidden="true" />
+                <input type="hidden" id="rate_tx_date_to" readOnly aria-hidden="true" />
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       <div
@@ -286,11 +311,6 @@ export default function TransactionAddSection({
       </div>
 
       <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>
-        <div className="rate-section">
-          <label className="transaction-label">Date</label>
-          <input type="text" id="rate_transaction_date" className="transaction-input" value={rateDate || todayDmy} placeholder="dd/mm/yyyy" readOnly style={{ cursor: "pointer" }} />
-        </div>
-
         <div className="rate-section">
           <label className="transaction-label">Account</label>
           <div className="rate-row rate-row-two-cols">

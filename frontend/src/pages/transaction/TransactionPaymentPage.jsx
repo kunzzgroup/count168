@@ -16,7 +16,6 @@ import { useTransactionInitialization } from "./hooks/useTransactionInitializati
 import { installTransactionExcelCopy } from "./transactionExcelCopy.js";
 import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./transactionPaymentPageUtils.js";
 import { getRoleClass } from "./transactionPaymentLogic.js";
-import "flatpickr/dist/flatpickr.min.css";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
@@ -101,7 +100,6 @@ export default function TransactionPaymentPage() {
     setTxDate: form.setTxDate,
     rateDate: form.rateDate,
     setRateDate: form.setRateDate,
-    fpRateDateRef: form.fpRateDateRef,
   });
 
   // 7. Sync & Lifecycle

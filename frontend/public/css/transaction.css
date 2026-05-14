@@ -572,7 +572,8 @@ body.transaction-page .transaction-date-range-group .date-range-picker i.fa-cale
 }
 
 body.transaction-page .transaction-date-range-group #date-range-display,
-body.transaction-page .transaction-date-range-group #add-tx-date-range-display {
+body.transaction-page .transaction-date-range-group #add-tx-date-range-display,
+body.transaction-page .transaction-date-range-group #rate-tx-date-range-display {
     flex: 1 1 auto;
     min-width: 0;
     color: #1f2937;
