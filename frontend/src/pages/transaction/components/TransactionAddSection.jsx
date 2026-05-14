@@ -150,7 +150,7 @@ export default function TransactionAddSection({
         style={{
           display: standardHidden ? "none" : "flex",
           flexDirection: "column",
-          gap: "clamp(8px, 0.7vw, 14px)",
+          gap: "clamp(4px, 0.42vw, 6px)",
         }}
       >
         {/* Row: To Account | From Account | Reverse */}
