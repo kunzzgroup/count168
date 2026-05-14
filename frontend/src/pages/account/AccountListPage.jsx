@@ -394,8 +394,11 @@ export default function AccountListPage() {
 
   const loadSelectionMeta = async (id, isEdit) => {
     try {
+      const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
+      if (id) currencyParams.set("account_id", String(id));
+      if (companyId) currencyParams.set("company_id", String(companyId));
       const [curRes, compRes] = await Promise.all([
-        fetch(buildApiUrl(`api/accounts/account_currency_api.php?action=get_available_currencies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
+        fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/accounts/account_company_api.php?action=get_available_companies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
       ]);
       const curJ = await curRes.json(); const compJ = await compRes.json();

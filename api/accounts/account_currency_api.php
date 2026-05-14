@@ -153,6 +153,30 @@ function dbGetLinkedCurrencyIds($pdo, $account_id) {
 }
 
 /**
+ * 旧账号可能只存在 account.currency_id，没有 account_currency 记录。
+ */
+function dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id) {
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM account LIKE 'currency_id'");
+        if (!$check || $check->rowCount() === 0) {
+            return null;
+        }
+        $stmt = $pdo->prepare("
+            SELECT c.id
+            FROM account a
+            INNER JOIN currency c ON a.currency_id = c.id
+            WHERE a.id = ? AND c.company_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$account_id, $company_id]);
+        $id = $stmt->fetchColumn();
+        return $id ? (int) $id : null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
+/**
  * 验证货币属于当前公司
  */
 function dbCurrencyBelongsToCompany($pdo, $currency_id, $company_id) {
@@ -233,12 +257,16 @@ try {
         if ($action === 'get_available_currencies') {
             $account_id = isset($_GET['account_id']) ? (int)$_GET['account_id'] : 0;
             $all = dbGetCompanyCurrencies($pdo, $company_id);
-            $linked_ids = $account_id ? dbGetLinkedCurrencyIds($pdo, $account_id) : [];
+            $linked_ids = $account_id ? array_map('intval', dbGetLinkedCurrencyIds($pdo, $account_id)) : [];
+            $legacy_currency_id = $account_id ? dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id) : null;
+            if ($legacy_currency_id && !in_array($legacy_currency_id, $linked_ids, true)) {
+                $linked_ids[] = $legacy_currency_id;
+            }
             $result = array_map(function($c) use ($linked_ids) {
                 return [
                     'id' => (int) $c['id'],
                     'code' => $c['code'],
-                    'is_linked' => in_array($c['id'], $linked_ids)
+                    'is_linked' => in_array((int) $c['id'], $linked_ids, true)
                 ];
             }, $all);
             jsonResponse(true, '', $result);
