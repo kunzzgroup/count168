@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatDmy } from "../transactionFormat.js";
 import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
@@ -60,7 +59,6 @@ export function useTransactionSearch({
   /** Capture Date 变更后触发搜索；与「仅首次拉数」的 initial effect 分离，避免 initialSearchDoneRef 为 true 时改日期不请求 */
   const prevCaptureDateRangeKeyRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
-  const [quickOpen, setQuickOpen] = useState(false);
 
   const categoryAllCheckboxRef = useRef(null);
   const effectiveDateFrom = dateFrom || todayDmy;
@@ -80,7 +78,6 @@ export function useTransactionSearch({
   }, []);
 
   const toggleCategory = useCallback(() => setCategoryOpen((v) => !v), []);
-  const toggleQuick = useCallback(() => setQuickOpen((v) => !v), []);
 
   const onCategoryAllChange = useCallback((checked) => {
     if (!checked) return;
@@ -118,72 +115,6 @@ export function useTransactionSearch({
       });
     }, delayMs);
   }, []);
-
-  const selectQuickRange = useCallback((key) => {
-    setQuickOpen(false);
-    if (typeof window.selectQuickRange === "function") {
-      window.selectQuickRange(key);
-      return;
-    }
-
-    const now = new Date();
-    const start = new Date(now);
-    const end = new Date(now);
-
-    const setWeekStart = (d) => {
-      const day = d.getDay();
-      const diff = day;
-      d.setDate(d.getDate() - diff);
-    };
-
-    const setWeekEnd = (d) => {
-      const day = d.getDay();
-      const diff = 6 - day;
-      d.setDate(d.getDate() + diff);
-    };
-
-    switch (key) {
-      case "today":
-        break;
-      case "yesterday":
-        start.setDate(start.getDate() - 1);
-        end.setDate(end.getDate() - 1);
-        break;
-      case "thisWeek":
-        setWeekStart(start);
-        setWeekEnd(end);
-        break;
-      case "lastWeek": {
-        setWeekStart(start);
-        setWeekEnd(end);
-        start.setDate(start.getDate() - 7);
-        end.setDate(end.getDate() - 7);
-        break;
-      }
-      case "thisMonth":
-        start.setDate(1);
-        end.setMonth(end.getMonth() + 1, 0);
-        break;
-      case "lastMonth":
-        start.setMonth(start.getMonth() - 1, 1);
-        end.setMonth(end.getMonth(), 0);
-        break;
-      case "thisYear":
-        start.setMonth(0, 1);
-        end.setMonth(11, 31);
-        break;
-      case "lastYear":
-        start.setFullYear(start.getFullYear() - 1, 0, 1);
-        end.setFullYear(end.getFullYear() - 1, 11, 31);
-        break;
-      default:
-        break;
-    }
-
-    setDateFrom(formatDmy(start));
-    setDateTo(formatDmy(end));
-    scheduleAutoSearch({ delayMs: 120 });
-  }, [setDateFrom, setDateTo, scheduleAutoSearch]);
 
   const toggleAllCurrenciesBtn = useCallback(() => {
     const next = !showAllCurrencies;
@@ -241,16 +172,6 @@ export function useTransactionSearch({
     },
     [currencyRowsOrdered, setCurrencyRowsOrdered],
   );
-
-  useEffect(() => {
-    if (!quickOpen) return;
-    const close = (e) => {
-      if (e.target.closest?.(".quick-select-dropdown-toggle")) return;
-      setQuickOpen(false);
-    };
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [quickOpen]);
 
   useEffect(() => {
     if (!categoryOpen) return;
@@ -806,15 +727,11 @@ export function useTransactionSearch({
     tablePresentation,
     categoryOpen,
     setCategoryOpen,
-    quickOpen,
-    setQuickOpen,
     categoryAllCheckboxRef,
     toggleCategory,
-    toggleQuick,
     onCategoryAllChange,
     toggleCategoryValue,
     removeCategoryTag,
-    selectQuickRange,
     toggleAllCurrenciesBtn,
     onCurrencyDragStart,
     onCurrencyDropOn,

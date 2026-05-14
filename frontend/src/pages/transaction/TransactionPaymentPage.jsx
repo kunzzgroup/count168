@@ -205,9 +205,6 @@ export default function TransactionPaymentPage() {
             dateFrom={search.dateFrom}
             dateTo={search.dateTo}
             effectiveDateRangeText={search.effectiveDateRangeText}
-            quickOpen={search.quickOpen}
-            toggleQuick={search.toggleQuick}
-            selectQuickRange={search.selectQuickRange}
             categoryOpen={search.categoryOpen}
             toggleCategory={search.toggleCategory}
             categories={data.categories}
