@@ -243,18 +243,20 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list {
 
 /* Selected Companies 行（与 legacy companies-list-box 量测对齐，防 Set/Remove 叠字） */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list>.company-item {
-    display: flex !important;
+    display: grid !important;
     align-items: center !important;
-    justify-content: space-between !important;
     box-sizing: border-box !important;
     width: 100% !important;
     min-height: 50px !important;
     margin: 0 0 8px 0 !important;
     padding: 10px 14px !important;
-    gap: 8px !important;
+    column-gap: 12px !important;
+    row-gap: 6px !important;
+    grid-template-columns: minmax(0, 1fr) minmax(6.75rem, 26%) minmax(46px, auto) minmax(52px, auto) !important;
     border: 1px solid #e5e7eb !important;
     border-radius: 8px !important;
     background-color: #ffffff !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list>.company-item:last-child {
@@ -264,10 +266,14 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list>.company-item:
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item-left {
     display: flex !important;
     align-items: center !important;
-    flex: 1 1 auto !important;
+    grid-column: 1 !important;
     min-width: 0 !important;
     overflow: hidden !important;
-    margin-right: auto !important;
+    margin-right: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list > .company-item .company-item-right {
+    display: contents !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item-left>span {
@@ -280,31 +286,25 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item-
     text-overflow: ellipsis !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item-right {
-    display: flex !important;
-    align-items: center !important;
-    flex: 0 0 auto !important;
-    flex-wrap: nowrap !important;
-    gap: 8px !important;
-    min-width: 0 !important;
-}
-
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item .exp-date-display {
+    grid-column: 2 !important;
     font-size: var(--text-small) !important;
     font-family: var(--font-ui) !important;
-    color: #334155 !important;
-    margin: 0 8px 0 12px !important;
+    color: #64748b !important;
+    margin: 0 !important;
     white-space: nowrap !important;
-    flex-shrink: 0 !important;
+    justify-self: start !important;
     width: auto !important;
-    max-width: none !important;
+    max-width: 100% !important;
     line-height: 1.35 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item .company-reset-btn {
+    grid-column: 3 !important;
     box-sizing: border-box !important;
     flex-shrink: 0 !important;
-    margin: 0 0 0 8px !important;
+    margin: 0 !important;
+    justify-self: end !important;
     padding: 4px 14px !important;
     min-width: 46px !important;
     height: 28px !important;
@@ -321,9 +321,11 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item 
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item .company-remove-btn {
+    grid-column: 4 !important;
     box-sizing: border-box !important;
     flex-shrink: 0 !important;
     margin: 0 !important;
+    justify-self: end !important;
     padding: 4px 12px !important;
     min-height: 28px !important;
     height: 28px !important;
@@ -411,7 +413,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .group-pill.active .remove-x:hove
 }
 
 /*
- * Multiple Choice / Done（参考设计：粗黑框浅底「Multiple Choice」；橙底黑边白字「Done」+ 右侧圆勾）
+ * Multiple Choice / Done：与域名弹窗主按钮同源（蓝渐变），避免粗黑框 + 焦圈叠层
  */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn {
     box-sizing: border-box !important;
@@ -419,12 +421,12 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    min-height: 36px !important;
-    padding: 6px 18px !important;
+    min-height: 38px !important;
+    padding: 7px 18px !important;
     border-radius: 9999px !important;
     font-family: var(--font-ui) !important;
     font-size: var(--text-small) !important;
-    font-weight: 800 !important;
+    font-weight: 700 !important;
     letter-spacing: 0.02em !important;
     line-height: 1.2 !important;
     white-space: nowrap !important;
@@ -439,29 +441,32 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn:active {
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn:focus-visible {
-    outline: 3px solid #2563eb !important;
-    outline-offset: 2px !important;
+    outline: none !important;
+    box-shadow:
+        0 0 0 2px #ffffff,
+        0 0 0 5px rgba(99, 102, 241, 0.45) !important;
 }
 
-/* 「Multiple Choice」：浅灰底 + 粗黑边 + 黑字 */
+/* 「Multiple Choice」：浅色描边 + 主色 hover */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--off {
-    background-color: #f5f5f5 !important;
-    color: #000000 !important;
-    border: 3px solid #000000 !important;
-    box-shadow: none !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--off:hover {
-    background-color: #ececec !important;
-    filter: brightness(1.02) !important;
+    background-color: #f8fafc !important;
+    border-color: #60a5fa !important;
+    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.12) !important;
 }
 
-/* 「Done」：亮橙底 + 黑细边 + 白字 */
+/* 「Done」：与 Confirm 同款渐变 */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--on {
-    background-color: #ff8c23 !important;
     color: #ffffff !important;
-    border: 2px solid #000000 !important;
-    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.08) !important;
+    border: none !important;
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%) !important;
+    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.28) !important;
     gap: 8px !important;
 }
 
@@ -556,20 +561,28 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-search-input::plac
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all {
-    display: flex !important;
+    display: inline-flex !important;
     align-items: center !important;
     gap: 10px !important;
     margin: 0 !important;
-    padding: 2px 2px 4px !important;
+    padding: 6px 2px !important;
+    min-height: 36px !important;
     font-family: var(--font-ui) !important;
     font-size: var(--text-small) !important;
     font-weight: var(--font-weight-semibold) !important;
     color: #1e293b !important;
     cursor: pointer !important;
+    line-height: 1.25 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all > span {
+    padding-top: 1px !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all .dfm-assign-select-all-checkbox {
     cursor: pointer !important;
+    align-self: center !important;
+    margin: 0 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list {
@@ -585,18 +598,24 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list {
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list>.company-item {
-    display: flex !important;
+    display: grid !important;
     align-items: center !important;
-    justify-content: space-between !important;
     box-sizing: border-box !important;
     width: 100% !important;
     min-height: 50px !important;
     margin: 0 !important;
     padding: 10px 14px !important;
-    gap: 8px !important;
+    column-gap: 12px !important;
+    row-gap: 6px !important;
+    grid-template-columns: minmax(0, 1fr) minmax(6.75rem, 26%) minmax(46px, auto) !important;
     border: 1px solid #e5e7eb !important;
     border-radius: 8px !important;
     background-color: #ffffff !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list > .company-item .company-item-right {
+    display: contents !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-row.company-item {
@@ -608,6 +627,8 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-row .company-item-
     flex-direction: row !important;
     align-items: center !important;
     gap: 10px !important;
+    grid-column: 1 !important;
+    min-width: 0 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-row .dfm-assign-row-checkbox {
