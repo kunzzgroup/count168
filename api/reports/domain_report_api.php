@@ -99,6 +99,26 @@ function formatProcesses(array $processes) {
 }
 
 /**
+ * 与 Transaction 列表一致：公司代码 + 集团 ID（大写）。
+ */
+function fetchCompanyReportMeta(PDO $pdo, int $company_id): array {
+    $stmt = $pdo->prepare("SELECT company_id, group_id FROM company WHERE id = ? LIMIT 1");
+    $stmt->execute([$company_id]);
+    $r = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$r) {
+        return ['company_id' => null, 'group_id' => null];
+    }
+    $cid = isset($r['company_id']) ? strtoupper(trim((string) $r['company_id'])) : '';
+    $gidRaw = $r['group_id'] ?? null;
+    $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '')
+        ? strtoupper(trim((string) $gidRaw)) : null;
+    return [
+        'company_id' => $cid !== '' ? $cid : null,
+        'group_id' => $gid,
+    ];
+}
+
+/**
  * 查询 Domain 报表原始行（按 Process 汇总 Turnover / Win / Lose）
  * 以 process 为主表，无数据的 process 也显示（0）；过滤 dcd.company_id 保证 Win/Lose 只计当前公司
  */
@@ -159,8 +179,10 @@ function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, str
 
 /**
  * 将原始行转为报表数据并计算合计
+ * @param array $company_meta group_id / company_id 展示字段（与 Transaction 一致）
+ * @param string $currency_scope 当前筛选下的币种范围标签（ALL 或逗号分隔代码）
  */
-function buildReportResult(array $rows, string $date_from, string $date_to) {
+function buildReportResult(array $rows, string $date_from, string $date_to, array $company_meta, string $currency_scope) {
     $report_data = [];
     $total_turnover = '0.00000000';
     $total_win = '0.00000000';
@@ -176,6 +198,9 @@ function buildReportResult(array $rows, string $date_from, string $date_to) {
             'process_id' => (int)$row['process_pk'],
             'process' => $row['process_id'],
             'description' => $row['description_name'],
+            'group_id' => $company_meta['group_id'] ?? null,
+            'company_id' => $company_meta['company_id'] ?? null,
+            'currency' => $currency_scope,
             'turnover' => $turnover,
             'win' => $win,
             'lose' => $lose,
@@ -239,7 +264,12 @@ try {
     }
 
     $rows = fetchDomainReportRows($pdo, $company_id, $date_from, $date_to, $process_id, $currency_codes);
-    $result = buildReportResult($rows, $date_from, $date_to);
+    $co_meta = fetchCompanyReportMeta($pdo, $company_id);
+    $currency_scope = 'ALL';
+    if (!empty($currency_codes)) {
+        $currency_scope = implode(', ', $currency_codes);
+    }
+    $result = buildReportResult($rows, $date_from, $date_to, $co_meta, $currency_scope);
 
     echo json_encode([
         'success' => true,

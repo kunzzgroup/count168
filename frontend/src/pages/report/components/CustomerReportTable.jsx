@@ -1,10 +1,24 @@
 import { formatAmount, reportAdd } from "../customerReportLogic.js";
 
-export default function CustomerReportTable({ reportData, loading, error, currencyList = [], t }) {
+function cellUpperOrDash(v) {
+  if (v == null || String(v).trim() === "") return "-";
+  return String(v).trim().toUpperCase();
+}
+
+function rowKey(it, idx) {
+  const a = String(it.account_id ?? "").trim();
+  const c = String(it.currency ?? "").trim();
+  const n = String(it.name ?? "").trim();
+  return `${a}|${c}|${n}|${idx}`;
+}
+
+export default function CustomerReportTable({ reportData, loading, reportSyncing = false, error, currencyList = [], t }) {
   const tableHeader = (
     <div className="customer-report-table-header">
       <div>{t("colAccount")}</div>
       <div>{t("colName")}</div>
+      <div>{t("colGroupId")}</div>
+      <div>{t("colCompanyId")}</div>
       <div>{t("colCurrency")}</div>
       <div>{t("colWin")}</div>
       <div>{t("colLose")}</div>
@@ -24,43 +38,50 @@ export default function CustomerReportTable({ reportData, loading, error, curren
     </div>
   );
 
-  if (loading) return renderEmpty(t("loading"));
-  if (error) return (
-    <div className="customer-report-list-container">
-      {tableHeader}
-      <div className="customer-report-cards">
-        <div className="customer-report-card">
-          <div className="customer-report-card-item" style={{ textAlign: "center", padding: 20, gridColumn: "1 / -1", justifyContent: "center", color: "red" }}>
-            {error}
+  if (error) {
+    return (
+      <div className="customer-report-list-container">
+        {tableHeader}
+        <div className="customer-report-cards">
+          <div className="customer-report-card">
+            <div className="customer-report-card-item" style={{ textAlign: "center", padding: 20, gridColumn: "1 / -1", justifyContent: "center", color: "red" }}>
+              {error}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-  if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty(t("noDataFound"));
+    );
+  }
+
+  if (loading && reportData == null) {
+    return renderEmpty(t("loading"));
+  }
+
+  const isEmpty = !reportData?.data?.length;
+  if (isEmpty) {
+    const busy = loading || reportSyncing;
+    return renderEmpty(busy ? t("updatingReport") : t("noDataFound"));
+  }
 
   const data = reportData.data;
 
-  // Grouping Logic
   const grouped = {};
-  data.forEach(item => {
+  data.forEach((item) => {
     const c = item.currency || "null";
     if (!grouped[c]) grouped[c] = [];
     grouped[c].push(item);
   });
 
-  // Sort currencies by currencyList order, then any leftovers alphabetically
-  const reportCurrencies = Object.keys(grouped).filter(c => c !== "null");
+  const reportCurrencies = Object.keys(grouped).filter((c) => c !== "null");
   const sortedCurrencies = [];
-  
-  currencyList.forEach(cItem => {
+
+  currencyList.forEach((cItem) => {
     if (reportCurrencies.includes(cItem.code)) {
       sortedCurrencies.push(cItem.code);
     }
   });
-  
-  // Add leftovers
-  reportCurrencies.forEach(c => {
+
+  reportCurrencies.forEach((c) => {
     if (!sortedCurrencies.includes(c)) {
       sortedCurrencies.push(c);
     }
@@ -68,13 +89,23 @@ export default function CustomerReportTable({ reportData, loading, error, curren
 
   const hasNull = !!grouped["null"];
 
-  // If multiple currencies or null+one, show grouped
+  const rowCells = (it) => (
+    <>
+      <div className="customer-report-card-item">{(it.account_id || "").toUpperCase()}</div>
+      <div className="customer-report-card-item">{(it.name || "").toUpperCase()}</div>
+      <div className="customer-report-card-item">{cellUpperOrDash(it.group_id)}</div>
+      <div className="customer-report-card-item">{cellUpperOrDash(it.company_id)}</div>
+      <div className="customer-report-card-item">{cellUpperOrDash(it.currency)}</div>
+      <div className="customer-report-card-item customer-report-amount win">{formatAmount(it.win)}</div>
+      <div className="customer-report-card-item customer-report-amount lose">{formatAmount(it.lose)}</div>
+    </>
+  );
+
   if (sortedCurrencies.length > 1 || (sortedCurrencies.length >= 1 && hasNull)) {
     return (
       <div className="customer-report-list-container" id="currency-grouped-reports-container">
-        {sortedCurrencies.map(c => {
+        {sortedCurrencies.map((c) => {
           const items = grouped[c];
-          // Use more robust sum
           const win = items.reduce((acc, cur) => reportAdd(acc, cur.win), "0");
           const lose = items.reduce((acc, cur) => reportAdd(acc, cur.lose), "0");
           return (
@@ -85,12 +116,8 @@ export default function CustomerReportTable({ reportData, loading, error, curren
               {tableHeader}
               <div className="customer-report-cards">
                 {items.map((it, idx) => (
-                  <div key={idx} className="customer-report-card">
-                    <div className="customer-report-card-item">{(it.account_id || "").toUpperCase()}</div>
-                    <div className="customer-report-card-item">{(it.name || "").toUpperCase()}</div>
-                    <div className="customer-report-card-item">{(it.currency || "-").toUpperCase()}</div>
-                    <div className="customer-report-card-item customer-report-amount win">{formatAmount(it.win)}</div>
-                    <div className="customer-report-card-item customer-report-amount lose">{formatAmount(it.lose)}</div>
+                  <div key={rowKey(it, idx)} className="customer-report-card">
+                    {rowCells(it)}
                   </div>
                 ))}
               </div>
@@ -110,12 +137,8 @@ export default function CustomerReportTable({ reportData, loading, error, curren
             {tableHeader}
             <div className="customer-report-cards">
               {grouped["null"].map((it, idx) => (
-                <div key={idx} className="customer-report-card">
-                  <div className="customer-report-card-item">{(it.account_id || "").toUpperCase()}</div>
-                  <div className="customer-report-card-item">{(it.name || "").toUpperCase()}</div>
-                  <div className="customer-report-card-item">-</div>
-                  <div className="customer-report-card-item customer-report-amount win">{formatAmount(it.win)}</div>
-                  <div className="customer-report-card-item customer-report-amount lose">{formatAmount(it.lose)}</div>
+                <div key={rowKey(it, idx)} className="customer-report-card">
+                  {rowCells(it)}
                 </div>
               ))}
             </div>
@@ -134,18 +157,13 @@ export default function CustomerReportTable({ reportData, loading, error, curren
     );
   }
 
-  // Default view (Single currency or no currency)
   return (
     <div className="customer-report-list-container" id="default-report-container">
       {tableHeader}
       <div className="customer-report-cards">
         {data.map((it, idx) => (
-          <div key={idx} className="customer-report-card">
-            <div className="customer-report-card-item">{(it.account_id || "").toUpperCase()}</div>
-            <div className="customer-report-card-item">{(it.name || "").toUpperCase()}</div>
-            <div className="customer-report-card-item">{(it.currency || "-").toUpperCase()}</div>
-            <div className="customer-report-card-item customer-report-amount win">{formatAmount(it.win)}</div>
-            <div className="customer-report-card-item customer-report-amount lose">{formatAmount(it.lose)}</div>
+          <div key={rowKey(it, idx)} className="customer-report-card">
+            {rowCells(it)}
           </div>
         ))}
       </div>

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../utils/sharedCompanyFilter.js";
+import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../utils/sharedCompanyFilter.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/transaction.css";
+import "../../../public/css/userlist.css";
 import "../../../public/css/domain_report.css";
 import "../../../public/css/date-range-picker.css";
 import {
@@ -20,6 +21,7 @@ import { getReportText } from "../../translateFile/reportTranslate.js";
 // Components
 import DomainReportFilters from "./components/DomainReportFilters.jsx";
 import DomainReportTable from "./components/DomainReportTable.jsx";
+import { useReportGcSwitcher } from "./hooks/useReportGcSwitcher.js";
 
 export default function DomainReportPage() {
   const navigate = useNavigate();
@@ -33,7 +35,9 @@ export default function DomainReportPage() {
 
   // -- State: Filters --
   const [companyId, setCompanyId] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupFilterKind, setGroupFilterKind] = useState("follow");
+  const [companyHighlightId, setCompanyHighlightId] = useState(null);
+  const switchCompanySeqRef = useRef(0);
   const [processId, setProcessId] = useState("");
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
@@ -47,13 +51,27 @@ export default function DomainReportPage() {
   const [processes, setProcesses] = useState([]);
   const [currencyList, setCurrencyList] = useState([]);
   const [reportData, setReportData] = useState(null);
+  const reportDataRef = useRef(null);
   const [loading, setLoading] = useState(false);
+  const [reportSyncing, setReportSyncing] = useState(false);
   const [error, setError] = useState("");
 
   // -- State: UI --
   const [toast, setToast] = useState(null);
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
+  const domainReportSeqRef = useRef(0);
+  const domainReportAbortRef = useRef(null);
+
+  useEffect(() => {
+    reportDataRef.current = reportData;
+  }, [reportData]);
+
+  const { allCompanyButtons, groupIds, selectedGroupKey, companyButtons } = useReportGcSwitcher(
+    companies,
+    companyId,
+    groupFilterKind,
+  );
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -149,7 +167,7 @@ export default function DomainReportPage() {
 
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
-        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
+        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeOwnerCompanyRow) : [];
         setCompanies(rows);
 
         const url = new URL(window.location.href);
@@ -158,24 +176,8 @@ export default function DomainReportPage() {
         effective = effective ? Number(effective) : null;
 
         setCompanyId(effective);
+        setGroupFilterKind("follow");
         if (effective) await checkBankOnly(effective);
-
-        const cur = rows.find((c) => Number(c.id) === Number(effective));
-        const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-        const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-
-        let selGroup = null;
-        if (savedGroup && groups.includes(savedGroup) && cur?.group_id && String(cur.group_id).toUpperCase().trim() === savedGroup) {
-          selGroup = savedGroup;
-        } else if (savedGroup && !groups.includes(savedGroup)) {
-          sessionStorage.removeItem("dashboard_group_filter");
-        }
-        if (!selGroup && cur?.group_id?.trim()) {
-          selGroup = String(cur.group_id).toUpperCase().trim();
-          sessionStorage.setItem("dashboard_group_filter", selGroup);
-        }
-        setSelectedGroup(selGroup);
-        if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
 
       } catch {
         navigate("/login", { replace: true });
@@ -188,23 +190,41 @@ export default function DomainReportPage() {
   // -- Data Fetching --
   const loadReport = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;
-    setLoading(true);
+    domainReportAbortRef.current?.abort();
+    const ac = new AbortController();
+    domainReportAbortRef.current = ac;
+    const seq = ++domainReportSeqRef.current;
+    const quietRefresh = reportDataRef.current != null;
+    if (!quietRefresh) setLoading(true);
+    if (quietRefresh) setReportSyncing(true);
     setError("");
     try {
-      const data = await fetchDomainReport({
-        processId,
-        dateFrom,
-        dateTo,
-        companyId,
-        selectedCurrencies,
-        showAllCurrencies,
+      const data = await fetchDomainReport(
+        {
+          processId,
+          dateFrom,
+          dateTo,
+          companyId,
+          selectedCurrencies,
+          showAllCurrencies,
+        },
+        { signal: ac.signal },
+      );
+      if (seq !== domainReportSeqRef.current) return;
+      startTransition(() => {
+        setReportData(data);
       });
-      setReportData(data);
     } catch (err) {
+      if (err?.name === "AbortError" || seq !== domainReportSeqRef.current) return;
       setError(err.message);
-      setReportData(null);
+      startTransition(() => {
+        setReportData(null);
+      });
     } finally {
-      setLoading(false);
+      if (seq === domainReportSeqRef.current) {
+        setLoading(false);
+        setReportSyncing(false);
+      }
     }
   }, [companyId, processId, dateFrom, dateTo, selectedCurrencies, showAllCurrencies]);
 
@@ -249,38 +269,64 @@ export default function DomainReportPage() {
     if (!bootLoading && companyId) {
       const handler = setTimeout(() => {
         loadReport();
-      }, 300);
+      }, 0);
       return () => clearTimeout(handler);
     }
   }, [bootLoading, companyId, processId, dateFrom, dateTo, selectedCurrencies, showAllCurrencies, loadReport]);
 
+  useEffect(() => () => {
+    domainReportAbortRef.current?.abort();
+  }, []);
+
   // -- Handlers --
-  const onSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
+  const onSwitchCompany = useCallback(async (c) => {
+    const effectiveId = companyHighlightId ?? companyId;
+    if (!c?.id || Number(c.id) === Number(effectiveId)) return;
+    const reqId = ++switchCompanySeqRef.current;
+    setCompanyHighlightId(Number(c.id));
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
-      if (!json.success) { notify(json.error || t("switchFailed"), "danger"); return; }
+      if (reqId !== switchCompanySeqRef.current) return;
+      if (!json.success) {
+        setCompanyHighlightId(null);
+        notify(json.error || t("switchFailed"), "danger");
+        return;
+      }
       setCompanyId(Number(c.id));
+      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-      setSelectedGroup(newGroup);
-      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
-      else sessionStorage.removeItem("dashboard_group_filter");
-      await checkBankOnly(c.id);
+      persistDashboardGroupFilter(newGroup || null);
+      setCompanyHighlightId(null);
+      void checkBankOnly(c.id);
       notifyCompanySessionUpdated();
-    } catch { notify(t("switchFailed"), "danger"); }
-  };
+    } catch {
+      if (reqId === switchCompanySeqRef.current) setCompanyHighlightId(null);
+      notify(t("switchFailed"), "danger");
+    }
+  }, [companyId, companyHighlightId, notify, t, checkBankOnly]);
 
-  const onGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: onSwitchCompany,
-    });
-  };
+  const handlePickGroup = useCallback(
+    (gid) => {
+      const g = String(gid || "").trim().toUpperCase();
+      if (!g) return;
+      if (groupFilterKind === "follow" && g === selectedGroupKey) {
+        setGroupFilterKind("ungrouped");
+        persistDashboardGroupFilter(null);
+        return;
+      }
+      setGroupFilterKind("follow");
+      persistDashboardGroupFilter(g);
+      if (g === selectedGroupKey) return;
+      const first = allCompanyButtons.find((row) => String(row.group_id || "").trim().toUpperCase() === g);
+      if (first) void onSwitchCompany(first);
+    },
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey],
+  );
+
+  const handlePickAllGroups = useCallback(() => {
+    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
+  }, []);
 
   const toggleCurrency = (code) => {
     setShowAllCurrencies(false);
@@ -303,10 +349,14 @@ export default function DomainReportPage() {
 
         <DomainReportFilters
           companyId={companyId}
+          highlightCompanyId={companyHighlightId}
           onSwitchCompany={onSwitchCompany}
-          companies={companies}
-          selectedGroup={selectedGroup}
-          onGroupClick={onGroupClick}
+          groupIds={groupIds}
+          groupFilterKind={groupFilterKind}
+          selectedGroupKey={selectedGroupKey}
+          onPickAllGroups={handlePickAllGroups}
+          onPickGroup={handlePickGroup}
+          companyButtons={companyButtons}
           processId={processId}
           setProcessId={setProcessId}
           processes={processes}
@@ -322,12 +372,20 @@ export default function DomainReportPage() {
           t={t}
         />
 
-        <DomainReportTable
-          reportData={reportData}
-          loading={loading}
-          error={error}
-          t={t}
-        />
+        <div className="domain-report-table-region">
+          {reportSyncing && (
+            <div className="domain-report-sync-track" aria-hidden>
+              <div className="domain-report-sync-bar" />
+            </div>
+          )}
+          <DomainReportTable
+            reportData={reportData}
+            loading={loading}
+            reportSyncing={reportSyncing}
+            error={error}
+            t={t}
+          />
+        </div>
       </div>
 
       {/* Notifications */}

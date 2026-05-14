@@ -1,14 +1,19 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import ReportDatePicker from "../common/ReportDatePicker.jsx";
+import ReportGcFilterPanel from "./ReportGcFilterPanel.jsx";
 
 const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
 
 export default function CustomerReportFilters({
   companyId,
   onSwitchCompany,
-  companies,
-  selectedGroup,
-  onGroupClick,
+  groupIds,
+  groupFilterKind,
+  selectedGroupKey,
+  onPickAllGroups,
+  onPickGroup,
+  companyButtons,
+  highlightCompanyId,
   accountId,
   setAccountId,
   accounts,
@@ -53,9 +58,6 @@ export default function CustomerReportFilters({
     const found = accounts.find(a => String(a.id) === String(accountId));
     return found ? (found.display_text || `${found.account_id} - ${found.name}`) : t("allAccounts");
   }, [accounts, accountId, t]);
-
-  const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
-  const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
 
   return (
     <div className="customer-report-filter-container">
@@ -167,77 +169,23 @@ export default function CustomerReportFilters({
         </div>
       </div>
 
-      <div className="customer-report-buttons-section" style={{ marginTop: 15 }}>
-        {/* Group ID Buttons */}
-        {snapGroupIds.length > 0 && (
-          <div className="transaction-company-filter shared-group-wrapper" style={{ marginBottom: 10 }}>
-            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>{t("groupId")}</span>
-            <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
-              {snapGroupIds.map((gid) => (
-                <button
-                  key={gid}
-                  type="button"
-                  className={`transaction-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
-                  onClick={() => onGroupClick(gid)}
-                >
-                  {gid}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Company Buttons */}
-        {snapCompanies.length > 0 && (
-          <div className="transaction-company-filter shared-company-wrapper" style={{ marginBottom: 10 }}>
-            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>{t("company")}</span>
-            <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
-              {snapCompanies.map((comp) => {
-                const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-                const visible = selectedGroup ? cGid === selectedGroup : true;
-
-                return (
-                  <button
-                    key={comp.id}
-                    type="button"
-                    style={{ display: visible ? "inline-block" : "none" }}
-                    className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(companyId) ? "active" : ""}`}
-                    onClick={() => onSwitchCompany(comp)}
-                  >
-                    {comp.company_id}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Currency Buttons */}
-        {currencyList.length > 0 && (
-          <div className="transaction-company-filter">
-            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>{t("currency")}</span>
-            <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
-              <button
-                type="button"
-                className={`transaction-company-btn ${showAllCurrencies ? "active" : ""}`}
-                onClick={toggleAllCurrencies}
-              >
-                {t("all")}
-              </button>
-              {currencyList.map(c => (
-                <button
-                  key={c.code}
-                  type="button"
-                  className={`transaction-company-btn ${selectedCurrencies.includes(c.code) ? "active" : ""}`}
-                  onClick={() => toggleCurrency(c.code)}
-                >
-                  {c.code}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      <ReportGcFilterPanel
+        groupIds={groupIds}
+        groupFilterKind={groupFilterKind}
+        selectedGroupKey={selectedGroupKey}
+        onPickAllGroups={onPickAllGroups}
+        onPickGroup={onPickGroup}
+        companyButtons={companyButtons}
+        companyId={companyId}
+        highlightCompanyId={highlightCompanyId}
+        onSwitchCompany={onSwitchCompany}
+        currencyList={currencyList}
+        showAllCurrencies={showAllCurrencies}
+        selectedCurrencies={selectedCurrencies}
+        toggleAllCurrencies={toggleAllCurrencies}
+        toggleCurrency={toggleCurrency}
+        t={t}
+      />
     </div>
   );
 }

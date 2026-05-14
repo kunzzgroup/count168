@@ -11,6 +11,8 @@ export function ensureMaintenanceDateRangePicker() {
   let calendarEndDate = null;
   let isSelectingRange = false;
   let calendarCurrentDate = new Date();
+  let calendarViewMode = "days";
+  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   let config = {
     dateFromId: "date_from",
     dateToId: "date_to",
@@ -38,6 +40,36 @@ export function ensureMaintenanceDateRangePicker() {
       display.textContent = `${formatDateDisplay(calendarStartDate)} - ${hint}`;
     } else {
       display.textContent = config.placeholder || "Select date range";
+    }
+  }
+
+  function setWeekdaysVisible(visible) {
+    const weekdays = document.querySelector("#calendar-popup .calendar-weekdays");
+    if (weekdays) weekdays.style.display = visible ? "" : "none";
+  }
+
+  function updateHeaderTriggerActive(activeMode) {
+    const monthControl = document.getElementById("calendar-month-select");
+    const yearControl = document.getElementById("calendar-year-select");
+    if (monthControl) monthControl.classList.toggle("is-active", activeMode === "months");
+    if (yearControl) yearControl.classList.toggle("is-active", activeMode === "years");
+  }
+
+  function setMonthControlValue(monthIndex) {
+    const monthControl = document.getElementById("calendar-month-select");
+    if (!monthControl) return;
+    monthControl.value = String(monthIndex);
+    if (monthControl.tagName !== "SELECT") {
+      monthControl.textContent = monthLabels[monthIndex] || "";
+    }
+  }
+
+  function setYearControlValue(year) {
+    const yearControl = document.getElementById("calendar-year-select");
+    if (!yearControl) return;
+    yearControl.value = String(year);
+    if (yearControl.tagName !== "SELECT") {
+      yearControl.textContent = String(year);
     }
   }
 
@@ -194,7 +226,7 @@ export function ensureMaintenanceDateRangePicker() {
       calendarCurrentDate = new Date(today.getFullYear(), today.getMonth(), 1);
     }
     const yearSelect = document.getElementById("calendar-year-select");
-    if (yearSelect) {
+    if (yearSelect && yearSelect.tagName === "SELECT") {
       yearSelect.innerHTML = "";
       const currentYear = today.getFullYear();
       for (let year = 2022; year <= currentYear + 1; year += 1) {
@@ -205,13 +237,78 @@ export function ensureMaintenanceDateRangePicker() {
         yearSelect.appendChild(option);
       }
     }
-    const monthSelect = document.getElementById("calendar-month-select");
-    if (monthSelect) monthSelect.value = String(calendarCurrentDate.getMonth());
+    setMonthControlValue(calendarCurrentDate.getMonth());
+    setYearControlValue(calendarCurrentDate.getFullYear());
     updateDateRangeDisplay();
     updateQuickPresetActive(detectMatchingQuickRange());
   }
 
+  function renderMonthPicker() {
+    const daysContainer = document.getElementById("calendar-days");
+    const yearSelect = document.getElementById("calendar-year-select");
+    if (!daysContainer || !yearSelect) return;
+    calendarViewMode = "months";
+    updateHeaderTriggerActive("months");
+    setWeekdaysVisible(false);
+    daysContainer.classList.remove("calendar-year-grid");
+    daysContainer.classList.add("calendar-month-grid");
+    daysContainer.innerHTML = "";
+    const currentMonth = Number(document.getElementById("calendar-month-select")?.value ?? calendarCurrentDate.getMonth());
+    monthLabels.forEach((label, monthIndex) => {
+      const monthButton = document.createElement("button");
+      monthButton.type = "button";
+      monthButton.className = "calendar-month-option";
+      if (monthIndex === currentMonth) monthButton.classList.add("is-active");
+      monthButton.textContent = label;
+      monthButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        calendarCurrentDate = new Date(Number(yearSelect.value), monthIndex, 1);
+        setMonthControlValue(monthIndex);
+        renderCalendar();
+      });
+      daysContainer.appendChild(monthButton);
+    });
+  }
+
+  function getYearBounds() {
+    const currentYear = new Date().getFullYear();
+    return { minYear: 2022, maxYear: currentYear + 1 };
+  }
+
+  function renderYearPicker() {
+    const daysContainer = document.getElementById("calendar-days");
+    const yearControl = document.getElementById("calendar-year-select");
+    if (!daysContainer || !yearControl) return;
+    calendarViewMode = "years";
+    updateHeaderTriggerActive("years");
+    setWeekdaysVisible(false);
+    daysContainer.classList.remove("calendar-month-grid");
+    daysContainer.classList.add("calendar-year-grid");
+    daysContainer.innerHTML = "";
+    const { minYear, maxYear } = getYearBounds();
+    const selectedYear = Number(yearControl.value) || calendarCurrentDate.getFullYear();
+    const rangeStart = Math.max(minYear, Math.min(selectedYear - 3, maxYear - 7));
+    const rangeEnd = Math.min(maxYear, rangeStart + 7);
+    for (let year = rangeStart; year <= rangeEnd; year += 1) {
+      const yearButton = document.createElement("button");
+      yearButton.type = "button";
+      yearButton.className = "calendar-year-option";
+      if (year === selectedYear) yearButton.classList.add("is-active");
+      yearButton.textContent = String(year);
+      yearButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        calendarCurrentDate = new Date(year, calendarCurrentDate.getMonth(), 1);
+        setYearControlValue(year);
+        renderCalendar();
+      });
+      daysContainer.appendChild(yearButton);
+    }
+  }
+
   function renderCalendar() {
+    calendarViewMode = "days";
+    updateHeaderTriggerActive("");
+    setWeekdaysVisible(true);
     const yearSelect = document.getElementById("calendar-year-select");
     const monthSelect = document.getElementById("calendar-month-select");
     if (!yearSelect || !monthSelect) return;
@@ -225,6 +322,7 @@ export function ensureMaintenanceDateRangePicker() {
     const prevLastDate = prevLastDay.getDate();
     const daysContainer = document.getElementById("calendar-days");
     if (!daysContainer) return;
+    daysContainer.classList.remove("calendar-month-grid", "calendar-year-grid");
     daysContainer.innerHTML = "";
 
     function createDayElement(day, y, m, isOtherMonth) {
@@ -276,11 +374,29 @@ export function ensureMaintenanceDateRangePicker() {
   }
 
   function changeMonth(delta) {
-    calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + delta);
     const monthSelect = document.getElementById("calendar-month-select");
     const yearSelect = document.getElementById("calendar-year-select");
-    if (monthSelect) monthSelect.value = String(calendarCurrentDate.getMonth());
-    if (yearSelect) yearSelect.value = String(calendarCurrentDate.getFullYear());
+    if (calendarViewMode === "months") {
+      const { minYear, maxYear } = getYearBounds();
+      const currentYear = Number(yearSelect?.value) || calendarCurrentDate.getFullYear();
+      const nextYear = Math.min(maxYear, Math.max(minYear, currentYear + delta));
+      calendarCurrentDate.setFullYear(nextYear);
+      setYearControlValue(nextYear);
+      renderMonthPicker();
+      return;
+    }
+    if (calendarViewMode === "years") {
+      const { minYear, maxYear } = getYearBounds();
+      const currentYear = Number(yearSelect?.value) || calendarCurrentDate.getFullYear();
+      const nextYear = Math.min(maxYear, Math.max(minYear, currentYear + delta * 8));
+      calendarCurrentDate.setFullYear(nextYear);
+      setYearControlValue(nextYear);
+      renderYearPicker();
+      return;
+    }
+    calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + delta);
+    if (monthSelect) setMonthControlValue(calendarCurrentDate.getMonth());
+    setYearControlValue(calendarCurrentDate.getFullYear());
     renderCalendar();
   }
 
@@ -370,14 +486,16 @@ export function ensureMaintenanceDateRangePicker() {
     calendarStartDate = quickRange.startDate;
     calendarEndDate = quickRange.endDate;
     isSelectingRange = false;
+    calendarCurrentDate = new Date(calendarStartDate.getFullYear(), calendarStartDate.getMonth(), 1);
+    setMonthControlValue(calendarCurrentDate.getMonth());
+    setYearControlValue(calendarCurrentDate.getFullYear());
     syncToHiddenInputs();
     updateDateRangeDisplay();
     updateQuickPresetActive(range);
+    renderCalendar();
     if (typeof config.onChange === "function") config.onChange();
     const qd = document.getElementById("quick-select-dropdown");
     if (qd) qd.classList.remove("show");
-    const popup = document.getElementById("calendar-popup");
-    if (popup) popup.style.display = "none";
   }
 
   window.changeMonth = changeMonth;
@@ -424,8 +542,28 @@ export function ensureMaintenanceDateRangePicker() {
       }
       const monthSelect = document.getElementById("calendar-month-select");
       const yearSelect = document.getElementById("calendar-year-select");
-      if (monthSelect) monthSelect.onchange = renderCalendar;
-      if (yearSelect) yearSelect.onchange = renderCalendar;
+      if (monthSelect) {
+        if (monthSelect.tagName === "SELECT") {
+          monthSelect.onchange = renderCalendar;
+        } else {
+          monthSelect.onclick = (e) => {
+            e.stopPropagation();
+            if (calendarViewMode === "months") renderCalendar();
+            else renderMonthPicker();
+          };
+        }
+      }
+      if (yearSelect) {
+        if (yearSelect.tagName === "SELECT") {
+          yearSelect.onchange = renderCalendar;
+        } else {
+          yearSelect.onclick = (e) => {
+            e.stopPropagation();
+            if (calendarViewMode === "years") renderCalendar();
+            else renderYearPicker();
+          };
+        }
+      }
     },
     clear() {
       clearSelection(true);

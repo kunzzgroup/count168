@@ -32,6 +32,13 @@ body.dashboard-page.report-page .container {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Process List 同款 user-gc 面板：贴在白卡内，与 process 页顶栏分割一致 */
+body.dashboard-page.report-page .customer-report-filter-container .report-gc-inline-panel {
+    margin-top: 4px;
+    margin-left: -4px;
+    margin-right: -4px;
+}
+
 
 .customer-report-filters {
     display: flex;
@@ -173,7 +180,7 @@ body.dashboard-page.report-page .container {
 
 .customer-report-table-header {
     display: grid;
-    grid-template-columns: 2fr 2fr 2fr 1.5fr 1.5fr;
+    grid-template-columns: 1.35fr 1.45fr 0.72fr 0.82fr 0.72fr 1.05fr 1.05fr;
     gap: 15px;
     padding: clamp(0px, 0.78vw, 15px) 20px 12px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
@@ -181,12 +188,12 @@ body.dashboard-page.report-page .container {
     margin-top: 20px;
     font-weight: bold;
     color: white;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
     min-width: 0;
 }
 
-.customer-report-table-header > div:nth-child(4),
-.customer-report-table-header > div:nth-child(5) {
+.customer-report-table-header > div:nth-child(6),
+.customer-report-table-header > div:nth-child(7) {
     text-align: right;
 }
 
@@ -197,7 +204,7 @@ body.dashboard-page.report-page .container {
 
 .customer-report-card {
     display: grid;
-    grid-template-columns: 2fr 2fr 2fr 1.5fr 1.5fr;
+    grid-template-columns: 1.35fr 1.45fr 0.72fr 0.82fr 0.72fr 1.05fr 1.05fr;
     gap: 15px;
     padding: 1px 22px;
     background: #f0e5fb;
@@ -233,7 +240,7 @@ body.dashboard-page.report-page .container {
 
 .customer-report-total {
     display: grid;
-    grid-template-columns: 2fr 2fr 2fr 1.5fr 1.5fr;
+    grid-template-columns: 1.35fr 1.45fr 0.72fr 0.82fr 0.72fr 1.05fr 1.05fr;
     gap: 15px;
     padding: 1px 22px;
     background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
@@ -245,7 +252,7 @@ body.dashboard-page.report-page .container {
 }
 
 .customer-report-total-label {
-    grid-column: 1 / 4;
+    grid-column: 1 / 6;
     text-align: right;
     padding-right: 0;
     align-self: center;
@@ -365,4 +372,35 @@ body.dashboard-page.report-page .container {
         font-size: clamp(9px, 0.85vw, 14px);
     }
 
+}
+
+/* 报表区域：静默刷新时顶栏细条，无白屏叠层 */
+.customer-report-table-region {
+    position: relative;
+}
+
+.customer-report-sync-track {
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    background: rgba(229, 231, 235, 0.9);
+}
+
+.customer-report-sync-bar {
+    height: 100%;
+    width: 38%;
+    max-width: 180px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.95), rgba(59, 130, 246, 0.15));
+    animation: customer-report-sync-slide 0.95s ease-in-out infinite;
+}
+
+@keyframes customer-report-sync-slide {
+    0% {
+        transform: translateX(-120%);
+    }
+    100% {
+        transform: translateX(420%);
+    }
 }
