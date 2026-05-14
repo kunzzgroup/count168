@@ -554,29 +554,38 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-stack {
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all {
     display: flex !important;
+    flex-direction: row !important;
     align-items: center !important;
-    gap: 10px !important;
+    gap: 8px !important;
     margin: 0 !important;
-    padding: 4px 2px !important;
-    min-height: 32px !important;
+    padding: 2px 0 !important;
+    min-height: 0 !important;
     font-family: var(--font-ui) !important;
-    font-size: var(--text-small) !important;
+    font-size: var(--text-medium) !important;
     font-weight: var(--font-weight-semibold) !important;
-    color: var(--color-ink-muted) !important;
+    color: var(--color-page-fg) !important;
     cursor: pointer !important;
-    line-height: 1.2 !important;
+    line-height: 1 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all > span {
     display: inline-flex !important;
     align-items: center !important;
-    line-height: 18px !important;
+    justify-content: flex-start !important;
+    min-height: 16px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    color: inherit !important;
+    line-height: 16px !important;
+    letter-spacing: 0 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all .dfm-assign-select-all-checkbox {
     cursor: pointer !important;
     flex-shrink: 0 !important;
-    align-self: center !important;
     margin: 0 !important;
 }
 
@@ -667,18 +676,12 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-name {
     padding-top: 1px !important;
 }
 
-/* 勾选与标签垂直中线对齐（图二）：略小的方框贴近字高 */
+/* 勾选与标签垂直中线对齐：方框与字高一致 */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-stack .dfm-assign-ref-checkbox {
     width: 16px !important;
     height: 16px !important;
     border-width: 1.5px !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all > span:last-child {
-    line-height: 1 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    padding-top: 1px !important;
+    border-radius: 3px !important;
 }
 
 /* 备选：下方为旧版双列宫格（保留以便回退） */
@@ -746,14 +749,15 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-ref-checkbox {
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-ref-checkbox:checked {
     background-color: var(--color-control-accent) !important;
     border-color: var(--color-control-accent-border) !important;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 8.75 7 11.75 12.75 4.75' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    /* 24×24 viewBox 填充对勾，几何居中，避免描边路径视觉偏左上 */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") !important;
     background-repeat: no-repeat !important;
     background-position: 50% 50% !important;
-    background-size: 10px 10px !important;
+    background-size: 12px 12px !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-stack .dfm-assign-ref-checkbox:checked {
-    background-size: 9px 9px !important;
+    background-size: 11px 11px !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-ref-checkbox:focus-visible {
