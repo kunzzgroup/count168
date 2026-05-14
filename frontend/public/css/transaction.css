@@ -76,7 +76,98 @@ body.transaction-page {
 .transaction-page .transaction-add-section {
     display: flex;
     flex-direction: column;
-    gap: clamp(6px, 0.52vw, 12px);
+    gap: clamp(10px, 0.85vw, 16px);
+}
+
+/* Outlined two-column rows (Type|Date, Currency|Amount) + accounts + remark */
+body.transaction-page .transaction-add-section .tx-add-form-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: clamp(10px, 1vw, 14px);
+    width: 100%;
+}
+
+body.transaction-page .transaction-add-section .tx-add-form-row--pair .tx-add-field-col {
+    flex: 1 1 calc(50% - 7px);
+    min-width: min(140px, 100%);
+}
+
+body.transaction-page .transaction-add-section .tx-add-form-row--type-only .tx-add-field-col {
+    flex: 1 1 100%;
+    max-width: 100%;
+}
+
+body.transaction-page .transaction-add-section .tx-add-form-row--accounts {
+    align-items: flex-end;
+}
+
+body.transaction-page .transaction-add-section .tx-add-form-row--accounts .tx-add-field-col {
+    flex: 1 1 0;
+    min-width: min(160px, 100%);
+}
+
+body.transaction-page .transaction-add-section .tx-add-form-row--accounts.tx-add-form-row--with-reverse .tx-add-field-col {
+    flex: 1 1 28%;
+    min-width: min(120px, 100%);
+}
+
+body.transaction-page .transaction-add-section .tx-add-field-col--full {
+    flex: 1 1 100%;
+    min-width: 0;
+}
+
+body.transaction-page .transaction-add-section .tx-add-account-reverse {
+    flex: 0 0 auto;
+    align-self: center;
+    margin-top: 10px;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-select,
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-input {
+    width: 100%;
+    margin: 0;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: #f9fafb;
+    min-height: clamp(30px, 2.25vw, 38px);
+    padding: clamp(6px, 0.5vw, 9px) clamp(9px, 0.7vw, 12px);
+    border-radius: clamp(4px, 0.42vw, 6px);
+    font-size: var(--text-small);
+    box-sizing: border-box;
+    outline: none;
+    color: #111827;
+    font-family: var(--font-heading-page);
+}
+
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%2364748b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-input:focus,
+body.transaction-page .transaction-add-section .report-outlined-inner .transaction-select:focus {
+    background-color: #ffffff;
+}
+
+body.transaction-page .transaction-add-section .tx-add-winlose-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 20px;
+    padding: 4px 2px 2px;
+}
+
+body.transaction-page .transaction-add-section .tx-add-winlose-heading {
+    font-size: clamp(11px, 0.85vw, 13px);
+    font-weight: 700;
+    color: #374151;
+    font-family: var(--font-heading-page);
+    min-width: 5.25rem;
 }
 
 /* Group / Company / Currency：与上方 chip 行用分隔线区分；线与上下内容留间距 */
@@ -2295,6 +2386,7 @@ body.transaction-page .transaction-container * {
     flex-wrap: nowrap;
 }
 
+/* Legacy label+row layout — still used by rate workflow & hidden rows */
 .transaction-add-section .transaction-form-group .transaction-label {
     width: clamp(80px, 6vw, 110px);
     flex: 0 0 clamp(60px, 6vw, 105px);

@@ -8,6 +8,7 @@ export function AccountSelect({
   disabled,
   profitType,
   selectedCategories,
+  ariaLabelledBy,
 }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
@@ -72,6 +73,7 @@ export function AccountSelect({
       <button
         type="button"
         className={`custom-select-button${open ? " open" : ""}`}
+        aria-labelledby={ariaLabelledBy || undefined}
         data-placeholder={placeholder}
         data-value={value?.id ?? ""}
         data-account-id={value?.id ?? ""}

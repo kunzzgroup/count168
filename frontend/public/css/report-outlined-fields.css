@@ -124,3 +124,75 @@ body.transaction-page .report-outlined-inner .category-dropdown-button:focus {
     border: none !important;
     box-shadow: none !important;
 }
+
+/* Transaction add form (right card) — outlined fields aligned with customer-report style */
+body.transaction-page .transaction-add-section .report-outlined-anchor {
+    gap: 0;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-shell {
+    position: relative;
+    box-sizing: border-box;
+    margin-top: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: clamp(6px, 0.52vw, 8px);
+    background: #fff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-label {
+    position: absolute;
+    left: clamp(10px, 0.83vw, 14px);
+    top: 0;
+    transform: translateY(-50%);
+    z-index: 3;
+    padding: 0 clamp(5px, 0.42vw, 7px);
+    margin: 0;
+    font-size: clamp(11px, 0.85vw, 13px);
+    font-weight: 600;
+    font-family: var(--font-heading-page);
+    color: #374151;
+    background-color: #fff;
+    pointer-events: none;
+    line-height: 1.15;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-shell:hover,
+body.transaction-page .transaction-add-section .report-outlined-shell:focus-within,
+body.transaction-page .transaction-add-section .report-outlined-shell:has(.custom-select-button.open) {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+body.transaction-page .transaction-add-section .report-outlined-shell:focus-within .report-outlined-label,
+body.transaction-page .transaction-add-section .report-outlined-shell:has(.custom-select-button.open) .report-outlined-label {
+    color: #3b82f6;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-inner .custom-select-button {
+    margin: 0;
+    border: none !important;
+    border-radius: inherit;
+    box-shadow: none !important;
+    background: transparent;
+    min-height: clamp(30px, 2.25vw, 38px);
+    width: 100%;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-inner .custom-select-button:hover,
+body.transaction-page .transaction-add-section .report-outlined-inner .custom-select-button:focus,
+body.transaction-page .transaction-add-section .report-outlined-inner .custom-select-button.open {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-anchor .custom-select-wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+}
+
+body.transaction-page .transaction-add-section .report-outlined-anchor:has(.custom-select-button.open) .custom-select-wrapper {
+    z-index: 45;
+}
