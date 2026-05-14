@@ -237,7 +237,7 @@ body.account-page:not(.account-page--show-all) {
 .account-separator-line {
     width: 100vw;
     height: 2px;
-    background-color: #939393;
+    background-color: transparent;
     margin: 5px 0 -10px 0;
     position: relative;
     left: 50%;
