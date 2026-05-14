@@ -35,6 +35,40 @@ export function normalizeRows(data) {
   return Array.isArray(data) ? data : [];
 }
 
+/** One pill per display `company_id`; API duplicates collapse. Prefer the row whose `id` matches `preferredPk`. */
+export function dedupeCompanyRowsForSwitcher(companies, preferredPk) {
+  const filtered = normalizeRows(companies).filter((c) => c.company_id && String(c.company_id).trim() !== "");
+  const byLabel = new Map();
+  for (const c of filtered) {
+    const label = String(c.company_id || "").trim().toUpperCase();
+    if (!label) continue;
+    let arr = byLabel.get(label);
+    if (!arr) {
+      arr = [];
+      byLabel.set(label, arr);
+    }
+    const idNum = Number(c.id);
+    if (Number.isFinite(idNum) && arr.some((e) => Number(e.id) === idNum)) continue;
+    arr.push(c);
+  }
+  const pref = Number(preferredPk);
+  const out = [];
+  for (const arr of byLabel.values()) {
+    if (arr.length === 1) {
+      out.push(arr[0]);
+      continue;
+    }
+    const sorted = [...arr].sort((a, b) => Number(a.id) - Number(b.id));
+    if (Number.isFinite(pref)) {
+      const hit = sorted.find((e) => Number(e.id) === pref);
+      out.push(hit ?? sorted[0]);
+    } else {
+      out.push(sorted[0]);
+    }
+  }
+  return out;
+}
+
 /** Same ordering as js/processlist.js after fetch (Games). */
 export function sortProcessRows(rows) {
   const copy = [...rows];
