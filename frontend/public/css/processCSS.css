@@ -840,7 +840,8 @@ body.process-page {
 
 /* Games + Bank Process：白卡區 segmented 篩選（標籤↔膠囊、膠囊內距勿過緊）；底邊加厚使最後一行（Currency）下至白卡邊緣與各行 row-gap 節奏一致 */
 .process-page .action-buttons-container .user-gc-inline-panel {
-    padding: 10px 18px 18px 18px;
+    /* 上下留白接近，避免「控制列到 GroupID」空一大块、Currency 底下过紧 */
+    padding: 12px 18px 14px 18px;
     column-gap: 20px;
     row-gap: 12px;
 }
@@ -934,7 +935,7 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     }
 
     .process-page .action-buttons-container .user-gc-inline-panel {
-        padding: 6px 16px 14px 16px;
+        padding: 8px 16px 12px 16px;
         column-gap: 18px;
         row-gap: 10px;
     }
@@ -1596,13 +1597,19 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 /* No. column: fixed compact width and center alignment */
 .process-page:not(.process-page--bank) .table-header,
 .process-page:not(.process-page--bank) .process-card {
-    grid-template-columns: 38px 0.88fr 1fr 0.4fr 0.35fr 1.15fr 0.28fr !important;
+    /* 表头/行 gap 统一为 8px（原先表头 15px、行 8px 会导致列与蓝条下内容纵向错开） */
+    gap: 8px;
+    /* Status/Currency 用 minmax 限制过宽；Day Use 仍占主要弹性空间 */
+    grid-template-columns:
+        38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr) minmax(32px, 0.26fr) !important;
 }
 
 /* Show Inactive / Show All：Action 与批量勾选分两列（与 User List 勾选列对齐） */
 .process-page:not(.process-page--bank) .process-table-wrapper--select-col .table-header,
 .process-page:not(.process-page--bank) .process-table-wrapper--select-col .process-card {
-    grid-template-columns: 38px 0.88fr 1fr 0.4fr 0.35fr 1.15fr minmax(0, 0.26fr) 48px !important;
+    grid-template-columns:
+        38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr)
+        minmax(32px, 0.24fr) 48px !important;
 }
 
 .process-page:not(.process-page--bank) .process-card .card-item--action {
