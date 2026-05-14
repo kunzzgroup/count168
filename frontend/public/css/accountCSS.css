@@ -351,24 +351,23 @@ body.account-page:not(.account-page--show-all) {
     display: inline !important;
 }
 
-/* Show All：表格框保持正常行距，页面向下展开显示全部资料 */
+/* Show All：外框尺寸保持普通模式，只在资料区展示全部数据 */
 body.account-page--show-all {
     overflow-x: hidden !important;
-    overflow-y: auto !important;
-    height: auto !important;
+    overflow-y: hidden !important;
+    height: 100vh !important;
     min-height: 100vh !important;
 }
 
 body.account-page--show-all .container {
-    height: auto !important;
-    min-height: 100vh !important;
-    overflow: visible !important;
+    height: 100vh !important;
+    overflow: hidden !important;
 }
 
 body.account-page--show-all .content {
-    height: auto !important;
-    min-height: calc(100vh - 22px) !important;
-    overflow: visible !important;
+    height: calc(100vh - 22px) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
     display: flex;
     flex-direction: column;
 }
@@ -376,7 +375,7 @@ body.account-page--show-all .content {
 body.account-page--show-all .account-table-wrapper {
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     display: flex;
     flex-direction: column;
     padding-bottom: 52px;
@@ -387,15 +386,16 @@ body.account-page--show-all .account-table-header {
     flex-shrink: 0;
 }
 
-/* 覆盖 global-13inch：Show All 让列表自然展开，不把资料塞进固定高度 */
+/* 覆盖 global-13inch：Show All 不改变 table 尺寸，只让资料区滚动 */
 body.ec-auth-shell.account-page--show-all .account-cards,
 body.account-page--show-all .account-cards {
     display: flex;
     flex-direction: column;
-    flex: 0 1 auto !important;
+    flex: 1 1 auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     justify-content: flex-start;
 }
 
@@ -404,31 +404,22 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all,
 .account-cards.account-cards--show-all {
     display: flex !important;
     flex-direction: column !important;
-    flex: 0 1 auto !important;
+    flex: 1 1 auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     justify-content: flex-start !important;
     align-content: flex-start !important;
 }
 
-/* Show All：只禁止 row 被压缩；行高/内边距跟普通模式一致 */
+/* Show All：只禁止 row 被压缩；row/cell 尺寸完全沿用普通模式 */
 body.account-page--show-all .account-card,
 body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .account-card,
 .account-page .account-cards.account-cards--show-all > .account-card,
 .account-cards.account-cards--show-all > .account-card {
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    min-height: 20px !important;
-    height: auto !important;
-    padding: 10px 22px !important;
-}
-
-body.account-page--show-all .account-card-item,
-body.ec-auth-shell.account-page .account-cards.account-cards--show-all .account-card-item,
-.account-page .account-cards.account-cards--show-all .account-card-item,
-.account-cards.account-cards--show-all .account-card-item {
-    line-height: 1.5 !important;
 }
 
 /* Account Cards：纵向 flex；行高随内容，空白留在列表底部（与 userlist 一致） */
