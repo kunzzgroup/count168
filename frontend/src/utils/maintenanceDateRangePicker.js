@@ -48,6 +48,13 @@ export function ensureMaintenanceDateRangePicker() {
     if (weekdays) weekdays.style.display = visible ? "" : "none";
   }
 
+  function updateHeaderTriggerActive(activeMode) {
+    const monthControl = document.getElementById("calendar-month-select");
+    const yearControl = document.getElementById("calendar-year-select");
+    if (monthControl) monthControl.classList.toggle("is-active", activeMode === "months");
+    if (yearControl) yearControl.classList.toggle("is-active", activeMode === "years");
+  }
+
   function setMonthControlValue(monthIndex) {
     const monthControl = document.getElementById("calendar-month-select");
     if (!monthControl) return;
@@ -241,6 +248,7 @@ export function ensureMaintenanceDateRangePicker() {
     const yearSelect = document.getElementById("calendar-year-select");
     if (!daysContainer || !yearSelect) return;
     calendarViewMode = "months";
+    updateHeaderTriggerActive("months");
     setWeekdaysVisible(false);
     daysContainer.classList.remove("calendar-year-grid");
     daysContainer.classList.add("calendar-month-grid");
@@ -272,6 +280,7 @@ export function ensureMaintenanceDateRangePicker() {
     const yearControl = document.getElementById("calendar-year-select");
     if (!daysContainer || !yearControl) return;
     calendarViewMode = "years";
+    updateHeaderTriggerActive("years");
     setWeekdaysVisible(false);
     daysContainer.classList.remove("calendar-month-grid");
     daysContainer.classList.add("calendar-year-grid");
@@ -298,6 +307,7 @@ export function ensureMaintenanceDateRangePicker() {
 
   function renderCalendar() {
     calendarViewMode = "days";
+    updateHeaderTriggerActive("");
     setWeekdaysVisible(true);
     const yearSelect = document.getElementById("calendar-year-select");
     const monthSelect = document.getElementById("calendar-month-select");
