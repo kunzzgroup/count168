@@ -420,9 +420,9 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 .account-cards.account-cards--show-all > .account-card {
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    min-height: 34px !important;
+    min-height: 20px !important;
     height: auto !important;
-    padding: 8px 22px !important;
+    padding: 0 22px !important;
 }
 
 body.account-page--show-all .account-card-item,
@@ -430,7 +430,7 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all .account-
 .account-page .account-cards.account-cards--show-all .account-card-item,
 .account-cards.account-cards--show-all .account-card-item {
     line-height: 1.45 !important;
-    min-height: 18px !important;
+    min-height: 0 !important;
 }
 
 body.account-page--show-all .account-role-badge,
