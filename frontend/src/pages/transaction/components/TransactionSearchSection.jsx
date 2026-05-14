@@ -196,8 +196,8 @@ export default function TransactionSearchSection({
         })}
       </div>
 
-      <div className="transaction-bottom-filters">
-        {(fs.snapGroupIds.length > 0 || fs.snapCompanies.length > 0 || currencyRowsOrdered.length > 0) && (
+      {(fs.snapGroupIds.length > 0 || fs.snapCompanies.length > 0 || currencyRowsOrdered.length > 0) && (
+        <div className="transaction-bottom-filters">
           <div className="user-gc-inline-panel">
             {fs.snapGroupIds.length > 0 && (
               <div id="group-buttons-wrapper" className="user-gc-inline-row">
@@ -299,8 +299,8 @@ export default function TransactionSearchSection({
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
