@@ -839,7 +839,7 @@ export default function AccountListPage() {
         setForm={setForm}
         orderedRoles={orderedRoles}
         currencies={accountModalCurrencies}
-        companies={companies}
+        companies={allCompanyButtons}
         selectedCurrencyIds={selectedCurrencyIds}
         setSelectedCurrencyIds={setSelectedCurrencyIds}
         selectedCompanyIds={selectedCompanyIds}

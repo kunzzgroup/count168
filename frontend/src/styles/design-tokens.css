@@ -69,6 +69,12 @@
   --color-danger: #ef4444;
   --color-success: #22c55e;
 
+  /* --- 按钮渐变色（Add / Delete 共用，含 hover）--- */
+  --btn-add-gradient: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+  --btn-add-gradient-hover: linear-gradient(180deg, #0d60ff 0%, #63c4ff 100%);
+  --btn-delete-gradient: linear-gradient(180deg, #f30e12 0%, #a91215 100%);
+  --btn-delete-gradient-hover: linear-gradient(180deg, #a91215 0%, #f30e12 100%);
+
   /* Add User「Account」/ 幣別設定帳號格 — 與 userlist #userModal .user-modal-select-card 一致 */
   --account-select-card-bg: #f1f5f9;
   --account-select-card-border: #cbd5e1;
