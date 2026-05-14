@@ -152,6 +152,21 @@ body.transaction-page .transaction-add-section .tx-add-form-row--reserve-reverse
     body.transaction-page .transaction-add-section .tx-add-form-row--accounts.tx-add-form-row--with-reverse .tx-add-field-col {
         flex: 1 1 calc(50% - 7px);
     }
+
+    body.transaction-page .transaction-add-section .tx-add-form-row--rate-with-reverse-slot {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    body.transaction-page .transaction-add-section .tx-add-rate-fields-span {
+        flex: 1 1 100%;
+        min-width: 0;
+        grid-column: unset;
+    }
+
+    body.transaction-page .transaction-add-section .tx-add-reverse-slot {
+        display: none;
+    }
 }
 
 body.transaction-page .transaction-add-section .tx-add-field-col--full {
@@ -2568,6 +2583,27 @@ body.transaction-page .transaction-add-section .rate-section.rate-section--curre
     align-items: stretch;
     align-self: stretch;
     width: 100%;
+}
+
+/* RATE：币别 / Middle-Man 与 To|From Account + Reverse 同栅格，字段仅占前两列，第三列为 Reverse 占位（对齐图二） */
+body.transaction-page .transaction-add-section .tx-add-form-row--rate-with-reverse-slot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--tx-add-reverse-col);
+    gap: clamp(10px, 1vw, 14px);
+    align-items: flex-start;
+    width: 100%;
+}
+
+body.transaction-page .transaction-add-section .tx-add-rate-fields-span {
+    grid-column: 1 / 3;
+    min-width: 0;
+}
+
+body.transaction-page .transaction-add-section .tx-add-reverse-slot {
+    grid-column: 3;
+    width: var(--tx-add-reverse-col);
+    min-width: var(--tx-add-reverse-col);
+    box-sizing: border-box;
 }
 
 body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols {

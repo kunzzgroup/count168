@@ -371,7 +371,9 @@ export default function TransactionAddSection({
         </div>
 
         <div className="rate-section rate-section--currency-outlined">
-          <div className="tx-add-form-row tx-add-form-row--rate-five-cols">
+          <div className="tx-add-form-row tx-add-form-row--rate-with-reverse-slot">
+            <div className="tx-add-rate-fields-span">
+              <div className="tx-add-form-row tx-add-form-row--rate-five-cols">
             <div className="report-outlined-anchor tx-add-field-col">
               <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
@@ -471,6 +473,9 @@ export default function TransactionAddSection({
                 </div>
               </div>
             </div>
+              </div>
+            </div>
+            <div className="tx-add-reverse-slot" aria-hidden="true" />
           </div>
         </div>
 
@@ -533,7 +538,9 @@ export default function TransactionAddSection({
         </div>
 
         <div className="rate-section rate-section--middleman-outlined">
-          <div className="tx-add-form-row tx-add-form-row--rate-three-cols">
+          <div className="tx-add-form-row tx-add-form-row--rate-with-reverse-slot">
+            <div className="tx-add-rate-fields-span">
+              <div className="tx-add-form-row tx-add-form-row--rate-three-cols">
             <div className="report-outlined-anchor tx-add-field-col">
               <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
@@ -589,6 +596,9 @@ export default function TransactionAddSection({
                 </div>
               </div>
             </div>
+              </div>
+            </div>
+            <div className="tx-add-reverse-slot" aria-hidden="true" />
           </div>
         </div>
       </div>
