@@ -19,6 +19,9 @@ let pendingBankStatusSelection = null;
 let bankProcessSubmitInFlight = false;
 const pendingResendScheduleByProcessId = {};
 const BANK_ALLOWED_ACCOUNT_ROLES = ['PARTNER', 'SUPPLIER', 'UPLINE', 'STAFF', 'AGENT', 'MEMBER', 'PROFIT'];
+/** 拖拽币种 pill 后抑制一次 click，避免误切换筛选 */
+let bankCurrencyFilterClickSuppress = false;
+let bankCurrencyPillDragEl = null;
 
 function normalizeBankAccountRole(role) {
     return String(role || '').trim().toUpperCase();
@@ -756,6 +759,54 @@ function matchesCurrentBankFilters(process) {
     return matches.some(Boolean);
 }
 
+function getBankCurrencyPillOrderStorageKey() {
+    const cid = typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' && window.PROCESSLIST_COMPANY_ID != null
+        ? String(window.PROCESSLIST_COMPANY_ID)
+        : '0';
+    return 'bank_currency_pill_order_v1_' + cid;
+}
+
+function loadSavedBankCurrencyPillOrder() {
+    try {
+        const raw = localStorage.getItem(getBankCurrencyPillOrderStorageKey());
+        if (!raw) return null;
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return null;
+        return arr.map(function (x) { return String(x || '').trim().toUpperCase(); }).filter(Boolean);
+    } catch (e) {
+        return null;
+    }
+}
+
+function saveBankCurrencyPillOrderFromDom(container) {
+    if (!container) return;
+    const order = [];
+    container.querySelectorAll('.bank-currency-filter-btn').forEach(function (btn) {
+        const c = btn.getAttribute('data-currency');
+        if (c != null && String(c).trim() !== '') {
+            order.push(String(c).trim().toUpperCase());
+        }
+    });
+    try {
+        localStorage.setItem(getBankCurrencyPillOrderStorageKey(), JSON.stringify(order));
+    } catch (e) { /* quota / private mode */ }
+}
+
+/** 插入位置：1 = 紧挨 All 之后；不得为 0（All 前不可插入） */
+function getBankCurrencyDropInsertIndex(container, clientX) {
+    const buttons = Array.from(container.querySelectorAll('.bank-currency-filter-btn'));
+    if (buttons.length <= 1) return 1;
+    let insertBefore = buttons.length;
+    for (let i = 1; i < buttons.length; i++) {
+        const r = buttons[i].getBoundingClientRect();
+        if (clientX < r.left + r.width / 2) {
+            insertBefore = i;
+            break;
+        }
+    }
+    return Math.max(1, insertBefore);
+}
+
 function rebuildBankCurrencyFilterPills() {
     const container = document.getElementById('bankCurrencyButtons');
     if (!container) return;
@@ -766,17 +817,32 @@ function rebuildBankCurrencyFilterPills() {
             if (c) codes.add(c);
         });
     }
-    const sorted = Array.from(codes).sort();
+    const alphaSorted = Array.from(codes).sort();
+    const saved = loadSavedBankCurrencyPillOrder();
+    const ordered = [];
+    if (saved && saved.length) {
+        saved.forEach(function (code) {
+            if (codes.has(code) && ordered.indexOf(code) === -1) {
+                ordered.push(code);
+            }
+        });
+    }
+    alphaSorted.forEach(function (code) {
+        if (ordered.indexOf(code) === -1) {
+            ordered.push(code);
+        }
+    });
     let active = String(typeof bankCountryFilterCode !== 'undefined' ? bankCountryFilterCode : '').trim().toUpperCase();
     if (active && !codes.has(active)) {
         active = '';
         bankCountryFilterCode = '';
     }
-    let html = '<button type="button" class="process-company-btn bank-currency-filter-btn' + (!active ? ' active' : '') + '" data-currency="">All</button>';
-    sorted.forEach(function (code) {
+    let html = '<button type="button" class="process-company-btn bank-currency-filter-btn bank-currency-filter-all" draggable="false" data-currency=""' +
+        (!active ? ' active' : '') + '>All</button>';
+    ordered.forEach(function (code) {
         const isActive = active === code;
-        html += '<button type="button" class="process-company-btn bank-currency-filter-btn' + (isActive ? ' active' : '') +
-            '" data-currency="' + escapeHtml(code) + '">' + escapeHtml(code) + '</button>';
+        html += '<button type="button" class="process-company-btn bank-currency-filter-btn bank-currency-filter-draggable" draggable="true" data-currency="' +
+            escapeHtml(code) + '"' + (isActive ? ' active' : '') + '>' + escapeHtml(code) + '</button>';
     });
     container.innerHTML = html;
 }
@@ -787,6 +853,10 @@ function rebuildBankCurrencyFilterPills() {
     if (!wrap) return;
     window.__bankCurrencyFilterDelegationBound = true;
     wrap.addEventListener('click', function (e) {
+        if (bankCurrencyFilterClickSuppress) {
+            bankCurrencyFilterClickSuppress = false;
+            return;
+        }
         const btn = e.target && e.target.closest ? e.target.closest('.bank-currency-filter-btn') : null;
         if (!btn || !wrap.contains(btn)) return;
         e.preventDefault();
@@ -800,6 +870,65 @@ function rebuildBankCurrencyFilterPills() {
         if (typeof renderTable === 'function') {
             renderTable();
         }
+    });
+})();
+
+(function bindBankCurrencyPillDragAndDrop() {
+    if (window.__bankCurrencyPillDnDBound) return;
+    const container = document.getElementById('bankCurrencyButtons');
+    if (!container) return;
+    window.__bankCurrencyPillDnDBound = true;
+
+    container.addEventListener('dragstart', function (e) {
+        const t = e.target && e.target.closest ? e.target.closest('.bank-currency-filter-btn') : null;
+        if (!t || !container.contains(t)) return;
+        if (!t.draggable) return;
+        const raw = t.getAttribute('data-currency');
+        if (raw == null || String(raw).trim() === '') return;
+        bankCurrencyPillDragEl = t;
+        t.classList.add('bank-currency-filter-dragging');
+        try {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'bank-currency-pill');
+        } catch (err) { /* ignore */ }
+    });
+
+    container.addEventListener('dragover', function (e) {
+        if (!bankCurrencyPillDragEl) return;
+        e.preventDefault();
+        try {
+            e.dataTransfer.dropEffect = 'move';
+        } catch (err2) { /* ignore */ }
+    });
+
+    container.addEventListener('dragenter', function (e) {
+        if (bankCurrencyPillDragEl) e.preventDefault();
+    });
+
+    container.addEventListener('drop', function (e) {
+        if (!bankCurrencyPillDragEl) return;
+        e.preventDefault();
+        const dragEl = bankCurrencyPillDragEl;
+        bankCurrencyPillDragEl = null;
+        dragEl.classList.remove('bank-currency-filter-dragging');
+
+        const insertBefore = getBankCurrencyDropInsertIndex(container, e.clientX);
+        const buttons = Array.from(container.querySelectorAll('.bank-currency-filter-btn'));
+        const ref = insertBefore < buttons.length ? buttons[insertBefore] : null;
+        if (ref !== dragEl) {
+            container.insertBefore(dragEl, ref);
+        }
+        saveBankCurrencyPillOrderFromDom(container);
+        bankCurrencyFilterClickSuppress = true;
+        setTimeout(function () {
+            bankCurrencyFilterClickSuppress = false;
+        }, 0);
+    });
+
+    container.addEventListener('dragend', function (e) {
+        const t = e.target && e.target.closest ? e.target.closest('.bank-currency-filter-btn') : null;
+        if (t) t.classList.remove('bank-currency-filter-dragging');
+        bankCurrencyPillDragEl = null;
     });
 })();
 

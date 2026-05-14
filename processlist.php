@@ -332,7 +332,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div id="bankCurrencyFilterWrapper" class="process-company-filter shared-bank-currency-filter">
                     <span class="process-company-label">Currency:</span>
                     <div id="bankCurrencyButtons" class="process-company-buttons" role="group" aria-label="Currency filter">
-                        <button type="button" class="process-company-btn bank-currency-filter-btn active" data-currency="">All</button>
+                        <button type="button" class="process-company-btn bank-currency-filter-btn bank-currency-filter-all active" draggable="false" data-currency="">All</button>
                     </div>
                 </div>
                 <?php endif; ?>

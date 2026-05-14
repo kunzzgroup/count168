@@ -752,6 +752,24 @@ body.process-page {
     padding: 0 16px 8px 16px;
 }
 
+/* Bank：Currency 筛选 pill 可拖拽排序（All 固定首位、不可拖） */
+.process-page.process-page--bank #bankCurrencyButtons .bank-currency-filter-draggable {
+    cursor: grab;
+    user-select: none;
+}
+
+.process-page.process-page--bank #bankCurrencyButtons .bank-currency-filter-draggable:active {
+    cursor: grabbing;
+}
+
+.process-page.process-page--bank #bankCurrencyButtons .bank-currency-filter-dragging {
+    opacity: 0.65;
+}
+
+.process-page.process-page--bank #bankCurrencyButtons .bank-currency-filter-all {
+    cursor: default;
+}
+
 .process-page.process-page--bank .pagination-container {
     flex-shrink: 0;
     margin-top: 3px;
