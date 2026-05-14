@@ -332,26 +332,52 @@ body.account-page:not(.account-page--show-all) {
     user-select: none;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: flex-start;
+    gap: 5px;
     transition: background-color 0.2s ease;
     padding: 2px 4px;
     border-radius: 4px;
+    min-width: 0;
 }
 
 .account-header-sortable:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* 排序指示器 */
-.account-sort-indicator {
-    font-size: clamp(8px, 0.6vw, 12px);
-    color: rgba(255, 255, 255, 0.8);
-    display: inline;
-    margin-left: 4px;
+.account-sort-icon {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    width: 8px;
+    height: 12px;
+    flex-shrink: 0;
 }
 
-.account-sort-indicator[style*="display: inline"] {
-    display: inline !important;
+.account-sort-icon__up,
+.account-sort-icon__down {
+    width: 0;
+    height: 0;
+    opacity: 0.55;
+}
+
+.account-sort-icon__up {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid rgba(255, 255, 255, 0.8);
+}
+
+.account-sort-icon__down {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid rgba(255, 255, 255, 0.8);
+}
+
+.account-sort-icon.is-asc .account-sort-icon__up,
+.account-sort-icon.is-desc .account-sort-icon__down {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.45));
 }
 
 /* Show All：table 起点/宽度保持普通模式，资料自然展开由整页滚动 */

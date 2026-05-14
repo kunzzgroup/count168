@@ -210,7 +210,7 @@ export default function AccountListPage() {
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id") || meJson.data.company_id || rows[0]?.id;
         const initialCompanyId = cid ? Number(cid) : null;
-        const initialSearchTerm = url.searchParams.get("search") || "";
+        const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
         const initialShowAll = url.searchParams.get("showAll") === "1";
         if (initialCompanyId) {
@@ -288,14 +288,27 @@ export default function AccountListPage() {
   const sortedAccounts = useMemo(() => {
     const arr = [...accounts];
     arr.sort((a, b) => {
+      let base = 0;
       if (sortColumn === "role") {
         const ao = roleSortOrder(a.role, roles);
         const bo = roleSortOrder(b.role, roles);
-        if (ao !== bo) return sortDirection === "asc" ? ao - bo : bo - ao;
+        base = ao - bo;
+      } else if (sortColumn === "alert") {
+        base = Number(a.payment_alert || 0) - Number(b.payment_alert || 0);
+      } else {
+        const getValue = (account) => {
+          if (sortColumn === "name") return account.name;
+          if (sortColumn === "status") return account.status;
+          if (sortColumn === "lastLogin") return account.last_login;
+          if (sortColumn === "remark") return account.remark;
+          return account.account_id;
+        };
+        base = String(getValue(a) || "").localeCompare(String(getValue(b) || ""), undefined, { numeric: true, sensitivity: "base" });
       }
-      const ak = String(a.account_id || "").toLowerCase();
-      const bk = String(b.account_id || "").toLowerCase();
-      const base = ak.localeCompare(bk);
+
+      if (base === 0 && sortColumn !== "account") {
+        base = String(a.account_id || "").localeCompare(String(b.account_id || ""), undefined, { numeric: true, sensitivity: "base" });
+      }
       return sortDirection === "asc" ? base : -base;
     });
     return arr;
@@ -648,6 +661,36 @@ export default function AccountListPage() {
 
   if (bootLoading || !cssReady) return null;
 
+  const handleSort = (column) => {
+    setSortDirection((direction) => (sortColumn === column && direction === "asc" ? "desc" : "asc"));
+    setSortColumn(column);
+  };
+
+  const renderSortIcon = (column) => (
+    <span className={`account-sort-icon${sortColumn === column ? ` is-active is-${sortDirection}` : ""}`} aria-hidden="true">
+      <span className="account-sort-icon__up" />
+      <span className="account-sort-icon__down" />
+    </span>
+  );
+
+  const renderSortableHeader = (label, column) => (
+    <div
+      className="account-header-item account-header-sortable"
+      role="button"
+      tabIndex={0}
+      onClick={() => handleSort(column)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleSort(column);
+        }
+      }}
+    >
+      <span>{label}</span>
+      {renderSortIcon(column)}
+    </div>
+  );
+
   return (
     <>
       <div className="container">
@@ -668,7 +711,7 @@ export default function AccountListPage() {
                     className="search-input userlist-search-input"
                     placeholder={t("searchByAccountOrName")}
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => setSearchTerm(toUpper(e.target.value))}
                   />
                 </div>
                 <div className="userlist-filter-chips" role="group">
@@ -792,13 +835,13 @@ export default function AccountListPage() {
           <div className="account-table-wrapper">
             <div className="account-table-header">
               <div className="account-header-item">{t("no")}</div>
-              <div className="account-header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("account"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("account")} {sortColumn === "account" && (sortDirection === "asc" ? "▲" : "▼")}</div>
-              <div className="account-header-item">{t("name")}</div>
-              <div className="account-header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("role"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("role")} {sortColumn === "role" && (sortDirection === "asc" ? "▲" : "▼")}</div>
-              <div className="account-header-item">{t("alert")}</div>
-              <div className="account-header-item">{t("status")}</div>
-              <div className="account-header-item">{t("lastLogin")}</div>
-              <div className="account-header-item">{t("remark")}</div>
+              {renderSortableHeader(t("account"), "account")}
+              {renderSortableHeader(t("name"), "name")}
+              {renderSortableHeader(t("role"), "role")}
+              {renderSortableHeader(t("alert"), "alert")}
+              {renderSortableHeader(t("status"), "status")}
+              {renderSortableHeader(t("lastLogin"), "lastLogin")}
+              {renderSortableHeader(t("remark"), "remark")}
               <div className="account-header-item">{t("action")}</div>
             </div>
             <div className={`account-cards${showAll ? " account-cards--show-all" : ""}`}>
