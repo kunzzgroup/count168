@@ -185,6 +185,15 @@ function dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id) {
     }
 }
 
+function dbGetResolvedLinkedCurrencyIds(PDO $pdo, int $account_id, int $company_id): array {
+    $ids = array_map('intval', dbGetLinkedCurrencyIds($pdo, $account_id));
+    $legacy_id = dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id);
+    if ($legacy_id && !in_array($legacy_id, $ids, true)) {
+        $ids[] = $legacy_id;
+    }
+    return $ids;
+}
+
 function dbSyncLegacyCurrencyAfterRemoval(PDO $pdo, int $account_id, int $removed_currency_id, int $company_id): void {
     $column = getAccountCurrencyIdColumn($pdo);
     if (!$column) {
@@ -358,7 +367,13 @@ try {
                 jsonResponse(false, '账户不存在或无权限访问', null, 403);
                 exit;
             }
-            if (dbCountAccountCurrencies($pdo, $account_id) <= 1) {
+            if (!dbCurrencyBelongsToCompany($pdo, $currency_id, $company_id)) {
+                jsonResponse(false, '货币不存在或无权限访问', null, 403);
+                exit;
+            }
+            $linkedCurrencyIds = dbGetResolvedLinkedCurrencyIds($pdo, $account_id, $company_id);
+            $isLegacyLink = in_array($currency_id, $linkedCurrencyIds, true);
+            if (count($linkedCurrencyIds) <= 1) {
                 jsonResponse(false, '账户必须至少保留一个货币，无法删除', null, 400);
                 exit;
             }
@@ -378,7 +393,7 @@ try {
                 );
             }
             $deleted = dbRemoveAccountCurrency($pdo, $account_id, $currency_id);
-            if ($deleted === 0) {
+            if ($deleted === 0 && !$isLegacyLink) {
                 jsonResponse(false, '关联不存在', null, 400);
                 exit;
             }
