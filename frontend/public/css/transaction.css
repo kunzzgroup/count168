@@ -151,6 +151,38 @@ body.transaction-page .transaction-add-section .tx-add-account-reverse {
     margin-top: 0;
 }
 
+body.transaction-page .transaction-add-section .tx-add-icon-field {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    min-height: clamp(30px, 2.25vw, 38px);
+    background: #ffffff;
+    border-radius: clamp(4px, 0.42vw, 6px);
+}
+
+body.transaction-page .transaction-add-section .tx-add-input-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    width: clamp(34px, 2.45vw, 42px);
+    height: auto;
+    margin: 0;
+    border-radius: clamp(4px, 0.42vw, 6px) 0 0 clamp(4px, 0.42vw, 6px);
+    color: #ffffff;
+    background: var(--btn-add-gradient);
+    box-shadow: none;
+    font-size: var(--text-small);
+    flex: 0 0 auto;
+}
+
+body.transaction-page .transaction-add-section .tx-add-icon-field .custom-select-wrapper {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+}
+
 body.transaction-page .transaction-add-section .report-outlined-inner .transaction-select,
 body.transaction-page .transaction-add-section .report-outlined-inner .transaction-input {
     width: 100%;
@@ -2837,6 +2869,10 @@ body.transaction-page .transaction-add-section .report-outlined-inner .transacti
 }
 
 body.transaction-page .transaction-add-section .report-outlined-label--txn-add-date {
+    left: clamp(46px, 3.35vw, 58px);
+}
+
+body.transaction-page .transaction-add-section .report-outlined-label--tx-add-icon {
     left: clamp(46px, 3.35vw, 58px);
 }
 

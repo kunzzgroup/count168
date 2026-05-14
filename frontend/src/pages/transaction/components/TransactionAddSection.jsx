@@ -60,26 +60,29 @@ export default function TransactionAddSection({
       <div className={`tx-add-form-row tx-add-form-row--pair${standardHidden ? " tx-add-form-row--type-only" : ""}`}>
         <div className="report-outlined-anchor tx-add-field-col">
           <div className="report-outlined-shell">
-            <span className="report-outlined-label" id="tx-add-type-label">
+            <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-type-label">
               Type
             </span>
             <div className="report-outlined-inner">
-              <select
-                id="transaction_type"
-                className="transaction-select"
-                value={txType}
-                onChange={(e) => setTxType(e.target.value)}
-                aria-labelledby="tx-add-type-label"
-              >
-                <option value="CONTRA">CONTRA</option>
-                <option value="PAYMENT">PAYMENT</option>
-                <option value="RECEIVE">RECEIVE</option>
-                <option value="CLAIM">CLAIM</option>
-                <option value="PROFIT">PROFIT</option>
-                <option value="RATE">RATE</option>
-                <option value="ADJUSTMENT">ADJUSTMENT</option>
-                <option value="CLEAR">CLEAR</option>
-              </select>
+              <div className="tx-add-icon-field">
+                <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-exchange-alt" /></span>
+                <select
+                  id="transaction_type"
+                  className="transaction-select"
+                  value={txType}
+                  onChange={(e) => setTxType(e.target.value)}
+                  aria-labelledby="tx-add-type-label"
+                >
+                  <option value="CONTRA">CONTRA</option>
+                  <option value="PAYMENT">PAYMENT</option>
+                  <option value="RECEIVE">RECEIVE</option>
+                  <option value="CLAIM">CLAIM</option>
+                  <option value="PROFIT">PROFIT</option>
+                  <option value="RATE">RATE</option>
+                  <option value="ADJUSTMENT">ADJUSTMENT</option>
+                  <option value="CLEAR">CLEAR</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -128,18 +131,21 @@ export default function TransactionAddSection({
         <div className={`tx-add-form-row tx-add-form-row--accounts${showStandardFromAndReverse ? " tx-add-form-row--with-reverse" : ""}`}>
           <div className="report-outlined-anchor tx-add-field-col">
             <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-add-to-acc-label">
+              <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-to-acc-label">
                 To Account
               </span>
               <div className="report-outlined-inner">
-                <AccountSelect
-                  ariaLabelledBy="tx-add-to-acc-label"
-                  placeholder="--Select To Account--"
-                  options={accountOptions}
-                  value={txToAccount}
-                  onChange={setTxToAccount}
-                  selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                />
+                <div className="tx-add-icon-field">
+                  <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
+                  <AccountSelect
+                    ariaLabelledBy="tx-add-to-acc-label"
+                    placeholder="--Select To Account--"
+                    options={accountOptions}
+                    value={txToAccount}
+                    onChange={setTxToAccount}
+                    selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -148,18 +154,21 @@ export default function TransactionAddSection({
             <>
               <div className="report-outlined-anchor tx-add-field-col">
                 <div className="report-outlined-shell">
-                  <span className="report-outlined-label" id="tx-add-from-acc-label">
+                  <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-from-acc-label">
                     From Account
                   </span>
                   <div className="report-outlined-inner">
-                    <AccountSelect
-                      ariaLabelledBy="tx-add-from-acc-label"
-                      placeholder="--Select From Account--"
-                      options={accountOptions}
-                      value={txFromAccount}
-                      onChange={setTxFromAccount}
-                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                    />
+                    <div className="tx-add-icon-field">
+                      <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
+                      <AccountSelect
+                        ariaLabelledBy="tx-add-from-acc-label"
+                        placeholder="--Select From Account--"
+                        options={accountOptions}
+                        value={txFromAccount}
+                        onChange={setTxFromAccount}
+                        selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -181,43 +190,49 @@ export default function TransactionAddSection({
         <div className="tx-add-form-row tx-add-form-row--pair">
           <div className="report-outlined-anchor tx-add-field-col">
             <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-add-currency-label">
+              <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-currency-label">
                 Currency
               </span>
               <div className="report-outlined-inner">
-                <select
-                  id="transaction_currency"
-                  className="transaction-select"
-                  value={txCurrency}
-                  onChange={(e) => setTxCurrency(e.target.value)}
-                  aria-labelledby="tx-add-currency-label"
-                >
-                  <option value="">--Select Currency--</option>
-                  {currencyOptions.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                <div className="tx-add-icon-field">
+                  <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-coins" /></span>
+                  <select
+                    id="transaction_currency"
+                    className="transaction-select"
+                    value={txCurrency}
+                    onChange={(e) => setTxCurrency(e.target.value)}
+                    aria-labelledby="tx-add-currency-label"
+                  >
+                    <option value="">--Select Currency--</option>
+                    {currencyOptions.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="report-outlined-anchor tx-add-field-col">
             <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-add-amount-label">
+              <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-amount-label">
                 Amount
               </span>
               <div className="report-outlined-inner">
-                <input
-                  type="number"
-                  step="0.01"
-                  id="action_amount"
-                  className="transaction-input"
-                  value={txAmount}
-                  onChange={(e) => setTxAmount(e.target.value)}
-                  aria-labelledby="tx-add-amount-label"
-                />
+                <div className="tx-add-icon-field">
+                  <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-dollar-sign" /></span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    id="action_amount"
+                    className="transaction-input"
+                    value={txAmount}
+                    onChange={(e) => setTxAmount(e.target.value)}
+                    aria-labelledby="tx-add-amount-label"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -227,18 +242,21 @@ export default function TransactionAddSection({
         <div className="tx-add-form-row" id="remark_form_group">
           <div className="report-outlined-anchor tx-add-field-col tx-add-field-col--full">
             <div className="report-outlined-shell">
-              <span className="report-outlined-label" id="tx-add-remark-label">
+              <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-remark-label">
                 Remark
               </span>
               <div className="report-outlined-inner">
-                <input
-                  type="text"
-                  id="action_sms"
-                  className="transaction-input text-uppercase"
-                  value={txRemark}
-                  onChange={(e) => setTxRemark(e.target.value.toUpperCase())}
-                  aria-labelledby="tx-add-remark-label"
-                />
+                <div className="tx-add-icon-field">
+                  <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-pen" /></span>
+                  <input
+                    type="text"
+                    id="action_sms"
+                    className="transaction-input text-uppercase"
+                    value={txRemark}
+                    onChange={(e) => setTxRemark(e.target.value.toUpperCase())}
+                    aria-labelledby="tx-add-remark-label"
+                  />
+                </div>
               </div>
             </div>
           </div>
