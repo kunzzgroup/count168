@@ -130,6 +130,7 @@ export default function TransactionSearchSection({
           <div className="date-range-picker" id="date-range-picker">
             <i className="fas fa-calendar-alt" />
             <span id="date-range-display">{effectiveDateRangeText}</span>
+            <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
           </div>
           <input type="hidden" id="date_from" readOnly />
           <input type="hidden" id="date_to" readOnly />

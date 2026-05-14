@@ -298,8 +298,75 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 }
 
 .transaction-page .transaction-date-range-group {
-    min-width: clamp(150px, 12.5vw, 240px);
+    min-width: clamp(300px, 25vw, 426px);
     flex: 0 0 auto;
+}
+
+body.transaction-page .transaction-date-range-group .date-range-picker {
+    min-width: clamp(300px, 25vw, 426px);
+    min-height: clamp(32px, 2.45vw, 42px);
+    gap: clamp(8px, 0.7vw, 12px);
+    padding: clamp(5px, 0.52vw, 8px) clamp(9px, 0.85vw, 14px);
+    border: 1px solid rgba(148, 163, 184, 0.62);
+    border-radius: 12px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.96) 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+body.transaction-page .transaction-date-range-group .date-range-picker:hover {
+    border-color: rgba(59, 130, 246, 0.74);
+    background: #ffffff;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 7px 18px rgba(37, 99, 235, 0.13);
+}
+
+body.transaction-page .transaction-date-range-group .date-range-picker:focus-visible {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow:
+        0 0 0 3px rgba(59, 130, 246, 0.14),
+        0 7px 18px rgba(37, 99, 235, 0.13);
+}
+
+body.transaction-page .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(22px, 1.65vw, 30px);
+    height: clamp(22px, 1.65vw, 30px);
+    margin: 0;
+    border-radius: 9px;
+    color: #2563eb;
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.12);
+}
+
+body.transaction-page .transaction-date-range-group #date-range-display {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: #1f2937;
+    font-size: var(--text-small);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+body.transaction-page .transaction-date-range-chevron {
+    margin: 0 !important;
+    color: #64748b !important;
+    font-size: var(--text-tiny) !important;
+    transition:
+        color 0.16s ease,
+        transform 0.16s ease;
+}
+
+body.transaction-page .transaction-date-range-group .date-range-picker:hover .transaction-date-range-chevron {
+    color: #2563eb !important;
+    transform: translateY(1px);
 }
 
 .transaction-page .transaction-date-quick-row .quick-select-dropdown {
@@ -308,9 +375,9 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 
 body.transaction-page .calendar-popup.calendar-popup--transaction-range {
     display: none;
-    grid-template-columns: clamp(76px, 5.6vw, 96px) clamp(260px, 19vw, 330px);
+    grid-template-columns: clamp(76px, 5.6vw, 96px) 1fr;
     gap: 0;
-    width: clamp(340px, 25vw, 426px);
+    width: clamp(300px, 25vw, 426px);
     max-width: calc(100vw - 24px);
     max-height: none;
     padding: 0;
@@ -376,12 +443,18 @@ body.transaction-page .transaction-calendar-panel {
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-header {
+    display: grid;
+    grid-template-columns: 1fr 5fr 1fr;
+    align-items: center;
+    max-width: 220px;
+    margin-left: auto;
+    margin-right: auto;
     margin-bottom: 6px;
-    padding: 0 2px;
+    padding: 0;
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year {
-    flex: 1;
+    grid-column: 2;
     justify-content: center;
 }
 
@@ -405,6 +478,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-year se
 body.transaction-page .calendar-popup--transaction-range .calendar-nav-btn {
     color: #2563eb;
     border-radius: 999px;
+    justify-self: center;
     transition:
         background 0.16s ease,
         color 0.16s ease,
@@ -429,7 +503,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-weekday {
 
 body.transaction-page .calendar-popup--transaction-range .calendar-weekdays,
 body.transaction-page .calendar-popup--transaction-range .calendar-days {
-    max-width: 250px;
+    max-width: 220px;
     margin-left: auto;
     margin-right: auto;
 }
