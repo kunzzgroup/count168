@@ -2602,6 +2602,10 @@ body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols 
     flex: 1 1 auto;
 }
 
+body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols .tx-add-input-icon {
+    display: none;
+}
+
 body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols .tx-add-icon-field .custom-select-wrapper {
     flex: 1 1 auto;
     min-width: 0;
