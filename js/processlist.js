@@ -293,6 +293,14 @@ function updateBankOnlyFiltersVisibility() {
     bankOnlyFilters.style.display = selectedPermission === 'Bank' ? 'flex' : 'none';
 }
 
+/** Currency 行仅 Bank 模式显示（与无刷新切换 processlist ↔ bank_process_list 一致） */
+function updateBankCurrencyFilterVisibility() {
+    const el = document.getElementById('bankCurrencyFilterWrapper');
+    if (!el) return;
+    const show = selectedPermission === 'Bank' || document.body.classList.contains('process-page--bank');
+    el.style.display = show ? '' : 'none';
+}
+
 function initProcessListDateFilter() {
     if (!window.MaintenanceDateRangePicker) return;
     window.MaintenanceDateRangePicker.init({
@@ -6491,6 +6499,7 @@ document.addEventListener('DOMContentLoaded', function () {
             resetBankCurrencyFilterToAll();
         }
         loadPermissionButtons().then(() => {
+            updateBankCurrencyFilterVisibility();
             if (!window._isRedirecting) {
                 fetchProcesses();
             }
@@ -6563,6 +6572,7 @@ window.addEventListener('popstate', function (e) {
             }
             updateProcessListDateFilterVisibility();
             updateBankListScrollMode();
+            updateBankCurrencyFilterVisibility();
             currentPage = 1;
             fetchProcesses();
         }
@@ -6738,6 +6748,7 @@ function switchPermission(permission) {
 
     updateProcessListDateFilterVisibility();
     updateBankOnlyFiltersVisibility();
+    updateBankCurrencyFilterVisibility();
 
     // Post to Transaction 仅 Bank 显示，Games 隐藏
     updatePostToTransactionButton();

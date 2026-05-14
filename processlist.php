@@ -327,15 +327,16 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     };
                 </script>
-                <?php if ($processListPageFile === 'bank_process_list.php'): ?>
-                <!-- Bank only: filter table by Country (Currency) column; same pill style as Company row -->
-                <div id="bankCurrencyFilterWrapper" class="process-company-filter shared-bank-currency-filter">
+                <?php
+                /* 与 Games/Bank 无刷新切换（pushState）共用同一 DOM：始终输出，非 Bank 页默认隐藏 */
+                $bankCurrencyRowHidden = ($processListPageFile !== 'bank_process_list.php');
+                ?>
+                <div id="bankCurrencyFilterWrapper" class="process-company-filter shared-bank-currency-filter"<?php echo $bankCurrencyRowHidden ? ' style="display: none;"' : ''; ?>>
                     <span class="process-company-label">Currency:</span>
                     <div id="bankCurrencyButtons" class="process-company-buttons" role="group" aria-label="Currency filter">
                         <button type="button" class="process-company-btn bank-currency-filter-btn bank-currency-filter-all active" draggable="false" data-currency="">All</button>
                     </div>
                 </div>
-                <?php endif; ?>
             </div>
 
             <!-- σîàΦúàσÖ¿Σ┐¥Φ»ü th Σ╕Äµò░µì«σî║σÉîσ«╜∩╝îσêùσ»╣Θ╜É -->
