@@ -230,14 +230,11 @@
     }
 
     /*
-       Bank Process List（React）：div.table-header 与全局 ec-auth-shell 表头规则叠加会变「厚」。
-       在此强制压扁蓝条高度，贴近下方数据行（覆盖本文件中 table-header 的 padding-top/bottom）。
+       Bank Process List（React）：与 Account 表头同一 token（--table-header-height），
+       覆盖本段上方 body.ec-auth-shell .table-header 的 padding-top/bottom。
     */
     body.ec-auth-shell.process-page.process-page--bank .table-header {
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        padding-left: 16px !important;
-        padding-right: 16px !important;
+        padding: var(--table-header-height) !important;
         line-height: 1 !important;
         min-height: 0 !important;
     }

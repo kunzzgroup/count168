@@ -1019,7 +1019,7 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     display: grid;
     grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
     gap: 15px;
-    padding: 0px 20px;
+    padding: var(--table-header-height);
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
     margin-top: 20px;
@@ -1127,10 +1127,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header {
     text-transform: uppercase !important;
     letter-spacing: 0.06em !important;
     color: #ffffff !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
+    padding: var(--table-header-height) !important;
     line-height: 1 !important;
     min-height: 0 !important;
     align-items: center !important;
@@ -1156,10 +1153,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     color: #ffffff;
     margin-top: 12px;
     gap: 8px;
-    padding-top: 0;
-    padding-bottom: 0;
-    padding-left: 16px;
-    padding-right: 16px;
+    padding: var(--table-header-height);
     min-height: 0;
 }
 
