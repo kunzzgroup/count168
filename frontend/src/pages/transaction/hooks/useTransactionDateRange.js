@@ -53,7 +53,13 @@ export function useTransactionDateRange({
           const to = window.MaintenanceDateRangePicker.getDateTo?.() || "";
           setDateFrom(from);
           setDateTo(to);
-          queueMicrotask(() => runSearch?.({ silent: false }));
+          queueMicrotask(() =>
+            runSearch?.({
+              silent: true,
+              notifyErrors: true,
+              showBlockingOverlay: false,
+            }),
+          );
         },
       });
       txDateRangePickerReadyRef.current = true;

@@ -54,6 +54,9 @@ export function useTransactionSearch({
     showPaymentOnly: false,
     showCaptureOnly: false,
   });
+  /** After a real company switch, skip one blocking "Loading data" overlay (still fetch in background). */
+  const suppressBlockingOverlayOnceRef = useRef(false);
+  const prevCompanyIdForSearchRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
 
@@ -101,16 +104,18 @@ export function useTransactionSearch({
     categoryChangedByUserRef.current = true;
   }, []);
 
-  const scheduleAutoSearch = useCallback(
-    ({ silent = false, isInitialLoad = false, delayMs = 260 } = {}) => {
-      if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
-      autoSearchTimerRef.current = setTimeout(() => {
-        autoSearchTimerRef.current = null;
-        void runSearchRef.current?.({ silent, isInitialLoad });
-      }, delayMs);
-    },
-    [],
-  );
+  const scheduleAutoSearch = useCallback(({ isInitialLoad = false, delayMs = 260 } = {}) => {
+    if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
+    autoSearchTimerRef.current = setTimeout(() => {
+      autoSearchTimerRef.current = null;
+      void runSearchRef.current?.({
+        silent: true,
+        notifyErrors: true,
+        showBlockingOverlay: false,
+        isInitialLoad,
+      });
+    }, delayMs);
+  }, []);
 
   const selectQuickRange = useCallback((key) => {
     setQuickOpen(false);
@@ -175,7 +180,7 @@ export function useTransactionSearch({
 
     setDateFrom(formatDmy(start));
     setDateTo(formatDmy(end));
-    scheduleAutoSearch({ silent: false, delayMs: 120 });
+    scheduleAutoSearch({ delayMs: 120 });
   }, [setDateFrom, setDateTo, scheduleAutoSearch]);
 
   const toggleAllCurrenciesBtn = useCallback(() => {
@@ -184,7 +189,9 @@ export function useTransactionSearch({
     const nextSel = [];
     setSelectedCurrencies(nextSel);
     persistCurrencyFilter(filterSnapshot?.companyId, next, nextSel);
-  }, [showAllCurrencies, filterSnapshot?.companyId, persistCurrencyFilter]);
+    // Currency is not wired through categoryChangedByUserRef; schedule search after state flush.
+    scheduleAutoSearch();
+  }, [showAllCurrencies, filterSnapshot?.companyId, persistCurrencyFilter, scheduleAutoSearch]);
 
   const toggleCurrencyBtn = useCallback(
     (code) => {
@@ -204,8 +211,9 @@ export function useTransactionSearch({
       setShowAllCurrencies(nextShowAll);
       setSelectedCurrencies(nextSel);
       persistCurrencyFilter(filterSnapshot?.companyId, nextShowAll, nextSel);
+      scheduleAutoSearch();
     },
-    [selectedCurrencies, filterSnapshot?.companyId, persistCurrencyFilter],
+    [selectedCurrencies, filterSnapshot?.companyId, persistCurrencyFilter, scheduleAutoSearch],
   );
 
   const onCurrencyDragStart = useCallback((code) => {
@@ -252,13 +260,14 @@ export function useTransactionSearch({
     return () => document.removeEventListener("click", close);
   }, [categoryOpen]);
 
+  // Category-only auto search (currency toggles call scheduleAutoSearch directly; they are not gated by this ref).
   useEffect(() => {
     if (!categoryChangedByUserRef.current) return;
     categoryChangedByUserRef.current = false;
     if (!filterSnapshot?.companyId) return;
     if (!effectiveDateFrom || !effectiveDateTo) return;
     if (!showAllCurrencies && selectedCurrencies.length === 0) return;
-    scheduleAutoSearch({ silent: false });
+    scheduleAutoSearch();
   }, [
     selectedCategories,
     filterSnapshot?.companyId,
@@ -285,7 +294,7 @@ export function useTransactionSearch({
     if (!paymentTurnedOff && !captureTurnedOff) return;
     if (!filterSnapshot?.companyId) return;
     if (!effectiveDateFrom || !effectiveDateTo) return;
-    scheduleAutoSearch({ silent: false, delayMs: 80 });
+    scheduleAutoSearch({ delayMs: 80 });
   }, [
     searchState.showPaymentOnly,
     searchState.showCaptureOnly,
@@ -332,173 +341,196 @@ export function useTransactionSearch({
     ],
   );
 
-  const runSearch = useCallback(async ({ silent = false, isInitialLoad = false, forceRefresh = false } = {}) => {
-    const cid = filterSnapshot?.companyId;
-    if (!cid) return;
-    if (!effectiveDateFrom || !effectiveDateTo) {
-      pushToast("Please select date range", "error");
-      return;
-    }
-    if (!showAllCurrencies && selectedCurrencies.length === 0) {
-      setTablesVisible(false);
-      pushToast("Please select at least one Currency or select All", "info");
-      return;
-    }
-
-    const categoryParam =
-      selectedCategories.length > 0 && !selectedCategories.includes("")
-        ? [...selectedCategories].sort().join(",")
-        : "";
-    const singleSelectedCurrency =
-      !showAllCurrencies && selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase() : "";
-
-    const showInactiveForQuery =
-      searchState.showZeroBalance && searchState.showPaymentOnly ? false : searchState.showPaymentOnly;
-    const showCaptureOnlyForQuery =
-      searchState.showZeroBalance && searchState.showCaptureOnly ? false : searchState.showCaptureOnly;
-
-    const requestKey = JSON.stringify({
-      dateFrom: effectiveDateFrom,
-      dateTo: effectiveDateTo,
-      categoryParam,
-      showInactive: showInactiveForQuery ? "1" : "0",
-      showCaptureOnly: showCaptureOnlyForQuery ? "1" : "0",
-      hideZero: searchState.showZeroBalance ? "0" : "1",
-      companyId: cid || "",
-      showAllCurrencies: !!showAllCurrencies,
-      currencies: [...selectedCurrencies].sort().join(","),
-    });
-
-    if (!silent && !isInitialLoad && !forceRefresh && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
-      return;
-    }
-
-    const runToken = ++latestRunTokenRef.current;
-    await queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
-
-    if (!silent) setSearchLoading(true);
-    setTablesVisible(true);
-
-    const paramsBase = {
-      companyId: cid,
-      dateFrom: effectiveDateFrom,
-      dateTo: effectiveDateTo,
-      showInactive: showInactiveForQuery,
-      showCaptureOnly: showCaptureOnlyForQuery,
-      hideZeroBalance: !searchState.showZeroBalance,
-      categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-      currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
-    };
-
-    const fetchSearch = (params) =>
-      queryClient.fetchQuery({
-        queryKey: transactionQueryKeys.search(params),
-        queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
-        staleTime: 15_000,
-        gcTime: 2 * 60_000,
-      });
-
-    const commitQuiet = (data) => {
-      const cleaned = sanitizeSearchApiData(data);
-      setRawSearchData(cleaned);
-      saveTxListToSession(cleaned);
-      lastCompletedSearchKeyRef.current = requestKey;
-      lastCompletedSearchTsRef.current = Date.now();
-      const totalAccounts = (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
-      const displayed = countDisplayedRows(cleaned, searchState, txType);
-      if (!silent) {
-        if (totalAccounts === 0) {
-          pushToast(
-            "Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted",
-            "info",
-          );
-        } else if (displayed === 0 && totalAccounts > 0) {
-          pushToast(
-            `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show 0 balance" or adjust filters.`,
-            "info",
-          );
-        } else {
-          pushToast(`Search completed, found ${displayed} record(s)`, "success");
-        }
+  const runSearch = useCallback(
+    async ({
+      silent = false,
+      isInitialLoad = false,
+      forceRefresh = false,
+      notifyErrors: notifyErrorsOpt,
+      showBlockingOverlay: showBlockingOverlayOpt,
+    } = {}) => {
+      const cid = filterSnapshot?.companyId;
+      const notifyErr = notifyErrorsOpt !== undefined ? notifyErrorsOpt : !silent;
+      if (!cid) return;
+      if (!effectiveDateFrom || !effectiveDateTo) {
+        pushToast("Please select date range", "error");
+        return;
       }
-    };
-
-    try {
-      const result = await fetchSearch(paramsBase);
-      if (latestRunTokenRef.current !== runToken) return;
-      if (!result?.success || !result?.data) {
-        if (!silent) {
-          setRawSearchData(null);
-          pushToast(result?.message || result?.error || "Search failed", "error");
-        }
+      if (!showAllCurrencies && selectedCurrencies.length === 0) {
+        setTablesVisible(false);
+        pushToast("Please select at least one Currency or select All", "info");
         return;
       }
 
-      let currentData = result.data;
-      const leftRows = Array.isArray(currentData.left_table) ? currentData.left_table : [];
-      const rightRows = Array.isArray(currentData.right_table) ? currentData.right_table : [];
-      const totalAccounts = leftRows.length + rightRows.length;
+      const categoryParam =
+        selectedCategories.length > 0 && !selectedCategories.includes("")
+          ? [...selectedCategories].sort().join(",")
+          : "";
+      const singleSelectedCurrency =
+        !showAllCurrencies && selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase() : "";
 
-      if (singleSelectedCurrency && totalAccounts === 0) {
-        const fallback = await fetchSearch({
-          ...paramsBase,
-          currencyCodes: undefined,
-        });
-        if (latestRunTokenRef.current !== runToken) return;
-        if (fallback?.success && fallback?.data) {
-          const fbLeft = (fallback.data.left_table || []).filter(
-            (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
-          );
-          const fbRight = (fallback.data.right_table || []).filter(
-            (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
-          );
-          currentData = {
-            ...fallback.data,
-            left_table: fbLeft,
-            right_table: fbRight,
-            totals: {
-              left: calculateTotals(fbLeft),
-              right: calculateTotals(fbRight),
-              summary: applySummaryWinLossDisplayTolerance(calculateTotals([...fbLeft, ...fbRight])),
-            },
-          };
-        }
-      } else if (searchState.showCaptureOnly && totalAccounts === 0) {
-        const fallback = await fetchSearch({
-          ...paramsBase,
-          showCaptureOnly: false,
-        });
-        if (latestRunTokenRef.current !== runToken) return;
-        if (fallback?.success && fallback?.data?.totals) {
-          currentData = {
-            ...currentData,
-            totals: fallback.data.totals,
-          };
-        }
+      const showInactiveForQuery =
+        searchState.showZeroBalance && searchState.showPaymentOnly ? false : searchState.showPaymentOnly;
+      const showCaptureOnlyForQuery =
+        searchState.showZeroBalance && searchState.showCaptureOnly ? false : searchState.showCaptureOnly;
+
+      const requestKey = JSON.stringify({
+        dateFrom: effectiveDateFrom,
+        dateTo: effectiveDateTo,
+        categoryParam,
+        showInactive: showInactiveForQuery ? "1" : "0",
+        showCaptureOnly: showCaptureOnlyForQuery ? "1" : "0",
+        hideZero: searchState.showZeroBalance ? "0" : "1",
+        companyId: cid || "",
+        showAllCurrencies: !!showAllCurrencies,
+        currencies: [...selectedCurrencies].sort().join(","),
+      });
+
+      if (!isInitialLoad && !forceRefresh && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
+        return;
       }
 
-      if (latestRunTokenRef.current !== runToken) return;
-      commitQuiet(currentData);
-    } catch (e) {
-      if (e?.name === "AbortError" || e?.name === "CanceledError") return;
-      console.error(e);
-      if (!silent) pushToast(`Search failed: ${e.message}`, "error");
-    } finally {
-      if (!silent) setSearchLoading(false);
-    }
-  }, [
-    filterSnapshot?.companyId,
-    effectiveDateFrom,
-    effectiveDateTo,
-    showAllCurrencies,
-    selectedCurrencies,
-    selectedCategories,
-    searchState,
-    pushToast,
-    saveTxListToSession,
-    queryClient,
-    txType,
-  ]);
+      const baseBlockOverlay = showBlockingOverlayOpt !== undefined ? showBlockingOverlayOpt : !silent;
+      let blockOverlay = baseBlockOverlay;
+      if (suppressBlockingOverlayOnceRef.current) {
+        if (baseBlockOverlay) blockOverlay = false;
+        suppressBlockingOverlayOnceRef.current = false;
+      }
+
+      const runToken = ++latestRunTokenRef.current;
+      await queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
+
+      let didSetBlockingLoading = false;
+      if (blockOverlay) {
+        setSearchLoading(true);
+        didSetBlockingLoading = true;
+      }
+      setTablesVisible(true);
+
+      const paramsBase = {
+        companyId: cid,
+        dateFrom: effectiveDateFrom,
+        dateTo: effectiveDateTo,
+        showInactive: showInactiveForQuery,
+        showCaptureOnly: showCaptureOnlyForQuery,
+        hideZeroBalance: !searchState.showZeroBalance,
+        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+        currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
+      };
+
+      const fetchSearch = (params) =>
+        queryClient.fetchQuery({
+          queryKey: transactionQueryKeys.search(params),
+          queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
+          staleTime: 15_000,
+          gcTime: 2 * 60_000,
+        });
+
+      const commitQuiet = (data) => {
+        const cleaned = sanitizeSearchApiData(data);
+        setRawSearchData(cleaned);
+        saveTxListToSession(cleaned);
+        lastCompletedSearchKeyRef.current = requestKey;
+        lastCompletedSearchTsRef.current = Date.now();
+        const totalAccounts = (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
+        const displayed = countDisplayedRows(cleaned, searchState, txType);
+        if (!silent) {
+          if (totalAccounts === 0) {
+            pushToast(
+              "Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted",
+              "info",
+            );
+          } else if (displayed === 0 && totalAccounts > 0) {
+            pushToast(
+              `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show 0 balance" or adjust filters.`,
+              "info",
+            );
+          } else {
+            pushToast(`Search completed, found ${displayed} record(s)`, "success");
+          }
+        }
+      };
+
+      try {
+        const result = await fetchSearch(paramsBase);
+        if (latestRunTokenRef.current !== runToken) return;
+        if (!result?.success || !result?.data) {
+          if (notifyErr) {
+            pushToast(result?.message || result?.error || "Search failed", "error");
+          }
+          if (!silent) {
+            setRawSearchData(null);
+          }
+          return;
+        }
+
+        let currentData = result.data;
+        const leftRows = Array.isArray(currentData.left_table) ? currentData.left_table : [];
+        const rightRows = Array.isArray(currentData.right_table) ? currentData.right_table : [];
+        const totalAccounts = leftRows.length + rightRows.length;
+
+        if (singleSelectedCurrency && totalAccounts === 0) {
+          const fallback = await fetchSearch({
+            ...paramsBase,
+            currencyCodes: undefined,
+          });
+          if (latestRunTokenRef.current !== runToken) return;
+          if (fallback?.success && fallback?.data) {
+            const fbLeft = (fallback.data.left_table || []).filter(
+              (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
+            );
+            const fbRight = (fallback.data.right_table || []).filter(
+              (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
+            );
+            currentData = {
+              ...fallback.data,
+              left_table: fbLeft,
+              right_table: fbRight,
+              totals: {
+                left: calculateTotals(fbLeft),
+                right: calculateTotals(fbRight),
+                summary: applySummaryWinLossDisplayTolerance(calculateTotals([...fbLeft, ...fbRight])),
+              },
+            };
+          }
+        } else if (searchState.showCaptureOnly && totalAccounts === 0) {
+          const fallback = await fetchSearch({
+            ...paramsBase,
+            showCaptureOnly: false,
+          });
+          if (latestRunTokenRef.current !== runToken) return;
+          if (fallback?.success && fallback?.data?.totals) {
+            currentData = {
+              ...currentData,
+              totals: fallback.data.totals,
+            };
+          }
+        }
+
+        if (latestRunTokenRef.current !== runToken) return;
+        commitQuiet(currentData);
+      } catch (e) {
+        if (e?.name === "AbortError" || e?.name === "CanceledError") return;
+        console.error(e);
+        if (notifyErr) pushToast(`Search failed: ${e.message}`, "error");
+      } finally {
+        if (didSetBlockingLoading) setSearchLoading(false);
+      }
+    },
+    [
+      filterSnapshot?.companyId,
+      effectiveDateFrom,
+      effectiveDateTo,
+      showAllCurrencies,
+      selectedCurrencies,
+      selectedCategories,
+      searchState,
+      pushToast,
+      saveTxListToSession,
+      queryClient,
+      txType,
+    ],
+  );
   runSearchRef.current = runSearch;
 
   useEffect(() => {
@@ -633,11 +665,16 @@ export function useTransactionSearch({
     };
   }, [rawSearchData, baseRowsPresentation, searchState, showAllCurrencies, selectedCurrencies, currencyRowsOrdered]);
 
-  /** 切换公司：立刻清空结果并中止旧请求，避免短暂叠显上一间公司的数据（如多条 CAPITAL / XE）。 */
+  /** 切换公司：中止旧请求、清空列表数据，并用 suppress 跳过一次大块 “Loading data” 遮罩（后台拉取）。 */
   useEffect(() => {
     const cid = filterSnapshot?.companyId;
     if (cid == null) return;
-    // Keep table area mounted during company switch; only refresh list content.
+    const prev = prevCompanyIdForSearchRef.current;
+    if (prev != null && Number(prev) !== Number(cid)) {
+      suppressBlockingOverlayOnceRef.current = true;
+      setRawSearchData(null);
+    }
+    prevCompanyIdForSearchRef.current = cid;
     setTablesVisible(true);
     lastCompletedSearchKeyRef.current = "";
     try {
@@ -701,7 +738,12 @@ export function useTransactionSearch({
     }
 
     initialSearchDoneRef.current = true;
-    void runSearch({ isInitialLoad: true, silent: hadReplay });
+    void runSearch({
+      isInitialLoad: true,
+      silent: hadReplay,
+      notifyErrors: true,
+      showBlockingOverlay: !hadReplay,
+    });
   }, [
     filterSnapshot?.companyId,
     currencyRowsOrdered.length,
