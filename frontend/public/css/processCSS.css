@@ -1022,7 +1022,7 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     padding: var(--table-header-height);
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
-    margin-top: 20px;
+    margin-top: 12px;
     font-weight: bold;
     color: white;
     font-size: var(--text-base);
@@ -1120,50 +1120,9 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     box-sizing: border-box;
 }
 
-/* Bank list（React 卡片表）：表头纵向厚度贴近数据行 — 蓝条上下几乎无空档；白字粗体大写 */
-body.ec-auth-shell.process-page.process-page--bank .table-header {
-    font-size: clamp(10px, 0.74vw, 13px) !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
-    color: #ffffff !important;
-    padding: var(--table-header-height) !important;
-    line-height: 1 !important;
-    min-height: 0 !important;
-    align-items: center !important;
-    margin-top: 12px !important;
-}
-
-body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
-    padding: 1px 4px !important;
-    line-height: 1.05 !important;
-    min-height: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    color: #ffffff !important;
-}
-
+/* Bank：表头列间距与 Process List 一致（行已在 .process-cards.bank-mode 用 8px） */
 .process-page.process-page--bank .table-header {
-    align-items: center;
-    line-height: 1;
-    font-size: clamp(10px, 0.74vw, 13px);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #ffffff;
-    margin-top: 12px;
     gap: 8px;
-    padding: var(--table-header-height);
-    min-height: 0;
-}
-
-.process-page.process-page--bank .table-header .header-item {
-    padding: 1px 4px;
-    line-height: 1.05;
-    min-height: 0;
-    display: flex;
-    align-items: center;
-    color: #ffffff;
 }
 
 .process-page.process-page--bank .table-header .bank-header-sortable {
@@ -1582,10 +1541,6 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 
 .process-page:not(.process-page--bank) .action-buttons-container {
     margin-top: 20px;
-}
-
-.process-page:not(.process-page--bank) .table-header {
-    margin-top: 12px;
 }
 
 .process-page:not(.process-page--bank) .process-table-wrapper {

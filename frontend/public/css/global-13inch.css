@@ -160,9 +160,10 @@
         font-size: var(--text-base) !important;
     }
 
-    /* Process List（非 Bank）：表头与 User / Account div 表头同一字号 */
-    body.ec-auth-shell.process-page:not(.process-page--bank) .table-header {
+    /* Process List（含 Bank）：与 User / Account 表头一致 — 字号 + padding token */
+    body.ec-auth-shell.process-page .table-header {
         font-size: var(--text-base) !important;
+        padding: var(--table-header-height) !important;
     }
 
     body.ec-auth-shell .table-header .header-item,
@@ -227,22 +228,6 @@
         white-space: normal !important;
         text-align: center;
         line-height: 1.1 !important;
-    }
-
-    /*
-       Bank Process List（React）：与 Account 表头同一 token（--table-header-height），
-       覆盖本段上方 body.ec-auth-shell .table-header 的 padding-top/bottom。
-    */
-    body.ec-auth-shell.process-page.process-page--bank .table-header {
-        padding: var(--table-header-height) !important;
-        line-height: 1 !important;
-        min-height: 0 !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
-        padding: 1px 4px !important;
-        line-height: 1.05 !important;
-        min-height: 0 !important;
     }
 
     .transaction-table-row {
