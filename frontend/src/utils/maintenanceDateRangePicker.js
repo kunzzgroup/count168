@@ -48,6 +48,11 @@ export function ensureMaintenanceDateRangePicker() {
     if (weekdays) weekdays.style.display = visible ? "" : "none";
   }
 
+  function closeCalendarPopup() {
+    const popup = document.getElementById("calendar-popup");
+    if (popup) popup.style.display = "none";
+  }
+
   function updateHeaderTriggerActive(activeMode) {
     const monthControl = document.getElementById("calendar-month-select");
     const yearControl = document.getElementById("calendar-year-select");
@@ -489,11 +494,11 @@ export function ensureMaintenanceDateRangePicker() {
     syncToHiddenInputs();
     updateDateRangeDisplay();
     updateQuickPresetActive(range);
+    closeCalendarPopup();
     if (typeof config.onChange === "function") config.onChange();
     const qd = document.getElementById("quick-select-dropdown");
     if (qd) qd.classList.remove("show");
-    const popup = document.getElementById("calendar-popup");
-    if (popup) popup.style.display = "none";
+    requestAnimationFrame(closeCalendarPopup);
   }
 
   window.changeMonth = changeMonth;
