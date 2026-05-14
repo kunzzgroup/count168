@@ -157,7 +157,7 @@ body.transaction-page .transaction-add-section .tx-add-field-col--full {
 
 body.transaction-page .transaction-add-section .tx-add-account-reverse {
     flex: 0 0 auto;
-    align-self: flex-start;
+    align-self: self-end;
     margin-top: 10px;
     width: var(--tx-add-reverse-col);
     min-height: clamp(30px, 2.25vw, 38px);
