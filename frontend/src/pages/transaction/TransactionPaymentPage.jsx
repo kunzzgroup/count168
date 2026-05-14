@@ -328,6 +328,8 @@ export default function TransactionPaymentPage() {
               key={key}
               type="button"
               className="transaction-calendar-preset"
+              data-period-key={key}
+              aria-pressed="false"
               onClick={(e) => {
                 e.stopPropagation();
                 window.selectQuickRange?.(key);

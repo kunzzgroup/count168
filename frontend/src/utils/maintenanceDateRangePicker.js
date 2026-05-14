@@ -57,6 +57,69 @@ export function ensureMaintenanceDateRangePicker() {
     return d;
   }
 
+  function getQuickRangeDates(range) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let startDate = null;
+    let endDate = null;
+    if (range === "today") {
+      startDate = new Date(today);
+      endDate = new Date(today);
+    } else if (range === "yesterday") {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 1);
+      startDate = d;
+      endDate = d;
+    } else if (range === "thisWeek") {
+      const dayMon0 = (today.getDay() + 6) % 7;
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() - dayMon0);
+      endDate = new Date(today);
+    } else if (range === "lastWeek") {
+      const dayMon0 = (today.getDay() + 6) % 7;
+      endDate = new Date(today);
+      endDate.setDate(today.getDate() - dayMon0 - 1);
+      startDate = new Date(endDate);
+      startDate.setDate(endDate.getDate() - 6);
+    } else if (range === "thisMonth") {
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(today);
+    } else if (range === "lastMonth") {
+      startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+    } else if (range === "thisYear") {
+      startDate = new Date(today.getFullYear(), 0, 1);
+      endDate = new Date(today);
+    } else if (range === "lastYear") {
+      const y = today.getFullYear() - 1;
+      startDate = new Date(y, 0, 1);
+      endDate = new Date(y, 11, 31);
+    }
+    if (!startDate || !endDate) return null;
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    return { startDate, endDate };
+  }
+
+  function updateQuickPresetActive(activeKey) {
+    document.querySelectorAll(".transaction-calendar-preset[data-period-key]").forEach((btn) => {
+      const isActive = activeKey && btn.getAttribute("data-period-key") === activeKey;
+      btn.classList.toggle("is-active", !!isActive);
+      btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  }
+
+  function detectMatchingQuickRange() {
+    if (!calendarStartDate || !calendarEndDate) return "";
+    const keys = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
+    const startTime = calendarStartDate.getTime();
+    const endTime = calendarEndDate.getTime();
+    return keys.find((key) => {
+      const range = getQuickRangeDates(key);
+      return range && range.startDate.getTime() === startTime && range.endDate.getTime() === endTime;
+    }) || "";
+  }
+
   /** Same as legacy: refresh internal range from hidden #date_from / #date_to when opening the popup. */
   function syncRangeStateFromHiddenInputs() {
     const fromEl = document.getElementById(config.dateFromId);
@@ -145,6 +208,7 @@ export function ensureMaintenanceDateRangePicker() {
     const monthSelect = document.getElementById("calendar-month-select");
     if (monthSelect) monthSelect.value = String(calendarCurrentDate.getMonth());
     updateDateRangeDisplay();
+    updateQuickPresetActive(detectMatchingQuickRange());
   }
 
   function renderCalendar() {
@@ -225,6 +289,7 @@ export function ensureMaintenanceDateRangePicker() {
       calendarStartDate = new Date(date);
       calendarEndDate = null;
       isSelectingRange = true;
+      updateQuickPresetActive("");
     } else {
       if (date.getTime() < calendarStartDate.getTime()) {
         calendarEndDate = new Date(calendarStartDate);
@@ -235,6 +300,7 @@ export function ensureMaintenanceDateRangePicker() {
       isSelectingRange = false;
       syncToHiddenInputs();
       updateDateRangeDisplay();
+      updateQuickPresetActive(detectMatchingQuickRange());
       if (typeof config.onChange === "function") config.onChange();
       const popup = document.getElementById("calendar-popup");
       if (popup) popup.style.display = "none";
@@ -264,13 +330,16 @@ export function ensureMaintenanceDateRangePicker() {
           barWidth = parentRect.width;
         }
       }
-      popup.style.top = `${rect.bottom + 8}px`;
-      popup.style.left = `${rect.left}px`;
       if (popup.classList.contains("calendar-popup--transaction-range")) {
+        const popupWidth = Math.min(Math.max(window.innerWidth * 0.25, 340), 426);
+        const maxLeft = window.innerWidth - popupWidth - 12;
+        popup.style.left = `${Math.max(12, Math.min(rect.left, maxLeft))}px`;
         popup.style.width = "";
       } else {
+        popup.style.left = `${rect.left}px`;
         popup.style.width = `${barWidth}px`;
       }
+      popup.style.top = `${rect.bottom + 8}px`;
       popup.style.boxSizing = "border-box";
       popup.style.display = "block";
       initCalendar();
@@ -286,6 +355,7 @@ export function ensureMaintenanceDateRangePicker() {
     isSelectingRange = false;
     syncToHiddenInputs();
     updateDateRangeDisplay();
+    updateQuickPresetActive("");
     renderCalendar();
     const popup = document.getElementById("calendar-popup");
     if (popup) popup.style.display = "none";
@@ -293,52 +363,16 @@ export function ensureMaintenanceDateRangePicker() {
   }
 
   function setQuickRange(range) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let startDate = null;
-    let endDate = null;
-    if (range === "today") {
-      startDate = new Date(today);
-      endDate = new Date(today);
-    } else if (range === "yesterday") {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 1);
-      startDate = d;
-      endDate = d;
-    } else if (range === "thisWeek") {
-      const dayMon0 = (today.getDay() + 6) % 7;
-      startDate = new Date(today);
-      startDate.setDate(today.getDate() - dayMon0);
-      endDate = new Date(today);
-    } else if (range === "lastWeek") {
-      const dayMon0 = (today.getDay() + 6) % 7;
-      endDate = new Date(today);
-      endDate.setDate(today.getDate() - dayMon0 - 1);
-      startDate = new Date(endDate);
-      startDate.setDate(endDate.getDate() - 6);
-    } else if (range === "thisMonth") {
-      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-      endDate = new Date(today);
-    } else if (range === "lastMonth") {
-      startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-    } else if (range === "thisYear") {
-      startDate = new Date(today.getFullYear(), 0, 1);
-      endDate = new Date(today);
-    } else if (range === "lastYear") {
-      const y = today.getFullYear() - 1;
-      startDate = new Date(y, 0, 1);
-      endDate = new Date(y, 11, 31);
-    } else {
+    const quickRange = getQuickRangeDates(range);
+    if (!quickRange) {
       return;
     }
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
-    calendarStartDate = startDate;
-    calendarEndDate = endDate;
+    calendarStartDate = quickRange.startDate;
+    calendarEndDate = quickRange.endDate;
     isSelectingRange = false;
     syncToHiddenInputs();
     updateDateRangeDisplay();
+    updateQuickPresetActive(range);
     if (typeof config.onChange === "function") config.onChange();
     const qd = document.getElementById("quick-select-dropdown");
     if (qd) qd.classList.remove("show");
