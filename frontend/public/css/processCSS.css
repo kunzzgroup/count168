@@ -1567,7 +1567,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 }
 
 .process-page:not(.process-page--bank) .table-header {
-    margin-top: 32px;
+    margin-top: 12px;
 }
 
 .process-page:not(.process-page--bank) .process-table-wrapper {
