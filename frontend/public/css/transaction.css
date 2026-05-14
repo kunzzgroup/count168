@@ -84,7 +84,7 @@ body.transaction-page {
 body.transaction-page .transaction-add-section .tx-add-form-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: clamp(10px, 1vw, 14px);
     width: 100%;
 }
@@ -104,7 +104,7 @@ body.transaction-page .transaction-add-section .tx-add-form-row--type-only .tx-a
 }
 
 body.transaction-page .transaction-add-section .tx-add-form-row--accounts {
-    align-items: flex-end;
+    align-items: flex-start;
 }
 
 body.transaction-page .transaction-add-section .tx-add-form-row--accounts .tx-add-field-col {
@@ -148,7 +148,7 @@ body.transaction-page .transaction-add-section .tx-add-field-col--full {
 body.transaction-page .transaction-add-section .tx-add-account-reverse {
     flex: 0 0 auto;
     align-self: center;
-    margin-top: 10px;
+    margin-top: 0;
 }
 
 body.transaction-page .transaction-add-section .report-outlined-inner .transaction-select,
@@ -157,7 +157,7 @@ body.transaction-page .transaction-add-section .report-outlined-inner .transacti
     margin: 0;
     border: none !important;
     box-shadow: none !important;
-    background-color: #f9fafb;
+    background-color: #ffffff;
     min-height: clamp(30px, 2.25vw, 38px);
     padding: clamp(6px, 0.5vw, 9px) clamp(9px, 0.7vw, 12px);
     border-radius: clamp(4px, 0.42vw, 6px);

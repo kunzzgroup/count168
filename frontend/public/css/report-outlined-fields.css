@@ -21,7 +21,7 @@ body.dashboard-page.report-page .report-outlined-label,
 body.transaction-page .transaction-category-date-row .report-outlined-label {
     position: absolute;
     left: clamp(10px, 0.83vw, 14px);
-    top: 0;
+    top: -2px;
     transform: translateY(-50%);
     z-index: 3;
     padding: 0 clamp(5px, 0.42vw, 7px);
@@ -145,7 +145,7 @@ body.transaction-page .transaction-add-section .report-outlined-shell {
 body.transaction-page .transaction-add-section .report-outlined-label {
     position: absolute;
     left: clamp(10px, 0.83vw, 14px);
-    top: 0;
+    top: -2px;
     transform: translateY(-50%);
     z-index: 3;
     padding: 0 clamp(5px, 0.42vw, 7px);
