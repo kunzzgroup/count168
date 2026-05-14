@@ -2567,6 +2567,14 @@ body.transaction-page .transaction-search-section .report-outlined-inner .transa
     box-shadow: none !important;
 }
 
-body.transaction-page .transaction-search-section .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+/* Capture Date floating label: align with text area, not over the calendar tile (avoids white “notch” on blue icon) */
+body.transaction-page .transaction-search-section .report-outlined-label--txn-capture-date {
+    left: clamp(46px, 3.35vw, 58px);
+}
+
+body.transaction-page .transaction-search-section .transaction-outlined-field-col--date .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+    position: relative;
+    z-index: 5;
     border-radius: clamp(5px, 0.42vw, 7px) 0 0 clamp(5px, 0.42vw, 7px);
 }
+

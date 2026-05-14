@@ -147,7 +147,7 @@ export default function TransactionSearchSection({
 
         <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
           <div className="report-outlined-shell">
-            <span className="report-outlined-label" id="transaction-capture-date-outlined-label">
+            <span className="report-outlined-label report-outlined-label--txn-capture-date" id="transaction-capture-date-outlined-label">
               Capture Date
             </span>
             <div className="report-outlined-inner">
