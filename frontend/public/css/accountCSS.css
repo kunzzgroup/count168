@@ -374,12 +374,12 @@ body.account-page--show-all .content {
 }
 
 body.account-page--show-all .account-table-wrapper {
-    flex: 0 1 auto !important;
+    flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow: visible !important;
     display: flex;
     flex-direction: column;
-    padding-bottom: 72px;
+    padding-bottom: 52px;
     box-sizing: border-box;
 }
 
