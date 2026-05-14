@@ -548,7 +548,7 @@ body.transaction-page {
 }
 .transaction-page .transaction-modal-header h3 {
     margin: 0;
-    font-size: clamp(14px, 1.25vw, 24px);
+    font-size: var(--text-h1);
     font-weight: bold;
     color: #1e293b;
 }
@@ -575,7 +575,7 @@ body.transaction-page {
 }
 .transaction-page .transaction-modal-body {
     padding: clamp(10px, 1.04vw, 20px) 32px;
-    max-height: 500px;
+    max-height: 715px;
     overflow-y: auto;
 }
 .transaction-page .transaction-modal-body .transaction-table {
@@ -597,7 +597,7 @@ body.transaction-page {
 .transaction-page .transaction-modal-body .transaction-table td {
     padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.52vw, 10px);
     border: 1px solid #e2e8f0;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: var(--text-small);
 }
 .transaction-page .transaction-modal-body .transaction-table tbody tr:hover {
     background-color: #f8fafc;

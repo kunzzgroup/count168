@@ -307,7 +307,6 @@ export default function CustomerReportPage() {
         <div className="report-header">
           <h1 className="account-page-title">{t("customerReportTitle")}</h1>
         </div>
-        <div className="account-separator-line" />
 
         <CustomerReportFilters
           companyId={companyId}

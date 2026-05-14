@@ -317,8 +317,6 @@ export default function DomainPage() {
           </div>
         </div>
 
-        <div className="separator-line" aria-hidden="true" />
-
         <div className="table-container">
           <div className="table-header">
             <div>{t("no")}</div>

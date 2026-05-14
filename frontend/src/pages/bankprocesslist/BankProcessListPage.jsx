@@ -1298,7 +1298,6 @@ export default function BankProcessListPage() {
             </div>
           </div>
         </div>
-        <div className="separator-line" style={{ marginTop: 0 }} />
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>

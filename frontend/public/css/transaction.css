@@ -670,7 +670,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     text-align: left;
     border: 1px solid #d0d7de;
     font-weight: var(--font-weight-semibold);
-    font-size: var(--text-base);
+    font-size: var(--text-medium);
 }
 
 .transaction-page .transaction-table-row td {
@@ -1033,8 +1033,9 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     justify-content: center;
 }
 
-.transaction-history-modal.transaction-modal-content {
-    width: min(98vw, 1780px);
+/* 必须高于 member.css 的 `.transaction-page .transaction-modal-content`（同特异性时 member 后加载会盖住宽度） */
+.transaction-page .transaction-modal-content.transaction-history-modal {
+    width: min(75vw, 1420px);
     max-width: 100%;
     max-height: 92vh;
     height: min(90vh, 960px);
@@ -1047,7 +1048,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 .transaction-history-modal .transaction-modal-header {
     background-color: #ffffff;
     border-bottom: 1px solid #e2e8f0;
-    padding: clamp(12px, 1.1vw, 18px) clamp(16px, 2vw, 26px);
+    padding: clamp(10px, 0.95vw, 16px) clamp(12px, 1.35vw, 18px);
     flex-shrink: 0;
 }
 
@@ -1063,7 +1064,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: clamp(8px, 0.9vw, 14px) clamp(16px, 2vw, 26px) clamp(14px, 1.2vw, 22px);
+    padding: clamp(6px, 0.75vw, 12px) clamp(10px, 1.25vw, 16px) clamp(12px, 1.05vw, 18px);
 }
 
 .transaction-history-modal .transaction-history-table-frame {
@@ -1083,14 +1084,10 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     width: 100%;
 }
 
-.transaction-history-modal .transaction-modal-body .transaction-table th {
-    background-color: #002b49;
-    border: 1px solid #001a2e;
-    color: #ffffff;
-    font-weight: 700;
-    font-size: clamp(11px, 0.72vw, 13px);
-    text-align: center;
-    vertical-align: middle;
+.transaction-history-modal .transaction-modal-body .transaction-table th.transaction-history-col-product,
+.transaction-history-modal .transaction-modal-body .transaction-table th.transaction-history-col-currency,
+.transaction-history-modal .transaction-modal-body .transaction-table th.transaction-history-col-remark {
+    white-space: nowrap;
 }
 
 .transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-date,
@@ -1107,50 +1104,57 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 
 .transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-winloss,
 .transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-crdr,
-.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-balance,
-.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-created {
+.transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-balance {
     text-align: right !important;
 }
 
+.transaction-history-modal .transaction-modal-body .transaction-table th.transaction-history-col-created,
+.transaction-history-modal .transaction-modal-body .transaction-table td.transaction-history-col-created {
+    text-align: center !important;
+    font-size: var(--text-medium);
+    vertical-align: middle;
+}
+
 /* 列宽在 table-layout:fixed 下按百分比分配，避免撑出横向滚动 */
+/* Date 约 9%；Id Product 略宽；Description 仍最宽但略收；其余列压缩 */
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-date {
-    width: 9%;
+    width: 7%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-product {
-    width: 10%;
+    width: 14%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-currency {
-    width: 5%;
+    width: 6.3%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-rate {
-    width: 6%;
+    width: 5%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-winloss {
-    width: 8%;
+    width: 7%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-crdr {
-    width: 10%;
+    width: 7%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-balance {
-    width: 10%;
+    width: 8%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-description {
-    width: 18%;
+    width: 32%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-remark {
-    width: 12%;
+    width: 9%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-created {
-    width: 12%;
+    width: 6%;
 }
 
 .transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-date {
@@ -1162,37 +1166,37 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 }
 
 .transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-currency {
-    width: 6%;
-}
-
-.transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-rate {
     width: 7%;
 }
 
+.transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-rate {
+    width: 5%;
+}
+
 .transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-winloss {
-    width: 10%;
+    width: 8%;
 }
 
 .transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-crdr {
-    width: 12%;
+    width: 9%;
 }
 
 .transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-balance {
-    width: 12%;
+    width: 10%;
 }
 
 .transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-remark {
-    width: 15%;
+    width: 31%;
 }
 
 .transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-created {
-    width: 16%;
+    width: 8%;
 }
 
 .transaction-history-modal .transaction-modal-body .transaction-table th,
 .transaction-history-modal .transaction-modal-body .transaction-table td {
     min-width: 0;
-    padding: clamp(5px, 0.45vw, 8px) clamp(5px, 0.42vw, 8px);
+    padding: clamp(2px, 0.28vw, 5px) clamp(2px, 0.24vw, 5px);
     overflow-wrap: anywhere;
     word-break: break-word;
 }
@@ -1200,8 +1204,28 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 .transaction-history-modal .transaction-modal-body .transaction-table td {
     border: 1px solid #d1d5db;
     color: #333333;
-    font-size: clamp(10px, 0.68vw, 12px);
+    font-size: var(--text-small);
     vertical-align: top;
+}
+
+/* 表体字重与主表 transaction-table-row 一致：B/F 行无 .transaction-table-row，原先 600 与数据行 bold 不一致 */
+.transaction-page .transaction-modal-content.transaction-history-modal .transaction-modal-body .transaction-table tbody td {
+    font-weight: var(--font-weight-bold);
+}
+
+.transaction-history-modal .transaction-modal-body .transaction-table td.transaction-history-col-created {
+    vertical-align: middle;
+}
+
+/* Transaction 页 Payment History：与上图一致的数据格字号 */
+.transaction-page .transaction-modal-body .transaction-table td {
+    font-size: var(--text-small);
+}
+
+.transaction-page .transaction-modal-body .transaction-table th.transaction-history-col-created,
+.transaction-page .transaction-modal-body .transaction-table td.transaction-history-col-created {
+    font-size: var(--text-medium);
+    text-align: center !important;
 }
 
 .transaction-history-modal .transaction-modal-body .transaction-table .transaction-history-col-winloss,
@@ -1228,7 +1252,6 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 
 .transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row td {
     background-color: #ffffff !important;
-    font-weight: 600;
 }
 
 .transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover td {
@@ -1238,10 +1261,6 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 
 .transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover {
     background-color: transparent;
-}
-
-.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row .transaction-history-col-description {
-    font-weight: 600;
 }
 
 .transaction-history-modal .transaction-modal-body .transaction-table tbody tr:hover {
