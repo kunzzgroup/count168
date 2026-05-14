@@ -18,6 +18,21 @@ const forcedPermission = (typeof window.PROCESSLIST_FORCED_PERMISSION === 'strin
 // 恢复原状只需将此值改为 false。
 const SINGLE_CATEGORY_MODE = true;
 const hidePermissionFilter = SINGLE_CATEGORY_MODE || !!window.PROCESSLIST_HIDE_PERMISSION_FILTER;
+
+/** Bank Process List：Currency 筛选重置为 All（变量 + 药丸 UI） */
+function resetBankCurrencyFilterToAll() {
+    bankCountryFilterCode = '';
+    const wrap = document.getElementById('bankCurrencyFilterWrapper');
+    if (!wrap) return;
+    wrap.querySelectorAll('.bank-currency-filter-btn').forEach(function (b) {
+        b.classList.remove('active');
+    });
+    const allBtn = wrap.querySelector('.bank-currency-filter-all');
+    if (allBtn) {
+        allBtn.classList.add('active');
+    }
+}
+
 function getBankProcessModule() {
     return (typeof window !== 'undefined' && window.BankProcessList) ? window.BankProcessList : null;
 }
@@ -6471,6 +6486,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     console.log('DOM loaded, calling fetchProcesses...');
     try {
+        if (document.body.classList.contains('process-page--bank') || currentProcessListPage === 'bank_process_list.php') {
+            resetBankCurrencyFilterToAll();
+        }
         loadPermissionButtons().then(() => {
             if (!window._isRedirecting) {
                 fetchProcesses();
@@ -6525,6 +6543,7 @@ window.addEventListener('popstate', function (e) {
             updateProcessListPageTitle(permission);
             if (permission === 'Bank') {
                 document.body.classList.add('process-page--bank');
+                resetBankCurrencyFilterToAll();
             } else {
                 document.body.classList.remove('process-page--bank');
             }
@@ -6549,6 +6568,15 @@ window.addEventListener('popstate', function (e) {
     } catch (err) {
         // 降级：刷新页面
         window.location.reload();
+    }
+});
+
+window.addEventListener('pageshow', function (ev) {
+    if (!ev.persisted) return;
+    if (!document.body.classList.contains('process-page--bank') && currentProcessListPage !== 'bank_process_list.php') return;
+    resetBankCurrencyFilterToAll();
+    if (typeof renderTable === 'function') {
+        renderTable();
     }
 });
 
@@ -6620,6 +6648,7 @@ async function loadPermissionButtons() {
 
 // 切换权限
 function switchPermission(permission) {
+    const previousPermission = selectedPermission;
     const targetPage = getProcessListPageByPermission(permission);
     // 使用 history.pushState 无刷新更新 URL（替代全页跳转，消除白屏卡顿）
     // 注：currentProcessListPage 是 const 不会更新，必须从实时 URL 读取当前页名做比较
@@ -6636,6 +6665,10 @@ function switchPermission(permission) {
 
     selectedPermission = permission;
     updateProcessListPageTitle(permission);
+
+    if (permission === 'Bank' && previousPermission !== 'Bank') {
+        resetBankCurrencyFilterToAll();
+    }
 
     // Bank 列表：外层 .container 纵向滚动；与 processlist.php 上 PHP 注入的 process-page--bank 一致（同页切换 Category 时补齐）
     if (permission === 'Bank') {
