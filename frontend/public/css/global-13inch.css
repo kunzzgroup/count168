@@ -80,7 +80,8 @@
     }
 
     .user-gc-segment {
-        font-size: 13px !important;
+        font-size: var(--text-medium) !important;
+        font-weight: var(--font-weight-semibold) !important;
         padding: 4px clamp(10px, 1.2vw, 18px) !important;
     }
 
