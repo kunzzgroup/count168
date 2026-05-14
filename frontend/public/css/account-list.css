@@ -836,12 +836,21 @@
  */
 #currencySettingModal .currency-fullscreen-bottom-bar .account-btn-save,
 #currencySettingModal .currency-fullscreen-bottom-bar .account-btn-cancel {
-    font-size: var(--text-base) !important;
+    font-family: var(--font-heading-page) !important;
+    font-size: var(--text-medium) !important;
     font-weight: var(--font-weight-semibold) !important;
-    min-width: clamp(128px, 11vw, 168px) !important;
-    min-height: 44px !important;
-    padding: 12px 28px !important;
-    border-radius: 0.5rem !important;
+    min-width: var(--userlist-btn-add-width) !important;
+    width: auto !important;
+    min-height: auto !important;
+    padding: clamp(6px, 0.42vw, 8px) 20px !important;
+    border: none !important;
+    border-radius: 6px !important;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
 }
 
 #currencySettingModal .currency-fullscreen-bottom-bar .account-btn-save:disabled {
@@ -885,10 +894,20 @@
 
 #currencySettingModal .currency-setting-submit-btn.account-btn-save {
     background: var(--btn-add-gradient);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
 }
 
 #currencySettingModal .currency-setting-submit-btn.account-btn-save:hover:not(:disabled) {
     background: var(--btn-add-gradient-hover);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4) !important;
+}
+
+#currencySettingModal .currency-setting-cancel-btn.account-btn-cancel {
+    box-shadow: 0 2px 4px rgba(101, 119, 134, 0.2) !important;
+}
+
+#currencySettingModal .currency-setting-cancel-btn.account-btn-cancel:hover {
+    box-shadow: 0 4px 8px rgba(101, 119, 134, 0.3) !important;
 }
 
 /* Select All disabled：與底部 Save 禁用視覺一致（未選幣種時）；需蓋過上方 account-btn-add 的 !important */
