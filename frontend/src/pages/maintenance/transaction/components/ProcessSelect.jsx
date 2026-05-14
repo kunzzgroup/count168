@@ -7,6 +7,7 @@ export default function ProcessSelect({
   placeholder = "--Select All--",
   searchPlaceholder = "Search process...",
   noResultsText = "No results found",
+  ariaLabelledBy,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -83,10 +84,11 @@ export default function ProcessSelect({
 
   return (
     <div className="custom-select-wrapper" ref={dropdownRef}>
-      <button 
-        type="button" 
+      <button
+        type="button"
         className={`custom-select-button ${isOpen ? "open" : ""}`}
         onClick={handleToggle}
+        aria-labelledby={ariaLabelledBy || undefined}
       >
         {getDisplayText(selectedValue)}
       </button>

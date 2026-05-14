@@ -1,0 +1,191 @@
+/**
+ * Shared maintenance filter chrome (aligned with Data Capture maintenance).
+ * Loaded on all maintenance routes under body.maintenance-page.
+ */
+
+body.maintenance-page .maintenance-search-section {
+    max-width: none;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+/* Outlined label centered on top border */
+body.maintenance-page .maintenance-outlined-field {
+    gap: 0;
+}
+
+body.maintenance-page .maintenance-outlined-field__wrap {
+    position: relative;
+    width: 100%;
+}
+
+body.maintenance-page .maintenance-outlined-field__label {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    padding: 0 clamp(6px, 0.52vw, 10px);
+    background-color: #fff;
+    font-size: clamp(11px, 0.85vw, 13px);
+    font-weight: 600;
+    color: #374151;
+    font-family: var(--font-heading-page);
+    white-space: nowrap;
+    pointer-events: none;
+    line-height: 1.2;
+}
+
+body.maintenance-page .maintenance-outlined-field .date-range-picker {
+    width: 100%;
+    min-width: 0;
+}
+
+body.maintenance-page .maintenance-outlined-field .custom-select-wrapper {
+    width: 100%;
+    min-width: 0;
+}
+
+body.maintenance-page .maintenance-outlined-field .maintenance-select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+body.maintenance-page .maintenance-outlined-field .formula-process-control {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+body.maintenance-page .maintenance-outlined-field .search-container.maintenance-search-container,
+body.maintenance-page .maintenance-outlined-field .search-input-container.formula-search-input-container {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* GroupID / Company / Currency — Account List style user-gc strip */
+body.maintenance-page .maintenance-gc-panel.user-gc-inline-panel {
+    margin-left: -20px;
+    margin-right: 0;
+    width: calc(100% + 20px);
+    max-width: none;
+    box-sizing: border-box;
+}
+
+body.maintenance-page .maintenance-filter-left {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+body.maintenance-page .maintenance-filter-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: clamp(12px, 1.04vw, 20px);
+    width: 100%;
+}
+
+/* Delete + Confirm：与左侧 Group/Company 区域底边对齐（与 Company 行同一水平线） */
+body.maintenance-page .maintenance-filter-row > .maintenance-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: clamp(12px, 1.04vw, 20px);
+    flex-shrink: 0;
+    margin-left: auto;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    align-self: flex-end;
+}
+
+/* Confirm Delete — Customer Report「Show All」同款 pill chip */
+body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips.userlist-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .user-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px 6px 10px;
+    margin: 0;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 999px;
+    background: #f8fafc;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: clamp(12px, 0.85vw, 15px);
+    font-weight: 500;
+    color: #475569;
+    line-height: 1.2;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        color 0.15s ease,
+        background-color 0.15s ease;
+    min-width: 6.75rem;
+    justify-content: flex-start;
+}
+
+body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .user-filter-chip:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
+}
+
+body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .user-filter-chip:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
+body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .user-filter-chip.is-selected {
+    border-color: rgba(13, 96, 255, 0.45);
+    color: #0d60ff;
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.12);
+}
+
+body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .user-filter-chip__dot {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+}
+
+body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .user-filter-chip.is-selected .user-filter-chip__dot {
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    color: #ffffff;
+}
+
+body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .user-filter-chip__check {
+    width: 11px;
+    height: 11px;
+    display: block;
+}
+
+body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .user-filter-chip__label {
+    white-space: nowrap;
+}
+
+body.maintenance-page .maintenance-list-container {    margin-bottom: clamp(20px, 1.67vw, 32px);
+    margin-top: 10px;
+    max-width: none;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}

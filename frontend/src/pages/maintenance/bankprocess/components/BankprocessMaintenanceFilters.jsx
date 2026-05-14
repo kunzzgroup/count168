@@ -50,42 +50,55 @@ export default function BankprocessMaintenanceFilters({
 
       <div className="maintenance-search-section">
         <div className="maintenance-filters">
-          <div className="maintenance-form-group maintenance-date-inline">
-            <label className="maintenance-label">{m.dateRange}</label>
-            <div className="date-range-picker" id="date-range-picker">
-              <i className="fas fa-calendar-alt" />
-              <span id="date-range-display">{m.selectDateRange}</span>
+          <div className="maintenance-form-group maintenance-date-inline maintenance-outlined-field">
+            <div className="maintenance-outlined-field__wrap">
+              <span id="bankprocess-maint-date-legend" className="maintenance-outlined-field__label">
+                {m.dateRange}
+              </span>
+              <div
+                className="date-range-picker"
+                id="date-range-picker"
+                aria-labelledby="bankprocess-maint-date-legend"
+              >
+                <i className="fas fa-calendar-alt" aria-hidden={true} />
+                <span id="date-range-display">{m.selectDateRange}</span>
+              </div>
+              <input type="hidden" id="date_from" defaultValue={dateFrom || today} />
+              <input type="hidden" id="date_to" defaultValue={dateTo || today} />
             </div>
-            <input type="hidden" id="date_from" defaultValue={dateFrom || today} />
-            <input type="hidden" id="date_to" defaultValue={dateTo || today} />
           </div>
 
-          <div className="maintenance-form-group maintenance-search-inline" id="from-search-row">
-            <label className="maintenance-label" htmlFor="filter_from_search">{m.search}</label>
-            <div className="search-container maintenance-search-container">
-              <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-              </svg>
-              <input
-                type="text"
-                id="filter_from_search"
-                placeholder={m.bankSearchPlaceholder}
-                className="search-input maintenance-search-input"
-                autoComplete="off"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    onSearch();
-                  }
-                }}
-              />
+          <div className="maintenance-form-group maintenance-search-inline maintenance-outlined-field" id="from-search-row">
+            <div className="maintenance-outlined-field__wrap">
+              <span id="bankprocess-maint-search-legend" className="maintenance-outlined-field__label">
+                {m.search}
+              </span>
+              <div className="search-container maintenance-search-container">
+                <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+                <input
+                  type="text"
+                  id="filter_from_search"
+                  placeholder={m.bankSearchPlaceholder}
+                  className="search-input maintenance-search-input"
+                  autoComplete="off"
+                  value={query}
+                  aria-labelledby="bankprocess-maint-search-legend"
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      onSearch();
+                    }
+                  }}
+                />
+              </div>
             </div>
           </div>
 
           <div className="maintenance-form-group quick-select-wrap">
-            <label className="form-label">
+            <label className="maintenance-label">
               <i className="fas fa-clock" /> {m.quickSelect}
             </label>
             <div className="quick-select-dropdown quick-select-dropdown-toggle">
@@ -110,61 +123,73 @@ export default function BankprocessMaintenanceFilters({
 
         <div className="maintenance-filter-row">
           <div className="maintenance-filter-left">
-            {groupedIds.length > 0 && (
-              <div id="group-buttons-wrapper" className="maintenance-company-filter shared-group-wrapper">
-                <span className="transaction-company-label">{m.groupId}</span>
-                <div id="group-buttons-container" className="transaction-company-buttons">
-                  {groupedIds.map((gid) => (
-                    <button
-                      key={gid}
-                      type="button"
-                      className={`transaction-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
-                      data-group-id={gid}
-                      onClick={() => onGroupClick(gid)}
-                    >
-                      {gid}
-                    </button>
-                  ))}
-                </div>
+            {(groupedIds.length > 0 || companies.length > 0 || currencies.length > 0) && (
+              <div className="user-gc-inline-panel maintenance-gc-panel">
+                {groupedIds.length > 0 && (
+                  <div className="user-gc-inline-row">
+                    <span className="user-gc-inline-label">{m.groupId}</span>
+                    <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="group-buttons-wrapper">
+                      <div className="user-gc-segment-group" role="group" aria-label={m.groupId}>
+                        {groupedIds.map((gid) => (
+                          <button
+                            key={gid}
+                            type="button"
+                            className={`user-gc-segment${selectedGroup === gid ? " is-on" : ""}`}
+                            data-group-id={gid}
+                            onClick={() => onGroupClick(gid)}
+                          >
+                            {gid}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {companies.length > 0 && (
+                  <div className="user-gc-inline-row">
+                    <span className="user-gc-inline-label">{m.company}</span>
+                    <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="company-buttons-wrapper">
+                      <div className="user-gc-segment-group" role="group" aria-label={m.company}>
+                        {visibleCompanies.map((comp) => (
+                          <button
+                            key={comp.id}
+                            type="button"
+                            className={`user-gc-segment${Number(comp.id) === Number(companyId) ? " is-on" : ""}`}
+                            data-company-id={comp.id}
+                            data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
+                            data-company-code={comp.company_id}
+                            onClick={() => handleSwitchCompany(comp)}
+                          >
+                            {String(comp.company_id || "").toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {currencies.length > 0 && (
+                  <div className="user-gc-inline-row">
+                    <span className="user-gc-inline-label">{m.currency}</span>
+                    <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="currency-buttons-wrapper">
+                      <div className="user-gc-segment-group" role="group" aria-label={m.currency}>
+                        {currencies.map((currency) => (
+                          <button
+                            key={currency.code}
+                            type="button"
+                            className={`user-gc-segment${selectedCurrency === currency.code ? " is-on" : ""}`}
+                            onClick={() => setSelectedCurrency(currency.code)}
+                          >
+                            {currency.code}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-
-            {companies.length > 0 && (
-              <div id="company-buttons-wrapper" className="maintenance-company-filter shared-company-wrapper">
-                <span className="transaction-company-label">{m.company}</span>
-                <div id="company-buttons-container" className="transaction-company-buttons">
-                  {visibleCompanies.map((comp) => (
-                    <button
-                      key={comp.id}
-                      type="button"
-                      className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(companyId) ? "active" : ""}`}
-                      data-company-id={comp.id}
-                      data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
-                      data-company-code={comp.company_id}
-                      onClick={() => handleSwitchCompany(comp)}
-                    >
-                      {comp.company_id}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div id="currency-buttons-wrapper" className="maintenance-company-filter" style={{ display: currencies.length > 0 ? "flex" : "none" }}>
-              <span className="maintenance-company-label">{m.currency}</span>
-              <div className="maintenance-company-buttons" id="currency-buttons-container">
-                {currencies.map((currency) => (
-                  <button
-                    key={currency.code}
-                    type="button"
-                    className={`maintenance-company-btn ${selectedCurrency === currency.code ? "active" : ""}`}
-                    onClick={() => setSelectedCurrency(currency.code)}
-                  >
-                    {currency.code}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className="maintenance-actions">
@@ -177,16 +202,32 @@ export default function BankprocessMaintenanceFilters({
             >
               {m.delete}
             </button>
-            <label className="maintenance-confirm-delete-label">
-              <input
-                type="checkbox"
+            <div className="userlist-filter-chips maintenance-confirm-filter-chips" role="group" aria-label={m.confirmDelete}>
+              <button
+                type="button"
                 id="confirmDelete"
-                className="maintenance-checkbox"
-                checked={confirmDelete}
-                onChange={(e) => setConfirmDelete(e.target.checked)}
-              />
-              <span>{m.confirmDelete}</span>
-            </label>
+                className={`user-filter-chip${confirmDelete ? " is-selected" : ""}`}
+                aria-pressed={confirmDelete}
+                onClick={() => setConfirmDelete(!confirmDelete)}
+              >
+                <span className="user-filter-chip__dot" aria-hidden={true}>
+                  {confirmDelete ? (
+                    <svg
+                      className="user-filter-chip__check"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M6 12l4 4 8-8" />
+                    </svg>
+                  ) : null}
+                </span>
+                <span className="user-filter-chip__label">{m.confirmDelete}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

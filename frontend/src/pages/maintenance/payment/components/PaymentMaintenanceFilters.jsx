@@ -24,32 +24,45 @@ export default function PaymentMaintenanceFilters({
   return (
     <div className="maintenance-search-section">
       <div className="maintenance-filters">
-        <div className="maintenance-form-group">
-          <label className="maintenance-label">{m.transactionType}</label>
-          <select 
-            id="filter_transaction_type" 
-            className="maintenance-select"
-            value={transactionType}
-            onChange={(e) => setTransactionType(e.target.value)}
-          >
-            <option value="">{m.allTypes}</option>
-            <option value="CONTRA">CONTRA</option>
-            <option value="PAYMENT">PAYMENT</option>
-            <option value="RECEIVE">RECEIVE</option>
-            <option value="CLAIM">CLAIM</option>
-            <option value="ADJUSTMENT">ADJUSTMENT</option>
-            <option value="RATE">RATE</option>
-          </select>
+        <div className="maintenance-form-group maintenance-outlined-field">
+          <div className="maintenance-outlined-field__wrap">
+            <span id="payment-maint-type-legend" className="maintenance-outlined-field__label">
+              {m.transactionType}
+            </span>
+            <select
+              id="filter_transaction_type"
+              className="maintenance-select"
+              value={transactionType}
+              onChange={(e) => setTransactionType(e.target.value)}
+              aria-labelledby="payment-maint-type-legend"
+            >
+              <option value="">{m.allTypes}</option>
+              <option value="CONTRA">CONTRA</option>
+              <option value="PAYMENT">PAYMENT</option>
+              <option value="RECEIVE">RECEIVE</option>
+              <option value="CLAIM">CLAIM</option>
+              <option value="ADJUSTMENT">ADJUSTMENT</option>
+              <option value="RATE">RATE</option>
+            </select>
+          </div>
         </div>
 
-        <div className="maintenance-form-group maintenance-date-inline">
-          <label className="maintenance-label">{m.dateRange}</label>
-          <div className="date-range-picker" id="date-range-picker">
-            <i className="fas fa-calendar-alt" />
-            <span id="date-range-display">{m.selectDateRange}</span>
+        <div className="maintenance-form-group maintenance-date-inline maintenance-outlined-field">
+          <div className="maintenance-outlined-field__wrap">
+            <span id="payment-maint-date-legend" className="maintenance-outlined-field__label">
+              {m.dateRange}
+            </span>
+            <div
+              className="date-range-picker"
+              id="date-range-picker"
+              aria-labelledby="payment-maint-date-legend"
+            >
+              <i className="fas fa-calendar-alt" aria-hidden={true} />
+              <span id="date-range-display">{m.selectDateRange}</span>
+            </div>
+            <input type="hidden" id="date_from" defaultValue={dateFrom || today} />
+            <input type="hidden" id="date_to" defaultValue={dateTo || today} />
           </div>
-          <input type="hidden" id="date_from" defaultValue={dateFrom || today} />
-          <input type="hidden" id="date_to" defaultValue={dateTo || today} />
         </div>
 
         <div className="maintenance-form-group quick-select-wrap">
@@ -57,10 +70,13 @@ export default function PaymentMaintenanceFilters({
             <i className="fas fa-clock" /> {m.quickSelect}
           </label>
           <div className="quick-select-dropdown quick-select-dropdown-toggle">
-            <button 
-              type="button" 
-              className="dropdown-toggle" 
-              onClick={(e) => { e.stopPropagation(); window.toggleQuickSelectDropdown?.(); }}
+            <button
+              type="button"
+              className="dropdown-toggle"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.toggleQuickSelectDropdown?.();
+              }}
             >
               <i className="fas fa-calendar-alt" />
               <span id="quick-select-text">{m.period}</span>
@@ -82,55 +98,72 @@ export default function PaymentMaintenanceFilters({
 
       <div className="maintenance-filter-row">
         <div className="maintenance-filter-left">
-          {snapGroupIds.length > 0 && (
-            <div id="group-buttons-wrapper" className="maintenance-company-filter shared-group-wrapper">
-              <span className="maintenance-company-label">{m.groupId}</span>
-              <div id="group-buttons-container" className="maintenance-company-buttons">
-                {snapGroupIds.map(gid => (
-                  <button
-                    key={gid}
-                    type="button"
-                    className={`maintenance-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
-                    onClick={() => onGroupClick(gid)}
-                  >
-                    {gid}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {(snapGroupIds.length > 0 || snapCompanies.length > 0 || currencies.length > 0) && (
+            <div className="user-gc-inline-panel maintenance-gc-panel">
+              {snapGroupIds.length > 0 && (
+                <div className="user-gc-inline-row">
+                  <span className="user-gc-inline-label">{m.groupId}</span>
+                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="group-buttons-wrapper">
+                    <div className="user-gc-segment-group" role="group" aria-label={m.groupId}>
+                      {snapGroupIds.map((gid) => (
+                        <button
+                          key={gid}
+                          type="button"
+                          className={`user-gc-segment${selectedGroup === gid ? " is-on" : ""}`}
+                          onClick={() => onGroupClick(gid)}
+                        >
+                          {gid}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-          <div id="company-buttons-wrapper" className="maintenance-company-filter shared-company-wrapper">
-            <span className="maintenance-company-label">{m.company}</span>
-            <div id="company-buttons-container" className="maintenance-company-buttons">
-              {snapCompanies.filter(c => (c.group_id ? String(c.group_id).toUpperCase().trim() : "") === (selectedGroup || "")).map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`maintenance-company-btn shared-company-btn ${Number(companyId) === Number(c.id) ? "active" : ""}`}
-                  onClick={() => onSwitchCompany(c)}
-                >
-                  {c.company_id}
-                </button>
-              ))}
-            </div>
-          </div>
+              {snapCompanies.length > 0 && (
+                <div className="user-gc-inline-row">
+                  <span className="user-gc-inline-label">{m.company}</span>
+                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="company-buttons-wrapper">
+                    <div className="user-gc-segment-group" role="group" aria-label={m.company}>
+                      {snapCompanies
+                        .filter(
+                          (c) =>
+                            (c.group_id ? String(c.group_id).toUpperCase().trim() : "") === (selectedGroup || "")
+                        )
+                        .map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className={`user-gc-segment${Number(companyId) === Number(c.id) ? " is-on" : ""}`}
+                            onClick={() => onSwitchCompany(c)}
+                          >
+                            {String(c.company_id || "").toUpperCase()}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-          {currencies.length > 0 && (
-            <div id="currency-buttons-wrapper" className="maintenance-company-filter">
-              <span className="maintenance-company-label">{m.currency}</span>
-              <div className="maintenance-company-buttons">
-                {currencies.map(curr => (
-                  <button
-                    key={curr.code}
-                    type="button"
-                    className={`maintenance-company-btn ${selectedCurrency === curr.code ? "active" : ""}`}
-                    onClick={() => setSelectedCurrency(curr.code)}
-                  >
-                    {curr.code}
-                  </button>
-                ))}
-              </div>
+              {currencies.length > 0 && (
+                <div className="user-gc-inline-row">
+                  <span className="user-gc-inline-label">{m.currency}</span>
+                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="currency-buttons-wrapper">
+                    <div className="user-gc-segment-group" role="group" aria-label={m.currency}>
+                      {currencies.map((curr) => (
+                        <button
+                          key={curr.code}
+                          type="button"
+                          className={`user-gc-segment${selectedCurrency === curr.code ? " is-on" : ""}`}
+                          onClick={() => setSelectedCurrency(curr.code)}
+                        >
+                          {curr.code}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -145,16 +178,32 @@ export default function PaymentMaintenanceFilters({
           >
             {m.delete}
           </button>
-          <label className="maintenance-confirm-delete-label">
-            <input
-              type="checkbox"
+          <div className="userlist-filter-chips maintenance-confirm-filter-chips" role="group" aria-label={m.confirmDelete}>
+            <button
+              type="button"
               id="confirmDelete"
-              className="maintenance-checkbox"
-              checked={confirmDelete}
-              onChange={(e) => setConfirmDelete(e.target.checked)}
-            />
-            <span>{m.confirmDelete}</span>
-          </label>
+              className={`user-filter-chip${confirmDelete ? " is-selected" : ""}`}
+              aria-pressed={confirmDelete}
+              onClick={() => setConfirmDelete(!confirmDelete)}
+            >
+              <span className="user-filter-chip__dot" aria-hidden={true}>
+                {confirmDelete ? (
+                  <svg
+                    className="user-filter-chip__check"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M6 12l4 4 8-8" />
+                  </svg>
+                ) : null}
+              </span>
+              <span className="user-filter-chip__label">{m.confirmDelete}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
