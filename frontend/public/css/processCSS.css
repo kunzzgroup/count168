@@ -1,7 +1,7 @@
 /* Base Styles */
 body.process-page {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    font-size: var(--text-base, clamp(0.875rem, 2.5vw, 1rem));
+    font-family: var(--font-ui) !important;
+    font-size: var(--text-medium) !important;
     margin: 0;
     padding: 0;
     min-height: 100vh;
@@ -17,6 +17,7 @@ body.process-page {
     color: #334155;
     overflow-x: hidden;
     overflow-y: hidden;
+    position: relative;
 }
 
 .process-page .container {
@@ -27,6 +28,13 @@ body.process-page {
     height: 100vh;
     box-sizing: border-box;
     overflow: hidden;
+}
+
+/* 正文字体系继承 body（body 使用 --font-ui / --text-medium） */
+.process-page .container,
+.process-page .content {
+    font-family: inherit;
+    font-size: inherit;
 }
 
 .process-page .page-header {
@@ -149,6 +157,7 @@ body.process-page {
     border: 1px solid rgba(148, 163, 184, 0.35);
     border-radius: 6px;
     font-size: clamp(10px, 0.8vw, 15px);
+    font-family: inherit;
     background: rgba(255, 255, 255, 1);
     color: #000000ff;
     backdrop-filter: blur(8px) saturate(1.2);
@@ -208,7 +217,7 @@ body.process-page {
 .process-page .process-company-label {
     font-weight: bold;
     color: #374151;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: var(--text-small);
     font-family: var(--font-heading-page);
     white-space: nowrap;
     display: flex;
@@ -231,10 +240,11 @@ body.process-page {
     border: 1px solid #d0d7de;
     border-radius: 999px;
     cursor: pointer;
-    font-size: clamp(9px, 0.63vw, 12px);
+    font-size: var(--text-small);
+    font-family: inherit;
     transition: all 0.2s ease;
     color: #1f2937;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
 }
 
 .process-page .process-company-btn:hover {
@@ -377,7 +387,8 @@ body.process-page {
 }
 
 .process-page .checkbox-section label {
-    font-size: clamp(10px, 0.8vw, 15px);
+    font-size: var(--text-small);
+    font-family: inherit;
     color: #495057;
     cursor: pointer;
     font-weight: 500;
@@ -443,9 +454,10 @@ body.process-page {
 .process-page .bank-data-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: clamp(12px, 0.82vw, 15px);
+    font-size: var(--text-small);
     table-layout: fixed;
     font-weight: bold;
+    font-family: inherit;
     color: #374151;
     border-radius: 8px 8px 0 0;
     overflow: hidden;
@@ -454,7 +466,8 @@ body.process-page {
 .process-page .bank-data-table thead {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: white;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
+    font-family: inherit;
     position: sticky;
     top: 0;
     z-index: 1;
@@ -1012,7 +1025,8 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     margin-top: 20px;
     font-weight: bold;
     color: white;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
+    font-family: inherit;
     min-width: 0;
 }
 
@@ -1374,9 +1388,9 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 .process-page .form-group label {
     display: block;
     margin-bottom: 0.5rem;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     color: #374151;
-    font-size: 0.875rem;
+    font-size: var(--text-small);
     letter-spacing: 0.025em;
     font-family: var(--font-heading-page);
 }
@@ -1387,7 +1401,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     padding: 12px 16px;
     border: 0.125rem solid #e5e7eb;
     border-radius: 0.5rem;
-    font-size: 0.875rem;
+    font-size: var(--text-medium);
     background: #ffffff;
     color: #374151;
     box-sizing: border-box;
@@ -1420,7 +1434,8 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     font-family: var(--font-heading-page);
     width: clamp(90px, 7vw, 130px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: clamp(10px, 0.83vw, 16px);
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
@@ -1448,7 +1463,8 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
-    font-size: clamp(0.625rem, 0.83vw, 1rem);
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 0.375rem;
     box-shadow: 0 0.125rem 0.25rem rgba(88, 88, 88, 0.3);
@@ -1511,9 +1527,9 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     transform: scale(0.95);
 }
 
-/* Responsive Design - Fluid Units */
+/* Responsive Design - inherit body / .card-item tokens */
 .process-page .process-cards {
-    font-size: clamp(0.75rem, 1.5vw, 0.9375rem);
+    font-size: inherit;
 }
 
 /* Loading states */
@@ -1537,7 +1553,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
     z-index: 100;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: inherit;
 }
 
 /* Games list: pagination fixed to viewport bottom-right (does not move with row count / list scroll) */
@@ -3517,8 +3533,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     position: relative;
     word-wrap: break-word;
     border-left: 4px solid;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
+    font-family: inherit;
+    font-size: var(--text-medium);
     line-height: 1.5;
 }
 
