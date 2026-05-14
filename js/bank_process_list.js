@@ -736,6 +736,11 @@ if (!window.__bankStatusDropdownBound) {
 function matchesCurrentBankFilters(process) {
     if (!process) return false;
     if (!processMatchesSelectedDate(process)) return false;
+    const fc = String(typeof bankCountryFilterCode !== 'undefined' ? bankCountryFilterCode : '').trim().toUpperCase();
+    if (fc) {
+        const c = String(process.country || '').trim().toUpperCase();
+        if (c !== fc) return false;
+    }
     if (showAll) return true;
     const status = String(process.status || '').toLowerCase();
     const issueFlag = normalizeBankIssueFlag(process.issue_flag);
@@ -750,6 +755,53 @@ function matchesCurrentBankFilters(process) {
     }
     return matches.some(Boolean);
 }
+
+function rebuildBankCurrencyFilterPills() {
+    const container = document.getElementById('bankCurrencyButtons');
+    if (!container) return;
+    const codes = new Set();
+    if (Array.isArray(processes)) {
+        processes.forEach(function (p) {
+            const c = String(p && p.country != null ? p.country : '').trim().toUpperCase();
+            if (c) codes.add(c);
+        });
+    }
+    const sorted = Array.from(codes).sort();
+    let active = String(typeof bankCountryFilterCode !== 'undefined' ? bankCountryFilterCode : '').trim().toUpperCase();
+    if (active && !codes.has(active)) {
+        active = '';
+        bankCountryFilterCode = '';
+    }
+    let html = '<button type="button" class="process-company-btn bank-currency-filter-btn' + (!active ? ' active' : '') + '" data-currency="">All</button>';
+    sorted.forEach(function (code) {
+        const isActive = active === code;
+        html += '<button type="button" class="process-company-btn bank-currency-filter-btn' + (isActive ? ' active' : '') +
+            '" data-currency="' + escapeHtml(code) + '">' + escapeHtml(code) + '</button>';
+    });
+    container.innerHTML = html;
+}
+
+(function bindBankCurrencyFilterDelegation() {
+    if (window.__bankCurrencyFilterDelegationBound) return;
+    const wrap = document.getElementById('bankCurrencyFilterWrapper');
+    if (!wrap) return;
+    window.__bankCurrencyFilterDelegationBound = true;
+    wrap.addEventListener('click', function (e) {
+        const btn = e.target && e.target.closest ? e.target.closest('.bank-currency-filter-btn') : null;
+        if (!btn || !wrap.contains(btn)) return;
+        e.preventDefault();
+        const raw = btn.getAttribute('data-currency');
+        const code = raw == null || String(raw).trim() === '' ? '' : String(raw).trim().toUpperCase();
+        bankCountryFilterCode = code;
+        wrap.querySelectorAll('.bank-currency-filter-btn').forEach(function (b) {
+            b.classList.toggle('active', b === btn);
+        });
+        currentPage = 1;
+        if (typeof renderTable === 'function') {
+            renderTable();
+        }
+    });
+})();
 
 async function updateBankIssueFlag(processId, newValue, options) {
     const settings = options || {};
@@ -4942,7 +4994,10 @@ return {
     updateAccountingInboxVisibility: updateAccountingInboxVisibility,
     postToTransactionSelected: postToTransactionSelected,
     toggleProcessStatus: toggleProcessStatus,
-    refreshAfterFetch: function () { sortBankProcessesBySupplier(); },
+    refreshAfterFetch: function () {
+        sortBankProcessesBySupplier();
+        rebuildBankCurrencyFilterPills();
+    },
     renderAfterStatusChange: function () { renderTable(); },
     isRealBankInactive: isRealBankInactive,
     executeAccountingDueResend: executeAccountingDueResend,

@@ -5,6 +5,8 @@ let showOfficial = (typeof window.PROCESSLIST_SHOW_OFFICIAL !== 'undefined' ? wi
 let showEInvoice = (typeof window.PROCESSLIST_SHOW_E_INVOICE !== 'undefined' ? window.PROCESSLIST_SHOW_E_INVOICE : false);
 let showBlock = (typeof window.PROCESSLIST_SHOW_BLOCK !== 'undefined' ? window.PROCESSLIST_SHOW_BLOCK : false);
 let showAll = (typeof window.PROCESSLIST_SHOW_ALL !== 'undefined' ? window.PROCESSLIST_SHOW_ALL : false);
+/** Bank Process List: empty = All; otherwise match `process.country` (Country column) case-insensitively */
+let bankCountryFilterCode = '';
 let waiting = false;
 let currentPage = 1;
 const pageSize = 20;
@@ -599,6 +601,11 @@ if (!window.__bankStatusDropdownBound) {
 function matchesCurrentBankFilters(process) {
     if (!process) return false;
     if (!processMatchesSelectedDate(process)) return false;
+    const fc = String(bankCountryFilterCode || '').trim().toUpperCase();
+    if (fc) {
+        const c = String(process.country || '').trim().toUpperCase();
+        if (c !== fc) return false;
+    }
     if (showAll) return true;
     const status = String(process.status || '').toLowerCase();
     const issueFlag = normalizeBankIssueFlag(process.issue_flag);
