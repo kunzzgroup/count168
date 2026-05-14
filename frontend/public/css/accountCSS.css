@@ -351,7 +351,7 @@ body.account-page:not(.account-page--show-all) {
     display: inline !important;
 }
 
-/* Show All：与分页列表相同的行高/内边距；列表区内部纵向滚动（表头留在可视区域上方） */
+/* Show All：外层框架保持普通版，只在 table body 内显示全部资料 */
 body.account-page--show-all {
     overflow-x: hidden !important;
     overflow-y: hidden !important;
@@ -386,7 +386,7 @@ body.account-page--show-all .account-table-header {
     flex-shrink: 0;
 }
 
-/* 覆盖 global-13inch 中 body.ec-auth-shell .account-cards 的 overflow:visible，实现表内滚动 */
+/* 覆盖 global-13inch：Show All 保持同一个 table 框，资料区内部滚动 */
 body.ec-auth-shell.account-page--show-all .account-cards,
 body.account-page--show-all .account-cards {
     display: flex;
@@ -413,31 +413,14 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all,
     align-content: flex-start !important;
 }
 
-/* Show All：保留表内滚动，但不要让全部资料挤成超密集行 */
+/* Show All：只禁止 row 被压缩；行高/内边距完全沿用普通模式 */
 body.account-page--show-all .account-card,
 body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .account-card,
 .account-page .account-cards.account-cards--show-all > .account-card,
 .account-cards.account-cards--show-all > .account-card {
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    min-height: 34px !important;
     height: auto !important;
-    padding: 8px 22px !important;
-}
-
-body.account-page--show-all .account-card-item,
-body.ec-auth-shell.account-page .account-cards.account-cards--show-all .account-card-item,
-.account-page .account-cards.account-cards--show-all .account-card-item,
-.account-cards.account-cards--show-all .account-card-item {
-    line-height: 1.45 !important;
-    min-height: 18px !important;
-}
-
-body.account-page--show-all .account-role-badge,
-body.ec-auth-shell.account-page .account-cards.account-cards--show-all .account-role-badge,
-.account-page .account-cards.account-cards--show-all .account-role-badge,
-.account-cards.account-cards--show-all .account-role-badge {
-    line-height: 1.25 !important;
 }
 
 /* Account Cards：纵向 flex；行高随内容，空白留在列表底部（与 userlist 一致） */
