@@ -345,7 +345,9 @@ export default function TransactionPaymentPage() {
               <button type="button" id="calendar-month-select" className="calendar-month-trigger" value="4" aria-label="Month">
                 May
               </button>
-              <select id="calendar-year-select" aria-label="Year" />
+              <button type="button" id="calendar-year-select" className="calendar-year-trigger" value="2026" aria-label="Year">
+                2026
+              </button>
             </div>
             <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
               <i className="fas fa-chevron-right" />

@@ -461,7 +461,8 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-year {
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year select,
-body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger {
+body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger,
+body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger {
     border: 1px solid transparent;
     border-radius: 7px;
     background: #ffffff;
@@ -475,7 +476,9 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year select:hover,
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year select:focus,
 body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger:hover,
-body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger:focus {
+body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger:focus,
+body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger:hover,
+body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger:focus {
     border-color: #d7e3f4;
     background: #f8fbff;
 }
@@ -487,7 +490,15 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger
     font-family: var(--font-heading-page);
 }
 
-body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger::after {
+body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger {
+    min-width: 52px;
+    padding: 3px 6px;
+    cursor: pointer;
+    font-family: var(--font-heading-page);
+}
+
+body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger::after,
+body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger::after {
     content: "";
     display: inline-block;
     width: 5px;
@@ -544,13 +555,15 @@ body.transaction-page .calendar-popup--transaction-range .calendar-day {
         transform 0.14s ease;
 }
 
-body.transaction-page .calendar-popup--transaction-range .calendar-days.calendar-month-grid {
+body.transaction-page .calendar-popup--transaction-range .calendar-days.calendar-month-grid,
+body.transaction-page .calendar-popup--transaction-range .calendar-days.calendar-year-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
     padding: 8px 0 2px;
 }
 
-body.transaction-page .calendar-popup--transaction-range .calendar-month-option {
+body.transaction-page .calendar-popup--transaction-range .calendar-month-option,
+body.transaction-page .calendar-popup--transaction-range .calendar-year-option {
     min-height: 34px;
     border: 1px solid transparent;
     border-radius: 9px;
@@ -569,14 +582,17 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-option 
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-month-option:hover,
-body.transaction-page .calendar-popup--transaction-range .calendar-month-option:focus-visible {
+body.transaction-page .calendar-popup--transaction-range .calendar-month-option:focus-visible,
+body.transaction-page .calendar-popup--transaction-range .calendar-year-option:hover,
+body.transaction-page .calendar-popup--transaction-range .calendar-year-option:focus-visible {
     outline: none;
     border-color: rgba(59, 130, 246, 0.28);
     background: #eff6ff;
     color: #1d4ed8;
 }
 
-body.transaction-page .calendar-popup--transaction-range .calendar-month-option.is-active {
+body.transaction-page .calendar-popup--transaction-range .calendar-month-option.is-active,
+body.transaction-page .calendar-popup--transaction-range .calendar-year-option.is-active {
     background: var(--btn-add-gradient);
     color: #ffffff;
     box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2);
