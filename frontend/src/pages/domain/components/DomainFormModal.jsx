@@ -313,11 +313,19 @@ export default function DomainFormModal({
             >
               <input
                 type="checkbox"
+                id={`dfm-assign-${c.company_id}`}
+                className="dfm-assign-checkbox"
                 checked={c.group_id === selectedGroupId}
                 onChange={() => toggleCompanyGroup(c.company_id)}
                 onClick={(e) => e.stopPropagation()}
               />
-              <label>{c.company_id}</label>
+              <label
+                className="dfm-assign-label"
+                htmlFor={`dfm-assign-${c.company_id}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {c.company_id}
+              </label>
             </div>
           ))}
         </div>
@@ -538,9 +546,10 @@ export default function DomainFormModal({
                       {selectedGroupId ? (
                         <button
                           type="button"
-                          className={`dfm-multi-choice-btn dfm-multi-choice-btn--prominent ${
-                            isMultipleChoiceMode ? "dfm-multi-choice-btn--on" : "dfm-multi-choice-btn--off"
+                          className={`dfm-multi-choice-btn ${
+                            isMultipleChoiceMode ? "dfm-multi-choice-btn--done" : "dfm-multi-choice-btn--pick"
                           }`}
+                          aria-pressed={isMultipleChoiceMode}
                           onClick={toggleMultipleChoice}
                         >
                           {isMultipleChoiceMode ? t("done") : t("multipleChoice")}
