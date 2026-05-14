@@ -157,7 +157,7 @@ body.dashboard-page.maintenance-page {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 1600px;
+    max-width: none;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
@@ -467,11 +467,11 @@ body.dashboard-page.maintenance-page {
     border-color: #4a90e2;
 }
 
-/* 与上方 .maintenance-search-section 同宽（1600 居中），避免表格比白卡更宽 */
+/* 与筛选白卡同宽：铺满主内容区，避免宽屏右侧大块留白 */
 .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
-    max-width: 1600px;
+    max-width: none;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
@@ -482,7 +482,7 @@ body.dashboard-page.maintenance-page {
     width: 100%;
     border-collapse: separate;
     table-layout: fixed;
-    border-spacing: 0 2px;
+    border-spacing: 0 clamp(2px, 0.28vw, 4px);
 }
 
 .maintenance-table th,
@@ -499,8 +499,10 @@ body.dashboard-page.maintenance-page {
 }
 
 .maintenance-table thead th {
-    padding: clamp(6px, 0.65vw, 11px) clamp(10px, 0.9vw, 14px);
+    padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1vw, 18px);
     text-align: center;
+    min-height: clamp(30px, 2.1vw, 38px);
+    box-sizing: border-box;
 }
 
 .maintenance-table thead th:first-child {
@@ -535,52 +537,84 @@ body.dashboard-page.maintenance-page {
     border-bottom: none;
 }
 
-/* 与 payment_maintenance.php：数据列后最右为勾选列 */
+/* Data Capture 9 列：宽度合计 100%，铺满整表；末列为勾选 */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 4%;
+    width: 3%;
     text-align: center;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 16%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 13%;
+    width: 10%;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 14%;
+    width: 10%;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 8%;
+    width: 9.5%;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 13%;
+    width: 13.5%;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 11%;
+    width: 13.5%;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 18%;
+    width: 21%;
 }
 
-/* Data Capture 表为 9 列，末列（勾选）为 nth-child(9) */
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: unset;
+    width: 6.5%;
+    min-width: clamp(40px, 3.5vw, 56px);
+    box-sizing: border-box;
+}
+
+/* Currency～Deleted By 列内留白略增；Deleted By 与勾选列收紧，减少右侧大块空 */
+.maintenance-list-container .maintenance-table th:nth-child(5),
+.maintenance-list-container .maintenance-table td:nth-child(5) {
+    padding-left: clamp(8px, 0.9vw, 14px);
+    padding-right: clamp(10px, 1.1vw, 18px);
+}
+
+.maintenance-list-container .maintenance-table th:nth-child(6),
+.maintenance-list-container .maintenance-table td:nth-child(6) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(10px, 1.05vw, 18px);
+}
+
+.maintenance-list-container .maintenance-table th:nth-child(7),
+.maintenance-list-container .maintenance-table td:nth-child(7) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(10px, 1.05vw, 18px);
+}
+
+.maintenance-list-container .maintenance-table th:nth-child(8),
+.maintenance-list-container .maintenance-table td:nth-child(8) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(6px, 0.75vw, 12px);
+}
+
+.maintenance-list-container .maintenance-table th:nth-child(9),
+.maintenance-list-container .maintenance-table td:nth-child(9) {
+    padding-left: clamp(4px, 0.5vw, 10px);
+    padding-right: clamp(6px, 0.65vw, 12px);
 }
 
 /* 与 payment 维护表同一条目（10 列页用）；本页 9 列时不匹配 */
@@ -590,15 +624,17 @@ body.dashboard-page.maintenance-page {
 }
 
 .maintenance-table-cell {
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: clamp(10px, 0.88vw, 15px);
     font-weight: bold;
     color: #374151;
-    padding: clamp(6px, 0.65vw, 11px) clamp(10px, 0.9vw, 14px);
+    padding: clamp(4px, 0.5vw, 8px) clamp(10px, 1vw, 18px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     text-align: center;
+    min-height: clamp(28px, 1.95vw, 36px);
+    box-sizing: border-box;
 }
 
 .maintenance-table th:nth-child(3),
@@ -635,12 +671,11 @@ body.dashboard-page.maintenance-page {
     text-decoration: none;
 }
 
+/* 勿用 flex：th 会变成 flex 容器，与同列 td 的 table-cell 布局不一致，勾选框易错位 */
 .maintenance-select-all-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
+    display: table-cell;
     text-align: center;
+    vertical-align: middle;
 }
 
 #select_all_capture {
@@ -689,7 +724,7 @@ body.dashboard-page.maintenance-page {
     padding: clamp(40px, 3.33vw, 64px);
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
-    max-width: 1600px;
+    max-width: none;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
@@ -847,22 +882,408 @@ body.dashboard-page.maintenance-page {
 }
 
 
+/* Data Capture: 与 payment/transaction 维护共用 .maintenance-*，Vite 合并 CSS 后后者会覆盖；用根容器提高优先级 */
+.capture-maintenance-page-root .maintenance-search-section {
+    max-width: none;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+/* Process / Date range: outlined label centered on top border（仅 Data Capture 维护页） */
+.capture-maintenance-page-root .capture-maintenance-process-field,
+.capture-maintenance-page-root .capture-maintenance-date-range-field {
+    gap: 0;
+}
+
+.capture-maintenance-page-root .capture-maintenance-process-field__wrap,
+.capture-maintenance-page-root .capture-maintenance-date-range-field__wrap {
+    position: relative;
+    width: 100%;
+}
+
+.capture-maintenance-page-root .capture-maintenance-process-field__label,
+.capture-maintenance-page-root .capture-maintenance-date-range-field__label {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    padding: 0 clamp(6px, 0.52vw, 10px);
+    background-color: #fff;
+    font-size: clamp(11px, 0.85vw, 13px);
+    font-weight: 600;
+    color: #374151;
+    font-family: var(--font-heading-page);
+    white-space: nowrap;
+    pointer-events: none;
+    line-height: 1.2;
+}
+
+.capture-maintenance-page-root .capture-maintenance-date-range-field .date-range-picker {
+    width: 100%;
+    min-width: 0;
+}
+
+.capture-maintenance-page-root .capture-maintenance-process-field .custom-select-wrapper {
+    width: 100%;
+    min-width: 0;
+}
+
+/* GroupID / Company：与 Account List 同款 user-gc 栅格；左侧与白卡左内边距对齐；右侧不拉满以免盖住同行 Delete */
+.capture-maintenance-page-root .capture-maintenance-gc-panel.user-gc-inline-panel {
+    margin-left: -20px;
+    margin-right: 0;
+    width: calc(100% + 20px);
+    max-width: none;
+    box-sizing: border-box;
+}
+
+/* 勿设 width:100%，否则独占一行会把 Delete/Confirm 挤到 Company 下方；与原版一致留在右侧 */
+.capture-maintenance-page-root .maintenance-filter-left {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.capture-maintenance-page-root .maintenance-filter-row {
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: clamp(16px, 1.5vw, 28px);
+}
+
+.capture-maintenance-page-root .maintenance-actions {
+    align-self: center;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.capture-maintenance-page-root .maintenance-list-container {
+    margin-bottom: clamp(20px, 1.67vw, 32px);
+    margin-top: 10px;
+    max-width: none;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+/* 与 Domain Report 一致：静默刷新时顶栏细条 + 表体略灰，避免整表 Loading 闪动 */
+.capture-maintenance-page-root .capture-maintenance-table-region {
+    position: relative;
+}
+
+.capture-maintenance-page-root .capture-maintenance-sync-track {
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    background: rgba(229, 231, 235, 0.9);
+}
+
+.capture-maintenance-page-root .capture-maintenance-sync-bar {
+    height: 100%;
+    width: 38%;
+    max-width: 180px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.95), rgba(59, 130, 246, 0.15));
+    animation: capture-maintenance-sync-slide 0.95s ease-in-out infinite;
+}
+
+@keyframes capture-maintenance-sync-slide {
+    0% {
+        transform: translateX(-120%);
+    }
+    100% {
+        transform: translateX(420%);
+    }
+}
+
+.capture-maintenance-page-root .maintenance-list-container--syncing {
+    opacity: 0.94;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.capture-maintenance-page-root .maintenance-table {
+    width: 100%;
+    border-collapse: separate;
+    table-layout: fixed;
+    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+}
+
+.capture-maintenance-page-root .maintenance-table th,
+.capture-maintenance-page-root .maintenance-table td {
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .maintenance-table thead tr {
+    background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
+    color: #ffffff;
+    font-weight: bold;
+    font-size: clamp(10px, 0.89vw, 17px);
+}
+
+.capture-maintenance-page-root .maintenance-table thead th {
+    padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1vw, 18px);
+    text-align: center;
+    min-height: clamp(30px, 2.1vw, 38px);
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .maintenance-table thead th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.capture-maintenance-page-root .maintenance-table thead th:last-child {
+    border-top-right-radius: 8px;
+}
+
+.capture-maintenance-page-root .maintenance-table tbody tr {
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    transition: all 0.2s ease;
+}
+
+.capture-maintenance-page-root .maintenance-table tbody tr:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.capture-maintenance-page-root .maintenance-table tbody tr:nth-child(even) {
+    background: #cceeff99;
+}
+
+.capture-maintenance-page-root .maintenance-table tbody tr:nth-child(odd) {
+    background: #ffffff;
+}
+
+.capture-maintenance-page-root .maintenance-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(1),
+.capture-maintenance-page-root .maintenance-table td:nth-child(1) {
+    width: 3%;
+    text-align: center;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(2),
+.capture-maintenance-page-root .maintenance-table td:nth-child(2) {
+    width: 13%;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(3),
+.capture-maintenance-page-root .maintenance-table td:nth-child(3) {
+    width: 10%;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(4),
+.capture-maintenance-page-root .maintenance-table td:nth-child(4) {
+    width: 10%;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(5),
+.capture-maintenance-page-root .maintenance-table td:nth-child(5) {
+    width: 9.5%;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(6),
+.capture-maintenance-page-root .maintenance-table td:nth-child(6) {
+    width: 13.5%;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(7),
+.capture-maintenance-page-root .maintenance-table td:nth-child(7) {
+    width: 13.5%;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(8),
+.capture-maintenance-page-root .maintenance-table td:nth-child(8) {
+    width: 18%;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(9),
+.capture-maintenance-page-root .maintenance-table td:nth-child(9) {
+    width: 6.5%;
+    min-width: clamp(40px, 3.5vw, 56px);
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(5),
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(5) {
+    padding-left: clamp(8px, 0.9vw, 14px);
+    padding-right: clamp(10px, 1.1vw, 18px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(6),
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(6) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(10px, 1.05vw, 18px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(7),
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(7) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(10px, 1.05vw, 18px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(8),
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(8) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(6px, 0.75vw, 12px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(9),
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(9) {
+    padding-left: clamp(4px, 0.5vw, 10px);
+    padding-right: clamp(6px, 0.65vw, 12px);
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(10),
+.capture-maintenance-page-root .maintenance-table td:nth-child(10) {
+    width: unset;
+}
+
+.capture-maintenance-page-root .maintenance-table-cell {
+    font-size: clamp(10px, 0.88vw, 15px);
+    font-weight: bold;
+    color: #374151;
+    padding: clamp(4px, 0.5vw, 8px) clamp(10px, 1vw, 18px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    text-align: center;
+    min-height: clamp(28px, 1.95vw, 36px);
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .maintenance-table th:nth-child(3),
+.capture-maintenance-page-root .maintenance-table td:nth-child(3),
+.capture-maintenance-page-root .maintenance-table th:nth-child(4),
+.capture-maintenance-page-root .maintenance-table td:nth-child(4),
+.capture-maintenance-page-root .maintenance-table th:nth-child(6),
+.capture-maintenance-page-root .maintenance-table td:nth-child(6),
+.capture-maintenance-page-root .maintenance-table th:nth-child(8),
+.capture-maintenance-page-root .maintenance-table td:nth-child(8) {
+    text-align: left;
+}
+
+.capture-maintenance-page-root .maintenance-cell-currency {
+    text-align: center;
+}
+
+.capture-maintenance-page-root .maintenance-cell-checkbox {
+    text-align: center;
+}
+
+.capture-maintenance-page-root .maintenance-row-deleted .maintenance-table-cell {
+    color: #b91c1c;
+    text-decoration: line-through;
+}
+
+.capture-maintenance-page-root .maintenance-row-deleted .maintenance-row-checkbox:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.capture-maintenance-page-root .maintenance-row-deleted td.maintenance-cell-checkbox {
+    text-decoration: none;
+}
+
+.capture-maintenance-page-root .maintenance-select-all-header {
+    display: table-cell;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.capture-maintenance-page-root #select_all_capture {
+    cursor: pointer;
+}
+
+.capture-maintenance-page-root .maintenance-row-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: clamp(10px, 0.73vw, 14px);
+    height: clamp(10px, 0.73vw, 14px);
+    border: 2px solid #000000ff;
+    border-radius: 3px;
+    background-color: white;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    margin: 0;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.capture-maintenance-page-root .maintenance-row-checkbox:checked {
+    background-color: #1a237e;
+    border-color: #1a237e;
+}
+
+.capture-maintenance-page-root .maintenance-row-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: clamp(10px, 0.83vw, 14px);
+    font-weight: bold;
+    line-height: 1;
+}
+
+.capture-maintenance-page-root .empty-state-container {
+    position: relative;
+    top: 10px;
+    background: #ffffff;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    padding: clamp(40px, 3.33vw, 64px);
+    margin-bottom: clamp(20px, 1.67vw, 32px);
+    margin-top: 10px;
+    max-width: none;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .empty-state {
+    color: #64748b;
+    font-size: clamp(14px, 1.04vw, 20px);
+}
+
+.capture-maintenance-page-root .empty-state p {
+    margin: 0;
+    font-family: var(--font-heading-page);
+}
+
+/* 勾选列：thead th 与 tbody td 的 padding 来源不同（th 无 maintenance-table-cell），纵向看勾选框易左右错位；对称 padding + 全宽 flex 内层与表头/行共用 */
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table > thead > tr > th.maintenance-select-all-header,
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table > tbody > tr > td.maintenance-cell-checkbox {
+    padding: clamp(4px, 0.5vw, 8px) clamp(8px, 0.85vw, 14px) !important;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.capture-maintenance-page-root .maintenance-checkbox-cell-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: clamp(14px, 1.1vw, 22px);
+    margin: 0;
+    padding: 0;
+}
 
 @media (max-width: 1400px) {
-
-    .maintenance-table th:nth-child(1), .maintenance-table td:nth-child(1){
-        width: 4%;
-    }
-
-    .maintenance-table th:nth-child(3), .maintenance-table td:nth-child(3){
-        width: 12%;
-    }
-
-    .maintenance-table th:nth-child(4), .maintenance-table td:nth-child(4){
-        width: 13%;
-    }
-
-    .maintenance-table-cell{
+    .capture-maintenance-page-root .maintenance-table-cell {
         white-space: normal;
     }
 }
