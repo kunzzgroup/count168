@@ -56,51 +56,94 @@
     color: #900;
 }
 
-/* Country Selection Modal (layout: left = Add/Available, right = Selected) */
-.country-selection-modal .modal-content {
+/* Country Selection Modal — dual column + footer (matches Add Process picker layout) */
+.modal-content.country-selection-modal {
+    width: min(56.25rem, 94vw);
     max-width: 56.25rem;
-    width: 90%;
+    max-height: min(90vh, 640px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.country-selection-modal-header.modal-header {
+    flex: 0 0 auto;
+    position: relative;
+    padding: 14px 40px 12px 18px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.country-selection-modal-header h2 {
+    margin: 0;
+    padding: 0;
+    font-size: var(--text-page-title, 1.25rem);
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-page-title, 700);
+    color: #0f172a;
+    letter-spacing: 0.02em;
+}
+
+.country-selection-modal-header .close {
+    top: 10px;
+    right: 12px;
+}
+
+#countrySelectionModal .country-selection-modal-body.modal-body {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 14px 18px 16px;
+    overflow: hidden;
 }
 
 .country-selection-container {
-    display: flex;
-    gap: 0;
-    height: clamp(300px, 26.04vw, 500px);
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1.25rem;
+    align-items: stretch;
+    flex: 1 1 auto;
+    min-height: 280px;
+    max-height: min(52vh, 420px);
 }
 
 .available-countries-section {
-    flex: 1;
-    border-right: 0.0625rem solid #e9ecef;
-    padding-right: clamp(10px, 1.04vw, 20px);
-    min-width: 20rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-right: 1px solid #e8ecf1;
+    padding-right: 1rem;
 }
 
 .selected-countries-section {
-    flex: 1;
-    min-width: 20rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-left: 0.25rem;
 }
 
 .available-countries-section h3,
 .selected-countries-section h3 {
-    margin-top: 0;
-    margin-bottom: clamp(6px, 0.52vw, 10px);
+    margin: 0 0 8px 0;
     color: #0f172a;
-    font-size: var(--text-medium);
+    font-size: var(--text-small, 13px);
     font-family: var(--font-heading-page);
     font-weight: 600;
 }
 
 .add-country-bar {
-    margin-bottom: clamp(10px, 1.04vw, 20px);
-    padding-bottom: clamp(10px, 1.04vw, 20px);
-    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e8ecf1;
 }
 
 .add-country-bar h3 {
-    margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
+    margin: 0 0 8px 0;
     color: #0f172a;
-    font-size: var(--text-medium);
+    font-size: var(--text-small, 13px);
     font-family: var(--font-heading-page);
     font-weight: 600;
 }
@@ -111,83 +154,180 @@
 
 .add-country-input-group {
     display: flex;
-    gap: 0.5rem;
-    align-items: center;
+    gap: 8px;
+    align-items: stretch;
 }
 
 .add-country-input-group input {
-    width: 100%;
-    padding: 0.625rem 0.875rem;
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
     border: 1px solid #dbe3ee;
-    border-radius: 0.52rem;
-    font-size: var(--text-small);
+    border-radius: 8px;
+    font-size: var(--text-small, 13px);
     font-family: var(--font-ui);
-    min-height: 2.55rem;
+    min-height: 40px;
     box-sizing: border-box;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
+.country-selection-add-btn.btn {
+    flex-shrink: 0;
+    min-height: 40px;
+    height: 40px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: var(--text-small, 13px);
+}
+
 .country-search {
-    margin-bottom: 0.9375rem;
+    margin-bottom: 10px;
 }
 
 .country-search input {
     width: 100%;
-    padding: 0.625rem 0.875rem;
+    padding: 8px 12px;
     border: 1px solid #dbe3ee;
-    border-radius: 0.52rem;
-    font-size: var(--text-small);
+    border-radius: 8px;
+    font-size: var(--text-small, 13px);
     font-family: var(--font-ui);
-    min-height: 2.55rem;
+    min-height: 40px;
     box-sizing: border-box;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .country-list {
-    max-height: 300px;
+    flex: 1 1 auto;
+    min-height: 140px;
     overflow-y: auto;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
-    padding: 0px 10px;
-    background-color: #f8f9fa;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    padding: 6px 4px;
+    background: #fff;
 }
 
 .selected-countries-list {
-    max-height: 18.75rem;
+    flex: 1 1 auto;
+    min-height: 140px;
     overflow-y: auto;
-    border: 0.0625rem solid #e9ecef;
-    border-radius: 0.25rem;
-    padding: 0.625rem;
-    background-color: #f8f9fa;
-    margin-bottom: 25px;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    padding: 10px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.country-item {
+.modal-content.country-selection-modal .country-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    margin: 0 4px 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.modal-content.country-selection-modal .country-item:last-child {
+    margin-bottom: 0;
+}
+
+.modal-content.country-selection-modal .country-item:hover {
+    background: #f1f5f9;
+}
+
+.modal-content.country-selection-modal .country-item.is-picked {
+    background: #e8f4fd;
+    border-color: #90caf9;
+}
+
+.modal-content.country-selection-modal .country-item-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.modal-content.country-selection-modal .country-item-code {
+    font-size: var(--text-small, 13px);
+    font-family: var(--font-ui);
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.modal-content.country-selection-modal .country-list-delete {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+
+.modal-content.country-selection-modal .country-list-delete:hover {
+    color: #dc2626;
+    background: #fef2f2;
+}
+
+.modal-content.country-selection-modal .country-list-delete-icon {
+    display: block;
+}
+
+/* Bank picker reuses .country-item row pattern */
+.bank-list .country-item {
     display: flex;
     align-items: center;
     gap: 8px;
     justify-content: space-between;
     padding: clamp(4px, 0.21vw, 8px) 0;
     border-bottom: 0.0625rem solid #e9ecef;
+    margin: 0;
+    border-radius: 0;
+    cursor: pointer;
+    border: none;
 }
 
-.country-item:last-child {
+.bank-list .country-item:last-child {
     border-bottom: none;
 }
 
-.country-item-left {
+.bank-list .country-item:hover {
+    background-color: #e9ecef;
+}
+
+.bank-list .country-item.selected {
+    background-color: #e3f2fd;
+}
+
+.bank-list .country-item .country-item-left {
     display: flex;
     align-items: center;
     gap: 8px;
     flex: 1;
+    min-height: 0;
 }
 
-.country-item input[type="checkbox"] {
+.modal-content.country-selection-modal .country-item input[type="checkbox"] {
     margin: 0;
     width: clamp(10px, 0.73vw, 14px);
 }
 
-.country-item label {
+.modal-content.country-selection-modal .country-item label {
     margin: 0;
     font-size: clamp(10px, 0.73vw, 14px);
     cursor: pointer;
@@ -209,60 +349,98 @@
     color: #900;
 }
 
-.country-item:hover {
-    background-color: #e9ecef;
-}
-
 .selected-country-modal-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: clamp(2px, 0.42vw, 8px) 8px;
-    border-bottom: 0.0625rem solid #e9ecef;
-    background-color: #e3f2fd;
-    border-radius: 0.25rem;
-    margin-bottom: 0.5rem;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #e8f4fd;
+    border: 1px solid #64b5f6;
+    border-radius: 8px;
 }
 
 .selected-country-modal-item:last-child {
-    border-bottom: none;
     margin-bottom: 0;
 }
 
 .selected-country-modal-item span {
     flex: 1;
-    font-size: clamp(10px, 0.73vw, 14px);
-    color: #1976d2;
-    font-weight: 500;
+    font-size: var(--text-small, 13px);
+    color: #1565c0;
+    font-weight: 600;
 }
 
 .remove-country-modal {
     background: none;
     border: none;
-    color: #1976d2;
-    font-size: 1rem;
-    font-weight: bold;
+    color: #1565c0;
+    font-size: 1.1rem;
+    font-weight: 700;
     cursor: pointer;
     padding: 0;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.5rem;
+    height: 1.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
+    line-height: 1;
 }
 
 .remove-country-modal:hover {
-    background-color: #1976d2;
+    background-color: #1565c0;
     color: white;
 }
 
 .no-countries {
     text-align: center;
-    color: #6c757d;
-    font-size: clamp(10px, 0.78vw, 15px);
+    color: #94a3b8;
+    font-size: var(--text-small, 13px);
     font-style: italic;
-    padding: clamp(20px, 2.08vw, 40px) 20px;
+    padding: 2rem 12px;
+    margin: auto 0;
+}
+
+.country-selection-modal-footer.modal-footer {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px 14px;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.country-selection-modal-footer .btn {
+    min-width: 92px;
+    min-height: 36px;
+    padding: 0 16px;
+    font-size: var(--text-small, 13px);
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 720px) {
+    .country-selection-container {
+        grid-template-columns: 1fr;
+        max-height: none;
+        row-gap: 1rem;
+    }
+
+    .available-countries-section {
+        border-right: none;
+        padding-right: 0;
+        border-bottom: 1px solid #e8ecf1;
+        padding-bottom: 12px;
+    }
+
+    .selected-countries-section {
+        padding-left: 0;
+    }
 }
 
 /* Bank Supplier 排序表头样式，箭头与 Account List 一致 */
