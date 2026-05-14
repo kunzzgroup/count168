@@ -142,6 +142,11 @@ body.transaction-page .transaction-add-section .report-outlined-shell {
     min-width: 0;
 }
 
+/* RATE 币别列等：无框线浮动标签时收紧上边距 */
+body.transaction-page .transaction-add-section .report-outlined-shell.report-outlined-shell--no-label {
+    margin-top: 0;
+}
+
 body.transaction-page .transaction-add-section .report-outlined-label {
     position: absolute;
     left: clamp(10px, 0.83vw, 14px);

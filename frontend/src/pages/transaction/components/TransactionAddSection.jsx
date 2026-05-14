@@ -373,10 +373,7 @@ export default function TransactionAddSection({
         <div className="rate-section rate-section--currency-outlined">
           <div className="tx-add-form-row tx-add-form-row--rate-five-cols">
             <div className="report-outlined-anchor tx-add-field-col">
-              <div className="report-outlined-shell">
-                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-currency-from-label">
-                  From Currency
-                </span>
+              <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
                     <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-coins" /></span>
@@ -385,7 +382,7 @@ export default function TransactionAddSection({
                       className="transaction-select"
                       value={rateCurrencyFrom}
                       onChange={(e) => setRateCurrencyFrom(e.target.value)}
-                      aria-labelledby="rate-currency-from-label"
+                      aria-label="From currency"
                     >
                       <option value="">--Select--</option>
                       {currencyOptions.map((c) => (
@@ -397,10 +394,7 @@ export default function TransactionAddSection({
               </div>
             </div>
             <div className="report-outlined-anchor tx-add-field-col">
-              <div className="report-outlined-shell">
-                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-from-amount-label">
-                  From Amount
-                </span>
+              <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
                     <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-dollar-sign" /></span>
@@ -409,19 +403,17 @@ export default function TransactionAddSection({
                       step="0.01"
                       id="rate_currency_from_amount"
                       className="transaction-input"
+                      placeholder="Amount"
                       value={rateCurrencyFromAmount}
                       onChange={(e) => setRateCurrencyFromAmount(e.target.value)}
-                      aria-labelledby="rate-from-amount-label"
+                      aria-label="From amount"
                     />
                   </div>
                 </div>
               </div>
             </div>
             <div className="report-outlined-anchor tx-add-field-col">
-              <div className="report-outlined-shell">
-                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-exchange-label">
-                  Rate
-                </span>
+              <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
                     <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-exchange-alt" /></span>
@@ -430,19 +422,17 @@ export default function TransactionAddSection({
                       inputMode="decimal"
                       id="rate_exchange_rate"
                       className="transaction-input"
+                      placeholder="rate"
                       value={rateExchangeRateRaw}
                       onChange={(e) => setRateExchangeRateRaw(e.target.value)}
-                      aria-labelledby="rate-exchange-label"
+                      aria-label="Exchange rate"
                     />
                   </div>
                 </div>
               </div>
             </div>
             <div className="report-outlined-anchor tx-add-field-col">
-              <div className="report-outlined-shell">
-                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-currency-to-label">
-                  To Currency
-                </span>
+              <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
                     <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-coins" /></span>
@@ -451,7 +441,7 @@ export default function TransactionAddSection({
                       className="transaction-select"
                       value={rateCurrencyTo}
                       onChange={(e) => setRateCurrencyTo(e.target.value)}
-                      aria-labelledby="rate-currency-to-label"
+                      aria-label="To currency"
                     >
                       <option value="">--Select--</option>
                       {currencyOptions.map((c) => (
@@ -463,10 +453,7 @@ export default function TransactionAddSection({
               </div>
             </div>
             <div className="report-outlined-anchor tx-add-field-col">
-              <div className="report-outlined-shell">
-                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-to-amount-label">
-                  To Amount
-                </span>
+              <div className="report-outlined-shell report-outlined-shell--no-label">
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
                     <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-dollar-sign" /></span>
@@ -475,9 +462,10 @@ export default function TransactionAddSection({
                       step="0.01"
                       id="rate_currency_to_amount"
                       className="transaction-input"
+                      placeholder="Amount"
                       readOnly
                       value={rateCurrencyToAmount}
-                      aria-labelledby="rate-to-amount-label"
+                      aria-label="To amount"
                     />
                   </div>
                 </div>
