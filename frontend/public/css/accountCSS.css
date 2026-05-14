@@ -1666,11 +1666,11 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-close,
 #account-editModal .account-close {
-    right: 0.95rem;
-    top: 0.9rem;
+    right: 3rem;
+    top: 2.5rem;
     color: #94a3b8;
-    width: clamp(22px, 1.45vw, 28px);
-    height: clamp(22px, 1.45vw, 28px);
+    width: clamp(22px, 1.45vw, 24px);
+    height: clamp(22px, 1.45vw, 24px);
     border: 2px solid currentColor;
     border-radius: 50%;
     background: transparent;
