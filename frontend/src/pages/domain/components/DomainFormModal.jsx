@@ -301,31 +301,23 @@ export default function DomainFormModal({
         .sort((a, b) => a.company_id.localeCompare(b.company_id));
 
       if (candidates.length === 0) {
-        return <span className="dfm-list-empty-msg">{t("noUngroupedCompaniesAvailable")}</span>;
+        return <span style={{ color: "#94a3b8", fontSize: 12 }}>{t("noUngroupedCompaniesAvailable")}</span>;
       }
       return (
-        <div className="dfm-assign-grid">
+        <div className="grid grid-cols-2 gap-1">
           {candidates.map((c) => (
             <div
               key={c.company_id}
-              className="dfm-assign-grid-item"
+              className="flex cursor-pointer items-center gap-2 rounded border border-gray-200 bg-white px-2.5 py-1.5 transition-colors hover:bg-sky-50"
               onClick={() => toggleCompanyGroup(c.company_id)}
             >
               <input
                 type="checkbox"
-                id={`dfm-assign-${c.company_id}`}
-                className="dfm-assign-checkbox"
                 checked={c.group_id === selectedGroupId}
                 onChange={() => toggleCompanyGroup(c.company_id)}
                 onClick={(e) => e.stopPropagation()}
               />
-              <label
-                className="dfm-assign-label"
-                htmlFor={`dfm-assign-${c.company_id}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {c.company_id}
-              </label>
+              <label>{c.company_id}</label>
             </div>
           ))}
         </div>
@@ -337,7 +329,7 @@ export default function DomainFormModal({
       const msg = selectedGroupId
         ? t("noCompaniesInGroup", { gid: selectedGroupId })
         : t("noUngroupedCompanies");
-      return <span className="dfm-list-empty-msg">{msg}</span>;
+      return <span style={{ color: "#94a3b8", fontSize: 12 }}>{msg}</span>;
     }
 
     return sorted.map((c) => (
@@ -457,48 +449,43 @@ export default function DomainFormModal({
                 </div>
 
                 {/* Right: Company info */}
-                <div className="dfm-col-right dfm-col-right--company flex min-w-0 flex-col">
-                  {/* 1) Inline add */}
-                  <div className="dfm-panel dfm-panel--add">
-                    <p className="dfm-panel-eyebrow">{t("companyPanelAddHeading")}</p>
-                    <div className="dfm-company-inputs-row flex flex-wrap">
-                      <div className="dfm-field dfm-field--inline-add min-w-0 flex-1">
-                        <label htmlFor="df_group_input">{t("groupIdLabel")}</label>
-                        <div className="dfm-input-with-btn flex min-w-0">
-                          <input
-                            type="text"
-                            id="df_group_input"
-                            placeholder={t("groupIdPlaceholder")}
-                            className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                            value={groupInput}
-                            onChange={(e) => setGroupInput(forceUppercaseValue(e.target.value))}
-                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
-                          />
-                          <button type="button" className="dfm-adjoin-btn dfm-adjoin-btn--secondary rounded-r-lg" onClick={addGroup}>{t("add")}</button>
-                        </div>
+                <div className="dfm-col-right flex min-w-0 flex-col">
+                  <div className="dfm-company-inputs-row mb-1 flex flex-wrap">
+                    <div className="dfm-field min-w-0 flex-1">
+                      <label htmlFor="df_group_input">{t("groupIdLabel")}</label>
+                      <div className="dfm-input-with-btn flex min-w-0">
+                        <input
+                          type="text"
+                          id="df_group_input"
+                          placeholder={t("groupIdPlaceholder")}
+                          className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          value={groupInput}
+                          onChange={(e) => setGroupInput(forceUppercaseValue(e.target.value))}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
+                        />
+                        <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addGroup}>{t("add")}</button>
                       </div>
-                      <div className="dfm-field dfm-field--inline-add min-w-0 flex-1">
-                        <label htmlFor="df_company_input">{t("companyIdLabel")}</label>
-                        <div className="dfm-input-with-btn flex min-w-0">
-                          <input
-                            type="text"
-                            id="df_company_input"
-                            placeholder={t("companyIdPlaceholder")}
-                            className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                            value={companyInput}
-                            onChange={(e) => setCompanyInput(forceUppercaseValue(e.target.value))}
-                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
-                          />
-                          <button type="button" className="dfm-adjoin-btn dfm-adjoin-btn--secondary rounded-r-lg" onClick={addCompany}>{t("add")}</button>
-                        </div>
+                    </div>
+                    <div className="dfm-field min-w-0 flex-1">
+                      <label htmlFor="df_company_input">{t("companyIdLabel")}</label>
+                      <div className="dfm-input-with-btn flex min-w-0">
+                        <input
+                          type="text"
+                          id="df_company_input"
+                          placeholder={t("companyIdPlaceholder")}
+                          className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          value={companyInput}
+                          onChange={(e) => setCompanyInput(forceUppercaseValue(e.target.value))}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
+                        />
+                        <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addCompany}>{t("add")}</button>
                       </div>
                     </div>
                   </div>
 
-                  {/* 2) Group pills */}
-                  <div className="dfm-panel dfm-panel--groups">
-                    <label className="dfm-panel-inline-label">{t("groupsSectionLabel")}</label>
-                    <div className="group-pills" id="groupPillsSection">
+                  <div className="dfm-field" id="groupPillsSection">
+                    <label>{t("groupLabel")}</label>
+                    <div className="group-pills">
                       {tempGroups.length === 0
                         ? <span className="dfm-empty-hint">{t("noGroupsCreated")}</span>
                         : tempGroups.map((gid) => {
@@ -534,27 +521,20 @@ export default function DomainFormModal({
                     </div>
                   </div>
 
-                  {/* 3) Company list */}
-                  <div className="dfm-panel dfm-panel--selected dfm-field dfm-field--stretch flex min-h-0 flex-1 flex-col">
-                    <div className="dfm-selected-toolbar">
-                      <div className="dfm-selected-toolbar-text">
-                        <span className="dfm-selected-title">{t("selectedCompanies")}</span>
-                        {tempGroups.length > 0 ? (
-                          <span className="dfm-selected-hint">{t("selectedCompaniesHint")}</span>
-                        ) : null}
-                      </div>
-                      {selectedGroupId ? (
+                  <div className="dfm-field dfm-field--stretch flex flex-1 flex-col">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <label>{t("selectedCompanies")}</label>
+                      {selectedGroupId && (
                         <button
                           type="button"
-                          className={`dfm-multi-choice-btn ${
-                            isMultipleChoiceMode ? "dfm-multi-choice-btn--done" : "dfm-multi-choice-btn--pick"
+                          className={`dfm-multi-choice-btn cursor-pointer rounded-[10px] border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                            isMultipleChoiceMode ? "dfm-multi-choice-btn--on" : "dfm-multi-choice-btn--off"
                           }`}
-                          aria-pressed={isMultipleChoiceMode}
                           onClick={toggleMultipleChoice}
                         >
                           {isMultipleChoiceMode ? t("done") : t("multipleChoice")}
                         </button>
-                      ) : null}
+                      )}
                     </div>
                     <div className="dfm-selected-list">
                       {tempCompanies.length === 0

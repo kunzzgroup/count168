@@ -396,306 +396,33 @@ body.ec-auth-shell .domain-form-modal-backdrop .group-pill.active .remove-x:hove
     color: #fca5a5 !important;
 }
 
-/* Multiple Choice / Done：主次分明的双态按钮（仅 Domain 弹窗分配区） */
+/* Multiple Choice：仅进入多选模式时高亮（未开启为中性灰） */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn {
     box-sizing: border-box !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    cursor: pointer !important;
-    min-height: 40px !important;
-    padding: 0 18px !important;
-    border-radius: 9999px !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.02em !important;
-    line-height: 1.25 !important;
-    white-space: nowrap !important;
-    flex-shrink: 0 !important;
-    transition:
-        background 0.18s ease,
-        color 0.18s ease,
-        border-color 0.18s ease,
-        box-shadow 0.18s ease,
-        transform 0.12s ease !important;
     border-style: solid !important;
-    border-width: 2px !important;
+    border-width: 1px !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn:focus-visible {
-    outline: none !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35) !important;
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--off {
+    background: #f1f5f9 !important;
+    color: #1f2937 !important;
+    border-color: #e2e8f0 !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn:active {
-    transform: scale(0.98) !important;
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--off:hover {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
 }
 
-/* 未开启：描边按钮 + 列表图示 */
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--pick {
-    background: #ffffff !important;
-    color: #1e40af !important;
-    border-color: #3b82f6 !important;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--pick::before {
-    content: "" !important;
-    flex-shrink: 0 !important;
-    width: 16px !important;
-    height: 12px !important;
-    background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 14' fill='none'%3E%3Crect x='1' y='2' width='6' height='6' rx='1' stroke='%231e40af' stroke-width='1.6'/%3E%3Crect x='12' y='2' width='6' height='6' rx='1' stroke='%231e40af' stroke-width='1.6'/%3E%3Crect x='6' y='7' width='6' height='6' rx='1' stroke='%231e40af' stroke-width='1.6'/%3E%3C/svg%3E") !important;
-    opacity: 0.92 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--pick:hover {
-    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%) !important;
-    border-color: #2563eb !important;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--pick:active {
-    background: #bfdbfe !important;
-}
-
-/* 已开启多选：完成态实心绿按钮 + 勾选 */
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--done {
-    background: linear-gradient(180deg, #34d399 0%, #059669 100%) !important;
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--on {
+    background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%) !important;
     color: #ffffff !important;
     border-color: transparent !important;
-    box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--done::before {
-    content: "" !important;
-    flex-shrink: 0 !important;
-    width: 18px !important;
-    height: 18px !important;
-    background: no-repeat center / 14px 14px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='7' stroke='%23ffffff' stroke-width='1.4' opacity='0.55'/%3E%3Cpath d='M4.75 8.25 7 10.5 11.5 5.5' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--done:hover {
-    filter: brightness(1.04) !important;
-    box-shadow: 0 6px 18px rgba(5, 150, 105, 0.4) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--done:focus-visible {
-    box-shadow:
-        0 0 0 3px rgba(16, 185, 129, 0.45),
-        0 4px 14px rgba(5, 150, 105, 0.35) !important;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35) !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-inputs-row {
     gap: 16px !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-col-right--company.dfm-col-right {
-    gap: 0 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel.dfm-field {
-    margin-bottom: 0 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel {
-    box-sizing: border-box !important;
-    margin: 0 0 14px 0 !important;
-    padding: 14px 16px !important;
-    border-radius: 10px !important;
-    border: 1px solid #e2e8f0 !important;
-    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel--selected {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 auto !important;
-    min-height: 220px !important;
-    margin-bottom: 0 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel-eyebrow {
-    margin: 0 0 12px 0 !important;
-    padding: 0 !important;
-    font-size: 11px !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.1em !important;
-    color: #64748b !important;
-    text-transform: uppercase !important;
-    line-height: 1.2 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel-inline-label {
-    display: block !important;
-    margin: 0 0 10px 0 !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    color: #374151 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-field--inline-add {
-    margin-bottom: 0 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-toolbar {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    align-items: flex-start !important;
-    justify-content: space-between !important;
-    gap: 10px !important;
-    margin-bottom: 12px !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-toolbar-text {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 6px !important;
-    min-width: 0 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-title {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    color: #374151 !important;
-    line-height: 1.35 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-hint {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    line-height: 1.45 !important;
-    color: #64748b !important;
-    max-width: 44rem !important;
-}
-
-
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn--secondary {
-    background: linear-gradient(180deg, #ffffff 0%, #eef2ff 100%) !important;
-    color: #1e3a8a !important;
-    border: 1px solid #cbd5e1 !important;
-    border-left: none !important;
-    margin: 0 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn--secondary:hover {
-    filter: brightness(0.97) !important;
-    border-color: #94a3b8 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
-    gap: 10px !important;
-    width: 100% !important;
-    padding: 2px !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid-item {
-    display: flex !important;
-    align-items: center !important;
-    gap: 12px !important;
-    cursor: pointer !important;
-    padding: 10px 12px !important;
-    margin: 0 !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 10px !important;
-    background: #ffffff !important;
-    transition:
-        background 0.15s ease,
-        border-color 0.15s ease,
-        box-shadow 0.15s ease !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid-item:hover {
-    background: #f8fafc !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06) !important;
-}
-
-/* 勾选中的公司在同一分组内的高亮卡片 */
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid-item:has(.dfm-assign-checkbox:checked) {
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-label {
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-    cursor: pointer !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid-item label.dfm-assign-label {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
-    color: #334155 !important;
-    cursor: pointer !important;
-}
-
-/* Custom checkbox：圆角方块 + 勾线，避免系统默认控件过小或过淡 */
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-checkbox {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    box-sizing: border-box !important;
-    display: block !important;
-    flex-shrink: 0 !important;
-    width: 20px !important;
-    height: 20px !important;
-    min-height: unset !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 2px solid #94a3b8 !important;
-    border-radius: 6px !important;
-    background-color: #ffffff !important;
-    background-repeat: no-repeat !important;
-    background-position: center !important;
-    background-size: 12px 12px !important;
-    cursor: pointer !important;
-    transition:
-        border-color 0.15s ease,
-        background-color 0.15s ease,
-        box-shadow 0.15s ease !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-checkbox:hover {
-    border-color: #64748b !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-checkbox:focus-visible {
-    outline: none !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-checkbox:checked {
-    border-color: #1d4ed8 !important;
-    background-color: #2563eb !important;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-checkbox:checked:hover {
-    background-color: #1d4ed8 !important;
-    border-color: #1e40af !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-list-empty-msg {
-    color: #94a3b8 !important;
-    font-size: 13px !important;
-    line-height: 1.45 !important;
-    font-weight: 500 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel--selected .dfm-selected-list {
-    flex: 1 1 auto !important;
-    min-height: 150px !important;
-    max-height: 340px !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[type="text"],
