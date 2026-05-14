@@ -2254,6 +2254,25 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     font-style: italic;
 }
 
+/* Process modal: Day Use — label + segmented pills (user-gc-inline-pills–segment-scroll) */
+.process-page .modal .day-use-pill-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.process-page .modal .day-use-pill-row .user-gc-inline-label {
+    margin-bottom: 0;
+    align-self: center;
+}
+
+.process-page .modal .day-use-pill-row .user-gc-inline-pills {
+    flex: 1 1 0%;
+    min-width: 0;
+}
+
 .process-page .day-use-header {
     display: flex;
     align-items: center;

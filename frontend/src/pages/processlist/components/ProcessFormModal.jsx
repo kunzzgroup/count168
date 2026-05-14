@@ -382,43 +382,55 @@ export default function ProcessFormModal({
 
               <div className="form-row">
                 <div className="form-group">
-                  <div className="day-use-header">
-                    <label>{t("dayUse")}</label>
-                    <div className="all-day-checkbox">
-                      <input
-                        id={editMode ? "edit_all_day" : "add_all_day"}
-                        type="checkbox"
-                        checked={days.length > 0 && form.day_use.length === days.length}
-                        onChange={(e) => {
-                          if (e.target.checked) setForm((prev) => ({ ...prev, day_use: days.map((d) => String(d.id)) }));
-                          else setForm((prev) => ({ ...prev, day_use: [] }));
-                        }}
-                      />
-                      <label htmlFor={editMode ? "edit_all_day" : "add_all_day"}>{t("allDay")}</label>
-                    </div>
-                  </div>
-                  <div className="day-checkboxes" id={editMode ? "edit_day_checkboxes" : "day_checkboxes"}>
-                    {days.map((d) => {
-                      const id = String(d.id);
-                      const checked = form.day_use.includes(id);
-                      const cbId = `${editMode ? "edit_day_" : "add_day_"}${id}`;
-                      return (
-                        <div key={id} className="checkbox-item">
-                          <input
-                            type="checkbox"
-                            id={cbId}
-                            checked={checked}
-                            onChange={() => {
-                              setForm((prev) => ({
+                  <div className="day-use-pill-row">
+                    <span className="user-gc-inline-label">{t("dayUse")}</span>
+                    <div
+                      id={editMode ? "edit_day_checkboxes" : "day_checkboxes"}
+                      className="user-gc-inline-pills user-gc-inline-pills--segment-scroll"
+                    >
+                      <div className="user-gc-segment-group" role="group" aria-label={t("dayUse")}>
+                        <button
+                          type="button"
+                          aria-pressed={days.length > 0 && form.day_use.length === days.length}
+                          className={`user-gc-segment${
+                            days.length > 0 && form.day_use.length === days.length ? " is-on" : ""
+                          }`}
+                          onClick={() => {
+                            setForm((prev) => {
+                              const allOn = days.length > 0 && prev.day_use.length === days.length;
+                              return {
                                 ...prev,
-                                day_use: checked ? prev.day_use.filter((x) => x !== id) : [...prev.day_use, id],
-                              }));
-                            }}
-                          />
-                          <label htmlFor={cbId}>{String(d.day_name || "")}</label>
-                        </div>
-                      );
-                    })}
+                                day_use: allOn ? [] : days.map((d) => String(d.id)),
+                              };
+                            });
+                          }}
+                        >
+                          {t("groupFilterAll")}
+                        </button>
+                        {days.map((d) => {
+                          const id = String(d.id);
+                          const checked = form.day_use.includes(id);
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              className={`user-gc-segment${checked ? " is-on" : ""}`}
+                              aria-pressed={checked}
+                              onClick={() => {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  day_use: checked
+                                    ? prev.day_use.filter((x) => x !== id)
+                                    : [...prev.day_use, id],
+                                }));
+                              }}
+                            >
+                              {String(d.day_name || "").toUpperCase()}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
