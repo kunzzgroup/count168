@@ -1250,11 +1250,12 @@ body.account-page:not(.account-page--show-all) .account-card {
 /* Add Account modal: rectangular and full-looking layout */
 #account-addModal .account-modal-content,
 #account-editModal .account-modal-content {
-    width: clamp(780px, 74vw, 910px);
+    width: clamp(860px, 89.65vw, 920px);
+    max-width: calc(100vw - 48px);
     box-sizing: border-box;
     padding: 10px 20px;
     border-radius: 0.9rem;
-    min-height: clamp(560px, 71vh, 700px);
+    height: clamp(700px, 92.5vh, 780px);
     max-height: 92vh;
     transform: translateY(-50%);
     transform-origin: center center;
