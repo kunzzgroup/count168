@@ -2606,6 +2606,13 @@ body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols 
     display: none;
 }
 
+body.transaction-page .transaction-add-section #rate-line1-to-acc-label,
+body.transaction-page .transaction-add-section #rate-line1-from-acc-label,
+body.transaction-page .transaction-add-section #rate-line2-to-acc-label,
+body.transaction-page .transaction-add-section #rate-line2-from-acc-label {
+    display: none;
+}
+
 body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols .tx-add-icon-field .custom-select-wrapper {
     flex: 1 1 auto;
     min-width: 0;
