@@ -1500,16 +1500,16 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: none;
 }
 
-/* Add/Edit Account · Other Currency soft pill */
+/* Add/Edit Account · Other Currency compact rectangular chip */
 #account-addModal .account-currency-item.currency-toggle-item,
 #account-editModal .account-currency-item.currency-toggle-item {
-    border-radius: 999px;
+    border-radius: 6px;
     font-family: var(--font-heading-page);
     font-weight: 600;
-    padding: 0.45rem 0.55rem 0.45rem 0.85rem;
-    min-height: 2.55rem;
+    padding: 0.55rem 0.8rem 0.55rem 1rem;
+    min-height: 3rem;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.65rem;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
@@ -1523,7 +1523,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-currency-item.currency-toggle-item.selected .currency-code-text,
 #account-editModal .account-currency-item.currency-toggle-item.selected .currency-code-text {
-    font-size: var(--text-small);
+    font-size: var(--text-medium);
     font-weight: 600;
     line-height: 1.2;
     color: #ffffff;
@@ -1538,7 +1538,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-currency-item.currency-toggle-item:not(.selected) .currency-code-text,
 #account-editModal .account-currency-item.currency-toggle-item:not(.selected) .currency-code-text {
-    font-size: var(--text-small);
+    font-size: var(--text-medium);
     font-weight: 600;
     line-height: 1.2;
     color: #334155;
@@ -1585,9 +1585,9 @@ body.account-page:not(.account-page--show-all) .account-card {
     z-index: 1;
     width: 18px;
     height: 18px;
-    font-size: 14px;
+    font-size: 16px;
     opacity: 1;
-    background: rgba(220, 38, 38, 0.08);
+    background: transparent;
 }
 
 #account-addModal .account-currency-item.currency-toggle-item.selected .currency-delete-btn,

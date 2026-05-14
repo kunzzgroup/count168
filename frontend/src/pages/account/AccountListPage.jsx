@@ -499,13 +499,24 @@ export default function AccountListPage() {
 
   const createCurrency = async () => {
     const code = toUpper(currencyInput).trim(); if (!code) return;
+    const existing = currencies.find((c) => toUpper(c.code).trim() === code);
+    if (existing) {
+      const existingId = Number(existing.id);
+      setHiddenCurrencyIds((prev) => prev.filter((id) => Number(id) !== existingId));
+      setSelectedCurrencyIds((prev) => (prev.map(Number).includes(existingId) ? prev : [...prev, existingId]));
+      setCurrencyInput("");
+      return;
+    }
     try {
       const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, company_id: companyId }), credentials: "include" });
       const json = await res.json();
       if (json.success) {
         const newId = Number(json.data.id);
         setCurrencies((prev) => [...prev, { id: newId, code: json.data.code, is_linked: false }]);
+        setSelectedCurrencyIds((prev) => (prev.map(Number).includes(newId) ? prev : [...prev, newId]));
         setCurrencyInput("");
+      } else {
+        notify(json.message || t("createFailed"), "danger");
       }
     } catch { notify(t("createFailed"), "danger"); }
   };
