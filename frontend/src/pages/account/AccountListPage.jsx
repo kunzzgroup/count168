@@ -210,7 +210,7 @@ export default function AccountListPage() {
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id") || meJson.data.company_id || rows[0]?.id;
         const initialCompanyId = cid ? Number(cid) : null;
-        const initialSearchTerm = url.searchParams.get("search") || "";
+        const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
         const initialShowAll = url.searchParams.get("showAll") === "1";
         if (initialCompanyId) {
@@ -668,7 +668,7 @@ export default function AccountListPage() {
                     className="search-input userlist-search-input"
                     placeholder={t("searchByAccountOrName")}
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => setSearchTerm(toUpper(e.target.value))}
                   />
                 </div>
                 <div className="userlist-filter-chips" role="group">
