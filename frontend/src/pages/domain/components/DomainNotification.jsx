@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 let _notifyFn = null;
 
@@ -7,38 +8,44 @@ export function showDomainAlert(message, type = "success") {
   if (_notifyFn) _notifyFn(message, type);
 }
 
+/** Must stay above DomainModalPortal overlays (e.g. form modal inline z-index 2147483000) */
+const TOAST_Z = 2147483647;
+
 export default function DomainNotification() {
   const [notes, setNotes] = useState([]);
 
   useEffect(() => {
     _notifyFn = (message, type) => {
       const id = Date.now() + Math.random();
+      const duration = type === "danger" ? 3200 : 1500;
       setNotes((prev) => {
         const next = prev.length >= 2 ? prev.slice(1) : prev;
         return [...next, { id, message, type, visible: false }];
       });
-      // trigger show
       setTimeout(() => {
         setNotes((prev) =>
           prev.map((n) => (n.id === id ? { ...n, visible: true } : n))
         );
       }, 10);
-      // hide after 1500ms
       setTimeout(() => {
         setNotes((prev) =>
           prev.map((n) => (n.id === id ? { ...n, visible: false } : n))
         );
-        // remove after fade
         setTimeout(() => {
           setNotes((prev) => prev.filter((n) => n.id !== id));
         }, 300);
-      }, 1500);
+      }, duration);
     };
-    return () => { _notifyFn = null; };
+    return () => {
+      _notifyFn = null;
+    };
   }, []);
 
-  return (
-    <div className="pointer-events-none fixed right-5 top-5 z-[2147483647] flex max-w-[400px] flex-col gap-3 isolate">
+  const layer = (
+    <div
+      className="pointer-events-none fixed right-5 top-5 flex max-w-[400px] flex-col gap-3 isolate"
+      style={{ zIndex: TOAST_Z }}
+    >
       {notes.map((n) => (
         <div
           key={n.id}
@@ -55,4 +62,7 @@ export default function DomainNotification() {
       ))}
     </div>
   );
+
+  if (typeof document === "undefined" || !document.body) return null;
+  return createPortal(layer, document.body);
 }

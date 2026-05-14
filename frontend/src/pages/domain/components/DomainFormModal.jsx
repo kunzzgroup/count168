@@ -154,7 +154,10 @@ export default function DomainFormModal({
     if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === gid)) {
       showDomainAlert(t("cannotAddGroupUsesCompanyId", { id: gid }), "danger"); return;
     }
-    if (tempGroups.includes(gid)) { showDomainAlert(t("groupIdAlreadyExists"), "danger"); return; }
+    if (tempGroups.some((g) => normalizeDomainCode(g) === gid)) {
+      showDomainAlert(t("groupIdAlreadyExists"), "danger");
+      return;
+    }
     setTempGroups((prev) => [...prev, gid]);
     setGroupInput("");
     showDomainAlert(t("groupAdded", { gid }));
