@@ -631,7 +631,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 /* 两列布局中的表单组 */
 .account-form-column .account-form-group {
     min-width: 100%;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
 }
 
 /* form-row 中的 form-group 可以并排显示 */
@@ -1251,6 +1251,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-modal-content,
 #account-editModal .account-modal-content {
     width: clamp(780px, 74vw, 910px);
+    box-sizing: border-box;
+    padding: 10px 20px;
     border-radius: 0.9rem;
     min-height: clamp(560px, 71vh, 700px);
     max-height: 92vh;
