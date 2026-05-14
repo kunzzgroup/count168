@@ -2590,7 +2590,7 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 /* User modal — Account / Process：未选中灰底灰边；选中时底/边/字色为你指定（checkbox 仅逻辑用） */
 #userModal .account-grid--four {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    grid-auto-rows: 55px;
+    grid-auto-rows: minmax(55px, auto);
 }
 
 #userModal .user-modal-select-card {
@@ -2602,11 +2602,8 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    height: 55px;
-    min-height: 55px !important;
-    max-height: 55px;
+    min-height: 55px;
     margin: 0;
-    overflow: hidden;
     border-radius: 10px;
     padding: 8px 12px;
     background: #f1f5f9;
