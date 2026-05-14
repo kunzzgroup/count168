@@ -1064,7 +1064,8 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: clamp(6px, 0.75vw, 12px) clamp(10px, 1.25vw, 16px) clamp(12px, 1.05vw, 18px);
+    /* 列表左右贴齐弹窗内缘（与标题栏宽度对齐由 table-frame 铺满实现） */
+    padding: clamp(6px, 0.75vw, 12px) 0 clamp(12px, 1.05vw, 18px);
 }
 
 .transaction-history-modal .transaction-history-table-frame {
@@ -1075,7 +1076,9 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     border: 1px solid #cbd5e1;
-    border-radius: 8px;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
@@ -1118,43 +1121,43 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
 /* 列宽在 table-layout:fixed 下按百分比分配，避免撑出横向滚动. */
 /* Date 约 9%；Id Product 略宽；Description 仍最宽但略收；其余列压缩 */
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-date {
-    width: 7%;
+    width: 8.5%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-product {
-    width: 14%;
+    width: 16.7%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-currency {
-    width: 6.3%;
+    width: 7%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-rate {
-    width: 7%;
+    width: 7.6%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-winloss {
-    width: 7%;
+    width: 9.3%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-crdr {
-    width: 7%;
+    width: 9.3%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-balance {
-    width: 8%;
+    width: 9.3%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-description {
-    width: 29%;
+    width: 36.5%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-remark {
-    width: 15%;
+    width: 14.7%;
 }
 
 .transaction-history-modal .transaction-history-table--with-desc .transaction-history-col-created {
-    width: 6%;
+    width: 6.5%;
 }
 
 .transaction-history-modal .transaction-history-table--no-desc .transaction-history-col-date {
