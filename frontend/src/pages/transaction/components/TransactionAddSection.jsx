@@ -53,7 +53,7 @@ export default function TransactionAddSection({
   searchLoading,
 }) {
   const standardHidden = txType === "RATE";
-  const reserveReverseColumnClass = showStandardFromAndReverse && !standardHidden ? " tx-add-form-row--reserve-reverse" : "";
+  const reserveReverseColumnClass = showStandardFromAndReverse || standardHidden ? " tx-add-form-row--reserve-reverse" : "";
 
   return (
     <div className="transaction-add-section">
