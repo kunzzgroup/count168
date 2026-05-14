@@ -1,6 +1,24 @@
+import { useEffect, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 
 const SKELETON_ROW_COUNT = 10;
+
+const HEADER_LABELS = (m) => [
+  m.tblNo,
+  m.tblCreatedAt,
+  m.tblProcess,
+  m.tblIdProduct,
+  m.tblAccount,
+  m.tblDescription,
+  m.tblRemark,
+  m.tblPercent,
+  m.tblCurrency,
+  m.tblRate,
+  m.tblCr,
+  m.tblDr,
+  m.tblSubmitter,
+];
 
 function SkeletonRows() {
   return (
@@ -18,14 +36,90 @@ function SkeletonRows() {
   );
 }
 
-export default function TransactionMaintenanceTable({ data, loading, m }) {
-  if (loading) {
+function VirtualDataRow({ row, index }) {
+  const isDeleted = row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
+  const stripe = index % 2 === 1 ? "maintenance-virtual-data-row--stripe" : "";
+  return (
+    <div
+      role="row"
+      className={`maintenance-virtual-data-row maintenance-row ${stripe} ${isDeleted ? "maintenance-row-deleted" : ""}`}
+    >
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center">
+        {row.no || index + 1}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--mono">
+        {row.dts_created || "-"}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
+        {row.process || "-"}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
+        {row.id_product || "-"}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
+        {row.account || "-"}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
+        {row.description || "-"}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
+        {row.remark || "-"}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center">
+        {row.percent || "-"}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-cell-currency">
+        {row.currency || "-"}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right">
+        {row.rate || "-"}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right">
+        {formatAmount(row.cr)}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right">
+        {formatAmount(row.dr)}
+      </div>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
+        {row.created_by || "-"}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * @param {object} props
+ * @param {Array} props.data
+ * @param {boolean} props.isLoading — first fetch, no rows yet
+ * @param {boolean} props.isFetching — includes background refetch (cached data may still show)
+ * @param {boolean} props.isError
+ * @param {Error | null} props.error
+ * @param {object} props.m — i18n
+ */
+export default function TransactionMaintenanceTable({ data, isLoading, isFetching, isError, error, m }) {
+  const scrollRef = useRef(null);
+  const rows = Array.isArray(data) ? data : [];
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo?.(0, 0);
+  }, [data]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 46,
+    overscan: 14,
+  });
+
+  if (isLoading) {
     return (
       <div className="maintenance-list-container maintenance-list-container--loading" style={{ display: "block" }}>
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>{m.tblNo}</th><th>{m.tblCreatedAt}</th><th>{m.tblProcess}</th><th>{m.tblIdProduct}</th><th>{m.tblAccount}</th><th>{m.tblDescription}</th><th>{m.tblRemark}</th><th>{m.tblPercent}</th><th>{m.tblCurrency}</th><th>{m.tblRate}</th><th>{m.tblCr}</th><th>{m.tblDr}</th><th>{m.tblSubmitter}</th>
+              {HEADER_LABELS(m).map((label) => (
+                <th key={label}>{label}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -41,7 +135,17 @@ export default function TransactionMaintenanceTable({ data, loading, m }) {
     );
   }
 
-  if (!data || data.length === 0) {
+  if (isError && rows.length === 0) {
+    return (
+      <div className="empty-state-container" style={{ display: "block" }}>
+        <div className="empty-state">
+          <p>{error?.message || m.searchFailed}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
     return (
       <div className="empty-state-container" style={{ display: "block" }}>
         <div className="empty-state">
@@ -51,41 +155,49 @@ export default function TransactionMaintenanceTable({ data, loading, m }) {
     );
   }
 
+  const vItems = rowVirtualizer.getVirtualItems();
+  const totalH = rowVirtualizer.getTotalSize();
+
   return (
-    <div className="maintenance-list-container" style={{ display: "block" }}>
-      <table className="maintenance-table">
-        <thead>
-          <tr>
-            <th>{m.tblNo}</th><th>{m.tblCreatedAt}</th><th>{m.tblProcess}</th><th>{m.tblIdProduct}</th><th>{m.tblAccount}</th><th>{m.tblDescription}</th><th>{m.tblRemark}</th><th>{m.tblPercent}</th><th>{m.tblCurrency}</th><th>{m.tblRate}</th><th>{m.tblCr}</th><th>{m.tblDr}</th><th>{m.tblSubmitter}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, index) => {
-            const isDeleted = row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true;
-            
-            return (
-              <tr 
-                key={row.transaction_id || index} 
-                className={`maintenance-row ${isDeleted ? "maintenance-row-deleted" : ""}`}
-              >
-                <td className="maintenance-table-cell">{row.no || index + 1}</td>
-                <td className="maintenance-table-cell">{row.dts_created || '-'}</td>
-                <td className="maintenance-table-cell">{row.process || '-'}</td>
-                <td className="maintenance-table-cell">{row.id_product || '-'}</td>
-                <td className="maintenance-table-cell">{row.account || '-'}</td>
-                <td className="maintenance-table-cell">{row.description || '-'}</td>
-                <td className="maintenance-table-cell">{row.remark || '-'}</td>
-                <td className="maintenance-table-cell">{row.percent || '-'}</td>
-                <td className="maintenance-table-cell maintenance-cell-currency">{row.currency || '-'}</td>
-                <td className="maintenance-table-cell">{row.rate || '-'}</td>
-                <td className="maintenance-table-cell">{formatAmount(row.cr)}</td>
-                <td className="maintenance-table-cell">{formatAmount(row.dr)}</td>
-                <td className="maintenance-table-cell">{row.created_by || '-'}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div
+      className={`maintenance-list-container maintenance-virtual-table${isFetching ? " maintenance-virtual-table--refreshing" : ""}`}
+      style={{ display: "block" }}
+    >
+      <div className="maintenance-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
+        <div className="maintenance-virtual-thead" role="rowgroup">
+          <div className="maintenance-virtual-head-row" role="row">
+            {HEADER_LABELS(m).map((label) => (
+              <div key={label} role="columnheader" className="maintenance-virtual-th">
+                {label}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
+          <div className="maintenance-virtual-spacer" style={{ height: totalH, position: "relative", width: "100%" }}>
+            {vItems.map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              return (
+                <div
+                  key={row.transaction_id ?? `r-${virtualRow.index}`}
+                  className="maintenance-virtual-row-wrap"
+                  data-index={virtualRow.index}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <VirtualDataRow row={row} index={virtualRow.index} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

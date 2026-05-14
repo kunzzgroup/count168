@@ -1093,3 +1093,123 @@ body.dashboard-page.maintenance-page {
         background-position: -100% 0;
     }
 }
+
+/* —— TanStack Virtual：全量数据只挂载视口附近行 —— */
+.transaction-maintenance-page-root .maintenance-virtual-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.maintenance-virtual-table-inner {
+    min-width: 1520px;
+    width: 100%;
+    box-sizing: border-box;
+    border-collapse: separate;
+}
+
+.maintenance-virtual-table--refreshing .maintenance-virtual-scroll {
+    opacity: 0.92;
+    transition: opacity 0.15s ease;
+}
+
+.maintenance-virtual-thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.maintenance-virtual-head-row,
+.maintenance-virtual-data-row {
+    display: grid;
+    grid-template-columns:
+        minmax(28px, 3fr) minmax(150px, 13fr) minmax(56px, 8fr) minmax(64px, 8.5fr) minmax(68px, 9fr)
+        minmax(96px, 14fr) minmax(64px, 9fr) minmax(40px, 5fr) minmax(40px, 5fr) minmax(48px, 6fr)
+        minmax(52px, 6fr) minmax(52px, 6fr) minmax(68px, 8fr);
+    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.maintenance-virtual-th {
+    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
+    color: #ffffff;
+    font-weight: bold;
+    font-size: clamp(10px, 0.89vw, 17px);
+    padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1vw, 18px);
+    text-align: center;
+    min-height: clamp(30px, 2.1vw, 38px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.maintenance-virtual-th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.maintenance-virtual-th:last-child {
+    border-top-right-radius: 8px;
+}
+
+.maintenance-virtual-scroll {
+    max-height: min(72vh, 900px);
+    overflow: auto;
+    border-radius: 0 0 8px 8px;
+    background: #fff;
+}
+
+.maintenance-virtual-row-wrap {
+    box-sizing: border-box;
+}
+
+.maintenance-virtual-data-row {
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.maintenance-virtual-data-row--stripe {
+    background: #cceeff99;
+}
+
+.maintenance-virtual-data-row:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+.maintenance-virtual-cell {
+    font-size: clamp(10px, 0.88vw, 15px);
+    font-weight: bold;
+    color: #374151;
+    padding: clamp(4px, 0.5vw, 8px) clamp(10px, 1vw, 18px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    min-height: clamp(28px, 1.95vw, 36px);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.maintenance-virtual-cell--left {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.maintenance-virtual-cell--right {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.maintenance-virtual-cell--mono {
+    font-variant-numeric: tabular-nums;
+}
+
+.maintenance-virtual-data-row .maintenance-cell-currency {
+    text-align: center;
+    justify-content: center;
+}

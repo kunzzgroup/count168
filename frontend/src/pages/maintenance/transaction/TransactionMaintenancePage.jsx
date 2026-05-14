@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
@@ -55,18 +56,43 @@ export default function TransactionMaintenancePage() {
   const [dateFrom, setDateFrom] = useState(todayDmy);
   const [dateTo, setDateTo] = useState(todayDmy);
 
+  const [toasts, setToasts] = useState([]);
+  const [cssReady, setCssReady] = useState(false);
+
   // -- Data State --
   const [processes, setProcesses] = useState([]);
-  const [transactionData, setTransactionData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const searchAbortRef = useRef(null);
   /** When set, meta effect reuses permissions from the last company switch instead of calling domain_api again. */
   const switchPermsCacheRef = useRef(null);
 
-  // -- UI State --
-  const [toasts, setToasts] = useState([]);
-  const [cssReady, setCssReady] = useState(false);
+  const listQueryEnabled = Boolean(!bootLoading && companyId && dateFrom && dateTo && cssReady);
+
+  const transactionQuery = useQuery({
+    queryKey: [
+      "transaction-maintenance",
+      companyId,
+      dateFrom,
+      dateTo,
+      selectedProcess || "",
+      activePermission || "",
+    ],
+    queryFn: ({ signal }) =>
+      searchTransactionData({
+        dateFrom,
+        dateTo,
+        process: selectedProcess,
+        companyId,
+        category: activePermission,
+        signal,
+      }),
+    enabled: listQueryEnabled,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  const transactionData = transactionQuery.data ?? [];
+  const txLoading = listQueryEnabled && transactionQuery.isLoading;
+  const lastToastKeyRef = useRef(null);
+  const lastErrorMsgRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -301,44 +327,21 @@ export default function TransactionMaintenancePage() {
     };
   }, [bootLoading, companyId, companyCode, notify, t]);
 
-  // -- Search Logic --
-  const performSearch = useCallback(async () => {
-    if (!companyId || !dateFrom || !dateTo) return;
-    searchAbortRef.current?.abort();
-    const ac = new AbortController();
-    searchAbortRef.current = ac;
-    setLoading(true);
-    try {
-      const data = await searchTransactionData({
-        dateFrom,
-        dateTo,
-        process: selectedProcess,
-        companyId,
-        category: activePermission,
-        signal: ac.signal,
-      });
-      setTransactionData(data);
-      setHasSearched(true);
-      if (data.length > 0) {
-        notify(t("foundRecords", { n: data.length }), "success");
-      }
-    } catch (err) {
-      if (err?.name === "AbortError") return;
-      notify(err.message, "error");
-      setTransactionData([]);
-    } finally {
-      if (searchAbortRef.current === ac) {
-        setLoading(false);
-      }
-    }
-  }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t]);
-
-  // Auto-search when filters change (if has searched before or just loaded)
   useEffect(() => {
-    if (!bootLoading && companyId && cssReady) {
-      performSearch();
-    }
-  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch, cssReady]);
+    if (!transactionQuery.isSuccess || !transactionData.length) return;
+    const key = `${transactionQuery.dataUpdatedAt}:${transactionData.length}`;
+    if (lastToastKeyRef.current === key) return;
+    lastToastKeyRef.current = key;
+    notify(t("foundRecords", { n: transactionData.length }), "success");
+  }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt, transactionData.length, notify, t]);
+
+  useEffect(() => {
+    if (!transactionQuery.isError || !transactionQuery.error) return;
+    const msg = transactionQuery.error.message || t("searchFailed");
+    if (lastErrorMsgRef.current === msg) return;
+    lastErrorMsgRef.current = msg;
+    notify(msg, "error");
+  }, [transactionQuery.isError, transactionQuery.error, notify, t]);
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
@@ -440,7 +443,14 @@ export default function TransactionMaintenancePage() {
           m={m}
         />
 
-        <TransactionMaintenanceTable data={transactionData} loading={loading} m={m} />
+        <TransactionMaintenanceTable
+          data={transactionData}
+          isLoading={txLoading}
+          isFetching={transactionQuery.isFetching}
+          isError={transactionQuery.isError}
+          error={transactionQuery.error}
+          m={m}
+        />
       </div>
 
       {/* Notifications */}
