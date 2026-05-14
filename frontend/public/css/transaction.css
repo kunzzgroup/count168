@@ -443,12 +443,18 @@ body.transaction-page .transaction-calendar-panel {
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-header {
+    display: grid;
+    grid-template-columns: 1fr 5fr 1fr;
+    align-items: center;
+    max-width: 250px;
+    margin-left: auto;
+    margin-right: auto;
     margin-bottom: 6px;
-    padding: 0 2px;
+    padding: 0;
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year {
-    flex: 1;
+    grid-column: 2;
     justify-content: center;
 }
 
@@ -472,6 +478,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-year se
 body.transaction-page .calendar-popup--transaction-range .calendar-nav-btn {
     color: #2563eb;
     border-radius: 999px;
+    justify-self: center;
     transition:
         background 0.16s ease,
         color 0.16s ease,
