@@ -164,7 +164,7 @@ body.transaction-page .transaction-add-section .tx-add-account-reverse {
     align-self: self-end;
     margin-top: 10px;
     width: var(--tx-add-reverse-col);
-    min-height: clamp(30px, 2.25vw, 38px);
+    min-height: clamp(26px, 2.25vw, 34px);
 }
 
 body.transaction-page .transaction-add-section .tx-add-icon-field {
@@ -172,7 +172,7 @@ body.transaction-page .transaction-add-section .tx-add-icon-field {
     align-items: stretch;
     width: 100%;
     min-width: 0;
-    min-height: clamp(30px, 2.25vw, 38px);
+    min-height: clamp(26px, 2.25vw, 34px);
     background: #ffffff;
     border-radius: clamp(4px, 0.42vw, 6px);
 }
@@ -206,7 +206,7 @@ body.transaction-page .transaction-add-section .report-outlined-inner .transacti
     border: none !important;
     box-shadow: none !important;
     background-color: #ffffff;
-    min-height: clamp(30px, 2.25vw, 38px);
+    min-height: clamp(26px, 2.25vw, 34px);
     padding: clamp(6px, 0.5vw, 9px) clamp(9px, 0.7vw, 12px);
     border-radius: clamp(4px, 0.42vw, 6px);
     font-size: var(--text-small);
@@ -2871,7 +2871,7 @@ body.transaction-page .transaction-add-section .report-outlined-inner .transacti
     min-width: 0 !important;
     width: 100%;
     max-width: 100%;
-    min-height: clamp(30px, 2.25vw, 38px) !important;
+    min-height: clamp(26px, 2.25vw, 34px) !important;
     padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
     border-radius: clamp(4px, 0.42vw, 6px);
     background: #ffffff !important;
