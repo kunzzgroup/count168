@@ -2701,6 +2701,17 @@ body.transaction-page .transaction-add-section .tx-add-form-row--rate-three-cols
     min-width: 140px;
 }
 
+body.transaction-page .transaction-add-section .rate-row-two-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--tx-add-reverse-col);
+    align-items: center;
+}
+
+body.transaction-page .transaction-add-section .rate-row-two-cols > .custom-select-wrapper {
+    min-width: 0;
+    max-width: none;
+}
+
 .rate-row-five-cols {
     display: grid;
     grid-template-columns: minmax(70px, 0.9fr) minmax(70px, 1fr) minmax(60px, 0.8fr) minmax(70px, 0.9fr) minmax(70px, 1fr);
@@ -2728,6 +2739,7 @@ body.transaction-page .transaction-add-section .tx-add-form-row--rate-three-cols
 .rate-reverse-btn {
     flex: 0 0 auto;
     align-self: stretch;
+    width: var(--tx-add-reverse-col);
 }
 
 /* Category Multi-Select Dropdown Styles */
