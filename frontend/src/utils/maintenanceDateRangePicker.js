@@ -476,6 +476,10 @@ export function ensureMaintenanceDateRangePicker() {
       presets.setAttribute("aria-hidden", activeRangeBinding.hidePresets ? "true" : "false");
     }
 
+    if (popup.classList.contains("calendar-popup--transaction-range")) {
+      popup.classList.toggle("calendar-popup--no-presets", !!activeRangeBinding.hidePresets);
+    }
+
     if (popup.style.display === "none" || !popup.style.display) {
       syncRangeStateFromHiddenInputs();
       const rect = picker.getBoundingClientRect();

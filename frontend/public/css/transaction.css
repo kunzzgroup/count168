@@ -520,13 +520,14 @@ body.transaction-page .transaction-date-range-group .date-range-picker i.fa-cale
     margin: 0;
     border-radius: 11px 0 0 11px;
     color: #ffffff;
-    background: var(--btn-add-gradient);
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.22);
+    background: #3b82f6;
+    box-shadow: none;
     font-size: var(--text-small);
     flex: 0 0 auto;
 }
 
-body.transaction-page .transaction-date-range-group #date-range-display {
+body.transaction-page .transaction-date-range-group #date-range-display,
+body.transaction-page .transaction-date-range-group #add-tx-date-range-display {
     flex: 1 1 auto;
     min-width: 0;
     color: #1f2937;
@@ -534,6 +535,8 @@ body.transaction-page .transaction-date-range-group #date-range-display {
     font-weight: 700;
     letter-spacing: 0.01em;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 body.transaction-page .transaction-date-range-chevron {
@@ -548,6 +551,27 @@ body.transaction-page .transaction-date-range-chevron {
 body.transaction-page .transaction-date-range-group .date-range-picker:hover .transaction-date-range-chevron {
     color: #2563eb !important;
     transform: translateY(1px);
+}
+
+body.transaction-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets {
+    grid-template-columns: 1fr;
+    width: min(292px, calc(100vw - 24px));
+}
+
+body.transaction-page .calendar-popup--transaction-range.calendar-popup--no-presets .transaction-calendar-panel {
+    padding: 12px 14px 14px;
+}
+
+body.transaction-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-header {
+    max-width: none;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+body.transaction-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-weekdays,
+body.transaction-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-days {
+    max-width: none;
+    width: 100%;
 }
 
 body.transaction-page .calendar-popup.calendar-popup--transaction-range {
@@ -628,6 +652,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-header {
     margin-right: auto;
     margin-bottom: 8px;
     padding: 0;
+    column-gap: 4px;
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year {
@@ -636,13 +661,12 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-year {
     align-items: center;
     justify-content: center;
     justify-self: center;
-    overflow: hidden;
+    overflow: visible;
+    min-height: 36px;
     border: 1px solid rgba(203, 213, 225, 0.86);
     border-radius: 10px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.95),
-        0 1px 3px rgba(15, 23, 42, 0.05);
+    background: #f8fafc;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year select,
@@ -658,6 +682,13 @@ body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger 
     box-shadow: none;
 }
 
+body.transaction-page .calendar-popup--transaction-range .calendar-month-year select {
+    min-height: 34px;
+    padding: 6px 8px;
+    cursor: pointer;
+    font-family: var(--font-heading-page);
+}
+
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year select:hover,
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year select:focus,
 body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger:hover,
@@ -669,16 +700,26 @@ body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger:
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger {
-    min-width: 46px;
-    padding: 4px 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 5.5rem;
+    min-height: 34px;
+    padding: 6px 10px;
     cursor: pointer;
     font-family: var(--font-heading-page);
     border-right: 1px solid rgba(203, 213, 225, 0.74);
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger {
-    min-width: 52px;
-    padding: 4px 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 4.5rem;
+    min-height: 34px;
+    padding: 6px 10px;
     cursor: pointer;
     font-family: var(--font-heading-page);
 }
@@ -693,12 +734,14 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger
 body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger::after {
     content: "";
     display: inline-block;
+    flex-shrink: 0;
     width: 5px;
     height: 5px;
-    margin-left: 6px;
+    margin-left: 0;
     border-right: 1.5px solid currentColor;
     border-bottom: 1.5px solid currentColor;
-    transform: translateY(-2px) rotate(45deg);
+    transform: translateY(-1px) rotate(45deg);
+    opacity: 0.85;
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-nav-btn {
