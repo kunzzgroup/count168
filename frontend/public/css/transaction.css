@@ -828,7 +828,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-day.start-dat
 }
 
 .transaction-page .transaction-checkboxes {
-    margin: clamp(8px, 0.83vw, 16px) 0;
+    margin: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -899,6 +899,16 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
 
 body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter-chip__label {
     white-space: nowrap;
+}
+
+body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter-chip:nth-child(1) {
+    min-width: 8.25rem;
+    justify-content: flex-start;
+}
+
+body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter-chip:nth-child(2) {
+    min-width: 6.75rem;
+    justify-content: flex-start;
 }
 
 .transaction-page .transaction-checkbox-label {
