@@ -57,6 +57,8 @@ export function useTransactionSearch({
   /** After a real company switch, skip one blocking "Loading data" overlay (still fetch in background). */
   const suppressBlockingOverlayOnceRef = useRef(false);
   const prevCompanyIdForSearchRef = useRef(null);
+  /** Capture Date 变更后触发搜索；与「仅首次拉数」的 initial effect 分离，避免 initialSearchDoneRef 为 true 时改日期不请求 */
+  const prevCaptureDateRangeKeyRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
 
@@ -673,6 +675,7 @@ export function useTransactionSearch({
     if (prev != null && Number(prev) !== Number(cid)) {
       suppressBlockingOverlayOnceRef.current = true;
       setRawSearchData(null);
+      prevCaptureDateRangeKeyRef.current = null;
     }
     prevCompanyIdForSearchRef.current = cid;
     setTablesVisible(true);
@@ -756,6 +759,22 @@ export function useTransactionSearch({
     searchState,
     runSearch,
   ]);
+
+  useEffect(() => {
+    if (!filterSnapshot?.companyId) return;
+    if (!initialSearchDoneRef.current) return;
+    if (!effectiveDateFrom || !effectiveDateTo) return;
+    if (!showAllCurrencies && selectedCurrencies.length === 0) return;
+
+    const key = `${effectiveDateFrom}|${effectiveDateTo}`;
+    if (prevCaptureDateRangeKeyRef.current === null) {
+      prevCaptureDateRangeKeyRef.current = key;
+      return;
+    }
+    if (prevCaptureDateRangeKeyRef.current === key) return;
+    prevCaptureDateRangeKeyRef.current = key;
+    scheduleAutoSearch({ delayMs: 0 });
+  }, [effectiveDateFrom, effectiveDateTo, filterSnapshot?.companyId, showAllCurrencies, selectedCurrencies, scheduleAutoSearch]);
 
   return {
     dateFrom,
