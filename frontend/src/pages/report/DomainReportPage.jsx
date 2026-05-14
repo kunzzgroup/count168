@@ -317,7 +317,6 @@ export default function DomainReportPage() {
           onPickAllGroups={handlePickAllGroups}
           onPickGroup={handlePickGroup}
           companyButtons={companyButtons}
-          switchingCompany={switchingCompany}
           processId={processId}
           setProcessId={setProcessId}
           processes={processes}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../utils/sharedCompanyFilter.js";
@@ -37,7 +37,9 @@ export default function CustomerReportPage() {
   const [companyId, setCompanyId] = useState(null);
   /** Process List 同款：all | follow | ungrouped */
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
-  const [switchingCompany, setSwitchingCompany] = useState(false);
+  /** 切换公司时会话 API 未返回前，分段条先高亮目标公司 */
+  const [companyHighlightId, setCompanyHighlightId] = useState(null);
+  const switchCompanySeqRef = useRef(0);
   const [accountId, setAccountId] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
@@ -52,13 +54,22 @@ export default function CustomerReportPage() {
   const [accounts, setAccounts] = useState([]);
   const [currencyList, setCurrencyList] = useState([]);
   const [reportData, setReportData] = useState(null);
+  const reportDataRef = useRef(null);
   const [loading, setLoading] = useState(false);
+  /** 已有列表时的后台刷新：不闪白、不占全表 loading，仅用顶栏细条提示 */
+  const [reportSyncing, setReportSyncing] = useState(false);
   const [error, setError] = useState("");
 
   // -- State: UI --
   const [toast, setToast] = useState(null);
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
+  const customerReportSeqRef = useRef(0);
+  const customerReportAbortRef = useRef(null);
+
+  useEffect(() => {
+    reportDataRef.current = reportData;
+  }, [reportData]);
 
   const { allCompanyButtons, groupIds, selectedGroupKey, companyButtons } = useReportGcSwitcher(
     companies,
@@ -183,24 +194,42 @@ export default function CustomerReportPage() {
   // -- Data Fetching --
   const loadReport = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;
-    setLoading(true);
+    customerReportAbortRef.current?.abort();
+    const ac = new AbortController();
+    customerReportAbortRef.current = ac;
+    const seq = ++customerReportSeqRef.current;
+    const quietRefresh = reportDataRef.current != null;
+    if (!quietRefresh) setLoading(true);
+    if (quietRefresh) setReportSyncing(true);
     setError("");
     try {
-      const data = await fetchCustomerReport({
-        accountId,
-        dateFrom,
-        dateTo,
-        showAll,
-        companyId,
-        selectedCurrencies,
-        showAllCurrencies
+      const data = await fetchCustomerReport(
+        {
+          accountId,
+          dateFrom,
+          dateTo,
+          showAll,
+          companyId,
+          selectedCurrencies,
+          showAllCurrencies,
+        },
+        { signal: ac.signal },
+      );
+      if (seq !== customerReportSeqRef.current) return;
+      startTransition(() => {
+        setReportData(data);
       });
-      setReportData(data);
     } catch (err) {
+      if (err?.name === "AbortError" || seq !== customerReportSeqRef.current) return;
       setError(err.message);
-      setReportData(null);
+      startTransition(() => {
+        setReportData(null);
+      });
     } finally {
-      setLoading(false);
+      if (seq === customerReportSeqRef.current) {
+        setLoading(false);
+        setReportSyncing(false);
+      }
     }
   }, [companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies]);
 
@@ -246,33 +275,45 @@ export default function CustomerReportPage() {
     if (!bootLoading && companyId) {
       const handler = setTimeout(() => {
         loadReport();
-      }, 300);
+      }, 0);
       return () => clearTimeout(handler);
     }
   }, [bootLoading, companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies, loadReport]);
 
+  useEffect(() => () => {
+    customerReportAbortRef.current?.abort();
+  }, []);
+
   // -- Handlers --
   const onSwitchCompany = useCallback(async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
-    setSwitchingCompany(true);
+    const effectiveId = companyHighlightId ?? companyId;
+    if (!c?.id || Number(c.id) === Number(effectiveId)) return;
+    const reqId = ++switchCompanySeqRef.current;
+    setCompanyHighlightId(Number(c.id));
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
-      if (!json.success) { notify(json.error || t("switchFailed"), "danger"); return; }
+      if (reqId !== switchCompanySeqRef.current) return;
+      if (!json.success) {
+        setCompanyHighlightId(null);
+        notify(json.error || t("switchFailed"), "danger");
+        return;
+      }
       setCompanyId(Number(c.id));
       setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       persistDashboardGroupFilter(newGroup || null);
-
-      await checkBankOnly(c.id);
+      setCompanyHighlightId(null);
+      void checkBankOnly(c.id);
       notifyCompanySessionUpdated();
-    } catch { notify(t("switchFailed"), "danger"); }
-    finally { setSwitchingCompany(false); }
-  }, [companyId, notify, t, checkBankOnly]);
+    } catch {
+      if (reqId === switchCompanySeqRef.current) setCompanyHighlightId(null);
+      notify(t("switchFailed"), "danger");
+    }
+  }, [companyId, companyHighlightId, notify, t, checkBankOnly]);
 
   const handlePickGroup = useCallback(
     (gid) => {
-      if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
@@ -286,13 +327,12 @@ export default function CustomerReportPage() {
       const first = allCompanyButtons.find((row) => String(row.group_id || "").trim().toUpperCase() === g);
       if (first) void onSwitchCompany(first);
     },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany],
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey],
   );
 
   const handlePickAllGroups = useCallback(() => {
-    if (switchingCompany) return;
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, [switchingCompany]);
+  }, []);
 
   const toggleCurrency = (code) => {
     setShowAllCurrencies(false);
@@ -325,7 +365,7 @@ export default function CustomerReportPage() {
           onPickAllGroups={handlePickAllGroups}
           onPickGroup={handlePickGroup}
           companyButtons={companyButtons}
-          switchingCompany={switchingCompany}
+          highlightCompanyId={companyHighlightId}
           accountId={accountId}
           setAccountId={setAccountId}
           accounts={accounts}
@@ -343,13 +383,21 @@ export default function CustomerReportPage() {
           t={t}
         />
 
-        <CustomerReportTable
-          reportData={reportData}
-          loading={loading}
-          error={error}
-          currencyList={currencyList}
-          t={t}
-        />
+        <div className="customer-report-table-region">
+          {reportSyncing && (
+            <div className="customer-report-sync-track" aria-hidden>
+              <div className="customer-report-sync-bar" />
+            </div>
+          )}
+          <CustomerReportTable
+            reportData={reportData}
+            loading={loading}
+            reportSyncing={reportSyncing}
+            error={error}
+            currencyList={currencyList}
+            t={t}
+          />
+        </div>
       </div>
 
       {/* Notifications */}

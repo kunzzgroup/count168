@@ -13,7 +13,6 @@ export default function DomainReportFilters({
   onPickAllGroups,
   onPickGroup,
   companyButtons,
-  switchingCompany,
   processId,
   setProcessId,
   processes,
@@ -156,7 +155,6 @@ export default function DomainReportFilters({
         companyButtons={companyButtons}
         companyId={companyId}
         onSwitchCompany={onSwitchCompany}
-        switchingCompany={switchingCompany}
         currencyList={currencyList}
         showAllCurrencies={showAllCurrencies}
         selectedCurrencies={selectedCurrencies}

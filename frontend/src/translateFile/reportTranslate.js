@@ -47,6 +47,7 @@ export const REPORT_I18N = {
     colWinLose: "Win/Lose",
 
     loading: "Loading...",
+    updatingReport: "Updating…",
     noDataFound: "No data found",
 
     currencyLine: "Currency: {code}",
@@ -102,6 +103,7 @@ export const REPORT_I18N = {
     colWinLose: "输赢",
 
     loading: "加载中...",
+    updatingReport: "更新中…",
     noDataFound: "暂无数据",
 
     currencyLine: "币种：{code}",

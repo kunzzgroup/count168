@@ -9,8 +9,9 @@ export default function ReportGcFilterPanel({
   onPickGroup,
   companyButtons,
   companyId,
+  /** 乐观高亮：切换会话未返回前显示为已选 */
+  highlightCompanyId,
   onSwitchCompany,
-  switchingCompany,
   currencyList,
   showAllCurrencies,
   selectedCurrencies,
@@ -22,6 +23,8 @@ export default function ReportGcFilterPanel({
   const hasCompanies = Array.isArray(companyButtons) && companyButtons.length > 0;
   const hasCurrency = Array.isArray(currencyList) && currencyList.length > 0;
   if (!hasGroup && !hasCompanies && !hasCurrency) return null;
+
+  const activeCompanyId = highlightCompanyId != null ? highlightCompanyId : companyId;
 
   return (
     <div className="user-gc-inline-panel report-gc-inline-panel">
@@ -57,14 +60,13 @@ export default function ReportGcFilterPanel({
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
               {companyButtons.map((c) => {
-                const active = Number(c.id) === Number(companyId);
+                const active = Number(c.id) === Number(activeCompanyId);
                 return (
                   <button
                     key={c.id}
                     type="button"
                     className={`user-gc-segment${active ? " is-on" : ""}`}
                     onClick={() => {
-                      if (switchingCompany) return;
                       if (!active) void onSwitchCompany(c);
                     }}
                   >

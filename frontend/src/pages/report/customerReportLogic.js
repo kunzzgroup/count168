@@ -38,7 +38,11 @@ export function isBankOnlyCategoryCompany(permissions) {
 /**
  * API function to load report
  */
-export async function fetchCustomerReport({ accountId, dateFrom, dateTo, showAll, companyId, selectedCurrencies, showAllCurrencies }) {
+export async function fetchCustomerReport(
+  { accountId, dateFrom, dateTo, showAll, companyId, selectedCurrencies, showAllCurrencies },
+  options = {},
+) {
+  const { signal } = options;
   const params = new URLSearchParams();
   if (accountId) params.append("account_id", accountId);
   params.append("date_from", dateFrom);
@@ -50,7 +54,8 @@ export async function fetchCustomerReport({ accountId, dateFrom, dateTo, showAll
   }
 
   const res = await fetch(buildApiUrl(`api/reports/customer_report_api.php?${params.toString()}`), {
-    credentials: "include"
+    credentials: "include",
+    signal,
   });
   const json = await res.json();
   if (!res.ok || !json.success) {

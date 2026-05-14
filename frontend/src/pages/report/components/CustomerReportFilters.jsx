@@ -13,7 +13,7 @@ export default function CustomerReportFilters({
   onPickAllGroups,
   onPickGroup,
   companyButtons,
-  switchingCompany,
+  highlightCompanyId,
   accountId,
   setAccountId,
   accounts,
@@ -177,8 +177,8 @@ export default function CustomerReportFilters({
         onPickGroup={onPickGroup}
         companyButtons={companyButtons}
         companyId={companyId}
+        highlightCompanyId={highlightCompanyId}
         onSwitchCompany={onSwitchCompany}
-        switchingCompany={switchingCompany}
         currencyList={currencyList}
         showAllCurrencies={showAllCurrencies}
         selectedCurrencies={selectedCurrencies}
