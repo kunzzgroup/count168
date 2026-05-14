@@ -76,7 +76,8 @@ export default function BankProcessListPage() {
   const [tableLoading, setTableLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupFilterKind, setGroupFilterKind] = useState("follow");
+  const [switchingCompany, setSwitchingCompany] = useState(false);
   const [rows, setRows] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -141,6 +142,9 @@ export default function BankProcessListPage() {
   const [accountModalSelectedCurrencyIds, setAccountModalSelectedCurrencyIds] = useState([]);
   const [accountModalSelectedCompanyIds, setAccountModalSelectedCompanyIds] = useState([]);
   const [accountModalCurrencyInput, setAccountModalCurrencyInput] = useState("");
+
+  const [currencyListOrdered, setCurrencyListOrdered] = useState([]);
+  const [currencyFilterCode, setCurrencyFilterCode] = useState("");
 
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
@@ -375,8 +379,9 @@ export default function BankProcessListPage() {
           }
         }
         setCompanyId(effectiveNum);
-        setSelectedGroup(currentCompanyRow?.group_id ? String(currentCompanyRow.group_id).toUpperCase() : null);
+        setGroupFilterKind("follow");
         setSearch(url.searchParams.get("search") || "");
+        setCurrencyFilterCode(String(url.searchParams.get("currency") || "").trim().toUpperCase());
         setDateFrom(url.searchParams.get("date_from") || "");
         setDateTo(url.searchParams.get("date_to") || "");
         setShowAll(url.searchParams.get("showAll") === "1");
@@ -404,6 +409,40 @@ export default function BankProcessListPage() {
       } catch { setAccounts([]); }
     })();
   }, [companyId, loading]);
+
+  const loadCurrencyMeta = useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const [curRes, ordRes] = await Promise.all([
+        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${companyId}`), { credentials: "include" }),
+        fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), { credentials: "include" }).catch(() => null),
+      ]);
+      const curJson = await curRes.json();
+      if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
+        setCurrencyListOrdered([]);
+        return;
+      }
+      let codes = curJson.data.map((r) => String(r.code).toUpperCase());
+      if (ordRes) {
+        const ordJson = await ordRes.json();
+        const order = ordJson?.data?.order;
+        if (Array.isArray(order) && order.length) {
+          const set = new Set(codes);
+          const ordered = [...order.map((c) => String(c).toUpperCase()).filter((c) => set.has(c))];
+          const rest = codes.filter((c) => !ordered.includes(c));
+          codes = [...ordered, ...rest];
+        }
+      }
+      setCurrencyListOrdered(codes);
+    } catch {
+      setCurrencyListOrdered([]);
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    if (!companyId || loading) return;
+    void loadCurrencyMeta();
+  }, [companyId, loading, loadCurrencyMeta]);
 
   useEffect(() => {
     if (showAll) document.body.classList.add("process-page--bank-show-all");
@@ -552,8 +591,10 @@ export default function BankProcessListPage() {
     [["showAll", showAll], ["showInactive", showInactive], ["showOfficial", showOfficial], ["showEInvoice", showEInvoice], ["showBlock", showBlock]].forEach(([k, v]) => {
       if (v) url.searchParams.set(k, "1"); else url.searchParams.delete(k);
     });
+    if (currencyFilterCode) url.searchParams.set("currency", currencyFilterCode);
+    else url.searchParams.delete("currency");
     window.history.replaceState({}, document.title, url.toString());
-  }, [companyId, search, dateFrom, dateTo, showAll, showInactive, showOfficial, showEInvoice, showBlock]);
+  }, [companyId, search, dateFrom, dateTo, showAll, showInactive, showOfficial, showEInvoice, showBlock, currencyFilterCode]);
 
   // Bank list always fetches the full dataset, then filters client-side
   // (matches legacy bank_process_list.js: prevents stale issue_flag/inactive splits).
@@ -597,7 +638,7 @@ export default function BankProcessListPage() {
     syncUrl();
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [companyId, loading, showAll, showInactive, showOfficial, showEInvoice, showBlock, dateFrom, dateTo, syncUrl]);
+  }, [companyId, loading, showAll, showInactive, showOfficial, showEInvoice, showBlock, dateFrom, dateTo, currencyFilterCode, syncUrl]);
 
   const loadAccountingInbox = useCallback(async (opts = {}) => {
     const silent = !!opts.silent;
@@ -666,7 +707,8 @@ export default function BankProcessListPage() {
 
   const onSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
-    // Immediately show loading state so there's no "No data found" flash
+    if (switchingCompany) return;
+    setSwitchingCompany(true);
     listAbortRef.current?.abort();
     setRows([]);
     setSelectedIds(new Set());
@@ -682,6 +724,7 @@ export default function BankProcessListPage() {
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
       if (!bankCategory) {
+        setTableLoading(false);
         let processListPrefetch = {
           companyId: Number(c.id),
           companies,
@@ -718,11 +761,13 @@ export default function BankProcessListPage() {
         return;
       }
       setCompanyId(Number(c.id));
-      setSelectedGroup(c.group_id ? String(c.group_id).toUpperCase() : null);
+      setGroupFilterKind("follow");
       if (accountingOpen) void loadAccountingInbox();
     } catch {
       setTableLoading(false);
       notify(t("switchCompanyFailed"), "danger");
+    } finally {
+      setSwitchingCompany(false);
     }
   };
 
@@ -1045,8 +1090,64 @@ export default function BankProcessListPage() {
   };
 
   const allCompanyButtons = useMemo(() => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""), [companies]);
-  const groupIds = useMemo(() => [...new Set(allCompanyButtons.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase()))].sort(), [allCompanyButtons]);
-  const companyButtons = useMemo(() => (!selectedGroup ? allCompanyButtons.filter((c) => !c.group_id || String(c.group_id).trim() === "") : allCompanyButtons.filter((c) => String(c.group_id || "").toUpperCase() === selectedGroup)), [allCompanyButtons, selectedGroup]);
+  const groupIds = useMemo(
+    () =>
+      [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
+    [allCompanyButtons]
+  );
+  const selectedCompany = useMemo(
+    () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
+    [allCompanyButtons, companyId]
+  );
+  const selectedGroupKey = useMemo(
+    () => String(selectedCompany?.group_id || "").trim().toUpperCase(),
+    [selectedCompany?.group_id]
+  );
+  const companyButtons = useMemo(() => {
+    if (groupFilterKind === "all") {
+      const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
+      return [...allCompanyButtons].sort((a, b) => {
+        const ga = String(a.group_id || "").trim().toUpperCase();
+        const gb = String(b.group_id || "").trim().toUpperCase();
+        const ra = groupOrder.has(ga) ? groupOrder.get(ga) : Number.MAX_SAFE_INTEGER;
+        const rb = groupOrder.has(gb) ? groupOrder.get(gb) : Number.MAX_SAFE_INTEGER;
+        if (ra !== rb) return ra - rb;
+        return String(a.company_id || "").localeCompare(String(b.company_id || ""), undefined, { numeric: true });
+      });
+    }
+    if (groupFilterKind === "ungrouped") {
+      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+    }
+    if (groupIds.length === 0) return allCompanyButtons;
+    if (!selectedGroupKey) {
+      const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+      return ung.length ? ung : allCompanyButtons;
+    }
+    const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
+    return inG.length ? inG : allCompanyButtons;
+  }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
+
+  const handlePickGroup = useCallback(
+    (gid) => {
+      if (switchingCompany || tableLoading) return;
+      const g = String(gid || "").trim().toUpperCase();
+      if (!g) return;
+      if (groupFilterKind === "follow" && g === selectedGroupKey) {
+        setGroupFilterKind("ungrouped");
+        return;
+      }
+      setGroupFilterKind("follow");
+      if (g === selectedGroupKey) return;
+      const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
+      if (first) void onSwitchCompany(first);
+    },
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany, tableLoading]
+  );
+
+  const handlePickAllGroups = useCallback(() => {
+    if (switchingCompany || tableLoading) return;
+    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
+  }, [switchingCompany, tableLoading]);
 
   const supplierSortedRows = useMemo(() => {
     const arr = [...rows];
@@ -1059,21 +1160,59 @@ export default function BankProcessListPage() {
     return arr;
   }, [rows, supplierSortDir]);
 
+  const rowCountryCodes = useMemo(() => {
+    const s = new Set();
+    for (const r of rows) {
+      const c = String(r.country || "").trim().toUpperCase();
+      if (c) s.add(c);
+    }
+    return [...s].sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  const currencyPillCodes = useMemo(() => {
+    const merged = new Set([...currencyListOrdered, ...rowCountryCodes]);
+    const orderFirst = currencyListOrdered.filter((c) => merged.has(c));
+    const rest = [...merged].filter((c) => !orderFirst.includes(c)).sort((a, b) => a.localeCompare(b));
+    return [...orderFirst, ...rest];
+  }, [currencyListOrdered, rowCountryCodes]);
+
+  useEffect(() => {
+    if (!currencyFilterCode) return;
+    if (currencyPillCodes.length && !currencyPillCodes.includes(currencyFilterCode)) {
+      setCurrencyFilterCode("");
+    }
+  }, [currencyFilterCode, currencyPillCodes]);
+
   const visibleRows = useMemo(() => {
     const filterState = { showAll, showInactive, showOfficial, showEInvoice, showBlock };
-    const filtered = supplierSortedRows.filter((r) => matchesCurrentBankFilters(r, filterState));
-    if (!dateFrom && !dateTo) return filtered;
-    const fromMs = dateFrom ? parseRowDateMs(dateFrom) : null;
-    const toMs = dateTo ? parseRowDateMs(dateTo) : null;
-    const toEnd = toMs != null ? toMs + 86400000 - 1 : null;
-    return filtered.filter((r) => {
-      const ts = parseRowDateMs(r.date || r.day_start);
-      if (ts == null) return false;
-      if (fromMs !== null && ts < fromMs) return false;
-      if (toEnd !== null && ts > toEnd) return false;
-      return true;
-    });
-  }, [supplierSortedRows, dateFrom, dateTo, showAll, showInactive, showOfficial, showEInvoice, showBlock]);
+    let filtered = supplierSortedRows.filter((r) => matchesCurrentBankFilters(r, filterState));
+    if (dateFrom || dateTo) {
+      const fromMs = dateFrom ? parseRowDateMs(dateFrom) : null;
+      const toMs = dateTo ? parseRowDateMs(dateTo) : null;
+      const toEnd = toMs != null ? toMs + 86400000 - 1 : null;
+      filtered = filtered.filter((r) => {
+        const ts = parseRowDateMs(r.date || r.day_start);
+        if (ts == null) return false;
+        if (fromMs !== null && ts < fromMs) return false;
+        if (toEnd !== null && ts > toEnd) return false;
+        return true;
+      });
+    }
+    if (currencyFilterCode) {
+      filtered = filtered.filter((r) => String(r.country || "").trim().toUpperCase() === currencyFilterCode);
+    }
+    return filtered;
+  }, [
+    supplierSortedRows,
+    dateFrom,
+    dateTo,
+    showAll,
+    showInactive,
+    showOfficial,
+    showEInvoice,
+    showBlock,
+    currencyFilterCode,
+  ]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE)), [visibleRows]);
   const pageRows = useMemo(() => {
@@ -1260,13 +1399,21 @@ export default function BankProcessListPage() {
                 <span className="user-gc-inline-label">{t("groupId")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                    <button
+                      type="button"
+                      disabled={switchingCompany || tableLoading}
+                      className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
+                      onClick={handlePickAllGroups}
+                    >
+                      {t("groupFilterAll")}
+                    </button>
                     {groupIds.map((g) => (
                       <button
                         key={g}
                         type="button"
-                        disabled={tableLoading}
-                        className={`user-gc-segment${selectedGroup === g ? " is-on" : ""}`}
-                        onClick={() => setSelectedGroup(g)}
+                        disabled={switchingCompany || tableLoading}
+                        className={`user-gc-segment${groupFilterKind === "follow" && g === selectedGroupKey ? " is-on" : ""}`}
+                        onClick={() => handlePickGroup(g)}
                       >
                         {g}
                       </button>
@@ -1285,7 +1432,7 @@ export default function BankProcessListPage() {
                       <button
                         key={c.id}
                         type="button"
-                        disabled={tableLoading}
+                        disabled={switchingCompany || tableLoading}
                         className={`user-gc-segment${active ? " is-on" : ""}`}
                         onClick={() => {
                           if (!active) void onSwitchCompany(c);
@@ -1298,6 +1445,34 @@ export default function BankProcessListPage() {
                 </div>
               </div>
             </div>
+            {currencyPillCodes.length > 0 && (
+              <div className="user-gc-inline-row">
+                <span className="user-gc-inline-label">{t("currency")}</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div className="user-gc-segment-group" role="group" aria-label={t("currency")}>
+                    <button
+                      type="button"
+                      disabled={switchingCompany || tableLoading}
+                      className={`user-gc-segment${!currencyFilterCode ? " is-on" : ""}`}
+                      onClick={() => setCurrencyFilterCode("")}
+                    >
+                      {t("groupFilterAll")}
+                    </button>
+                    {currencyPillCodes.map((code) => (
+                      <button
+                        key={code}
+                        type="button"
+                        disabled={switchingCompany || tableLoading}
+                        className={`user-gc-segment${currencyFilterCode === code ? " is-on" : ""}`}
+                        onClick={() => setCurrencyFilterCode(code)}
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
