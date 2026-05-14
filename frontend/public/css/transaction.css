@@ -91,20 +91,52 @@ body.transaction-page {
     display: flex;
 }
 
-/* Process List 同款 user-gc 分段控件嵌在筛选白卡内：不要工具条式的顶部分隔线 */
+/* Process List 同款 user-gc：与 userlist.css 中 user/account/process 一致，交易页此前未挂 body 类名故整块栅格与 pill 外观缺失 */
 body.transaction-page .transaction-bottom-filters .user-gc-inline-panel {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 14px;
+    align-items: center;
     border-top: none;
-    /* 工具条同款控件在窄卡内：保留一点内边距与行距，避免与上方 checkbox 贴死、三行标签挤成一团 */
     padding: 10px 0 4px;
     background: transparent;
-    row-gap: 14px;
 }
 
-/* 窄卡：略增内边距 + segment 不换行不收缩（userlist 的 segment-scroll 原为宽工具条横向滚动） */
+body.transaction-page .transaction-bottom-filters .user-gc-inline-row {
+    display: contents;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-inline-label {
+    justify-self: start;
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-bold);
+    color: #1f2937;
+    white-space: nowrap;
+    min-width: 6.75rem;
+    box-sizing: border-box;
+}
+
+body.lang-zh.transaction-page .transaction-bottom-filters .user-gc-inline-label {
+    min-width: 4.75rem;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-inline-pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 body.transaction-page .transaction-bottom-filters .user-gc-inline-pills--segment-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0;
     padding-top: 2px;
     padding-bottom: 6px;
     scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
 }
 
 body.transaction-page .transaction-bottom-filters .user-gc-segment-group {
@@ -112,11 +144,58 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment-group {
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: stretch;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--color-surface, #ffffff);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
 body.transaction-page .transaction-bottom-filters .user-gc-segment {
     flex: 0 0 auto;
     flex-shrink: 0;
+    margin: 0;
+    padding: 8px clamp(10px, 1.2vw, 18px);
+    border: none;
+    border-right: 1px solid var(--color-border, #e5e7eb);
+    background: var(--color-surface, #ffffff);
+    color: #1f2937;
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.25;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-segment:last-child {
+    border-right: none;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-segment:hover:not(:disabled):not(.is-on) {
+    background: #f8fafc;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-segment:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px #6366f1;
+    position: relative;
+    z-index: 1;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-segment.is-on {
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    color: #ffffff;
+    border-right-color: rgba(255, 255, 255, 0.28);
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .transaction-page .transaction-form-group {
@@ -815,7 +894,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment {
     background: transparent;
     border: none;
     color: #64748b;
-    font-size: 1.5rem;
+    font-size: 2rem;
     font-weight: 300;
     cursor: pointer;
     width: 2rem;
