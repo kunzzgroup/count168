@@ -446,7 +446,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-header {
     display: grid;
     grid-template-columns: 1fr 5fr 1fr;
     align-items: center;
-    max-width: 250px;
+    max-width: 220px;
     margin-left: auto;
     margin-right: auto;
     margin-bottom: 6px;
@@ -503,7 +503,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-weekday {
 
 body.transaction-page .calendar-popup--transaction-range .calendar-weekdays,
 body.transaction-page .calendar-popup--transaction-range .calendar-days {
-    max-width: 250px;
+    max-width: 220px;
     margin-left: auto;
     margin-right: auto;
 }
