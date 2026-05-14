@@ -764,7 +764,7 @@ export default function AccountListPage() {
                         </svg>
                       ) : null}
                     </span>
-                    <span className="user-filter-chip__label">{t("inactive")}</span>
+                    <span className="user-filter-chip__label">{t("showInactive")}</span>
                   </button>
                   <button
                     type="button"
