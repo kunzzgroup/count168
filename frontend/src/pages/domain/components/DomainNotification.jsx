@@ -8,7 +8,15 @@ export function showDomainAlert(message, type = "success") {
   if (_notifyFn) _notifyFn(message, type);
 }
 
-/** Full-viewport anchor so toasts are never trapped under #root or modal backdrops */
+/** Align with UserList / process pages: success | danger | warning */
+function toastVariant(type) {
+  const t = String(type || "success").toLowerCase();
+  if (t === "error" || t === "danger") return "danger";
+  if (t === "warning") return "warning";
+  return "success";
+}
+
+/** Full-viewport anchor so toasts are never trapped under #root or modal stacking contexts */
 function getDomainToastAnchor() {
   if (typeof document === "undefined" || !document.body) return null;
   let el = document.getElementById("domain-toast-anchor");
@@ -33,7 +41,9 @@ export default function DomainNotification() {
   useEffect(() => {
     _notifyFn = (message, type) => {
       const id = Date.now() + Math.random();
-      const duration = type === "danger" ? 3200 : 1500;
+      const variant = toastVariant(type);
+      const duration =
+        variant === "danger" ? 3200 : variant === "warning" ? 2800 : 1500;
       setNotes((prev) => {
         const next = prev.length >= 2 ? prev.slice(1) : prev;
         return [...next, { id, message, type, visible: false }];
@@ -58,20 +68,13 @@ export default function DomainNotification() {
   }, []);
 
   const layer = (
-    <div
-      className="pointer-events-none fixed right-5 top-5 flex max-w-[min(400px,calc(100vw-2.5rem))] flex-col gap-3 isolate"
-      style={{ zIndex: 1 }}
-    >
+    <div id="domainNotificationContainer" className="notification-container">
       {notes.map((n) => (
         <div
           key={n.id}
-          className={`pointer-events-auto relative break-words rounded-xl border-l-4 px-5 py-4 font-medium shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)] transition-all duration-300 ease-in-out ${
-            n.visible ? "translate-x-0" : "translate-x-full"
-          } ${
-            n.type === "danger"
-              ? "border-l-red-500 bg-red-50 text-red-800"
-              : "border-l-green-500 bg-green-50 text-green-800"
-          }`}
+          className={`notification notification-${toastVariant(n.type)} ${
+            n.visible ? "show" : ""
+          }`.trim()}
         >
           {n.message}
         </div>
