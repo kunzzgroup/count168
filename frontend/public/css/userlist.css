@@ -1984,8 +1984,8 @@ body.process-page .user-filter-chip {
     -webkit-backdrop-filter: none;
     cursor: pointer;
     font-family: inherit;
-    font-size: clamp(12px, 0.85vw, 15px);
-    font-weight: 500;
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-semibold);
     color: #475569;
     line-height: 1.2;
     transition:
