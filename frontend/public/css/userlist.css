@@ -132,7 +132,8 @@ body.account-page .action-buttons-container > .action-buttons {
 
 body.user-page .user-gc-inline-panel,
 body.account-page .user-gc-inline-panel,
-body.process-page .user-gc-inline-panel {
+body.process-page .user-gc-inline-panel,
+body.transaction-page .user-gc-inline-panel {
     display: grid;
     /* 首列固定宽度：各行「胶囊」起始位置一致（避免仅 min-width + auto 时观感不齐） */
     grid-template-columns: var(--user-gc-inline-label-w, 9rem) 1fr;
@@ -146,13 +147,15 @@ body.process-page .user-gc-inline-panel {
 
 body.user-page .user-gc-inline-row,
 body.account-page .user-gc-inline-row,
-body.process-page .user-gc-inline-row {
+body.process-page .user-gc-inline-row,
+body.transaction-page .user-gc-inline-row {
     display: contents;
 }
 
 body.user-page .user-gc-inline-label,
 body.account-page .user-gc-inline-label,
-body.process-page .user-gc-inline-label {
+body.process-page .user-gc-inline-label,
+body.transaction-page .user-gc-inline-label {
     justify-self: stretch;
     width: 100%;
     min-width: 0;
@@ -166,13 +169,15 @@ body.process-page .user-gc-inline-label {
 /* 中文「集团：」「公司：」较短，单独收紧首列占位 */
 body.lang-zh.user-page .user-gc-inline-panel,
 body.lang-zh.account-page .user-gc-inline-panel,
-body.lang-zh.process-page .user-gc-inline-panel {
+body.lang-zh.process-page .user-gc-inline-panel,
+body.lang-zh.transaction-page .user-gc-inline-panel {
     --user-gc-inline-label-w: 6.75rem;
 }
 
 body.user-page .user-gc-inline-pills,
 body.account-page .user-gc-inline-pills,
-body.process-page .user-gc-inline-pills {
+body.process-page .user-gc-inline-pills,
+body.transaction-page .user-gc-inline-pills {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -183,7 +188,8 @@ body.process-page .user-gc-inline-pills {
 
 body.user-page .user-gc-inline-pills--segment-scroll,
 body.account-page .user-gc-inline-pills--segment-scroll,
-body.process-page .user-gc-inline-pills--segment-scroll {
+body.process-page .user-gc-inline-pills--segment-scroll,
+body.transaction-page .user-gc-inline-pills--segment-scroll {
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 0;
@@ -193,7 +199,8 @@ body.process-page .user-gc-inline-pills--segment-scroll {
 
 body.user-page .user-gc-segment-group,
 body.account-page .user-gc-segment-group,
-body.process-page .user-gc-segment-group {
+body.process-page .user-gc-segment-group,
+body.transaction-page .user-gc-segment-group {
     display: inline-flex;
     flex-direction: row;
     flex-shrink: 0;
@@ -208,9 +215,10 @@ body.process-page .user-gc-segment-group {
 
 body.user-page .user-gc-segment,
 body.account-page .user-gc-segment,
-body.process-page .user-gc-segment {
+body.process-page .user-gc-segment,
+body.transaction-page .user-gc-segment {
     margin: 0;
-    padding: 8px clamp(10px, 1.2vw, 18px);
+    padding: 4px clamp(10px, 1.2vw, 16px);
     border: none;
     border-right: 1px solid var(--color-border, #e5e7eb);
     background: var(--color-surface, #ffffff);
@@ -233,19 +241,22 @@ body.user-page .user-gc-segment {
 
 body.user-page .user-gc-segment:last-child,
 body.account-page .user-gc-segment:last-child,
-body.process-page .user-gc-segment:last-child {
+body.process-page .user-gc-segment:last-child,
+body.transaction-page .user-gc-segment:last-child {
     border-right: none;
 }
 
 body.user-page .user-gc-segment:hover:not(:disabled):not(.is-on),
 body.account-page .user-gc-segment:hover:not(:disabled):not(.is-on),
-body.process-page .user-gc-segment:hover:not(:disabled):not(.is-on) {
+body.process-page .user-gc-segment:hover:not(:disabled):not(.is-on),
+body.transaction-page .user-gc-segment:hover:not(:disabled):not(.is-on) {
     background: #f8fafc;
 }
 
 body.user-page .user-gc-segment:focus-visible,
 body.account-page .user-gc-segment:focus-visible,
-body.process-page .user-gc-segment:focus-visible {
+body.process-page .user-gc-segment:focus-visible,
+body.transaction-page .user-gc-segment:focus-visible {
     outline: none;
     box-shadow: inset 0 0 0 2px #6366f1;
     position: relative;
@@ -254,7 +265,8 @@ body.process-page .user-gc-segment:focus-visible {
 
 body.user-page .user-gc-segment.is-on,
 body.account-page .user-gc-segment.is-on,
-body.process-page .user-gc-segment.is-on {
+body.process-page .user-gc-segment.is-on,
+body.transaction-page .user-gc-segment.is-on {
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
     color: #ffffff;
     border-right-color: rgba(255, 255, 255, 0.28);
@@ -262,7 +274,8 @@ body.process-page .user-gc-segment.is-on {
 
 body.user-page .user-gc-segment:disabled,
 body.account-page .user-gc-segment:disabled,
-body.process-page .user-gc-segment:disabled {
+body.process-page .user-gc-segment:disabled,
+body.transaction-page .user-gc-segment:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }

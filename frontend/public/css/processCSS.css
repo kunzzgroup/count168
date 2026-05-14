@@ -171,6 +171,12 @@ body.process-page {
     background-color: #ffffff;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    align-self: stretch;
+    min-height: 0;
 }
 
 .process-page .action-buttons {
@@ -179,6 +185,7 @@ body.process-page {
     justify-content: space-between;
     align-items: center;
     gap: 12px;
+    flex: 0 0 auto;
 }
 
 .process-page .process-company-filter {
@@ -841,14 +848,18 @@ body.process-page {
 /* Games + Bank Process：白卡區 segmented 篩選（標籤↔膠囊、膠囊內距勿過緊）；底邊加厚使最後一行（Currency）下至白卡邊緣與各行 row-gap 節奏一致 */
 .process-page .action-buttons-container .user-gc-inline-panel {
     /* 上下留白接近，避免「控制列到 GroupID」空一大块、Currency 底下过紧 */
+    flex: 0 0 auto;
     padding: 12px 18px 14px 18px;
-    column-gap: 20px;
+    column-gap: clamp(8px, 0.83vw, 16px);
     row-gap: 12px;
 }
 
-/* 覆寫 global-13inch 對 .user-gc-segment 的 6px×14px !important，與 Bank 視覺一致、不「很贴」 */
-body.ec-auth-shell.process-page .action-buttons-container .user-gc-inline-panel .user-gc-segment {
-    padding: 8px clamp(12px, 1.1vw, 20px) !important;
+body.process-page .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
+    text-align: right;
+}
+
+.process-page .action-buttons-container .user-gc-inline-pills--segment-scroll {
+    scrollbar-gutter: stable;
 }
 
 .process-page.process-page--bank .pagination-container {
@@ -936,7 +947,7 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
 
     .process-page .action-buttons-container .user-gc-inline-panel {
         padding: 8px 16px 12px 16px;
-        column-gap: 18px;
+        column-gap: clamp(8px, 0.83vw, 16px);
         row-gap: 10px;
     }
 
@@ -1082,9 +1093,8 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     box-sizing: border-box;
 }
 
-/* Bank：数据格与 th 同 padding，从 Country 起内容对齐 */
 .process-page .process-cards.bank-mode .process-card .card-item {
-    padding: 2px 0px;
+    padding: 2px 4px;
     box-sizing: border-box;
 }
 
@@ -1165,9 +1175,8 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
     line-height: 1.1;
 }
 
-/* Currency column center alignment */
-.process-page .process-card .card-item:nth-child(5),
-.process-page .table-header .header-item:nth-child(5) {
+.process-page:not(.process-page--bank) .process-card .card-item:nth-child(5),
+.process-page:not(.process-page--bank) .table-header .header-item:nth-child(5) {
     justify-content: flex-start;
     text-align: center;
 }
@@ -1558,7 +1567,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 }
 
 .process-page:not(.process-page--bank) .table-header {
-    margin-top: 32px;
+    margin-top: 12px;
 }
 
 .process-page:not(.process-page--bank) .process-table-wrapper {
@@ -2311,8 +2320,7 @@ body.ec-auth-shell.process-page.process-page--bank .table-header .header-item {
 .process-page .modal .day-use-pill-row .user-gc-segment-group .user-gc-segment {
     flex: 1 1 0;
     min-width: 0;
-    padding-block: 6px;
-    padding-inline: clamp(4px, 0.9vw, 12px);
+    padding: 4px clamp(10px, 1.2vw, 16px);
     font-size: clamp(10px, 0.78vw, 13px);
 }
 

@@ -69,7 +69,6 @@
 
     .account-company-btn,
     .transaction-company-btn,
-    .user-gc-segment,
     .process-company-btn,
     .maintenance-company-btn,
     .datacapture-company-btn,
@@ -78,6 +77,11 @@
     .ownership-company-btn {
         font-size: 13px !important;
         padding: 6px 14px !important;
+    }
+
+    .user-gc-segment {
+        font-size: 13px !important;
+        padding: 4px clamp(10px, 1.2vw, 16px) !important;
     }
 
     body.ec-auth-shell.user-page #userModal .user-modal-company-open-btn {
