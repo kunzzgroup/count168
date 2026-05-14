@@ -2368,7 +2368,6 @@ body.domain-page .domain-react-page .btn-delete.active {
     font-size: clamp(14px, 1.25vw, 24px);
     font-weight: bold;
     color: #1e293b;
-    border-bottom: 1px solid #e2e8f0;
     width: 100%;
 }
 
@@ -2552,6 +2551,7 @@ body.domain-page .domain-react-page .btn-delete.active {
 }
 
 /* Notification styles - 高于所有弹窗（含内联 z-index:10001~10003），确保 Company Settings 等操作的成功提示始终显示在最前 */
+/* 使用 #domainNotificationContainer 提高特异性，避免 announcement.css 等全局 `.notification { color: white }` 盖掉 danger 文字色 */
 .notification-container {
     position: fixed;
     top: 20px;
@@ -2604,6 +2604,27 @@ body.domain-page .domain-react-page .btn-delete.active {
     background-color: #fffbeb;
     color: #92400e;
     border-left-color: #f59e0b;
+}
+
+#domainNotificationContainer .notification.notification-success {
+    background: linear-gradient(180deg, #34d399 0%, #059669 100%) !important;
+    color: #ffffff !important;
+    border-left-color: #047857 !important;
+    box-shadow: 0 10px 24px -6px rgba(5, 150, 105, 0.45), 0 4px 8px -2px rgba(0, 0, 0, 0.08) !important;
+}
+
+#domainNotificationContainer .notification.notification-danger {
+    background: linear-gradient(180deg, #f87171 0%, #dc2626 100%) !important;
+    color: #ffffff !important;
+    border-left-color: #7f1d1d !important;
+    box-shadow: 0 10px 24px -6px rgba(220, 38, 38, 0.45), 0 4px 8px -2px rgba(0, 0, 0, 0.08) !important;
+}
+
+#domainNotificationContainer .notification.notification-warning {
+    background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%) !important;
+    color: #ffffff !important;
+    border-left-color: #92400e !important;
+    box-shadow: 0 10px 24px -6px rgba(217, 119, 6, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.08) !important;
 }
 
 .domain-info-panel h3 {
