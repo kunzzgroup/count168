@@ -1255,7 +1255,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-sizing: border-box;
     padding: 10px 20px;
     border-radius: 0.9rem;
-    height: clamp(700px, 92.5vh, 780px);
+    height: clamp(700px, 92.5vh, 785px);
     max-height: 92vh;
     transform: translateY(-50%);
     transform-origin: center center;
