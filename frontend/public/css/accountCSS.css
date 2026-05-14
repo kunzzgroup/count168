@@ -351,31 +351,32 @@ body.account-page:not(.account-page--show-all) {
     display: inline !important;
 }
 
-/* Show All：外框尺寸保持普通模式，只在资料区展示全部数据 */
+/* Show All：table 起点/宽度保持普通模式，资料自然展开由整页滚动 */
 body.account-page--show-all {
     overflow-x: hidden !important;
-    overflow-y: hidden !important;
-    height: 100vh !important;
+    overflow-y: auto !important;
+    height: auto !important;
     min-height: 100vh !important;
 }
 
 body.account-page--show-all .container {
-    height: 100vh !important;
-    overflow: hidden !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow: visible !important;
 }
 
 body.account-page--show-all .content {
-    height: calc(100vh - 22px) !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
+    height: auto !important;
+    min-height: calc(100vh - 22px) !important;
+    overflow: visible !important;
     display: flex;
     flex-direction: column;
 }
 
 body.account-page--show-all .account-table-wrapper {
-    flex: 1 1 auto !important;
+    flex: 0 1 auto !important;
     min-height: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     display: flex;
     flex-direction: column;
     padding-bottom: 52px;
@@ -386,16 +387,15 @@ body.account-page--show-all .account-table-header {
     flex-shrink: 0;
 }
 
-/* 覆盖 global-13inch：Show All 不改变 table 尺寸，只让资料区滚动 */
+/* 覆盖 global-13inch：Show All 不压缩行，资料区自然展开 */
 body.ec-auth-shell.account-page--show-all .account-cards,
 body.account-page--show-all .account-cards {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto !important;
+    flex: 0 1 auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow: visible !important;
     justify-content: flex-start;
 }
 
@@ -404,11 +404,10 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all,
 .account-cards.account-cards--show-all {
     display: flex !important;
     flex-direction: column !important;
-    flex: 1 1 auto !important;
+    flex: 0 1 auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow: visible !important;
     justify-content: flex-start !important;
     align-content: flex-start !important;
 }
