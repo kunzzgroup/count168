@@ -90,13 +90,22 @@ function VirtualDataRow({ row, index }) {
 /**
  * @param {object} props
  * @param {Array} props.data
- * @param {boolean} props.isLoading — first fetch, no rows yet
- * @param {boolean} props.isFetching — includes background refetch (cached data may still show)
+ * @param {boolean} props.showSkeleton — 无上一屏数据时的整表骨架（切换公司时若有占位数据则为 false）
+ * @param {boolean} props.isFetching
+ * @param {boolean} props.isPlaceholderData — 正在拉取新 query，界面仍为上一查询数据
  * @param {boolean} props.isError
  * @param {Error | null} props.error
- * @param {object} props.m — i18n
+ * @param {object} props.m
  */
-export default function TransactionMaintenanceTable({ data, isLoading, isFetching, isError, error, m }) {
+export default function TransactionMaintenanceTable({
+  data,
+  showSkeleton,
+  isFetching,
+  isPlaceholderData,
+  isError,
+  error,
+  m,
+}) {
   const scrollRef = useRef(null);
   const rows = Array.isArray(data) ? data : [];
 
@@ -111,7 +120,7 @@ export default function TransactionMaintenanceTable({ data, isLoading, isFetchin
     overscan: 14,
   });
 
-  if (isLoading) {
+  if (showSkeleton) {
     return (
       <div className="maintenance-list-container maintenance-list-container--loading" style={{ display: "block" }}>
         <table className="maintenance-table">
@@ -160,7 +169,9 @@ export default function TransactionMaintenanceTable({ data, isLoading, isFetchin
 
   return (
     <div
-      className={`maintenance-list-container maintenance-virtual-table${isFetching ? " maintenance-virtual-table--refreshing" : ""}`}
+      className={`maintenance-list-container maintenance-virtual-table${
+        isFetching ? " maintenance-virtual-table--refreshing" : ""
+      }`}
       style={{ display: "block" }}
     >
       <div className="maintenance-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
@@ -173,6 +184,11 @@ export default function TransactionMaintenanceTable({ data, isLoading, isFetchin
             ))}
           </div>
         </div>
+        {isPlaceholderData && rows.length > 0 ? (
+          <div className="maintenance-virtual-stale-hint" role="status" aria-live="polite">
+            {m.loading}
+          </div>
+        ) : null}
         <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
           <div className="maintenance-virtual-spacer" style={{ height: totalH, position: "relative", width: "100%" }}>
             {vItems.map((virtualRow) => {

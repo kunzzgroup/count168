@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
@@ -87,10 +87,15 @@ export default function TransactionMaintenancePage() {
     enabled: listQueryEnabled,
     staleTime: 2 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const transactionData = transactionQuery.data ?? [];
-  const txLoading = listQueryEnabled && transactionQuery.isLoading;
+  const listRowCount = transactionData.length;
+  /** 有上一屏数据时保留列表，仅无数据且请求中才用整表骨架（避免切换公司闪成全屏 Loading） */
+  const showListSkeleton =
+    listQueryEnabled &&
+    (transactionQuery.isLoading || (transactionQuery.isFetching && listRowCount === 0));
   const lastToastKeyRef = useRef(null);
   const lastErrorMsgRef = useRef(null);
 
@@ -329,11 +334,12 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (!transactionQuery.isSuccess || !transactionData.length) return;
+    if (transactionQuery.isPlaceholderData) return;
     const key = `${transactionQuery.dataUpdatedAt}:${transactionData.length}`;
     if (lastToastKeyRef.current === key) return;
     lastToastKeyRef.current = key;
     notify(t("foundRecords", { n: transactionData.length }), "success");
-  }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt, transactionData.length, notify, t]);
+  }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt, transactionQuery.isPlaceholderData, transactionData.length, notify, t]);
 
   useEffect(() => {
     if (!transactionQuery.isError || !transactionQuery.error) return;
@@ -445,8 +451,9 @@ export default function TransactionMaintenancePage() {
 
         <TransactionMaintenanceTable
           data={transactionData}
-          isLoading={txLoading}
+          showSkeleton={showListSkeleton}
           isFetching={transactionQuery.isFetching}
+          isPlaceholderData={transactionQuery.isPlaceholderData}
           isError={transactionQuery.isError}
           error={transactionQuery.error}
           m={m}
