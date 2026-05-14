@@ -1119,6 +1119,16 @@ body.dashboard-page.maintenance-page {
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
+.maintenance-virtual-stale-hint {
+    padding: clamp(6px, 0.55vw, 10px) clamp(12px, 1vw, 18px);
+    font-size: clamp(11px, 0.92vw, 14px);
+    font-weight: 600;
+    color: #1e40af;
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+    text-align: center;
+}
+
 .maintenance-virtual-head-row,
 .maintenance-virtual-data-row {
     display: grid;
