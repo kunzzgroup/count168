@@ -1660,7 +1660,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-modal-header h2,
 #account-editModal .account-modal-header h2 {
     font-size: var(--text-page-title);
-    padding: clamp(6px, 0.42vw, 8px) 0;
+    padding: clamp(12px, 0.78vw, 15px) clamp(18px, 1.2vw, 23px);
     color: #1f2937;
 }
 
