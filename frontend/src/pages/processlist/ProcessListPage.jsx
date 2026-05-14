@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
+import { saveUserCurrencyOrder } from "../transaction/transactionApi.js";
 import { isBankCategoryCompany } from "../bankprocesslist/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
@@ -53,7 +54,8 @@ export default function ProcessListPage() {
   const [cssReady, setCssReady] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupFilterKind, setGroupFilterKind] = useState("follow");
+  const [switchingCompany, setSwitchingCompany] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -78,6 +80,11 @@ export default function ProcessListPage() {
   const searchDebounceRef = useRef(null);
   const skipNextFetchRef = useRef(false);
   const rowsRef = useRef([]);
+  const skipNextCurrencyPillClickRef = useRef(false);
+
+  const [currencyListOrdered, setCurrencyListOrdered] = useState([]);
+  const [currencyFilterCode, setCurrencyFilterCode] = useState("");
+  const [currencyPillDisplayOrder, setCurrencyPillDisplayOrder] = useState(null);
 
   const [existingProcesses, setExistingProcesses] = useState([]);
 
@@ -150,6 +157,48 @@ export default function ProcessListPage() {
     }
   }, []);
 
+  const loadCurrencyMeta = useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const [curRes, ordRes] = await Promise.all([
+        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${companyId}`), { credentials: "include" }),
+        fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), { credentials: "include" }).catch(() => null),
+      ]);
+      const curJson = await curRes.json();
+      if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
+        setCurrencyListOrdered([]);
+        return;
+      }
+      let codes = curJson.data.map((r) => String(r.code).toUpperCase());
+      if (ordRes) {
+        const ordJson = await ordRes.json();
+        const order = ordJson?.data?.order;
+        if (Array.isArray(order) && order.length) {
+          const set = new Set(codes);
+          const ordered = [...order.map((c) => String(c).toUpperCase()).filter((c) => set.has(c))];
+          const rest = codes.filter((c) => !ordered.includes(c));
+          codes = [...ordered, ...rest];
+        }
+      }
+      setCurrencyListOrdered(codes);
+    } catch {
+      setCurrencyListOrdered([]);
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    if (loading || !companyId) return;
+    void loadCurrencyMeta();
+  }, [loading, companyId, loadCurrencyMeta]);
+
+  useEffect(() => {
+    setCurrencyPillDisplayOrder(null);
+  }, [companyId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [currencyFilterCode]);
+
   useEffect(() => {
     (async () => {
       let skipLoadingDone = false;
@@ -164,7 +213,7 @@ export default function ProcessListPage() {
           const prefetchedMeta = routePrefetch.meta || {};
           setCompanies(prefetchedCompanies);
           setCompanyId(prefetchCompanyId);
-          setSelectedGroup(routePrefetch.selectedGroup || null);
+          setGroupFilterKind("follow");
 
           const normalizedSearch = filterSearchInput(currentUrl.searchParams.get("search") || "");
           setSearch(normalizedSearch);
@@ -174,6 +223,8 @@ export default function ProcessListPage() {
           const showInactiveChecked = !showAllChecked && currentUrl.searchParams.has("showInactive");
           setShowAll(showAllChecked);
           setShowInactive(showInactiveChecked);
+
+          setCurrencyFilterCode(String(currentUrl.searchParams.get("currency") || "").trim().toUpperCase());
 
           setCurrencies(Array.isArray(prefetchedMeta.currencies) ? prefetchedMeta.currencies : []);
           setDescriptions(Array.isArray(prefetchedMeta.descriptions) ? prefetchedMeta.descriptions : []);
@@ -235,7 +286,7 @@ export default function ProcessListPage() {
         }
 
         setCompanyId(effectiveCompany);
-        setSelectedGroup(currentCompanyRow?.group_id ? String(currentCompanyRow.group_id).toUpperCase() : null);
+        setGroupFilterKind("follow");
 
         const rawSearch = url.searchParams.get("search") || "";
         const normalizedSearch = filterSearchInput(rawSearch);
@@ -246,6 +297,8 @@ export default function ProcessListPage() {
         const showInactiveChecked = !showAllChecked && url.searchParams.has("showInactive");
         setShowAll(showAllChecked);
         setShowInactive(showInactiveChecked);
+
+        setCurrencyFilterCode(String(url.searchParams.get("currency") || "").trim().toUpperCase());
 
         await loadFormMeta(effectiveCompany);
       } catch {
@@ -266,8 +319,15 @@ export default function ProcessListPage() {
     else url.searchParams.delete("showInactive");
     if (showAll) url.searchParams.set("showAll", "1");
     else url.searchParams.delete("showAll");
+    if (currencyFilterCode) url.searchParams.set("currency", currencyFilterCode);
+    else url.searchParams.delete("currency");
     window.history.replaceState({}, document.title, url.toString());
-  }, [companyId, debouncedSearch, showInactive, showAll]);
+  }, [companyId, debouncedSearch, showInactive, showAll, currencyFilterCode]);
+
+  useEffect(() => {
+    if (loading || !companyId) return;
+    syncUrl();
+  }, [loading, companyId, currencyFilterCode, syncUrl]);
 
   const fetchRows = useCallback(async () => {
     if (!companyId) return;
@@ -414,21 +474,122 @@ export default function ProcessListPage() {
     [companies]
   );
   const groupIds = useMemo(
-    () => [...new Set(allCompanyButtons.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase()))].sort(),
+    () =>
+      [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
     [allCompanyButtons]
   );
+  const selectedCompany = useMemo(
+    () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
+    [allCompanyButtons, companyId]
+  );
+  const selectedGroupKey = useMemo(
+    () => String(selectedCompany?.group_id || "").trim().toUpperCase(),
+    [selectedCompany?.group_id]
+  );
   const companyButtons = useMemo(() => {
-    if (!selectedGroup) return allCompanyButtons.filter((c) => !c.group_id || String(c.group_id).trim() === "");
-    return allCompanyButtons.filter((c) => String(c.group_id || "").toUpperCase() === selectedGroup);
-  }, [allCompanyButtons, selectedGroup]);
+    if (groupFilterKind === "all") {
+      const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
+      return [...allCompanyButtons].sort((a, b) => {
+        const ga = String(a.group_id || "").trim().toUpperCase();
+        const gb = String(b.group_id || "").trim().toUpperCase();
+        const ra = groupOrder.has(ga) ? groupOrder.get(ga) : Number.MAX_SAFE_INTEGER;
+        const rb = groupOrder.has(gb) ? groupOrder.get(gb) : Number.MAX_SAFE_INTEGER;
+        if (ra !== rb) return ra - rb;
+        return String(a.company_id || "").localeCompare(String(b.company_id || ""), undefined, { numeric: true });
+      });
+    }
+    if (groupFilterKind === "ungrouped") {
+      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+    }
+    if (groupIds.length === 0) return allCompanyButtons;
+    if (!selectedGroupKey) {
+      const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+      return ung.length ? ung : allCompanyButtons;
+    }
+    const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
+    return inG.length ? inG : allCompanyButtons;
+  }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)), [rows]);
+  const rowCurrencyCodes = useMemo(() => {
+    const s = new Set();
+    for (const r of rows) {
+      const c = String(r.currency || "").trim().toUpperCase();
+      if (c) s.add(c);
+    }
+    return [...s].sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  const baseCurrencyPills = useMemo(() => {
+    const merged = new Set([...currencyListOrdered, ...rowCurrencyCodes]);
+    const orderFirst = currencyListOrdered.filter((c) => merged.has(c));
+    const rest = [...merged].filter((c) => !orderFirst.includes(c)).sort((a, b) => a.localeCompare(b));
+    return [...orderFirst, ...rest];
+  }, [currencyListOrdered, rowCurrencyCodes]);
+
+  const currencyPillCodes = useMemo(
+    () => currencyPillDisplayOrder ?? baseCurrencyPills,
+    [currencyPillDisplayOrder, baseCurrencyPills]
+  );
+
+  useEffect(() => {
+    setCurrencyPillDisplayOrder((prev) => {
+      if (!prev) return null;
+      const add = baseCurrencyPills.filter((c) => !prev.includes(c));
+      return add.length ? [...prev, ...add] : prev;
+    });
+  }, [baseCurrencyPills]);
+
+  const persistOrderedCompanyCurrencies = useCallback(
+    async (orderedPills) => {
+      const companySet = new Set(currencyListOrdered);
+      const apiOrder = orderedPills.filter((c) => companySet.has(c));
+      if (apiOrder.length === 0) return;
+      const json = await saveUserCurrencyOrder(apiOrder);
+      if (!json?.success) return;
+      const tail = currencyListOrdered.filter((c) => !apiOrder.includes(c));
+      setCurrencyListOrdered([...apiOrder, ...tail]);
+    },
+    [currencyListOrdered]
+  );
+
+  const onCurrencyPillDrop = useCallback(
+    async (e, targetCode) => {
+      e.preventDefault();
+      const dragged = e.dataTransfer.getData("text/plain");
+      if (!dragged || !targetCode || dragged === targetCode) return;
+      const list = [...currencyPillCodes];
+      const fromI = list.indexOf(dragged);
+      const toI = list.indexOf(targetCode);
+      if (fromI < 0 || toI < 0 || fromI === toI) return;
+      skipNextCurrencyPillClickRef.current = true;
+      const next = [...list];
+      const [moved] = next.splice(fromI, 1);
+      next.splice(toI, 0, moved);
+      setCurrencyPillDisplayOrder(next);
+      await persistOrderedCompanyCurrencies(next);
+    },
+    [currencyPillCodes, persistOrderedCompanyCurrencies]
+  );
+
+  useEffect(() => {
+    if (!currencyFilterCode) return;
+    if (currencyPillCodes.length && !currencyPillCodes.includes(currencyFilterCode)) {
+      setCurrencyFilterCode("");
+    }
+  }, [currencyFilterCode, currencyPillCodes]);
+
+  const currencyFilteredRows = useMemo(() => {
+    if (!currencyFilterCode) return rows;
+    return rows.filter((r) => String(r.currency || "").trim().toUpperCase() === currencyFilterCode);
+  }, [rows, currencyFilterCode]);
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(currencyFilteredRows.length / PAGE_SIZE)), [currencyFilteredRows]);
   const pageRows = useMemo(() => {
-    if (showAll) return rows.filter((r) => String(r.status || "").toLowerCase() === "active");
+    if (showAll) return currencyFilteredRows.filter((r) => String(r.status || "").toLowerCase() === "active");
     const page = Math.min(currentPage, totalPages);
     const start = (page - 1) * PAGE_SIZE;
-    return rows.slice(start, start + PAGE_SIZE);
-  }, [rows, currentPage, totalPages, showAll]);
+    return currencyFilteredRows.slice(start, start + PAGE_SIZE);
+  }, [currencyFilteredRows, currentPage, totalPages, showAll]);
 
   const toggleSelectAll = useCallback(
     (checked) => {
@@ -447,6 +608,8 @@ export default function ProcessListPage() {
 
   const onSwitchCompany = async (company) => {
     if (!company?.id || Number(company.id) === Number(companyId)) return;
+    if (switchingCompany) return;
+    setSwitchingCompany(true);
     setSelectedIds(new Set());
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${company.id}`), {
@@ -472,11 +635,35 @@ export default function ProcessListPage() {
         return;
       }
       setCompanyId(Number(company.id));
-      setSelectedGroup(company.group_id ? String(company.group_id).toUpperCase() : null);
+      setGroupFilterKind("follow");
     } catch {
       notify(t("switchCompanyFailed"), "danger");
+    } finally {
+      setSwitchingCompany(false);
     }
   };
+
+  const handlePickGroup = useCallback(
+    (gid) => {
+      if (switchingCompany || tableLoading) return;
+      const g = String(gid || "").trim().toUpperCase();
+      if (!g) return;
+      if (groupFilterKind === "follow" && g === selectedGroupKey) {
+        setGroupFilterKind("ungrouped");
+        return;
+      }
+      setGroupFilterKind("follow");
+      if (g === selectedGroupKey) return;
+      const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
+      if (first) void onSwitchCompany(first);
+    },
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany, tableLoading]
+  );
+
+  const handlePickAllGroups = useCallback(() => {
+    if (switchingCompany || tableLoading) return;
+    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
+  }, [switchingCompany, tableLoading]);
 
   const openAdd = () => {
     setEditMode(false);
@@ -847,13 +1034,21 @@ export default function ProcessListPage() {
                 <span className="user-gc-inline-label">{t("groupId")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                    <button
+                      type="button"
+                      disabled={switchingCompany || tableLoading}
+                      className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
+                      onClick={handlePickAllGroups}
+                    >
+                      {t("groupFilterAll")}
+                    </button>
                     {groupIds.map((g) => (
                       <button
                         key={g}
                         type="button"
-                        disabled={tableLoading}
-                        className={`user-gc-segment${selectedGroup === g ? " is-on" : ""}`}
-                        onClick={() => setSelectedGroup(g)}
+                        disabled={switchingCompany || tableLoading}
+                        className={`user-gc-segment${groupFilterKind === "follow" && g === selectedGroupKey ? " is-on" : ""}`}
+                        onClick={() => handlePickGroup(g)}
                       >
                         {g}
                       </button>
@@ -872,7 +1067,7 @@ export default function ProcessListPage() {
                       <button
                         key={c.id}
                         type="button"
-                        disabled={tableLoading}
+                        disabled={switchingCompany || tableLoading}
                         className={`user-gc-segment${active ? " is-on" : ""}`}
                         onClick={() => {
                           if (!active) void onSwitchCompany(c);
@@ -885,6 +1080,48 @@ export default function ProcessListPage() {
                 </div>
               </div>
             </div>
+            {currencyPillCodes.length > 0 && (
+              <div className="user-gc-inline-row">
+                <span className="user-gc-inline-label">{t("currencyFilterRow")}</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div className="user-gc-segment-group" role="group" aria-label={t("currencyFilterRow")}>
+                    <button
+                      type="button"
+                      disabled={switchingCompany || tableLoading}
+                      className={`user-gc-segment${!currencyFilterCode ? " is-on" : ""}`}
+                      onClick={() => setCurrencyFilterCode("")}
+                    >
+                      {t("groupFilterAll")}
+                    </button>
+                    {currencyPillCodes.map((code) => (
+                      <button
+                        key={code}
+                        type="button"
+                        draggable
+                        disabled={switchingCompany || tableLoading}
+                        title={t("currencyDragHint")}
+                        className={`user-gc-segment user-gc-segment--draggable-pill${currencyFilterCode === code ? " is-on" : ""}`}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", code);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => { void onCurrencyPillDrop(e, code); }}
+                        onClick={() => {
+                          if (skipNextCurrencyPillClickRef.current) {
+                            skipNextCurrencyPillClickRef.current = false;
+                            return;
+                          }
+                          setCurrencyFilterCode(code);
+                        }}
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

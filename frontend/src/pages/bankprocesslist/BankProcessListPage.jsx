@@ -4,6 +4,7 @@ import AccountModal from "../../components/AccountModal.jsx";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { ensureMaintenanceDateRangePicker } from "../../utils/maintenanceDateRangePicker.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
+import { saveUserCurrencyOrder } from "../transaction/transactionApi.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
@@ -145,6 +146,8 @@ export default function BankProcessListPage() {
 
   const [currencyListOrdered, setCurrencyListOrdered] = useState([]);
   const [currencyFilterCode, setCurrencyFilterCode] = useState("");
+  const [currencyPillDisplayOrder, setCurrencyPillDisplayOrder] = useState(null);
+  const skipNextCurrencyPillClickRef = useRef(false);
 
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
@@ -443,6 +446,10 @@ export default function BankProcessListPage() {
     if (!companyId || loading) return;
     void loadCurrencyMeta();
   }, [companyId, loading, loadCurrencyMeta]);
+
+  useEffect(() => {
+    setCurrencyPillDisplayOrder(null);
+  }, [companyId]);
 
   useEffect(() => {
     if (showAll) document.body.classList.add("process-page--bank-show-all");
@@ -1169,12 +1176,57 @@ export default function BankProcessListPage() {
     return [...s].sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  const currencyPillCodes = useMemo(() => {
+  const baseCurrencyPills = useMemo(() => {
     const merged = new Set([...currencyListOrdered, ...rowCountryCodes]);
     const orderFirst = currencyListOrdered.filter((c) => merged.has(c));
     const rest = [...merged].filter((c) => !orderFirst.includes(c)).sort((a, b) => a.localeCompare(b));
     return [...orderFirst, ...rest];
   }, [currencyListOrdered, rowCountryCodes]);
+
+  const currencyPillCodes = useMemo(
+    () => currencyPillDisplayOrder ?? baseCurrencyPills,
+    [currencyPillDisplayOrder, baseCurrencyPills]
+  );
+
+  useEffect(() => {
+    setCurrencyPillDisplayOrder((prev) => {
+      if (!prev) return null;
+      const add = baseCurrencyPills.filter((c) => !prev.includes(c));
+      return add.length ? [...prev, ...add] : prev;
+    });
+  }, [baseCurrencyPills]);
+
+  const persistOrderedCompanyCurrencies = useCallback(
+    async (orderedPills) => {
+      const companySet = new Set(currencyListOrdered);
+      const apiOrder = orderedPills.filter((c) => companySet.has(c));
+      if (apiOrder.length === 0) return;
+      const json = await saveUserCurrencyOrder(apiOrder);
+      if (!json?.success) return;
+      const tail = currencyListOrdered.filter((c) => !apiOrder.includes(c));
+      setCurrencyListOrdered([...apiOrder, ...tail]);
+    },
+    [currencyListOrdered]
+  );
+
+  const onCurrencyPillDrop = useCallback(
+    async (e, targetCode) => {
+      e.preventDefault();
+      const dragged = e.dataTransfer.getData("text/plain");
+      if (!dragged || !targetCode || dragged === targetCode) return;
+      const list = [...currencyPillCodes];
+      const fromI = list.indexOf(dragged);
+      const toI = list.indexOf(targetCode);
+      if (fromI < 0 || toI < 0 || fromI === toI) return;
+      skipNextCurrencyPillClickRef.current = true;
+      const next = [...list];
+      const [moved] = next.splice(fromI, 1);
+      next.splice(toI, 0, moved);
+      setCurrencyPillDisplayOrder(next);
+      await persistOrderedCompanyCurrencies(next);
+    },
+    [currencyPillCodes, persistOrderedCompanyCurrencies]
+  );
 
   useEffect(() => {
     if (!currencyFilterCode) return;
@@ -1462,9 +1514,23 @@ export default function BankProcessListPage() {
                       <button
                         key={code}
                         type="button"
+                        draggable
                         disabled={switchingCompany || tableLoading}
-                        className={`user-gc-segment${currencyFilterCode === code ? " is-on" : ""}`}
-                        onClick={() => setCurrencyFilterCode(code)}
+                        title={t("currencyDragHint")}
+                        className={`user-gc-segment user-gc-segment--draggable-pill${currencyFilterCode === code ? " is-on" : ""}`}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", code);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => { void onCurrencyPillDrop(e, code); }}
+                        onClick={() => {
+                          if (skipNextCurrencyPillClickRef.current) {
+                            skipNextCurrencyPillClickRef.current = false;
+                            return;
+                          }
+                          setCurrencyFilterCode(code);
+                        }}
                       >
                         {code}
                       </button>

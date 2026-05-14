@@ -265,6 +265,14 @@ body.process-page .user-gc-segment:disabled {
     cursor: not-allowed;
 }
 
+body.process-page .user-gc-segment--draggable-pill:not(:disabled) {
+    cursor: grab;
+}
+
+body.process-page .user-gc-segment--draggable-pill:not(:disabled):active {
+    cursor: grabbing;
+}
+
 .action-buttons {
     padding: 10px 20px;
     display: flex;
