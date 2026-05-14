@@ -370,20 +370,119 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section">
-          <label className="transaction-label">Currency</label>
-          <div className="rate-row rate-row-five-cols">
-            <select id="rate_currency_from" className="transaction-select" value={rateCurrencyFrom} onChange={(e) => setRateCurrencyFrom(e.target.value)}>
-              <option value="">Currency</option>
-              {currencyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <input type="number" step="0.01" id="rate_currency_from_amount" className="transaction-input" placeholder="Amount" value={rateCurrencyFromAmount} onChange={(e) => setRateCurrencyFromAmount(e.target.value)} />
-            <input type="text" inputMode="decimal" id="rate_exchange_rate" className="transaction-input" placeholder="Rate" value={rateExchangeRateRaw} onChange={(e) => setRateExchangeRateRaw(e.target.value)} />
-            <select id="rate_currency_to" className="transaction-select" value={rateCurrencyTo} onChange={(e) => setRateCurrencyTo(e.target.value)}>
-              <option value="">Currency</option>
-              {currencyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <input type="number" step="0.01" id="rate_currency_to_amount" className="transaction-input" placeholder="Amount" readOnly value={rateCurrencyToAmount} />
+        <div className="rate-section rate-section--currency-outlined">
+          <div className="tx-add-form-row tx-add-form-row--rate-five-cols">
+            <div className="report-outlined-anchor tx-add-field-col">
+              <div className="report-outlined-shell">
+                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-currency-from-label">
+                  From Currency
+                </span>
+                <div className="report-outlined-inner">
+                  <div className="tx-add-icon-field">
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-coins" /></span>
+                    <select
+                      id="rate_currency_from"
+                      className="transaction-select"
+                      value={rateCurrencyFrom}
+                      onChange={(e) => setRateCurrencyFrom(e.target.value)}
+                      aria-labelledby="rate-currency-from-label"
+                    >
+                      <option value="">--Select--</option>
+                      {currencyOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="report-outlined-anchor tx-add-field-col">
+              <div className="report-outlined-shell">
+                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-from-amount-label">
+                  From Amount
+                </span>
+                <div className="report-outlined-inner">
+                  <div className="tx-add-icon-field">
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-dollar-sign" /></span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="rate_currency_from_amount"
+                      className="transaction-input"
+                      value={rateCurrencyFromAmount}
+                      onChange={(e) => setRateCurrencyFromAmount(e.target.value)}
+                      aria-labelledby="rate-from-amount-label"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="report-outlined-anchor tx-add-field-col">
+              <div className="report-outlined-shell">
+                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-exchange-label">
+                  Rate
+                </span>
+                <div className="report-outlined-inner">
+                  <div className="tx-add-icon-field">
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-exchange-alt" /></span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      id="rate_exchange_rate"
+                      className="transaction-input"
+                      value={rateExchangeRateRaw}
+                      onChange={(e) => setRateExchangeRateRaw(e.target.value)}
+                      aria-labelledby="rate-exchange-label"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="report-outlined-anchor tx-add-field-col">
+              <div className="report-outlined-shell">
+                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-currency-to-label">
+                  To Currency
+                </span>
+                <div className="report-outlined-inner">
+                  <div className="tx-add-icon-field">
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-coins" /></span>
+                    <select
+                      id="rate_currency_to"
+                      className="transaction-select"
+                      value={rateCurrencyTo}
+                      onChange={(e) => setRateCurrencyTo(e.target.value)}
+                      aria-labelledby="rate-currency-to-label"
+                    >
+                      <option value="">--Select--</option>
+                      {currencyOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="report-outlined-anchor tx-add-field-col">
+              <div className="report-outlined-shell">
+                <span className="report-outlined-label report-outlined-label--tx-add-icon" id="rate-to-amount-label">
+                  To Amount
+                </span>
+                <div className="report-outlined-inner">
+                  <div className="tx-add-icon-field">
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-dollar-sign" /></span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="rate_currency_to_amount"
+                      className="transaction-input"
+                      readOnly
+                      value={rateCurrencyToAmount}
+                      aria-labelledby="rate-to-amount-label"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

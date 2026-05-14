@@ -2563,6 +2563,41 @@ body.transaction-page .transaction-add-section .rate-section.rate-section--accou
     width: 100%;
 }
 
+body.transaction-page .transaction-add-section .rate-section.rate-section--currency-outlined {
+    flex-direction: column;
+    align-items: stretch;
+    align-self: stretch;
+    width: 100%;
+}
+
+body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols {
+    display: grid;
+    grid-template-columns: minmax(70px, 0.9fr) minmax(70px, 1fr) minmax(60px, 0.8fr) minmax(70px, 0.9fr) minmax(70px, 1fr);
+    width: 100%;
+    gap: clamp(10px, 1vw, 14px);
+    align-items: flex-start;
+}
+
+@media (max-width: 900px) {
+    body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols .report-outlined-anchor:nth-child(5) {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 480px) {
+    body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols {
+        grid-template-columns: 1fr;
+    }
+
+    body.transaction-page .transaction-add-section .tx-add-form-row--rate-five-cols .report-outlined-anchor:nth-child(5) {
+        grid-column: auto;
+    }
+}
+
 .rate-section>.transaction-label {
     white-space: nowrap;
 }
