@@ -16,7 +16,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['list', 'create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
+if (in_array($action, ['list', 'create', 'update', 'delete', 'validate_domain_code', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
@@ -2909,6 +2909,36 @@ try {
                 }
                 throw $e;
             }
+            break;
+
+        /*
+         * 添加 Group / Company 前校验：编码在整张 company 表上唯一（任一行的 company_id 或 group_id 视为同一命名空间）。
+         * exclude_owner_id：编辑某 domain 时传入当前 owner.id，跳过其已有 company 行，避免与「尚未保存的旧行」误判冲突。
+         * 新建 domain：不传或为 0，与全库比对。
+         */
+        case 'validate_domain_code':
+            if (!$hasC168Context || !$canUseC168DomainActions) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            $rawCode = (string) ($data['code'] ?? '');
+            $code = strtoupper(trim($rawCode));
+            $excludeRaw = $data['exclude_owner_id'] ?? null;
+            $excludeOwnerId = ($excludeRaw !== null && $excludeRaw !== '' && (int) $excludeRaw > 0)
+                ? (int) $excludeRaw
+                : null;
+            if ($code === '') {
+                jsonResponse(false, 'Code is required', ['available' => false], 400);
+                exit;
+            }
+            // 单列即可：校验逻辑会把 code 拿去匹配库中 company_id 与 group_id 两列
+            $pseudoRows = [['company_id' => $code, 'group_id' => null]];
+            $err = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $pseudoRows, $excludeOwnerId);
+            if ($err !== null) {
+                jsonResponse(false, $err, ['available' => false, 'code' => $code], 200);
+                exit;
+            }
+            jsonResponse(true, 'OK', ['available' => true, 'code' => $code]);
             break;
             
         case 'get_companies':
