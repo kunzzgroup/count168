@@ -332,8 +332,8 @@ export default function TransactionAddSection({
           </button>
         </div>
 
-        {/* From Currency | From Amount */}
-        <div className="tx-add-form-row tx-add-form-row--pair">
+        {/* From CCY | From Amt | Rate | To CCY | To Amt — single row */}
+        <div className="tx-add-form-row tx-add-form-row--rate-currency" aria-label="Currency exchange">
           <div className="report-outlined-anchor tx-add-field-col">
             <div className="report-outlined-shell">
               <span className="report-outlined-label" id="tx-rate-ccy-from-label">
@@ -368,11 +368,7 @@ export default function TransactionAddSection({
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Exchange rate — full width */}
-        <div className="tx-add-form-row">
-          <div className="report-outlined-anchor tx-add-field-col tx-add-field-col--full">
+          <div className="report-outlined-anchor tx-add-field-col">
             <div className="report-outlined-shell">
               <span className="report-outlined-label" id="tx-rate-ex-label">
                 Rate
@@ -391,10 +387,6 @@ export default function TransactionAddSection({
               </div>
             </div>
           </div>
-        </div>
-
-        {/* To Currency | To Amount */}
-        <div className="tx-add-form-row tx-add-form-row--pair">
           <div className="report-outlined-anchor tx-add-field-col">
             <div className="report-outlined-shell">
               <span className="report-outlined-label" id="tx-rate-ccy-to-label">

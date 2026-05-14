@@ -130,6 +130,41 @@ body.transaction-page .transaction-add-section .tx-add-rate-fields {
     margin-top: 2px;
 }
 
+/* RATE: five currency fields on one row (outlined floating labels) */
+body.transaction-page .transaction-add-section .tx-add-form-row--rate-currency {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: clamp(8px, 0.75vw, 12px);
+}
+
+body.transaction-page .transaction-add-section .tx-add-form-row--rate-currency .tx-add-field-col {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* Narrow panels: currency selects a bit tighter so amounts + rate get space */
+body.transaction-page .transaction-add-section .tx-add-form-row--rate-currency .tx-add-field-col:nth-child(1),
+body.transaction-page .transaction-add-section .tx-add-form-row--rate-currency .tx-add-field-col:nth-child(4) {
+    flex: 0.85 1 0;
+    max-width: 120px;
+}
+
+@media (max-width: 900px) {
+    body.transaction-page .transaction-add-section .tx-add-form-row--rate-currency {
+        flex-wrap: wrap;
+    }
+
+    body.transaction-page .transaction-add-section .tx-add-form-row--rate-currency .tx-add-field-col {
+        flex: 1 1 calc(50% - 6px);
+        max-width: none;
+    }
+
+    body.transaction-page .transaction-add-section .tx-add-form-row--rate-currency .tx-add-field-col:nth-child(5) {
+        flex: 1 1 100%;
+    }
+}
+
 body.transaction-page .transaction-add-section .tx-add-account-reverse {
     flex: 0 0 auto;
     align-self: center;
