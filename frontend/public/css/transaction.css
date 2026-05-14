@@ -126,6 +126,10 @@ body.transaction-page .transaction-add-section .tx-add-form-row--accounts.tx-add
     min-width: 0;
 }
 
+body.transaction-page .transaction-add-section .tx-add-form-row--reserve-reverse.tx-add-form-row--pair > .tx-add-field-col:nth-child(2) {
+    grid-column: 2 / 4;
+}
+
 @media (max-width: 520px) {
     body.transaction-page .transaction-add-section .tx-add-form-row--reserve-reverse,
     body.transaction-page .transaction-add-section .tx-add-form-row--accounts.tx-add-form-row--with-reverse {
