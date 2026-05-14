@@ -597,7 +597,7 @@ body.transaction-page {
 .transaction-page .transaction-modal-body .transaction-table td {
     padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.52vw, 10px);
     border: 1px solid #e2e8f0;
-    font-size: var(--text-small);
+    font-size: var(--text-medium);
 }
 .transaction-page .transaction-modal-body .transaction-table tbody tr:hover {
     background-color: #f8fafc;

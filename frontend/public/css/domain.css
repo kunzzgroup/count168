@@ -425,6 +425,165 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-inputs-row {
     gap: 16px !important;
 }
 
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-col-right--company.dfm-col-right {
+    gap: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel.dfm-field {
+    margin-bottom: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel {
+    box-sizing: border-box !important;
+    margin: 0 0 14px 0 !important;
+    padding: 14px 16px !important;
+    border-radius: 10px !important;
+    border: 1px solid #e2e8f0 !important;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel--selected {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 220px !important;
+    margin-bottom: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel-eyebrow {
+    margin: 0 0 12px 0 !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.1em !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    line-height: 1.2 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel-inline-label {
+    display: block !important;
+    margin: 0 0 10px 0 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #374151 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-field--inline-add {
+    margin-bottom: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-toolbar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-toolbar-text {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-title {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #374151 !important;
+    line-height: 1.35 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-hint {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 1.45 !important;
+    color: #64748b !important;
+    max-width: 44rem !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-multi-choice-btn--prominent {
+    flex-shrink: 0 !important;
+    cursor: pointer !important;
+    border-radius: 10px !important;
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn--secondary {
+    background: linear-gradient(180deg, #ffffff 0%, #eef2ff 100%) !important;
+    color: #1e3a8a !important;
+    border: 1px solid #cbd5e1 !important;
+    border-left: none !important;
+    margin: 0 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn--secondary:hover {
+    filter: brightness(0.97) !important;
+    border-color: #94a3b8 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    padding: 8px 10px !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    transition: background 0.15s ease, border-color 0.15s ease !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid-item:hover {
+    background: #eff6ff !important;
+    border-color: #93c5fd !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid-item label {
+    margin: 0 !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    cursor: pointer !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-grid-item input[type="checkbox"] {
+    display: inline-block !important;
+    width: auto !important;
+    min-height: unset !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-list-empty-msg {
+    color: #94a3b8 !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    font-weight: 500 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-panel--selected .dfm-selected-list {
+    flex: 1 1 auto !important;
+    min-height: 150px !important;
+    max-height: 340px !important;
+}
+
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[type="text"],
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[type="email"],
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel input[type="password"] {

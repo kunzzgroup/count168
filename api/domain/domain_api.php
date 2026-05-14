@@ -1758,13 +1758,15 @@ function domainApiValidateGroupCompanyIdMutualExclusivity(array $rows): ?string
 }
 
 /**
- * 全局：任意 owner 的 company_id 集与任意 owner 的 group_id 集不得出现相同代码（避免跨 owner 语义冲突）
- * update 时 $excludeOwnerId 排除该 owner 当前库中行，避免事务前“删公司再添同名分组”误报
+ * 全局唯一：payload 中出现的每个非空代码（任一行的 company_id 或 group_id）不可与「其他 domain owner」已有的
+ * company 行中的 company_id 或 group_id 重复（两行视为同一命名空间）。
+ * create：与全库比对；update：传入 $excludeOwnerId，忽略该行所属 owner 的现有数据以便整单重存。
+ *
+ * （仍须与 domainApiValidateGroupCompanyIdMutualExclusivity 配合：同一 payload 内不可同一代码既是 group 又是 company。）
  */
 function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $rows, ?int $excludeOwnerId): ?string
 {
-    $payloadCompany = [];
-    $payloadGroup = [];
+    $codesSet = [];
     foreach ($rows as $row) {
         if (!is_array($row)) {
             continue;
@@ -1773,60 +1775,55 @@ function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $row
         $gidRaw = $row['group_id'] ?? null;
         $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
         if ($cid !== '') {
-            $payloadCompany[$cid] = true;
+            $codesSet[$cid] = true;
         }
         if ($gid !== '') {
-            $payloadGroup[$gid] = true;
+            $codesSet[$gid] = true;
         }
     }
-    if ($payloadCompany === [] && $payloadGroup === []) {
+    if ($codesSet === []) {
         return null;
     }
+    $codes = array_keys($codesSet);
+    $in = implode(',', array_fill(0, count($codes), '?'));
 
+    $ownerClause = '';
+    $params = [];
     if ($excludeOwnerId !== null && $excludeOwnerId > 0) {
-        $sqlC = "SELECT DISTINCT UPPER(TRIM(CAST(company_id AS CHAR))) AS v FROM company WHERE owner_id != ? AND company_id IS NOT NULL AND TRIM(CAST(company_id AS CHAR)) <> ''";
-        $sqlG = "SELECT DISTINCT UPPER(TRIM(CAST(group_id AS CHAR))) AS v FROM company WHERE owner_id != ? AND group_id IS NOT NULL AND TRIM(CAST(group_id AS CHAR)) <> ''";
-        $stC = $pdo->prepare($sqlC);
-        $stC->execute([(int) $excludeOwnerId]);
-        $stG = $pdo->prepare($sqlG);
-        $stG->execute([(int) $excludeOwnerId]);
-    } else {
-        $sqlC = "SELECT DISTINCT UPPER(TRIM(CAST(company_id AS CHAR))) AS v FROM company WHERE company_id IS NOT NULL AND TRIM(CAST(company_id AS CHAR)) <> ''";
-        $sqlG = "SELECT DISTINCT UPPER(TRIM(CAST(group_id AS CHAR))) AS v FROM company WHERE group_id IS NOT NULL AND TRIM(CAST(group_id AS CHAR)) <> ''";
-        $stC = $pdo->query($sqlC);
-        $stG = $pdo->query($sqlG);
+        $ownerClause = 'owner_id <> ? AND ';
+        $params[] = (int) $excludeOwnerId;
     }
-    if ($stC === false || $stG === false) {
+
+    $sql = 'SELECT z.v FROM ('
+        . ' SELECT UPPER(TRIM(CAST(company_id AS CHAR))) AS v FROM company WHERE ' . $ownerClause
+        . " company_id IS NOT NULL AND TRIM(CAST(company_id AS CHAR)) <> ''"
+        . " AND UPPER(TRIM(CAST(company_id AS CHAR))) IN ($in)"
+        . ' UNION'
+        . ' SELECT UPPER(TRIM(CAST(group_id AS CHAR))) AS v FROM company WHERE ' . $ownerClause
+        . " group_id IS NOT NULL AND TRIM(CAST(group_id AS CHAR)) <> ''"
+        . " AND UPPER(TRIM(CAST(group_id AS CHAR))) IN ($in)"
+        . ' ) AS z WHERE z.v <> \'\' LIMIT 1';
+
+    try {
+        $stmt = $pdo->prepare($sql);
+        if ($excludeOwnerId !== null && $excludeOwnerId > 0) {
+            $execParams = array_merge($params, $codes, $params, $codes);
+            $stmt->execute($execParams);
+        } else {
+            $stmt->execute(array_merge($codes, $codes));
+        }
+    } catch (PDOException $e) {
+        error_log('[domain_api] domainApiValidateCrossOwnerCompanyGroupExclusivity: ' . $e->getMessage());
+        return 'Could not verify company/group code availability. Please try again.';
+    }
+
+    $hit = $stmt->fetchColumn();
+    if ($hit === false || $hit === null || trim((string) $hit) === '') {
         return null;
     }
+    $code = strtoupper(trim((string) $hit));
 
-    $othersCompany = [];
-    foreach ($stC->fetchAll(PDO::FETCH_COLUMN) as $v) {
-        if ($v === null || $v === '') {
-            continue;
-        }
-        $othersCompany[strtoupper(trim((string) $v))] = true;
-    }
-    $othersGroup = [];
-    foreach ($stG->fetchAll(PDO::FETCH_COLUMN) as $v) {
-        if ($v === null || $v === '') {
-            continue;
-        }
-        $othersGroup[strtoupper(trim((string) $v))] = true;
-    }
-
-    foreach (array_keys($payloadCompany) as $code) {
-        if (isset($othersGroup[$code])) {
-            return 'Company ID "' . $code . '" is already used as a Group ID under another owner.';
-        }
-    }
-    foreach (array_keys($payloadGroup) as $code) {
-        if (isset($othersCompany[$code])) {
-            return 'Group ID "' . $code . '" is already used as a Company ID under another owner.';
-        }
-    }
-
-    return null;
+    return 'This ID "' . $code . '" is already in use globally as another company or group. Choose a different code.';
 }
 
 function domainApiExtractProvisionCompanyIds($companies): array {
