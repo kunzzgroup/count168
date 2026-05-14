@@ -631,7 +631,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 /* 两列布局中的表单组 */
 .account-form-column .account-form-group {
     min-width: 100%;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
 }
 
 /* form-row 中的 form-group 可以并排显示 */
