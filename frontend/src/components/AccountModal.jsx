@@ -272,7 +272,7 @@ export default function AccountModal({
 
                 <div className="account-other-currency account-other-currency--company">
                   <label>{text("company")}</label>
-                  <div className="account-currency-list">
+                  <div className="account-currency-list account-company-list">
                     {companyButtons.map((c) => {
                       const id = Number(c.id);
                       const active = selectedCompanyIds.includes(id);

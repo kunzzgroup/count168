@@ -1439,6 +1439,51 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: none;
 }
 
+#account-addModal .account-company-list,
+#account-editModal .account-company-list {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    gap: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 10px;
+    background: var(--color-surface, #ffffff);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+#account-addModal .account-company-list .account-company-btn,
+#account-editModal .account-company-list .account-company-btn {
+    margin: 0;
+    padding: 8px clamp(10px, 1.2vw, 18px);
+    border: none;
+    border-right: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 0;
+    background: var(--color-surface, #ffffff);
+    color: #1f2937;
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+#account-addModal .account-company-list .account-company-btn:last-child,
+#account-editModal .account-company-list .account-company-btn:last-child {
+    border-right: none;
+}
+
+#account-addModal .account-company-list .account-company-btn:hover:not(.active),
+#account-editModal .account-company-list .account-company-btn:hover:not(.active) {
+    background: #f8fafc;
+}
+
+#account-addModal .account-company-list .account-company-btn.active,
+#account-editModal .account-company-list .account-company-btn.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #ffffff;
+    border-right-color: rgba(255, 255, 255, 0.28);
+    box-shadow: none;
+}
+
 /* 无 × 的货币 pill（仅选择模式） */
 #account-addModal .account-currency-item:not(.currency-toggle-item),
 #account-editModal .account-currency-item:not(.currency-toggle-item) {
