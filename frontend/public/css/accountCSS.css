@@ -1500,28 +1500,30 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-shadow: none;
 }
 
-/* 图二/三 · Other Currency：选中蓝渐变+白字+白×；未选中白底浅灰边深灰字+红×；货币码 1.4rem */
+/* Add/Edit Account · Other Currency soft pill */
 #account-addModal .account-currency-item.currency-toggle-item,
 #account-editModal .account-currency-item.currency-toggle-item {
-    border-radius: 0.5rem;
+    border-radius: 999px;
     font-family: var(--font-heading-page);
     font-weight: 600;
-    padding: 0.5rem 0.75rem;
-    min-height: 2.75rem;
+    padding: 0.45rem 0.55rem 0.45rem 0.85rem;
+    min-height: 2.55rem;
     align-items: center;
-    box-shadow: none;
+    gap: 0.5rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 #account-addModal .account-currency-item.currency-toggle-item.selected,
 #account-editModal .account-currency-item.currency-toggle-item.selected {
-    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    background: var(--btn-add-gradient);
     border: 1px solid transparent;
     color: #ffffff;
+    box-shadow: 0 3px 8px rgba(13, 96, 255, 0.25);
 }
 
 #account-addModal .account-currency-item.currency-toggle-item.selected .currency-code-text,
 #account-editModal .account-currency-item.currency-toggle-item.selected .currency-code-text {
-    font-size: 1.4rem;
+    font-size: var(--text-small);
     font-weight: 600;
     line-height: 1.2;
     color: #ffffff;
@@ -1536,7 +1538,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-currency-item.currency-toggle-item:not(.selected) .currency-code-text,
 #account-editModal .account-currency-item.currency-toggle-item:not(.selected) .currency-code-text {
-    font-size: 1.4rem;
+    font-size: var(--text-small);
     font-weight: 600;
     line-height: 1.2;
     color: #334155;
@@ -1550,8 +1552,8 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 #account-addModal .account-currency-item.currency-toggle-item:not(.selected) .currency-delete-btn:hover,
 #account-editModal .account-currency-item.currency-toggle-item:not(.selected) .currency-delete-btn:hover {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: #dc2626;
+    color: #ffffff;
 }
 
 #account-addModal .account-currency-item.currency-toggle-item:not(.selected):hover,
@@ -1559,13 +1561,13 @@ body.account-page:not(.account-page--show-all) .account-card {
     background: #f8fafc;
     border-color: #cbd5e1;
     color: #334155;
-    transform: none;
-    box-shadow: 0 0.125rem 0.375rem rgba(15, 23, 42, 0.06);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
 }
 
 #account-addModal .account-currency-item.currency-toggle-item.selected:hover,
 #account-editModal .account-currency-item.currency-toggle-item.selected:hover {
-    transform: none;
+    transform: translateY(-1px);
     box-shadow: 0 3px 8px rgba(13, 96, 255, 0.28);
 }
 
@@ -1581,6 +1583,23 @@ body.account-page:not(.account-page--show-all) .account-card {
     flex-shrink: 0;
     position: relative;
     z-index: 1;
+    width: 18px;
+    height: 18px;
+    font-size: 14px;
+    opacity: 1;
+    background: rgba(220, 38, 38, 0.08);
+}
+
+#account-addModal .account-currency-item.currency-toggle-item.selected .currency-delete-btn,
+#account-editModal .account-currency-item.currency-toggle-item.selected .currency-delete-btn {
+    color: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.18);
+}
+
+#account-addModal .account-currency-item.currency-toggle-item.selected .currency-delete-btn:hover,
+#account-editModal .account-currency-item.currency-toggle-item.selected .currency-delete-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.28);
 }
 
 /* Form footer · tooltip: padding 16px 40px */
