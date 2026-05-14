@@ -76,7 +76,7 @@ body.transaction-page {
 .transaction-page .transaction-add-section {
     display: flex;
     flex-direction: column;
-    gap: clamp(6px, 0.55vw, 10px);
+    gap: clamp(4px, 0.42vw, 6px);
     --tx-add-reverse-col: clamp(54px, 4.2vw, 72px);
 }
 
