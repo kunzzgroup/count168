@@ -168,11 +168,11 @@ body.datacapture-page h1 {
     }
 }
 
-/* Equal columns + aligned with Submitted Processes card; extra form density for table area */
+/* Equal columns + matched card heights with Submitted Processes */
 body.datacapture-page .top-section {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: start;
+    align-items: stretch;
     column-gap: clamp(18px, 2.2vw, 32px);
 }
 
@@ -181,6 +181,15 @@ body.datacapture-page .top-section .submitted-column {
     max-width: none;
     width: 100%;
     min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+}
+
+body.datacapture-page .form-container,
+body.datacapture-page .submitted-container {
+    flex: 1 1 auto;
 }
 
 @media (max-width: 900px) {
@@ -200,7 +209,7 @@ body.datacapture-page .process-form .dc-form-two-col {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: clamp(10px, 1.2vw, 18px);
-    align-items: start;
+    align-items: center;
     margin-bottom: clamp(6px, 0.55vw, 10px);
 }
 
@@ -208,7 +217,9 @@ body.datacapture-page .process-form .dc-form-two-col .form-group {
     margin-bottom: 0;
 }
 
-body.datacapture-page .process-form .dc-form-two-col--tight {
+/* Bottom row: labels align with stacked Remove Word control */
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--tight {
+    align-items: start;
     margin-bottom: clamp(4px, 0.45vw, 8px);
 }
 
@@ -433,6 +444,8 @@ body.datacapture-page .process-form .dc-form-two-col--tight .form-group > label 
     cursor: pointer;
     text-align: left;
     font-size: clamp(10px, 0.73vw, 14px);
+    font-weight: 600;
+    font-family: inherit;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -547,7 +560,7 @@ body.datacapture-page .process-form .dc-form-two-col--tight .form-group > label 
 }
 
 .process-form .form-group select option {
-    font-weight: bold;
+    font-weight: 600;
 }
 
 .process-form .form-group input:disabled,
@@ -556,6 +569,23 @@ body.datacapture-page .process-form .dc-form-two-col--tight .form-group > label 
     color: #94a3b8;
     cursor: not-allowed;
     opacity: 0.85;
+}
+
+/* Currency native select: same triangle cue + spacing as Process (.custom-select-button::after) */
+body.datacapture-page #capture_currency {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2364748b' d='M5 7 2 3h6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+    cursor: pointer;
+}
+
+body.datacapture-page #capture_currency::-ms-expand {
+    display: none;
 }
 
 .submitted-list {
