@@ -36,7 +36,7 @@ export default function LinkAccountModal({
           <span className="account-close" onClick={onClose}>&times;</span>
         </div>
         <div className="link-account-fixed-area">
-          <div className="link-type-section">
+          <div className="link-account-toolbar-row">
             <div className="link-type-pills">
               <label className="link-type-pill">
                 <input
@@ -63,27 +63,27 @@ export default function LinkAccountModal({
                 <span className="link-type-pill-text">{t("unidirectional")}</span>
               </label>
             </div>
-            <p className="link-type-desc">
-              {linkType === "bidirectional"
-                ? t("bidirectionalDesc")
-                : t("unidirectionalDesc")}
-            </p>
-          </div>
-          <div className="link-account-search-wrap">
-            <div className="link-account-search-inner">
-              <svg className="link-account-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
-                type="text"
-                className="link-account-search-input"
-                placeholder={t("searchAccount")}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="link-account-search-wrap">
+              <div className="link-account-search-inner">
+                <svg className="link-account-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+                <input
+                  type="text"
+                  className="link-account-search-input"
+                  placeholder={t("searchAccount")}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
           </div>
+          <p className="link-type-desc">
+            {linkType === "bidirectional"
+              ? t("bidirectionalDesc")
+              : t("unidirectionalDesc")}
+          </p>
         </div>
         <div className="account-modal-body link-account-modal-body">
           <div className="link-account-list">
