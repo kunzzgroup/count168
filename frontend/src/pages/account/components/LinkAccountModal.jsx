@@ -63,20 +63,19 @@ export default function LinkAccountModal({
                 <span className="link-type-pill-text">{t("unidirectional")}</span>
               </label>
             </div>
-            <div className="link-account-search-wrap">
-              <div className="link-account-search-inner">
-                <svg className="link-account-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
+            <div className="search-container userlist-search-bar link-account-toolbar-search">
+              <span className="userlist-search-bar__icon" aria-hidden="true">
+                <svg fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
                 </svg>
-                <input
-                  type="text"
-                  className="link-account-search-input"
-                  placeholder={t("searchAccount")}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+              </span>
+              <input
+                type="text"
+                className="search-input userlist-search-input"
+                placeholder={t("searchAccount")}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
           </div>
           <p className="link-type-desc">
@@ -105,7 +104,7 @@ export default function LinkAccountModal({
                       })
                     }
                   />
-                  <span>{toUpper(acc.account_id)} - {toUpper(acc.name)}</span>
+                  <span>{toUpper(acc.account_id)}</span>
                 </label>
               );
             })}

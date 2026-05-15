@@ -1,17 +1,5 @@
 import { useEffect } from "react";
 
-/** Mirrors js/datacapture.js restoreFromLocalStorage capture-type handling. */
-const DATA_CAPTURE_SELECT_VALUES = ["1.Text", "2.Format", "CITIBET_MAJOR", "4.RETURN"];
-
-export function normalizeDataCaptureTypeForRestore(raw) {
-  let t = String(raw ?? "").trim();
-  if (!t) return "";
-  if (t === "1.GENERAL") t = "1.Text";
-  if (t === "655") t = "2.Format";
-  if (t === "CITIBET") t = "CITIBET_MAJOR";
-  return t;
-}
-
 function createEditableCell(colIndex) {
   const td = document.createElement("td");
   td.contentEditable = "true";
@@ -105,23 +93,9 @@ export function useDataCaptureRestore({
         setCurrencyId(String(processData.currency));
       }
       try {
-        const fromProcess =
-          processData?.dataCaptureType != null ? String(processData.dataCaptureType) : processData?.captureType != null ? String(processData.captureType) : "";
-        let combined = String(fromProcess || "").trim();
-        if (!combined) {
-          try {
-            combined = String(localStorage.getItem("capturedDataCaptureType") || "").trim();
-          } catch {
-            combined = "";
-          }
-        }
-        const normalized = normalizeDataCaptureTypeForRestore(combined);
-        if (
-          normalized &&
-          DATA_CAPTURE_SELECT_VALUES.includes(normalized) &&
-          typeof setDataCaptureType === "function"
-        ) {
-          setDataCaptureType(normalized);
+        const capType = localStorage.getItem("capturedDataCaptureType");
+        if (capType && typeof setDataCaptureType === "function") {
+          setDataCaptureType(capType);
         }
       } catch {
         // ignore
