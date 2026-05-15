@@ -182,7 +182,7 @@ async function pasteFromClipboardToModel(tableData, coordinates) {
   return next;
 }
 
-export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
+export function useDataCaptureTableEngine({ ready, onTableMutated, readOnly = false } = {}) {
   const [selectedCells, setSelectedCells] = useState([]);
   const [activeColumnIndex, setActiveColumnIndex] = useState(null);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
@@ -426,12 +426,22 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
   );
 
   useEffect(() => {
+    if (!ready) return;
+    const tableBody = document.getElementById("tableBody");
+    if (!tableBody) return;
+    const flag = readOnly ? "false" : "true";
+    Array.from(tableBody.querySelectorAll("td[data-col]")).forEach((cell) => {
+      cell.contentEditable = flag;
+    });
+  }, [ready, readOnly]);
+
+  useEffect(() => {
     const tableBody = document.getElementById("tableBody");
     const tableHeader = document.getElementById("tableHeader");
     const contextMenu = document.getElementById("contextMenu");
     const columnContextMenu = document.getElementById("columnContextMenu");
     const rowContextMenu = document.getElementById("rowContextMenu");
-    if (!tableBody || !tableHeader) return undefined;
+    if (!ready || !tableBody || !tableHeader) return undefined;
 
     const showMenuAt = (menu, x, y) => {
       if (!menu) return;
@@ -442,7 +452,7 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
     };
 
     const onBodyMouseDown = (event) => {
-      const cell = event.target.closest("#tableBody td[contenteditable='true']");
+      const cell = event.target.closest("#tableBody td[data-col]");
       if (!cell) return;
       const coords = getCellCoordinates(cell);
       if (!coords) return;
@@ -463,6 +473,7 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
     const onBodyContextMenu = (event) => {
       const rowHeader = event.target.closest("#tableBody .row-header");
       if (rowHeader) {
+        if (readOnly) return;
         event.preventDefault();
         const row = rowHeader.parentElement;
         const rowIndex = row ? Array.from(row.parentElement?.children || []).indexOf(row) : -1;
@@ -474,8 +485,9 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
         return;
       }
 
-      const cell = event.target.closest("#tableBody td[contenteditable='true']");
+      const cell = event.target.closest("#tableBody td[data-col]");
       if (!cell) return;
+      if (readOnly) return;
       event.preventDefault();
       const coords = getCellCoordinates(cell);
       if (!coords) return;
@@ -490,6 +502,7 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
     };
 
     const onHeaderMouseDown = (event) => {
+      if (readOnly) return;
       const header = event.target.closest("#tableHeader th");
       if (!header) return;
       if (header.cellIndex === 0) return;
@@ -499,6 +512,7 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
     };
 
     const onHeaderContextMenu = (event) => {
+      if (readOnly) return;
       const header = event.target.closest("#tableHeader th");
       if (!header || header.cellIndex === 0) return;
       event.preventDefault();
@@ -515,13 +529,21 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
 
     let timeoutId = null;
     const onTableInput = () => {
+      if (readOnly) return;
       window.clearTimeout(timeoutId);
       timeoutId = window.setTimeout(() => emitTableMutated(), 80);
     };
     tableBody.addEventListener("mousedown", onBodyMouseDown);
     tableBody.addEventListener("contextmenu", onBodyContextMenu);
     tableBody.addEventListener("input", onTableInput);
-    tableBody.addEventListener("paste", onTableInput, true);
+    const onTablePaste = (event) => {
+      if (readOnly) {
+        event.preventDefault();
+        return;
+      }
+      onTableInput();
+    };
+    tableBody.addEventListener("paste", onTablePaste, true);
     tableHeader.addEventListener("mousedown", onHeaderMouseDown);
     tableHeader.addEventListener("contextmenu", onHeaderContextMenu);
     document.addEventListener("click", onDocumentClick);
@@ -531,12 +553,12 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
       tableBody.removeEventListener("mousedown", onBodyMouseDown);
       tableBody.removeEventListener("contextmenu", onBodyContextMenu);
       tableBody.removeEventListener("input", onTableInput);
-      tableBody.removeEventListener("paste", onTableInput, true);
+      tableBody.removeEventListener("paste", onTablePaste, true);
       tableHeader.removeEventListener("mousedown", onHeaderMouseDown);
       tableHeader.removeEventListener("contextmenu", onHeaderContextMenu);
       document.removeEventListener("click", onDocumentClick);
     };
-  }, [ready, emitTableMutated]);
+  }, [emitTableMutated, readOnly, ready]);
 
   useEffect(() => {
     if (!ready) return;
@@ -583,6 +605,14 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
       const key = String(event.key || "").toLowerCase();
       const ctrlOrMeta = event.ctrlKey || event.metaKey;
 
+      if (readOnly) {
+        if (ctrlOrMeta && key === "c") {
+          engine.copySelectedCells();
+          event.preventDefault();
+        }
+        return;
+      }
+
       if (ctrlOrMeta && key === "c") {
         engine.copySelectedCells();
         event.preventDefault();
@@ -599,7 +629,7 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [engine]);
+  }, [engine, readOnly]);
 
   useEffect(() => {
     const onClick = (event) => {

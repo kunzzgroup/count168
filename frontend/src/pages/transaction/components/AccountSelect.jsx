@@ -96,6 +96,7 @@ export function AccountSelect({
             type="text"
             placeholder="Search account..."
             autoComplete="off"
+            disabled={disabled}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             onKeyDown={(e) => {

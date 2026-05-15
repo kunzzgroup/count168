@@ -6,6 +6,7 @@ import {
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/sharedCompanyFilter.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
+import { isPartnershipAuditReadOnlyLocked } from "../../utils/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmit } from "./hooks/useDataCaptureSubmit.js";
 import { useDataCaptureSubmitGate } from "./hooks/useDataCaptureSubmitGate.js";
 import { useDataCaptureRestore } from "./hooks/useDataCaptureRestore.js";
@@ -86,7 +87,7 @@ function fillTableFromMatrix(matrix) {
     if (!tr) return;
     row.forEach((value, colIdx) => {
       const cell = tr.querySelector(`td[data-col="${colIdx}"]`);
-      if (!cell || cell.contentEditable !== "true") return;
+      if (!cell) return;
       cell.textContent = String(value || "").toUpperCase();
     });
   });
@@ -130,14 +131,22 @@ export default function DataCapturePage() {
     filterSnapshotRef.current = filterSnapshot;
   }, [filterSnapshot]);
 
+  const [sessionMe, setSessionMe] = useState(null);
+  const captureMutationsBlocked = useMemo(() => isPartnershipAuditReadOnlyLocked(sessionMe), [sessionMe]);
+
   const isPageReady = !loading && !forbidden && companyId != null;
-  const { submit } = useDataCaptureSubmit({ selectedDescriptions: selectedDescriptionsState, navigate });
+  const { submit } = useDataCaptureSubmit({
+    selectedDescriptions: selectedDescriptionsState,
+    navigate,
+    mutationsBlocked: captureMutationsBlocked,
+  });
   const submitGate = useDataCaptureSubmitGate({
     selectedProcessId,
     selectedDescriptions: selectedDescriptionsState,
     currencyId,
     dataCaptureType,
     tableDataSnapshot,
+    mutationsBlocked: captureMutationsBlocked,
   });
   const syncTableSnapshot = useCallback(() => {
     const next = captureTableDataFromDom();
@@ -146,10 +155,15 @@ export default function DataCapturePage() {
   const tableEngine = useDataCaptureTableEngine({
     ready: isPageReady,
     onTableMutated: syncTableSnapshot,
+    readOnly: captureMutationsBlocked,
   });
   const toUpperInput = useCallback((next) => String(next || "").toUpperCase(), []);
   const processDropdownRef = useRef(null);
   const formatPasteAreaRef = useRef(null);
+
+  useEffect(() => {
+    if (captureMutationsBlocked) setProcessDropdownOpen(false);
+  }, [captureMutationsBlocked]);
 
   const selectedProcess = useMemo(
     () => processOptions.find((option) => String(option.id) === String(selectedProcessId)) || null,
@@ -265,6 +279,8 @@ export default function DataCapturePage() {
           return;
         }
 
+        if (!cancelled) setSessionMe(u);
+
         const companiesJson = await companiesRes.json();
         const rows = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
 
@@ -308,6 +324,24 @@ export default function DataCapturePage() {
       cancelled = true;
     };
   }, [navigate]);
+
+  useEffect(() => {
+    const refreshMe = async () => {
+      try {
+        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const meJson = await meRes.json();
+        if (!meRes.ok || !meJson.success || !meJson.data) return;
+        setSessionMe(meJson.data);
+      } catch {
+        // ignore
+      }
+    };
+    const onCompanySession = () => {
+      void refreshMe();
+    };
+    window.addEventListener("eazycount:company-session-updated", onCompanySession);
+    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+  }, []);
 
   const handleCompanyChange = useCallback(
     async (nextCompanyId) => {
@@ -680,6 +714,7 @@ export default function DataCapturePage() {
   }, [companyId]);
 
   const openDescriptionModal = useCallback(async () => {
+    if (captureMutationsBlocked) return;
     try {
       await loadDescriptions();
       setDescriptionSearch("");
@@ -687,7 +722,7 @@ export default function DataCapturePage() {
     } catch (error) {
       notify(error.message || "Failed to load descriptions", "danger");
     }
-  }, [loadDescriptions, notify]);
+  }, [captureMutationsBlocked, loadDescriptions, notify]);
 
   const closeDescriptionModal = useCallback(() => {
     setDescriptionModalOpen(false);
@@ -704,6 +739,7 @@ export default function DataCapturePage() {
   }, [closeDescriptionModal, notify, selectedDescriptionsState]);
 
   const resetFormValues = useCallback(() => {
+    if (captureMutationsBlocked) return;
     setRemoveWord("");
     setReplaceWordFrom("");
     setReplaceWordTo("");
@@ -730,12 +766,13 @@ export default function DataCapturePage() {
         cell.textContent = "";
       });
     }
-  }, []);
+  }, [captureMutationsBlocked]);
 
   const fs = filterSnapshot;
   const shouldShowTable = dataCaptureType !== "2.Format" || formatGridReady;
   const shouldShowFormatPasteArea = dataCaptureType === "2.Format" && !formatGridReady;
   const handleFormatPasteAreaPaste = useCallback((e) => {
+    if (captureMutationsBlocked) return;
     if (dataCaptureType !== "2.Format") return;
     const matrix = parseClipboardMatrix(e.clipboardData || window.clipboardData);
     if (fillTableFromMatrix(matrix)) {
@@ -754,16 +791,17 @@ export default function DataCapturePage() {
       }
       return;
     }
-  }, [dataCaptureType]);
+  }, [captureMutationsBlocked, dataCaptureType]);
 
   const handleFormatPasteAreaInput = useCallback(() => {
+    if (captureMutationsBlocked) return;
     if (dataCaptureType !== "2.Format") return;
     const matrix = parseMatrixFromPasteArea(formatPasteAreaRef.current);
     if (!fillTableFromMatrix(matrix)) return;
     setFormatGridReady(true);
     const pasteArea = formatPasteAreaRef.current;
     if (pasteArea) pasteArea.textContent = "";
-  }, [dataCaptureType]);
+  }, [captureMutationsBlocked, dataCaptureType]);
 
   useEffect(() => {
     if (dataCaptureType === "2.Format") return;
@@ -890,7 +928,14 @@ export default function DataCapturePage() {
 
               <div className="form-group">
                 <label htmlFor="capture_date">Date</label>
-                <select id="capture_date" name="capture_date" required value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}>
+                <select
+                  id="capture_date"
+                  name="capture_date"
+                  required
+                  value={selectedDate}
+                  disabled={captureMutationsBlocked}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                >
                   <option value="">Select Date</option>
                   {dateOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -912,7 +957,11 @@ export default function DataCapturePage() {
                     data-value={selectedProcess ? selectedProcess.id : ""}
                     data-process-code={selectedProcess?.processCode || ""}
                     data-description-name={selectedProcess?.descriptionName || ""}
-                    onClick={() => setProcessDropdownOpen((prev) => !prev)}
+                    disabled={captureMutationsBlocked}
+                    onClick={() => {
+                      if (captureMutationsBlocked) return;
+                      setProcessDropdownOpen((prev) => !prev);
+                    }}
                   >
                     {selectedProcess?.displayText || "Select Process"}
                   </button>
@@ -922,6 +971,7 @@ export default function DataCapturePage() {
                         type="text"
                         placeholder="Search process..."
                         autoComplete="off"
+                        disabled={captureMutationsBlocked}
                         value={processSearch}
                         onChange={(e) => setProcessSearch(e.target.value)}
                       />
@@ -935,6 +985,7 @@ export default function DataCapturePage() {
                           data-process-code={option.processCode}
                           data-description-name={option.descriptionName || ""}
                           onPointerDown={(e) => {
+                            if (captureMutationsBlocked) return;
                             if (e.pointerType === "mouse" && e.button !== 0) return;
                             e.preventDefault();
                             setSelectedProcessId(String(option.id || ""));
@@ -964,7 +1015,7 @@ export default function DataCapturePage() {
                     value={descriptionText}
                     placeholder="Click + to select descriptions"
                   />
-                  <button type="button" className="add-icon" onClick={openDescriptionModal}>
+                  <button type="button" className="add-icon" disabled={captureMutationsBlocked} onClick={openDescriptionModal}>
                     +
                   </button>
                 </div>
@@ -977,6 +1028,7 @@ export default function DataCapturePage() {
                   name="currency"
                   required
                   value={currencyId}
+                  disabled={captureMutationsBlocked}
                   onChange={(e) => setCurrencyId(e.target.value)}
                 >
                   <option value="">Select Currency</option>
@@ -996,6 +1048,7 @@ export default function DataCapturePage() {
                   name="remove_word"
                   placeholder="Enter words to remove"
                   value={removeWord}
+                  disabled={captureMutationsBlocked}
                   onChange={(e) => setRemoveWord(toUpperInput(e.target.value))}
                 />
                 <small className="field-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
@@ -1012,6 +1065,7 @@ export default function DataCapturePage() {
                     name="replace_word_from"
                     placeholder="Old word"
                     value={replaceWordFrom}
+                    disabled={captureMutationsBlocked}
                     onChange={(e) => setReplaceWordFrom(toUpperInput(e.target.value))}
                   />
                   <span className="replace-arrow">→</span>
@@ -1021,6 +1075,7 @@ export default function DataCapturePage() {
                     name="replace_word_to"
                     placeholder="New word"
                     value={replaceWordTo}
+                    disabled={captureMutationsBlocked}
                     onChange={(e) => setReplaceWordTo(toUpperInput(e.target.value))}
                   />
                 </div>
@@ -1034,6 +1089,7 @@ export default function DataCapturePage() {
                   name="remark"
                   placeholder="Enter remark"
                   value={remark}
+                  disabled={captureMutationsBlocked}
                   onChange={(e) => setRemark(toUpperInput(e.target.value))}
                 />
               </div>
@@ -1078,6 +1134,7 @@ export default function DataCapturePage() {
               id="dataCaptureTypeSelector"
               className="data-capture-type-selector"
               value={dataCaptureType}
+              disabled={captureMutationsBlocked}
               onChange={(e) => setDataCaptureType(e.target.value)}
             >
               <option value="1.Text">1.TEXT</option>
@@ -1085,7 +1142,7 @@ export default function DataCapturePage() {
               <option value="CITIBET_MAJOR">3.CITIBET</option>
               <option value="4.RETURN">4.RETURN</option>
             </select>
-            <button type="button" className="btn btn-cancel" onClick={resetFormValues}>
+            <button type="button" className="btn btn-cancel" disabled={captureMutationsBlocked} onClick={resetFormValues}>
               Reset
             </button>
           </div>
@@ -1105,7 +1162,7 @@ export default function DataCapturePage() {
             ref={formatPasteAreaRef}
             className="paste-area-format"
             style={{ display: shouldShowFormatPasteArea ? "block" : "none" }}
-            contentEditable
+            contentEditable={!captureMutationsBlocked}
             onPaste={handleFormatPasteAreaPaste}
             onInput={handleFormatPasteAreaInput}
             data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
@@ -1163,6 +1220,7 @@ export default function DataCapturePage() {
                         <button
                           type="button"
                           className="remove-description-modal"
+                          disabled={captureMutationsBlocked}
                           onClick={() => setSelectedDescriptionsState((prev) => prev.filter((d) => d !== desc))}
                         >
                           &times;
@@ -1181,6 +1239,7 @@ export default function DataCapturePage() {
                     className="add-description-form"
                     onSubmit={async (e) => {
                       e.preventDefault();
+                      if (captureMutationsBlocked) return;
                       const name = newDescriptionName.trim();
                       if (!name) return;
                       const formData = new FormData();
@@ -1213,9 +1272,10 @@ export default function DataCapturePage() {
                         placeholder="Enter new description name..."
                         required
                         value={newDescriptionName}
+                        disabled={captureMutationsBlocked}
                         onChange={(e) => setNewDescriptionName(toUpperInput(e.target.value))}
                       />
-                      <button type="submit" className="btn btn-save">
+                      <button type="submit" className="btn btn-save" disabled={captureMutationsBlocked}>
                         Add
                       </button>
                     </div>
@@ -1243,7 +1303,9 @@ export default function DataCapturePage() {
                             type="checkbox"
                             name="available_descriptions"
                             checked={selectedDescriptionsState.includes(d.name)}
+                            disabled={captureMutationsBlocked}
                             onChange={(e) => {
+                              if (captureMutationsBlocked) return;
                               if (!e.target.checked) return;
                               setSelectedDescriptionsState((prev) => (prev.includes(d.name) ? prev : [...prev, d.name]));
                             }}
@@ -1255,7 +1317,9 @@ export default function DataCapturePage() {
                           className="description-delete-btn"
                           title="Delete description"
                           aria-label="Delete description"
+                          disabled={captureMutationsBlocked}
                           onClick={async () => {
+                            if (captureMutationsBlocked) return;
                             const ok = window.confirm(`Are you sure you want to delete description ${d.name}? This action cannot be undone.`);
                             if (!ok) return;
                             const fd = new FormData();
@@ -1306,13 +1370,34 @@ export default function DataCapturePage() {
         <div className="context-menu-item" onClick={() => tableEngine.copySelectedCells()} role="presentation">
           <span>📋 Copy</span>
         </div>
-        <div className="context-menu-item" onClick={() => tableEngine.pasteToSelectedCells()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.pasteToSelectedCells();
+          }}
+          role="presentation"
+        >
           <span>📄 Paste</span>
         </div>
-        <div className="context-menu-item" onClick={() => tableEngine.clearSelectedCells()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.clearSelectedCells();
+          }}
+          role="presentation"
+        >
           <span>🗑️ Clear</span>
         </div>
-        <div className="context-menu-item" onClick={(e) => tableEngine.showDeleteDialog(e)} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={(e) => {
+            if (captureMutationsBlocked) return;
+            tableEngine.showDeleteDialog(e);
+          }}
+          role="presentation"
+        >
           <span>🗑️ Delete</span>
         </div>
         <div className="context-menu-item" onClick={(e) => tableEngine.selectAllCells(e)} role="presentation">
@@ -1321,31 +1406,87 @@ export default function DataCapturePage() {
       </div>
 
       <div id="columnContextMenu" className="context-menu" style={{ display: "none" }}>
-        <div className="context-menu-item" onClick={() => tableEngine.insertColumnLeft()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.insertColumnLeft();
+          }}
+          role="presentation"
+        >
           <span>➕ Insert 1 column left</span>
         </div>
-        <div className="context-menu-item" onClick={() => tableEngine.insertColumnRight()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.insertColumnRight();
+          }}
+          role="presentation"
+        >
           <span>➕ Insert 1 column right</span>
         </div>
-        <div className="context-menu-item" onClick={() => tableEngine.deleteColumn()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.deleteColumn();
+          }}
+          role="presentation"
+        >
           <span>🗑️ Delete column</span>
         </div>
-        <div className="context-menu-item" onClick={() => tableEngine.clearColumn()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.clearColumn();
+          }}
+          role="presentation"
+        >
           <span>❌ Clear column</span>
         </div>
       </div>
 
       <div id="rowContextMenu" className="context-menu" style={{ display: "none" }}>
-        <div className="context-menu-item" onClick={() => tableEngine.insertRowAbove()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.insertRowAbove();
+          }}
+          role="presentation"
+        >
           <span>➕ Insert 1 row above</span>
         </div>
-        <div className="context-menu-item" onClick={() => tableEngine.insertRowBelow()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.insertRowBelow();
+          }}
+          role="presentation"
+        >
           <span>➕ Insert 1 row below</span>
         </div>
-        <div className="context-menu-item" onClick={() => tableEngine.deleteRow()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.deleteRow();
+          }}
+          role="presentation"
+        >
           <span>🗑️ Delete row</span>
         </div>
-        <div className="context-menu-item" onClick={() => tableEngine.clearRow()} role="presentation">
+        <div
+          className="context-menu-item"
+          onClick={() => {
+            if (captureMutationsBlocked) return;
+            tableEngine.clearRow();
+          }}
+          role="presentation"
+        >
           <span>❌ Clear row</span>
         </div>
       </div>
@@ -1380,7 +1521,16 @@ export default function DataCapturePage() {
             </div>
           </div>
           <div className="delete-dialog-footer">
-            <button type="button" className="btn btn-save" onClick={(e) => tableEngine.confirmDelete(e)} role="presentation">
+            <button
+              type="button"
+              className="btn btn-save"
+              disabled={captureMutationsBlocked}
+              onClick={(e) => {
+                if (captureMutationsBlocked) return;
+                tableEngine.confirmDelete(e);
+              }}
+              role="presentation"
+            >
               OK
             </button>
             <button type="button" className="btn btn-cancel" onClick={(e) => tableEngine.closeDeleteDialog(e)} role="presentation">

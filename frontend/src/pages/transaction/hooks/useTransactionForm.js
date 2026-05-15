@@ -58,6 +58,7 @@ export function useTransactionForm({
 
     const handleBalanceCellClick = useCallback(
     (row, side) => {
+      if (filterSnapshot?.mutationsBlocked) return;
       if (!row) return;
       const isLeftTable = side === "left";
       const balanceAttr =
@@ -123,7 +124,7 @@ export function useTransactionForm({
       if (parts.length) pushToast(`Synced ${parts.join(", ")}`, "success");
       else if (amountSet) pushToast(`Synced Amount: ${amountDisplay}`, "success");
     },
-    [accountOptions, pushToast, txType],
+    [accountOptions, filterSnapshot?.mutationsBlocked, pushToast, txType],
   );
 
   const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
@@ -131,11 +132,12 @@ export function useTransactionForm({
   const isAdjustment = txType === "ADJUSTMENT";
 
   const onReverseAccounts = useCallback(() => {
+    if (filterSnapshot?.mutationsBlocked) return;
     const to = txToAccount;
     const from = txFromAccount;
     setTxToAccount(from);
     setTxFromAccount(to);
-  }, [txToAccount, txFromAccount]);
+  }, [filterSnapshot?.mutationsBlocked, txToAccount, txFromAccount]);
 
   // RATE: legacy `initMiddleManAmountCalculation` — MoneyDecimal chain, middle-man then gross/net preview.
   useEffect(() => {
@@ -201,6 +203,10 @@ export function useTransactionForm({
   const onSubmitTx = async () => {
     if (!txConfirm) return;
     if (submitting) return;
+    if (filterSnapshot?.mutationsBlocked) {
+      pushToast("Read-only mode: cannot submit transactions", "error");
+      return;
+    }
 
     const companyId = filterSnapshot?.companyId;
     if (!companyId) return;

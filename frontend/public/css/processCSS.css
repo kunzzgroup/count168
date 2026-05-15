@@ -348,6 +348,40 @@ body.process-page {
     margin-left: 0;
 }
 
+/* Read-only：顶栏 Add / Delete、行内编辑 — 灰色（与 userlist 顶栏一致） */
+.process-page .content .btn-add:disabled,
+.process-page .content .btn-add:disabled:hover {
+    background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
+.process-page .content .btn-delete:disabled,
+.process-page .content .btn-delete:disabled:hover,
+.process-page .content .btn.btn-delete:disabled,
+.process-page .content .btn.btn-delete:disabled:hover {
+    background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
+.process-page .btn-edit:disabled,
+.process-page .btn-edit:disabled:hover {
+    cursor: not-allowed;
+    opacity: 0.38;
+}
+
+.process-page .btn-edit:disabled img {
+    filter: grayscale(1);
+    opacity: 0.55;
+}
+
 .process-page .checkbox-section {
     display: flex;
     align-items: center;

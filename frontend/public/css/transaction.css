@@ -437,6 +437,14 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
+.transaction-page .transaction-input:disabled,
+.transaction-page .transaction-select:disabled {
+    background-color: #e8e8e8;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
 .transaction-page .transaction-select {
     cursor: pointer;
     appearance: none;
@@ -1012,6 +1020,13 @@ body.transaction-page .calendar-popup--transaction-range .calendar-day.start-dat
     content: '▲';
 }
 
+.transaction-page .custom-select-button:disabled {
+    background: #e8e8e8;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
 .transaction-page .custom-select-dropdown {
     position: absolute;
     top: 100%;
@@ -1107,6 +1122,23 @@ body.transaction-page .calendar-popup--transaction-range .calendar-day.start-dat
     background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
     box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
     transform: translateY(-1px);
+}
+
+.transaction-page .transaction-account-reverse-btn:disabled,
+.transaction-page .transaction-account-reverse-btn:disabled:hover {
+    background: linear-gradient(180deg, #d8d8d8 0%, #a8a8a8 100%);
+    color: #f0f0f0;
+    box-shadow: none;
+    transform: none;
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.transaction-page .transaction-add-datepicker-hitbox--read-only {
+    pointer-events: none;
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: grayscale(0.25);
 }
 
 /* 与 member.css 等分叉样式区分：chip 行本身不加 margin；与下方 Group 区由 .transaction-bottom-filters 顶部分隔线分开 */
@@ -1253,6 +1285,11 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     font-size: clamp(9px, 0.73vw, 14px);
     font-weight: bold;
     line-height: 1;
+}
+
+.transaction-page .transaction-checkbox:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .transaction-page .transaction-confirm-actions {
