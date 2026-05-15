@@ -105,6 +105,7 @@ export const PROCESS_LIST_I18N = {
     remarks: "Remarks",
     enterRemarks: "Enter remarks...",
     updateProcess: "Update Process",
+    readOnlyActionBlocked: "Read-only account: this action is not allowed.",
   },
   zh: {
     pageTitle: "流程列表",
@@ -212,6 +213,7 @@ export const PROCESS_LIST_I18N = {
     remarks: "备注",
     enterRemarks: "输入备注...",
     updateProcess: "更新流程",
+    readOnlyActionBlocked: "只读账号，无法执行此操作。",
   },
 };
 

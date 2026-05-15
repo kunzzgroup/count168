@@ -31,11 +31,13 @@ export default function ProcessFormModal({
   setForm,
   currencies,
   days,
+  readOnly = false,
   onClose,
   onSubmit,
   onOpenDescriptionPicker,
   t,
 }) {
+  const ro = Boolean(readOnly);
   const [copyOpen, setCopyOpen] = useState(false);
   const [copySearch, setCopySearch] = useState("");
   const copyWrapRef = useRef(null);
@@ -88,7 +90,8 @@ export default function ProcessFormModal({
                       <button
                         type="button"
                         className="custom-select-button"
-                        onClick={() => setCopyOpen((o) => !o)}
+                        disabled={ro}
+                        onClick={() => !ro && setCopyOpen((o) => !o)}
                       >
                         {selectedCopyRow
                           ? `${selectedCopyRow.process_name || t("unknown")} - ${selectedCopyRow.description_name || t("noDescription")}`
@@ -102,6 +105,7 @@ export default function ProcessFormModal({
                               placeholder={t("searchProcess")}
                               autoComplete="off"
                               value={copySearch}
+                              disabled={ro}
                               onChange={(e) => setCopySearch(e.target.value)}
                             />
                           </div>
@@ -160,6 +164,7 @@ export default function ProcessFormModal({
                       onChange={(e) => setForm((prev) => ({ ...prev, process_name: e.target.value }))}
                       required={!form.is_multi_process}
                       readOnly={editMode || form.is_multi_process}
+                      disabled={ro}
                       style={editMode || form.is_multi_process ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" } : undefined}
                       placeholder={t("enterProcessId")}
                     />
@@ -169,6 +174,7 @@ export default function ProcessFormModal({
                           type="checkbox"
                           id="add_multi_use"
                           checked={form.is_multi_process || false}
+                          disabled={ro}
                           onChange={(e) => {
                             const checked = e.target.checked;
                             setForm((prev) => ({
@@ -198,6 +204,7 @@ export default function ProcessFormModal({
                             type="checkbox"
                             id={`mp_${p.process_name.replace(/[^a-zA-Z0-9_]/g, "_")}`}
                             checked={(form.selected_processes || []).includes(p.process_name)}
+                            disabled={ro}
                             onChange={(e) => {
                               const checked = e.target.checked;
                               setForm((prev) => {
@@ -216,6 +223,7 @@ export default function ProcessFormModal({
                       <button
                         type="button"
                         className="btn btn-save btn-small"
+                        disabled={ro}
                         onClick={() => setForm((prev) => ({ ...prev, show_multi_process_selection: false }))}
                       >
                         {t("confirm")}
@@ -236,6 +244,7 @@ export default function ProcessFormModal({
                           <button
                             type="button"
                             className="remove-process"
+                            disabled={ro}
                             onClick={() =>
                               setForm((prev) => {
                                 const nextList = prev.selected_processes.filter((n) => n !== name);
@@ -270,7 +279,7 @@ export default function ProcessFormModal({
                       placeholder={t("clickToSelectDescriptions")}
                       style={{ backgroundColor: "#f5f5f5" }}
                     />
-                    <button type="button" className="add-icon" aria-label={t("chooseDescription")} onClick={onOpenDescriptionPicker}>
+                    <button type="button" className="add-icon" aria-label={t("chooseDescription")} disabled={ro} onClick={() => !ro && onOpenDescriptionPicker()}>
                       +
                     </button>
                   </div>
@@ -295,6 +304,7 @@ export default function ProcessFormModal({
                   <label>{t("currencyColumn")}</label>
                   <select
                     value={form.currency_id}
+                    disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, currency_id: e.target.value }))}
                     required
                   >
@@ -373,6 +383,7 @@ export default function ProcessFormModal({
                   <label>{t("removeWords")}</label>
                   <input
                     value={form.remove_word}
+                    disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, remove_word: e.target.value }))}
                     placeholder={t("enterWordsToRemove")}
                   />
@@ -395,6 +406,7 @@ export default function ProcessFormModal({
                           className={`user-gc-segment${
                             days.length > 0 && form.day_use.length === days.length ? " is-on" : ""
                           }`}
+                          disabled={ro}
                           onClick={() => {
                             setForm((prev) => {
                               const allOn = days.length > 0 && prev.day_use.length === days.length;
@@ -416,6 +428,7 @@ export default function ProcessFormModal({
                               type="button"
                               className={`user-gc-segment${checked ? " is-on" : ""}`}
                               aria-pressed={checked}
+                              disabled={ro}
                               onClick={() => {
                                 setForm((prev) => ({
                                   ...prev,
@@ -440,6 +453,7 @@ export default function ProcessFormModal({
                   <label>{t("replaceFrom")}</label>
                   <input
                     value={form.replace_word_from}
+                    disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))}
                     placeholder={t("oldWord")}
                   />
@@ -449,6 +463,7 @@ export default function ProcessFormModal({
                   <label>{t("replaceTo")}</label>
                   <input
                     value={form.replace_word_to}
+                    disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))}
                     placeholder={t("newWord")}
                   />
@@ -462,6 +477,7 @@ export default function ProcessFormModal({
                   <textarea
                     rows={5}
                     value={form.remark}
+                    disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, remark: e.target.value }))}
                     placeholder={t("enterRemarks")}
                   />
@@ -470,7 +486,7 @@ export default function ProcessFormModal({
             </div>
 
             <div className="form-actions add-actions">
-              <button type="submit" className="btn btn-save">
+              <button type="submit" className="btn btn-save" disabled={ro}>
                 {editMode ? t("updateProcess") : t("addProcess")}
               </button>
               <button type="button" className="btn btn-cancel" onClick={onClose}>

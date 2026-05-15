@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import { isPartnershipAuditReadOnlyLocked } from "../../utils/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { saveUserCurrencyOrder } from "../transaction/transactionApi.js";
 import { isBankCategoryCompany } from "../bankprocesslist/bankProcessHelpers.js";
@@ -77,6 +78,8 @@ export default function ProcessListPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [expirationCompanies, setExpirationCompanies] = useState(null);
+  /** current_user_api.data — Partnership/Audit read_only 时禁用流程写操作 */
+  const [sessionMe, setSessionMe] = useState(null);
   const fetchAbortRef = useRef(null);
   const searchDebounceRef = useRef(null);
   const skipNextFetchRef = useRef(false);
@@ -135,6 +138,25 @@ export default function ProcessListPage() {
     }, 300);
     return () => window.clearTimeout(searchDebounceRef.current);
   }, [search]);
+
+  const processMutationsBlocked = useMemo(
+    () => isPartnershipAuditReadOnlyLocked(sessionMe),
+    [sessionMe]
+  );
+
+  useEffect(() => {
+    const onCompanySession = async () => {
+      try {
+        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const meJson = await meRes.json();
+        if (meJson.success && meJson.data) setSessionMe(meJson.data);
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("eazycount:company-session-updated", onCompanySession);
+    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+  }, []);
 
   useEffect(() => {
     rowsRef.current = rows;
@@ -242,6 +264,13 @@ export default function ProcessListPage() {
           } else {
             setTableLoading(true);
           }
+          try {
+            const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+            const meJson = await meRes.json();
+            if (meRes.ok && meJson.success && meJson.data) setSessionMe(meJson.data);
+          } catch {
+            /* ignore */
+          }
           setLoading(false);
           return;
         }
@@ -255,6 +284,7 @@ export default function ProcessListPage() {
           window.location.assign(new URL("/login", window.location.origin).toString());
           return;
         }
+        setSessionMe(meJson.data);
         const companiesJson = await companiesRes.json();
         const cs = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
         setCompanies(cs);
@@ -394,6 +424,10 @@ export default function ProcessListPage() {
 
   /** @returns {Promise<{ id: number|string, name: string }|null>} */
   const handleAddDescription = async (descName) => {
+    if (processMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return null;
+    }
     try {
       const fd = new FormData();
       fd.append("action", "add_description");
@@ -424,6 +458,10 @@ export default function ProcessListPage() {
   };
 
   const handleDeleteDescription = async (descId) => {
+    if (processMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       const fd = new FormData();
       fd.append("action", "delete_description");
@@ -542,6 +580,7 @@ export default function ProcessListPage() {
 
   const persistOrderedCompanyCurrencies = useCallback(
     async (orderedPills) => {
+      if (processMutationsBlocked) return;
       const companySet = new Set(currencyListOrdered);
       const apiOrder = orderedPills.filter((c) => companySet.has(c));
       if (apiOrder.length === 0) return;
@@ -550,11 +589,12 @@ export default function ProcessListPage() {
       const tail = currencyListOrdered.filter((c) => !apiOrder.includes(c));
       setCurrencyListOrdered([...apiOrder, ...tail]);
     },
-    [currencyListOrdered]
+    [currencyListOrdered, processMutationsBlocked]
   );
 
   const onCurrencyPillDrop = useCallback(
     async (e, targetCode) => {
+      if (processMutationsBlocked) return;
       e.preventDefault();
       const dragged = e.dataTransfer.getData("text/plain");
       if (!dragged || !targetCode || dragged === targetCode) return;
@@ -569,7 +609,7 @@ export default function ProcessListPage() {
       setCurrencyPillDisplayOrder(next);
       await persistOrderedCompanyCurrencies(next);
     },
-    [currencyPillCodes, persistOrderedCompanyCurrencies]
+    [currencyPillCodes, persistOrderedCompanyCurrencies, processMutationsBlocked]
   );
 
   useEffect(() => {
@@ -667,6 +707,10 @@ export default function ProcessListPage() {
   }, [switchingCompany]);
 
   const openAdd = () => {
+    if (processMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     setEditMode(false);
     setForm({ ...EMPTY_FORM, existingProcesses });
     setDescriptionPickerOpen(false);
@@ -679,6 +723,10 @@ export default function ProcessListPage() {
   };
 
   const openEdit = async (id) => {
+    if (processMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
       url.searchParams.set("action", "get_process");
@@ -754,6 +802,10 @@ export default function ProcessListPage() {
 
   const submitForm = async (event) => {
     event.preventDefault();
+    if (processMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     if (!form.selected_descriptions || form.selected_descriptions.length === 0) {
       notify(t("needAtLeastOneDescription"), "danger");
       return;
@@ -861,11 +913,20 @@ export default function ProcessListPage() {
   };
 
   const deleteSelected = () => {
+    if (processMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     if (!selectedIds.size) return;
     setDeleteConfirmOpen(true);
   };
 
   const confirmDeleteProcesses = async () => {
+    if (processMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      setDeleteConfirmOpen(false);
+      return;
+    }
     if (!selectedIds.size) {
       setDeleteConfirmOpen(false);
       return;
@@ -897,6 +958,10 @@ export default function ProcessListPage() {
   };
 
   const toggleStatus = async (row) => {
+    if (processMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     if (!row?.id) return;
     try {
       const fd = new FormData();
@@ -1018,12 +1083,12 @@ export default function ProcessListPage() {
                 type="button"
                 className="btn btn-delete"
                 id="processDeleteSelectedBtn"
-                disabled={!selectedIds.size}
+                disabled={!selectedIds.size || processMutationsBlocked}
                 onClick={deleteSelected}
               >
                 {selectedIds.size ? t("deleteWithCount", { count: selectedIds.size }) : t("delete")}
               </button>
-              <button type="button" className="btn btn-add" onClick={openAdd}>
+              <button type="button" className="btn btn-add" disabled={processMutationsBlocked} onClick={openAdd}>
                 <AddProcessIcon />
                 {t("addProcess")}
               </button>
@@ -1095,15 +1160,21 @@ export default function ProcessListPage() {
                       <button
                         key={code}
                         type="button"
-                        draggable
+                        draggable={!processMutationsBlocked}
                         title={t("currencyDragHint")}
                         className={`user-gc-segment user-gc-segment--draggable-pill${currencyFilterCode === code ? " is-on" : ""}`}
                         onDragStart={(e) => {
+                          if (processMutationsBlocked) return;
                           e.dataTransfer.setData("text/plain", code);
                           e.dataTransfer.effectAllowed = "move";
                         }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => { void onCurrencyPillDrop(e, code); }}
+                        onDragOver={(e) => {
+                          if (!processMutationsBlocked) e.preventDefault();
+                        }}
+                        onDrop={(e) => {
+                          if (processMutationsBlocked) return;
+                          void onCurrencyPillDrop(e, code);
+                        }}
                         onClick={() => {
                           if (skipNextCurrencyPillClickRef.current) {
                             skipNextCurrencyPillClickRef.current = false;
@@ -1134,6 +1205,7 @@ export default function ProcessListPage() {
           openEdit={openEdit}
           toggleSelectId={toggleSelectId}
           toggleSelectAll={toggleSelectAll}
+          mutationsBlocked={processMutationsBlocked}
           t={t}
         />
 
@@ -1164,6 +1236,7 @@ export default function ProcessListPage() {
           setForm={setForm}
           currencies={currencies}
           days={days}
+          readOnly={processMutationsBlocked}
           onClose={() => {
             setDescriptionPickerOpen(false);
             setModalOpen(false);
@@ -1178,6 +1251,7 @@ export default function ProcessListPage() {
         <DescriptionPickerModal
           descriptions={descriptions}
           form={form}
+          readOnly={processMutationsBlocked}
           onConfirm={confirmDescriptionSelection}
           onClose={() => setDescriptionPickerOpen(false)}
           onAddDescription={handleAddDescription}
@@ -1190,6 +1264,7 @@ export default function ProcessListPage() {
         open={deleteConfirmOpen}
         count={selectedIds.size}
         deleting={deleteSubmitting}
+        confirmDisabled={processMutationsBlocked}
         onCancel={() => !deleteSubmitting && setDeleteConfirmOpen(false)}
         onConfirm={confirmDeleteProcesses}
         t={t}
