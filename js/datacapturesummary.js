@@ -1,4 +1,11 @@
 
+// Resolve API URLs from site root (SPA-safe when pathname is /datacapturesummary)
+function buildApiUrl(pathAndQuery) {
+    const pathname = window.location.pathname || '/';
+    const basePath = pathname.replace(/[^/]*$/, '') || '/';
+    const base = window.location.origin + basePath;
+    return new URL(pathAndQuery, base).href;
+}
 
 // Notification functions
 function showNotification(title, message, type = 'success') {
@@ -80,21 +87,57 @@ function hideNotification() {
 }
 
 
-// Initialize page
-document.addEventListener('DOMContentLoaded', function () {
+// Initialize page (classic PHP auto-runs unless __DATACAPTURESUMMARY_SPA_BOOTSTRAP__ is set)
+function initDataCaptureSummaryPage() {
+    const summaryShell = document.querySelector('.container');
+    if (!summaryShell || summaryShell.dataset.summaryPageInit === '1') return;
+    summaryShell.dataset.summaryPageInit = '1';
     try {
-        // 确保页面可以滚动（覆盖 accountCSS.css 中的 overflow: hidden）
         document.body.style.overflowY = 'auto';
         document.body.style.height = 'auto';
 
-        // 确保隐藏任何可能存在的 company 按钮（此页面不需要 company 按钮）
-        // 因为 company 是根据 process 自动计算的
         const companyFilter = document.getElementById('data-capture-summary-company-filter');
         if (companyFilter) {
             companyFilter.style.display = 'none';
         }
 
-        // Pre-load account list so Account column shows [name] only for upline/member/agent when table is built
+        const rateInput = document.getElementById('rateInput');
+        if (rateInput) {
+            rateInput.addEventListener('input', function () {
+                recalculateAllRowsWithRate();
+            });
+        }
+
+        document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
+            radio.addEventListener('change', function () {
+                toggleAlertFields('add');
+            });
+        });
+
+        ['add_account_id', 'add_name', 'add_remark', 'addCurrencyInput'].forEach(inputId => {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.addEventListener('input', function () {
+                    forceUppercase(this);
+                });
+                input.addEventListener('paste', function () {
+                    setTimeout(() => forceUppercase(this), 0);
+                });
+            }
+        });
+
+        const addCurrencyInputEl = document.getElementById('addCurrencyInput');
+        if (addCurrencyInputEl) {
+            addCurrencyInputEl.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addCurrencyFromInput('add');
+                }
+            });
+        }
+
+        bindSummaryAddAccountFormSubmitOnce();
+
         if (typeof fetchSummaryAccountList === 'function') {
             fetchSummaryAccountList().then(function (accounts) {
                 if (accounts && accounts.length) {
@@ -104,33 +147,27 @@ document.addEventListener('DOMContentLoaded', function () {
             }).catch(function () { });
         }
 
-        // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
         window.__summaryFreshFromCapture = urlParams.get('success') === '1';
         if (urlParams.get('success') === '1') {
             showNotification('Success', 'Data captured and summary generated successfully!', 'success');
-            // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
         } else if (urlParams.get('error') === '1') {
             showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
-            // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-        // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
-        // IMPORTANT: 必须在 __summaryFreshFromCapture 设置后执行，避免首屏误走旧缓存恢复分支。
         loadAndRenderCapturedTable().catch(function (e) {
             console.warn('loadAndRenderCapturedTable error:', e);
             hideLoadingState();
             showEmptyState();
         });
     } catch (error) {
-        console.error('Error in DOMContentLoaded:', error);
-        // Ensure loading state is hidden even if there's an error
+        console.error('Error in initDataCaptureSummaryPage:', error);
         hideLoadingState();
         showEmptyState();
     }
-});
+}
 
 // 从 bfcache 返回（浏览器后退等）时 DOM 不会重新跑 DOMContentLoaded，页脚合计可能仍为旧值；此处按当前表格强制对齐
 window.addEventListener('pageshow', function (ev) {
@@ -150,6 +187,15 @@ window.addEventListener('pageshow', function (ev) {
         }
     }
 });
+
+window.initDataCaptureSummaryPage = initDataCaptureSummaryPage;
+if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => initDataCaptureSummaryPage());
+    } else {
+        initDataCaptureSummaryPage();
+    }
+}
 
 // Save rate values on browser refresh (F5); do not save when leaving via Back or Submit
 window.addEventListener('beforeunload', function () {
@@ -731,7 +777,7 @@ function fetchSummaryStateFromServer(processId, processCode) {
     if (processCode != null && processCode !== '') params.set('process_code', String(processCode));
     const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null)
     if (currentCompanyId != null && String(currentCompanyId).trim() !== '') params.set('company_id', String(currentCompanyId))
-    const url = base + (base.indexOf('?') >= 0 ? '&' : '?') + params.toString();
+    const url = buildApiUrl(base + '&' + params.toString());
     return fetch(url, { credentials: 'same-origin' })
         .then(function (res) { return res.json(); })
         .then(function (json) {
@@ -749,7 +795,7 @@ function saveSummaryStateToServer(payload) {
     // - 同时显式带上 credentials，避免部分环境下 Cookie 未发送导致后端识别成未授权
     const baseUrl = 'api/datacapture_summary/summary_api.php?action=save_summary_state'
     const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null)
-    const url = currentCompanyId ? `${baseUrl}&company_id=${encodeURIComponent(String(currentCompanyId))}` : baseUrl
+    const url = buildApiUrl(currentCompanyId ? `${baseUrl}&company_id=${encodeURIComponent(String(currentCompanyId))}` : baseUrl)
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1261,7 +1307,7 @@ function goBackToDataCapture() {
     if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
     if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
-    window.location.href = 'datacapture.php?restore=1';
+    window.location.href = buildApiUrl('datacapture?restore=1');
 }
 
 // Refresh page function: save rate values and formula/source so they are restored after reload
@@ -3005,18 +3051,6 @@ function submitRateValues() {
     }
 }
 
-// Add event listener for rateInput changes
-document.addEventListener('DOMContentLoaded', function () {
-    // Add event listener for rateInput changes
-    const rateInput = document.getElementById('rateInput');
-    if (rateInput) {
-        rateInput.addEventListener('input', function () {
-            recalculateAllRowsWithRate();
-        });
-    }
-});
-
-// ==================== Helper Functions for Account Custom Select ====================
 function getAccountId(buttonElement) {
     if (!buttonElement) return '';
     return buttonElement.getAttribute('data-value') || '';
@@ -3255,7 +3289,7 @@ async function loadFormData() {
         const url = 'api/datacapture_summary/summary_api.php';
         const finalUrl = currentCompanyId ? `${url}?company_id=${currentCompanyId}` : url;
 
-        const response = await fetch(finalUrl);
+        const response = await fetch(buildApiUrl(finalUrl));
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -3391,7 +3425,7 @@ async function loadCurrenciesForAccount(accountId, preferredCurrency) {
         const url = `api/accounts/account_currency_api.php?action=get_account_currencies&account_id=${accountId}`;
         const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
 
-        const response = await fetch(finalUrl);
+        const response = await fetch(buildApiUrl(finalUrl));
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -3621,7 +3655,7 @@ function disableUsedAccountsInCustomSelect(optionsContainer, allowAccountId = nu
 // Load currencies and roles for edit modal
 async function loadEditData() {
     try {
-        const response = await fetch('api/editdata/editdata_api.php');
+        const response = await fetch(buildApiUrl('api/editdata/editdata_api.php'));
         const result = await response.json();
 
         if (result.success && result.data) {
@@ -4384,7 +4418,7 @@ async function loadAccountCurrencies(accountId, type) {
         const url = accountId
             ? `api/accounts/account_currency_api.php?action=get_available_currencies&account_id=${accountId}`
             : `api/accounts/account_currency_api.php?action=get_available_currencies`;
-        const response = await fetch(url);
+        const response = await fetch(buildApiUrl(url));
         const result = await response.json();
 
         if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
@@ -4499,7 +4533,7 @@ async function deleteCurrencyPermanently(currencyId, currencyCode, itemElement) 
 
     console.log('User confirmed deletion, sending request to api/accounts/delete_currency_api.php...');
     try {
-        const response = await fetch('api/accounts/delete_currency_api.php', {
+        const response = await fetch(buildApiUrl('api/accounts/delete_currency_api.php'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -4581,7 +4615,7 @@ async function deleteAccountCurrency(accountId, currencyId, currencyCode, type, 
         }
 
         try {
-            const response = await fetch(`api/accounts/account_currency_api.php?action=remove_currency`, {
+            const response = await fetch(buildApiUrl(`api/accounts/account_currency_api.php?action=remove_currency`), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -4656,7 +4690,7 @@ async function toggleAccountCurrency(accountId, currencyId, currencyCode, type, 
 
     try {
         const action = isChecked ? 'add_currency' : 'remove_currency';
-        const response = await fetch(`api/accounts/account_currency_api.php?action=${action}`, {
+        const response = await fetch(buildApiUrl(`api/accounts/account_currency_api.php?action=${action}`), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -4721,7 +4755,7 @@ async function loadAccountCompanies(accountId, type) {
         const url = accountId
             ? `api/accounts/account_company_api.php?action=get_available_companies&account_id=${accountId}`
             : `api/accounts/account_company_api.php?action=get_available_companies`;
-        const response = await fetch(url);
+        const response = await fetch(buildApiUrl(url));
         const result = await response.json();
 
         if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
@@ -4887,7 +4921,7 @@ async function addCurrencyFromInput(type, event) {
     try {
         // 创建新货币 - 包含当前选择的 company_id
         const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-        const response = await fetch('api/accounts/addcurrencyapi.php', {
+        const response = await fetch(buildApiUrl('api/accounts/addcurrencyapi.php'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -4914,7 +4948,7 @@ async function addCurrencyFromInput(type, event) {
             // 如果是编辑模式且账户已存在，自动关联新货币到账户
             if (type === 'edit' && accountId) {
                 try {
-                    const linkResponse = await fetch('api/accounts/account_currency_api.php?action=add_currency', {
+                    const linkResponse = await fetch(buildApiUrl('api/accounts/account_currency_api.php?action=add_currency'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -4954,9 +4988,11 @@ async function addCurrencyFromInput(type, event) {
 }
 
 
-// Handle add form submission
-const addAccountForm = document.getElementById('addAccountForm');
-if (addAccountForm) {
+// Handle add form submission (bound from initDataCaptureSummaryPage for SPA)
+function bindSummaryAddAccountFormSubmitOnce() {
+    const addAccountForm = document.getElementById('addAccountForm');
+    if (!addAccountForm || addAccountForm.dataset.summarySubmitBound === '1') return;
+    addAccountForm.dataset.summarySubmitBound = '1';
     addAccountForm.addEventListener('submit', async function (e) {
         e.preventDefault();
 
@@ -4998,7 +5034,7 @@ if (addAccountForm) {
         }
 
         try {
-            const response = await fetch('api/accounts/addaccountapi.php', {
+            const response = await fetch(buildApiUrl('api/accounts/addaccountapi.php'), {
                 method: 'POST',
                 body: formData
             });
@@ -5016,7 +5052,7 @@ if (addAccountForm) {
                     try {
                         // 批量关联货币
                         const currencyPromises = selectedCurrencyIdsForAdd.map(currencyId =>
-                            fetch('api/accounts/account_currency_api.php?action=add_currency', {
+                            fetch(buildApiUrl('api/accounts/account_currency_api.php?action=add_currency'), {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -5046,7 +5082,7 @@ if (addAccountForm) {
                     try {
                         // 批量关联公司
                         const companyPromises = selectedCompanyIdsForAdd.map(companyId =>
-                            fetch('api/accounts/account_company_api.php?action=add_company', {
+                            fetch(buildApiUrl('api/accounts/account_company_api.php?action=add_company'), {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -5092,8 +5128,8 @@ if (addAccountForm) {
 
                 // 重置选中的货币列表，保留当前公司
                 selectedCurrencyIdsForAdd = [];
-                const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-                selectedCompanyIdsForAdd = currentCompanyId ? [currentCompanyId] : [];
+                const currentCompanyId2 = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
+                selectedCompanyIdsForAdd = currentCompanyId2 ? [currentCompanyId2] : [];
                 closeAddModal();
                 // 刷新账户列表并自动选中新添加的账户（如果 edit formula modal 打开）
                 await refreshAccountList(newAccountId);
@@ -5106,51 +5142,6 @@ if (addAccountForm) {
         }
     });
 }
-
-// Add event listeners for payment alert radio buttons and uppercase conversion
-document.addEventListener('DOMContentLoaded', function () {
-    // Add event listeners for payment alert radio buttons
-    document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
-        radio.addEventListener('change', function () {
-            toggleAlertFields('add');
-        });
-    });
-
-    // Add uppercase conversion for account fields
-    const uppercaseInputs = [
-        'add_account_id',
-        'add_name',
-        'add_remark',
-        'addCurrencyInput'
-    ];
-
-    uppercaseInputs.forEach(inputId => {
-        const input = document.getElementById(inputId);
-        if (input) {
-            input.addEventListener('input', function () {
-                forceUppercase(this);
-            });
-
-            input.addEventListener('paste', function () {
-                setTimeout(() => forceUppercase(this), 0);
-            });
-        }
-    });
-
-    // Handle Enter key in currency input
-    const addCurrencyInput = document.getElementById('addCurrencyInput');
-    if (addCurrencyInput) {
-        addCurrencyInput.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                addCurrencyFromInput('add');
-            }
-        });
-    }
-});
-
-
-// Add input validation for Source Percent
 function addSourcePercentValidation() {
     const sourcePercentInput = document.getElementById('sourcePercent');
     if (sourcePercentInput) {
@@ -7728,7 +7719,7 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
         const url = 'api/datacapture_summary/summary_api.php?action=save_template';
         const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
 
-        const response = await fetch(finalUrl, {
+        const response = await fetch(buildApiUrl(finalUrl), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -7981,7 +7972,7 @@ async function deleteTemplateAsync(templateKey, productType, templateId = null, 
         const url = 'api/datacapture_summary/summary_api.php?action=delete_template';
         const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
 
-        const response = await fetch(finalUrl, {
+        const response = await fetch(buildApiUrl(finalUrl), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -15654,7 +15645,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         if (captureIdForTemplates != null && !isNaN(captureIdForTemplates) && captureIdForTemplates > 0) {
             bodyPayload.captureId = captureIdForTemplates;
         }
-        const response = await fetch(finalUrl, {
+        const response = await fetch(buildApiUrl(finalUrl), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -19320,7 +19311,7 @@ function updateIdProductWithDescription(processValue, descriptionValue, targetRo
 
 // Show empty state when no data is available
 function showEmptyState() {
-    // Create a new container for the empty state message
+    const dcHref = buildApiUrl('datacapture');
     const emptyStateHTML = `
         <div class="summary-table-container empty-state-container">
             <div class="table-header">
@@ -19328,7 +19319,7 @@ function showEmptyState() {
             </div>
             <div class="empty-state">
                 <p>No captured data found. Please go back to the Data Capture page and submit some data first.</p>
-                <button onclick="window.location.href='datacapture.php'" class="btn btn-save">Go to Data Capture</button>
+                <a href="${dcHref.replace(/"/g, '&quot;')}" class="btn btn-save">Go to Data Capture</a>
             </div>
         </div>
     `;
@@ -20383,7 +20374,7 @@ async function submitSummaryData() {
             const url = 'api/datacapture_summary/summary_api.php?action=submit';
             const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
 
-            const response = await fetch(finalUrl, {
+            const response = await fetch(buildApiUrl(finalUrl), {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -20462,7 +20453,7 @@ async function submitSummaryData() {
                     try { localStorage.removeItem('capturedCaptureId'); } catch (e) { }
                     localStorage.removeItem('capturedTableData');
                     localStorage.removeItem('capturedProcessData');
-                    window.location.href = 'datacapture.php?submitted=1';
+                    window.location.href = buildApiUrl('datacapture?submitted=1');
                 }, 600);
                 return;
             }
@@ -20627,7 +20618,7 @@ async function submitSummaryData() {
                         formData.append('company_id', currentCompanyId);
                     }
 
-                    await fetch('api/processes/submitted_processes_api.php', { method: 'POST', body: formData });
+                    await fetch(buildApiUrl('api/processes/submitted_processes_api.php'), { method: 'POST', body: formData });
                 }
             } catch (e) {
                 console.warn('Failed to record submitted process:', e);
@@ -20649,7 +20640,7 @@ async function submitSummaryData() {
                 localStorage.removeItem('capturedProcessData');
 
                 // Redirect to data capture page
-                window.location.href = 'datacapture.php?submitted=1';
+                window.location.href = buildApiUrl('datacapture?submitted=1');
             }, 2000);
         }
 
@@ -20766,9 +20757,9 @@ function getAccountIdByAccountText(accountText, accountListCache) {
 // Fetch accounts for current company (for Submit fallback when row has no data-account-id).
 async function fetchSummaryAccountList() {
     try {
-        const url = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' && window.DATACAPTURESUMMARY_COMPANY_ID)
-            ? 'api/datacapture_summary/summary_api.php?company_id=' + window.DATACAPTURESUMMARY_COMPANY_ID
-            : 'api/datacapture_summary/summary_api.php';
+        const url = buildApiUrl((typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' && window.DATACAPTURESUMMARY_COMPANY_ID)
+            ? 'api/datacapture_summary/summary_api.php?company_id=' + encodeURIComponent(String(window.DATACAPTURESUMMARY_COMPANY_ID))
+            : 'api/datacapture_summary/summary_api.php');
         const res = await fetch(url);
         const data = await res.json();
         return (data.success && data.accounts) ? data.accounts : [];
@@ -20817,3 +20808,12 @@ document.addEventListener('keydown', function (event) {
         }
     }
 });
+
+window.initDataCaptureSummaryPage = initDataCaptureSummaryPage;
+if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => initDataCaptureSummaryPage());
+    } else {
+        initDataCaptureSummaryPage();
+    }
+}
