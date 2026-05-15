@@ -3,7 +3,7 @@ import { useMemo } from "react";
 export function useSummaryTableColumns({
   accountOptions,
   currencyOptions,
-  openAddModal,
+  openAddModalForRow,
   setSummaryRows,
   computeProcessedAmounts,
   formatAmountDisplay,
@@ -26,41 +26,43 @@ export function useSummaryTableColumns({
       {
         id: "account",
         header: "Account",
+        meta: { className: "summary-account-cell" },
         cell: ({ row }) => (
-          <select
-            value={row.original.accountId ?? ""}
-            onChange={(e) => {
-              const selected = accountOptions.find((a) => String(a.id) === e.target.value);
-              setSummaryRows((prev) =>
-                prev.map((item) =>
-                  item.id === row.original.id
-                    ? {
-                        ...item,
-                        accountId: selected?.id ?? null,
-                        account: selected ? `${selected.account_id}${selected.name ? ` (${selected.name})` : ""}` : "",
-                      }
-                    : item,
-                ),
-              );
-            }}
-          >
-            <option value="">Select Account</option>
-            {accountOptions.map((acc) => (
-              <option key={acc.id} value={acc.id}>
-                {acc.account_id}
-                {acc.name ? ` (${acc.name})` : ""}
-              </option>
-            ))}
-          </select>
-        ),
-      },
-      {
-        id: "addAccount",
-        header: "",
-        cell: () => (
-          <button className="add-account-btn" type="button" onClick={openAddModal}>
-            +
-          </button>
+          <div className="account-select-with-buttons summary-account-inline">
+            <select
+              value={row.original.accountId ?? ""}
+              onChange={(e) => {
+                const selected = accountOptions.find((a) => String(a.id) === e.target.value);
+                setSummaryRows((prev) =>
+                  prev.map((item) =>
+                    item.id === row.original.id
+                      ? {
+                          ...item,
+                          accountId: selected?.id ?? null,
+                          account: selected ? `${selected.account_id}${selected.name ? ` (${selected.name})` : ""}` : "",
+                        }
+                      : item,
+                  ),
+                );
+              }}
+            >
+              <option value="">Select Account</option>
+              {accountOptions.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.account_id}
+                  {acc.name ? ` (${acc.name})` : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="account-add-btn"
+              title="Add New Account"
+              onClick={() => openAddModalForRow(row.original.id)}
+            >
+              +
+            </button>
+          </div>
         ),
       },
       {
@@ -203,6 +205,6 @@ export function useSummaryTableColumns({
         ),
       },
     ],
-    [accountOptions, computeProcessedAmounts, currencyOptions, formatAmountDisplay, openAddModal, setSummaryRows],
+    [accountOptions, computeProcessedAmounts, currencyOptions, formatAmountDisplay, openAddModalForRow, setSummaryRows],
   );
 }

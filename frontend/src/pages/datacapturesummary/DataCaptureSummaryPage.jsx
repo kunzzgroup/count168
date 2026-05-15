@@ -21,6 +21,8 @@ export default function DataCaptureSummaryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const deleteCallbackRef = useRef(null);
+  /** Row that opened Add Account from summary table (same as PHP: new account applies to that row). */
+  const addAccountTargetSummaryRowIdRef = useRef(null);
 
   const [companyId, setCompanyId] = useState(null);
   const [notification, setNotification] = useState({
@@ -203,16 +205,22 @@ export default function DataCaptureSummaryPage() {
   }, []);
 
   const closeAddModal = useCallback(() => {
+    addAccountTargetSummaryRowIdRef.current = null;
     setAddModalVisible(false);
     setAddCurrencyInput("");
     setSelectedCurrencyIds([]);
     setSelectedCompanyIdsForAdd([]);
   }, []);
 
-  const openAddModal = useCallback(() => {
-    setAddModalVisible(true);
-    loadCompanyPickOptions();
-  }, [loadCompanyPickOptions]);
+  const openAddModalForRow = useCallback(
+    (summaryRowId) => {
+      addAccountTargetSummaryRowIdRef.current = summaryRowId;
+      if (companyId) setSelectedCompanyIdsForAdd([companyId]);
+      setAddModalVisible(true);
+      loadCompanyPickOptions();
+    },
+    [companyId, loadCompanyPickOptions],
+  );
 
   useSummaryServerState({
     enabled: contentVisible && !emptyVisible && summaryRows.length > 0,
@@ -291,6 +299,24 @@ export default function DataCaptureSummaryPage() {
         const optJson = await optRes.json();
         if (optJson?.success && Array.isArray(optJson.accounts)) {
           setAccountOptions(optJson.accounts);
+          const targetRowId = addAccountTargetSummaryRowIdRef.current;
+          addAccountTargetSummaryRowIdRef.current = null;
+          if (newAccountId != null && targetRowId != null) {
+            const acc = optJson.accounts.find((a) => Number(a.id) === Number(newAccountId));
+            if (acc) {
+              setSummaryRows((prev) =>
+                prev.map((item) =>
+                  item.id === targetRowId
+                    ? {
+                        ...item,
+                        accountId: acc.id,
+                        account: `${acc.account_id}${acc.name ? ` (${acc.name})` : ""}`,
+                      }
+                    : item,
+                ),
+              );
+            }
+          }
         }
 
         showNotification("Success", "Account added successfully!", "success");
@@ -313,7 +339,7 @@ export default function DataCaptureSummaryPage() {
         showNotification("Error", error?.message || "Failed to add account", "error");
       }
     },
-    [addForm, companyId, selectedCompanyIdsForAdd, selectedCurrencyIds, showNotification],
+    [addForm, companyId, selectedCompanyIdsForAdd, selectedCurrencyIds, setSummaryRows, showNotification],
   );
 
   const addCurrencyFromInput = useCallback(async () => {
@@ -421,7 +447,7 @@ export default function DataCaptureSummaryPage() {
   const summaryColumns = useSummaryTableColumns({
     accountOptions,
     currencyOptions,
-    openAddModal,
+    openAddModalForRow,
     setSummaryRows,
     computeProcessedAmounts,
     formatAmountDisplay,
@@ -530,7 +556,7 @@ export default function DataCaptureSummaryPage() {
                 </tbody>
                 <tfoot>
                   <tr id="summaryTotalRow">
-                    <td colSpan="8" className="summary-total-label" />
+                    <td colSpan="7" className="summary-total-label" />
                     <td id="summaryTotalAmount" style={{ color: submitState.canSubmit ? "#0D60FF" : "#A91215" }}>{formatAmountDisplay(summaryTotal)}</td>
                     <td />
                     <td />
