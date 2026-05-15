@@ -2599,7 +2599,7 @@ body.transaction-page .transaction-add-section .custom-select-button:focus-visib
 
 body.transaction-page .transaction-add-section .custom-select-dropdown,
 body.transaction-page .transaction-add-section .custom-select-search {
-    background: #f2f2f2ad;
+    background: #f6f6f6;
 }
 
 body.transaction-page .transaction-add-section .custom-select-search input {

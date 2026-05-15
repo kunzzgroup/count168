@@ -43,14 +43,14 @@ body.dashboard-page.report-page .customer-report-filter-container .report-gc-inl
 .customer-report-filters {
     display: flex;
     gap: clamp(12px, 1.25vw, 24px);
-    align-items: flex-end;
+    align-items: flex-start;
     flex-wrap: wrap;
 }
 
 /* Quick Select 与 Show All 成组，间距缩小 */
 .customer-report-quick-and-showall {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: clamp(8px, 0.8vw, 16px);
     flex: 0 0 auto;
 }
@@ -80,12 +80,17 @@ body.dashboard-page.report-page .customer-report-filters .report-outlined-inner 
     width: 100%;
 }
 
+/* Account 下拉与 Date Range 同一行：统一 outlined 内控件高度，避免 flex-end 造成顶边错位 */
+body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .custom-select-button {
+    min-height: clamp(32px, 2.25vw, 36px);
+}
+
 body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker {
     min-width: 0 !important;
     width: 100%;
     max-width: 100%;
-    min-height: clamp(38px, 2.45vw, 40px) !important;
-    padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
+    min-height: clamp(32px, 2.25vw, 36px) !important;
+    padding: clamp(4px, 0.3vw, 6px) clamp(8px, 0.75vw, 12px) clamp(4px, 0.3vw, 6px) 0;
     border-radius: clamp(5px, 0.42vw, 7px);
     background: #ffffff !important;
     box-shadow: none !important;
@@ -155,7 +160,7 @@ body.dashboard-page.report-page .customer-report-filters .report-outlined-inner 
     color: #000;
     font-family: var(--font-heading-page);
     transition: all 0.2s;
-    min-height: clamp(26px, 2.2vw, 32px);
+    min-height: clamp(32px, 2.25vw, 36px);
     box-sizing: border-box;
 }
 
