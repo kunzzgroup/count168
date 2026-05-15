@@ -640,9 +640,9 @@
 /* 添加active状态样式 */
 .informationmenu-section-title.current-page {
     background: var(--sidebar-active-bg, #0e93f3);
-    color: white;
-    transform: translateX(5px);
-    box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4);
+    color: #fff;
+    transform: translate(5px);
+    box-shadow: 0 4px 20px #4facfe66;
 }
 
 .informationmenu-section-title.current-page::before {

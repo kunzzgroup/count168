@@ -512,7 +512,7 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: clamp(4px, 0.42vw, 8px);
+    gap: clamp(4px, 0.42vw, 4px);
 }
 
 .replace-word-fields input {

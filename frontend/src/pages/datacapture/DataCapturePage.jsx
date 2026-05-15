@@ -284,7 +284,6 @@ export default function DataCapturePage() {
           alignItems: "center",
           justifyContent: "space-between",
           marginBottom: 20,
-          marginTop: 20,
         }}
       >
         <h1 style={{ margin: 0 }}>Data Capture</h1>
