@@ -2386,7 +2386,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page .modal .day-use-pill-row .user-gc-segment-group .user-gc-segment {
     flex: 1 1 0;
     min-width: 0;
-    padding: 4px clamp(10px, 1.2vw, 16px);
+    padding: 8px clamp(10px, 1.2vw, 18px);
     font-size: var(--text-medium) !important;
     font-weight: var(--font-weight-semibold) !important;
 }

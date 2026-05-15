@@ -82,7 +82,7 @@
     .user-gc-segment {
         font-size: var(--text-medium) !important;
         font-weight: var(--font-weight-semibold) !important;
-        padding: 4px clamp(10px, 1.2vw, 18px) !important;
+        padding: 8px clamp(10px, 1.2vw, 18px) !important;
     }
 
     body.ec-auth-shell.user-page #userModal .user-modal-company-open-btn {

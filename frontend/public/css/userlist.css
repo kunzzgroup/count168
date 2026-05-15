@@ -226,7 +226,7 @@ body.maintenance-page .user-gc-segment,
 body.process-page .user-gc-segment,
 body.report-page .user-gc-segment {
     margin: 0;
-    padding: 4px clamp(10px, 1.2vw, 18px);
+    padding: 8px clamp(10px, 1.2vw, 18px);
     border: none;
     border-right: 1px solid var(--color-border, #e5e7eb);
     background: var(--color-surface, #ffffff);
