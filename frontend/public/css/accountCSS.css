@@ -1464,6 +1464,23 @@ body.account-page:not(.account-page--show-all) .account-card {
     cursor: not-allowed;
 }
 
+/* 覆盖「Other Currency」行的通用规则：Company 块内摘要须在标签+按钮下方，不得横向并排 */
+#account-addModal .account-other-currency--company > .account-modal-company-field,
+#account-editModal .account-other-currency--company > .account-modal-company-field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+    gap: 0;
+}
+
+#account-addModal .account-other-currency--company > .account-modal-company-field .user-modal-company-summary,
+#account-editModal .account-other-currency--company > .account-modal-company-field .user-modal-company-summary {
+    width: 100%;
+    box-sizing: border-box;
+}
+
 #account-addModal .account-other-currency label,
 #account-editModal .account-other-currency label {
     flex-shrink: 0;
