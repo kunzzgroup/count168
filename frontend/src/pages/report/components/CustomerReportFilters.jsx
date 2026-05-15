@@ -20,7 +20,6 @@ export default function CustomerReportFilters({
   dateFrom,
   dateTo,
   onRangeChange,
-  quickRangeToDates,
   showAll,
   setShowAll,
   currencyList,
@@ -58,6 +57,11 @@ export default function CustomerReportFilters({
     const found = accounts.find(a => String(a.id) === String(accountId));
     return found ? (found.display_text || `${found.account_id} - ${found.name}`) : t("allAccounts");
   }, [accounts, accountId, t]);
+
+  const periodPresets = useMemo(
+    () => QUICK_RANGE_KEYS.map((key) => ({ key, label: t(key) })),
+    [t],
+  );
 
   return (
     <div className="customer-report-filter-container">
@@ -128,40 +132,12 @@ export default function CustomerReportFilters({
           placeholder={t("selectDateRange")}
           selectEndDateHint={t("selectEndDate")}
           outlinedFloatingLabel
+          captureDateStyle
+          periodPresets={periodPresets}
+          periodShortcutsAria={t("periodShortcutsAria")}
         />
 
-        {/* Quick Select & Show All */}
         <div className="customer-report-quick-and-showall">
-          <div className="customer-report-filter-group quick-select-wrap">
-            <label className="form-label">
-              <i className="fas fa-clock" /> {t("quickSelect")}
-            </label>
-            <div className="quick-select-dropdown quick-select-dropdown-toggle">
-              <button
-                type="button"
-                className="dropdown-toggle"
-                onClick={(e) => { e.stopPropagation(); window.toggleQuickSelectDropdown?.(); }}
-              >
-                <i className="fas fa-calendar-alt" />
-                <span id="quick-select-text">{t("period")}</span>
-                <i className="fas fa-chevron-down" />
-              </button>
-              <div className="dropdown-menu" id="quick-select-dropdown">
-                {QUICK_RANGE_KEYS.map((key) => (
-                  <button key={key} type="button" className="dropdown-item" onClick={() => {
-                    if (window.selectQuickRange) {
-                      window.selectQuickRange(key);
-                      return;
-                    }
-                    const dates = quickRangeToDates(key);
-                    if (dates) onRangeChange(dates.startDate, dates.endDate);
-                  }}>
-                    {t(key)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
           <div className="customer-report-filter-group customer-report-showall-group">
             <div className="userlist-filter-chips" role="group">
               <button

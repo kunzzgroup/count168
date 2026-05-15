@@ -16,7 +16,7 @@ import {
   fetchCompanyPermissions,
   isBankOnlyCategoryCompany
 } from "./domainReportLogic.js";
-import { formatYmd, quickRangeToDates } from "../../utils/dateUtils.js";
+import { formatYmd } from "../../utils/dateUtils.js";
 import { getReportText } from "../../translateFile/reportTranslate.js";
 
 // Components
@@ -369,7 +369,6 @@ export default function DomainReportPage() {
           dateFrom={dateFrom}
           dateTo={dateTo}
           onRangeChange={(s, e) => { setDateFrom(s); setDateTo(e); }}
-          quickRangeToDates={quickRangeToDates}
           t={t}
         />
 

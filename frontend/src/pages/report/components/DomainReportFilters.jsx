@@ -25,7 +25,6 @@ export default function DomainReportFilters({
   dateFrom,
   dateTo,
   onRangeChange,
-  quickRangeToDates,
   t,
 }) {
   const [processSearch, setProcessSearch] = useState("");
@@ -57,6 +56,11 @@ export default function DomainReportFilters({
     const found = processes.find(p => String(p.id) === String(processId));
     return found ? found.display_text : t("allProcess");
   }, [processes, processId, t]);
+
+  const periodPresets = useMemo(
+    () => QUICK_RANGE_KEYS.map((key) => ({ key, label: t(key) })),
+    [t],
+  );
 
   return (
     <div className="domain-report-filter-container">
@@ -121,39 +125,10 @@ export default function DomainReportFilters({
           placeholder={t("selectDateRange")}
           selectEndDateHint={t("selectEndDate")}
           outlinedFloatingLabel
+          captureDateStyle
+          periodPresets={periodPresets}
+          periodShortcutsAria={t("periodShortcutsAria")}
         />
-
-        {/* Quick Select */}
-        <div className="domain-report-filter-group quick-select-wrap">
-          <label className="form-label">
-            <i className="fas fa-clock" /> {t("quickSelect")}
-          </label>
-          <div className="quick-select-dropdown quick-select-dropdown-toggle">
-            <button
-              type="button"
-              className="dropdown-toggle"
-              onClick={(e) => { e.stopPropagation(); window.toggleQuickSelectDropdown?.(); }}
-            >
-              <i className="fas fa-calendar-alt" />
-              <span id="quick-select-text">{t("period")}</span>
-              <i className="fas fa-chevron-down" />
-            </button>
-            <div className="dropdown-menu" id="quick-select-dropdown">
-              {QUICK_RANGE_KEYS.map((key) => (
-                <button key={key} type="button" className="dropdown-item" onClick={() => {
-                  if (window.selectQuickRange) {
-                    window.selectQuickRange(key);
-                    return;
-                  }
-                  const dates = quickRangeToDates(key);
-                  if (dates) onRangeChange(dates.startDate, dates.endDate);
-                }}>
-                  {t(key)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
       <ReportGcFilterPanel

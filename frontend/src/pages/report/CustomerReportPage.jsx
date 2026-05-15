@@ -16,7 +16,7 @@ import {
   fetchCompanyPermissions,
   isBankOnlyCategoryCompany,
 } from "./customerReportLogic.js";
-import { formatYmd, quickRangeToDates } from "../../utils/dateUtils.js";
+import { formatYmd } from "../../utils/dateUtils.js";
 import { getReportText } from "../../translateFile/reportTranslate.js";
 
 // Components
@@ -373,7 +373,6 @@ export default function CustomerReportPage() {
           dateFrom={dateFrom}
           dateTo={dateTo}
           onRangeChange={(s, e) => { setDateFrom(s); setDateTo(e); }}
-          quickRangeToDates={quickRangeToDates}
           showAll={showAll}
           setShowAll={setShowAll}
           currencyList={currencyList}
