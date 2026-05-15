@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { formatDmy, parseYmd } from "../../../utils/dateUtils.js";
+
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function ymdToDmy(ymd) {
   const d = parseYmd(ymd);
@@ -26,13 +28,34 @@ export default function ReportDatePicker({
   placeholder = "Select date range",
   selectEndDateHint = "Select end date",
   outlinedFloatingLabel = false,
+  /** Transaction-style bar: chevron, calendar popup with period presets (layout matches transaction search). */
+  captureDateStyle = false,
+  /** `{ key, label }[]` e.g. quick range keys with translated labels. Used when `captureDateStyle`. */
+  periodPresets = [],
+  /** Optional aria-label for the preset column (i18n). */
+  periodShortcutsAria = "Period shortcuts",
 }) {
+  const anchorLabelId = "report-date-range-outlined-label";
+
+  const parsedFrom = useMemo(() => parseYmd(dateFrom), [dateFrom]);
+  const initialMonthLabel = parsedFrom ? MONTH_LABELS[parsedFrom.getMonth()] : MONTH_LABELS[new Date().getMonth()];
+  const initialYearLabel = parsedFrom ? String(parsedFrom.getFullYear()) : String(new Date().getFullYear());
+  const initialMonthValue = parsedFrom ? String(parsedFrom.getMonth()) : String(new Date().getMonth());
+
   useEffect(() => {
     const fromEl = document.getElementById("date_from");
     const toEl = document.getElementById("date_to");
     if (fromEl) fromEl.value = ymdToDmy(dateFrom);
     if (toEl) toEl.value = ymdToDmy(dateTo);
   }, [dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (!window.MaintenanceDateRangePicker?.setLocaleStrings) return;
+    window.MaintenanceDateRangePicker.setLocaleStrings({
+      placeholder,
+      selectEndDateHint,
+    });
+  }, [placeholder, selectEndDateHint]);
 
   useEffect(() => {
     let disposed = false;
@@ -61,12 +84,30 @@ export default function ReportDatePicker({
     };
   }, [onRangeChange, placeholder, selectEndDateHint]);
 
-  const dateBar = (
+  const dateBar = captureDateStyle ? (
+    <div className="transaction-date-range-group">
+      <div
+        className="date-range-picker"
+        id="date-range-picker"
+        role="button"
+        tabIndex={0}
+        aria-labelledby={outlinedFloatingLabel ? anchorLabelId : undefined}
+      >
+        <i className="fas fa-calendar-alt" />
+        <span id="date-range-display">
+          {ymdToDmy(dateFrom)} - {ymdToDmy(dateTo)}
+        </span>
+        <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+      </div>
+      <input type="hidden" id="date_from" readOnly aria-hidden="true" defaultValue={ymdToDmy(dateFrom)} />
+      <input type="hidden" id="date_to" readOnly aria-hidden="true" defaultValue={ymdToDmy(dateTo)} />
+    </div>
+  ) : (
     <div
       className="date-range-picker"
       id="date-range-picker"
       {...(outlinedFloatingLabel
-        ? { role: "button", tabIndex: 0, "aria-labelledby": "report-date-range-outlined-label" }
+        ? { role: "button", tabIndex: 0, "aria-labelledby": anchorLabelId }
         : {})}
     >
       <i className="fas fa-calendar-alt" />
@@ -76,48 +117,102 @@ export default function ReportDatePicker({
     </div>
   );
 
-  const hiddenInputs = (
+  const hiddenInputsLegacy = !captureDateStyle ? (
     <>
       <input type="hidden" id="date_from" defaultValue={ymdToDmy(dateFrom)} />
       <input type="hidden" id="date_to" defaultValue={ymdToDmy(dateTo)} />
     </>
-  );
+  ) : null;
 
-  const calendarPopup = (
-    <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
+  const calendarPopup = captureDateStyle ? (
+    <div className="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style={{ display: "none" }}>
+      <div className="transaction-calendar-presets" aria-label={periodShortcutsAria}>
+        {periodPresets.map(({ key, label: plabel }) => (
+          <button
+            key={key}
+            type="button"
+            className="transaction-calendar-preset"
+            data-period-key={key}
+            aria-pressed="false"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.selectQuickRange?.(key);
+            }}
+          >
+            {plabel}
+          </button>
+        ))}
+      </div>
+      <div className="transaction-calendar-panel">
         <div className="calendar-header">
           <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
             <i className="fas fa-chevron-left" />
           </button>
           <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
-            <select id="calendar-month-select" aria-label="Month">
-              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
-                <option key={m} value={i}>{m}</option>
-              ))}
-            </select>
-            <select id="calendar-year-select" aria-label="Year" />
+            <button
+              type="button"
+              id="calendar-month-select"
+              className="calendar-month-trigger"
+              value={initialMonthValue}
+              aria-label="Month"
+            >
+              {initialMonthLabel}
+            </button>
+            <button type="button" id="calendar-year-select" className="calendar-year-trigger" value={initialYearLabel} aria-label="Year">
+              {initialYearLabel}
+            </button>
           </div>
           <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
             <i className="fas fa-chevron-right" />
           </button>
         </div>
         <div className="calendar-weekdays">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (<div key={d} className="calendar-weekday">{d}</div>))}
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+            <div key={d} className="calendar-weekday">{d}</div>
+          ))}
         </div>
         <div className="calendar-days" id="calendar-days" />
       </div>
+    </div>
+  ) : (
+    <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
+      <div className="calendar-header">
+        <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
+          <i className="fas fa-chevron-left" />
+        </button>
+        <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
+          <select id="calendar-month-select" aria-label="Month">
+            {MONTH_LABELS.map((m, i) => (
+              <option key={m} value={i}>{m}</option>
+            ))}
+          </select>
+          <select id="calendar-year-select" aria-label="Year" />
+        </div>
+        <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
+          <i className="fas fa-chevron-right" />
+        </button>
+      </div>
+      <div className="calendar-weekdays">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (<div key={d} className="calendar-weekday">{d}</div>))}
+      </div>
+      <div className="calendar-days" id="calendar-days" />
+    </div>
   );
+
+  const labelClassName = captureDateStyle
+    ? "report-outlined-label report-outlined-label--txn-capture-date"
+    : "report-outlined-label";
 
   if (outlinedFloatingLabel) {
     return (
       <div className={`report-filter-group ${containerClass} report-outlined-anchor`}>
         <div className="report-outlined-shell">
-          <span className="report-outlined-label" id="report-date-range-outlined-label">
+          <span className={labelClassName} id={anchorLabelId}>
             {label}
           </span>
           <div className="report-outlined-inner">
             {dateBar}
-            {hiddenInputs}
+            {hiddenInputsLegacy}
           </div>
         </div>
         {calendarPopup}
@@ -129,7 +224,7 @@ export default function ReportDatePicker({
     <div className={`report-filter-group ${containerClass}`}>
       <label className="maintenance-label">{label}</label>
       {dateBar}
-      {hiddenInputs}
+      {hiddenInputsLegacy}
       {calendarPopup}
     </div>
   );

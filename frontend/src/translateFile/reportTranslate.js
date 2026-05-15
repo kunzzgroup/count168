@@ -12,6 +12,7 @@ export const REPORT_I18N = {
     dateRange: "Date Range",
     selectDateRange: "Select date range",
     selectEndDate: "Select end date",
+    periodShortcutsAria: "Period shortcuts",
 
     quickSelect: "Quick Select",
     period: "Period",
@@ -68,6 +69,7 @@ export const REPORT_I18N = {
     dateRange: "日期范围",
     selectDateRange: "选择日期范围",
     selectEndDate: "选择结束日期",
+    periodShortcutsAria: "周期快捷",
 
     quickSelect: "快捷选择",
     period: "周期",
