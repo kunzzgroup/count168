@@ -255,35 +255,41 @@ body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .f
     width: 100%;
 }
 
-/* Bottom block: Replace Word full width + Remove | Remark share same column tracks as fields above */
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked:has(.dc-replace-word-field) {
-    row-gap: clamp(10px, 0.85vw, 14px);
-    /* Equal-height cells so Remark input can stretch to match Remove Word column (label + input + hint) */
+/* Bottom block: Replace Word outside the 2-col grid so Remove | Remark get equal tracks (spanning rows skew column sizing) */
+body.datacapture-page .process-form .dc-form-bottom-block {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 0.85vw, 14px);
+    margin-bottom: clamp(4px, 0.45vw, 8px);
+}
+
+body.datacapture-page .process-form .dc-form-bottom-block > .dc-form-two-col.dc-form-two-col--stacked.dc-form-two-col--tight {
+    margin-bottom: 0;
+}
+
+body.datacapture-page .process-form .dc-form-bottom-block > .dc-form-two-col.dc-form-two-col--stacked {
     align-items: stretch;
 }
 
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked:has(.dc-replace-word-field) > .dc-remove-word-field + .form-group {
+body.datacapture-page .process-form .dc-form-bottom-block > .dc-form-two-col.dc-form-two-col--stacked > .dc-remove-word-field + .form-group {
     min-height: 0;
 }
 
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked:has(.dc-replace-word-field) > .dc-remove-word-field + .form-group > input {
+body.datacapture-page .process-form .dc-form-bottom-block > .dc-form-two-col.dc-form-two-col--stacked > .dc-remove-word-field + .form-group > input {
     flex: 1 1 auto;
     min-height: 36px;
     align-self: stretch;
 }
 
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .dc-replace-word-field {
-    grid-column: 1 / -1;
-}
-
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .replace-word-group.dc-replace-word-field {
+body.datacapture-page .process-form .dc-form-bottom-block .replace-word-group.dc-replace-word-field {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: clamp(4px, 0.38vw, 6px);
+    margin-bottom: 0;
 }
 
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .replace-word-group.dc-replace-word-field > label {
+body.datacapture-page .process-form .dc-form-bottom-block .replace-word-group.dc-replace-word-field > label {
     width: auto;
     max-width: 100%;
     align-self: flex-start;
@@ -297,12 +303,12 @@ body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .r
     line-height: 1.25;
 }
 
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .replace-word-fields {
+body.datacapture-page .process-form .dc-form-bottom-block .replace-word-fields {
     width: 100%;
     min-width: 0;
 }
 
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .replace-word-fields input {
+body.datacapture-page .process-form .dc-form-bottom-block .replace-word-fields input {
     width: auto;
     flex: 1;
     min-width: 0;

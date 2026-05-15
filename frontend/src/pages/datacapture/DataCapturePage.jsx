@@ -418,7 +418,7 @@ export default function DataCapturePage() {
                 </div>
               </div>
 
-              <div className="dc-form-two-col dc-form-two-col--stacked dc-form-two-col--tight">
+              <div className="dc-form-bottom-block">
                 <div className="form-group replace-word-group dc-replace-word-field">
                   <label htmlFor="capture_replace_word_from">Replace Word</label>
                   <div className="replace-word-fields">
@@ -428,17 +428,19 @@ export default function DataCapturePage() {
                   </div>
                 </div>
 
-                <div className="form-group dc-remove-word-field">
-                  <label htmlFor="capture_remove_word">Remove Word</label>
-                  <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />
-                  <small className="field-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
-                    (Use semicolon to separate multiple words, e.g. abc;cde;efg)
-                  </small>
-                </div>
+                <div className="dc-form-two-col dc-form-two-col--stacked dc-form-two-col--tight">
+                  <div className="form-group dc-remove-word-field">
+                    <label htmlFor="capture_remove_word">Remove Word</label>
+                    <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />
+                    <small className="field-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
+                      (Use semicolon to separate multiple words, e.g. abc;cde;efg)
+                    </small>
+                  </div>
 
-                <div className="form-group">
-                  <label htmlFor="capture_remark">Remark</label>
-                  <input type="text" id="capture_remark" name="remark" placeholder="Enter remark" />
+                  <div className="form-group">
+                    <label htmlFor="capture_remark">Remark</label>
+                    <input type="text" id="capture_remark" name="remark" placeholder="Enter remark" />
+                  </div>
                 </div>
               </div>
             </form>
