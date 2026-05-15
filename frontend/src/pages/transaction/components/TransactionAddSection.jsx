@@ -235,6 +235,7 @@ export default function TransactionAddSection({
                     step="0.01"
                     id="action_amount"
                     className="transaction-input"
+                    placeholder="amount"
                     value={txAmount}
                     onChange={(e) => setTxAmount(e.target.value)}
                     aria-label="Amount"
@@ -256,6 +257,7 @@ export default function TransactionAddSection({
                     type="text"
                     id="action_sms"
                     className="transaction-input text-uppercase"
+                    placeholder="Remarks"
                     value={txRemark}
                     onChange={(e) => setTxRemark(e.target.value.toUpperCase())}
                     aria-label="Remark"
