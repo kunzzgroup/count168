@@ -371,7 +371,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                         <label class="transaction-label">Middle-Man</label>
                         <div class="rate-row rate-row-three-cols">
                             <div class="custom-select-wrapper">
-                                <button type="button" class="custom-select-button" id="rate_middleman_account" data-placeholder="--Select Account--">--Select Account--</button>
+                                <button type="button" class="custom-select-button" id="rate_middleman_account" data-placeholder="Middleman Account">Middleman Account</button>
                                 <div class="custom-select-dropdown" id="rate_middleman_account_dropdown">
                                     <div class="custom-select-search">
                                         <input type="text" placeholder="Search account..." autocomplete="off">
