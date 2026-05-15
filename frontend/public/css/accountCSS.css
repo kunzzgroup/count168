@@ -1748,7 +1748,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-btn-save {
     min-width: var(--userlist-btn-add-width);
     width: auto;
-    padding: clamp(6px, 0.42vw, 8px) 20px;
+    padding: 8px 20px;
     font-size: var(--text-medium);
     font-weight: var(--font-weight-semibold);
     font-family: var(--font-heading-page);
@@ -1771,7 +1771,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-btn-cancel {
     min-width: var(--userlist-btn-add-width);
     width: auto;
-    padding: clamp(6px, 0.42vw, 8px) 20px;
+    padding: 8px 20px;
     font-size: var(--text-medium);
     font-weight: var(--font-weight-semibold);
     font-family: var(--font-heading-page);
