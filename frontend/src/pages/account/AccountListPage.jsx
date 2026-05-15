@@ -118,13 +118,8 @@ export default function AccountListPage() {
 
   const accountModalCurrencies = useMemo(() => {
     const hidden = new Set(hiddenCurrencyIds.map(Number));
-    const visible = currencies.filter((c) => !hidden.has(Number(c.id)));
-    if (editModalOpen && isEditMode) {
-      const linked = new Set(selectedCurrencyIds.map(Number));
-      return visible.filter((c) => linked.has(Number(c.id)));
-    }
-    return visible;
-  }, [currencies, hiddenCurrencyIds, editModalOpen, isEditMode, selectedCurrencyIds]);
+    return currencies.filter((c) => !hidden.has(Number(c.id)));
+  }, [currencies, hiddenCurrencyIds]);
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
