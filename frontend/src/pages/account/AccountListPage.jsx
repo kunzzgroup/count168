@@ -623,30 +623,61 @@ export default function AccountListPage() {
     const id = Number(currencyId);
     const wasLinked = initialEditCurrencyIds.map(Number).includes(id);
 
-    setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
-    setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    const hideFromModal = () => {
+      setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+      setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    };
 
-    if (!isEditMode || !form.id || !wasLinked) return;
+    const dropCurrency = () => {
+      hideFromModal();
+      setCurrencies((prev) => prev.filter((c) => Number(c.id) !== id));
+    };
+
+    if (isEditMode && form.id && wasLinked) {
+      hideFromModal();
+      try {
+        const res = await fetch(accountCurrencyApiUrl("remove_currency"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ account_id: Number(form.id), currency_id: id }),
+          credentials: "include",
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setHiddenCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+          setSelectedCurrencyIds((prev) => (prev.map(Number).includes(id) ? prev : [...prev, id]));
+          notify(json.message || json.error || t("saveFailed"), "danger");
+          return;
+        }
+        setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+      } catch {
+        setHiddenCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+        setSelectedCurrencyIds((prev) => (prev.map(Number).includes(id) ? prev : [...prev, id]));
+        notify(t("saveFailed"), "danger");
+      }
+      return;
+    }
 
     try {
-      const res = await fetch(accountCurrencyApiUrl("remove_currency"), {
+      const res = await fetch(buildApiUrl("api/accounts/delete_currency_api.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account_id: Number(form.id), currency_id: id }),
+        body: JSON.stringify({ id }),
         credentials: "include",
       });
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        setHiddenCurrencyIds((prev) => prev.filter((x) => x !== id));
-        setSelectedCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-        notify(json.message || json.error || t("saveFailed"), "danger");
+      if (json.success) {
+        dropCurrency();
         return;
       }
-      setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+      const msg = String(json.message || json.error || "");
+      if (/being used|正在使用|Cannot delete/i.test(msg)) {
+        hideFromModal();
+        return;
+      }
+      notify(msg || t("failedDeleteCurrency"), "danger");
     } catch {
-      setHiddenCurrencyIds((prev) => prev.filter((x) => x !== id));
-      setSelectedCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-      notify(t("saveFailed"), "danger");
+      notify(t("failedDeleteCurrency"), "danger");
     }
   };
 
