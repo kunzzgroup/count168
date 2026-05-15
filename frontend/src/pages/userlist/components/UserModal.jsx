@@ -40,6 +40,7 @@ import {
   getAvailableRolesForEdit,
   roleHasReadOnlyToggle,
   canInteractWithReadOnlyToggle,
+  isUserModalPageReadOnlyLock,
 } from "../userListLogic.js";
 
 export default function UserModal({
@@ -199,6 +200,13 @@ export default function UserModal({
 
   const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
   const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
+  const pageReadOnlyLock = isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only);
+
+  useEffect(() => {
+    if (!open || !pageReadOnlyLock) return;
+    setCompanyPickerOpen(false);
+    setCompanySearchQuery("");
+  }, [open, pageReadOnlyLock]);
 
   return (
     <>
@@ -225,7 +233,7 @@ export default function UserModal({
                     <input
                       id="login_id"
                       required
-                      disabled={loginDisabled}
+                      disabled={loginDisabled || pageReadOnlyLock}
                       value={form.login_id}
                       onChange={(e) => setForm((f) => ({ ...f, login_id: e.target.value.toUpperCase() }))}
                     />
@@ -235,7 +243,7 @@ export default function UserModal({
                   <div className="form-group user-info-field password-row-container password-row-container--split">
                     <div className="password-field-wrapper">
                       <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
-                      <input id="password" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+                      <input id="password" type="password" disabled={pageReadOnlyLock} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
                     </div>
                     <div className="password-field-wrapper">
                       <label htmlFor="secondary_password">{t("secondaryPassword6Digits")}</label>
@@ -245,6 +253,7 @@ export default function UserModal({
                         maxLength={6}
                         pattern="[0-9]{6}"
                         placeholder={t("secondaryPasswordPlaceholder")}
+                        disabled={pageReadOnlyLock}
                         value={form.secondary_password}
                         onChange={(e) => setForm((f) => ({ ...f, secondary_password: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
                       />
@@ -253,17 +262,17 @@ export default function UserModal({
                 ) : (
                   <div className="form-group user-info-field">
                     <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
-                    <input id="password" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+                    <input id="password" type="password" disabled={pageReadOnlyLock} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
                   </div>
                 )}
                 <div className="user-info-field-row">
                   <div className="form-group user-info-field">
                     <label htmlFor="name">{t("nameRequired")}</label>
-                    <input id="name" required disabled={fieldLocks.name} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value.toUpperCase() }))} />
+                    <input id="name" required disabled={fieldLocks.name || pageReadOnlyLock} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value.toUpperCase() }))} />
                   </div>
                   <div className="form-group user-info-field">
                     <label htmlFor="role">{t("roleRequired")}</label>
-                    <select id="role" required disabled={roleSelectDisabled || fieldLocks.role} value={form.role} onChange={(e) => {
+                    <select id="role" required disabled={roleSelectDisabled || fieldLocks.role || pageReadOnlyLock} value={form.role} onChange={(e) => {
                       const v = e.target.value;
                       setForm((f) => ({ ...f, role: v }));
                       applyPermTemplate(v, true);
@@ -293,7 +302,7 @@ export default function UserModal({
                     autoComplete="email"
                     spellCheck={false}
                     required
-                    disabled={fieldLocks.email}
+                    disabled={fieldLocks.email || pageReadOnlyLock}
                     value={form.email}
                     onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.toLowerCase() }))}
                   />
@@ -308,7 +317,7 @@ export default function UserModal({
                         id="user-modal-company-open-btn"
                         type="button"
                         className="user-modal-company-open-btn"
-                        disabled={fieldLocks.company || !!editingRow?.is_owner_shadow}
+                        disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
                         onClick={() => {
                           setCompanySearchQuery("");
                           setCompanyPickerOpen(true);
@@ -363,7 +372,7 @@ export default function UserModal({
                         <input
                           type="checkbox"
                           className="permission-checkbox"
-                          disabled={fieldLocks.sidebar || permDisabledMap[key] || !!editingRow?.is_owner_shadow}
+                          disabled={fieldLocks.sidebar || permDisabledMap[key] || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
                           checked={permSelected.has(key)}
                           onChange={(e) => {
                             const on = e.target.checked;
@@ -404,7 +413,7 @@ export default function UserModal({
                   <button
                     type="button"
                     className="btn-secondary btn-select-all"
-                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow}
+                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
                     onClick={() => {
                       const n = new Set();
                       PERMISSION_KEYS.forEach(k => { if (!permDisabledMap[k]) n.add(k); });
@@ -414,7 +423,7 @@ export default function UserModal({
                   <button
                     type="button"
                     className="btn-clearall"
-                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow}
+                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
                     onClick={() => setPermSelected(new Set())}
                   >{t("clearAll")}</button>
                 </div>
@@ -431,7 +440,7 @@ export default function UserModal({
                         type="checkbox"
                         id={`acc-${a.id}`}
                         checked={selectedAccountIds.has(Number(a.id))}
-                        disabled={!!editingRow?.is_owner_shadow}
+                        disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
                         onChange={(e) => {
                           setSelectedAccountIds((prev) => {
                             const n = new Set(prev);
@@ -448,8 +457,8 @@ export default function UserModal({
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set(accountIdList)))}>{t("selectAll")}</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set()))}>{t("clearAll")}</button>
+                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set(accountIdList)))}>{t("selectAll")}</button>
+                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set()))}>{t("clearAll")}</button>
                 </div>
               </div>
 
@@ -462,7 +471,7 @@ export default function UserModal({
                         type="checkbox"
                         id={`proc-${p.id}`}
                         checked={selectedProcessIds.has(Number(p.id))}
-                        disabled={!!editingRow?.is_owner_shadow}
+                        disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
                         onChange={(e) => {
                           setSelectedProcessIds((prev) => {
                             const n = new Set(prev);
@@ -478,14 +487,14 @@ export default function UserModal({
                   ))}
                 </div>
                 <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}>{t("selectAll")}</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set()))}>{t("clearAll")}</button>
+                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}>{t("selectAll")}</button>
+                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set()))}>{t("clearAll")}</button>
                 </div>
               </div>
           </div>
         </div>
         <div className="user-modal-footer">
-          <button type="submit" form="userForm" className="btn btn-save">{t("save")}</button>
+          <button type="submit" form="userForm" className="btn btn-save" disabled={pageReadOnlyLock}>{t("save")}</button>
           <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
         </div>
       </div>
@@ -529,13 +538,14 @@ export default function UserModal({
                   className="user-modal-company-picker-search"
                   placeholder={t("companySearchPlaceholder")}
                   value={companySearchQuery}
+                  disabled={pageReadOnlyLock}
                   onChange={(e) => setCompanySearchQuery(e.target.value)}
                   autoComplete="off"
                 />
                 <button
                   type="button"
                   className="user-modal-company-picker-select-all"
-                  disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || modalCompanies.length === 0}
+                  disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || modalCompanies.length === 0 || pageReadOnlyLock}
                   onClick={() => {
                     setSelectedCompanyIds(modalCompanies.map((c) => Number(c.id)));
                   }}
@@ -547,7 +557,7 @@ export default function UserModal({
                 {companyPickerFiltered.map((c) => {
                   const id = Number(c.id);
                   const checked = selectedCompanyIds.includes(id);
-                  const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow;
+                  const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
                   return (
                     <li key={c.id} className="user-modal-company-picker-row">
                       <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>

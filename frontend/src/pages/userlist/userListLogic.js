@@ -62,6 +62,12 @@ export function canInteractWithReadOnlyToggle(currentUserRole, targetUserRole) {
   return false;
 }
 
+/** Edit User：Read Only 开启时整表只读（新建用户不受此锁，避免默认 read_only 卡住表单） */
+export function isUserModalPageReadOnlyLock(isEditMode, editingRow, role, readOnly) {
+  if (!isEditMode || editingRow?.is_owner_shadow) return false;
+  return roleHasReadOnlyToggle(role) && !!readOnly;
+}
+
 export function getCurrentUserRolePermissions(currentUserRole) {
   const rolePermissions = {
     owner: ["home", "admin", "account", "ownership", "process", "datacapture", "payment", "report", "maintenance"],

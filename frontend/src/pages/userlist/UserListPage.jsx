@@ -21,6 +21,7 @@ import {
   sortUsers,
   roleHasReadOnlyToggle,
   canInteractWithReadOnlyToggle,
+  isUserModalPageReadOnlyLock,
 } from "./userListLogic.js";
 
 // Components
@@ -624,6 +625,7 @@ export default function UserListPage() {
 
   const saveUser = async (e) => {
     e.preventDefault();
+    if (isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only)) return;
     if (!isEditMode && !form.password.trim()) { notify(t("passwordRequired"), "danger"); return; }
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
