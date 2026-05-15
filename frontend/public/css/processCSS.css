@@ -1826,7 +1826,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     font-family: var(--font-ui) !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
-    min-height: 3rem !important;
+    min-height: 4rem !important;
     box-sizing: border-box;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
@@ -1933,7 +1933,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     padding: 0.7rem 0.9rem;
     font-size: var(--text-small);
     font-family: var(--font-ui);
-    min-height: 3rem;
+    min-height: 4rem;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
     box-sizing: border-box;
 }
@@ -3811,7 +3811,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-family: var(--font-ui) !important;
     line-height: 1.35;
     padding: 0.7rem 0.95rem !important;
-    min-height: 3rem;
+    min-height: 4rem;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
@@ -3846,7 +3846,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 #addModal .modal-content {
     width: clamp(900px, 84vw, 1120px) !important;
     max-width: 1120px !important;
-    min-height: clamp(480px, 64vh, 640px) !important;
+    min-height: clamp(500px, 66vh, 660px) !important;
     max-height: 92vh !important;
 }
 
@@ -3898,7 +3898,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-family: var(--font-ui) !important;
     line-height: 1.35 !important;
     padding: 0.7rem 0.9rem !important;
-    min-height: 3rem !important;
+    min-height: 4rem !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
@@ -4000,7 +4000,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 #editModal .modal-content {
     width: clamp(900px, 84vw, 1120px) !important;
     max-width: 1120px !important;
-    min-height: clamp(480px, 64vh, 640px) !important;
+    min-height: clamp(500px, 66vh, 660px) !important;
     max-height: 92vh !important;
 }
 
@@ -4052,7 +4052,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-family: var(--font-ui) !important;
     line-height: 1.35 !important;
     padding: 0.7rem 0.9rem !important;
-    min-height: 3rem !important;
+    min-height: 4rem !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
