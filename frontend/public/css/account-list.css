@@ -44,15 +44,15 @@
 }
 
 #linkAccountModal .account-modal-header h2 {
-    padding: 3.25rem 0 20px 2.1875rem;
+    padding: 3.25rem 4px 20px 4px;
 }
 
 #linkAccountModal .link-account-modal-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding-left: 2.1875rem;
-    padding-right: 1.25rem;
+    padding-left: 4px;
+    padding-right: 4px;
 }
 
 /* 红框区域固定：第 1 行药丸 + 搜索对齐；第 2 行整宽说明 */
@@ -62,8 +62,8 @@
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
-    padding-left: 2.1875rem;
-    padding-right: 1.25rem;
+    padding-left: 4px;
+    padding-right: 4px;
     padding-bottom: 12px;
 }
 
@@ -91,6 +91,17 @@
     border-top: 1px solid #e2e8f0;
 }
 
+#linkAccountModal .link-type-pill {
+    padding: 6px 4px;
+}
+
+#linkAccountModal .link-account-item {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
 /* Link Account 列表：截图风格 — 外框浅色底 + 三列紧凑格；hover/选中细蓝边 */
 .link-account-list {
     display: grid;
@@ -107,7 +118,7 @@
     align-items: center;
     gap: 8px;
     min-height: 2.125rem;
-    padding: 6px 8px;
+    padding: 6px 4px;
     border-radius: 6px;
     border: 1px solid #eef2f7;
     background: #ffffff;
@@ -164,7 +175,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 6px 14px;
+    padding: 6px 4px;
     border-radius: 9999px;
     cursor: pointer;
     transition: all 0.2s ease;
