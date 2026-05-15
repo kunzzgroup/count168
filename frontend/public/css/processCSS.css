@@ -1838,7 +1838,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     font-family: var(--font-ui) !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
-    min-height: 2.55rem !important;
+    min-height: 4rem !important;
     box-sizing: border-box;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
@@ -1887,6 +1887,37 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     padding-right: 1.25rem;
 }
 
+/* Add/Edit Process: grouped section headings */
+.process-page .process-form.add-grid .add-col > .process-form-section:not(:last-child),
+#addModal .process-form.add-grid .add-col > .process-form-section:not(:last-child),
+#editModal .process-form.add-grid .add-col > .process-form-section:not(:last-child) {
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid #e8eef5;
+}
+
+.process-page .process-form.add-grid .process-form-section-title,
+#addModal .process-form.add-grid .process-form-section-title,
+#editModal .process-form.add-grid .process-form-section-title {
+    margin: 0 0 0.65rem 0;
+    padding: 0 0 0.45rem 0.55rem;
+    font-size: clamp(12px, 0.82vw, 13px);
+    font-weight: 700;
+    font-family: var(--font-heading-page, system-ui, sans-serif);
+    color: #475569;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    border-left: 3px solid #0D60FF;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.process-page .process-form.add-grid .process-form-section--record .process-form-section-title,
+#addModal .process-form.add-grid .process-form-section--record .process-form-section-title,
+#editModal .process-form.add-grid .process-form-section--record .process-form-section-title {
+    color: #64748b;
+    border-left-color: #94a3b8;
+}
+
 /* Make selected lists compact to fit one page */
 .process-page #selected_descriptions_display .selected-descriptions,
 .process-page #selected_accounts_display .selected-accounts {
@@ -1911,10 +1942,10 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page .process-form .form-group textarea {
     border-color: #dbe3ee;
     border-radius: 0.52rem;
-    padding: 0.625rem 0.875rem;
+    padding: 0.7rem 0.9rem;
     font-size: var(--text-small);
     font-family: var(--font-ui);
-    min-height: 2.55rem;
+    min-height: 4rem;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
     box-sizing: border-box;
 }
@@ -2105,8 +2136,8 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page #addModal .process-form .form-group textarea {
-    min-height: 6rem !important;
-    max-height: 6rem !important;
+    min-height: 8.25rem !important;
+    max-height: 8.25rem !important;
     resize: none !important;
 }
 
@@ -3791,8 +3822,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-size: var(--text-small) !important;
     font-family: var(--font-ui) !important;
     line-height: 1.35;
-    padding: 0.55rem 0.9rem !important;
-    min-height: 2.55rem;
+    padding: 0.7rem 0.95rem !important;
+    min-height: 4rem;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
@@ -3827,7 +3858,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 #addModal .modal-content {
     width: clamp(900px, 84vw, 1120px) !important;
     max-width: 1120px !important;
-    min-height: clamp(460px, 62vh, 600px) !important;
+    min-height: clamp(500px, 66vh, 660px) !important;
     max-height: 92vh !important;
 }
 
@@ -3878,8 +3909,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-size: var(--text-small) !important;
     font-family: var(--font-ui) !important;
     line-height: 1.35 !important;
-    padding: 0.5rem 0.8rem !important;
-    min-height: 2.55rem !important;
+    padding: 0.7rem 0.9rem !important;
+    min-height: 4rem !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
@@ -3965,8 +3996,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 }
 
 #addModal .process-form .form-group textarea {
-    min-height: 7.25rem !important;
-    max-height: 7.25rem !important;
+    min-height: 8.25rem !important;
+    max-height: 8.25rem !important;
     resize: none !important;
 }
 
@@ -3981,7 +4012,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 #editModal .modal-content {
     width: clamp(900px, 84vw, 1120px) !important;
     max-width: 1120px !important;
-    min-height: clamp(460px, 62vh, 600px) !important;
+    min-height: clamp(500px, 66vh, 660px) !important;
     max-height: 92vh !important;
 }
 
@@ -4032,8 +4063,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-size: var(--text-small) !important;
     font-family: var(--font-ui) !important;
     line-height: 1.35 !important;
-    padding: 0.5rem 0.8rem !important;
-    min-height: 2.55rem !important;
+    padding: 0.7rem 0.9rem !important;
+    min-height: 4rem !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
@@ -4099,8 +4130,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 }
 
 #editModal .process-form .form-group textarea {
-    min-height: 7.25rem !important;
-    max-height: 7.25rem !important;
+    min-height: 8.25rem !important;
+    max-height: 8.25rem !important;
     resize: none !important;
 }
 

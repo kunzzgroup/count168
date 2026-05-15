@@ -106,6 +106,10 @@ export const PROCESS_LIST_I18N = {
     enterRemarks: "Enter remarks...",
     updateProcess: "Update Process",
     readOnlyActionBlocked: "Read-only account: this action is not allowed.",
+    processFormSectionBasic: "Basic",
+    processFormSectionRecord: "Record",
+    processFormSectionTextReplace: "Text & replacement",
+    processFormSectionScheduleNotes: "Schedule & remarks",
   },
   zh: {
     pageTitle: "流程列表",
@@ -214,6 +218,10 @@ export const PROCESS_LIST_I18N = {
     enterRemarks: "输入备注...",
     updateProcess: "更新流程",
     readOnlyActionBlocked: "只读账号，无法执行此操作。",
+    processFormSectionBasic: "基础设置",
+    processFormSectionRecord: "记录信息",
+    processFormSectionTextReplace: "文本与替换",
+    processFormSectionScheduleNotes: "周期与备注",
   },
 };
 

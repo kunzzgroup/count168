@@ -82,6 +82,8 @@ export default function ProcessFormModal({
         <div className="modal-body">
           <form className="process-form add-grid" onSubmit={onSubmit}>
             <div className="add-col">
+              <div className="process-form-section">
+                <h3 className="process-form-section-title">{t("processFormSectionBasic")}</h3>
               {!editMode && (
                 <div className="form-row">
                   <div className="form-group">
@@ -318,8 +320,11 @@ export default function ProcessFormModal({
                 </div>
               </div>
 
+              </div>
+
               {editMode && (
-                <>
+                <div className="process-form-section process-form-section--record">
+                  <h3 className="process-form-section-title">{t("processFormSectionRecord")}</h3>
                   <div className="form-row">
                     <div className="form-group">
                       <label style={{ fontWeight: 600, color: "#666" }}>{t("dtsModified")}</label>
@@ -373,11 +378,13 @@ export default function ProcessFormModal({
                       </div>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
 
             <div className="add-col">
+              <div className="process-form-section">
+                <h3 className="process-form-section-title">{t("processFormSectionTextReplace")}</h3>
               <div className="form-row">
                 <div className="form-group">
                   <label>{t("removeWords")}</label>
@@ -391,6 +398,33 @@ export default function ProcessFormModal({
                 </div>
               </div>
 
+              <div className="form-row row-two-cols">
+                <div className="form-group">
+                  <label>{t("replaceFrom")}</label>
+                  <input
+                    value={form.replace_word_from}
+                    disabled={ro}
+                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))}
+                    placeholder={t("oldWord")}
+                  />
+                  <small className="field-help">{t("wordToBeReplaced")}</small>
+                </div>
+                <div className="form-group">
+                  <label>{t("replaceTo")}</label>
+                  <input
+                    value={form.replace_word_to}
+                    disabled={ro}
+                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))}
+                    placeholder={t("newWord")}
+                  />
+                  <small className="field-help">{t("replacementWord")}</small>
+                </div>
+              </div>
+
+              </div>
+
+              <div className="process-form-section">
+                <h3 className="process-form-section-title">{t("processFormSectionScheduleNotes")}</h3>
               <div className="form-row">
                 <div className="form-group">
                   <div className="day-use-pill-row">
@@ -448,29 +482,6 @@ export default function ProcessFormModal({
                 </div>
               </div>
 
-              <div className="form-row row-two-cols">
-                <div className="form-group">
-                  <label>{t("replaceFrom")}</label>
-                  <input
-                    value={form.replace_word_from}
-                    disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))}
-                    placeholder={t("oldWord")}
-                  />
-                  <small className="field-help">{t("wordToBeReplaced")}</small>
-                </div>
-                <div className="form-group">
-                  <label>{t("replaceTo")}</label>
-                  <input
-                    value={form.replace_word_to}
-                    disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))}
-                    placeholder={t("newWord")}
-                  />
-                  <small className="field-help">{t("replacementWord")}</small>
-                </div>
-              </div>
-
               <div className="form-row">
                 <div className="form-group">
                   <label>{t("remarks")}</label>
@@ -482,6 +493,7 @@ export default function ProcessFormModal({
                     placeholder={t("enterRemarks")}
                   />
                 </div>
+              </div>
               </div>
             </div>
 
