@@ -278,18 +278,10 @@ export default function DataCapturePage() {
 
   return (
     <div className="container" key={companyId ?? "none"}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 20,
-          marginTop: 20,
-        }}
-      >
+      <div className="dc-page-heading">
         <h1 style={{ margin: 0 }}>Data Capture</h1>
 
-        <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="dc-page-heading-actions">
           <div id="data-capture-permission-filter" className="data-capture-company-filter data-capture-permission-filter-header" style={{ display: "none" }}>
             <span className="data-capture-company-label">Category:</span>
             <div id="data-capture-permission-buttons" className="data-capture-company-buttons" />

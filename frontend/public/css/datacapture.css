@@ -173,7 +173,8 @@ body.datacapture-page .top-section {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: stretch;
-    column-gap: clamp(18px, 2.2vw, 32px);
+    column-gap: clamp(12px, 1.5vw, 24px);
+    margin-bottom: clamp(4px, 0.5vw, 10px);
 }
 
 body.datacapture-page .top-section .form-column,
@@ -190,6 +191,7 @@ body.datacapture-page .top-section .submitted-column {
 body.datacapture-page .form-container,
 body.datacapture-page .submitted-container {
     flex: 1 1 auto;
+    padding: clamp(10px, 0.95vw, 16px);
 }
 
 @media (max-width: 900px) {
@@ -198,19 +200,24 @@ body.datacapture-page .submitted-container {
     }
 }
 
+body.datacapture-page .submitted-title {
+    margin: 0 0 clamp(5px, 0.5vw, 10px) 0;
+    padding-bottom: clamp(4px, 0.32vw, 7px);
+}
+
 body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-panel {
-    padding: 0 0 6px;
-    margin: 0 0 4px;
+    padding: 0;
+    margin: 0 0 2px;
     border-top: none;
-    row-gap: 8px;
+    row-gap: 6px;
 }
 
 body.datacapture-page .process-form .dc-form-two-col {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: clamp(10px, 1.2vw, 18px);
+    gap: clamp(6px, 0.85vw, 12px);
     align-items: center;
-    margin-bottom: clamp(6px, 0.55vw, 10px);
+    margin-bottom: clamp(3px, 0.38vw, 7px);
 }
 
 body.datacapture-page .process-form .dc-form-two-col .form-group {
@@ -220,11 +227,11 @@ body.datacapture-page .process-form .dc-form-two-col .form-group {
 /* Bottom row: labels align with stacked Remove Word control */
 body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--tight {
     align-items: start;
-    margin-bottom: clamp(4px, 0.45vw, 8px);
+    margin-bottom: clamp(2px, 0.28vw, 5px);
 }
 
 body.datacapture-page .process-form .dc-form-row-full {
-    margin-bottom: clamp(6px, 0.55vw, 10px);
+    margin-bottom: clamp(3px, 0.38vw, 7px);
 }
 
 body.datacapture-page .process-form .dc-form-row-full .form-group {
@@ -238,7 +245,7 @@ body.datacapture-page .process-form .form-group.dc-remove-word-field .dc-remove-
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 3px;
+    gap: 2px;
 }
 
 body.datacapture-page .process-form .form-group.dc-remove-word-field .dc-remove-word-stack input {
@@ -248,8 +255,8 @@ body.datacapture-page .process-form .form-group.dc-remove-word-field .dc-remove-
 
 body.datacapture-page .process-form .form-group.dc-remove-word-field .dc-remove-word-stack .field-help {
     margin: 0;
-    line-height: 1.25;
-    font-size: clamp(9px, 0.72vw, 12px);
+    line-height: 1.2;
+    font-size: clamp(8px, 0.68vw, 11px);
 }
 
 /* Same baseline row for inputs next to Remark */
@@ -258,7 +265,80 @@ body.datacapture-page .process-form .dc-form-two-col--tight .form-group {
 }
 
 body.datacapture-page .process-form .dc-form-two-col--tight .form-group > label {
-    padding-top: 10px;
+    padding-top: 8px;
+}
+
+/* Dense field rhythm + narrower label gutter */
+body.datacapture-page .process-form .form-group {
+    margin-bottom: clamp(5px, 0.5vw, 9px);
+    gap: clamp(6px, 0.48vw, 10px);
+}
+
+body.datacapture-page .process-form .dc-form-two-col .form-group {
+    margin-bottom: 0;
+}
+
+body.datacapture-page .process-form .dc-form-row-full .form-group,
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--tight .form-group {
+    margin-bottom: 0;
+}
+
+body.datacapture-page .process-form .form-group label,
+body.datacapture-page .replace-word-group label {
+    width: clamp(72px, 5.25vw, 100px);
+}
+
+body.datacapture-page .replace-word-group {
+    gap: 8px;
+}
+
+body.datacapture-page .replace-word-fields input {
+    padding: clamp(3px, 0.24vw, 6px) clamp(5px, 0.5vw, 10px);
+}
+
+body.datacapture-page .custom-select-button {
+    min-height: 32px;
+    padding: clamp(4px, 0.28vw, 7px) clamp(26px, 1.75vw, 32px) clamp(4px, 0.28vw, 7px) clamp(6px, 0.52vw, 10px);
+}
+
+body.datacapture-page .process-form .form-group input,
+body.datacapture-page .process-form .form-group select {
+    min-height: 32px;
+    padding: clamp(4px, 0.28vw, 7px) clamp(6px, 0.52vw, 10px);
+}
+
+body.datacapture-page #capture_currency {
+    padding-right: 26px;
+    background-position: right 8px center;
+}
+
+body.datacapture-page .bottom-section {
+    gap: clamp(4px, 0.45vw, 8px);
+}
+
+body.datacapture-page .dc-page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin-bottom: 10px;
+    margin-top: 10px;
+    min-width: 0;
+}
+
+body.datacapture-page .dc-page-heading-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+body.datacapture-page .add-icon {
+    width: clamp(17px, 1.12vw, 22px);
+    height: clamp(17px, 1.12vw, 22px);
+    right: 6px;
+    font-size: clamp(11px, 0.78vw, 14px);
 }
 
 .bottom-section {
