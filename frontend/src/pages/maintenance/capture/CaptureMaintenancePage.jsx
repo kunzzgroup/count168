@@ -81,6 +81,7 @@ export default function CaptureMaintenancePage() {
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
     setToasts(prev => {
+      if (prev.some(t => t.message === message)) return prev;
       const next = [...prev, { id, message, type }];
       if (next.length > 2) return next.slice(1);
       return next;
@@ -227,8 +228,15 @@ export default function CaptureMaintenancePage() {
         
         const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
-          setCompanyCode(currentComp.company_id || "");
-          const companyPerms = await fetchCompanyPermissions(currentComp.company_id || "");
+          const code = currentComp.company_id || "";
+          setCompanyCode(code);
+          
+          // Fetch initial metadata here to ensure the first query starts with the correct activePermission
+          const [procList, companyPerms] = await Promise.all([
+            fetchProcesses(initialCompanyId),
+            fetchCompanyPermissions(code)
+          ]);
+
           const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
           const bankOnly = companyPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
@@ -239,6 +247,13 @@ export default function CaptureMaintenancePage() {
             navigate("/dashboard", { replace: true });
             return;
           }
+
+          setProcesses(procList);
+          setPermissions(companyPerms);
+
+          const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+          const initialActive = savedPerm && companyPerms.includes(savedPerm) ? savedPerm : (companyPerms.length > 0 ? companyPerms[0] : "");
+          setActivePermission(initialActive);
           
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
@@ -318,10 +333,12 @@ export default function CaptureMaintenancePage() {
       );
       if (seq !== captureSeqRef.current) return;
       setCaptureData(data);
-      if (!quietRefresh && data.length > 0) {
-        notify(t("foundRecords", { n: data.length }), "success");
-      } else if (data.length === 0) {
-        notify(t("noDataAdjustSearch"), "info");
+      if (!quietRefresh) {
+        if (data.length > 0) {
+          notify(t("foundRecords", { n: data.length }), "success");
+        } else {
+          notify(t("noDataAdjustSearch"), "info");
+        }
       }
     } catch (err) {
       if (err?.name === "AbortError" || seq !== captureSeqRef.current) return;

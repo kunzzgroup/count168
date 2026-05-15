@@ -120,6 +120,7 @@ export default function TransactionMaintenancePage() {
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
     setToasts(prev => {
+      if (prev.some(t => t.message === message)) return prev;
       const next = [...prev, { id, message, type }];
       if (next.length > 2) return next.slice(1);
       return next;
@@ -271,8 +272,15 @@ export default function TransactionMaintenancePage() {
         
         const currentComp = filtered.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
-          setCompanyCode(currentComp.company_id || "");
-          const companyPerms = await fetchCompanyPermissions(currentComp.company_id || "");
+          const code = currentComp.company_id || "";
+          setCompanyCode(code);
+
+          // Fetch initial metadata here to ensure the first query starts with the correct activePermission
+          const [companyPerms, procList] = await Promise.all([
+            fetchCompanyPermissions(code),
+            fetchProcesses(initialCompanyId)
+          ]);
+
           const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
           const bankOnly = companyPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
@@ -283,6 +291,16 @@ export default function TransactionMaintenancePage() {
             navigate("/dashboard", { replace: true });
             return;
           }
+
+          setPermissions(companyPerms);
+          setProcesses(procList);
+
+          const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+          const initialActive = savedPerm && companyPerms.includes(savedPerm) ? savedPerm : (companyPerms.length > 0 ? companyPerms[0] : "");
+          setActivePermission(initialActive);
+
+          // Cache permissions so the meta-effect below skips redundant API call
+          switchPermsCacheRef.current = { companyCode: code, perms: companyPerms };
           
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(filtered.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();

@@ -141,3 +141,19 @@ export const toUpperDisplay = (val) => {
   const str = String(val).trim();
   return str ? str.toUpperCase() : '-';
 };
+
+/** Precompute display strings once per row to avoid repeated toUpperDisplay during scroll. */
+export function prepareFormulaRowsForDisplay(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => ({
+    ...row,
+    _process: toUpperDisplay(row.process),
+    _account: toUpperDisplay(row.account),
+    _currency: toUpperDisplay(row.currency),
+    _source: toUpperDisplay(row.source),
+    _product: toUpperDisplay(row.product),
+    _inputMethod: toUpperDisplay(row.input_method),
+    _formula: toUpperDisplay(row.formula),
+    _description: toUpperDisplay(row.description),
+  }));
+}

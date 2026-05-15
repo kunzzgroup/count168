@@ -84,6 +84,7 @@ export default function BankprocessMaintenancePage() {
   const notify = useCallback((message, type = "success") => {
     const id = Date.now() + Math.random();
     setToasts((prev) => {
+      if (prev.some(t => t.message === message)) return prev;
       const next = [...prev, { id, message, type }];
       return next.length > 2 ? next.slice(1) : next;
     });
@@ -223,6 +224,30 @@ export default function BankprocessMaintenancePage() {
         currentCompanyIdRef.current = initialCompanyId;
         const currentComp = compRows.find((c) => Number(c.id) === Number(initialCompanyId));
         setCompanyCode(currentComp?.company_id || "");
+        const code = currentComp?.company_id || "";
+
+        // Fetch initial metadata here to ensure the first query starts with the correct selectedPermission
+        const [perms, currencyList] = await Promise.all([
+          fetchCompanyPermissions(code),
+          fetchCompanyCurrencies(initialCompanyId).catch(() => [])
+        ]);
+
+        setPermissions(perms);
+        const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+        if (savedPerm && perms.includes(savedPerm)) setSelectedPermission(savedPerm);
+        else setSelectedPermission(perms[0] || "");
+
+        setCurrencies(currencyList);
+        if (currencyList.length === 0) {
+          setAllCurrenciesSelected(true);
+          setSelectedCurrencies([]);
+        } else {
+          setAllCurrenciesSelected(false);
+          const myr = currencyList.find((x) => x.code === "MYR");
+          const pick = myr?.code || currencyList[0]?.code;
+          setSelectedCurrencies(pick ? [pick] : []);
+        }
+        setCurrenciesReady(true);
 
         const savedGroup = sessionStorage.getItem("dashboard_group_filter");
         const groups = [...new Set(compRows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
@@ -316,12 +341,14 @@ export default function BankprocessMaintenancePage() {
       setRows(data);
       setHasSearched(true);
       setConfirmDelete(false);
-      if (!quietRefresh && data.length > 0) {
-        notify(t("foundRecords", { n: data.length }), "success");
-      } else if (data.length === 0) {
-        const dedupeKey = `${searchCompanyId}|${dateFrom}|${dateTo}|${currencyKey}|${selectedPermission}|${query}|empty`;
-        if (consumeNoDataToastDedupeKey(dedupeKey)) {
-          notify(t("noDataAdjustSearch"), "info");
+      if (!quietRefresh) {
+        if (data.length > 0) {
+          notify(t("foundRecords", { n: data.length }), "success");
+        } else {
+          const dedupeKey = `${searchCompanyId}|${dateFrom}|${dateTo}|${currencyKey}|${selectedPermission}|${query}|empty`;
+          if (consumeNoDataToastDedupeKey(dedupeKey)) {
+            notify(t("noDataAdjustSearch"), "info");
+          }
         }
       }
     } catch (err) {

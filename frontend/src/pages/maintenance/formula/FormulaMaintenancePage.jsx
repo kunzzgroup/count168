@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N, getFormulaInputMethodOptions } from "../../../translateFile/maintenanceTranslate.js";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +20,8 @@ import {
   updateFormulaTemplate,
   deleteFormulaTemplates,
   updateSessionCompany,
-  isBankOnlyCategoryCompany
+  isBankOnlyCategoryCompany,
+  prepareFormulaRowsForDisplay,
 } from "./formulaMaintenanceLogic.js";
 
 // Components
@@ -58,15 +59,35 @@ export default function FormulaMaintenancePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   
   // -- UI State --
-  const [toast, setToast] = useState(null);
+  const [toasts, setToasts] = useState([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const toastTimerRef = useRef(null);
   const searchDebounceRef = useRef(null);
+  const formulaDataFullRef = useRef([]);
+  const progressiveRafRef = useRef(null);
+  const searchSeqRef = useRef(0);
+  const listScrollActiveRef = useRef(false);
+
+  const [totalRowCount, setTotalRowCount] = useState(0);
+  const [listHydrating, setListHydrating] = useState(false);
+  const [selectAllActive, setSelectAllActive] = useState(false);
+  const [deselectedIds, setDeselectedIds] = useState(() => new Set());
+
+  const INITIAL_DISPLAY_ROWS = 80;
+  const DISPLAY_BATCH_ROWS = 150;
+  const LARGE_RESULT_TOAST_THRESHOLD = 800;
 
   const notify = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 2000);
+    const id = Date.now();
+    setToasts(prev => {
+      if (prev.some(t => t.message === message)) return prev;
+      const next = [...prev, { id, message, type }];
+      if (next.length > 2) return next.slice(1);
+      return next;
+    });
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 2000);
   }, []);
 
   // -- Initialization --
@@ -141,8 +162,66 @@ export default function FormulaMaintenancePage() {
       document.body.classList.remove("maintenance-page");
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      if (progressiveRafRef.current) cancelAnimationFrame(progressiveRafRef.current);
     };
   }, []);
+
+  const resetSelection = useCallback(() => {
+    setSelectAllActive(false);
+    setDeselectedIds(new Set());
+    setSelectedIds([]);
+  }, []);
+
+  /** 先展示前 N 行，其余用 rAF 分批追加，避免一次性渲染卡住 UI */
+  const hydrateFormulaList = useCallback(
+    (fullList) => {
+      if (progressiveRafRef.current) {
+        cancelAnimationFrame(progressiveRafRef.current);
+        progressiveRafRef.current = null;
+      }
+
+      const full = prepareFormulaRowsForDisplay(Array.isArray(fullList) ? fullList : []);
+      formulaDataFullRef.current = full;
+      setTotalRowCount(full.length);
+      resetSelection();
+
+      const applySlice = (count, defer = true) => {
+        const next = full.slice(0, count);
+        if (defer) {
+          startTransition(() => setFormulaData(next));
+        } else {
+          setFormulaData(next);
+        }
+      };
+
+      if (full.length <= INITIAL_DISPLAY_ROWS) {
+        applySlice(full.length, false);
+        setListHydrating(false);
+        return;
+      }
+
+      applySlice(INITIAL_DISPLAY_ROWS, false);
+      setListHydrating(true);
+
+      let end = INITIAL_DISPLAY_ROWS;
+      const tick = () => {
+        if (listScrollActiveRef.current) {
+          progressiveRafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+        end = Math.min(end + DISPLAY_BATCH_ROWS, full.length);
+        applySlice(end);
+        if (end < full.length) {
+          progressiveRafRef.current = requestAnimationFrame(tick);
+        } else {
+          setListHydrating(false);
+          progressiveRafRef.current = null;
+        }
+      };
+      progressiveRafRef.current = requestAnimationFrame(tick);
+    },
+    [resetSelection],
+  );
 
   // -- Boot Logic --
   useEffect(() => {
@@ -180,10 +259,18 @@ export default function FormulaMaintenancePage() {
         
         const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
-          setCompanyCode(currentComp.company_id || "");
-          const companyPerms = await fetchCompanyPermissionsRaw(currentComp.company_id || "");
-          const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
-          const bankOnly = companyPerms.includes("Bank") && !hasGames;
+          const code = currentComp.company_id || "";
+          setCompanyCode(code);
+
+          // Pre-load metadata to ensure first search is correct and avoid double-query
+          const [rawPerms, procList, accList] = await Promise.all([
+            fetchCompanyPermissionsRaw(code),
+            fetchProcesses(initialCompanyId),
+            fetchAccounts(initialCompanyId)
+          ]);
+
+          const hasGames = rawPerms.includes("Games") || rawPerms.includes("Gambling");
+          const bankOnly = rawPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
             navigate("/process-list", { replace: true });
             return;
@@ -192,6 +279,15 @@ export default function FormulaMaintenancePage() {
             navigate("/dashboard", { replace: true });
             return;
           }
+
+          const permList = rawPerms.filter(p => p !== 'Bank');
+          setPermissions(permList);
+          setProcesses(procList);
+          setAccounts(accList);
+
+          const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+          const initialActive = savedPerm && permList.includes(savedPerm) ? savedPerm : (permList.length > 0 ? permList[0] : "");
+          setActivePermission(initialActive);
           
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
@@ -246,39 +342,55 @@ export default function FormulaMaintenancePage() {
   // -- Search Logic --
   const performSearch = useCallback(async () => {
     if (!companyId) return;
+    const seq = ++searchSeqRef.current;
+    if (progressiveRafRef.current) {
+      cancelAnimationFrame(progressiveRafRef.current);
+      progressiveRafRef.current = null;
+    }
     setLoading(true);
+    setListHydrating(false);
     try {
       const data = await listFormulaTemplates({
         companyId,
         category: activePermission,
         process: selectedProcess,
-        search: searchFilter
+        search: searchFilter,
       });
-      setFormulaData(data);
-      setSelectedIds([]);
+      if (seq !== searchSeqRef.current) return;
       setConfirmDelete(false);
+      hydrateFormulaList(data);
       if (data.length === 0) {
-        notify(t("noDataFound"), "info");
-      } else {
+        notify(t("noDataAdjustSearch"), "info");
+      } else if (data.length <= LARGE_RESULT_TOAST_THRESHOLD) {
         notify(t("foundRecords", { n: data.length }), "success");
       }
     } catch (err) {
+      if (seq !== searchSeqRef.current) return;
       notify(err.message, "error");
+      formulaDataFullRef.current = [];
+      setTotalRowCount(0);
       setFormulaData([]);
+      resetSelection();
     } finally {
-      setLoading(false);
+      if (seq === searchSeqRef.current) setLoading(false);
     }
-  }, [companyId, activePermission, selectedProcess, searchFilter, notify, t]);
+  }, [
+    companyId,
+    activePermission,
+    selectedProcess,
+    searchFilter,
+    notify,
+    t,
+    hydrateFormulaList,
+    resetSelection,
+  ]);
 
   // Debounced search for searchFilter
   useEffect(() => {
     if (!bootLoading && companyId) {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
       searchDebounceRef.current = setTimeout(() => {
-        // Legacy behavior: only search when user enters search text or selects process.
-        if (searchFilter || selectedProcess) {
-          performSearch();
-        }
+        performSearch();
       }, 300);
     }
   }, [bootLoading, companyId, searchFilter, selectedProcess, performSearch]);
@@ -304,8 +416,11 @@ export default function FormulaMaintenancePage() {
       // Reset filters when switching company
       setSearchFilter("");
       setSelectedProcess("");
+      formulaDataFullRef.current = [];
+      setTotalRowCount(0);
       setFormulaData([]);
-      
+      resetSelection();
+
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }), "success");
     } catch (err) {
@@ -325,41 +440,106 @@ export default function FormulaMaintenancePage() {
   };
 
   const handlePermissionSwitch = (p) => {
-    setActivePermission(p);
+    startTransition(() => {
+      setActivePermission(p);
+    });
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
-    // Legacy parity: permission switch resets list and filters.
     setSearchFilter("");
     setSelectedProcess("");
+    formulaDataFullRef.current = [];
+    setTotalRowCount(0);
     setFormulaData([]);
-    setSelectedIds([]);
+    resetSelection();
     setConfirmDelete(false);
   };
+
+  const handleSetSelectedProcess = useCallback((value) => {
+    startTransition(() => {
+      setSelectedProcess(value);
+    });
+  }, []);
 
   const handleClearFilters = () => {
     setSearchFilter("");
     setSelectedProcess("");
   };
 
-  const toggleSelect = (id) => {
-    setSelectedIds(prev => 
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
+  const isRowSelected = useCallback(
+    (id) => {
+      if (selectAllActive) return !deselectedIds.has(id);
+      return selectedIds.includes(id);
+    },
+    [selectAllActive, deselectedIds, selectedIds],
+  );
 
-  const toggleSelectAll = () => {
-    if (selectedIds.length === formulaData.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(formulaData.map(r => r.id));
+  const resolveSelectedIds = useCallback(() => {
+    const full = formulaDataFullRef.current;
+    if (selectAllActive) {
+      if (deselectedIds.size === 0) return full.map((r) => r.id);
+      return full.filter((r) => !deselectedIds.has(r.id)).map((r) => r.id);
     }
-  };
+    return selectedIds;
+  }, [selectAllActive, deselectedIds, selectedIds]);
+
+  const selectedCount = useMemo(() => {
+    if (selectAllActive) return totalRowCount - deselectedIds.size;
+    return selectedIds.length;
+  }, [selectAllActive, totalRowCount, deselectedIds.size, selectedIds.length]);
+
+  const selectAllChecked = useMemo(() => {
+    if (totalRowCount === 0) return false;
+    if (selectAllActive) return deselectedIds.size === 0;
+    return selectedIds.length === totalRowCount;
+  }, [selectAllActive, deselectedIds.size, selectedIds.length, totalRowCount]);
+
+  const selectAllIndeterminate = useMemo(() => {
+    if (totalRowCount === 0) return false;
+    if (selectAllActive) return deselectedIds.size > 0 && deselectedIds.size < totalRowCount;
+    return selectedIds.length > 0 && selectedIds.length < totalRowCount;
+  }, [selectAllActive, deselectedIds.size, selectedIds.length, totalRowCount]);
+
+  const toggleSelect = useCallback(
+    (id) => {
+      startTransition(() => {
+        if (selectAllActive) {
+          setDeselectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+          });
+        } else {
+          setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+        }
+      });
+    },
+    [selectAllActive],
+  );
+
+  const handleListScrolling = useCallback((scrolling) => {
+    listScrollActiveRef.current = scrolling;
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    startTransition(() => {
+      if (selectAllChecked && !selectAllIndeterminate) {
+        setSelectAllActive(false);
+        setDeselectedIds(new Set());
+        setSelectedIds([]);
+        return;
+      }
+      setSelectAllActive(true);
+      setDeselectedIds(new Set());
+      setSelectedIds([]);
+    });
+  }, [selectAllChecked, selectAllIndeterminate]);
 
   const handleDeleteClick = () => {
     if (!confirmDelete) {
       notify(t("pleaseConfirmDeleteCheckbox"), "error");
       return;
     }
-    if (selectedIds.length === 0) {
+    if (selectedCount === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
     }
@@ -368,9 +548,10 @@ export default function FormulaMaintenancePage() {
 
   const handleConfirmDelete = async () => {
     setIsDeleteModalOpen(false);
+    const idsToDelete = resolveSelectedIds();
     try {
-      await deleteFormulaTemplates(companyId, selectedIds);
-      notify(t("successfullyDeletedN", { n: selectedIds.length }), "success");
+      await deleteFormulaTemplates(companyId, idsToDelete);
+      notify(t("successfullyDeletedN", { n: idsToDelete.length }), "success");
       performSearch();
     } catch (err) {
       notify(err.message || t("deleteFailed"), "error");
@@ -422,7 +603,7 @@ export default function FormulaMaintenancePage() {
       <FormulaMaintenanceFilters 
         processes={processes}
         selectedProcess={selectedProcess}
-        setSelectedProcess={setSelectedProcess}
+        setSelectedProcess={handleSetSelectedProcess}
         searchFilter={searchFilter}
         setSearchFilter={setSearchFilter}
         companyId={companyId}
@@ -441,10 +622,15 @@ export default function FormulaMaintenancePage() {
       <FormulaMaintenanceTable
         data={formulaData}
         loading={loading}
-        selectedIds={selectedIds}
+        listHydrating={listHydrating}
+        totalRowCount={totalRowCount}
+        isRowSelected={isRowSelected}
+        selectAllChecked={selectAllChecked}
+        selectAllIndeterminate={selectAllIndeterminate}
         onToggleSelect={toggleSelect}
         onToggleSelectAll={toggleSelectAll}
         onSaveRow={handleSaveRow}
+        onListScrolling={handleListScrolling}
         accounts={accounts}
         m={m}
         inputMethodOptions={inputMethodOptions}
@@ -458,16 +644,16 @@ export default function FormulaMaintenancePage() {
         title={m.confirmDeleteTitle}
         cancelText={m.cancel}
         confirmText={m.delete}
-        message={t("deleteConfirmRecords", { count: selectedIds.length })}
+        message={t("deleteConfirmRecords", { count: selectedCount })}
       />
 
-      {toast && (
-        <div id="notificationContainer" className="maintenance-notification-container">
-          <div className={`maintenance-notification maintenance-notification-${toast.type} show`}>
+      <div id="notificationContainer" className="maintenance-notification-container">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`maintenance-notification maintenance-notification-${toast.type} show`}>
             {toast.message}
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
