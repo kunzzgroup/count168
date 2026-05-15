@@ -115,8 +115,8 @@ export default function LinkAccountModal({
           </div>
         </div>
         <div className="account-form-actions link-account-form-actions">
-          <button type="button" className="account-btn account-btn-save" onClick={onSave}>{t("save")}</button>
-          <button type="button" className="account-btn account-btn-cancel" onClick={onClose}>{t("cancel")}</button>
+          <button type="button" className="btn btn-add" onClick={onSave}>{t("save")}</button>
+          <button type="button" className="btn btn-currency-setting" onClick={onClose}>{t("cancel")}</button>
         </div>
       </div>
     </div>

@@ -44,15 +44,15 @@
 }
 
 #linkAccountModal .account-modal-header h2 {
-    padding: 3.25rem 4px 20px 4px;
+    padding: 3.25rem 4rem 20px 4rem;
 }
 
 #linkAccountModal .link-account-modal-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding-left: 4px;
-    padding-right: 4px;
+    padding-left: 4rem;
+    padding-right: 4rem;
 }
 
 /* 红框区域固定：第 1 行药丸 + 搜索对齐；第 2 行整宽说明 */
@@ -62,8 +62,8 @@
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
-    padding-left: 4px;
-    padding-right: 4px;
+    padding-left: 4rem;
+    padding-right: 4rem;
     padding-bottom: 12px;
 }
 
@@ -91,15 +91,64 @@
     border-top: 1px solid #e2e8f0;
 }
 
-#linkAccountModal .link-type-pill {
-    padding: 6px 4px;
+/* Link Account footer buttons: match Account List toolbar button values */
+#linkAccountModal .btn.btn-add {
+    background: var(--btn-add-gradient);
+    color: #ffffff;
+    font-family: var(--font-heading-page);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
+}
+
+#linkAccountModal .btn.btn-add:hover {
+    background: var(--btn-add-gradient-hover);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+#linkAccountModal .btn.btn-currency-setting {
+    background: linear-gradient(180deg, #AAB8C2 0%, #657786 100%);
+    color: #ffffff;
+    font-family: var(--font-heading-page);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(101, 119, 134, 0.2);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
+}
+
+#linkAccountModal .btn.btn-currency-setting:hover {
+    background: linear-gradient(180deg, #9ca9b4 0%, #5a6a78 100%);
+    box-shadow: 0 4px 8px rgba(101, 119, 134, 0.3);
+    transform: translateY(-1px);
 }
 
 #linkAccountModal .link-account-item {
     padding-top: 6px;
     padding-bottom: 6px;
-    padding-left: 4px;
-    padding-right: 4px;
+    padding-left: 4rem;
+    padding-right: 4rem;
 }
 
 /* Link Account 列表：截图风格 — 外框浅色底 + 三列紧凑格；hover/选中细蓝边 */
@@ -118,7 +167,7 @@
     align-items: center;
     gap: 8px;
     min-height: 2.125rem;
-    padding: 6px 4px;
+    padding: 6px 4rem;
     border-radius: 6px;
     border: 1px solid #eef2f7;
     background: #ffffff;
@@ -175,7 +224,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 6px 4px;
+    padding: 6px 14px;
     border-radius: 9999px;
     cursor: pointer;
     transition: all 0.2s ease;
