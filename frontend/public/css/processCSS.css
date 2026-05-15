@@ -1875,6 +1875,37 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     padding-right: 1.25rem;
 }
 
+/* Add/Edit Process: grouped section headings */
+.process-page .process-form.add-grid .add-col > .process-form-section:not(:last-child),
+#addModal .process-form.add-grid .add-col > .process-form-section:not(:last-child),
+#editModal .process-form.add-grid .add-col > .process-form-section:not(:last-child) {
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid #e8eef5;
+}
+
+.process-page .process-form.add-grid .process-form-section-title,
+#addModal .process-form.add-grid .process-form-section-title,
+#editModal .process-form.add-grid .process-form-section-title {
+    margin: 0 0 0.65rem 0;
+    padding: 0 0 0.45rem 0.55rem;
+    font-size: clamp(12px, 0.82vw, 13px);
+    font-weight: 700;
+    font-family: var(--font-heading-page, system-ui, sans-serif);
+    color: #475569;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    border-left: 3px solid #0D60FF;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.process-page .process-form.add-grid .process-form-section--record .process-form-section-title,
+#addModal .process-form.add-grid .process-form-section--record .process-form-section-title,
+#editModal .process-form.add-grid .process-form-section--record .process-form-section-title {
+    color: #64748b;
+    border-left-color: #94a3b8;
+}
+
 /* Make selected lists compact to fit one page */
 .process-page #selected_descriptions_display .selected-descriptions,
 .process-page #selected_accounts_display .selected-accounts {

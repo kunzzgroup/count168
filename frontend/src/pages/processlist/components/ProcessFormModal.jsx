@@ -398,6 +398,29 @@ export default function ProcessFormModal({
                 </div>
               </div>
 
+              <div className="form-row row-two-cols">
+                <div className="form-group">
+                  <label>{t("replaceFrom")}</label>
+                  <input
+                    value={form.replace_word_from}
+                    disabled={ro}
+                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))}
+                    placeholder={t("oldWord")}
+                  />
+                  <small className="field-help">{t("wordToBeReplaced")}</small>
+                </div>
+                <div className="form-group">
+                  <label>{t("replaceTo")}</label>
+                  <input
+                    value={form.replace_word_to}
+                    disabled={ro}
+                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))}
+                    placeholder={t("newWord")}
+                  />
+                  <small className="field-help">{t("replacementWord")}</small>
+                </div>
+              </div>
+
               </div>
 
               <div className="process-form-section">
@@ -456,29 +479,6 @@ export default function ProcessFormModal({
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="form-row row-two-cols">
-                <div className="form-group">
-                  <label>{t("replaceFrom")}</label>
-                  <input
-                    value={form.replace_word_from}
-                    disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))}
-                    placeholder={t("oldWord")}
-                  />
-                  <small className="field-help">{t("wordToBeReplaced")}</small>
-                </div>
-                <div className="form-group">
-                  <label>{t("replaceTo")}</label>
-                  <input
-                    value={form.replace_word_to}
-                    disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))}
-                    placeholder={t("newWord")}
-                  />
-                  <small className="field-help">{t("replacementWord")}</small>
                 </div>
               </div>
 
