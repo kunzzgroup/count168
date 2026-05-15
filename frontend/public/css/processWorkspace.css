@@ -1,0 +1,12 @@
+/* Process workspace: keep Games + Bank panes mounted; toggle visibility without route unmount flash */
+.process-workspace {
+  width: 100%;
+}
+
+.process-workspace__pane {
+  display: none;
+}
+
+.process-workspace__pane.is-active {
+  display: block;
+}
