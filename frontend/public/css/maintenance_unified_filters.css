@@ -181,11 +181,37 @@ body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .us
     white-space: nowrap;
 }
 
-body.maintenance-page .maintenance-list-container {    margin-bottom: clamp(20px, 1.67vw, 32px);
+body.maintenance-page .maintenance-list-container {
+    margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
     max-width: none;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
     box-sizing: border-box;
+}
+
+/*
+ * 所有 maintenance 列表表：行 / 表头 / 数据格字号与字重统一。
+ * 本文件先于各 *_maintenance.css 加载，故用 body.dashboard-page + !important 盖过各页 scoped 表规则。
+ */
+body.dashboard-page.maintenance-page .maintenance-table thead tr,
+body.dashboard-page.maintenance-page .maintenance-table tbody tr {
+    font-size: var(--text-base) !important;
+    font-weight: var(--font-weight-bold) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-table thead th {
+    font-size: var(--text-base) !important;
+    font-weight: var(--font-weight-bold) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-table tbody td {
+    font-size: var(--text-medium) !important;
+    font-weight: var(--font-weight-bold) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-table .maintenance-table-cell {
+    font-size: var(--text-medium) !important;
+    font-weight: var(--font-weight-bold) !important;
 }

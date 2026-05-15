@@ -548,8 +548,6 @@ body.dashboard-page.maintenance-page {
 .maintenance-table thead tr {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: #ffffff;
-    font-weight: bold;
-    font-size: var(--text-base);
 }
 
 .maintenance-table thead th {
@@ -665,8 +663,6 @@ body.dashboard-page.maintenance-page {
 }
 
 .maintenance-table-cell {
-    font-size: var(--text-medium);
-    font-weight: var(--font-weight-bold);
     color: #374151;
     padding: clamp(6px, 0.55vw, 10px) clamp(10px, 0.9vw, 14px);
     overflow: hidden;

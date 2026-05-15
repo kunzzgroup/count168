@@ -525,8 +525,6 @@ body.dashboard-page.maintenance-page .container {
 .maintenance-table thead tr {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: #ffffff;
-    font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
 }
 
 .maintenance-table thead th {
@@ -618,8 +616,6 @@ body.dashboard-page.maintenance-page .container {
 }
 
 .maintenance-table-cell {
-    font-size: clamp(12px, 0.82vw, 15px);
-    font-weight: bold;
     color: #374151;
     padding: 4px 12px;
     overflow: hidden;
@@ -881,4 +877,110 @@ body.dashboard-page.maintenance-page .container {
 .flatpickr-day.today:focus {
     background: #e6f2ff;
     border-color: #4a90e2;
+}
+
+/*
+ * Bank Process 维护列表：占满主内容宽度、列间距与日期/账户列可读性。
+ * SPA 下其他页也定义 `.maintenance-table th:nth-child(n)`，列含义不同会互相覆盖；
+ * 用 `body… .bankprocess-maintenance-page-root …` 提高专用性，避免被其他 maintenance 样式盖掉。
+ */
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-search-section {
+    max-width: none;
+    width: 100%;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container,
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .empty-state-container {
+    max-width: none;
+    width: 100%;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th,
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td {
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table thead th {
+    padding: clamp(8px, 0.7vw, 12px) clamp(10px, 1vw, 16px);
+    text-align: center;
+    white-space: nowrap;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(1),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(1) {
+    width: 3.7%;
+    min-width: 2.5rem;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(2),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(2) {
+    width: 11%;
+    min-width: 10.5rem;
+    text-align: left;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(3),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(3) {
+    width: 9%;
+    min-width: 7rem;
+    text-align: left;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(4),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(4) {
+    width: 14%;
+    min-width: 6rem;
+    text-align: left;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(5),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(5) {
+    width: 8.5%;
+    min-width: 5.5rem;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(6),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(6) {
+    width: 25%;
+    min-width: 7rem;
+    text-align: left;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(7),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(7) {
+    width: 9%;
+    min-width: 4rem;
+    text-align: left;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(8),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(8) {
+    width: 7.9%;
+    min-width: 5rem;
+    text-align: left;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(9),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(9) {
+    width: 6%;
+    min-width: 2.25rem;
+}
+
+body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table-cell {
+    padding: clamp(8px, 0.7vw, 12px) clamp(10px, 1vw, 16px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-sizing: border-box;
 }

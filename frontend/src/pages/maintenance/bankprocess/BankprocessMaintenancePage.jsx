@@ -375,7 +375,7 @@ export default function BankprocessMaintenancePage() {
   if (bootLoading || !me) return null;
 
   return (
-    <div className="container">
+    <div className="bankprocess-maintenance-page-root container">
       <BankprocessMaintenanceFilters
         permissions={permissions}
         selectedPermission={selectedPermission}
