@@ -278,10 +278,18 @@ export default function DataCapturePage() {
 
   return (
     <div className="container" key={companyId ?? "none"}>
-      <div className="dc-page-heading">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 20,
+          marginTop: 20,
+        }}
+      >
         <h1 style={{ margin: 0 }}>Data Capture</h1>
 
-        <div className="dc-page-heading-actions">
+        <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div id="data-capture-permission-filter" className="data-capture-company-filter data-capture-permission-filter-header" style={{ display: "none" }}>
             <span className="data-capture-company-label">Category:</span>
             <div id="data-capture-permission-buttons" className="data-capture-company-buttons" />
@@ -306,139 +314,133 @@ export default function DataCapturePage() {
                 e.preventDefault();
               }}
             >
-              <div className="dc-form-stack">
-                {(groups.length > 0 || list.length > 0) && (
-                  <div className="user-gc-inline-panel dc-data-capture-gc-panel">
-                    {groups.length > 0 ? (
-                      <div id="group-buttons-wrapper" className="user-gc-inline-row shared-group-wrapper">
-                        <span className="user-gc-inline-label">GroupID:</span>
-                        <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                          <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label="Group ID">
-                            {groups.map((gid) => (
+              {(groups.length > 0 || list.length > 0) && (
+                <div className="user-gc-inline-panel dc-data-capture-gc-panel">
+                  {groups.length > 0 ? (
+                    <div id="group-buttons-wrapper" className="user-gc-inline-row shared-group-wrapper">
+                      <span className="user-gc-inline-label">GroupID:</span>
+                      <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                        <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label="Group ID">
+                          {groups.map((gid) => (
+                            <button
+                              key={gid}
+                              type="button"
+                              className={`user-gc-segment shared-group-btn ${selectedGroup === gid ? "active is-on" : ""}`.trim()}
+                              data-group-id={gid}
+                              onClick={() => void onGroupClick(gid)}
+                            >
+                              {gid}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {list.length > 0 ? (
+                    <div id="company-buttons-wrapper" className="user-gc-inline-row shared-company-wrapper">
+                      <span className="user-gc-inline-label">Company:</span>
+                      <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                        <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label="Company">
+                          {list.map((comp) => {
+                            const gid = String(comp.group_id || "").trim().toUpperCase();
+                            const visible = isCompanyVisibleForSharedFilter(comp, selectedGroup, false, "follow");
+                            const active = Number(comp.id) === Number(companyId);
+                            return (
                               <button
-                                key={gid}
+                                key={comp.id}
                                 type="button"
-                                className={`user-gc-segment shared-group-btn ${selectedGroup === gid ? "active is-on" : ""}`.trim()}
+                                style={{ display: visible ? undefined : "none" }}
+                                className={`user-gc-segment shared-company-btn ${active ? "active is-on" : ""}`.trim()}
+                                data-company-id={comp.id}
                                 data-group-id={gid}
-                                onClick={() => void onGroupClick(gid)}
+                                data-company-code={comp.company_id || ""}
+                                onClick={() => void onCompanyClick(comp)}
                               >
-                                {gid}
+                                {comp.company_id}
                               </button>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
-                    {list.length > 0 ? (
-                      <div id="company-buttons-wrapper" className="user-gc-inline-row shared-company-wrapper">
-                        <span className="user-gc-inline-label">Company:</span>
-                        <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                          <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label="Company">
-                            {list.map((comp) => {
-                              const gid = String(comp.group_id || "").trim().toUpperCase();
-                              const visible = isCompanyVisibleForSharedFilter(comp, selectedGroup, false, "follow");
-                              const active = Number(comp.id) === Number(companyId);
-                              return (
-                                <button
-                                  key={comp.id}
-                                  type="button"
-                                  style={{ display: visible ? undefined : "none" }}
-                                  className={`user-gc-segment shared-company-btn ${active ? "active is-on" : ""}`.trim()}
-                                  data-company-id={comp.id}
-                                  data-group-id={gid}
-                                  data-company-code={comp.company_id || ""}
-                                  onClick={() => void onCompanyClick(comp)}
-                                >
-                                  {comp.company_id}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
+              <div className="dc-form-two-col">
+                <div className="form-group">
+                  <label htmlFor="capture_date">Date</label>
+                  <select id="capture_date" name="capture_date" required defaultValue="">
+                    <option value="">Select Date</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="capture_process">Process</label>
+                  <div className="custom-select-wrapper">
+                    <button type="button" className="custom-select-button" id="capture_process" data-placeholder="Select Process" name="process">
+                      Select Process
+                    </button>
+                    <div className="custom-select-dropdown" id="capture_process_dropdown">
+                      <div className="custom-select-search">
+                        <input type="text" placeholder="Search process..." autoComplete="off" />
                       </div>
-                    ) : null}
-                  </div>
-                )}
-
-                <div className="dc-form-two-col">
-                  <div className="form-group">
-                    <label htmlFor="capture_date">Date</label>
-                    <select id="capture_date" name="capture_date" required defaultValue="">
-                      <option value="">Select Date</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="capture_process">Process</label>
-                    <div className="custom-select-wrapper">
-                      <button type="button" className="custom-select-button" id="capture_process" data-placeholder="Select Process" name="process">
-                        Select Process
-                      </button>
-                      <div className="custom-select-dropdown" id="capture_process_dropdown">
-                        <div className="custom-select-search">
-                          <input type="text" placeholder="Search process..." autoComplete="off" />
-                        </div>
-                        <div className="custom-select-options" />
-                      </div>
+                      <div className="custom-select-options" />
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="dc-form-two-col">
-                  <div className="form-group">
-                    <label htmlFor="capture_description">Description</label>
-                    <div className="input-with-icon">
-                      <input
-                        type="text"
-                        id="capture_description"
-                        name="description"
-                        required
-                        readOnly
-                        placeholder="Click + to select descriptions"
-                      />
-                      <button type="button" className="add-icon" onClick={() => window.expandDescription?.()}>
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="capture_currency">Currency</label>
-                    <select id="capture_currency" name="currency" defaultValue="">
-                      <option value="">Select Currency</option>
-                    </select>
+              <div className="dc-form-two-col">
+                <div className="form-group">
+                  <label htmlFor="capture_description">Description</label>
+                  <div className="input-with-icon">
+                    <input
+                      type="text"
+                      id="capture_description"
+                      name="description"
+                      required
+                      readOnly
+                      placeholder="Click + to select descriptions"
+                    />
+                    <button type="button" className="add-icon" onClick={() => window.expandDescription?.()}>
+                      +
+                    </button>
                   </div>
                 </div>
 
-                <div className="dc-form-word-rows">
-                  <div className="dc-form-row-full">
-                    <div className="form-group replace-word-group">
-                      <label htmlFor="capture_replace_word_from">Replace Word</label>
-                      <div className="replace-word-fields">
-                        <input type="text" id="capture_replace_word_from" name="replace_word_from" placeholder="Old word" />
-                        <span className="replace-arrow">→</span>
-                        <input type="text" id="capture_replace_word_to" name="replace_word_to" placeholder="New word" />
-                      </div>
-                    </div>
-                  </div>
+                <div className="form-group">
+                  <label htmlFor="capture_currency">Currency</label>
+                  <select id="capture_currency" name="currency" defaultValue="">
+                    <option value="">Select Currency</option>
+                  </select>
+                </div>
+              </div>
 
-                  <div className="dc-form-two-col dc-form-two-col--tight">
-                    <div className="form-group dc-remove-word-field">
-                      <label htmlFor="capture_remove_word">Remove Word</label>
-                      <div className="dc-remove-word-stack">
-                        <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />
-                        <small className="field-help" style={{ fontStyle: "italic", color: "#666" }}>
-                          (Use semicolon to separate multiple words, e.g. abc;cde;efg)
-                        </small>
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="capture_remark">Remark</label>
-                      <input type="text" id="capture_remark" name="remark" placeholder="Enter remark" />
-                    </div>
+              <div className="dc-form-row-full">
+                <div className="form-group replace-word-group">
+                  <label htmlFor="capture_replace_word_from">Replace Word</label>
+                  <div className="replace-word-fields">
+                    <input type="text" id="capture_replace_word_from" name="replace_word_from" placeholder="Old word" />
+                    <span className="replace-arrow">→</span>
+                    <input type="text" id="capture_replace_word_to" name="replace_word_to" placeholder="New word" />
                   </div>
+                </div>
+              </div>
+
+              <div className="dc-form-two-col dc-form-two-col--tight">
+                <div className="form-group dc-remove-word-field">
+                  <label htmlFor="capture_remove_word">Remove Word</label>
+                  <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />
+                  <small className="field-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
+                    (Use semicolon to separate multiple words, e.g. abc;cde;efg)
+                  </small>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="capture_remark">Remark</label>
+                  <input type="text" id="capture_remark" name="remark" placeholder="Enter remark" />
                 </div>
               </div>
             </form>
