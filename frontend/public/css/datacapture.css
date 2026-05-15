@@ -213,7 +213,8 @@ body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-p
     margin: 0;
     border-top: none;
     border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-    row-gap: 5px;
+    /* Clear vertical separation between GroupID row and Company row */
+    row-gap: clamp(10px, 1vw, 14px);
     column-gap: 8px;
     --user-gc-inline-label-w: clamp(4.75rem, 8vw, 6rem);
 }
