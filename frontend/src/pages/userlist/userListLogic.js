@@ -217,48 +217,104 @@ export function applyUserFilters(users, { search, showInactive, showAll, viewerR
   return rows;
 }
 
+function shadowCmp(a, b) {
+  if (a.is_owner_shadow && !b.is_owner_shadow) return -1;
+  if (!a.is_owner_shadow && b.is_owner_shadow) return 1;
+  return 0;
+}
+
+function tiebreakLoginName(a, b) {
+  const al = String(a.login_id || "").toLowerCase();
+  const bl = String(b.login_id || "").toLowerCase();
+  if (al < bl) return -1;
+  if (al > bl) return 1;
+  const an = String(a.name || "").toLowerCase();
+  const bn = String(b.name || "").toLowerCase();
+  if (an < bn) return -1;
+  if (an > bn) return 1;
+  return 0;
+}
+
+function lastLoginSortMs(raw) {
+  if (raw == null || raw === "") return null;
+  const d = new Date(String(raw).trim().replace(" ", "T"));
+  const t = d.getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
 export function sortUsers(rows, sortColumn, sortDirection) {
   const dir = sortDirection === "desc" ? -1 : 1;
   const copy = [...rows];
-  if (sortColumn === "loginId") {
+  const sortWithShadow = (primary) => {
     copy.sort((a, b) => {
-      if (a.is_owner_shadow && !b.is_owner_shadow) return -1;
-      if (!a.is_owner_shadow && b.is_owner_shadow) return 1;
-      const aKey = String(a.login_id || "").toLowerCase();
-      const bKey = String(b.login_id || "").toLowerCase();
-      let result = 0;
-      if (aKey < bKey) result = -1;
-      else if (aKey > bKey) result = 1;
-      else {
-        const aName = String(a.name || "").toLowerCase();
-        const bName = String(b.name || "").toLowerCase();
-        if (aName < bName) result = -1;
-        else if (aName > bName) result = 1;
-      }
+      const s = shadowCmp(a, b);
+      if (s !== 0) return s * dir;
+      let result = primary(a, b);
+      if (result === 0) result = tiebreakLoginName(a, b);
       return result * dir;
     });
+  };
+
+  if (sortColumn === "no") {
+    sortWithShadow((a, b) => Number(a.id || 0) - Number(b.id || 0));
+  } else if (sortColumn === "loginId") {
+    sortWithShadow((a, b) => {
+      const aKey = String(a.login_id || "").toLowerCase();
+      const bKey = String(b.login_id || "").toLowerCase();
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      const aName = String(a.name || "").toLowerCase();
+      const bName = String(b.name || "").toLowerCase();
+      if (aName < bName) return -1;
+      if (aName > bName) return 1;
+      return 0;
+    });
+  } else if (sortColumn === "name") {
+    sortWithShadow((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
+  } else if (sortColumn === "email") {
+    sortWithShadow((a, b) => String(a.email || "").localeCompare(String(b.email || ""), undefined, { sensitivity: "base" }));
   } else if (sortColumn === "role") {
-    copy.sort((a, b) => {
-      if (a.is_owner_shadow && !b.is_owner_shadow) return -1;
-      if (!a.is_owner_shadow && b.is_owner_shadow) return 1;
+    sortWithShadow((a, b) => {
       const aKey = ROLE_HIERARCHY[normRole(a.role)] ?? 999;
       const bKey = ROLE_HIERARCHY[normRole(b.role)] ?? 999;
-      let result = 0;
-      if (aKey < bKey) result = -1;
-      else if (aKey > bKey) result = 1;
-      else {
-        const aRoleN = String(a.role || "").toUpperCase().trim();
-        const bRoleN = String(b.role || "").toUpperCase().trim();
-        if (aRoleN < bRoleN) result = -1;
-        else if (aRoleN > bRoleN) result = 1;
-        else {
-          const al = String(a.login_id || "").toLowerCase();
-          const bl = String(b.login_id || "").toLowerCase();
-          if (al < bl) result = -1;
-          else if (al > bl) result = 1;
-        }
-      }
-      return result * dir;
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      const aRoleN = String(a.role || "").toUpperCase().trim();
+      const bRoleN = String(b.role || "").toUpperCase().trim();
+      if (aRoleN < bRoleN) return -1;
+      if (aRoleN > bRoleN) return 1;
+      return 0;
+    });
+  } else if (sortColumn === "status") {
+    sortWithShadow((a, b) =>
+      normRole(a.status).localeCompare(normRole(b.status), undefined, { sensitivity: "base" }),
+    );
+  } else if (sortColumn === "lastLogin") {
+    sortWithShadow((a, b) => {
+      const va = lastLoginSortMs(a.last_login);
+      const vb = lastLoginSortMs(b.last_login);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (va < vb) return -1;
+      if (va > vb) return 1;
+      return 0;
+    });
+  } else if (sortColumn === "createdBy") {
+    sortWithShadow((a, b) =>
+      String(a.created_by || "").localeCompare(String(b.created_by || ""), undefined, { sensitivity: "base" }),
+    );
+  } else {
+    sortWithShadow((a, b) => {
+      const aKey = String(a.login_id || "").toLowerCase();
+      const bKey = String(b.login_id || "").toLowerCase();
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      const aName = String(a.name || "").toLowerCase();
+      const bName = String(b.name || "").toLowerCase();
+      if (aName < bName) return -1;
+      if (aName > bName) return 1;
+      return 0;
     });
   }
   return copy;
