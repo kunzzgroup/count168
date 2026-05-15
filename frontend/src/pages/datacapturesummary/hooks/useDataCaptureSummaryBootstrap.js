@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { computeProcessedAmounts } from "../utils/summaryNumberUtils.js";
 import { applyMaintenanceTemplates } from "../utils/applySummaryTemplates.js";
 import { mergeSummaryRowsFromServerState } from "../utils/mergeSummaryServerState.js";
+import { pickProcessWordTransforms, applyTransformationsToCapturedTable } from "../utils/applyCaptureProcessTransforms.js";
 
 function hydrateRowLabels(row, accountOptions, currencyOptions) {
   let account = row.account;
@@ -39,6 +40,9 @@ export function useDataCaptureSummaryBootstrap({
   setCurrencyOptions,
   setRoleOptions,
 }) {
+  /** Mirrors `window.__summaryFreshFromCapture` in js/datacapturesummary.js — skip server/local refresh restore on first land from Data Capture. */
+  const freshFromCaptureRef = useRef(false);
+
   const optionsQuery = useQuery({
     queryKey: ["dcs-summary-options", companyId ?? null],
     enabled: true,
@@ -59,6 +63,7 @@ export function useDataCaptureSummaryBootstrap({
     const url = new URL(window.location.href);
     const success = url.searchParams.get("success") === "1";
     const error = url.searchParams.get("error") === "1";
+    freshFromCaptureRef.current = success;
     if (success) {
       showNotification("Success", "Data captured and summary generated successfully!", "success");
     } else if (error) {
@@ -69,19 +74,8 @@ export function useDataCaptureSummaryBootstrap({
       url.searchParams.delete("error");
       window.history.replaceState({}, document.title, url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : ""));
     }
-
-    try {
-      const tableDataRaw = localStorage.getItem("capturedTableData");
-      const processDataRaw = localStorage.getItem("capturedProcessData");
-      if (!tableDataRaw || !processDataRaw) {
-        showEmptyState();
-        return;
-      }
-    } catch {
-      showEmptyState();
-      return;
-    }
-  }, [locationSearch, showEmptyState, showNotification]);
+    // Empty state when no captured payload: handled after summary_api options resolve (see below).
+  }, [locationSearch, showNotification]);
 
   useEffect(() => {
     if (optionsQuery.isError) {
@@ -98,11 +92,19 @@ export function useDataCaptureSummaryBootstrap({
       tableDataRaw = localStorage.getItem("capturedTableData");
       processDataRaw = localStorage.getItem("capturedProcessData");
       if (!tableDataRaw || !processDataRaw) {
+        showEmptyState();
         return;
       }
     } catch {
       showEmptyState();
       return;
+    }
+
+    /** Same as legacy loadAndRenderCapturedTable: new capture round must not reuse last submit captureId for templates */
+    try {
+      localStorage.removeItem("capturedCaptureId");
+    } catch {
+      /* ignore */
     }
 
     let cancelled = false;
@@ -128,6 +130,9 @@ export function useDataCaptureSummaryBootstrap({
 
       displayProcessInfo(processData);
 
+      const { removeWord, replaceWordFrom, replaceWordTo } = pickProcessWordTransforms(processData);
+      const tableForRows = applyTransformationsToCapturedTable(tableData, removeWord, replaceWordFrom, replaceWordTo);
+
       const processId = Number(processData.process ?? processData.processId ?? processData.process_id ?? 0) || null;
       const processCurrencyText = String(processData.currencyName || processData.currency || "").trim();
       const processCode = String(processData.processCode ?? "").trim();
@@ -144,17 +149,9 @@ export function useDataCaptureSummaryBootstrap({
         currencyName: processCurrencyText,
       });
 
-      let rows = extractSummaryRowsFromCapturedTable(tableData);
+      let rows = extractSummaryRowsFromCapturedTable(tableForRows);
 
       const uniqueIds = [...new Set(rows.map((r) => String(r.idProduct || "").trim()).filter(Boolean))];
-
-      let captureIdTpl = null;
-      try {
-        const st = localStorage.getItem("capturedCaptureId");
-        if (st != null && st !== "") captureIdTpl = parseInt(st, 10);
-      } catch {
-        /* ignore */
-      }
 
       const tplBase = buildApiUrl("api/datacapture_summary/summary_api.php?action=templates");
       const tplUrl = companyId ? `${tplBase}&company_id=${encodeURIComponent(String(companyId))}` : tplBase;
@@ -170,7 +167,6 @@ export function useDataCaptureSummaryBootstrap({
               idProducts: uniqueIds,
               processId,
               company_id: companyId ?? undefined,
-              ...(captureIdTpl != null && !Number.isNaN(captureIdTpl) && captureIdTpl > 0 ? { captureId: captureIdTpl } : {}),
             }),
           });
           const tjson = await tres.json();
@@ -182,9 +178,18 @@ export function useDataCaptureSummaryBootstrap({
         }
       }
 
-      rows = applyMaintenanceTemplates(rows, templates, tableData, accounts, currencies);
+      rows = applyMaintenanceTemplates(rows, templates, tableForRows, accounts, currencies);
 
-      if (processId) {
+      const isFreshFromCapture = freshFromCaptureRef.current === true;
+      if (isFreshFromCapture) {
+        try {
+          localStorage.removeItem("capturedTableRateValues");
+          localStorage.removeItem("capturedTableRateValuesByProductId");
+          localStorage.removeItem("capturedTableFormulaSourceForRefresh");
+        } catch {
+          /* ignore */
+        }
+      } else if (processId) {
         try {
           const stParams = new URLSearchParams({ action: "get_summary_state", process_id: String(processId) });
           if (processCode) stParams.set("process_code", processCode);

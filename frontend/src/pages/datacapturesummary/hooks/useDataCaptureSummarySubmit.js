@@ -114,6 +114,7 @@ export function useDataCaptureSummarySubmit({
   });
 
   const submitSummaryData = useCallback(() => {
+    if (submitSummaryMutation.isPending) return;
     (async () => {
       try {
         if (!processMeta.captureDate || !processMeta.processId || !processMeta.currencyId) {
@@ -185,7 +186,6 @@ export function useDataCaptureSummarySubmit({
     processMeta.processId,
     processMeta.processName,
     processMeta.remark,
-    showNotification,
     submitSummaryMutation,
     summaryRows,
   ]);

@@ -15,6 +15,19 @@ import { captureTableDataFromDom } from "./utils/captureTableDataDom.js";
 import { compactMatrix, parseClipboardMatrix, parseMatrixFromPasteArea, parseTableMatrixFromHtml } from "./utils/formatMatrixParser.js";
 import "../../../public/css/datacapture.css";
 
+/** Same redirect rules as js/datacapture.js `redirectToDashboardIfUnauthorizedCategory` (was dashboard.php / processlist.php). */
+function redirectIfUnauthorizedGamesCategory(navigate, errorMessage, role) {
+  if (typeof errorMessage !== "string") return false;
+  const normalized = errorMessage.toLowerCase();
+  const isUnauthorizedCategory =
+    normalized.includes("unauthorized category permission") || normalized.includes("games required");
+  if (!isUnauthorizedCategory) return false;
+  const currentRole = String(role || "").toLowerCase();
+  const canGoDashboard = currentRole === "admin" || currentRole === "owner";
+  navigate(canGoDashboard ? "/dashboard" : "/process-list", { replace: true });
+  return true;
+}
+
 function ensureTableShape(rows, cols) {
   const tableBody = document.getElementById("tableBody");
   const headerRow = document.querySelector("#tableHeader tr");
@@ -444,7 +457,12 @@ export default function DataCapturePage() {
         const response = await fetch(finalUrl, { credentials: "include" });
         const result = await response.json();
         if (cancelled) return;
-        setSubmittedProcesses(result.success ? result.data || [] : []);
+        if (!result.success) {
+          if (redirectIfUnauthorizedGamesCategory(navigate, result.error, sessionMe?.role)) return;
+          setSubmittedProcesses([]);
+          return;
+        }
+        setSubmittedProcesses(Array.isArray(result.data) ? result.data : []);
       } catch {
         if (!cancelled) setSubmittedProcesses([]);
       }
@@ -452,7 +470,7 @@ export default function DataCapturePage() {
     return () => {
       cancelled = true;
     };
-  }, [loading, forbidden, selectedDate, companyId]);
+  }, [loading, forbidden, selectedDate, companyId, navigate, sessionMe?.role]);
 
   useEffect(() => {
     if (loading || forbidden || companyId == null) return;
@@ -531,6 +549,20 @@ export default function DataCapturePage() {
     if (url.searchParams.get("submitted") !== "1") return;
     notify("Data submitted successfully. Continue capturing when ready.", "success");
     url.searchParams.delete("submitted");
+    const qs = url.searchParams.toString();
+    window.history.replaceState({}, document.title, url.pathname + (qs ? `?${qs}` : ""));
+  }, [loading, forbidden, notify]);
+
+  useEffect(() => {
+    if (loading || forbidden) return;
+    const url = new URL(window.location.href);
+    const success = url.searchParams.get("success") === "1";
+    const err = url.searchParams.get("error") === "1";
+    if (!success && !err) return;
+    if (success) notify("Data captured successfully!", "success");
+    else notify("Failed to capture data. Please try again.", "danger");
+    url.searchParams.delete("success");
+    url.searchParams.delete("error");
     const qs = url.searchParams.toString();
     window.history.replaceState({}, document.title, url.pathname + (qs ? `?${qs}` : ""));
   }, [loading, forbidden, notify]);
@@ -627,11 +659,6 @@ export default function DataCapturePage() {
   }, [loading, forbidden, companyCode]);
 
   useEffect(() => {
-    if (!selectedPermission) return;
-    // category kept in React; no legacy permission switch call.
-  }, [selectedPermission]);
-
-  useEffect(() => {
     if (loading || forbidden) return;
     let cancelled = false;
     (async () => {
@@ -666,8 +693,19 @@ export default function DataCapturePage() {
         const result = await response.json();
         if (cancelled) return;
 
-        if (!result.success || !Array.isArray(result.data)) {
+        if (!result.success) {
+          if (redirectIfUnauthorizedGamesCategory(navigate, result.error, sessionMe?.role)) return;
           setProcessOptions([]);
+          setSelectedProcessId("");
+          setProcessSearch("");
+          setProcessDropdownOpen(false);
+          return;
+        }
+        if (!Array.isArray(result.data)) {
+          setProcessOptions([]);
+          setSelectedProcessId("");
+          setProcessSearch("");
+          setProcessDropdownOpen(false);
           return;
         }
 
@@ -702,7 +740,7 @@ export default function DataCapturePage() {
     return () => {
       cancelled = true;
     };
-  }, [loading, forbidden, selectedDate, companyId]);
+  }, [loading, forbidden, selectedDate, companyId, navigate, sessionMe?.role]);
 
   const loadDescriptions = useCallback(async () => {
     const url = buildApiUrl("api/processes/addprocess_api.php");
@@ -871,7 +909,14 @@ export default function DataCapturePage() {
                   key={permission}
                   type="button"
                   className={`data-capture-company-btn ${selectedPermission === permission ? "active" : ""}`}
-                  onClick={() => setSelectedPermission(permission)}
+                  onClick={() => {
+                    setSelectedPermission(permission);
+                    try {
+                      if (companyCode) localStorage.setItem(`selectedPermission_${companyCode}`, permission);
+                    } catch {
+                      // ignore localStorage errors
+                    }
+                  }}
                 >
                   {permission}
                 </button>
@@ -1102,7 +1147,7 @@ export default function DataCapturePage() {
             <h2 className="submitted-title">Submitted Processes</h2>
             <div className="submitted-list" id="submittedProcessesList">
               {submittedProcesses.length === 0 ? (
-                <div className="no-data">No processes submitted for this date</div>
+                <div className="no-data">No processes submitted yet</div>
               ) : (
                 submittedProcesses.map((process, idx) => (
                   <div className="submitted-item" key={`${process.id || process.process_id || "p"}-${idx}`}>

@@ -10,10 +10,13 @@ import {
   computeProcessedAmounts,
   formatAmountDisplay,
   formatFixed2,
+  legacyRowCurrencyFormulaOk,
+  legacySubmitTotalTolerance,
   parseDisplayAmountToNumber,
   parseLooseNumericInput,
 } from "./utils/summaryNumberUtils.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { postSummaryStateSync } from "./utils/summaryServerPayload.js";
 
 import "./styles/datacapturesummary.css";
 
@@ -126,9 +129,29 @@ export default function DataCaptureSummaryPage() {
     navigate("/datacapture?restore=1");
   }, [navigate]);
 
-  const refreshPage = useCallback(() => {
+  const rateSelectAllLabel = useMemo(() => {
+    const eligible = summaryRows.filter((r) => String(r.idProduct || "").trim() !== "");
+    if (eligible.length === 0) return "Select All";
+    return eligible.every((r) => r.rateChecked) ? "Clear All" : "Select All";
+  }, [summaryRows]);
+
+  const toggleAllRate = useCallback(() => {
+    setSummaryRows((prev) => {
+      const eligible = prev.filter((r) => String(r.idProduct || "").trim() !== "");
+      const allChecked = eligible.length > 0 && eligible.every((r) => r.rateChecked);
+      return prev.map((row) => {
+        if (!String(row.idProduct || "").trim()) return row;
+        return { ...row, rateChecked: !allChecked };
+      });
+    });
+  }, []);
+
+  const refreshPage = useCallback(async () => {
+    if (contentVisible && !emptyVisible && summaryRows.length > 0 && processMeta.processId) {
+      await postSummaryStateSync(summaryRows, processMeta, companyId);
+    }
     navigate(0);
-  }, [navigate]);
+  }, [companyId, contentVisible, emptyVisible, navigate, processMeta, summaryRows]);
 
   const closeConfirmDeleteModal = useCallback(() => {
     setConfirmDeleteState((prev) => ({ ...prev, visible: false }));
@@ -147,10 +170,6 @@ export default function DataCaptureSummaryPage() {
       visible: true,
       message: message || "This action cannot be undone.",
     });
-  }, []);
-
-  const toggleAllRate = useCallback(() => {
-    setSummaryRows((prev) => prev.map((row) => ({ ...row, rateChecked: true })));
   }, []);
 
   const submitRateValues = useCallback(() => {
@@ -391,20 +410,23 @@ export default function DataCaptureSummaryPage() {
     setRoleOptions,
   });
 
-  const summaryTotal = useMemo(
-    () => summaryRows.filter((row) => !row.skipChecked).reduce((acc, row) => acc + parseDisplayAmountToNumber(row.processedAmount), 0),
-    [summaryRows],
-  );
-
   const submitState = useMemo(() => {
-    const isWithinRange = summaryTotal >= -0.05 && summaryTotal <= 0.05;
-    const allRowsHaveCurrencyAndFormula = summaryRows.every((row) => !row.account || (row.currency && row.formula));
+    const { ok: isWithinRange, formattedTotal, finalTotal } = legacySubmitTotalTolerance(summaryRows);
+    const allRowsHaveCurrencyAndFormula = summaryRows.every(legacyRowCurrencyFormulaOk);
     const canSubmit = isWithinRange && allRowsHaveCurrencyAndFormula;
     let title = "";
-    if (!isWithinRange) title = `Total must be between -0.05 and 0.05. Current total: ${summaryTotal.toFixed(2)}`;
-    else if (!allRowsHaveCurrencyAndFormula) title = "请为每一行选择 Currency 并填写 Formula 后再提交。";
-    return { canSubmit, title };
-  }, [summaryRows, summaryTotal]);
+    if (!isWithinRange) {
+      title = `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formattedTotal}`;
+    } else if (!allRowsHaveCurrencyAndFormula) {
+      title = "请先为已选 Account 的每一行填写 Currency 与 Formula 后再提交。（Cannot save: Currency and Formula are required.）";
+    }
+    const footerTotalValue = Number.parseFloat(String(finalTotal).replace(/,/g, ""));
+    return {
+      canSubmit,
+      title,
+      footerTotalValue: Number.isFinite(footerTotalValue) ? footerTotalValue : 0,
+    };
+  }, [summaryRows]);
 
   useEffect(() => {
     if (!processCurrencyCode || !currencyOptions.length) return;
@@ -454,7 +476,7 @@ export default function DataCaptureSummaryPage() {
               </label>
               <input type="text" id="rateInput" className="batch-input" placeholder="e.g. *3 or /3" value={rateInput} onChange={(e) => setRateInput(e.target.value)} />
               <button className="btn-update-all" id="rateSelectAllBtn" onClick={toggleAllRate} type="button">
-                Select All
+                {rateSelectAllLabel}
               </button>
               <button className="btn-update-all" id="topSubmitBtn" onClick={submitRateValues} type="button">
                 Submit
@@ -531,7 +553,7 @@ export default function DataCaptureSummaryPage() {
                 <tfoot>
                   <tr id="summaryTotalRow">
                     <td colSpan="8" className="summary-total-label" />
-                    <td id="summaryTotalAmount" style={{ color: submitState.canSubmit ? "#0D60FF" : "#A91215" }}>{formatAmountDisplay(summaryTotal)}</td>
+                    <td id="summaryTotalAmount" style={{ color: submitState.canSubmit ? "#0D60FF" : "#A91215" }}>{formatAmountDisplay(submitState.footerTotalValue)}</td>
                     <td />
                     <td />
                   </tr>
