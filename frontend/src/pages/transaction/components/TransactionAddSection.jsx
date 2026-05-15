@@ -344,8 +344,8 @@ export default function TransactionAddSection({
 
         <div className="transaction-form-group transaction-inline-row">
           <label className="transaction-label">Middle-Man</label>
-          <div className="rate-row rate-row-five-cols">
-            <div className="rate-mm-span-acct">
+          <div className="rate-row rate-row-mm">
+            <div className="rate-mm-to-wrap">
               <AccountSelect
                 ariaLabel="Middle-Man account"
                 placeholder="--Select Account--"
@@ -359,7 +359,7 @@ export default function TransactionAddSection({
               type="number"
               step="0.0001"
               id="rate_middleman_rate"
-              className="transaction-input rate-mm-slot-mult"
+              className="transaction-input"
               placeholder="Rate multiplier"
               value={rateMiddlemanRate}
               onChange={(e) => setRateMiddlemanRate(e.target.value)}
@@ -369,7 +369,7 @@ export default function TransactionAddSection({
               type="number"
               step="0.01"
               id="rate_middleman_amount"
-              className="transaction-input rate-mm-slot-amt"
+              className="transaction-input"
               placeholder="Amount"
               readOnly
               value={rateMiddlemanAmount}
