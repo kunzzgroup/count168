@@ -620,6 +620,7 @@ export default function FormulaMaintenancePage() {
       />
 
       <FormulaMaintenanceTable
+        key={companyId ?? "no-company"}
         data={formulaData}
         loading={loading}
         listHydrating={listHydrating}

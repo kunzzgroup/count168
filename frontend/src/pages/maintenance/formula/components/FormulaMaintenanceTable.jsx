@@ -4,7 +4,7 @@ import { assetUrl } from "../../../../utils/apiUrl.js";
 import FormulaVirtualRows from "./FormulaVirtualRows.jsx";
 
 const ROW_HEIGHT = 56;
-const VIRTUAL_THRESHOLD = 60;
+const EDIT_ROW_HEIGHT = 80;
 
 export default function FormulaMaintenanceTable({
   data,
@@ -91,7 +91,8 @@ export default function FormulaMaintenanceTable({
     );
   }
 
-  const useVirtualList = data.length >= VIRTUAL_THRESHOLD && editingId === null;
+  /* 所有公司统一用虚拟 grid 表（与 95 等大列表一致）；勿按条数切回 HTML table */
+  const useVirtualList = data.length > 0;
 
   const buildRowTr = (row, virtualRow, virtualAttrs = {}) => {
     const isEditing = editingId === row.id;
@@ -121,7 +122,9 @@ export default function FormulaMaintenanceTable({
         style={rowStyle}
       >
         <td className="maintenance-table-cell">{row.no}</td>
-        <td className="maintenance-table-cell">{toUpperDisplay(row.process)}</td>
+        <td className="maintenance-table-cell" title={row.process}>
+          <span className="formula-cell-clamp-2 process-display">{toUpperDisplay(row.process)}</span>
+        </td>
         <td className="maintenance-table-cell">
           {isEditing ? (
             <select
@@ -138,7 +141,7 @@ export default function FormulaMaintenanceTable({
               ))}
             </select>
           ) : (
-            <span className="account-display">{toUpperDisplay(row.account)}</span>
+            <span className="formula-cell-clamp-2 account-display" title={row.account}>{toUpperDisplay(row.account)}</span>
           )}
         </td>
         <td className="maintenance-table-cell maintenance-cell-currency">{toUpperDisplay(row.currency)}</td>
@@ -152,12 +155,14 @@ export default function FormulaMaintenanceTable({
               style={{ display: "block", width: "100%" }}
             />
           ) : (
-            <span className="source-display" title={row.source}>
+            <span className="formula-cell-clamp-2 source-display" title={row.source}>
               {toUpperDisplay(row.source)}
             </span>
           )}
         </td>
-        <td className="maintenance-table-cell">{toUpperDisplay(row.product)}</td>
+        <td className="maintenance-table-cell" title={row.product}>
+          <span className="formula-cell-clamp-2 product-display">{toUpperDisplay(row.product)}</span>
+        </td>
         <td className="maintenance-table-cell formula-cell-text">
           {isEditing ? (
             <select
@@ -173,7 +178,7 @@ export default function FormulaMaintenanceTable({
               ))}
             </select>
           ) : (
-            <span className="input-method-display" title={row.input_method}>
+            <span className="formula-cell-clamp-2 input-method-display" title={row.input_method}>
               {toUpperDisplay(row.input_method)}
             </span>
           )}
@@ -188,7 +193,7 @@ export default function FormulaMaintenanceTable({
               style={{ display: "block", width: "100%" }}
             />
           ) : (
-            <span className="formula-display" title={row.formula}>
+            <span className="formula-cell-clamp-2 formula-display" title={row.formula}>
               {toUpperDisplay(row.formula)}
             </span>
           )}
@@ -203,7 +208,9 @@ export default function FormulaMaintenanceTable({
               style={{ display: "block", width: "100%" }}
             />
           ) : (
-            <span className="description-display">{toUpperDisplay(row.description)}</span>
+            <span className="formula-cell-clamp-2 description-display" title={row.description}>
+              {toUpperDisplay(row.description)}
+            </span>
           )}
         </td>
         <td className="maintenance-table-cell maintenance-cell-checkbox">
@@ -300,6 +307,14 @@ export default function FormulaMaintenanceTable({
           <FormulaVirtualRows
             rows={data}
             rowHeight={ROW_HEIGHT}
+            editRowHeight={EDIT_ROW_HEIGHT}
+            editingId={editingId}
+            editForm={editForm}
+            onEditFormChange={setEditForm}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            accounts={accounts}
+            inputMethodOptions={inputMethodOptions}
             isRowSelected={isRowSelected}
             onToggleSelect={onToggleSelect}
             onEdit={handleEdit}
