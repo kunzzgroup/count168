@@ -208,6 +208,49 @@ body.datacapture-page .process-form .dc-form-two-col .form-group {
     margin-bottom: 0;
 }
 
+/* Date | Process & Description | Currency: label above field (2×2 grid, mockup parity) */
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked {
+    align-items: start;
+    column-gap: clamp(12px, 1.35vw, 20px);
+    row-gap: 0;
+    /* Space between Date/Process row and Description/Currency row (labels align to mockup) */
+    margin-bottom: clamp(10px, 0.85vw, 14px);
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group {
+    flex-direction: column;
+    align-items: stretch;
+    align-self: stretch;
+    gap: clamp(4px, 0.38vw, 6px);
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group > label {
+    width: auto;
+    max-width: 100%;
+    align-self: flex-start;
+    text-align: left;
+    padding-right: 0;
+    margin-bottom: 0;
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group > select,
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group > .custom-select-wrapper,
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group > .input-with-icon {
+    width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group input,
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group select {
+    width: 100%;
+}
+
 body.datacapture-page .process-form .dc-form-two-col--tight {
     margin-bottom: clamp(4px, 0.45vw, 8px);
 }

@@ -368,7 +368,7 @@ export default function DataCapturePage() {
                 </div>
               )}
 
-              <div className="dc-form-two-col">
+              <div className="dc-form-two-col dc-form-two-col--stacked">
                 <div className="form-group">
                   <label htmlFor="capture_date">Date</label>
                   <select id="capture_date" name="capture_date" required defaultValue="">
@@ -392,7 +392,7 @@ export default function DataCapturePage() {
                 </div>
               </div>
 
-              <div className="dc-form-two-col">
+              <div className="dc-form-two-col dc-form-two-col--stacked">
                 <div className="form-group">
                   <label htmlFor="capture_description">Description</label>
                   <div className="input-with-icon">
