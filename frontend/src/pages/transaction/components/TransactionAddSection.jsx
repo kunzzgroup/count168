@@ -386,7 +386,11 @@ export default function TransactionAddSection({
         <input type="text" id="action_description" className="transaction-input text-uppercase" />
       </div>
 
-      <div className="transaction-form-group" id="remark_form_group">
+      <div
+        className="transaction-form-group"
+        id="remark_form_group"
+        style={{ display: txType === "RATE" ? "none" : undefined }}
+      >
         <label className="transaction-label" htmlFor="action_sms">
           Remark
         </label>
