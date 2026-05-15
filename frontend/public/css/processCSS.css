@@ -1826,7 +1826,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     font-family: var(--font-ui) !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
-    min-height: 2.55rem !important;
+    min-height: 3rem !important;
     box-sizing: border-box;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
@@ -1930,10 +1930,10 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page .process-form .form-group textarea {
     border-color: #dbe3ee;
     border-radius: 0.52rem;
-    padding: 0.625rem 0.875rem;
+    padding: 0.7rem 0.9rem;
     font-size: var(--text-small);
     font-family: var(--font-ui);
-    min-height: 2.55rem;
+    min-height: 3rem;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
     box-sizing: border-box;
 }
@@ -2124,8 +2124,8 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page #addModal .process-form .form-group textarea {
-    min-height: 6rem !important;
-    max-height: 6rem !important;
+    min-height: 8.25rem !important;
+    max-height: 8.25rem !important;
     resize: none !important;
 }
 
@@ -3810,8 +3810,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-size: var(--text-small) !important;
     font-family: var(--font-ui) !important;
     line-height: 1.35;
-    padding: 0.55rem 0.9rem !important;
-    min-height: 2.55rem;
+    padding: 0.7rem 0.95rem !important;
+    min-height: 3rem;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
@@ -3846,7 +3846,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 #addModal .modal-content {
     width: clamp(900px, 84vw, 1120px) !important;
     max-width: 1120px !important;
-    min-height: clamp(460px, 62vh, 600px) !important;
+    min-height: clamp(480px, 64vh, 640px) !important;
     max-height: 92vh !important;
 }
 
@@ -3897,8 +3897,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-size: var(--text-small) !important;
     font-family: var(--font-ui) !important;
     line-height: 1.35 !important;
-    padding: 0.5rem 0.8rem !important;
-    min-height: 2.55rem !important;
+    padding: 0.7rem 0.9rem !important;
+    min-height: 3rem !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
@@ -3984,8 +3984,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 }
 
 #addModal .process-form .form-group textarea {
-    min-height: 7.25rem !important;
-    max-height: 7.25rem !important;
+    min-height: 8.25rem !important;
+    max-height: 8.25rem !important;
     resize: none !important;
 }
 
@@ -4000,7 +4000,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 #editModal .modal-content {
     width: clamp(900px, 84vw, 1120px) !important;
     max-width: 1120px !important;
-    min-height: clamp(460px, 62vh, 600px) !important;
+    min-height: clamp(480px, 64vh, 640px) !important;
     max-height: 92vh !important;
 }
 
@@ -4051,8 +4051,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-size: var(--text-small) !important;
     font-family: var(--font-ui) !important;
     line-height: 1.35 !important;
-    padding: 0.5rem 0.8rem !important;
-    min-height: 2.55rem !important;
+    padding: 0.7rem 0.9rem !important;
+    min-height: 3rem !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
@@ -4118,8 +4118,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 }
 
 #editModal .process-form .form-group textarea {
-    min-height: 7.25rem !important;
-    max-height: 7.25rem !important;
+    min-height: 8.25rem !important;
+    max-height: 8.25rem !important;
     resize: none !important;
 }
 
