@@ -397,7 +397,7 @@ export default function FormulaMaintenancePage() {
   if (bootLoading || !me) return null;
 
   return (
-    <div className="container">
+    <div className="formula-maintenance-page-root container">
       <div className="maintenance-header">
         <h1 id="maintenance-page-title">{m.pageTitleFormula}</h1>
         {permissions.length > 1 && (

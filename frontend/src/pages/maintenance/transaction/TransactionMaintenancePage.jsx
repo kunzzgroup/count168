@@ -97,6 +97,7 @@ export default function TransactionMaintenancePage() {
     listQueryEnabled &&
     (transactionQuery.isLoading || (transactionQuery.isFetching && listRowCount === 0));
   const lastToastKeyRef = useRef(null);
+  const lastEmptyNotifyRef = useRef(null);
   const lastErrorMsgRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
@@ -340,6 +341,25 @@ export default function TransactionMaintenancePage() {
     lastToastKeyRef.current = key;
     notify(t("foundRecords", { n: transactionData.length }), "success");
   }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt, transactionQuery.isPlaceholderData, transactionData.length, notify, t]);
+
+  useEffect(() => {
+    if (!listQueryEnabled) return;
+    if (!transactionQuery.isSuccess) return;
+    if (transactionQuery.isFetching) return;
+    if (transactionData.length > 0) return;
+    const key = `${transactionQuery.dataUpdatedAt ?? ""}:empty`;
+    if (lastEmptyNotifyRef.current === key) return;
+    lastEmptyNotifyRef.current = key;
+    notify(t("noDataAdjustSearch"), "info");
+  }, [
+    listQueryEnabled,
+    transactionQuery.isSuccess,
+    transactionQuery.isFetching,
+    transactionData.length,
+    transactionQuery.dataUpdatedAt,
+    notify,
+    t,
+  ]);
 
   useEffect(() => {
     if (!transactionQuery.isError || !transactionQuery.error) return;

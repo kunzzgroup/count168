@@ -38,8 +38,10 @@ export async function fetchCompanyCurrencies(companyId) {
 
 /**
  * Search payment data
+ * @param {object} opts
+ * @param {AbortSignal} [opts.signal] — cancel in-flight request when company / filters change
  */
-export async function searchPaymentData({ dateFrom, dateTo, transactionType, companyId, currency }) {
+export async function searchPaymentData({ dateFrom, dateTo, transactionType, companyId, currency, signal }) {
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);
   params.append("date_to", dateTo);
@@ -48,7 +50,7 @@ export async function searchPaymentData({ dateFrom, dateTo, transactionType, com
   if (currency) params.append("currency", currency);
   
   const url = buildApiUrl(`api/payment_maintenance/search_api.php?${params.toString()}`);
-  const response = await fetch(url);
+  const response = await fetch(url, { credentials: "include", signal });
   const data = await response.json();
   
   if (!data.success) {
@@ -79,7 +81,9 @@ export async function deletePaymentRecords(transactionIds) {
  * Update session company
  */
 export async function updateSessionCompany(companyId) {
-  const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`));
+  const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`), {
+    credentials: "include",
+  });
   const result = await response.json();
   if (!result.success) {
     throw new Error(result.error || 'Failed to update session company');
@@ -141,6 +145,22 @@ function parseMaintenanceSortTime(row) {
   const iso = `${createdMatch[3]}-${createdMatch[2]}-${createdMatch[1]}T${createdMatch[4]}`;
   const ts = Date.parse(iso);
   return Number.isFinite(ts) ? ts : 0;
+}
+
+/** Virtual rollup rows from the API use transaction_id 0; they are not real DB rows. */
+export function isPaymentMaintenanceRowSelectable(row) {
+  const id = row?.transaction_id;
+  if (id === null || id === undefined || id === "") return false;
+  const n = Number(id);
+  return Number.isFinite(n) && n !== 0;
+}
+
+/** Stable unique key per rendered row (avoids duplicate React keys when transaction_id is 0). */
+export function getPaymentMaintenanceRowRenderKey(row, index) {
+  if (isPaymentMaintenanceRowSelectable(row)) {
+    return `t-${row.transaction_id}`;
+  }
+  return `v-${index}-${String(row.dts_created ?? "")}-${String(row.amount ?? "")}-${String(row.description ?? "").slice(0, 48)}`;
 }
 
 function sortAndNormalizePaymentRows(data) {
