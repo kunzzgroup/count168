@@ -6,6 +6,7 @@
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../../includes/deleted_log.php';
 require_once __DIR__ . '/../api_response.php';
 if (session_status() === PHP_SESSION_NONE) {
@@ -78,6 +79,11 @@ function detachProcessHistoryReferences(PDO $pdo, array $processIds, array $comp
 try {
     if (!isset($_SESSION['user_id']) || !isset($_SESSION['company_id'])) {
         api_error('User not logged in or company not selected', 401);
+        exit;
+    }
+
+    if (is_partnership_audit_read_only_active($pdo)) {
+        api_error('只读账号无法执行此操作', 403);
         exit;
     }
 

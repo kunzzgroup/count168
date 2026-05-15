@@ -7,6 +7,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -408,6 +409,11 @@ try {
 
 // ---------- 路由 ----------
 try {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_partnership_audit_read_only_active($pdo)) {
+        jsonResponse(false, '只读账号无法执行此操作', null);
+        exit;
+    }
+
     // GET: copy_from
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'copy_from') {
         $processIdParam = isset($_GET['process_id']) ? trim($_GET['process_id']) : '';

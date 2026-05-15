@@ -9,6 +9,7 @@ header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
@@ -194,6 +195,9 @@ try {
     
     switch ($action) {
         case 'create':
+            if (is_partnership_audit_read_only_active($pdo)) {
+                sendResponse(false, '只读账号无法执行此操作');
+            }
             if (!canCreateUserByRole($current_user_role)) {
                 sendResponse(false, 'You do not have permission to create new accounts');
             }
@@ -411,6 +415,9 @@ try {
             break;
             
         case 'update':
+            if (is_partnership_audit_read_only_active($pdo)) {
+                sendResponse(false, '只读账号无法执行此操作');
+            }
             if (!isset($input['id'])) {
                 sendResponse(false, 'User ID is required');
             }
@@ -761,6 +768,9 @@ try {
             break;
             
         case 'delete':
+            if (is_partnership_audit_read_only_active($pdo)) {
+                sendResponse(false, '只读账号无法执行此操作');
+            }
             if (!isset($input['id'])) {
                 sendResponse(false, 'User ID is required');
             }

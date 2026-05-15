@@ -19,6 +19,7 @@ export default function ProcessTable({
   openEdit,
   toggleSelectId,
   toggleSelectAll,
+  mutationsBlocked,
   t,
 }) {
   const deletableRows = pageRows.filter(
@@ -53,6 +54,7 @@ export default function ProcessTable({
                 title={t("selectAll")}
                 aria-label={t("selectAllInactiveOnPage")}
                 checked={allDeletableSelected}
+                disabled={mutationsBlocked}
                 onChange={(e) => toggleSelectAll(e.target.checked)}
               />
             ) : null}
@@ -103,10 +105,11 @@ export default function ProcessTable({
                 <span
                   className={`role-badge ${
                     row.status === "active" ? "status-active" : "status-inactive"
-                  } status-clickable`}
-                  title={t("clickToggleStatus")}
-                  onClick={() => toggleStatus(row)}
+                  }${mutationsBlocked ? "" : " status-clickable"}`}
+                  title={mutationsBlocked ? t("readOnlyActionBlocked") : t("clickToggleStatus")}
+                  onClick={mutationsBlocked ? undefined : () => toggleStatus(row)}
                   role="button"
+                  style={mutationsBlocked ? { cursor: "not-allowed" } : undefined}
                 >
                   {String(row.status || "").toUpperCase()}
                 </span>
@@ -117,6 +120,7 @@ export default function ProcessTable({
                 <button
                   type="button"
                   className="btn btn-edit edit-btn"
+                  disabled={mutationsBlocked}
                   onClick={() => openEdit(row.id)}
                   aria-label={t("edit")}
                   title={t("edit")}
@@ -133,6 +137,7 @@ export default function ProcessTable({
                       title={t("selectForDeletion")}
                       aria-label={t("selectForDeletion")}
                       checked={selectedIds.has(row.id)}
+                      disabled={mutationsBlocked}
                       onChange={() => toggleSelectId(row.id)}
                     />
                   ) : (

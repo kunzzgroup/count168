@@ -1,7 +1,8 @@
 import React from "react";
 
-export default function UserConfirmModal({ open, message, onConfirm, onClose, t }) {
+export default function UserConfirmModal({ open, message, onConfirm, onClose, confirmDisabled, t }) {
   if (!open) return null;
+  const disableDelete = Boolean(confirmDisabled);
   return (
     <div id="confirmModal" className="modal" style={{ display: "flex" }}>
       <div className="confirm-modal-content">
@@ -18,7 +19,7 @@ export default function UserConfirmModal({ open, message, onConfirm, onClose, t 
           <button type="button" className="btn btn-cancel confirm-cancel" onClick={onClose}>
             {t("cancel")}
           </button>
-          <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
+          <button type="button" className="btn btn-delete confirm-delete" disabled={disableDelete} onClick={onConfirm}>
             {t("delete")}
           </button>
         </div>

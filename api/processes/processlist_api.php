@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/ensure_bank_process_day_end_monthly_cap_column.php';
 
@@ -550,6 +551,11 @@ function updateProcess() {
     global $pdo;
     
     try {
+        if (is_partnership_audit_read_only_active($pdo)) {
+            jsonResponse(false, '只读账号无法执行此操作', null);
+            return;
+        }
+
         // Bank 类别：更新 bank_process 表
         if (isset($_POST['permission']) && $_POST['permission'] === 'Bank') {
             updateBankProcess();
