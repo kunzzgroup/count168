@@ -1291,7 +1291,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     transform: translateY(-50%);
 }
 
-/* Add Account modal: rectangular and full-looking layout */
+/* Add Account modal: 随内容高度，避免整块白底出现纵向滚动条；Company 摘要单独收紧 */
 #account-addModal .account-modal-content,
 #account-editModal .account-modal-content {
     width: clamp(860px, 89.65vw, 920px);
@@ -1299,8 +1299,12 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-sizing: border-box;
     padding: 10px 20px;
     border-radius: 0.9rem;
-    height: clamp(700px, 92.5vh, 785px);
+    height: auto;
     max-height: 92vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
     transform: translateY(-50%);
     transform-origin: center center;
     box-shadow: 0 24px 48px -18px rgba(15, 23, 42, 0.35), 0 8px 18px -10px rgba(15, 23, 42, 0.2);
@@ -1479,6 +1483,9 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-editModal .account-other-currency--company > .account-modal-company-field .user-modal-company-summary {
     width: 100%;
     box-sizing: border-box;
+    margin-top: 6px;
+    padding: 6px 10px;
+    min-height: 0;
 }
 
 #account-addModal .account-other-currency label,
