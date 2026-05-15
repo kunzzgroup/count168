@@ -2773,98 +2773,53 @@ body.transaction-page .transaction-add-section .rate-row-two-cols > .custom-sele
 }
 
 /*
- * SPA 新增 RATE：整塊控件區同一右緣對齊；Middle-Man 用 5 欄格對齊 Currency（最後欄 Amount 同寬）
+ * RATE 區控件：複用與其他 Type 相同的 .transaction-form-group，只補強五欄格與 Middle-Man 對欄對齊
  */
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack {
-    display: grid;
-    grid-template-columns: clamp(80px, 6vw, 110px) minmax(0, 1fr);
-    column-gap: clamp(8px, 1vw, 12px);
-    row-gap: 8px;
-    width: 100%;
-    align-items: center;
-}
-
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-section.rate-section--add-pane {
-    display: contents;
-}
-
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-section--add-pane > .transaction-label {
-    grid-column: 1;
-    justify-self: start;
-    align-self: center;
-    margin: 0;
-    width: auto;
-    max-width: min(110px, 100%);
-}
-
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-section--add-pane > .transaction-date-rate-wrap-inner,
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-section--add-pane > .rate-row {
-    grid-column: 2;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-}
-
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-row.rate-row-five-cols {
+body.transaction-page .transaction-add-section .rate-fields .rate-row.rate-row-five-cols {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 5px;
     align-items: stretch;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
 }
 
-
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-mm-span-acct {
+body.transaction-page .transaction-add-section .rate-fields .rate-mm-span-acct {
     grid-column: 1 / span 3;
     display: flex;
     min-width: 0;
     align-self: stretch;
 }
 
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-mm-span-acct > .custom-select-wrapper {
+body.transaction-page .transaction-add-section .rate-fields .rate-mm-span-acct > .custom-select-wrapper {
     flex: 1 1 auto;
     display: flex;
     min-width: 0;
     align-self: stretch;
 }
 
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-mm-span-acct .custom-select-button {
+body.transaction-page .transaction-add-section .rate-fields .rate-mm-span-acct .custom-select-button {
     flex: 1;
     display: flex;
     align-items: center;
 }
 
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-mm-slot-mult {
+body.transaction-page .transaction-add-section .rate-fields .rate-mm-slot-mult {
     grid-column: 4;
 }
 
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-mm-slot-amt {
+body.transaction-page .transaction-add-section .rate-fields .rate-mm-slot-amt {
     grid-column: 5;
 }
 
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-row-two-cols {
-    gap: 5px;
-}
-
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-row-two-cols .custom-select-wrapper {
-    display: flex;
-    align-self: stretch;
-    min-width: 0;
-}
-
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-row-two-cols .custom-select-wrapper .custom-select-button {
-    flex: 1 1 auto;
-    display: flex;
-    align-items: center;
-    min-height: 0;
-}
-
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-row-five-cols .transaction-select,
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack .rate-row-five-cols .transaction-input {
+body.transaction-page .transaction-add-section .rate-fields .rate-row-five-cols .transaction-select,
+body.transaction-page .transaction-add-section .rate-fields .rate-row-five-cols .transaction-input {
     box-sizing: border-box;
     align-self: stretch;
 }
 
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack #rate_exchange_rate.transaction-input {
+body.transaction-page .transaction-add-section .rate-fields #rate_exchange_rate.transaction-input {
     background-color: #f3f3f3 !important;
     opacity: 1 !important;
     color: #1f2937 !important;
@@ -2872,12 +2827,25 @@ body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form
     caret-color: #1f2937 !important;
 }
 
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack input.transaction-input[readonly]#rate_currency_to_amount,
-body.transaction-page .transaction-add-section .rate-fields.rate-fields-add-form-stack input.transaction-input[readonly]#rate_middleman_amount {
+body.transaction-page .transaction-add-section .rate-fields input.transaction-input[readonly]#rate_currency_to_amount,
+body.transaction-page .transaction-add-section .rate-fields input.transaction-input[readonly]#rate_middleman_amount {
     background-color: #f3f3f3 !important;
     opacity: 1 !important;
     color: #1f2937 !important;
     -webkit-text-fill-color: #1f2937 !important;
+}
+
+body.transaction-page .transaction-add-section .rate-fields .transaction-account-inputs .custom-select-wrapper {
+    align-self: stretch;
+    display: flex;
+    min-width: 0;
+}
+
+body.transaction-page .transaction-add-section .rate-fields .transaction-account-inputs .custom-select-wrapper .custom-select-button {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    min-height: 0;
 }
 
 /* Category Multi-Select Dropdown Styles */
@@ -3178,7 +3146,7 @@ body.transaction-page .transaction-add-section .report-outlined-inner .transacti
 
 /* Legacy add form date: PHP-style plain #transaction_date / #rate_transaction_date inputs + invisible MaintenanceDateRangePicker hitbox overlay */
 body.transaction-page .transaction-add-section .transaction-add-datepicker-wrap,
-body.transaction-page .transaction-add-section .rate-section .transaction-date-rate-wrap-inner {
+body.transaction-page .transaction-add-section .rate-fields .transaction-date-rate-wrap-inner {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
@@ -3187,7 +3155,7 @@ body.transaction-page .transaction-add-section .rate-section .transaction-date-r
 }
 
 body.transaction-page .transaction-add-section .transaction-add-datepicker-wrap .transaction-input,
-body.transaction-page .transaction-add-section .rate-section #rate_transaction_date {
+body.transaction-page .transaction-add-section .rate-fields #rate_transaction_date {
     width: 100%;
     cursor: pointer;
 }
@@ -3218,7 +3186,7 @@ body.transaction-page .transaction-add-section .transaction-add-datepicker-hitbo
 }
 
 body.transaction-page .transaction-add-section .transaction-add-datepicker-wrap:focus-within .transaction-input#transaction_date,
-body.transaction-page .transaction-add-section .rate-section .transaction-date-rate-wrap-inner:focus-within #rate_transaction_date {
+body.transaction-page .transaction-add-section .rate-fields .transaction-date-rate-wrap-inner:focus-within #rate_transaction_date {
     border-color: #6366f1;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
