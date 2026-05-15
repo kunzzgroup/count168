@@ -56,6 +56,7 @@ export default function ProcessListPage() {
   const [cssReady, setCssReady] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
+  const [pendingCompanyId, setPendingCompanyId] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
   const [switchingCompany, setSwitchingCompany] = useState(false);
   const [search, setSearch] = useState("");
@@ -163,6 +164,23 @@ export default function ProcessListPage() {
   useEffect(() => {
     rowsRef.current = rows;
   }, [rows]);
+
+  useEffect(() => {
+    if (!companies.length) return;
+    let cancelled = false;
+    const codes = [
+      ...new Set(companies.map((c) => String(c.company_id || "").trim()).filter(Boolean)),
+    ];
+    void (async () => {
+      for (const code of codes) {
+        if (cancelled) break;
+        await isBankCategoryCompany(code, buildApiUrl);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companies]);
 
   const loadFormMeta = useCallback(async (cid) => {
     if (!cid) return;
@@ -513,15 +531,20 @@ export default function ProcessListPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [modalOpen, descriptionPickerOpen]);
 
-  const allCompanyButtons = useMemo(() => dedupeCompanyRowsForSwitcher(companies, companyId), [companies, companyId]);
+  const pickerCompanyId = pendingCompanyId ?? companyId;
+
+  const allCompanyButtons = useMemo(
+    () => dedupeCompanyRowsForSwitcher(companies, pickerCompanyId),
+    [companies, pickerCompanyId]
+  );
   const groupIds = useMemo(
     () =>
       [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
     [allCompanyButtons]
   );
   const selectedCompany = useMemo(
-    () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
-    [allCompanyButtons, companyId]
+    () => allCompanyButtons.find((c) => Number(c.id) === Number(pickerCompanyId)) || null,
+    [allCompanyButtons, pickerCompanyId]
   );
   const selectedGroupKey = useMemo(
     () => String(selectedCompany?.group_id || "").trim().toUpperCase(),
@@ -661,12 +684,14 @@ export default function ProcessListPage() {
   );
 
   const onSwitchCompany = async (company) => {
-    if (!company?.id || Number(company.id) === Number(companyId)) return;
-    if (switchingCompany) return;
-    setSwitchingCompany(true);
+    const nextId = Number(company?.id);
+    if (!nextId || nextId === Number(pickerCompanyId) || switchingCompany) return;
+    setPendingCompanyId(nextId);
     setSelectedIds(new Set());
+    setCurrentPage(1);
+    setSwitchingCompany(true);
     try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${company.id}`), {
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextId}`), {
         credentials: "include",
       });
       const json = await res.json();
@@ -681,25 +706,23 @@ export default function ProcessListPage() {
         notify(json.message || json.error || t("switchCompanyFailed"), "danger");
         return;
       }
-      setCurrentPage(1);
       notifyCompanySessionUpdated();
+      setCompanyId(nextId);
+      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
       const bankCategory = await isBankCategoryCompany(company.company_id, buildApiUrl);
       if (bankCategory) {
-        navigate(`/bank-process-list?company_id=${company.id}`, { replace: true });
-        return;
+        navigate(`/bank-process-list?company_id=${nextId}`, { replace: true });
       }
-      setCompanyId(Number(company.id));
-      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
     } catch {
       notify(t("switchCompanyFailed"), "danger");
     } finally {
+      setPendingCompanyId(null);
       setSwitchingCompany(false);
     }
   };
 
   const handlePickGroup = useCallback(
     (gid) => {
-      if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
@@ -711,13 +734,12 @@ export default function ProcessListPage() {
       const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
       if (first) void onSwitchCompany(first);
     },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany]
+    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey]
   );
 
   const handlePickAllGroups = useCallback(() => {
-    if (switchingCompany) return;
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, [switchingCompany]);
+  }, []);
 
   const openAdd = () => {
     if (processMutationsBlocked) {
@@ -1139,14 +1161,13 @@ export default function ProcessListPage() {
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
                   {companyButtons.map((c) => {
-                    const active = Number(c.id) === Number(companyId);
+                    const active = Number(c.id) === Number(pickerCompanyId);
                     return (
                       <button
                         key={c.id}
                         type="button"
                         className={`user-gc-segment${active ? " is-on" : ""}`}
                         onClick={() => {
-                          if (switchingCompany) return;
                           if (!active) void onSwitchCompany(c);
                         }}
                       >
@@ -1165,7 +1186,10 @@ export default function ProcessListPage() {
                     <button
                       type="button"
                       className={`user-gc-segment${!currencyFilterCode ? " is-on" : ""}`}
-                      onClick={() => setCurrencyFilterCode("")}
+                      onClick={() => {
+                        setCurrencyFilterCode("");
+                        setCurrentPage(1);
+                      }}
                     >
                       {t("groupFilterAll")}
                     </button>
@@ -1194,6 +1218,7 @@ export default function ProcessListPage() {
                             return;
                           }
                           setCurrencyFilterCode(code);
+                          setCurrentPage(1);
                         }}
                       >
                         {code}

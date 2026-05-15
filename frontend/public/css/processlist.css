@@ -2064,3 +2064,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
     color: white;
     transform: rotate(90deg);
 }
+
+/* Process List 筛选药丸：更快的高亮切换反馈 */
+body.process-page .user-gc-inline-panel .user-gc-segment {
+    transition: background 0.06s ease, color 0.06s ease, border-color 0.06s ease;
+}
