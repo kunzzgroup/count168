@@ -141,10 +141,9 @@ export default function TransactionAddSection({
 
       <div
         id="standard-transaction-fields"
+        className="tx-add-standard-fields-stack"
         style={{
           display: standardHidden ? "none" : "flex",
-          flexDirection: "column",
-          gap: "clamp(4px, 0.42vw, 6px)",
         }}
       >
         {/* Row: To Account | From Account | Reverse */}
