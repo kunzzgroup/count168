@@ -81,9 +81,8 @@
     min-width: 0;
 }
 
-#linkAccountModal .link-account-toolbar-row .link-account-search-wrap {
+#linkAccountModal .link-account-toolbar-row .link-account-toolbar-search {
     flex: 0 0 auto;
-    justify-content: flex-end;
 }
 
 #linkAccountModal .link-account-form-actions {
@@ -276,53 +275,9 @@
     text-align: left;
 }
 
-/* Link Account：搜索框（顶行右侧） */
-.link-account-search-wrap {
-    display: flex;
-    justify-content: flex-end;
-    flex-shrink: 0;
-    margin: 0;
-    min-width: 0;
-}
-
-.link-account-search-inner {
-    position: relative;
-    width: 100%;
-    max-width: 280px;
-    min-width: min(240px, 100%);
-}
-
-.link-account-search-icon {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 18px;
-    height: 18px;
-    color: #9ca3af;
-    pointer-events: none;
-}
-
-.link-account-search-input {
-    width: 100%;
-    box-sizing: border-box;
-    min-height: 38px;
-    padding: 8px 12px 8px 38px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 14px;
-    font-family: inherit;
-    background: #fff;
-}
-
-.link-account-search-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
-}
-
-.link-account-search-input::placeholder {
-    color: #9ca3af;
+/* Link Account modal search: reuse Account List userlist-search-bar (body.account-page) */
+#linkAccountModal .search-container.userlist-search-bar.link-account-toolbar-search .userlist-search-input {
+    text-transform: none !important;
 }
 
 /* Currency Setting Modal — 字型與 design-tokens.css 對齊 */
