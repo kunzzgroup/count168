@@ -215,12 +215,18 @@ body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-p
     border-bottom: 1px solid rgba(15, 23, 42, 0.06);
     /* Clear vertical separation between GroupID row and Company row */
     row-gap: clamp(10px, 1vw, 14px);
-    column-gap: 8px;
-    --user-gc-inline-label-w: clamp(4.75rem, 8vw, 6rem);
+    /* Tighter horizontal space: narrow label rail + smaller gutter (see arrows on mockups) */
+    column-gap: 6px;
+    --user-gc-inline-label-w: clamp(3.35rem, 4.85vw, 4.5rem);
+}
+
+body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-panel .user-gc-inline-label {
+    text-align: right;
+    padding-right: 2px;
 }
 
 body.lang-zh.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-panel {
-    --user-gc-inline-label-w: clamp(4.25rem, 7vw, 5.5rem);
+    --user-gc-inline-label-w: clamp(3.1rem, 4.5vw, 4rem);
 }
 
 /* Unified vertical rhythm; Replace→Remove uses tighter sub-stack */
