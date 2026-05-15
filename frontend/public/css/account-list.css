@@ -51,35 +51,16 @@
     padding-right: 1.25rem;
 }
 
-/* 红框区域固定：分区标题 + 链接方式 / 搜索（纵向，与 Add Process 分区标题一致） */
+/* 红框区域固定：标题、药丸、说明、搜索不随列表滚动；搜索栏在蓝框位置、与下方列表右对齐 */
 #linkAccountModal .link-account-fixed-area {
     flex-shrink: 0;
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
     padding-left: 2.1875rem;
     padding-right: 1.25rem;
     padding-bottom: 8px;
-}
-
-#linkAccountModal .link-account-fixed-section:not(:last-child) {
-    margin-bottom: 1rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid #e8eef5;
-}
-
-#linkAccountModal .link-account-section-title {
-    margin: 0 0 0.65rem 0;
-    padding: 0 0 0.45rem 0.55rem;
-    font-size: clamp(12px, 0.82vw, 13px);
-    font-weight: 700;
-    font-family: var(--font-heading-page, system-ui, sans-serif);
-    color: #475569;
-    letter-spacing: 0.02em;
-    line-height: 1.25;
-    border-left: 3px solid #0d60ff;
-    border-bottom: 1px solid #e2e8f0;
 }
 
 #linkAccountModal .link-account-form-actions {
@@ -146,8 +127,8 @@
 
 /* Link Account: pill buttons + description (comfortable spacing & size) */
 .link-type-section {
-    margin-top: 0;
-    margin-bottom: 0;
+    margin-top: 14px;
+    margin-bottom: 14px;
 }
 
 .link-type-pills {
@@ -211,20 +192,22 @@
     text-align: left;
 }
 
-/* Link Account：搜索区（分区标题下全宽，上限与列表阅读宽度一致） */
+/* 蓝框位置：搜索栏区域 */
 .link-account-search-wrap {
     display: flex;
-    justify-content: flex-start;
+    justify-content: flex-end;
     flex-shrink: 0;
-    margin: 0;
-    width: 100%;
-    min-width: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    min-width: 280px;
+    margin-right: 20px;
+    margin-top: 32px;
 }
 
 .link-account-search-inner {
     position: relative;
     width: 100%;
-    max-width: min(100%, 420px);
+    max-width: 280px;
 }
 
 .link-account-search-icon {
