@@ -675,6 +675,65 @@ body.report-page .user-gc-segment--draggable-pill:not(:disabled):active {
     box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3) !important;
 }
 
+/* Read-only / disabled：顶栏 Add、Delete、行内编辑、确认删除、弹窗 Save 等 — 灰色（盖过蓝红渐变与 hover） */
+body.user-page .user-toolbar-actions-right .btn-add:disabled,
+body.user-page .user-toolbar-actions-right .btn-add:disabled:hover,
+body.account-page .user-toolbar-actions-right .btn-add:disabled,
+body.account-page .user-toolbar-actions-right .btn-add:disabled:hover,
+body.ec-auth-shell.user-page .user-toolbar-actions-right .btn-add:disabled,
+body.ec-auth-shell.user-page .user-toolbar-actions-right .btn-add:disabled:hover,
+body.ec-auth-shell.account-page .user-toolbar-actions-right .btn-add:disabled,
+body.ec-auth-shell.account-page .user-toolbar-actions-right .btn-add:disabled:hover {
+    background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
+body.user-page .user-toolbar-actions-right .btn-delete:disabled,
+body.user-page .user-toolbar-actions-right .btn-delete:disabled:hover,
+body.account-page .user-toolbar-actions-right .btn-delete:disabled,
+body.account-page .user-toolbar-actions-right .btn-delete:disabled:hover,
+body.ec-auth-shell.user-page .user-toolbar-actions-right .btn-delete:disabled,
+body.ec-auth-shell.user-page .user-toolbar-actions-right .btn-delete:disabled:hover,
+body.ec-auth-shell.account-page .user-toolbar-actions-right .btn-delete:disabled,
+body.ec-auth-shell.account-page .user-toolbar-actions-right .btn-delete:disabled:hover {
+    background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
+body.user-page .btn-edit:disabled,
+body.user-page .btn-edit:disabled:hover,
+body.ec-auth-shell.user-page .btn-edit:disabled,
+body.ec-auth-shell.user-page .btn-edit:disabled:hover {
+    cursor: not-allowed;
+    opacity: 0.38;
+}
+
+body.user-page .btn-edit:disabled img,
+body.ec-auth-shell.user-page .btn-edit:disabled img {
+    filter: grayscale(1);
+    opacity: 0.55;
+}
+
+body.user-page #confirmModal .confirm-delete:disabled,
+body.user-page #confirmModal .confirm-delete:disabled:hover,
+body.ec-auth-shell.user-page #confirmModal .confirm-delete:disabled,
+body.ec-auth-shell.user-page #confirmModal .confirm-delete:disabled:hover {
+    background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
 .user-page .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
@@ -1740,6 +1799,18 @@ label.user-modal-col-title.acc-proc-label {
     transform: translateY(-1px);
 }
 
+.user-page .btn-save:disabled,
+.user-page .btn-save:disabled:hover,
+body.ec-auth-shell.user-page #userModal .btn-save:disabled,
+body.ec-auth-shell.user-page #userModal .btn-save:disabled:hover {
+    background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
 
 .user-page .btn-secondary,
 .user-page .btn-account-control {
@@ -1796,6 +1867,26 @@ label.user-modal-col-title.acc-proc-label {
     background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
+}
+
+.user-page .btn-secondary:disabled,
+.user-page .btn-secondary:disabled:hover,
+.user-page .btn-account-control:disabled,
+.user-page .btn-account-control:disabled:hover,
+.user-page .btn-clearall:disabled,
+.user-page .btn-clearall:disabled:hover,
+body.ec-auth-shell.user-page #userModal .btn-secondary:disabled,
+body.ec-auth-shell.user-page #userModal .btn-secondary:disabled:hover,
+body.ec-auth-shell.user-page #userModal .btn-account-control:disabled,
+body.ec-auth-shell.user-page #userModal .btn-account-control:disabled:hover,
+body.ec-auth-shell.user-page #userModal .btn-clearall:disabled,
+body.ec-auth-shell.user-page #userModal .btn-clearall:disabled:hover {
+    background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed;
+    opacity: 0.9;
 }
 
 .user-page .btn-secondary:first-child {
