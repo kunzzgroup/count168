@@ -150,15 +150,12 @@ export default function TransactionAddSection({
         {/* Row: To Account | From Account | Reverse */}
         <div className={`tx-add-form-row tx-add-form-row--accounts${showStandardFromAndReverse ? " tx-add-form-row--with-reverse" : ""}`}>
           <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-to-acc-label">
-                To Account
-              </span>
+            <div className="report-outlined-shell report-outlined-shell--no-label">
               <div className="report-outlined-inner">
                 <div className="tx-add-icon-field">
                   <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
                   <AccountSelect
-                    ariaLabelledBy="tx-add-to-acc-label"
+                    ariaLabel="To Account"
                     placeholder="--Select To Account--"
                     options={accountOptions}
                     value={txToAccount}
@@ -173,15 +170,12 @@ export default function TransactionAddSection({
           {showStandardFromAndReverse ? (
             <>
               <div className="report-outlined-anchor tx-add-field-col">
-                <div className="report-outlined-shell">
-                  <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-from-acc-label">
-                    From Account
-                  </span>
+                <div className="report-outlined-shell report-outlined-shell--no-label">
                   <div className="report-outlined-inner">
                     <div className="tx-add-icon-field">
                       <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
                       <AccountSelect
-                        ariaLabelledBy="tx-add-from-acc-label"
+                        ariaLabel="From Account"
                         placeholder="--Select From Account--"
                         options={accountOptions}
                         value={txFromAccount}
