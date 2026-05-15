@@ -58,15 +58,22 @@ export default function FormulaMaintenancePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   
   // -- UI State --
-  const [toast, setToast] = useState(null);
+  const [toasts, setToasts] = useState([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const toastTimerRef = useRef(null);
   const searchDebounceRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 2000);
+    const id = Date.now();
+    setToasts(prev => {
+      if (prev.some(t => t.message === message)) return prev;
+      const next = [...prev, { id, message, type }];
+      if (next.length > 2) return next.slice(1);
+      return next;
+    });
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 2000);
   }, []);
 
   // -- Initialization --
@@ -180,10 +187,18 @@ export default function FormulaMaintenancePage() {
         
         const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
-          setCompanyCode(currentComp.company_id || "");
-          const companyPerms = await fetchCompanyPermissionsRaw(currentComp.company_id || "");
-          const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
-          const bankOnly = companyPerms.includes("Bank") && !hasGames;
+          const code = currentComp.company_id || "";
+          setCompanyCode(code);
+
+          // Pre-load metadata to ensure first search is correct and avoid double-query
+          const [rawPerms, procList, accList] = await Promise.all([
+            fetchCompanyPermissionsRaw(code),
+            fetchProcesses(initialCompanyId),
+            fetchAccounts(initialCompanyId)
+          ]);
+
+          const hasGames = rawPerms.includes("Games") || rawPerms.includes("Gambling");
+          const bankOnly = rawPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
             navigate("/process-list", { replace: true });
             return;
@@ -192,6 +207,15 @@ export default function FormulaMaintenancePage() {
             navigate("/dashboard", { replace: true });
             return;
           }
+
+          const permList = rawPerms.filter(p => p !== 'Bank');
+          setPermissions(permList);
+          setProcesses(procList);
+          setAccounts(accList);
+
+          const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+          const initialActive = savedPerm && permList.includes(savedPerm) ? savedPerm : (permList.length > 0 ? permList[0] : "");
+          setActivePermission(initialActive);
           
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
@@ -258,7 +282,7 @@ export default function FormulaMaintenancePage() {
       setSelectedIds([]);
       setConfirmDelete(false);
       if (data.length === 0) {
-        notify(t("noDataFound"), "info");
+        notify(t("noDataAdjustSearch"), "info");
       } else {
         notify(t("foundRecords", { n: data.length }), "success");
       }
@@ -275,10 +299,7 @@ export default function FormulaMaintenancePage() {
     if (!bootLoading && companyId) {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
       searchDebounceRef.current = setTimeout(() => {
-        // Legacy behavior: only search when user enters search text or selects process.
-        if (searchFilter || selectedProcess) {
-          performSearch();
-        }
+        performSearch();
       }, 300);
     }
   }, [bootLoading, companyId, searchFilter, selectedProcess, performSearch]);
@@ -461,13 +482,13 @@ export default function FormulaMaintenancePage() {
         message={t("deleteConfirmRecords", { count: selectedIds.length })}
       />
 
-      {toast && (
-        <div id="notificationContainer" className="maintenance-notification-container">
-          <div className={`maintenance-notification maintenance-notification-${toast.type} show`}>
+      <div id="notificationContainer" className="maintenance-notification-container">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`maintenance-notification maintenance-notification-${toast.type} show`}>
             {toast.message}
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
