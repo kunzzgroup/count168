@@ -50,6 +50,8 @@ export const REPORT_I18N = {
     loading: "Loading...",
     updatingReport: "Updating…",
     noDataFound: "No data found",
+    noDataAdjustSearch: "No data found. Please adjust your search criteria and try again.",
+    loadReportFailed: "Failed to load report",
 
     currencyLine: "Currency: {code}",
     currencyDash: "Currency: -",
@@ -107,6 +109,8 @@ export const REPORT_I18N = {
     loading: "加载中...",
     updatingReport: "更新中…",
     noDataFound: "暂无数据",
+    noDataAdjustSearch: "暂无数据。请调整筛选条件后重试。",
+    loadReportFailed: "报表加载失败",
 
     currencyLine: "币种：{code}",
     currencyDash: "币种：-",

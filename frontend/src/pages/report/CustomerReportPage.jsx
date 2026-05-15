@@ -9,6 +9,7 @@ import "../../../public/css/userlist.css";
 import "../../../public/css/customer_report.css";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/date-range-picker.css";
+import "../../../public/css/maintenance_notifications.css";
 import {
   fetchAccounts,
   fetchCurrencies,
@@ -23,6 +24,7 @@ import { getReportText } from "../../translateFile/reportTranslate.js";
 import CustomerReportFilters from "./components/CustomerReportFilters.jsx";
 import CustomerReportTable from "./components/CustomerReportTable.jsx";
 import { useReportGcSwitcher } from "./hooks/useReportGcSwitcher.js";
+import { reportToastMaintenanceVariant } from "./reportToastVariant.js";
 
 export default function CustomerReportPage() {
   const navigate = useNavigate();
@@ -220,9 +222,14 @@ export default function CustomerReportPage() {
       startTransition(() => {
         setReportData(data);
       });
+      if (!data?.data?.length) {
+        notify(t("noDataAdjustSearch"), "info");
+      }
     } catch (err) {
       if (err?.name === "AbortError" || seq !== customerReportSeqRef.current) return;
-      setError(err.message);
+      const msg = err.message || t("loadReportFailed");
+      setError(msg);
+      notify(msg, "error");
       startTransition(() => {
         setReportData(null);
       });
@@ -232,7 +239,7 @@ export default function CustomerReportPage() {
         setReportSyncing(false);
       }
     }
-  }, [companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies]);
+  }, [companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies, t, notify]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;
@@ -400,10 +407,10 @@ export default function CustomerReportPage() {
         </div>
       </div>
 
-      {/* Notifications */}
+      {/* Notifications — same markup/classes as maintenance pages */}
       {toast && (
-        <div id="customerReportNotificationContainer" className="account-notification-container">
-          <div className={`account-notification account-notification-${toast.type} show`}>
+        <div id="customerReportNotificationContainer" className="maintenance-notification-container">
+          <div className={`maintenance-notification maintenance-notification-${reportToastMaintenanceVariant(toast.type)} show`}>
             {toast.message}
           </div>
         </div>

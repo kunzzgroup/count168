@@ -36,7 +36,7 @@ export default function BankprocessMaintenanceTable({
     return (
       <div className="empty-state-container" id="emptyState" style={{ display: "block" }}>
         <div className="empty-state">
-          <p>{m.noBankProcessAdjustSearch}</p>
+          <p>{m.noDataAdjustSearch}</p>
         </div>
       </div>
     );

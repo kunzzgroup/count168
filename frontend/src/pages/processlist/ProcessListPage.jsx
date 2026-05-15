@@ -15,7 +15,7 @@ import {
   EMPTY_FORM,
   normalizeRows,
   dedupeCompanyRowsForSwitcher,
-  sortProcessRows,
+  sortProcessTableRows,
   notifyTransactionDataChanged,
   parseRemarkForForm,
   buildEditDescriptionSelection,
@@ -66,6 +66,8 @@ export default function ProcessListPage() {
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortColumn, setSortColumn] = useState("processId");
+  const [sortDirection, setSortDirection] = useState("asc");
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [currencies, setCurrencies] = useState([]);
   const [descriptions, setDescriptions] = useState([]);
@@ -258,7 +260,7 @@ export default function ProcessListPage() {
           setExistingProcesses(Array.isArray(prefetchedMeta.existingProcesses) ? prefetchedMeta.existingProcesses : []);
 
           if (Array.isArray(routePrefetch.rows)) {
-            setRows(sortProcessRows(normalizeRows(routePrefetch.rows)));
+            setRows(normalizeRows(routePrefetch.rows));
             skipNextFetchRef.current = true;
             setTableLoading(false);
           } else {
@@ -383,7 +385,7 @@ export default function ProcessListPage() {
         notify(json.message || json.error || t("failedLoadProcessList"), "danger");
         return;
       }
-      setRows(sortProcessRows(normalizeRows(json.data)));
+      setRows(normalizeRows(json.data));
       setSelectedIds(new Set());
       setCurrentPage(1);
       syncUrl();
@@ -624,13 +626,24 @@ export default function ProcessListPage() {
     return rows.filter((r) => String(r.currency || "").trim().toUpperCase() === currencyFilterCode);
   }, [rows, currencyFilterCode]);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(currencyFilteredRows.length / PAGE_SIZE)), [currencyFilteredRows]);
+  const sortedDisplayRows = useMemo(
+    () => sortProcessTableRows(currencyFilteredRows, sortColumn, sortDirection),
+    [currencyFilteredRows, sortColumn, sortDirection],
+  );
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(sortedDisplayRows.length / PAGE_SIZE)), [sortedDisplayRows]);
   const pageRows = useMemo(() => {
-    if (showAll) return currencyFilteredRows.filter((r) => String(r.status || "").toLowerCase() === "active");
+    if (showAll) return sortedDisplayRows.filter((r) => String(r.status || "").toLowerCase() === "active");
     const page = Math.min(currentPage, totalPages);
     const start = (page - 1) * PAGE_SIZE;
-    return currencyFilteredRows.slice(start, start + PAGE_SIZE);
-  }, [currencyFilteredRows, currentPage, totalPages, showAll]);
+    return sortedDisplayRows.slice(start, start + PAGE_SIZE);
+  }, [sortedDisplayRows, currentPage, totalPages, showAll]);
+
+  const handleProcessTableSort = useCallback((column) => {
+    setSortDirection((direction) => (sortColumn === column && direction === "asc" ? "desc" : "asc"));
+    setSortColumn(column);
+    setCurrentPage(1);
+  }, [sortColumn]);
 
   const toggleSelectAll = useCallback(
     (checked) => {
@@ -1200,6 +1213,9 @@ export default function ProcessListPage() {
           pageRows={pageRows}
           currentPage={currentPage}
           PAGE_SIZE={PAGE_SIZE}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={handleProcessTableSort}
           selectedIds={selectedIds}
           toggleStatus={toggleStatus}
           openEdit={openEdit}
