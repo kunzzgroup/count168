@@ -272,7 +272,10 @@ export default function ProcessFormModal({
                   <label htmlFor={editMode ? "edit_description" : "add_description"}>
                     {editMode ? t("description") : t("descriptionRequired")}
                   </label>
-                  <div className="input-with-icon">
+                  <div
+                    className={`input-with-icon${ro ? "" : " input-with-icon--opens-picker"}`}
+                    onClick={() => !ro && onOpenDescriptionPicker()}
+                  >
                     <input
                       id={editMode ? "edit_description" : "add_description"}
                       readOnly
@@ -281,7 +284,16 @@ export default function ProcessFormModal({
                       placeholder={t("clickToSelectDescriptions")}
                       style={{ backgroundColor: "#f5f5f5" }}
                     />
-                    <button type="button" className="add-icon" aria-label={t("chooseDescription")} disabled={ro} onClick={() => !ro && onOpenDescriptionPicker()}>
+                    <button
+                      type="button"
+                      className="add-icon"
+                      aria-label={t("chooseDescription")}
+                      disabled={ro}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!ro) onOpenDescriptionPicker();
+                      }}
+                    >
                       +
                     </button>
                   </div>

@@ -237,9 +237,9 @@ body.report-page .user-gc-segment {
     cursor: pointer;
     white-space: nowrap;
     line-height: 1.25;
-    transition:
-        background 0.15s ease,
-        color 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease;
+    display: flex;
+    justify-content: center;
 }
 
 body.user-page .user-gc-segment:last-child,
