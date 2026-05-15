@@ -9,6 +9,7 @@ const EDIT_ROW_HEIGHT = 80;
 export default function FormulaMaintenanceTable({
   data,
   loading,
+  listSyncing = false,
   listHydrating = false,
   totalRowCount = 0,
   isRowSelected,
@@ -31,6 +32,13 @@ export default function FormulaMaintenanceTable({
       selectAllRef.current.indeterminate = Boolean(selectAllIndeterminate);
     }
   }, [selectAllIndeterminate]);
+
+  useEffect(() => {
+    if (listSyncing) {
+      setEditingId(null);
+      setEditForm({});
+    }
+  }, [listSyncing]);
 
   const handleEdit = (row) => {
     setEditingId(row.id);
@@ -81,7 +89,7 @@ export default function FormulaMaintenanceTable({
     );
   }
 
-  if (!loading && data.length === 0) {
+  if (!loading && !listSyncing && data.length === 0) {
     return (
       <div className="empty-state-container" style={{ display: "block" }}>
         <div className="empty-state">
@@ -284,7 +292,7 @@ export default function FormulaMaintenanceTable({
       <div
         className={`maintenance-list-container maintenance-virtual-table formula-virtual-table${
           listHydrating ? " formula-list-container--hydrating" : ""
-        }`}
+        }${listSyncing ? " formula-list-container--syncing" : ""}`}
         style={{ display: "block" }}
       >
         {hydrateHint}

@@ -400,6 +400,42 @@ body.dashboard-page.maintenance-page {
     line-height: var(--formula-list-cell-line-height);
 }
 
+.formula-maintenance-table-region {
+    position: relative;
+}
+
+.formula-maintenance-table-region .formula-maintenance-sync-track {
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    background: rgba(229, 231, 235, 0.9);
+}
+
+.formula-maintenance-table-region .formula-maintenance-sync-bar {
+    height: 100%;
+    width: 38%;
+    max-width: 180px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.95), rgba(59, 130, 246, 0.15));
+    animation: formula-maintenance-sync-slide 0.95s ease-in-out infinite;
+}
+
+@keyframes formula-maintenance-sync-slide {
+    0% {
+        transform: translateX(-120%);
+    }
+    100% {
+        transform: translateX(420%);
+    }
+}
+
+.formula-maintenance-page-root .formula-list-container--syncing .maintenance-virtual-scroll {
+    opacity: 0.94;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
 .formula-maintenance-page-root .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;

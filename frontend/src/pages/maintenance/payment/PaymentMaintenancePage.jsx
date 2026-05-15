@@ -541,7 +541,7 @@ export default function PaymentMaintenancePage() {
   if (bootLoading || !me || !cssReady) return null;
 
   return (
-    <div className="container">
+    <div className="payment-maintenance-page-root container">
       <div className="maintenance-header">
         <h1 id="maintenance-page-title">{m.pageTitlePayment}</h1>
         {permissions.length > 1 && (
@@ -591,6 +591,7 @@ export default function PaymentMaintenancePage() {
           </div>
         )}
         <PaymentMaintenanceTable
+          key={paymentDataSourceCompanyId ?? companyId ?? "no-company"}
           data={paymentData}
           listEpoch={paymentListEpoch}
           rowKeyCompanyId={paymentDataSourceCompanyId ?? companyId}
