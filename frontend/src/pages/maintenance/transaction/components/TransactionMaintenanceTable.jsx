@@ -1,8 +1,15 @@
-import { useEffect, useRef } from "react";
+﻿import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 
 const SKELETON_ROW_COUNT = 10;
+const ROW_HEIGHT = 52;
+
+function pickOverscan(count) {
+  if (count > 2000) return 2;
+  if (count > 800) return 3;
+  return 4;
+}
 
 const HEADER_LABELS = (m) => [
   m.tblNo,
@@ -36,35 +43,39 @@ function SkeletonRows() {
   );
 }
 
+function WrapCell({ children, align = "left", className = "" }) {
+  const alignClass =
+    align === "center"
+      ? "maintenance-virtual-cell--center"
+      : align === "right"
+        ? "maintenance-virtual-cell--right"
+        : "maintenance-virtual-cell--left";
+  return (
+    <div role="cell" className={`maintenance-virtual-cell ${alignClass} transaction-virtual-cell--wrap ${className}`}>
+      <span className="transaction-cell-clamp-2">{children}</span>
+    </div>
+  );
+}
+
 function VirtualDataRow({ row, index }) {
   const isDeleted = row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
   const stripe = index % 2 === 1 ? "maintenance-virtual-data-row--stripe" : "";
   return (
     <div
       role="row"
-      className={`maintenance-virtual-data-row maintenance-row ${stripe} ${isDeleted ? "maintenance-row-deleted" : ""}`}
+      className={`maintenance-virtual-data-row transaction-virtual-data-row maintenance-row ${stripe}${
+        isDeleted ? " maintenance-row-deleted" : ""
+      }`}
     >
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center">
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center transaction-virtual-cell--no">
         {row.no || index + 1}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--mono">
-        {row.dts_created || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
-        {row.process || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
-        {row.id_product || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
-        {row.account || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
-        {row.description || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
-        {row.remark || "-"}
-      </div>
+      <WrapCell className="maintenance-virtual-cell--mono">{row.dts_created || "-"}</WrapCell>
+      <WrapCell>{row.process || "-"}</WrapCell>
+      <WrapCell>{row.id_product || "-"}</WrapCell>
+      <WrapCell>{row.account || "-"}</WrapCell>
+      <WrapCell>{row.description || "-"}</WrapCell>
+      <WrapCell>{row.remark || "-"}</WrapCell>
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center">
         {row.percent || "-"}
       </div>
@@ -80,9 +91,7 @@ function VirtualDataRow({ row, index }) {
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right">
         {formatAmount(row.dr)}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
-        {row.created_by || "-"}
-      </div>
+      <WrapCell>{row.created_by || "-"}</WrapCell>
     </div>
   );
 }
@@ -107,18 +116,53 @@ export default function TransactionMaintenanceTable({
   m,
 }) {
   const scrollRef = useRef(null);
+  const sizeCacheRef = useRef(new Map());
+  const rowsRef = useRef([]);
   const rows = Array.isArray(data) ? data : [];
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo?.(0, 0);
-  }, [data]);
+  if (rowsRef.current !== rows) {
+    sizeCacheRef.current.clear();
+    rowsRef.current = rows;
+  }
+
+  const getItemKey = useCallback(
+    (index) => {
+      const row = rows[index];
+      const tid = row?.transaction_id;
+      return tid != null ? tid : index;
+    },
+    [rows],
+  );
+
+  const measureElement = useCallback((el) => {
+    if (!el) return ROW_HEIGHT;
+    const idx = Number(el.dataset?.index);
+    const inner = el.querySelector(".transaction-virtual-data-row");
+    const target = inner ?? el;
+    const h = Math.max(
+      ROW_HEIGHT,
+      Math.ceil(target.scrollHeight || target.getBoundingClientRect().height || ROW_HEIGHT),
+    );
+    if (Number.isFinite(idx)) {
+      sizeCacheRef.current.set(idx, h);
+    }
+    return h;
+  }, []);
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 46,
-    overscan: 14,
+    estimateSize: (index) => sizeCacheRef.current.get(index) ?? ROW_HEIGHT,
+    overscan: pickOverscan(rows.length),
+    getItemKey,
+    measureElement,
   });
+
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo(0, 0);
+    sizeCacheRef.current.clear();
+    rowVirtualizer.measure();
+  }, [rows, rowVirtualizer]);
 
   if (showSkeleton) {
     return (
@@ -195,7 +239,8 @@ export default function TransactionMaintenanceTable({
               const row = rows[virtualRow.index];
               return (
                 <div
-                  key={row.transaction_id ?? `r-${virtualRow.index}`}
+                  key={virtualRow.key}
+                  ref={rowVirtualizer.measureElement}
                   className="maintenance-virtual-row-wrap"
                   data-index={virtualRow.index}
                   style={{
@@ -203,7 +248,6 @@ export default function TransactionMaintenanceTable({
                     top: 0,
                     left: 0,
                     width: "100%",
-                    height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
@@ -217,3 +261,4 @@ export default function TransactionMaintenanceTable({
     </div>
   );
 }
+
