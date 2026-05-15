@@ -284,7 +284,6 @@ export default function DataCapturePage() {
           alignItems: "center",
           justifyContent: "space-between",
           marginBottom: 20,
-          marginTop: 20,
         }}
       >
         <h1 style={{ margin: 0 }}>Data Capture</h1>
@@ -368,7 +367,7 @@ export default function DataCapturePage() {
                 </div>
               )}
 
-              <div className="dc-form-two-col">
+              <div className="dc-form-two-col dc-form-two-col--stacked">
                 <div className="form-group">
                   <label htmlFor="capture_date">Date</label>
                   <select id="capture_date" name="capture_date" required defaultValue="">
@@ -392,7 +391,7 @@ export default function DataCapturePage() {
                 </div>
               </div>
 
-              <div className="dc-form-two-col">
+              <div className="dc-form-two-col dc-form-two-col--stacked">
                 <div className="form-group">
                   <label htmlFor="capture_description">Description</label>
                   <div className="input-with-icon">
@@ -418,8 +417,8 @@ export default function DataCapturePage() {
                 </div>
               </div>
 
-              <div className="dc-form-row-full">
-                <div className="form-group replace-word-group">
+              <div className="dc-form-bottom-block">
+                <div className="form-group replace-word-group dc-replace-word-field">
                   <label htmlFor="capture_replace_word_from">Replace Word</label>
                   <div className="replace-word-fields">
                     <input type="text" id="capture_replace_word_from" name="replace_word_from" placeholder="Old word" />
@@ -427,20 +426,32 @@ export default function DataCapturePage() {
                     <input type="text" id="capture_replace_word_to" name="replace_word_to" placeholder="New word" />
                   </div>
                 </div>
-              </div>
 
-              <div className="dc-form-two-col dc-form-two-col--tight">
-                <div className="form-group dc-remove-word-field">
-                  <label htmlFor="capture_remove_word">Remove Word</label>
-                  <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />
-                  <small className="field-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
+                <div className="dc-form-remove-remark-grid">
+                  <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
+                    Remove Word
+                  </label>
+                  <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk">
+                    Remark
+                  </label>
+                  <input
+                    type="text"
+                    id="capture_remove_word"
+                    name="remove_word"
+                    className="dc-remove-remark__input dc-remove-remark__input--rm"
+                    placeholder="Enter words to remove"
+                  />
+                  <input
+                    type="text"
+                    id="capture_remark"
+                    name="remark"
+                    className="dc-remove-remark__input dc-remove-remark__input--mk"
+                    placeholder="Enter remark"
+                  />
+                  <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
                     (Use semicolon to separate multiple words, e.g. abc;cde;efg)
                   </small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="capture_remark">Remark</label>
-                  <input type="text" id="capture_remark" name="remark" placeholder="Enter remark" />
+                  <div className="dc-remove-remark__slot" aria-hidden="true" />
                 </div>
               </div>
             </form>

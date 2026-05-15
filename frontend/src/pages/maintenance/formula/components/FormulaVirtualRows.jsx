@@ -8,19 +8,17 @@ function pickOverscan(count) {
   return 4;
 }
 
-function measureRowWrap(el, rowHeight) {
-  if (!el) return rowHeight;
-  const inner = el.querySelector(".formula-virtual-data-row");
-  const target = inner ?? el;
-  return Math.max(
-    rowHeight,
-    Math.ceil(target.scrollHeight || target.getBoundingClientRect().height || rowHeight),
-  );
-}
-
 export default function FormulaVirtualRows({
   rows,
   rowHeight,
+  editRowHeight,
+  editingId,
+  editForm,
+  onEditFormChange,
+  onSave,
+  onCancel,
+  accounts,
+  inputMethodOptions,
   isRowSelected,
   onToggleSelect,
   onEdit,
@@ -43,29 +41,49 @@ export default function FormulaVirtualRows({
 
   const measureElement = useCallback(
     (el) => {
-      const idx = Number(el?.dataset?.index);
-      const h = measureRowWrap(el, rowHeight);
+      if (!el) return rowHeight;
+      const idx = Number(el.dataset?.index);
+      const row = Number.isFinite(idx) ? rows[idx] : null;
+      const minH = row?.id === editingId ? editRowHeight : rowHeight;
+      const inner = el.querySelector(".formula-virtual-data-row");
+      const target = inner ?? el;
+      const h = Math.max(minH, Math.ceil(target.scrollHeight || target.getBoundingClientRect().height || minH));
       if (Number.isFinite(idx)) {
         sizeCacheRef.current.set(idx, h);
       }
       return h;
     },
-    [rowHeight],
+    [rows, rowHeight, editRowHeight, editingId],
   );
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => sizeCacheRef.current.get(index) ?? rowHeight,
+    estimateSize: (index) => {
+      const row = rows[index];
+      if (row?.id === editingId) return editRowHeight;
+      return sizeCacheRef.current.get(index) ?? rowHeight;
+    },
     overscan: pickOverscan(rows.length),
     getItemKey,
     measureElement,
   });
 
   useLayoutEffect(() => {
+    scrollRef.current?.scrollTo(0, 0);
     sizeCacheRef.current.clear();
     rowVirtualizer.measure();
-  }, [rows]);
+  }, [rows, editingId]);
+
+  useEffect(() => {
+    if (editingId == null) return;
+    const idx = rows.findIndex((r) => r.id === editingId);
+    if (idx < 0) return;
+    requestAnimationFrame(() => {
+      rowVirtualizer.scrollToIndex(idx, { align: "center" });
+      rowVirtualizer.measure();
+    });
+  }, [editingId, rows, rowVirtualizer]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -98,6 +116,7 @@ export default function FormulaVirtualRows({
         {vItems.map((virtualRow) => {
           const row = rows[virtualRow.index];
           if (!row) return null;
+          const isEditing = editingId === row.id;
 
           return (
             <div
@@ -117,6 +136,13 @@ export default function FormulaVirtualRows({
                 row={row}
                 index={virtualRow.index}
                 selected={isRowSelected(row.id)}
+                isEditing={isEditing}
+                editForm={editForm}
+                onEditFormChange={onEditFormChange}
+                onSave={onSave}
+                onCancel={onCancel}
+                accounts={accounts}
+                inputMethodOptions={inputMethodOptions}
                 onToggleSelect={onToggleSelect}
                 onEdit={onEdit}
                 m={m}
