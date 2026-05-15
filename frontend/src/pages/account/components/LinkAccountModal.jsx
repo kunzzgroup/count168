@@ -104,7 +104,7 @@ export default function LinkAccountModal({
                       })
                     }
                   />
-                  <span>{toUpper(acc.account_id)} - {toUpper(acc.name)}</span>
+                  <span>{toUpper(acc.account_id)}</span>
                 </label>
               );
             })}
