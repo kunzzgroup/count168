@@ -7,9 +7,9 @@ function upperCell(val) {
   return String(val).toUpperCase();
 }
 
-function ProcessTableSortIcon() {
+function ProcessSortIcon({ column, sortColumn, sortDirection }) {
   return (
-    <span className="account-sort-icon is-active is-asc" aria-hidden="true">
+    <span className={`account-sort-icon${sortColumn === column ? ` is-active is-${sortDirection}` : ""}`} aria-hidden="true">
       <span className="account-sort-icon__up" />
       <span className="account-sort-icon__down" />
     </span>
@@ -23,6 +23,9 @@ export default function ProcessTable({
   pageRows,
   currentPage,
   PAGE_SIZE,
+  sortColumn,
+  sortDirection,
+  onSort,
   selectedIds,
   toggleStatus,
   openEdit,
@@ -41,6 +44,24 @@ export default function ProcessTable({
   const headerStyle = { gridTemplateColumns: gridCols };
   const rowStyle = { gridTemplateColumns: gridCols };
 
+  const sortableHeader = (label, columnKey) => (
+    <div
+      className="header-item gambling-header header-item--with-sort-icon header-sortable"
+      role="button"
+      tabIndex={0}
+      onClick={() => onSort(columnKey)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSort(columnKey);
+        }
+      }}
+    >
+      <span className="header-item__label">{label}</span>
+      <ProcessSortIcon column={columnKey} sortColumn={sortColumn} sortDirection={sortDirection} />
+    </div>
+  );
+
   return (
     <div
       className={`process-table-wrapper${showSelectColumn ? " process-table-wrapper--select-col" : ""}`}
@@ -48,33 +69,16 @@ export default function ProcessTable({
       style={showAll ? { overflow: "visible" } : undefined}
     >
       <div className="table-header" id="tableHeader" style={headerStyle}>
-        <div className="header-item gambling-header header-item--with-sort-icon">
+        <div className="header-item gambling-header">
           <span className="header-item__label">{t("noColumn")}</span>
-          <ProcessTableSortIcon />
         </div>
-        <div className="header-item gambling-header header-item--with-sort-icon">
-          <span className="header-item__label">{t("processId")}</span>
-          <ProcessTableSortIcon />
-        </div>
-        <div className="header-item gambling-header header-item--with-sort-icon">
-          <span className="header-item__label">{t("description")}</span>
-          <ProcessTableSortIcon />
-        </div>
-        <div className="header-item gambling-header header-item--with-sort-icon">
-          <span className="header-item__label">{t("status")}</span>
-          <ProcessTableSortIcon />
-        </div>
-        <div className="header-item gambling-header header-item--with-sort-icon">
-          <span className="header-item__label">{t("currencyColumn")}</span>
-          <ProcessTableSortIcon />
-        </div>
-        <div className="header-item gambling-header header-item--with-sort-icon">
-          <span className="header-item__label">{t("dayUse")}</span>
-          <ProcessTableSortIcon />
-        </div>
-        <div className="header-item gambling-header header-item--with-sort-icon">
+        {sortableHeader(t("processId"), "processId")}
+        {sortableHeader(t("description"), "description")}
+        {sortableHeader(t("status"), "status")}
+        {sortableHeader(t("currencyColumn"), "currency")}
+        {sortableHeader(t("dayUse"), "dayUse")}
+        <div className="header-item gambling-header">
           <span className="header-item__label">{t("action")}</span>
-          <ProcessTableSortIcon />
         </div>
         {showSelectColumn ? (
           <div className="header-item gambling-header header-item--select">

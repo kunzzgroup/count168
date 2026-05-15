@@ -69,21 +69,71 @@ export function dedupeCompanyRowsForSwitcher(companies, preferredPk) {
   return out;
 }
 
+function tiebreakProcessDefault(a, b) {
+  const aPn = String(a.process_name || "").toLowerCase();
+  const bPn = String(b.process_name || "").toLowerCase();
+  if (aPn < bPn) return -1;
+  if (aPn > bPn) return 1;
+  const aD = String(a.description || a.description_name || "").toLowerCase();
+  const bD = String(b.description || b.description_name || "").toLowerCase();
+  if (aD < bD) return -1;
+  if (aD > bD) return 1;
+  return Number(a.id || 0) - Number(b.id || 0);
+}
+
+/**
+ * Games process table client sort (column keys match ProcessTable headers).
+ * @param {"processId"|"description"|"status"|"currency"|"dayUse"} sortColumn
+ */
+export function sortProcessTableRows(rows, sortColumn, sortDirection) {
+  const dir = sortDirection === "desc" ? -1 : 1;
+  const copy = [...normalizeRows(rows)];
+  const sortPrimary = (primary) => {
+    copy.sort((a, b) => {
+      let c = primary(a, b);
+      if (c === 0) c = tiebreakProcessDefault(a, b);
+      return c * dir;
+    });
+  };
+
+  if (sortColumn === "processId") {
+    sortPrimary((a, b) => {
+      const aKey = String(a.process_name || "").toLowerCase();
+      const bKey = String(b.process_name || "").toLowerCase();
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      return 0;
+    });
+  } else if (sortColumn === "description") {
+    sortPrimary((a, b) =>
+      String(a.description || a.description_name || "").localeCompare(String(b.description || b.description_name || ""), undefined, {
+        sensitivity: "base",
+        numeric: true,
+      }),
+    );
+  } else if (sortColumn === "status") {
+    sortPrimary((a, b) =>
+      String(a.status || "")
+        .toLowerCase()
+        .localeCompare(String(b.status || "").toLowerCase(), undefined, { sensitivity: "base" }),
+    );
+  } else if (sortColumn === "currency") {
+    sortPrimary((a, b) =>
+      String(a.currency || "").localeCompare(String(b.currency || ""), undefined, { sensitivity: "base" }),
+    );
+  } else if (sortColumn === "dayUse") {
+    sortPrimary((a, b) =>
+      String(a.day_use || "").localeCompare(String(b.day_use || ""), undefined, { sensitivity: "base", numeric: true }),
+    );
+  } else {
+    sortPrimary(() => 0);
+  }
+  return copy;
+}
+
 /** Same ordering as js/processlist.js after fetch (Games). */
 export function sortProcessRows(rows) {
-  const copy = [...rows];
-  copy.sort((a, b) => {
-    const aKey = String(a.process_name || "").toLowerCase();
-    const bKey = String(b.process_name || "").toLowerCase();
-    if (aKey < bKey) return -1;
-    if (aKey > bKey) return 1;
-    const aDesc = String(a.description || a.description_name || "").toLowerCase();
-    const bDesc = String(b.description || b.description_name || "").toLowerCase();
-    if (aDesc < bDesc) return -1;
-    if (aDesc > bDesc) return 1;
-    return 0;
-  });
-  return copy;
+  return sortProcessTableRows(rows, "processId", "asc");
 }
 
 /** Legacy editProcess remarks handling (JSON meta.user_remarks). */
