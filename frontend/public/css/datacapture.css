@@ -168,6 +168,81 @@ body.datacapture-page h1 {
     }
 }
 
+/* Equal columns + aligned with Submitted Processes card; extra form density for table area */
+body.datacapture-page .top-section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    column-gap: clamp(18px, 2.2vw, 32px);
+}
+
+body.datacapture-page .top-section .form-column,
+body.datacapture-page .top-section .submitted-column {
+    max-width: none;
+    width: 100%;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    body.datacapture-page .top-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-panel {
+    padding: 0 0 6px;
+    margin: 0 0 4px;
+    border-top: none;
+    row-gap: 8px;
+}
+
+body.datacapture-page .process-form .dc-form-two-col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(10px, 1.2vw, 18px);
+    align-items: start;
+    margin-bottom: clamp(6px, 0.55vw, 10px);
+}
+
+body.datacapture-page .process-form .dc-form-two-col .form-group {
+    margin-bottom: 0;
+}
+
+body.datacapture-page .process-form .dc-form-two-col--tight {
+    margin-bottom: clamp(4px, 0.45vw, 8px);
+}
+
+body.datacapture-page .process-form .dc-form-row-full {
+    margin-bottom: clamp(6px, 0.55vw, 10px);
+}
+
+body.datacapture-page .process-form .dc-form-row-full .form-group {
+    margin-bottom: 0;
+}
+
+/* Remove Word + helper: stack in half-width column (override global :has(>.field-help) grid) */
+body.datacapture-page .process-form .form-group.dc-remove-word-field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+}
+
+body.datacapture-page .process-form .form-group.dc-remove-word-field label {
+    width: auto;
+    margin-bottom: 0;
+}
+
+body.datacapture-page .process-form .form-group.dc-remove-word-field input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+body.datacapture-page .process-form .form-group.dc-remove-word-field > .field-help {
+    margin-top: 0;
+    line-height: 1.25;
+}
+
 .bottom-section {
     flex: 1 1 auto;
     min-height: 0;
