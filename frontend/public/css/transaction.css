@@ -213,7 +213,7 @@ body.transaction-page .transaction-add-section .report-outlined-inner .transacti
     margin: 0;
     border: none !important;
     box-shadow: none !important;
-    background-color: #ffffff;
+    background-color: #f2f2f2ad;
     min-height: clamp(26px, 2.25vw, 34px);
     padding: clamp(6px, 0.5vw, 9px) clamp(9px, 0.7vw, 12px);
     border-radius: clamp(4px, 0.42vw, 6px);
@@ -235,7 +235,7 @@ body.transaction-page .transaction-add-section .report-outlined-inner .transacti
 
 body.transaction-page .transaction-add-section .report-outlined-inner .transaction-input:focus,
 body.transaction-page .transaction-add-section .report-outlined-inner .transaction-select:focus {
-    background-color: #ffffff;
+    background-color: #f2f2f2ad;
 }
 
 body.transaction-page .transaction-add-section .tx-add-winlose-row {
@@ -2534,15 +2534,39 @@ body.transaction-page .transaction-container * {
     gap: 5px;
 }
 
-/* 新增區：Transaction Type（含選 RATE 時）與 RATE 列原生 select 底色半透灰 */
-body.transaction-page .transaction-add-section #transaction_type.transaction-select,
-body.transaction-page .transaction-add-section .rate-fields select.transaction-select {
-    background-color: #f2f2f2ad;
+/* 新增表單區：所有原生輸入/select、Account 自訂下拉與下拉內搜尋 — 底色統一 #f2f2f2ad */
+body.transaction-page .transaction-add-section .transaction-input,
+body.transaction-page .transaction-add-section .transaction-select {
+    background-color: #f2f2f2ad !important;
 }
 
-body.transaction-page .transaction-add-section #transaction_type.transaction-select:focus,
-body.transaction-page .transaction-add-section .rate-fields select.transaction-select:focus {
-    background-color: #f2f2f2ad;
+body.transaction-page .transaction-add-section .transaction-input:focus,
+body.transaction-page .transaction-add-section .transaction-select:focus,
+body.transaction-page .transaction-add-section .transaction-input:focus-visible,
+body.transaction-page .transaction-add-section .transaction-select:focus-visible {
+    background-color: #f2f2f2ad !important;
+    border-color: #bbb;
+    box-shadow: none;
+}
+
+body.transaction-page .transaction-add-section .custom-select-button,
+body.transaction-page .transaction-add-section .custom-select-button.open {
+    background-color: #f2f2f2ad !important;
+}
+
+body.transaction-page .transaction-add-section .custom-select-button:focus-visible {
+    outline: none;
+    border-color: #bbb;
+    box-shadow: none;
+}
+
+body.transaction-page .transaction-add-section .custom-select-dropdown,
+body.transaction-page .transaction-add-section .custom-select-search {
+    background: #f2f2f2ad;
+}
+
+body.transaction-page .transaction-add-section .custom-select-search input {
+    background-color: #f2f2f2ad !important;
 }
 
 .transaction-account-inputs {
@@ -2840,7 +2864,7 @@ body.transaction-page .transaction-add-section .rate-fields .rate-row-five-cols 
 }
 
 body.transaction-page .transaction-add-section .rate-fields #rate_exchange_rate.transaction-input {
-    background-color: #f3f3f3 !important;
+    background-color: #f2f2f2ad !important;
     opacity: 1 !important;
     color: #1f2937 !important;
     -webkit-text-fill-color: #1f2937 !important;
@@ -2849,7 +2873,7 @@ body.transaction-page .transaction-add-section .rate-fields #rate_exchange_rate.
 
 body.transaction-page .transaction-add-section .rate-fields input.transaction-input[readonly]#rate_currency_to_amount,
 body.transaction-page .transaction-add-section .rate-fields input.transaction-input[readonly]#rate_middleman_amount {
-    background-color: #f3f3f3 !important;
+    background-color: #f2f2f2ad !important;
     opacity: 1 !important;
     color: #1f2937 !important;
     -webkit-text-fill-color: #1f2937 !important;
@@ -3139,13 +3163,13 @@ body.transaction-page .transaction-add-section .report-outlined-inner .transacti
     min-height: clamp(26px, 2.25vw, 34px) !important;
     padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
     border-radius: clamp(4px, 0.42vw, 6px);
-    background: #ffffff !important;
+    background: #f2f2f2ad !important;
     box-shadow: none !important;
 }
 
 body.transaction-page .transaction-add-section .report-outlined-inner .transaction-date-range-group .date-range-picker:hover,
 body.transaction-page .transaction-add-section .report-outlined-inner .transaction-date-range-group .date-range-picker:focus-visible {
-    background: #ffffff !important;
+    background: #f2f2f2ad !important;
     box-shadow: none !important;
 }
 
@@ -3207,8 +3231,8 @@ body.transaction-page .transaction-add-section .transaction-add-datepicker-hitbo
 
 body.transaction-page .transaction-add-section .transaction-add-datepicker-wrap:focus-within .transaction-input#transaction_date,
 body.transaction-page .transaction-add-section .rate-fields .transaction-date-rate-wrap-inner:focus-within #rate_transaction_date {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: #bbb;
+    box-shadow: none;
 }
 
 body.transaction-page .transaction-add-section .transaction-add-datepicker-sr-span {
