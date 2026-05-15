@@ -155,7 +155,7 @@ body.dashboard-page.maintenance-page {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 1600px;
+    max-width: 100%;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
@@ -494,11 +494,48 @@ body.dashboard-page.maintenance-page {
 .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
-    max-width: 1600px;
+    max-width: 100%;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
     box-sizing: border-box;
+}
+
+/* 与 Capture Maintenance 一致：静默刷新顶栏细条 + 表体略灰 */
+.payment-maintenance-table-region {
+    position: relative;
+}
+
+.payment-maintenance-table-region .payment-maintenance-sync-track {
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    background: rgba(229, 231, 235, 0.9);
+}
+
+.payment-maintenance-table-region .payment-maintenance-sync-bar {
+    height: 100%;
+    width: 38%;
+    max-width: 180px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.95), rgba(59, 130, 246, 0.15));
+    animation: payment-maintenance-sync-slide 0.95s ease-in-out infinite;
+}
+
+@keyframes payment-maintenance-sync-slide {
+    0% {
+        transform: translateX(-120%);
+    }
+    100% {
+        transform: translateX(420%);
+    }
+}
+
+.payment-maintenance-table-region .maintenance-list-container--syncing {
+    opacity: 0.94;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
 }
 
 .maintenance-table {
@@ -512,12 +549,18 @@ body.dashboard-page.maintenance-page {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: #ffffff;
     font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
 }
 
 .maintenance-table thead th {
-    padding: clamp(4px, 0.6vw, 10px) 12px;
+    padding: clamp(6px, 0.65vw, 10px) clamp(10px, 0.9vw, 14px);
     text-align: center;
+    vertical-align: middle;
+    white-space: normal;
+    line-height: 1.25;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    box-sizing: border-box;
 }
 
 /* 左上角圆角 */
@@ -553,86 +596,86 @@ body.dashboard-page.maintenance-page {
     border-bottom: none;
 }
 
-/* 按列设置宽度：与 payment_maintenance.php 一致，最右为勾选 */
+/* 按列设置宽度：合计 100%，最左为删除勾选 */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 4%;   /* No. */
+    width: 3.4%;   /* Delete checkbox */
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 12%;  /* Dts Created */
+    width: 3.5%;   /* No. */
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 11%;  /* Account */
-    text-align: left;
+    width: 9.7%;  /* Created At */
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 11%;  /* From */
+    width: 9%;  /* Account(To) */
     text-align: left;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 9%;   /* Currency & Amount*/
+    width: 9.5%;  /* Account(From) */
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 21%;  /* Description*/
-    text-align: left;
+    width: 8.5%;   /* Currency & Amount */
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 11%;  /* Remark*/
+    width: 22%;  /* Description */
     text-align: left;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 5%;  /* Submitted By */
+    width: 10%;  /* Remark */
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 11%;   /* Deleted By */
+    width: 5.7%;   /* Submitter */
+}
+
+.maintenance-table th:nth-child(10),
+.maintenance-table td:nth-child(10) {
+    width: 12.89%;  /* Deleter */
+    text-align: center;
+}
+
+/* Deleter：提高优先级，确保表头/数据在列内居中 */
+.maintenance-list-container .maintenance-table thead th:nth-child(10),
+.maintenance-list-container .maintenance-table tbody td:nth-child(10) {
+    text-align: center;
 }
 
 /* Keep No. fully visible without ellipsis. */
-.maintenance-table td:nth-child(1).maintenance-table-cell {
+.maintenance-table td:nth-child(2).maintenance-table-cell {
     overflow: visible;
     text-overflow: clip;
 }
 
-/* Shift Created At ~ Description slightly to the right. */
-.maintenance-table th:nth-child(2),
-.maintenance-table td:nth-child(2),
-.maintenance-table th:nth-child(3),
-.maintenance-table td:nth-child(3),
-.maintenance-table th:nth-child(4),
-.maintenance-table td:nth-child(4),
-.maintenance-table th:nth-child(5),
-.maintenance-table td:nth-child(5),
-.maintenance-table th:nth-child(6),
-.maintenance-table td:nth-child(6) {
-    padding-left: 16px;
-}
-
 .maintenance-table-cell {
-    font-size: clamp(9px, 0.82vw, 15px);
-    font-weight: bold;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
     color: #374151;
-    padding: 4px 12px;
+    padding: clamp(6px, 0.55vw, 10px) clamp(10px, 0.9vw, 14px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     text-align: center;
+    box-sizing: border-box;
+    vertical-align: middle;
 }
 
 .maintenance-cell-amount {
@@ -651,6 +694,19 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-cell-checkbox {
     text-align: center;
+}
+
+/* 全选 / 行删除勾选：靠左一列，与左边缘留出间距 */
+.maintenance-select-all-header {
+    text-align: center;
+    vertical-align: middle;
+    padding-left: clamp(18px, 1.5vw, 28px) !important;
+    padding-right: clamp(10px, 0.9vw, 14px) !important;
+}
+
+.maintenance-table td.maintenance-cell-checkbox {
+    padding-left: clamp(18px, 1.5vw, 28px);
+    padding-right: clamp(10px, 0.9vw, 14px);
 }
 
 /* 已删除记录样式：红色、删除线 */
@@ -706,7 +762,7 @@ body.dashboard-page.maintenance-page {
     padding: clamp(40px, 3.33vw, 64px);
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
-    max-width: 1600px;
+    max-width: 100%;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
