@@ -40,17 +40,18 @@ body.dashboard-page.report-page .customer-report-filter-container .report-gc-inl
 }
 
 
+/* center：Show All chip 较矮，与带 margin-top 的 outlined shell 垂直居中对齐 */
 .customer-report-filters {
     display: flex;
     gap: clamp(12px, 1.25vw, 24px);
-    align-items: flex-start;
+    align-items: center;
     flex-wrap: wrap;
 }
 
 /* Quick Select 与 Show All 成组，间距缩小 */
 .customer-report-quick-and-showall {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: clamp(8px, 0.8vw, 16px);
     flex: 0 0 auto;
 }

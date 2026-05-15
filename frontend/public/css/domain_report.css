@@ -35,10 +35,11 @@ body.dashboard-page.report-page .domain-report-filter-container .report-gc-inlin
     margin-right: -4px;
 }
 
+/* 与 Customer Report 一致：outlined 控件统一高度，flex 居中避免顶/底错位 */
 .domain-report-filters {
     display: flex;
     gap: clamp(12px, 1.25vw, 24px);
-    align-items: flex-end;
+    align-items: center;
     flex-wrap: wrap;
 }
 
@@ -62,12 +63,17 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
     width: 100%;
 }
 
+/* Process 下拉与 Date Range：与 customer_report 同行规则一致 */
+body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .custom-select-button {
+    min-height: clamp(32px, 2.25vw, 36px);
+}
+
 body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker {
     min-width: 0 !important;
     width: 100%;
     max-width: 100%;
-    min-height: clamp(38px, 2.45vw, 40px) !important;
-    padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
+    min-height: clamp(32px, 2.25vw, 36px) !important;
+    padding: clamp(4px, 0.3vw, 6px) clamp(8px, 0.75vw, 12px) clamp(4px, 0.3vw, 6px) 0;
     border-radius: clamp(5px, 0.42vw, 7px);
     background: #ffffff !important;
     box-shadow: none !important;
@@ -136,7 +142,7 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
     color: #000;
     font-family: var(--font-heading-page);
     transition: all 0.2s;
-    min-height: clamp(26px, 2.2vw, 32px);
+    min-height: clamp(32px, 2.25vw, 36px);
     box-sizing: border-box;
 }
 
