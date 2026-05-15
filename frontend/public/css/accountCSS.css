@@ -1406,6 +1406,62 @@ body.account-page:not(.account-page--show-all) .account-card {
 #account-addModal .account-other-currency--company,
 #account-editModal .account-other-currency--company {
     margin: 20px 0 8px;
+    align-items: stretch;
+    flex-direction: column;
+}
+
+/* Add Account modal — Company：与 User 弹窗一致（标签 + Choose companies + 摘要） */
+#account-addModal .account-modal-company-field,
+#account-editModal .account-modal-company-field {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+
+#account-addModal .account-modal-company-field .user-modal-company-heading-row,
+#account-editModal .account-modal-company-field .user-modal-company-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+}
+
+#account-addModal .account-modal-company-field .user-modal-company-heading-row label,
+#account-editModal .account-modal-company-field .user-modal-company-heading-row label {
+    display: block;
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 0;
+    padding: 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+#account-addModal .user-modal-company-open-btn,
+#account-editModal .user-modal-company-open-btn {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #1a237e;
+    background: #ffffff;
+    color: #1a237e;
+    font-weight: 600;
+    font-size: clamp(11px, 0.75vw, 13px);
+    cursor: pointer;
+}
+
+#account-addModal .user-modal-company-open-btn:hover:not(:disabled),
+#account-editModal .user-modal-company-open-btn:hover:not(:disabled) {
+    background: #eef2ff;
+}
+
+#account-addModal .user-modal-company-open-btn:disabled,
+#account-editModal .user-modal-company-open-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 #account-addModal .account-other-currency label,
