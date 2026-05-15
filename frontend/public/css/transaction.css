@@ -3060,3 +3060,72 @@ body.transaction-page .transaction-add-section .report-outlined-inner .transacti
     box-shadow: none !important;
 }
 
+/* Legacy add form date: PHP-style plain #transaction_date / #rate_transaction_date inputs + invisible MaintenanceDateRangePicker hitbox overlay */
+body.transaction-page .transaction-add-section .transaction-add-datepicker-wrap,
+body.transaction-page .transaction-add-section .rate-section .transaction-date-rate-wrap-inner {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    align-self: stretch;
+}
+
+body.transaction-page .transaction-add-section .transaction-add-datepicker-wrap .transaction-input,
+body.transaction-page .transaction-add-section .rate-section #rate_transaction_date {
+    width: 100%;
+    cursor: pointer;
+}
+
+body.transaction-page .transaction-add-section .transaction-add-datepicker-hitbox {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    opacity: 0;
+    cursor: pointer;
+    min-width: 0 !important;
+    width: 100% !important;
+    min-height: 100%;
+    display: flex;
+    align-items: stretch;
+}
+
+body.transaction-page .transaction-add-section .transaction-add-datepicker-hitbox:focus {
+    outline: none;
+}
+
+body.transaction-page .transaction-add-section .transaction-add-datepicker-hitbox:focus-visible {
+    outline: none;
+}
+
+body.transaction-page .transaction-add-section .transaction-add-datepicker-wrap:focus-within .transaction-input#transaction_date,
+body.transaction-page .transaction-add-section .rate-section .transaction-date-rate-wrap-inner:focus-within #rate_transaction_date {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+body.transaction-page .transaction-add-section .transaction-add-datepicker-sr-span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+body.transaction-page .transaction-add-section .transaction-account-inputs--to-only {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+}
+
+body.transaction-page .transaction-add-section .transaction-account-inputs--to-only > .custom-select-wrapper {
+    flex: 1 1 auto;
+    max-width: none;
+}

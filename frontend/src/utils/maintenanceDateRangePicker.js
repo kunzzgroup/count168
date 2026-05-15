@@ -31,6 +31,8 @@ export function ensureMaintenanceDateRangePicker() {
     dateToId: "date_to",
     displayId: "date-range-display",
     hidePresets: false,
+    /** Show one date text when range start equals end (add / rate transaction pickers). */
+    collapseSingleDisplay: false,
   };
 
   function setActiveRangeBindingFromTrigger(pickerEl) {
@@ -41,6 +43,7 @@ export function ensureMaintenanceDateRangePicker() {
       dateToId: el.dataset.drpTo || config.dateToId,
       displayId: el.dataset.drpDisplay || config.rangeDisplayId || "date-range-display",
       hidePresets: el.dataset.drpHidePresets === "true",
+      collapseSingleDisplay: el.dataset.drpCollapseSingle === "true",
     };
   }
 
@@ -55,7 +58,10 @@ export function ensureMaintenanceDateRangePicker() {
     const display = document.getElementById(displayIdOverride || activeRangeBinding.displayId);
     if (!display) return;
     if (calendarStartDate && calendarEndDate) {
-      display.textContent = `${formatDateDisplay(calendarStartDate)} - ${formatDateDisplay(calendarEndDate)}`;
+      const a = formatDateDisplay(calendarStartDate);
+      const b = formatDateDisplay(calendarEndDate);
+      display.textContent =
+        activeRangeBinding.collapseSingleDisplay && a === b ? a : `${a} - ${b}`;
     } else if (calendarStartDate) {
       const hint = config.selectEndDateHint || "Select end date";
       display.textContent = `${formatDateDisplay(calendarStartDate)} - ${hint}`;
@@ -94,16 +100,27 @@ export function ensureMaintenanceDateRangePicker() {
     }
   }
 
+  function collapseSingleDisplayForBinding(binding) {
+    const b = binding || activeRangeBinding;
+    if (b.collapseSingleDisplay) return true;
+    if (!b?.displayId) return false;
+    const pick = document.querySelector(`[data-drp-display="${b.displayId}"]`);
+    return pick?.dataset?.drpCollapseSingle === "true";
+  }
+
   function paintDisplayFromDomHiddens(binding) {
     const b = binding || activeRangeBinding;
     const display = document.getElementById(b.displayId);
     if (!display) return;
     const fv = document.getElementById(b.dateFromId)?.value?.trim();
     const tv = document.getElementById(b.dateToId)?.value?.trim();
+    const collapse = collapseSingleDisplayForBinding(b);
     const fd = parseDmy(fv);
     const td = parseDmy(tv);
     if (fd && td) {
-      display.textContent = `${formatDateDisplay(fd)} - ${formatDateDisplay(td)}`;
+      const a = formatDateDisplay(fd);
+      const c = formatDateDisplay(td);
+      display.textContent = collapse && fv === tv ? a : `${a} - ${c}`;
     } else if (fd) {
       display.textContent = `${formatDateDisplay(fd)} - ${formatDateDisplay(fd)}`;
     } else {
@@ -576,6 +593,7 @@ export function ensureMaintenanceDateRangePicker() {
         dateToId: config.dateToId,
         displayId: config.rangeDisplayId || "date-range-display",
         hidePresets: false,
+        collapseSingleDisplay: false,
       };
 
       const fromEl = document.getElementById(config.dateFromId);

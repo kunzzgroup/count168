@@ -235,6 +235,8 @@ export default function TransactionPaymentPage() {
             txType={form.txType}
             setTxType={form.setTxType}
             todayDmy={todayDmy}
+            txDate={form.txDate}
+            rateDate={form.rateDate}
             txToAccount={form.txToAccount}
             setTxToAccount={form.setTxToAccount}
             txFromAccount={form.txFromAccount}
@@ -258,9 +260,6 @@ export default function TransactionPaymentPage() {
             currencyOptions={data.currencyOptions}
             showStandardFromAndReverse={form.showStandardFromAndReverse}
             onReverseAccounts={form.onReverseAccounts}
-            isAdjustment={form.isAdjustment}
-            rateDate={form.rateDate}
-            setRateDate={form.setRateDate}
             rateToAccount={form.rateToAccount}
             setRateToAccount={form.setRateToAccount}
             rateFromAccount={form.rateFromAccount}
