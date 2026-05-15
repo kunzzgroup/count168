@@ -2534,6 +2534,17 @@ body.transaction-page .transaction-container * {
     gap: 5px;
 }
 
+/* 新增區：Transaction Type（含選 RATE 時）與 RATE 列原生 select 底色半透灰 */
+body.transaction-page .transaction-add-section #transaction_type.transaction-select,
+body.transaction-page .transaction-add-section .rate-fields select.transaction-select {
+    background-color: #f2f2f2ad;
+}
+
+body.transaction-page .transaction-add-section #transaction_type.transaction-select:focus,
+body.transaction-page .transaction-add-section .rate-fields select.transaction-select:focus {
+    background-color: #f2f2f2ad;
+}
+
 .transaction-account-inputs {
     width: 100%;
 }
