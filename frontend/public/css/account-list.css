@@ -43,6 +43,10 @@
     overflow: hidden;
 }
 
+#linkAccountModal .account-modal-header h2 {
+    padding: 3.25rem 0 20px 2.1875rem;
+}
+
 #linkAccountModal .link-account-modal-body {
     flex: 1;
     min-height: 0;
