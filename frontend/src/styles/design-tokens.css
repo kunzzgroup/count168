@@ -43,7 +43,7 @@
   --sidebar-icon-size: clamp(1.4rem, 1.35rem + 0.09vw, 1.8rem);
   --sidebar-menu-font: clamp(1.3rem, 1.35rem + 0.08vw, 1.6rem);
 
-  /* 菜单内边距 (Padding) */
+  /* 菜单内边距 (Padding) */  
   --sidebar-menu-pad-y: clamp(0.95rem, 0.92rem + 0.05vw, 1.2rem);
   --sidebar-menu-pad-x: clamp(1.3rem, 1.25rem + 0.08vw, 1.6rem);
   --sidebar-submenu-pad-y: clamp(0.6rem, 0.57rem + 0.05vw, 0.8rem);

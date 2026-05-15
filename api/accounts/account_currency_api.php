@@ -155,55 +155,12 @@ function dbGetCompanyCurrencies($pdo, $company_id) {
 }
 
 /**
- * 获取账户已关联的货币 ID 列表（全公司 account_currency 行，不含 legacy）
+ * 获取账户已关联的货币 ID 列表
  */
 function dbGetLinkedCurrencyIds($pdo, $account_id) {
     $stmt = $pdo->prepare("SELECT currency_id FROM account_currency WHERE account_id = ?");
     $stmt->execute([$account_id]);
     return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'currency_id');
-}
-
-/**
- * 当前公司维度：account_currency 关联 + 可选 legacy account.currency_id
- */
-function dbGetLinkedCurrencyIdsForCompany(PDO $pdo, int $account_id, int $company_id): array {
-    $stmt = $pdo->prepare("
-        SELECT ac.currency_id
-        FROM account_currency ac
-        INNER JOIN currency c ON c.id = ac.currency_id AND c.company_id = ?
-        WHERE ac.account_id = ?
-    ");
-    $stmt->execute([$company_id, $account_id]);
-    return array_map('intval', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'currency_id'));
-}
-
-function dbPickNextAccountCurrencyId(PDO $pdo, int $account_id, ?int $company_id): ?int {
-    if ($company_id) {
-        $stmt = $pdo->prepare("
-            SELECT ac.currency_id
-            FROM account_currency ac
-            INNER JOIN currency c ON c.id = ac.currency_id AND c.company_id = ?
-            WHERE ac.account_id = ?
-            ORDER BY c.code ASC, ac.currency_id ASC
-            LIMIT 1
-        ");
-        $stmt->execute([$company_id, $account_id]);
-        $id = $stmt->fetchColumn();
-        if ($id) {
-            return (int) $id;
-        }
-    }
-
-    $stmt = $pdo->prepare("
-        SELECT ac.currency_id
-        FROM account_currency ac
-        WHERE ac.account_id = ?
-        ORDER BY ac.currency_id ASC
-        LIMIT 1
-    ");
-    $stmt->execute([$account_id]);
-    $id = $stmt->fetchColumn();
-    return $id ? (int) $id : null;
 }
 
 /**
@@ -230,7 +187,7 @@ function dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id) {
 }
 
 function dbGetResolvedLinkedCurrencyIds(PDO $pdo, int $account_id, int $company_id): array {
-    $ids = dbGetLinkedCurrencyIdsForCompany($pdo, $account_id, $company_id);
+    $ids = array_map('intval', dbGetLinkedCurrencyIds($pdo, $account_id));
     $legacy_id = dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id);
     if ($legacy_id && !in_array($legacy_id, $ids, true)) {
         $ids[] = $legacy_id;
@@ -246,21 +203,29 @@ function dbSyncLegacyCurrencyAfterRemoval(PDO $pdo, int $account_id, int $remove
 
     $currentStmt = $pdo->prepare("SELECT currency_id FROM account WHERE id = ? LIMIT 1");
     $currentStmt->execute([$account_id]);
-    $currentLegacy = $currentStmt->fetchColumn();
-    if ($currentLegacy === false || $currentLegacy === null || (int) $currentLegacy !== $removed_currency_id) {
+    if ((int)$currentStmt->fetchColumn() !== $removed_currency_id) {
         return;
     }
 
-    $next_currency_id = dbPickNextAccountCurrencyId($pdo, $account_id, $company_id);
+    $nextStmt = $pdo->prepare("
+        SELECT ac.currency_id
+        FROM account_currency ac
+        INNER JOIN currency c ON c.id = ac.currency_id
+        WHERE ac.account_id = ? AND c.company_id = ?
+        ORDER BY c.code ASC, ac.currency_id ASC
+        LIMIT 1
+    ");
+    $nextStmt->execute([$account_id, $company_id]);
+    $next_currency_id = $nextStmt->fetchColumn();
     if ($next_currency_id) {
-        $stmt = $pdo->prepare("UPDATE account SET currency_id = ? WHERE id = ?");
-        $stmt->execute([$next_currency_id, $account_id]);
+        $stmt = $pdo->prepare("UPDATE account SET currency_id = ? WHERE id = ? AND currency_id = ?");
+        $stmt->execute([(int)$next_currency_id, $account_id, $removed_currency_id]);
         return;
     }
 
-    if (strtoupper((string) ($column['Null'] ?? '')) === 'YES') {
-        $stmt = $pdo->prepare("UPDATE account SET currency_id = NULL WHERE id = ?");
-        $stmt->execute([$account_id]);
+    if (strtoupper((string)($column['Null'] ?? '')) === 'YES') {
+        $stmt = $pdo->prepare("UPDATE account SET currency_id = NULL WHERE id = ? AND currency_id = ?");
+        $stmt->execute([$account_id, $removed_currency_id]);
     }
 }
 
@@ -345,7 +310,11 @@ try {
         if ($action === 'get_available_currencies') {
             $account_id = isset($_GET['account_id']) ? (int)$_GET['account_id'] : 0;
             $all = dbGetCompanyCurrencies($pdo, $company_id);
-            $linked_ids = $account_id ? dbGetResolvedLinkedCurrencyIds($pdo, $account_id, $company_id) : [];
+            $linked_ids = $account_id ? array_map('intval', dbGetLinkedCurrencyIds($pdo, $account_id)) : [];
+            $legacy_currency_id = $account_id ? dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id) : null;
+            if ($legacy_currency_id && !in_array($legacy_currency_id, $linked_ids, true)) {
+                $linked_ids[] = $legacy_currency_id;
+            }
             $result = array_map(function($c) use ($linked_ids) {
                 return [
                     'id' => (int) $c['id'],
@@ -434,21 +403,6 @@ try {
                 exit;
             }
             dbSyncLegacyCurrencyAfterRemoval($pdo, $account_id, $currency_id, $company_id);
-
-            // legacy 仍指向已删币种时，强制改指向其它关联或置空（避免刷新后仍 is_linked）
-            $legacyAfter = dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id);
-            if ($legacyAfter === $currency_id) {
-                $column = getAccountCurrencyIdColumn($pdo);
-                $next = dbPickNextAccountCurrencyId($pdo, $account_id, $company_id);
-                if ($next) {
-                    $stmt = $pdo->prepare("UPDATE account SET currency_id = ? WHERE id = ?");
-                    $stmt->execute([$next, $account_id]);
-                } elseif ($column && strtoupper((string) ($column['Null'] ?? '')) === 'YES') {
-                    $stmt = $pdo->prepare("UPDATE account SET currency_id = NULL WHERE id = ?");
-                    $stmt->execute([$account_id]);
-                }
-            }
-
             jsonResponse(true, '货币移除成功');
             exit;
         }
