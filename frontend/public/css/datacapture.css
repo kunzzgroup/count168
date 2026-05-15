@@ -171,7 +171,7 @@ body.datacapture-page h1 {
 /* Equal columns + aligned with Submitted Processes card; extra form density for table area */
 body.datacapture-page .top-section {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
     align-items: start;
     column-gap: clamp(18px, 2.2vw, 32px);
 }
@@ -258,6 +258,18 @@ body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .f
 /* Bottom block: Replace Word full width + Remove | Remark share same column tracks as fields above */
 body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked:has(.dc-replace-word-field) {
     row-gap: clamp(10px, 0.85vw, 14px);
+    /* Equal-height cells so Remark input can stretch to match Remove Word column (label + input + hint) */
+    align-items: stretch;
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked:has(.dc-replace-word-field) > .dc-remove-word-field + .form-group {
+    min-height: 0;
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked:has(.dc-replace-word-field) > .dc-remove-word-field + .form-group > input {
+    flex: 1 1 auto;
+    min-height: 36px;
+    align-self: stretch;
 }
 
 body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .dc-replace-word-field {
