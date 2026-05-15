@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 function upper(v) {
   return String(v || "").toUpperCase();
@@ -32,6 +33,45 @@ export default function AccountModal({
   onClose,
   t,
 }) {
+  const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
+  const [companySearchQuery, setCompanySearchQuery] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setCompanyPickerOpen(false);
+      setCompanySearchQuery("");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!companyPickerOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        setCompanyPickerOpen(false);
+        setCompanySearchQuery("");
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [companyPickerOpen]);
+
+  const companyRows = useMemo(
+    () =>
+      Array.isArray(companies) ? companies.filter((c) => c?.company_id && String(c.company_id).trim() !== "") : [],
+    [companies]
+  );
+
+  const selectedCompanyLabels = useMemo(() => {
+    const set = new Set(selectedCompanyIds.map(Number));
+    return companyRows.filter((c) => set.has(Number(c.id))).map((c) => String(c.company_id || "").toUpperCase());
+  }, [companyRows, selectedCompanyIds]);
+
+  const companyPickerFiltered = useMemo(() => {
+    const q = companySearchQuery.trim().toUpperCase();
+    if (!q) return companyRows;
+    return companyRows.filter((c) => String(c.company_id || "").toUpperCase().includes(q));
+  }, [companyRows, companySearchQuery]);
+
   if (!open) return null;
 
   const text = (key, params) => (typeof t === "function" ? t(key, params) : key);
@@ -43,10 +83,6 @@ export default function AccountModal({
     80,
     Math.max(12, Math.ceil([...currencyPlaceholder].length * (hasCjk ? 1.15 : 1) + 1))
   );
-
-  const companyButtons = Array.isArray(companies)
-    ? companies.filter((c) => c?.company_id && String(c.company_id).trim() !== "")
-    : [];
 
   const toggleId = (arr, id) => (arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]);
 
@@ -117,6 +153,7 @@ export default function AccountModal({
   };
 
   return (
+    <>
     <div id={modalId} className="account-modal" style={{ display: "block" }}>
       <div className="account-modal-content">
         <div className="account-modal-header">
@@ -283,22 +320,30 @@ export default function AccountModal({
                 </div>
 
                 <div className="account-other-currency account-other-currency--company">
-                  <label>{text("company")}</label>
-                  <div className="account-currency-list account-company-list">
-                    {companyButtons.map((c) => {
-                      const id = Number(c.id);
-                      const active = selectedCompanyIds.includes(id);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          className={`account-company-btn ${active ? "active" : ""}`}
-                          onClick={() => setSelectedCompanyIds((prev) => toggleId(prev, id))}
-                        >
-                          {upper(c.company_id)}
-                        </button>
-                      );
-                    })}
+                  <div className="form-group company-field-group account-modal-company-field">
+                    <div className="user-modal-company-heading-row">
+                      <label id="account-modal-company-trigger-label" htmlFor="account-modal-company-open-btn">
+                        {text("companyRequiredMark")}
+                      </label>
+                      <button
+                        id="account-modal-company-open-btn"
+                        type="button"
+                        className="user-modal-company-open-btn"
+                        onClick={() => {
+                          setCompanySearchQuery("");
+                          setCompanyPickerOpen(true);
+                        }}
+                      >
+                        {text("selectCompanies")}
+                      </button>
+                    </div>
+                    <div className="user-modal-company-summary" aria-labelledby="account-modal-company-trigger-label">
+                      {selectedCompanyLabels.length ? (
+                        <span className="user-modal-company-summary-text">{selectedCompanyLabels.join(", ")}</span>
+                      ) : (
+                        <span className="user-modal-company-summary-empty">{text("companyNoneSelected")}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -316,6 +361,99 @@ export default function AccountModal({
         </div>
       </div>
     </div>
+    {companyPickerOpen
+      ? createPortal(
+          <div className="user-modal-company-picker-root">
+            <button
+              type="button"
+              className="user-modal-company-picker-backdrop"
+              aria-label={text("cancel")}
+              onClick={() => {
+                setCompanyPickerOpen(false);
+                setCompanySearchQuery("");
+              }}
+            />
+            <div
+              className="user-modal-company-picker"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="account-modal-company-picker-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="user-modal-company-picker-header">
+                <span id="account-modal-company-picker-title">{text("companyPickerTitle")}</span>
+                <button
+                  type="button"
+                  className="user-modal-company-picker-close"
+                  aria-label={text("cancel")}
+                  onClick={() => {
+                    setCompanyPickerOpen(false);
+                    setCompanySearchQuery("");
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="user-modal-company-picker-filter-row">
+                <input
+                  type="search"
+                  className="user-modal-company-picker-search"
+                  placeholder={text("companySearchPlaceholder")}
+                  value={companySearchQuery}
+                  onChange={(e) => setCompanySearchQuery(e.target.value)}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  className="user-modal-company-picker-select-all"
+                  disabled={companyRows.length === 0}
+                  onClick={() => {
+                    setSelectedCompanyIds(companyRows.map((c) => Number(c.id)));
+                  }}
+                >
+                  {text("selectAll")}
+                </button>
+              </div>
+              <ul className="user-modal-company-picker-list">
+                {companyPickerFiltered.map((c) => {
+                  const id = Number(c.id);
+                  const checked = selectedCompanyIds.includes(id);
+                  return (
+                    <li key={c.id} className="user-modal-company-picker-row">
+                      <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setSelectedCompanyIds((prev) => {
+                              if (prev.includes(id)) return prev.filter((x) => x !== id);
+                              return [...prev, id];
+                            })
+                          }
+                        />
+                        <span>{String(c.company_id || "").toUpperCase()}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="user-modal-company-picker-footer">
+                <button
+                  type="button"
+                  className="user-modal-company-picker-done"
+                  onClick={() => {
+                    setCompanyPickerOpen(false);
+                    setCompanySearchQuery("");
+                  }}
+                >
+                  {text("companyPickerDone")}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+    </>
   );
 }
-
