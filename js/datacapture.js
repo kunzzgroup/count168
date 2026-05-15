@@ -2521,7 +2521,7 @@ async function loadProcessData(processId) {
         if (!currencySelect || currencySelect.options.length <= 1) {
             // If dropdown is not loaded yet, only load currency data, do not reload processes
             try {
-                const formDataResponse = await fetch('api/processes/addprocess_api.php');
+                const formDataResponse = await fetch(buildApiUrl('api/processes/addprocess_api.php'));
                 const formDataResult = await formDataResponse.json();
                 if (formDataResult.success && formDataResult.currencies) {
                     currencySelect.innerHTML = '<option value="">Select Currency</option>';
@@ -2539,8 +2539,10 @@ async function loadProcessData(processId) {
 
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
-        const url = `api/processes/processlist_api.php?action=get_process&id=${processId}`;
-        const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+        let finalUrl = buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${processId}`);
+        if (currentCompanyId) {
+            finalUrl += `${finalUrl.includes('?') ? '&' : '?'}company_id=${encodeURIComponent(currentCompanyId)}`;
+        }
 
         const response = await fetch(finalUrl);
         console.log('API Response status:', response.status);
@@ -2748,8 +2750,10 @@ async function loadFormData() {
 
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
-        const url = 'api/processes/addprocess_api.php';
-        const finalUrl = currentCompanyId ? `${url}?company_id=${currentCompanyId}` : url;
+        let finalUrl = buildApiUrl('api/processes/addprocess_api.php');
+        if (currentCompanyId) {
+            finalUrl += `${finalUrl.includes('?') ? '&' : '?'}company_id=${encodeURIComponent(currentCompanyId)}`;
+        }
 
         const response = await fetch(finalUrl);
         const result = await response.json();
@@ -2907,8 +2911,10 @@ async function loadExistingDescriptions() {
     try {
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
-        const url = 'api/processes/addprocess_api.php';
-        const finalUrl = currentCompanyId ? `${url}?company_id=${currentCompanyId}` : url;
+        let finalUrl = buildApiUrl('api/processes/addprocess_api.php');
+        if (currentCompanyId) {
+            finalUrl += `${finalUrl.includes('?') ? '&' : '?'}company_id=${encodeURIComponent(currentCompanyId)}`;
+        }
 
         const response = await fetch(finalUrl);
         const result = await response.json();
@@ -3143,7 +3149,7 @@ async function deleteDescription(descriptionId, descriptionName, itemElement) {
         formData.append('action', 'delete_description');
         formData.append('description_id', descriptionId);
 
-        const response = await fetch('api/processes/addprocess_api.php', {
+        const response = await fetch(buildApiUrl('api/processes/addprocess_api.php'), {
             method: 'POST',
             body: formData
         });
@@ -22116,70 +22122,7 @@ function removeDescription(index) {
     }
 }
 
-// Handle add description form submission
-document.getElementById('addDescriptionForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
-
-    const descriptionName = document.getElementById('new_description_name').value.trim();
-    if (!descriptionName) {
-        showNotification('Please enter a description name', 'danger');
-        return;
-    }
-
-    try {
-        const formData = new FormData();
-        formData.append('action', 'add_description');
-        formData.append('description_name', descriptionName);
-
-        // Add currently selected company_id
-        const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
-        if (currentCompanyId) {
-            formData.append('company_id', currentCompanyId);
-        }
-
-        const response = await fetch('api/processes/addprocess_api.php', {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.json();
-        console.log('Add description result:', result);
-
-        if (result.success) {
-            showNotification('Description added successfully!', 'success');
-            // Add the new description to selected list
-            if (!window.selectedDescriptions) {
-                window.selectedDescriptions = [];
-            }
-            window.selectedDescriptions.push(descriptionName);
-
-            // Create and add to selected list
-            const selectedList = document.getElementById('selectedDescriptionsInModal');
-            const newSelectedItem = document.createElement('div');
-            newSelectedItem.className = 'selected-description-modal-item';
-            newSelectedItem.innerHTML = `
-                        <span>${descriptionName}</span>
-                        <button type="button" class="remove-description-modal" onclick="moveDescriptionBackToAvailable('${descriptionName}', '${result.description_id || Date.now()}')">&times;</button>
-                    `;
-            selectedList.appendChild(newSelectedItem);
-
-            // Clear the form
-            document.getElementById('addDescriptionForm').reset();
-        } else {
-            // 如果是重复的 description，显示英文提示
-            const errorMsg = result.error || '';
-            console.log('Error adding description:', errorMsg, 'duplicate:', result.duplicate);
-            if (result.duplicate === true || errorMsg.includes('already exists') || errorMsg.includes('Description name already exists')) {
-                showNotification('Description name already exists', 'danger');
-            } else {
-                showNotification(errorMsg || 'Failed to add description', 'danger');
-            }
-        }
-    } catch (error) {
-        console.error('Error adding description:', error);
-        showNotification('Failed to add description', 'danger');
-    }
-});
+// Handle add description form submission — bound inside initDataCapturePage() (SPA-safe).
 
 // 2.Format：是否已经成功解析并填充到网格表
 let isFormatGridReady = false;
@@ -23382,7 +23325,7 @@ async function submitDataCaptureForm() {
 
         // Redirect to summary page after a short delay
         setTimeout(() => {
-            window.location.href = 'datacapturesummary.php?success=1';
+            window.location.assign(buildApiUrl('datacapturesummary?success=1'));
         }, 1500);
 
     } catch (error) {
@@ -24540,8 +24483,76 @@ async function restoreFromLocalStorage() {
     }
 }
 
-// Initialize page
-document.addEventListener('DOMContentLoaded', async function () {
+// Initialize page (export for SPA; classic PHP pages auto-run unless __DATA_CAPTURE_SPA_BOOTSTRAP__ is set)
+async function initDataCapturePage() {
+    const dcFormGate = document.getElementById('dataCaptureForm');
+    if (!dcFormGate) return;
+    if (dcFormGate.dataset.dcPageInit === '1') return;
+    dcFormGate.dataset.dcPageInit = '1';
+
+    const addDescriptionFormEl = document.getElementById('addDescriptionForm');
+    if (addDescriptionFormEl && !addDescriptionFormEl.dataset.dcSubmitBound) {
+        addDescriptionFormEl.dataset.dcSubmitBound = '1';
+        addDescriptionFormEl.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const descriptionName = document.getElementById('new_description_name').value.trim();
+            if (!descriptionName) {
+                showNotification('Please enter a description name', 'danger');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'add_description');
+                formData.append('description_name', descriptionName);
+
+                const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
+                if (currentCompanyId) {
+                    formData.append('company_id', currentCompanyId);
+                }
+
+                const response = await fetch(buildApiUrl('api/processes/addprocess_api.php'), {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                console.log('Add description result:', result);
+
+                if (result.success) {
+                    showNotification('Description added successfully!', 'success');
+                    if (!window.selectedDescriptions) {
+                        window.selectedDescriptions = [];
+                    }
+                    window.selectedDescriptions.push(descriptionName);
+
+                    const selectedList = document.getElementById('selectedDescriptionsInModal');
+                    const newSelectedItem = document.createElement('div');
+                    newSelectedItem.className = 'selected-description-modal-item';
+                    newSelectedItem.innerHTML = `
+                        <span>${descriptionName}</span>
+                        <button type="button" class="remove-description-modal" onclick="moveDescriptionBackToAvailable('${descriptionName}', '${result.description_id || Date.now()}')">&times;</button>
+                    `;
+                    selectedList.appendChild(newSelectedItem);
+
+                    document.getElementById('addDescriptionForm').reset();
+                } else {
+                    const errorMsg = result.error || '';
+                    console.log('Error adding description:', errorMsg, 'duplicate:', result.duplicate);
+                    if (result.duplicate === true || errorMsg.includes('already exists') || errorMsg.includes('Description name already exists')) {
+                        showNotification('Description name already exists', 'danger');
+                    } else {
+                        showNotification(errorMsg || 'Failed to add description', 'danger');
+                    }
+                }
+            } catch (error) {
+                console.error('Error adding description:', error);
+                showNotification('Failed to add description', 'danger');
+            }
+        });
+    }
+
     // 加载权限按钮
     await loadPermissionButtons();
     // Mark page as ready after a brief delay to ensure CSS is loaded
@@ -24658,7 +24669,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         // Restore data from localStorage
         await restoreFromLocalStorage();
     }
-});
+}
 
 // 切换 data capture 的 company
 // 当前选择的权限
@@ -24675,8 +24686,9 @@ async function loadPermissionButtons() {
     }
 
     try {
-        const response = await fetch('api/domain/domain_api.php', {
+        const response = await fetch(buildApiUrl('api/domain/domain_api.php'), {
             method: 'POST',
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -24753,7 +24765,7 @@ function switchPermission(permission) {
 async function switchDataCaptureCompany(companyId) {
     // 先更新 session
     try {
-        const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
+        const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${encodeURIComponent(companyId)}`));
         const result = await response.json();
         if (!result.success) {
             console.error('更新 session 失败:', result.error);
@@ -24867,3 +24879,12 @@ function addUppercaseConversion(inputId) {
     });
 }
 window.switchDataCaptureCompany = switchDataCaptureCompany;
+
+window.initDataCapturePage = initDataCapturePage;
+if (!window.__DATA_CAPTURE_SPA_BOOTSTRAP__) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => void initDataCapturePage());
+    } else {
+        void initDataCapturePage();
+    }
+}
