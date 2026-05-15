@@ -9,6 +9,7 @@ $pdo = null;
 try {
     require_once __DIR__ . '/../../config.php';
     require_once __DIR__ . '/../../includes/c168_domain_access.php';
+    require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 } catch (Throwable $e) {
     // Do not fail bootstrap because of DB wiring errors; session data is still enough for routing.
     error_log('current_user_api config load failed: ' . $e->getMessage());
@@ -46,6 +47,7 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token']) && $pdo in
 
             $updateStmt = $pdo->prepare("UPDATE user SET last_login = NOW() WHERE id = ?");
             $updateStmt->execute([(int) $user['id']]);
+            $_SESSION['read_only'] = isset($user['read_only']) ? (int) $user['read_only'] : 1;
         } else {
             setcookie('remember_token', '', time() - 3600, "/", "", false, true);
         }
@@ -79,6 +81,15 @@ $hasC168DomainPageAccess = false;
 $companyHasGambling = false;
 $companyHasBank = false;
 $companyPermissionsList = [];
+$readOnlyForClient = isset($_SESSION['read_only']) ? (int) $_SESSION['read_only'] : 0;
+
+if ($pdo instanceof PDO && isset($_SESSION['user_id']) && function_exists('get_partnership_audit_read_only_flag')) {
+    try {
+        $readOnlyForClient = get_partnership_audit_read_only_flag($pdo);
+    } catch (Throwable $e) {
+        error_log('current_user_api read_only: ' . $e->getMessage());
+    }
+}
 
 if ($companyId && $pdo instanceof PDO) {
     try {
@@ -179,5 +190,6 @@ echo json_encode([
         'needs_user_secondary' => $needsUserSecondary,
         'expiration_hint' => $expirationHint,
         'expiration_status' => $expirationStatus,
+        'read_only' => $readOnlyForClient,
     ],
 ], JSON_UNESCAPED_UNICODE);

@@ -95,6 +95,7 @@ export const ACCOUNT_I18N = {
     unidirectionalDesc: "Unidirectional flows from A to B.",
     searchAccount: "Search account...",
     noAccountsToLink: "No accounts available to link.",
+    readOnlyActionBlocked: "Read-only account: this action is not allowed.",
   },
   zh: {
     failedToLoadAccounts: "加载账号失败",
@@ -192,6 +193,7 @@ export const ACCOUNT_I18N = {
     unidirectionalDesc: "单向：数据从 A 流向 B。",
     searchAccount: "搜索账号...",
     noAccountsToLink: "暂无可关联账号。",
+    readOnlyActionBlocked: "只读账号，无法执行此操作。",
   },
 };
 

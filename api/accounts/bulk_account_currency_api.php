@@ -10,6 +10,7 @@ session_write_close(); // 释放 session 锁
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/deleted_log.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -159,6 +160,10 @@ try {
     
     // ======== bulk_update ========
     if ($action === 'bulk_update') {
+        if (is_partnership_audit_read_only_active($pdo)) {
+            jsonResponse(false, '只读账号无法修改货币关联', null, 403);
+            exit;
+        }
         $currency_id = isset($data['currency_id']) ? (int)$data['currency_id'] : 0;
         $linked_account_ids = isset($data['linked_account_ids']) && is_array($data['linked_account_ids']) ? $data['linked_account_ids'] : [];
         $unlinked_account_ids = isset($data['unlinked_account_ids']) && is_array($data['unlinked_account_ids']) ? $data['unlinked_account_ids'] : [];

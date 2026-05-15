@@ -184,8 +184,8 @@ export default function TransactionAddSection({
         ) : null}
       </div>
 
-      <div id="rate-transaction-fields" className="rate-fields rate-fields-add-form-stack" style={{ display: txType === "RATE" ? "flex" : "none" }}>
-        <div className="rate-section rate-section--add-pane">
+      <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>
+        <div className="transaction-form-group">
           <label className="transaction-label" htmlFor="rate_transaction_date">
             Date
           </label>
@@ -219,9 +219,9 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section rate-section--add-pane">
+        <div className="transaction-form-group transaction-inline-row">
           <label className="transaction-label">Account</label>
-          <div className="rate-row rate-row-two-cols">
+          <div className="transaction-account-inputs">
             <AccountSelect
               ariaLabel="To Account"
               placeholder="--Select To Account--"
@@ -255,7 +255,7 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section rate-section--add-pane">
+        <div className="transaction-form-group transaction-inline-row">
           <label className="transaction-label">Currency</label>
           <div className="rate-row rate-row-five-cols">
             <select id="rate_currency_from" className="transaction-select" value={rateCurrencyFrom} onChange={(e) => setRateCurrencyFrom(e.target.value)} aria-label="From currency">
@@ -307,9 +307,9 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section rate-section--add-pane">
+        <div className="transaction-form-group transaction-inline-row">
           <label className="transaction-label">Account</label>
-          <div className="rate-row rate-row-two-cols">
+          <div className="transaction-account-inputs">
             <AccountSelect
               ariaLabel="To Account"
               placeholder="--Select To Account--"
@@ -342,7 +342,7 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section rate-section--add-pane">
+        <div className="transaction-form-group transaction-inline-row">
           <label className="transaction-label">Middle-Man</label>
           <div className="rate-row rate-row-five-cols">
             <div className="rate-mm-span-acct">
@@ -386,7 +386,7 @@ export default function TransactionAddSection({
         <input type="text" id="action_description" className="transaction-input text-uppercase" />
       </div>
 
-      <div className="transaction-form-group remark-form-group-inline" id="remark_form_group">
+      <div className="transaction-form-group" id="remark_form_group">
         <label className="transaction-label" htmlFor="action_sms">
           Remark
         </label>

@@ -71,6 +71,8 @@ export default function AccountListPage() {
   const [roles, setRoles] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
+  /** current_user_api.data —用于 Partnership/Audit read_only 时禁用账号页写操作 */
+  const [sessionMe, setSessionMe] = useState(null);
 
   // -- Filters --
   const [searchTerm, setSearchTerm] = useState("");
@@ -195,6 +197,7 @@ export default function AccountListPage() {
         const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
         const meJson = await meRes.json();
         if (!meJson.success || !meJson.data) return navigate("/login", { replace: true });
+        setSessionMe(meJson.data);
 
         const [compRes, editRes] = await Promise.all([
           fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
@@ -241,6 +244,20 @@ export default function AccountListPage() {
       fetchAccounts();
     }
   }, [bootLoading, companyId, searchTerm, showInactive, showAll, fetchAccounts]);
+
+  useEffect(() => {
+    const onCompanySession = async () => {
+      try {
+        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const meJson = await meRes.json();
+        if (meJson.success && meJson.data) setSessionMe(meJson.data);
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("eazycount:company-session-updated", onCompanySession);
+    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+  }, []);
 
   // -- Computed --
   const allCompanyButtons = useMemo(
@@ -320,6 +337,14 @@ export default function AccountListPage() {
     return sortedAccounts;
   }, [sortedAccounts]);
 
+  const accountMutationsBlocked = useMemo(() => {
+    if (!sessionMe) return false;
+    const r = String(sessionMe.role || "").trim().toLowerCase();
+    if (r !== "partnership" && r !== "audit") return false;
+    const ro = sessionMe.read_only;
+    return ro === 1 || ro === true || ro === "1";
+  }, [sessionMe]);
+
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredForMode.length / PAGE_SIZE)), [filteredForMode]);
   const pageRows = useMemo(() => {
     if (showAll) return filteredForMode;
@@ -371,6 +396,10 @@ export default function AccountListPage() {
   }, [showInactive, showAll]);
 
   const togglePaymentAlert = async (id) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       const fd = new FormData(); fd.append("id", id);
       const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
@@ -380,6 +409,10 @@ export default function AccountListPage() {
   };
 
   const toggleAccountStatus = async (id) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       const fd = new FormData(); fd.append("id", id);
       const res = await fetch(buildApiUrl("api/accounts/toggle_account_status_api.php"), { method: "POST", body: fd, credentials: "include" });
@@ -423,6 +456,10 @@ export default function AccountListPage() {
   };
 
   const openAdd = () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     setIsEditMode(false); setForm({ ...DEFAULT_FORM, payment_alert: "0" });
     setSelectedCurrencyIds([]); setCurrencyInput("");
     setInitialEditCurrencyIds([]);
@@ -431,6 +468,10 @@ export default function AccountListPage() {
   };
 
   const openCurrencySetting = () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     setCurrencySettingOpen(true);
     void loadSelectionMeta(null, false);
     if (settingCurrencyId) void loadCurrencyLinks(settingCurrencyId);
@@ -443,6 +484,10 @@ export default function AccountListPage() {
   };
 
   const openEdit = async (id) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       const res = await fetch(buildApiUrl(`getaccountapi.php?id=${id}`), { credentials: "include" });
       const json = await res.json();
@@ -457,6 +502,10 @@ export default function AccountListPage() {
   };
 
   const confirmDelete = async () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       const fd = new FormData();
       selectedDeleteIds.forEach(id => fd.append("ids[]", id));
@@ -473,6 +522,10 @@ export default function AccountListPage() {
 
   const saveForm = async (e) => {
     e.preventDefault();
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     if (form.payment_alert === "1" && (!form.alert_type || !form.alert_start_date)) {
       notify(t("paymentAlertRequiredFields"), "danger");
       return;
@@ -531,6 +584,10 @@ export default function AccountListPage() {
   };
 
   const createCurrency = async () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     const code = toUpper(currencyInput).trim(); if (!code) return;
     const existing = currencies.find((c) => toUpper(c.code).trim() === code);
     if (existing) {
@@ -572,6 +629,10 @@ export default function AccountListPage() {
   };
 
   const saveCurrencySetting = async () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     const linked = [], unlinked = [];
     accounts.forEach(a => {
       const id = Number(a.id); const was = settingInitial.has(id), now = settingLinked.has(id);
@@ -592,6 +653,10 @@ export default function AccountListPage() {
   };
 
   const openLink = async (id) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       if (!companyId) return notify(t("pleaseSelectCompanyFirst"), "danger");
       setLinkingAccountId(Number(id));
@@ -630,6 +695,10 @@ export default function AccountListPage() {
   }, [linkType, linkTypeMap, linkModalOpen]);
 
   const saveLinks = async () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     if (!linkingAccountId || !companyId) return;
     try {
       const refRes = await fetch(buildApiUrl(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${linkingAccountId}&company_id=${companyId}`), { credentials: "include" });
@@ -790,10 +859,10 @@ export default function AccountListPage() {
                 </div>
               </div>
               <div className="user-toolbar-actions-right">
-                <button type="button" className="btn btn-currency-setting" onClick={openCurrencySetting}>
+                <button type="button" className="btn btn-currency-setting" disabled={accountMutationsBlocked} onClick={openCurrencySetting}>
                   {t("currencySetting")}
                 </button>
-                <button type="button" className="btn btn-add" onClick={openAdd}>
+                <button type="button" className="btn btn-add" disabled={accountMutationsBlocked} onClick={openAdd}>
                   <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                   </svg>
@@ -802,7 +871,7 @@ export default function AccountListPage() {
                 <button
                   type="button"
                   className="btn btn-delete"
-                  disabled={!selectedDeleteIds.size}
+                  disabled={!selectedDeleteIds.size || accountMutationsBlocked}
                   onClick={() => setConfirmDeleteOpen(true)}
                 >
                   {t("deleteWithCount", { count: selectedDeleteIds.size })}
@@ -884,18 +953,18 @@ export default function AccountListPage() {
                     <div className="account-card-item">{toUpper(a.account_id)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
                     <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{toUpper(a.role) === "UPLINE" ? t("supplier") : toUpper(a.role)}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"} status-clickable`} onClick={() => togglePaymentAlert(a.id)}>{alertOn ? "ON" : "OFF"}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"} status-clickable`} onClick={() => toggleAccountStatus(a.id)}>{toUpper(a.status)}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => togglePaymentAlert(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{alertOn ? "ON" : "OFF"}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{toUpper(a.status)}</span></div>
                     <div className="account-card-item">{toUpper(a.last_login)}</div>
                     <div className="account-card-item">{toUpper(a.remark)}</div>
                     <div className="account-card-item">
-                      <button className="account-edit-btn" onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
-                      <button className="account-edit-btn" onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
+                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
+                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         </svg>
                       </button>
-                      {isInactive && <input type="checkbox" style={{ marginLeft: 10 }} checked={selectedDeleteIds.has(Number(a.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })} />}
+                      {isInactive && <input type="checkbox" style={{ marginLeft: 10 }} disabled={accountMutationsBlocked} checked={selectedDeleteIds.has(Number(a.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })} />}
                     </div>
                   </div>
                 );
