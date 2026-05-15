@@ -63,13 +63,6 @@ export default function LinkAccountModal({
                 <span className="link-type-pill-text">{t("unidirectional")}</span>
               </label>
             </div>
-          </div>
-          <div className="link-account-desc-row">
-            <p className="link-type-desc">
-              {linkType === "bidirectional"
-                ? t("bidirectionalDesc")
-                : t("unidirectionalDesc")}
-            </p>
             <div className="search-container userlist-search-bar link-account-toolbar-search">
               <span className="userlist-search-bar__icon" aria-hidden="true">
                 <svg fill="currentColor" viewBox="0 0 24 24">
@@ -85,6 +78,11 @@ export default function LinkAccountModal({
               />
             </div>
           </div>
+          <p className="link-type-desc">
+            {linkType === "bidirectional"
+              ? t("bidirectionalDesc")
+              : t("unidirectionalDesc")}
+          </p>
         </div>
         <div className="account-modal-body link-account-modal-body">
           <div className="link-account-list">

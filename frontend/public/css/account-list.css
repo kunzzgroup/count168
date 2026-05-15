@@ -55,7 +55,7 @@
     padding-right: 4rem;
 }
 
-/* 红框区域固定：第 1 行药丸；第 2 行说明 + 搜索同一行 */
+/* 红框区域固定：第 1 行药丸 + 搜索对齐；第 2 行整宽说明 */
 #linkAccountModal .link-account-fixed-area {
     flex-shrink: 0;
     display: flex;
@@ -71,26 +71,17 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 12px;
-}
-
-#linkAccountModal .link-account-desc-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
 }
 
-#linkAccountModal .link-account-desc-row .link-type-desc {
+#linkAccountModal .link-account-toolbar-row .link-type-pills {
     flex: 1 1 auto;
     min-width: 0;
-    width: auto;
-    padding-top: 0;
 }
 
-#linkAccountModal .link-account-desc-row .link-account-toolbar-search {
+#linkAccountModal .link-account-toolbar-row .link-account-toolbar-search {
     flex: 0 0 auto;
 }
 
