@@ -435,6 +435,16 @@ export default function AccountListPage() {
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
+  const applyCurrencyMeta = useCallback((curJ, isEdit) => {
+    if (!curJ?.success || !Array.isArray(curJ.data)) return;
+    setCurrencies(curJ.data.map((c) => ({ id: c.id, code: c.code, is_linked: !!c.is_linked })));
+    if (isEdit) {
+      const ids = curJ.data.filter((c) => c.is_linked).map((c) => Number(c.id));
+      setSelectedCurrencyIds(ids);
+      setInitialEditCurrencyIds(ids);
+    }
+  }, []);
+
   const loadSelectionMeta = async (id, isEdit) => {
     try {
       const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
@@ -444,21 +454,34 @@ export default function AccountListPage() {
         fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/accounts/account_company_api.php?action=get_available_companies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
       ]);
-      const curJ = await curRes.json(); const compJ = await compRes.json();
-      if (curJ.success) {
-        setCurrencies(curJ.data.map(c => ({ id: c.id, code: c.code, is_linked: !!c.is_linked })));
-        if (isEdit) {
-          const ids = curJ.data.filter(c => c.is_linked).map(c => Number(c.id));
-          setSelectedCurrencyIds(ids);
-          setInitialEditCurrencyIds(ids);
-        }
-      }
+      const curJ = await curRes.json();
+      const compJ = await compRes.json();
+      applyCurrencyMeta(curJ, isEdit);
       if (compJ.success) {
         const linked = compJ.data.filter(c => c.is_linked).map(c => Number(c.id));
         setSelectedCompanyIds(linked.length ? linked : companyId ? [Number(companyId)] : []);
       }
     } catch { /* silent */ }
   };
+
+  const reloadAccountCurrencyMeta = useCallback(
+    async (accountId) => {
+      if (!accountId) return;
+      try {
+        const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
+        currencyParams.set("account_id", String(accountId));
+        if (companyId) currencyParams.set("company_id", String(companyId));
+        const curRes = await fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), {
+          credentials: "include",
+        });
+        const curJ = await curRes.json();
+        applyCurrencyMeta(curJ, true);
+      } catch {
+        /* silent */
+      }
+    },
+    [applyCurrencyMeta, companyId]
+  );
 
   const openAdd = () => {
     if (accountMutationsBlocked) {
@@ -574,6 +597,7 @@ export default function AccountListPage() {
           if (!currencyRes.ok || !currencyJson.success) return notify(currencyJson.message || t("saveFailed"), "danger");
         }
         setInitialEditCurrencyIds([...after]);
+        await reloadAccountCurrencyMeta(Number(form.id));
         if (settingCurrencyId) void loadCurrencyLinks(settingCurrencyId);
       }
       setAddModalOpen(false); setEditModalOpen(false);
@@ -626,7 +650,8 @@ export default function AccountListPage() {
       return;
     }
     const id = Number(currencyId);
-    const wasLinked = initialEditCurrencyIds.map(Number).includes(id);
+    const wasLinked =
+      initialEditCurrencyIds.map(Number).includes(id) || selectedCurrencyIds.map(Number).includes(id);
 
     setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
     setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -648,6 +673,7 @@ export default function AccountListPage() {
         return;
       }
       setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+      await reloadAccountCurrencyMeta(Number(form.id));
     } catch {
       setHiddenCurrencyIds((prev) => prev.filter((x) => x !== id));
       setSelectedCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
