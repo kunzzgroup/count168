@@ -52,16 +52,30 @@ export async function fetchCompanyCurrencies(companyId) {
   return data.success ? (data.data || []) : [];
 }
 
-export async function searchBankprocessData({ dateFrom, dateTo, companyId, selectedCurrency, query }) {
+export async function searchBankprocessData({
+  dateFrom,
+  dateTo,
+  companyId,
+  currencyCodes,
+  allCurrencies,
+  query,
+  signal,
+}) {
   const params = new URLSearchParams({
     date_from: dateFrom,
     date_to: dateTo,
   });
   if (companyId) params.set("company_id", String(companyId));
-  if (selectedCurrency) params.set("currency", selectedCurrency);
+  const codes = Array.isArray(currencyCodes) ? currencyCodes.filter(Boolean) : [];
+  if (!allCurrencies && codes.length) {
+    params.set("currency", codes.join(","));
+  }
   if (query?.trim()) params.set("q", query.trim());
 
-  const response = await fetch(buildApiUrl(`api/bankprocess_maintenance/search_api.php?${params.toString()}`));
+  const response = await fetch(buildApiUrl(`api/bankprocess_maintenance/search_api.php?${params.toString()}`), {
+    credentials: "include",
+    signal,
+  });
   const result = await response.json();
   if (!result.success) {
     throw new Error(result.message || "Search failed");

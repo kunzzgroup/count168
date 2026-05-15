@@ -16,8 +16,10 @@ export default function BankprocessMaintenanceFilters({
   companyId,
   handleSwitchCompany,
   currencies,
-  selectedCurrency,
-  setSelectedCurrency,
+  allCurrenciesSelected,
+  selectedCurrencies,
+  onCurrencyToggle,
+  onCurrencySelectAll,
   confirmDelete,
   setConfirmDelete,
   selectedIds,
@@ -174,16 +176,27 @@ export default function BankprocessMaintenanceFilters({
                     <span className="user-gc-inline-label">{m.currency}</span>
                     <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="currency-buttons-wrapper">
                       <div className="user-gc-segment-group" role="group" aria-label={m.currency}>
-                        {currencies.map((currency) => (
-                          <button
-                            key={currency.code}
-                            type="button"
-                            className={`user-gc-segment${selectedCurrency === currency.code ? " is-on" : ""}`}
-                            onClick={() => setSelectedCurrency(currency.code)}
-                          >
-                            {currency.code}
-                          </button>
-                        ))}
+                        <button
+                          key="__all_currencies__"
+                          type="button"
+                          className={`user-gc-segment${allCurrenciesSelected ? " is-on" : ""}`}
+                          onClick={onCurrencySelectAll}
+                        >
+                          {m.currencyAll}
+                        </button>
+                        {currencies.map((currency) => {
+                          const on = !allCurrenciesSelected && selectedCurrencies.includes(currency.code);
+                          return (
+                            <button
+                              key={currency.code}
+                              type="button"
+                              className={`user-gc-segment${on ? " is-on" : ""}`}
+                              onClick={() => onCurrencyToggle(currency.code)}
+                            >
+                              {currency.code}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
