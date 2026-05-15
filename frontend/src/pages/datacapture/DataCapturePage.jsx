@@ -428,19 +428,31 @@ export default function DataCapturePage() {
                   </div>
                 </div>
 
-                <div className="dc-form-two-col dc-form-two-col--stacked dc-form-two-col--tight">
-                  <div className="form-group dc-remove-word-field">
-                    <label htmlFor="capture_remove_word">Remove Word</label>
-                    <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />
-                    <small className="field-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
-                      (Use semicolon to separate multiple words, e.g. abc;cde;efg)
-                    </small>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="capture_remark">Remark</label>
-                    <input type="text" id="capture_remark" name="remark" placeholder="Enter remark" />
-                  </div>
+                <div className="dc-form-remove-remark-grid">
+                  <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
+                    Remove Word
+                  </label>
+                  <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk">
+                    Remark
+                  </label>
+                  <input
+                    type="text"
+                    id="capture_remove_word"
+                    name="remove_word"
+                    className="dc-remove-remark__input dc-remove-remark__input--rm"
+                    placeholder="Enter words to remove"
+                  />
+                  <input
+                    type="text"
+                    id="capture_remark"
+                    name="remark"
+                    className="dc-remove-remark__input dc-remove-remark__input--mk"
+                    placeholder="Enter remark"
+                  />
+                  <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
+                    (Use semicolon to separate multiple words, e.g. abc;cde;efg)
+                  </small>
+                  <div className="dc-remove-remark__slot" aria-hidden="true" />
                 </div>
               </div>
             </form>

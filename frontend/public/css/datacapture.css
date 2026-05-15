@@ -172,7 +172,7 @@ body.datacapture-page h1 {
 body.datacapture-page .top-section {
     display: grid;
     grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
-    align-items: start;
+    align-items: stretch;
     column-gap: clamp(18px, 2.2vw, 32px);
 }
 
@@ -181,6 +181,15 @@ body.datacapture-page .top-section .submitted-column {
     max-width: none;
     width: 100%;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+body.datacapture-page .top-section .form-column > .form-container,
+body.datacapture-page .top-section .submitted-column > .submitted-container {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 @media (max-width: 900px) {
@@ -263,22 +272,69 @@ body.datacapture-page .process-form .dc-form-bottom-block {
     margin-bottom: clamp(4px, 0.45vw, 8px);
 }
 
-body.datacapture-page .process-form .dc-form-bottom-block > .dc-form-two-col.dc-form-two-col--stacked.dc-form-two-col--tight {
-    margin-bottom: 0;
-}
-
-body.datacapture-page .process-form .dc-form-bottom-block > .dc-form-two-col.dc-form-two-col--stacked {
+body.datacapture-page .process-form .dc-form-remove-remark-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: clamp(12px, 1.35vw, 20px);
+    row-gap: clamp(4px, 0.38vw, 6px);
+    grid-template-areas:
+        "lbl_rm lbl_mk"
+        "inp_rm inp_mk"
+        "hlp_rm slot_mk";
     align-items: stretch;
 }
 
-body.datacapture-page .process-form .dc-form-bottom-block > .dc-form-two-col.dc-form-two-col--stacked > .dc-remove-word-field + .form-group {
-    min-height: 0;
+body.datacapture-page .process-form .dc-remove-remark__label {
+    width: auto;
+    max-width: 100%;
+    justify-self: start;
+    text-align: left;
+    margin-bottom: 0;
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
 }
 
-body.datacapture-page .process-form .dc-form-bottom-block > .dc-form-two-col.dc-form-two-col--stacked > .dc-remove-word-field + .form-group > input {
-    flex: 1 1 auto;
+body.datacapture-page .process-form .dc-remove-remark__label--rm {
+    grid-area: lbl_rm;
+}
+
+body.datacapture-page .process-form .dc-remove-remark__label--mk {
+    grid-area: lbl_mk;
+}
+
+body.datacapture-page .process-form .dc-remove-remark__input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     min-height: 36px;
-    align-self: stretch;
+    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
+    font-size: clamp(10px, 0.74vw, 14px);
+    font-weight: 600;
+}
+
+body.datacapture-page .process-form .dc-remove-remark__input--rm {
+    grid-area: inp_rm;
+}
+
+body.datacapture-page .process-form .dc-remove-remark__input--mk {
+    grid-area: inp_mk;
+}
+
+body.datacapture-page .process-form .dc-remove-remark__help {
+    grid-area: hlp_rm;
+    margin-top: 0;
+    line-height: 1.25;
+}
+
+body.datacapture-page .process-form .dc-remove-remark__slot {
+    grid-area: slot_mk;
+    min-height: 0;
+    pointer-events: none;
 }
 
 body.datacapture-page .process-form .dc-form-bottom-block .replace-word-group.dc-replace-word-field {
@@ -321,56 +377,12 @@ body.datacapture-page .process-form .dc-form-bottom-block .replace-word-fields i
     box-sizing: border-box;
 }
 
-/* Remove Word column: stacked label → input → hint (override global :has(.field-help) grid in this row) */
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group.dc-remove-word-field {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: clamp(4px, 0.38vw, 6px);
-}
-
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group.dc-remove-word-field > .field-help {
-    grid-column: auto;
-    margin-top: 0;
-}
-
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked.dc-form-two-col--tight {
-    margin-bottom: clamp(4px, 0.45vw, 8px);
-}
-
-body.datacapture-page .process-form .dc-form-two-col--tight {
-    margin-bottom: clamp(4px, 0.45vw, 8px);
-}
-
 body.datacapture-page .process-form .dc-form-row-full {
     margin-bottom: clamp(6px, 0.55vw, 10px);
 }
 
 body.datacapture-page .process-form .dc-form-row-full .form-group {
     margin-bottom: 0;
-}
-
-/* Remove Word + helper: stack in half-width column (override global :has(>.field-help) grid) */
-body.datacapture-page .process-form .form-group.dc-remove-word-field {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-}
-
-body.datacapture-page .process-form .form-group.dc-remove-word-field label {
-    width: auto;
-    margin-bottom: 0;
-}
-
-body.datacapture-page .process-form .form-group.dc-remove-word-field input {
-    width: 100%;
-    box-sizing: border-box;
-}
-
-body.datacapture-page .process-form .form-group.dc-remove-word-field > .field-help {
-    margin-top: 0;
-    line-height: 1.25;
 }
 
 .bottom-section {
