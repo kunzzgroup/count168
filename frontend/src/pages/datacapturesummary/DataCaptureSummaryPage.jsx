@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useLocation, useNavigate } from "react-router-dom";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useSummaryTableColumns } from "./hooks/useSummaryTableColumns.jsx";
+import { EditFormulaModal } from "./components/EditFormulaModal.jsx";
 import { useDataCaptureSummarySubmit } from "./hooks/useDataCaptureSummarySubmit.js";
 import { useDataCaptureSummaryBootstrap } from "./hooks/useDataCaptureSummaryBootstrap.js";
 import { useSummaryServerState } from "./hooks/useSummaryServerState.js";
@@ -77,6 +78,8 @@ export default function DataCaptureSummaryPage() {
   const [selectedCurrencyIds, setSelectedCurrencyIds] = useState([]);
   const [companyPickOptions, setCompanyPickOptions] = useState([]);
   const [selectedCompanyIdsForAdd, setSelectedCompanyIdsForAdd] = useState([]);
+  /** { rowId, blank } — blank matches PHP handleAddAccount (+ column) */
+  const [editFormulaOpen, setEditFormulaOpen] = useState(null);
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page");
@@ -193,6 +196,35 @@ export default function DataCaptureSummaryPage() {
     showNotification,
     navigate,
   });
+
+  const closeEditFormulaModal = useCallback(() => setEditFormulaOpen(null), []);
+
+  const openEditFormulaForRow = useCallback((rowId, opts = {}) => {
+    setEditFormulaOpen({ rowId, blank: !!opts.blank });
+  }, []);
+
+  const editFormulaRow = useMemo(
+    () => (editFormulaOpen ? summaryRows.find((r) => r.id === editFormulaOpen.rowId) ?? null : null),
+    [editFormulaOpen, summaryRows],
+  );
+
+  const idProductChoices = useMemo(
+    () => [...new Set(summaryRows.map((r) => String(r.idProduct || "").trim()).filter(Boolean))].sort(),
+    [summaryRows],
+  );
+
+  const saveFromEditFormulaModal = useCallback((rowId, patch) => {
+    setSummaryRows((prev) => prev.map((item) => (item.id === rowId ? { ...item, ...patch } : item)));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!editFormulaOpen || !editFormulaRow) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [editFormulaOpen, editFormulaRow]);
 
   const loadCompanyPickOptions = useCallback(async () => {
     try {
@@ -447,7 +479,7 @@ export default function DataCaptureSummaryPage() {
   const summaryColumns = useSummaryTableColumns({
     accountOptions,
     currencyOptions,
-    openAddModalForRow,
+    openEditFormulaForRow,
     setSummaryRows,
     computeProcessedAmounts,
     formatAmountDisplay,
@@ -556,7 +588,7 @@ export default function DataCaptureSummaryPage() {
                 </tbody>
                 <tfoot>
                   <tr id="summaryTotalRow">
-                    <td colSpan="7" className="summary-total-label" />
+                    <td colSpan="8" className="summary-total-label" />
                     <td id="summaryTotalAmount" style={{ color: submitState.canSubmit ? "#0D60FF" : "#A91215" }}>{formatAmountDisplay(summaryTotal)}</td>
                     <td />
                     <td />
@@ -645,6 +677,19 @@ export default function DataCaptureSummaryPage() {
           </div>
         </div>
       )}
+
+      <EditFormulaModal
+        visible={contentVisible && !!editFormulaOpen && !!editFormulaRow}
+        row={editFormulaRow}
+        blankDraft={!!editFormulaOpen?.blank}
+        accountOptions={accountOptions}
+        currencyOptions={currencyOptions}
+        idProductChoices={idProductChoices}
+        onClose={closeEditFormulaModal}
+        onSave={saveFromEditFormulaModal}
+        onOpenAddAccount={openAddModalForRow}
+        computeProcessedAmounts={computeProcessedAmounts}
+      />
 
       {addModalVisible && (
         <div id="addModal" className="account-modal" style={{ display: "block" }}>

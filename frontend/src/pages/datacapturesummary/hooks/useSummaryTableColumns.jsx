@@ -3,7 +3,7 @@ import { useMemo } from "react";
 export function useSummaryTableColumns({
   accountOptions,
   currencyOptions,
-  openAddModalForRow,
+  openEditFormulaForRow,
   setSummaryRows,
   computeProcessedAmounts,
   formatAmountDisplay,
@@ -28,41 +28,41 @@ export function useSummaryTableColumns({
         header: "Account",
         meta: { className: "summary-account-cell" },
         cell: ({ row }) => (
-          <div className="account-select-with-buttons summary-account-inline">
-            <select
-              value={row.original.accountId ?? ""}
-              onChange={(e) => {
-                const selected = accountOptions.find((a) => String(a.id) === e.target.value);
-                setSummaryRows((prev) =>
-                  prev.map((item) =>
-                    item.id === row.original.id
-                      ? {
-                          ...item,
-                          accountId: selected?.id ?? null,
-                          account: selected ? `${selected.account_id}${selected.name ? ` (${selected.name})` : ""}` : "",
-                        }
-                      : item,
-                  ),
-                );
-              }}
-            >
-              <option value="">Select Account</option>
-              {accountOptions.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.account_id}
-                  {acc.name ? ` (${acc.name})` : ""}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="account-add-btn"
-              title="Add New Account"
-              onClick={() => openAddModalForRow(row.original.id)}
-            >
-              +
-            </button>
-          </div>
+          <select
+            value={row.original.accountId ?? ""}
+            onChange={(e) => {
+              const selected = accountOptions.find((a) => String(a.id) === e.target.value);
+              setSummaryRows((prev) =>
+                prev.map((item) =>
+                  item.id === row.original.id
+                    ? {
+                        ...item,
+                        accountId: selected?.id ?? null,
+                        account: selected ? `${selected.account_id}${selected.name ? ` (${selected.name})` : ""}` : "",
+                      }
+                    : item,
+                ),
+              );
+            }}
+          >
+            <option value="">Select Account</option>
+            {accountOptions.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.account_id}
+                {acc.name ? ` (${acc.name})` : ""}
+              </option>
+            ))}
+          </select>
+        ),
+      },
+      {
+        id: "addAccount",
+        header: "",
+        meta: { className: "summary-add-account-col" },
+        cell: ({ row }) => (
+          <button type="button" className="add-account-btn" title="New formula line (same as PHP +)" onClick={() => openEditFormulaForRow(row.original.id, { blank: true })}>
+            +
+          </button>
         ),
       },
       {
@@ -98,19 +98,18 @@ export function useSummaryTableColumns({
       {
         id: "formula",
         header: "Formula",
-        cell: ({ row }) => (
-          <input
-            value={row.original.formula}
-            onChange={(e) => {
-              const formula = e.target.value;
-              setSummaryRows((prev) =>
-                prev.map((item) =>
-                  item.id === row.original.id ? { ...item, formula, ...computeProcessedAmounts(formula, item.source || "1", item.rateValue) } : item,
-                ),
-              );
-            }}
-          />
-        ),
+        cell: ({ row }) => {
+          const text = row.original.formula ?? "";
+          const trimmed = String(text).trim();
+          return (
+            <div className="formula-cell-content" title={trimmed ? trimmed : undefined}>
+              <span className="formula-text">{trimmed || ""}</span>
+              <button type="button" className="edit-formula-btn" title="Edit Row Data" onClick={() => openEditFormulaForRow(row.original.id, { blank: false })}>
+                ✏️
+              </button>
+            </div>
+          );
+        },
       },
       {
         id: "source",
@@ -205,6 +204,6 @@ export function useSummaryTableColumns({
         ),
       },
     ],
-    [accountOptions, computeProcessedAmounts, currencyOptions, formatAmountDisplay, openAddModalForRow, setSummaryRows],
+    [accountOptions, computeProcessedAmounts, currencyOptions, formatAmountDisplay, openEditFormulaForRow, setSummaryRows],
   );
 }

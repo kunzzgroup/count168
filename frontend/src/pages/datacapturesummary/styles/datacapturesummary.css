@@ -377,63 +377,99 @@ body {
             box-sizing: border-box;
         }
         
-        #summaryTable th:nth-child(2), /* Account + inline add (matches PHP summary row) */
+        #summaryTable th:nth-child(2), /* Account (dropdown — PHP renders text until modal save) */
         #summaryTable td:nth-child(2) {
-            width: 15%;
-            min-width: 120px;
+            width: 12%;
+            min-width: 100px;
         }
 
-        /* Account column: dropdown + "+" same row as legacy datacapturesummary.php */
-        #summaryTable td.summary-account-cell .account-select-with-buttons.summary-account-inline {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            width: 100%;
-        }
-        #summaryTable td.summary-account-cell .account-select-with-buttons.summary-account-inline select {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        #summaryTable th:nth-child(3), /* Currency */
+        /* Third column: + opens Edit Formula blank state (same as legacy handleAddAccount) */
+        #summaryTable th:nth-child(3),
         #summaryTable td:nth-child(3) {
+            width: 3%;
+            text-align: center;
+        }
+
+        #summaryTable td.summary-add-account-col {
+            vertical-align: middle;
+        }
+
+        #summaryTable th:nth-child(4), /* Currency */
+        #summaryTable td:nth-child(4) {
             width: 3%;
         }
         
-        #summaryTable th:nth-child(4), /* Formula */
-        #summaryTable td:nth-child(4) {
+        #summaryTable th:nth-child(5), /* Formula */
+        #summaryTable td:nth-child(5) {
             width: 26%;
             min-width: 200px;
         }
         
-        #summaryTable th:nth-child(5), /* Source */
-        #summaryTable td:nth-child(5) {
+        #summaryTable th:nth-child(6), /* Source */
+        #summaryTable td:nth-child(6) {
             width: 3%;
         }
         
-        #summaryTable th:nth-child(6), /* Rate checkbox */
-        #summaryTable td:nth-child(6) {
+        #summaryTable th:nth-child(7), /* Rate checkbox */
+        #summaryTable td:nth-child(7) {
             width: 2%;
         }
         
-        #summaryTable th:nth-child(7), /* Rate Value */
-        #summaryTable td:nth-child(7) {
+        #summaryTable th:nth-child(8), /* Rate Value */
+        #summaryTable td:nth-child(8) {
             width: 4%;
         }
         
-        #summaryTable th:nth-child(8), /* Processed Amount */
-        #summaryTable td:nth-child(8) {
+        #summaryTable th:nth-child(9), /* Processed Amount */
+        #summaryTable td:nth-child(9) {
             width: 6%;
         }
         
-        #summaryTable th:nth-child(9), /* Skip */
-        #summaryTable td:nth-child(9) {
+        #summaryTable th:nth-child(10), /* Skip */
+        #summaryTable td:nth-child(10) {
             width: 2%;
         }
 
-        #summaryTable th:nth-child(10), /* Delete */
-        #summaryTable td:nth-child(10) {
+        #summaryTable th:nth-child(11), /* Delete */
+        #summaryTable td:nth-child(11) {
             width: 2%;
+        }
+
+        /* Summary table "+" column uses legacy circular add-account-btn (not modal account-add-btn) */
+        .add-account-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: clamp(12px, 0.94vw, 18px);
+            height: clamp(12px, 0.94vw, 18px);
+            font-size: clamp(8px, 0.63vw, 12px);
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .add-account-btn:hover {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
+        .add-account-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Optional: merge visual border between Account and + like narrow join */
+        #summaryTable th:nth-child(2) {
+            border-right: none;
+            text-align: center;
+        }
+        #summaryTable tbody td:nth-child(2) {
+            border-right: none;
+        }
+        #summaryTable th:nth-child(3),
+        #summaryTable td:nth-child(3) {
+            border-left: none;
         }
 
         .summary-table th,
@@ -474,11 +510,6 @@ body {
         .summary-table td:nth-child(1), /* Id Product (merged) */
         .summary-table td:nth-child(2) { /* Account */
             text-align: left;
-        }
-
-        /* Account column header centered (dropdown + legacy + control) */
-        #summaryTable th:nth-child(2) {
-            text-align: center;
         }
 
         /* Data Capture Table first column (A) alignment */
@@ -1414,17 +1445,17 @@ body {
             white-space: normal;
         }
 
-        /* Formula column: full width display */
-        #summaryTable td:nth-child(4) {
+        /* Formula column: full width display (column 5 in 11-col PHP layout) */
+        #summaryTable td:nth-child(5) {
             overflow: visible;
             min-width: 200px;
             max-width: none;
             white-space: normal !important; /* 允许换行，完整显示长公式 */
         }
-        #summaryTable th:nth-child(4) {
+        #summaryTable th:nth-child(5) {
             white-space: normal !important;
         }
-        #summaryTable td:nth-child(4) .formula-cell-content {
+        #summaryTable td:nth-child(5) .formula-cell-content {
             overflow: visible;
         }
 
