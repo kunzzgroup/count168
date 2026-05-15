@@ -40,20 +40,26 @@ body.dashboard-page.report-page .customer-report-filter-container .report-gc-inl
 }
 
 
-/* center：Show All chip 较矮，与带 margin-top 的 outlined shell 垂直居中对齐 */
+/*
+ * Outlined 的 .report-outlined-shell 有 margin-top:10px，若整行 align-items:center，
+ * 会把这段空白算进「栏高」，几何中心高于白框，Show All 会显得偏下。
+ * 改为顶对齐，并让 Quick/Show All 槽位与 shell 同 margin-top + 同可视高度，chip 在槽内垂直居中。
+ */
 .customer-report-filters {
     display: flex;
     gap: clamp(12px, 1.25vw, 24px);
-    align-items: center;
+    align-items: flex-start;
     flex-wrap: wrap;
 }
 
 /* Quick Select 与 Show All 成组，间距缩小 */
-.customer-report-quick-and-showall {
+body.dashboard-page.report-page .customer-report-quick-and-showall {
     display: flex;
     align-items: center;
     gap: clamp(8px, 0.8vw, 16px);
     flex: 0 0 auto;
+    margin-top: 10px;
+    min-height: calc(2px + clamp(32px, 2.25vw, 36px));
 }
 
 .customer-report-quick-and-showall .customer-report-filter-group {
