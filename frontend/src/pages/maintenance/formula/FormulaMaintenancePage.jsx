@@ -67,9 +67,13 @@ export default function FormulaMaintenancePage() {
   const progressiveRafRef = useRef(null);
   const searchSeqRef = useRef(0);
   const listScrollActiveRef = useRef(false);
+  const companyIdRef = useRef(null);
+  const initialFormulaSearchDoneRef = useRef(false);
+  const suppressNextSearchEffectRef = useRef(false);
 
   const [totalRowCount, setTotalRowCount] = useState(0);
   const [listHydrating, setListHydrating] = useState(false);
+  const [listSyncing, setListSyncing] = useState(false);
   const [selectAllActive, setSelectAllActive] = useState(false);
   const [deselectedIds, setDeselectedIds] = useState(() => new Set());
 
@@ -340,39 +344,63 @@ export default function FormulaMaintenancePage() {
   }, [bootLoading, companyId, companyCode, notify]);
 
   // -- Search Logic --
-  const performSearch = useCallback(async () => {
-    if (!companyId) return;
+  /** 首次整表 Loading；之后（切换公司等）listSyncing 保留旧表直至新数据返回 */
+  const performSearch = useCallback(async (overrides = {}) => {
+    const { companyId: overrideCompanyId } = overrides;
+    const effectiveCompanyId = overrideCompanyId ?? companyId;
+    if (!effectiveCompanyId) return;
+
+    const searchCompanyId = Number(effectiveCompanyId);
+    const quietRefresh = initialFormulaSearchDoneRef.current;
     const seq = ++searchSeqRef.current;
+
     if (progressiveRafRef.current) {
       cancelAnimationFrame(progressiveRafRef.current);
       progressiveRafRef.current = null;
     }
-    setLoading(true);
-    setListHydrating(false);
+
+    if (!quietRefresh) {
+      setLoading(true);
+      setListHydrating(false);
+    } else {
+      setLoading(false);
+      setListSyncing(true);
+    }
+
     try {
       const data = await listFormulaTemplates({
-        companyId,
+        companyId: searchCompanyId,
         category: activePermission,
         process: selectedProcess,
         search: searchFilter,
       });
       if (seq !== searchSeqRef.current) return;
+      if (searchCompanyId !== Number(companyIdRef.current)) return;
+
       setConfirmDelete(false);
       hydrateFormulaList(data);
-      if (data.length === 0) {
-        notify(t("noDataAdjustSearch"), "info");
-      } else if (data.length <= LARGE_RESULT_TOAST_THRESHOLD) {
-        notify(t("foundRecords", { n: data.length }), "success");
+
+      if (!quietRefresh) {
+        if (data.length === 0) {
+          notify(t("noDataAdjustSearch"), "info");
+        } else if (data.length <= LARGE_RESULT_TOAST_THRESHOLD) {
+          notify(t("foundRecords", { n: data.length }), "success");
+        }
       }
     } catch (err) {
       if (seq !== searchSeqRef.current) return;
+      if (searchCompanyId !== Number(companyIdRef.current)) return;
       notify(err.message, "error");
       formulaDataFullRef.current = [];
       setTotalRowCount(0);
       setFormulaData([]);
       resetSelection();
     } finally {
-      if (seq === searchSeqRef.current) setLoading(false);
+      initialFormulaSearchDoneRef.current = true;
+      if (seq === searchSeqRef.current) {
+        setLoading(false);
+        setListSyncing(false);
+      }
     }
   }, [
     companyId,
@@ -385,9 +413,17 @@ export default function FormulaMaintenancePage() {
     resetSelection,
   ]);
 
+  useEffect(() => {
+    companyIdRef.current = companyId;
+  }, [companyId]);
+
   // Debounced search for searchFilter
   useEffect(() => {
     if (!bootLoading && companyId) {
+      if (suppressNextSearchEffectRef.current) {
+        suppressNextSearchEffectRef.current = false;
+        return;
+      }
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
       searchDebounceRef.current = setTimeout(() => {
         performSearch();
@@ -398,6 +434,7 @@ export default function FormulaMaintenancePage() {
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
+    const nextId = Number(c.id);
     try {
       await updateSessionCompany(c.id);
       const perms = await fetchCompanyPermissionsRaw(c.company_id || "");
@@ -405,21 +442,22 @@ export default function FormulaMaintenancePage() {
         navigate("/process-list", { replace: true });
         return;
       }
-      setCompanyId(Number(c.id));
+
+      suppressNextSearchEffectRef.current = true;
+      companyIdRef.current = nextId;
+      setCompanyId(nextId);
       setCompanyCode(c.company_id || "");
-      
+
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
-      
-      // Reset filters when switching company
+
       setSearchFilter("");
       setSelectedProcess("");
-      formulaDataFullRef.current = [];
-      setTotalRowCount(0);
-      setFormulaData([]);
       resetSelection();
+
+      void performSearch({ companyId: nextId });
 
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }), "success");
@@ -446,9 +484,6 @@ export default function FormulaMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
     setSearchFilter("");
     setSelectedProcess("");
-    formulaDataFullRef.current = [];
-    setTotalRowCount(0);
-    setFormulaData([]);
     resetSelection();
     setConfirmDelete(false);
   };
@@ -619,10 +654,16 @@ export default function FormulaMaintenancePage() {
         m={m}
       />
 
+      <div className="formula-maintenance-table-region">
+        {listSyncing && (
+          <div className="formula-maintenance-sync-track" aria-hidden>
+            <div className="formula-maintenance-sync-bar" />
+          </div>
+        )}
       <FormulaMaintenanceTable
-        key={companyId ?? "no-company"}
         data={formulaData}
         loading={loading}
+        listSyncing={listSyncing}
         listHydrating={listHydrating}
         totalRowCount={totalRowCount}
         isRowSelected={isRowSelected}
@@ -636,6 +677,7 @@ export default function FormulaMaintenancePage() {
         m={m}
         inputMethodOptions={inputMethodOptions}
       />
+      </div>
 
       {/* Modal & Notifications */}
       <ConfirmDeleteModal
