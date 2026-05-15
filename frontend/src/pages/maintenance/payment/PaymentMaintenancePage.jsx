@@ -359,6 +359,8 @@ export default function PaymentMaintenancePage() {
         setConfirmDelete(false);
         if (!quietRefresh && data.length > 0) {
           notify(t("foundRecords", { n: data.length }), "success");
+        } else if (data.length === 0) {
+          notify(t("noDataAdjustSearch"), "info");
         }
       } catch (err) {
         if (err?.name === "AbortError" || seq !== searchSeqRef.current) return;

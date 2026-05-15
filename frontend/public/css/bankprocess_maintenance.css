@@ -625,11 +625,11 @@ body.dashboard-page.maintenance-page .container {
 }
 
 .maintenance-header-amount {
-    text-align: right !important;
+    text-align: center !important;
 }
 
 .maintenance-cell-currency-amount {
-    text-align: right;
+    text-align: center;
     font-variant-numeric: tabular-nums;
 }
 
@@ -948,6 +948,7 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(5) {
     width: 8.5%;
     min-width: 5.5rem;
+    text-align: center !important;
 }
 
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(6),
@@ -966,7 +967,7 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
 
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(8),
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(8) {
-    width: 7.9%;
+    width: 8%;
     min-width: 5rem;
     text-align: left;
 }
