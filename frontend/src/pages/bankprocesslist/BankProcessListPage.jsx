@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AccountModal from "../../components/AccountModal.jsx";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { ensureMaintenanceDateRangePicker } from "../../utils/maintenanceDateRangePicker.js";
@@ -35,6 +35,7 @@ import {
   bankProcessFrequencyNormalized,
 } from "./bankProcessHelpers.js";
 import { dedupeCompanyRowsForSwitcher } from "../processlist/processListHelpers.js";
+import { prefetchGamesProcessListPayload } from "../processlist/processRoutePrefetch.js";
 import ProcessDeleteConfirmModal from "../processlist/components/ProcessDeleteConfirmModal.jsx";
 import AddProcessIcon from "../processlist/components/AddProcessIcon.jsx";
 
@@ -61,6 +62,7 @@ function accountingDuePeriodType(r) {
 
 export default function BankProcessListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const resolveLang = useCallback(
     (next) => {
       if (next === "zh") return "zh";
@@ -152,6 +154,7 @@ export default function BankProcessListPage() {
 
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
+  const skipNextBankFetchRef = useRef(false);
   const bankDatePickerInitRef = useRef(false);
   const bankContractEndHintRef = useRef(null);
 
@@ -275,9 +278,9 @@ export default function BankProcessListPage() {
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page", "process-page--bank");
+    setCssReady(true);
     return () => {
       document.body.classList.remove("process-page", "process-page--bank", "process-page--bank-show-all");
-      document.body.classList.add("dashboard-page");
     };
   }, []);
 
@@ -293,13 +296,6 @@ export default function BankProcessListPage() {
       window.removeEventListener("eazycount:language-updated", syncLang);
     };
   }, [resolveLang]);
-
-  useEffect(() => {
-    setCssReady(true);
-    return () => {
-      setCssReady(false);
-    };
-  }, []);
 
   useEffect(() => {
     if (loading || !cssReady || bankDatePickerInitRef.current) return;
@@ -358,6 +354,42 @@ export default function BankProcessListPage() {
     (async () => {
       let skipLoadingDone = false;
       try {
+        const routePrefetch = location.state?.bankProcessListPrefetch;
+        const prefetchCompanyId = routePrefetch?.companyId ? Number(routePrefetch.companyId) : null;
+        const currentUrl = new URL(window.location.href);
+        const prefetchQueryCompany = currentUrl.searchParams.get("company_id");
+
+        if (routePrefetch && prefetchCompanyId && (!prefetchQueryCompany || Number(prefetchQueryCompany) === prefetchCompanyId)) {
+          const prefetchedCompanies = Array.isArray(routePrefetch.companies) ? routePrefetch.companies : [];
+          setCompanies(prefetchedCompanies);
+          setCompanyId(prefetchCompanyId);
+          {
+            const pfGfk = routePrefetch.groupFilterKind;
+            setGroupFilterKind(pfGfk === "all" || pfGfk === "ungrouped" ? pfGfk : "follow");
+          }
+          setSearch(currentUrl.searchParams.get("search") || "");
+          setCurrencyFilterCode(String(currentUrl.searchParams.get("currency") || "").trim().toUpperCase());
+          setDateFrom(currentUrl.searchParams.get("date_from") || "");
+          setDateTo(currentUrl.searchParams.get("date_to") || "");
+          setShowAll(currentUrl.searchParams.get("showAll") === "1");
+          setShowInactive(currentUrl.searchParams.get("showInactive") === "1");
+          setShowOfficial(currentUrl.searchParams.get("showOfficial") === "1");
+          setShowEInvoice(currentUrl.searchParams.get("showEInvoice") === "1");
+          setShowBlock(currentUrl.searchParams.get("showBlock") === "1");
+          if (Array.isArray(routePrefetch.currencyCodes)) {
+            setCurrencyListOrdered(routePrefetch.currencyCodes);
+          }
+          if (Array.isArray(routePrefetch.rows)) {
+            setRows(normalizeRows(routePrefetch.rows));
+            skipNextBankFetchRef.current = true;
+            setTableLoading(false);
+          } else {
+            setTableLoading(true);
+          }
+          setLoading(false);
+          return;
+        }
+
         const [meRes, companiesRes] = await Promise.all([
           fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
           fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
@@ -377,7 +409,19 @@ export default function BankProcessListPage() {
         if (currentCompanyRow?.company_id) {
           const bankCategory = await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
           if (!bankCategory) {
-            navigate(`/process-list?company_id=${effectiveNum}`, { replace: true });
+            const warm = await prefetchGamesProcessListPayload(effectiveNum);
+            navigate(`/process-list?company_id=${effectiveNum}`, {
+              replace: true,
+              state: {
+                processListPrefetch: {
+                  companyId: effectiveNum,
+                  companies: cs,
+                  groupFilterKind: "follow",
+                  rows: warm.rows,
+                  meta: warm.meta,
+                },
+              },
+            });
             skipLoadingDone = true;
             return;
           }
@@ -397,7 +441,7 @@ export default function BankProcessListPage() {
         if (!skipLoadingDone) setLoading(false);
       }
     })();
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   useEffect(() => {
     if (!companyId || loading) return;
@@ -636,7 +680,11 @@ export default function BankProcessListPage() {
 
   useEffect(() => {
     if (!companyId || loading) return;
-    const t = window.setTimeout(() => { void fetchRows(); }, 180);
+    if (skipNextBankFetchRef.current) {
+      skipNextBankFetchRef.current = false;
+      return;
+    }
+    const t = window.setTimeout(() => { void fetchRows(); }, 80);
     return () => window.clearTimeout(t);
   }, [companyId, loading, search, fetchRows]);
 
@@ -718,57 +766,30 @@ export default function BankProcessListPage() {
     if (switchingCompany) return;
     setSwitchingCompany(true);
     listAbortRef.current?.abort();
-    setRows([]);
     setSelectedIds(new Set());
     setCurrentPage(1);
-    setTableLoading(true);
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setTableLoading(false);
         return notify(json.message || json.error || t("switchCompanyFailed"), "danger");
       }
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
       if (!bankCategory) {
-        setTableLoading(false);
-        let processListPrefetch = {
+        const warm = await prefetchGamesProcessListPayload(c.id);
+        const processListPrefetch = {
           companyId: Number(c.id),
           companies,
-          selectedGroup: c.group_id ? String(c.group_id).toUpperCase() : null,
           groupFilterKind,
+          rows: warm.rows,
+          meta: warm.meta,
         };
-        try {
-          const listUrl = new URL(buildApiUrl("api/processes/processlist_api.php"));
-          listUrl.searchParams.set("permission", "Games");
-          listUrl.searchParams.set("company_id", String(c.id));
-
-          const metaUrl = new URL(buildApiUrl("api/processes/addprocess_api.php"));
-          metaUrl.searchParams.set("company_id", String(c.id));
-
-          const [listRes, metaRes] = await Promise.all([
-            fetch(listUrl.toString(), { credentials: "include" }),
-            fetch(metaUrl.toString(), { credentials: "include" }),
-          ]);
-          const [listJson, metaJson] = await Promise.all([listRes.json(), metaRes.json()]);
-          const metaData = metaJson?.data || metaJson || {};
-          processListPrefetch = {
-            ...processListPrefetch,
-            rows: listRes.ok && listJson?.success && Array.isArray(listJson.data) ? listJson.data : null,
-            meta: {
-              currencies: Array.isArray(metaData.currencies) ? metaData.currencies : [],
-              descriptions: Array.isArray(metaData.descriptions) ? metaData.descriptions : [],
-              days: Array.isArray(metaData.days) ? metaData.days : [],
-              existingProcesses: Array.isArray(metaData.existingProcesses) ? metaData.existingProcesses : [],
-            },
-          };
-        } catch {
-          /* ProcessList will fetch normally if the warmup fails. */
-        }
         navigate(`/process-list?company_id=${c.id}`, { replace: true, state: { processListPrefetch } });
         return;
       }
+      setRows([]);
+      setTableLoading(true);
       setCompanyId(Number(c.id));
       setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
       if (accountingOpen) void loadAccountingInbox();
