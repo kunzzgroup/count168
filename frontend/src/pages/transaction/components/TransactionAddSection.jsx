@@ -344,20 +344,22 @@ export default function TransactionAddSection({
 
         <div className="rate-section rate-section--add-pane">
           <label className="transaction-label">Middle-Man</label>
-          <div className="rate-row rate-row-three-cols">
-            <AccountSelect
-              ariaLabel="Middle-Man account"
-              placeholder="--Select Account--"
-              options={accountOptions}
-              value={rateMiddlemanAccount}
-              onChange={setRateMiddlemanAccount}
-              selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-            />
+          <div className="rate-row rate-row-five-cols">
+            <div className="rate-mm-span-acct">
+              <AccountSelect
+                ariaLabel="Middle-Man account"
+                placeholder="--Select Account--"
+                options={accountOptions}
+                value={rateMiddlemanAccount}
+                onChange={setRateMiddlemanAccount}
+                selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+              />
+            </div>
             <input
               type="number"
               step="0.0001"
               id="rate_middleman_rate"
-              className="transaction-input"
+              className="transaction-input rate-mm-slot-mult"
               placeholder="Rate multiplier"
               value={rateMiddlemanRate}
               onChange={(e) => setRateMiddlemanRate(e.target.value)}
@@ -367,7 +369,7 @@ export default function TransactionAddSection({
               type="number"
               step="0.01"
               id="rate_middleman_amount"
-              className="transaction-input"
+              className="transaction-input rate-mm-slot-amt"
               placeholder="Amount"
               readOnly
               value={rateMiddlemanAmount}
