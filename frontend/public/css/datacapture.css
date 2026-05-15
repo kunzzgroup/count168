@@ -30,6 +30,9 @@ body.datacapture-page {
     --dc-border: #e2e8f0;
     --dc-text-muted: #64748b;
     --sidebar-active-bg: #1e40af;
+    --dc-form-stack-gap: clamp(4px, 0.42vw, 7px);
+    --dc-form-word-rows-gap: clamp(1px, 0.18vw, 3px);
+    --dc-label-rail: clamp(68px, 5vw, 96px);
 }
 
 /* Laptop / short height: allow page scroll so table + Submit are reachable (see .datacapture-short-viewport) */
@@ -201,14 +204,15 @@ body.datacapture-page .submitted-container {
 }
 
 body.datacapture-page .submitted-title {
-    margin: 0 0 clamp(5px, 0.5vw, 10px) 0;
-    padding-bottom: clamp(4px, 0.32vw, 7px);
+    margin: 0 0 clamp(4px, 0.42vw, 8px) 0;
+    padding-bottom: clamp(3px, 0.28vw, 6px);
 }
 
 body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-panel {
-    padding: 0;
-    margin: 0 0 2px;
+    padding: 0 0 clamp(3px, 0.32vw, 6px);
+    margin: 0;
     border-top: none;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
     row-gap: 5px;
     column-gap: 8px;
     --user-gc-inline-label-w: clamp(4.75rem, 8vw, 6rem);
@@ -218,12 +222,38 @@ body.lang-zh.datacapture-page .form-container .user-gc-inline-panel.dc-data-capt
     --user-gc-inline-label-w: clamp(4.25rem, 7vw, 5.5rem);
 }
 
+/* Unified vertical rhythm; Replace→Remove uses tighter sub-stack */
+body.datacapture-page .process-form .dc-form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--dc-form-stack-gap);
+    min-width: 0;
+}
+
+body.datacapture-page .process-form .dc-form-stack > .dc-data-capture-gc-panel,
+body.datacapture-page .process-form .dc-form-stack > .dc-form-two-col,
+body.datacapture-page .process-form .dc-form-stack > .dc-form-word-rows {
+    margin-bottom: 0;
+}
+
+body.datacapture-page .process-form .dc-form-word-rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--dc-form-word-rows-gap);
+    min-width: 0;
+}
+
+body.datacapture-page .process-form .dc-form-word-rows > .dc-form-row-full,
+body.datacapture-page .process-form .dc-form-word-rows > .dc-form-two-col {
+    margin-bottom: 0;
+}
+
 body.datacapture-page .process-form .dc-form-two-col {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: clamp(4px, 0.55vw, 10px);
     align-items: center;
-    margin-bottom: clamp(3px, 0.38vw, 7px);
+    margin-bottom: 0;
 }
 
 body.datacapture-page .process-form .dc-form-two-col .form-group {
@@ -233,11 +263,11 @@ body.datacapture-page .process-form .dc-form-two-col .form-group {
 /* Bottom row: labels align with stacked Remove Word control */
 body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--tight {
     align-items: start;
-    margin-bottom: clamp(2px, 0.28vw, 5px);
+    margin-bottom: 0;
 }
 
 body.datacapture-page .process-form .dc-form-row-full {
-    margin-bottom: clamp(3px, 0.38vw, 7px);
+    margin-bottom: 0;
 }
 
 body.datacapture-page .process-form .dc-form-row-full .form-group {
@@ -272,7 +302,7 @@ body.datacapture-page .process-form .dc-form-two-col--tight .form-group {
 }
 
 body.datacapture-page .process-form .dc-form-two-col--tight .form-group > label {
-    padding-top: 8px;
+    padding-top: 7px;
 }
 
 /* Dense field rhythm: narrow label rail + tight gutter */
@@ -287,7 +317,7 @@ body.datacapture-page .process-form .form-group {
 
 body.datacapture-page .process-form .form-group label,
 body.datacapture-page .replace-word-group label {
-    width: clamp(64px, 4.75vw, 92px);
+    width: var(--dc-label-rail);
     text-align: right;
     padding-right: 2px;
     box-sizing: border-box;
