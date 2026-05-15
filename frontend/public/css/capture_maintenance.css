@@ -981,7 +981,7 @@ body.dashboard-page.maintenance-page {
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(1),
 .capture-maintenance-page-root .maintenance-table td:nth-child(1) {
-    width: 3%;
+    width: 4.5%;
     text-align: center;
 }
 
