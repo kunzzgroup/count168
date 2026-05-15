@@ -7,30 +7,35 @@ import "../../../public/css/accountCSS.css";
 import "../../../public/css/datacapturesummary.css";
 import "../../../public/css/global-13inch.css";
 
-function loadScriptOnce(src) {
+/** Avoid hanging when `load` already fired before listeners attach (SPA revisit / cache). */
+function loadScriptOnce(src, isAlreadyLoaded) {
   return new Promise((resolve, reject) => {
     const clean = src.split(/[?#]/)[0];
+    const finish = (node) => {
+      node.dataset.loaded = "1";
+      resolve();
+    };
     const nodes = document.querySelectorAll("script[src]");
     for (let i = 0; i < nodes.length; i += 1) {
       const n = nodes[i];
       const ns = n.getAttribute("src") || "";
-      if (ns.split(/[?#]/)[0] === clean) {
-        if (n.dataset.loaded === "1") {
-          resolve();
-          return;
-        }
-        n.addEventListener("load", () => resolve(), { once: true });
-        n.addEventListener("error", () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
+      if (ns.split(/[?#]/)[0] !== clean) continue;
+      if (n.dataset.loaded === "1") {
+        resolve();
         return;
       }
+      n.addEventListener("load", () => finish(n), { once: true });
+      n.addEventListener("error", () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
+      queueMicrotask(() => {
+        if (n.dataset.loaded === "1") return;
+        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) finish(n);
+      });
+      return;
     }
     const s = document.createElement("script");
     s.src = src;
     s.async = false;
-    s.onload = () => {
-      s.dataset.loaded = "1";
-      resolve();
-    };
+    s.onload = () => finish(s);
     s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
     document.head.appendChild(s);
   });
@@ -50,7 +55,6 @@ const CAPTURE_STORAGE_KEYS = [
 export default function DataCaptureSummaryPage() {
   const navigate = useNavigate();
   const [bootLoading, setBootLoading] = useState(true);
-  const [engineLoading, setEngineLoading] = useState(false);
   const [engineError, setEngineError] = useState("");
   const [companyId, setCompanyId] = useState(null);
 
@@ -135,14 +139,13 @@ export default function DataCaptureSummaryPage() {
     window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
     window.DATACAPTURESUMMARY_COMPANY_ID = companyId != null ? companyId : null;
 
-    setEngineLoading(true);
     setEngineError("");
 
     (async () => {
       try {
-        await loadScriptOnce(buildApiUrl("js/decimal.min.js"));
-        await loadScriptOnce(buildApiUrl("js/money-decimal.js"));
-        await loadScriptOnce(buildApiUrl("js/datacapturesummary.js"));
+        await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
+        await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
+        await loadScriptOnce(buildApiUrl("js/datacapturesummary.js"), () => typeof window.initDataCaptureSummaryPage === "function");
         if (!alive) return;
         if (typeof window.initDataCaptureSummaryPage === "function") {
           window.initDataCaptureSummaryPage();
@@ -151,8 +154,6 @@ export default function DataCaptureSummaryPage() {
         if (!alive) return;
         console.error(e);
         setEngineError("Failed to load Data Capture Summary scripts.");
-      } finally {
-        if (alive) setEngineLoading(false);
       }
     })();
 
@@ -176,11 +177,11 @@ export default function DataCaptureSummaryPage() {
     <div className="container">
       <h1>Data Capture Summary</h1>
 
-      {(engineLoading || engineError) && (
-        <div style={{ marginBottom: 12, color: engineError ? "#b91c1c" : "#444" }}>
-          {engineError || "Initializing summary engine…"}
+      {engineError ? (
+        <div style={{ marginBottom: 12, color: "#b91c1c" }} role="alert">
+          {engineError}
         </div>
-      )}
+      ) : null}
 
       <div id="loadingState" className="loading-container">
         <div className="loading-spinner" />

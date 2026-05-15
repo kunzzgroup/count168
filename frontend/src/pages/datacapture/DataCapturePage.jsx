@@ -57,7 +57,6 @@ export default function DataCapturePage() {
   const companyIdFromUrl = searchParams.get("company_id");
 
   const [bootLoading, setBootLoading] = useState(true);
-  const [engineLoading, setEngineLoading] = useState(false);
   const [engineError, setEngineError] = useState("");
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -215,7 +214,6 @@ export default function DataCapturePage() {
     };
 
     let alive = true;
-    setEngineLoading(true);
     setEngineError("");
 
     (async () => {
@@ -231,8 +229,6 @@ export default function DataCapturePage() {
         if (!alive) return;
         console.error(e);
         setEngineError("Failed to load Data Capture scripts.");
-      } finally {
-        if (alive) setEngineLoading(false);
       }
     })();
 
@@ -300,11 +296,11 @@ export default function DataCapturePage() {
         </div>
       </div>
 
-      {(engineLoading || engineError) && (
-        <div style={{ marginBottom: 12, color: engineError ? "#b91c1c" : "#444" }}>
-          {engineError || "Initializing table engine…"}
+      {engineError ? (
+        <div style={{ marginBottom: 12, color: "#b91c1c" }} role="alert">
+          {engineError}
         </div>
-      )}
+      ) : null}
 
       <div className="top-section">
         <div className="form-column">
