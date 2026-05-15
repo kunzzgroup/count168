@@ -27,6 +27,24 @@ import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
 import TransactionMaintenanceTable from "./components/TransactionMaintenanceTable.jsx";
 
+/**
+ * Dedupe "no data" toast on Transaction Maintenance.
+ * React 18 Strict Mode remounts the tree in dev: component refs reset, so ref-based
+ * dedupe fires twice for the same successful empty response.
+ */
+const transactionMaintenanceNoDataToastKeys = new Set();
+const MAX_NO_DATA_TOAST_KEYS = 64;
+
+function consumeNoDataToastDedupeKey(key) {
+  if (!key || transactionMaintenanceNoDataToastKeys.has(key)) return false;
+  transactionMaintenanceNoDataToastKeys.add(key);
+  while (transactionMaintenanceNoDataToastKeys.size > MAX_NO_DATA_TOAST_KEYS) {
+    const first = transactionMaintenanceNoDataToastKeys.values().next().value;
+    transactionMaintenanceNoDataToastKeys.delete(first);
+  }
+  return true;
+}
+
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
   const lang = useLoginLang();
@@ -97,7 +115,6 @@ export default function TransactionMaintenancePage() {
     listQueryEnabled &&
     (transactionQuery.isLoading || (transactionQuery.isFetching && listRowCount === 0));
   const lastToastKeyRef = useRef(null);
-  const lastEmptyNotifyRef = useRef(null);
   const lastErrorMsgRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
@@ -348,8 +365,7 @@ export default function TransactionMaintenancePage() {
     if (transactionQuery.isFetching) return;
     if (transactionData.length > 0) return;
     const key = `${transactionQuery.dataUpdatedAt ?? ""}:empty`;
-    if (lastEmptyNotifyRef.current === key) return;
-    lastEmptyNotifyRef.current = key;
+    if (!consumeNoDataToastDedupeKey(key)) return;
     notify(t("noDataAdjustSearch"), "info");
   }, [
     listQueryEnabled,
