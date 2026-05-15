@@ -116,10 +116,15 @@ export default function AccountListPage() {
   const toastTimerRef = useRef(null);
   const bootFetchedAccountsKeyRef = useRef(null);
 
-  const accountModalCurrencies = useMemo(
-    () => currencies.filter((c) => !hiddenCurrencyIds.includes(Number(c.id))),
-    [currencies, hiddenCurrencyIds]
-  );
+  const accountModalCurrencies = useMemo(() => {
+    const hidden = new Set(hiddenCurrencyIds.map(Number));
+    const visible = currencies.filter((c) => !hidden.has(Number(c.id)));
+    if (editModalOpen && isEditMode) {
+      const linked = new Set(selectedCurrencyIds.map(Number));
+      return visible.filter((c) => linked.has(Number(c.id)));
+    }
+    return visible;
+  }, [currencies, hiddenCurrencyIds, editModalOpen, isEditMode, selectedCurrencyIds]);
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -548,13 +553,8 @@ export default function AccountListPage() {
         const after = new Set(selectedCurrencyIds.map(Number));
         const toAdd = [...after].filter((id) => !before.has(id));
         const toRemove = [...before].filter((id) => !after.has(id));
-        const currencyChangeUrl = (action) => {
-          const params = new URLSearchParams({ action });
-          if (companyId) params.set("company_id", String(companyId));
-          return buildApiUrl(`api/accounts/account_currency_api.php?${params.toString()}`);
-        };
         for (const cid of toAdd) {
-          const currencyRes = await fetch(currencyChangeUrl("add_currency"), {
+          const currencyRes = await fetch(accountCurrencyApiUrl("add_currency"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ account_id: Number(form.id), currency_id: Number(cid) }),
@@ -564,7 +564,7 @@ export default function AccountListPage() {
           if (!currencyRes.ok || !currencyJson.success) return notify(currencyJson.message || t("saveFailed"), "danger");
         }
         for (const cid of toRemove) {
-          const currencyRes = await fetch(currencyChangeUrl("remove_currency"), {
+          const currencyRes = await fetch(accountCurrencyApiUrl("remove_currency"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ account_id: Number(form.id), currency_id: Number(cid) }),
@@ -611,10 +611,48 @@ export default function AccountListPage() {
     } catch { notify(t("createFailed"), "danger"); }
   };
 
-  const removeModalCurrency = (currencyId) => {
+  const accountCurrencyApiUrl = useCallback(
+    (action) => {
+      const params = new URLSearchParams({ action });
+      if (companyId) params.set("company_id", String(companyId));
+      return buildApiUrl(`api/accounts/account_currency_api.php?${params.toString()}`);
+    },
+    [companyId]
+  );
+
+  const removeModalCurrency = async (currencyId) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     const id = Number(currencyId);
+    const wasLinked = initialEditCurrencyIds.map(Number).includes(id);
+
     setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
     setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+
+    if (!isEditMode || !form.id || !wasLinked) return;
+
+    try {
+      const res = await fetch(accountCurrencyApiUrl("remove_currency"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_id: Number(form.id), currency_id: id }),
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setHiddenCurrencyIds((prev) => prev.filter((x) => x !== id));
+        setSelectedCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+        notify(json.message || json.error || t("saveFailed"), "danger");
+        return;
+      }
+      setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+    } catch {
+      setHiddenCurrencyIds((prev) => prev.filter((x) => x !== id));
+      setSelectedCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      notify(t("saveFailed"), "danger");
+    }
   };
 
   const loadCurrencyLinks = async (curId) => {
