@@ -16,6 +16,7 @@ import {
   searchPaymentData,
   deletePaymentRecords,
   updateSessionCompany,
+  isPaymentMaintenanceRowSelectable,
 } from "./paymentMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
@@ -60,7 +61,13 @@ export default function PaymentMaintenancePage() {
 
   // -- Data State --
   const [paymentData, setPaymentData] = useState([]);
+  /** 每次成功替换列表结果时递增，与 paymentDataSourceCompanyId 一起写入表格行 key */
+  const [paymentListEpoch, setPaymentListEpoch] = useState(0);
+  /** 当前 paymentData 所对应的已提交公司 numeric id（仅随成功搜索更新；切换公司时筛选已变但数据未回前仍为旧 id，避免行 key 误用新公司 id 复用 DOM 窜行） */
+  const [paymentDataSourceCompanyId, setPaymentDataSourceCompanyId] = useState(null);
+  /** 与 Capture Maintenance 一致：首次整表 Loading；之后仅顶栏细条 + 保留旧表，切换公司不卡手 */
   const [loading, setLoading] = useState(false);
+  const [listSyncing, setListSyncing] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -68,6 +75,13 @@ export default function PaymentMaintenancePage() {
   // -- UI State --
   const [toasts, setToasts] = useState([]);
   const companyIdRef = useRef(null);
+  const searchSeqRef = useRef(0);
+  const searchAbortRef = useRef(null);
+  const initialPaymentSearchDoneRef = useRef(false);
+  /** 切换公司已手动 performSearch 时跳过 useEffect 里下一轮重复请求 */
+  const suppressNextSearchEffectRef = useRef(false);
+  const paymentDataRef = useRef(paymentData);
+  paymentDataRef.current = paymentData;
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -143,6 +157,7 @@ export default function PaymentMaintenancePage() {
 
     return () => {
       cancelled = true;
+      searchAbortRef.current?.abort();
       originalStyles.forEach((item) => {
         const { el } = item;
         if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
@@ -196,7 +211,7 @@ export default function PaymentMaintenancePage() {
       const { companyId, companyCode } = e.detail;
       if (Number(companyId) === Number(companyIdRef.current)) return;
 
-      companyIdRef.current = companyId;
+      companyIdRef.current = Number(companyId);
       setCompanyId(Number(companyId));
       setCompanyCode(companyCode);
       setPaymentData([]);
@@ -271,12 +286,14 @@ export default function PaymentMaintenancePage() {
   useEffect(() => {
     if (bootLoading || !companyId) return;
 
+    let cancelled = false;
     (async () => {
       try {
         const [permList, currList] = await Promise.all([
           fetchCompanyPermissions(companyCode),
           fetchCompanyCurrencies(companyId)
         ]);
+        if (cancelled) return;
         setPermissions(permList);
         setCurrencies(currList);
         
@@ -293,65 +310,145 @@ export default function PaymentMaintenancePage() {
         setSelectedCurrency(hasMYR ? "MYR" : (currList[0]?.code || null));
         
       } catch (err) {
+        if (cancelled) return;
         console.error("Meta data load error:", err);
         notify(t("failedLoadCompanyMetadata"), "error");
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [bootLoading, companyId, companyCode, notify, t]);
 
   // -- Search Logic --
-  const performSearch = useCallback(async () => {
-    if (!companyId || !dateFrom || !dateTo) return;
-    setLoading(true);
-    try {
-      const data = await searchPaymentData({
-        dateFrom,
-        dateTo,
-        transactionType,
-        companyId,
-        currency: selectedCurrency
-      });
-      setPaymentData(data);
-      setSelectedIds([]);
-      setConfirmDelete(false);
-      if (data.length === 0) {
-        notify(t("noDataFound"), "info");
-      } else {
-        notify(t("foundRecords", { n: data.length }), "success");
-      }
-    } catch (err) {
-      notify(err.message, "error");
-      setPaymentData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [companyId, dateFrom, dateTo, transactionType, selectedCurrency, notify, t]);
+  /** 与 Capture Maintenance 对齐：支持 overrides.companyId；seq + ref + Abort；首次 Loading / 之后 listSyncing 保留旧表 */
+  const performSearch = useCallback(
+    async (overrides = {}) => {
+      const { companyId: overrideCompanyId } = overrides;
+      const effectiveCompanyId = overrideCompanyId ?? companyId;
+      if (!effectiveCompanyId || !dateFrom || !dateTo) return;
 
-  // Auto-search when filters change
+      const searchCompanyId = Number(effectiveCompanyId);
+      const quietRefresh = initialPaymentSearchDoneRef.current;
+
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+
+      const seq = ++searchSeqRef.current;
+      if (!quietRefresh) setLoading(true);
+      else {
+        setLoading(false);
+        setListSyncing(true);
+      }
+      setSelectedIds([]);
+      try {
+        const data = await searchPaymentData({
+          dateFrom,
+          dateTo,
+          transactionType,
+          companyId: effectiveCompanyId,
+          currency: selectedCurrency,
+          signal: controller.signal,
+        });
+        if (seq !== searchSeqRef.current) return;
+        if (searchCompanyId !== Number(companyIdRef.current)) return;
+        setPaymentListEpoch((e) => e + 1);
+        setPaymentData(data);
+        setPaymentDataSourceCompanyId(searchCompanyId);
+        setConfirmDelete(false);
+        if (!quietRefresh && data.length > 0) {
+          notify(t("foundRecords", { n: data.length }), "success");
+        } else if (data.length === 0) {
+          notify(t("noDataAdjustSearch"), "info");
+        }
+      } catch (err) {
+        if (err?.name === "AbortError" || seq !== searchSeqRef.current) return;
+        if (searchCompanyId !== Number(companyIdRef.current)) return;
+        notify(err.message, "error");
+        setPaymentListEpoch((e) => e + 1);
+        setPaymentData([]);
+        setPaymentDataSourceCompanyId(null);
+      } finally {
+        initialPaymentSearchDoneRef.current = true;
+        if (searchAbortRef.current === controller) {
+          searchAbortRef.current = null;
+        }
+        if (seq === searchSeqRef.current) {
+          setLoading(false);
+          setListSyncing(false);
+        }
+      }
+    },
+    [companyId, dateFrom, dateTo, transactionType, selectedCurrency, notify, t],
+  );
+
+  // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
   useEffect(() => {
-    if (!bootLoading && companyId) {
-      performSearch();
+    if (bootLoading || !companyId || !cssReady) return;
+    if (suppressNextSearchEffectRef.current) {
+      suppressNextSearchEffectRef.current = false;
+      return;
     }
-  }, [bootLoading, companyId, transactionType, dateFrom, dateTo, selectedCurrency, performSearch]);
+    const h = setTimeout(() => {
+      void performSearch();
+    }, 0);
+    return () => clearTimeout(h);
+  }, [bootLoading, companyId, transactionType, dateFrom, dateTo, selectedCurrency, performSearch, cssReady]);
+
+  useEffect(
+    () => () => {
+      searchAbortRef.current?.abort();
+    },
+    [],
+  );
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
-    try {
-      await updateSessionCompany(c.id);
-      setCompanyId(Number(c.id));
-      companyIdRef.current = Number(c.id);
-      setCompanyCode(c.company_id || "");
-      
-      const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    const nextId = Number(c.id);
+    const nextCode = c.company_id || "";
+    const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    const isOwner = String(me?.role || "").toLowerCase() === "owner";
+
+    if (isOwner) {
+      suppressNextSearchEffectRef.current = true;
+      companyIdRef.current = nextId;
+      setCompanyId(nextId);
+      setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
-      
+      void performSearch({ companyId: nextId });
+      notify(t("switchedTo", { company: nextCode }), "success");
+      try {
+        await updateSessionCompany(c.id);
+        // Stay on Payment Maintenance: bank-only companies (e.g. CX) still have PAYMENT rows to maintain.
+        notifyCompanySessionUpdated();
+      } catch (err) {
+        notify(err.message || t("switchFailed"), "error");
+        navigate("/dashboard", { replace: true });
+      }
+      return;
+    }
+
+    try {
+      await updateSessionCompany(c.id);
+
+      suppressNextSearchEffectRef.current = true;
+      companyIdRef.current = nextId;
+      setCompanyId(nextId);
+      setCompanyCode(nextCode);
+      setSelectedGroup(newGroup);
+      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
+      else sessionStorage.removeItem("dashboard_group_filter");
+
       notifyCompanySessionUpdated();
-      notify(t("switchedTo", { company: c.company_id }), "success");
+      notify(t("switchedTo", { company: nextCode }), "success");
+      void performSearch({ companyId: nextId });
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
+      navigate("/dashboard", { replace: true });
     }
   };
 
@@ -371,20 +468,33 @@ export default function PaymentMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
   };
 
-  const toggleSelect = (id) => {
-    setSelectedIds(prev => 
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
+  const toggleSelect = useCallback((id) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
 
-  const toggleSelectAll = () => {
-    const selectable = paymentData.filter(r => !(r.is_deleted === 1 || r.is_deleted === '1' || r.is_deleted === true));
-    if (selectedIds.length === selectable.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(selectable.map(r => r.transaction_id));
-    }
-  };
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const selectable = paymentDataRef.current.filter(
+        (r) =>
+          isPaymentMaintenanceRowSelectable(r) &&
+          !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true)
+      );
+      if (prev.length === selectable.length && selectable.length > 0) return [];
+      return selectable.map((r) => r.transaction_id);
+    });
+  }, []);
+
+  const selectableRowsCount = useMemo(
+    () =>
+      paymentData.filter(
+        (r) =>
+          isPaymentMaintenanceRowSelectable(r) &&
+          !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true)
+      ).length,
+    [paymentData]
+  );
+  const selectAll =
+    selectedIds.length > 0 && selectedIds.length === selectableRowsCount;
 
   const handleDeleteClick = () => {
     if (!confirmDelete) {
@@ -455,15 +565,25 @@ export default function PaymentMaintenancePage() {
         m={m}
       />
 
-      <PaymentMaintenanceTable
-        data={paymentData}
-        loading={loading}
-        selectedIds={selectedIds}
-        toggleSelect={toggleSelect}
-        toggleSelectAll={toggleSelectAll}
-        selectAll={selectedIds.length > 0 && selectedIds.length === paymentData.filter(r => !(r.is_deleted === 1 || r.is_deleted === '1' || r.is_deleted === true)).length}
-        m={m}
-      />
+      <div className="payment-maintenance-table-region">
+        {listSyncing && (
+          <div className="payment-maintenance-sync-track" aria-hidden>
+            <div className="payment-maintenance-sync-bar" />
+          </div>
+        )}
+        <PaymentMaintenanceTable
+          data={paymentData}
+          listEpoch={paymentListEpoch}
+          rowKeyCompanyId={paymentDataSourceCompanyId ?? companyId}
+          loading={loading}
+          listSyncing={listSyncing}
+          selectedIds={selectedIds}
+          toggleSelect={toggleSelect}
+          toggleSelectAll={toggleSelectAll}
+          selectAll={selectAll}
+          m={m}
+        />
+      </div>
 
       {/* Modal & Notifications */}
       <ConfirmDeleteModal

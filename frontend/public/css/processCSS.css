@@ -1428,10 +1428,11 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page .btn-save {
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-    color: white;
+    background: var(--btn-add-gradient);
+    color: #ffffff;
     font-family: var(--font-heading-page);
-    width: clamp(90px, 7vw, 130px);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
     padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: var(--text-medium);
     font-weight: var(--font-weight-semibold);
@@ -1444,10 +1445,12 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
 }
 
 .process-page .btn-save:hover {
-    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    background: var(--btn-add-gradient-hover);
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
 }
@@ -1457,26 +1460,33 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 }
 
 .process-page .btn-cancel {
-    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
-    color: white;
+    background: linear-gradient(180deg, #AAB8C2 0%, #657786 100%);
+    color: #ffffff;
     font-family: var(--font-heading-page);
-    width: clamp(5rem, 6.25vw, 7.5rem);
-    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: var(--text-medium);
     font-weight: var(--font-weight-semibold);
     border: none;
-    border-radius: 0.375rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(88, 88, 88, 0.3);
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(101, 119, 134, 0.2);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
     position: relative;
     overflow: hidden;
 }
 
 .process-page .btn-cancel:hover {
-    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
-    box-shadow: 0 0.25rem 0.5rem rgba(84, 84, 84, 0.4);
-    transform: translateY(-0.0625rem);
+    background: linear-gradient(180deg, #9ca9b4 0%, #5a6a78 100%);
+    box-shadow: 0 4px 8px rgba(101, 119, 134, 0.3);
+    transform: translateY(-1px);
 }
 
 /* Status Badges */
@@ -3855,11 +3865,18 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     height: 14px !important;
 }
 
-.process-page #addModal .add-actions .btn {
-    font-size: var(--text-medium) !important;
-    font-family: var(--font-heading-page) !important;
-    font-weight: var(--font-weight-semibold) !important;
-    min-height: 2.35rem;
+.process-page #addModal .add-actions .btn-save,
+.process-page #addModal .add-actions .btn-cancel,
+.process-page #editModal .add-actions .btn-save,
+.process-page #editModal .add-actions .btn-cancel {
+    min-height: unset;
+}
+
+#addModal .add-actions .btn-save,
+#addModal .add-actions .btn-cancel,
+#editModal .add-actions .btn-save,
+#editModal .add-actions .btn-cancel {
+    min-height: unset !important;
 }
 
 /* Hard fallback: ensure Add Process modal stays readable even if parent wrapper class changes */
@@ -4009,11 +4026,14 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     resize: none !important;
 }
 
-#addModal .add-actions .btn {
+#addModal .add-actions .btn-save,
+#addModal .add-actions .btn-cancel,
+#editModal .add-actions .btn-save,
+#editModal .add-actions .btn-cancel {
     font-size: var(--text-medium) !important;
     font-family: var(--font-heading-page) !important;
     font-weight: var(--font-weight-semibold) !important;
-    min-height: 2.35rem !important;
+    min-height: unset !important;
 }
 
 /* Final lock: keep Edit Process layout same as Add Process */

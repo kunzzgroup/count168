@@ -320,6 +320,8 @@ export default function CaptureMaintenancePage() {
       setCaptureData(data);
       if (!quietRefresh && data.length > 0) {
         notify(t("foundRecords", { n: data.length }), "success");
+      } else if (data.length === 0) {
+        notify(t("noDataAdjustSearch"), "info");
       }
     } catch (err) {
       if (err?.name === "AbortError" || seq !== captureSeqRef.current) return;

@@ -51,16 +51,35 @@
     padding-right: 1.25rem;
 }
 
-/* 红框区域固定：标题、药丸、说明、搜索不随列表滚动；搜索栏在蓝框位置、与下方列表右对齐 */
+/* 红框区域固定：第 1 行药丸 + 搜索对齐；第 2 行整宽说明 */
 #linkAccountModal .link-account-fixed-area {
     flex-shrink: 0;
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
     padding-left: 2.1875rem;
     padding-right: 1.25rem;
-    padding-bottom: 8px;
+    padding-bottom: 10px;
+}
+
+#linkAccountModal .link-account-toolbar-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+#linkAccountModal .link-account-toolbar-row .link-type-pills {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#linkAccountModal .link-account-toolbar-row .link-account-search-wrap {
+    flex: 0 0 auto;
+    justify-content: flex-end;
 }
 
 #linkAccountModal .link-account-form-actions {
@@ -68,51 +87,64 @@
     border-top: 1px solid #e2e8f0;
 }
 
-/* 蓝框内账号列表：固定 3 列、间距一致、视觉舒适 */
+/* Link Account 列表：卡片化网格（每行独立底 + 边框，选中高亮） */
 .link-account-list {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    background-color: #ffffff;
-    padding: 12px 14px;
+    gap: 12px 14px;
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+    padding: 4px 2px 8px;
 }
 
 .link-account-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    min-height: 28px;
-    padding: 2px 4px;
-    border-radius: 4px;
+    gap: 10px;
+    min-height: 4rem;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
     font-size: 13px;
     color: #3f3f46;
     font-family: var(--font-heading-page);
     cursor: pointer;
     user-select: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .link-account-item:hover {
     background: #f8fafc;
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
 }
 
 .link-account-item.selected {
     color: #1e3a8a;
+    border-color: #93c5fd;
+    background: #eff6ff;
+    box-shadow:
+        inset 3px 0 0 #2563eb,
+        0 1px 3px rgba(37, 99, 235, 0.12);
+}
+
+.link-account-item span {
+    min-width: 0;
+    line-height: 1.35;
+    word-break: break-word;
 }
 
 .link-account-checkbox {
     margin: 0;
-    width: 14px;
-    height: 14px;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
 }
 
-/* Link Account: pill buttons + description (comfortable spacing & size) */
-.link-type-section {
-    margin-top: 14px;
-    margin-bottom: 14px;
-}
-
+/* Link Account: pill buttons（由 toolbar-row 与搜索并排） */
 .link-type-pills {
     display: flex;
     gap: 10px;
@@ -167,29 +199,28 @@
 }
 
 .link-type-desc {
-    margin: 8px 0 0 0;
+    margin: 0;
+    width: 100%;
     font-size: 12px;
     color: #6b7280;
     line-height: 1.5;
     text-align: left;
 }
 
-/* 蓝框位置：搜索栏区域 */
+/* Link Account：搜索框（顶行右侧） */
 .link-account-search-wrap {
     display: flex;
     justify-content: flex-end;
     flex-shrink: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    min-width: 280px;
-    margin-right: 20px;
-    margin-top: 32px;
+    margin: 0;
+    min-width: 0;
 }
 
 .link-account-search-inner {
     position: relative;
     width: 100%;
     max-width: 280px;
+    min-width: min(240px, 100%);
 }
 
 .link-account-search-icon {
