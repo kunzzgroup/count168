@@ -371,7 +371,19 @@ body.dashboard-page.maintenance-page {
  * SPA 将各 maintenance 页的 CSS 打进同一份 bundle，payment/bankprocess 等里也有
  * `.maintenance-table th:nth-child(2){ width: … }`（列含义不同），会盖掉本页列宽。
  * 用 `.formula-maintenance-page-root .maintenance-list-container …` 提高专用性。
+ *
+ * 列表间距：数据 ≥60 条走虚拟列表（.maintenance-virtual-cell），<60 条走 table（.maintenance-table-cell）。
+ * 改 padding / min-height 请改下方 --formula-list-cell-* 变量，或同时改两处选择器。
  */
+.formula-maintenance-page-root {
+    --formula-list-cell-padding-y: clamp(7px, 0.65vw, 11px);
+    --formula-list-cell-padding-x: clamp(8px, 0.8vw, 14px);
+    --formula-list-cell-min-height: clamp(30px, 2vw, 38px);
+    --formula-list-cell-line-height: 1.35;
+    --formula-col-formula-padding-x: clamp(12px, 1.15vw, 20px);
+    --formula-col-product-padding-x: clamp(10px, 1vw, 16px);
+}
+
 .formula-maintenance-page-root .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
@@ -391,7 +403,7 @@ body.dashboard-page.maintenance-page {
     border-collapse: separate;
     table-layout: fixed;
     /* 与 capture_maintenance 一致：列无缝，行间极细缝（非大块白条） */
-    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+    border-spacing: 0;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th,
@@ -428,16 +440,17 @@ body.dashboard-page.maintenance-page {
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table tbody tr {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     transform: translateY(-1px);
 }
 
-.formula-maintenance-page-root .maintenance-list-container .maintenance-table tbody tr:nth-child(even) {
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table tbody tr:nth-child(even),
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table tbody tr.formula-data-row--stripe {
     background: #cceeff99;
 }
 
@@ -445,7 +458,7 @@ body.dashboard-page.maintenance-page {
     background: #ffffff;
 }
 
-/* 与 Capture 一致：行色在 tr，格底透明，整行斑马纹连续 */
+/* 与 Transaction 一致：行色在 tr，格底透明，整行斑马纹连续 */
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table tbody td {
     background-color: transparent;
 }
@@ -464,54 +477,59 @@ body.dashboard-page.maintenance-page {
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(1),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(1) {
-    width: 4.6%;
+    width: 4%;
     text-align: center;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(2),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(2) {
-    width: 15.9%;
+    width: 15.5%;
     text-align: left;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(3),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(3) {
-    width: 7.5%;
+    width: 10%;
     text-align: left;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(4),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(4) {
-    width: 7.5%;
+    width: 6.7%;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(5),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(5) {
-    width: 6.3%;
+    width: 6.5%;
     text-align: left;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(6),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(6) {
-    width: 11.6%;
+    width: 12.2%;
     text-align: left;
+}
+
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(6).maintenance-table-cell {
+    padding-left: var(--formula-col-product-padding-x);
+    padding-right: var(--formula-col-product-padding-x);
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(7),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(7) {
-    width: 26%;
+    width: 26.9%;
     text-align: left;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(8),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(8) {
-    width: 15.3%;
+    width: 19%;
     text-align: left;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(9),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(9) {
-    width: 15%;
+    width: 11.3%;
     text-align: left;
 }
 
@@ -521,10 +539,10 @@ body.dashboard-page.maintenance-page {
     text-align: center;
 }
 
+/* 普通 table 列表（数据 < 60 条） */
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table-cell {
     color: #374151;
-    /* 与 Capture 列表类似：上下留白略增，文字不贴边 */
-    padding: clamp(10px, 0.85vw, 14px) clamp(10px, 1vw, 18px);
+    padding: var(--formula-list-cell-padding-y) var(--formula-list-cell-padding-x);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -532,16 +550,31 @@ body.dashboard-page.maintenance-page {
     text-align: center;
     vertical-align: middle;
     box-sizing: border-box;
-    min-height: clamp(32px, 2.2vw, 42px);
+    min-height: var(--formula-list-cell-min-height);
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(2).maintenance-table-cell,
-.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(3).maintenance-table-cell {
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(3).maintenance-table-cell,
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(7).maintenance-table-cell,
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(8).maintenance-table-cell {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
     word-break: break-word;
     overflow-wrap: break-word;
+    line-height: var(--formula-list-cell-line-height);
+    vertical-align: middle;
+}
+
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(8).maintenance-table-cell {
+    padding-left: var(--formula-col-formula-padding-x);
+    padding-right: var(--formula-col-formula-padding-x);
+}
+
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(7).maintenance-table-cell .input-method-display {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    display: block;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td.maintenance-table-cell.formula-cell-text {
@@ -1105,4 +1138,166 @@ body.dashboard-page.maintenance-page {
     text-align: center;
     color: #999;
     font-size: 14px;
+}
+
+/* Progressive list hydration + virtual scroll (match Transaction Maintenance) */
+.formula-list-hydrate-hint {
+    padding: clamp(6px, 0.55vw, 10px) clamp(12px, 1vw, 18px);
+    font-size: clamp(11px, 0.92vw, 14px);
+    font-weight: 600;
+    color: #1e40af;
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+    text-align: center;
+}
+
+.formula-maintenance-page-root .formula-virtual-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.formula-maintenance-page-root .formula-virtual-table-inner {
+    min-width: 1280px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.formula-maintenance-page-root .formula-list-container--hydrating .maintenance-virtual-scroll {
+    opacity: 0.92;
+    transition: opacity 0.15s ease;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.formula-maintenance-page-root .formula-virtual-head-row,
+.formula-maintenance-page-root .formula-virtual-data-row {
+    display: grid;
+    /* 列宽与 table nth-child 比例对齐；第 7 列 Input Method 加宽 */
+    grid-template-columns:
+        minmax(28px, 4fr) minmax(64px, 13fr) minmax(52px, 9fr) minmax(36px, 5fr)
+        minmax(40px, 6fr) minmax(52px, 8.5fr) minmax(180px, 26fr) minmax(96px, 18fr) minmax(56px, 10fr)
+        minmax(48px, 7fr);
+    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-th {
+    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
+    color: #ffffff;
+    font-weight: bold;
+    font-size: clamp(10px, 0.89vw, 17px);
+    padding: var(--formula-list-cell-padding-y) var(--formula-list-cell-padding-x);
+    text-align: center;
+    min-height: var(--formula-list-cell-min-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.formula-maintenance-page-root .formula-virtual-th-actions {
+    border-top-right-radius: 8px;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-scroll {
+    max-height: min(72vh, 900px);
+    overflow: auto;
+    border-radius: 0 0 8px 8px;
+    background: #fff;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-row-wrap {
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-row-wrap .formula-virtual-data-row {
+    height: 100%;
+    min-height: 100%;
+    align-items: stretch;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-data-row {
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-data-row--stripe {
+    background: #cceeff99;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-data-row:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+/* 虚拟列表（数据 ≥ 60 条）：不用 table/td，改 .maintenance-table-cell 无效 */
+.formula-maintenance-page-root .maintenance-virtual-cell {
+    font-size: clamp(10px, 0.88vw, 15px);
+    font-weight: bold;
+    color: #374151;
+    line-height: var(--formula-list-cell-line-height);
+    padding: var(--formula-list-cell-padding-y) var(--formula-list-cell-padding-x);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    min-height: var(--formula-list-cell-min-height);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    justify-content: center;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-cell--left {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.formula-maintenance-page-root .formula-virtual-cell--wrap {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    align-items: center;
+    align-self: stretch;
+    height: auto;
+    min-height: 100%;
+}
+
+.formula-maintenance-page-root .formula-virtual-cell--input-method {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+}
+
+.formula-maintenance-page-root .formula-virtual-cell--formula {
+    padding-left: var(--formula-col-formula-padding-x);
+    padding-right: var(--formula-col-formula-padding-x);
+}
+
+.formula-maintenance-page-root .formula-virtual-cell--product {
+    padding-left: var(--formula-col-product-padding-x);
+    padding-right: var(--formula-col-product-padding-x);
+}
+
+.formula-maintenance-page-root .formula-virtual-cell-actions {
+    gap: clamp(8px, 0.8vw, 14px);
+}
+
+.formula-maintenance-page-root .maintenance-virtual-data-row .maintenance-cell-currency {
+    text-align: center;
+    justify-content: center;
 }
