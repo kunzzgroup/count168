@@ -150,14 +150,14 @@
     padding-right: 4rem;
 }
 
-/* Link Account 列表：截图风格 — 外框浅色底 + 三列紧凑格；hover/选中细蓝边 */
+/* Link Account 列表：白底外框 + 三列紧凑格；hover/选中细蓝边 */
 .link-account-list {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 6px 10px;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    background-color: #fafafa;
+    background-color: #ffffff;
     padding: 10px 12px;
 }
 
