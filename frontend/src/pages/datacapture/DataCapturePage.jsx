@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
@@ -17,30 +17,35 @@ import {
 import "../../../public/css/datacapture.css";
 import "../../../public/css/global-13inch.css";
 
-function loadScriptOnce(src) {
+/** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
+function loadScriptOnce(src, isAlreadyLoaded) {
   return new Promise((resolve, reject) => {
     const clean = src.split(/[?#]/)[0];
+    const finish = (node) => {
+      node.dataset.loaded = "1";
+      resolve();
+    };
     const nodes = document.querySelectorAll("script[src]");
     for (let i = 0; i < nodes.length; i += 1) {
       const n = nodes[i];
       const ns = n.getAttribute("src") || "";
-      if (ns.split(/[?#]/)[0] === clean) {
-        if (n.dataset.loaded === "1") {
-          resolve();
-          return;
-        }
-        n.addEventListener("load", () => resolve(), { once: true });
-        n.addEventListener("error", () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
+      if (ns.split(/[?#]/)[0] !== clean) continue;
+      if (n.dataset.loaded === "1") {
+        resolve();
         return;
       }
+      n.addEventListener("load", () => finish(n), { once: true });
+      n.addEventListener("error", () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
+      queueMicrotask(() => {
+        if (n.dataset.loaded === "1") return;
+        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) finish(n);
+      });
+      return;
     }
     const s = document.createElement("script");
     s.src = src;
     s.async = false;
-    s.onload = () => {
-      s.dataset.loaded = "1";
-      resolve();
-    };
+    s.onload = () => finish(s);
     s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
     document.head.appendChild(s);
   });
@@ -48,6 +53,8 @@ function loadScriptOnce(src) {
 
 export default function DataCapturePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const companyIdFromUrl = searchParams.get("company_id");
 
   const [bootLoading, setBootLoading] = useState(true);
   const [engineLoading, setEngineLoading] = useState(false);
@@ -147,7 +154,36 @@ export default function DataCapturePage() {
     };
   }, [navigate]);
 
-  const switchCompanyFullReload = useCallback(async (nextCompanyId) => {
+  useEffect(() => {
+    if (bootLoading || !companyIdFromUrl || companies.length === 0) return;
+    const id = Number(companyIdFromUrl);
+    if (!Number.isFinite(id) || id <= 0) return;
+    const allowed = companies.some((c) => Number(c.id) === id);
+    if (!allowed || Number(companyId) === id) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const syncRes = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`), {
+          credentials: "include",
+        });
+        const syncJson = await syncRes.json();
+        if (!syncJson.success) return;
+      } catch {
+        return;
+      }
+      if (!cancelled) {
+        setCompanyId(id);
+        notifyCompanySessionUpdated();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bootLoading, companyIdFromUrl, companies, companyId]);
+
+  const switchCompanySessionAndNavigate = useCallback(async (nextCompanyId) => {
     const id = Number(nextCompanyId);
     if (!id) return;
     try {
@@ -158,10 +194,8 @@ export default function DataCapturePage() {
     } catch {
       /* continue navigation — backend may still accept */
     }
-    const u = new URL(window.location.href);
-    u.searchParams.set("company_id", String(id));
-    window.location.assign(u.toString());
-  }, []);
+    navigate(`/datacapture?company_id=${encodeURIComponent(id)}`, { replace: true });
+  }, [navigate]);
 
   useEffect(() => {
     if (bootLoading || !me || !companyId || !companyCode) return;
@@ -171,6 +205,10 @@ export default function DataCapturePage() {
     window.DATACAPTURE_COMPANY_ID = companyId;
     window.DATACAPTURE_USER_ROLE = String(me.role || "").toLowerCase();
     window.DATACAPTURE_COMPANY_CODE = companyCode;
+
+    window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__ = async (rawId) => {
+      await switchCompanySessionAndNavigate(Number(rawId));
+    };
 
     window.onSharedCompanyFilterChanged = (cid) => {
       if (cid) window.switchDataCaptureCompany?.(Number(cid));
@@ -182,9 +220,9 @@ export default function DataCapturePage() {
 
     (async () => {
       try {
-        await loadScriptOnce(buildApiUrl("js/decimal.min.js"));
-        await loadScriptOnce(buildApiUrl("js/money-decimal.js"));
-        await loadScriptOnce(buildApiUrl("js/datacapture.js"));
+        await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
+        await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
+        await loadScriptOnce(buildApiUrl("js/datacapture.js"), () => typeof window.initDataCapturePage === "function");
         if (!alive) return;
         if (typeof window.initDataCapturePage === "function") {
           await window.initDataCapturePage();
@@ -202,12 +240,17 @@ export default function DataCapturePage() {
       alive = false;
       window.__DATA_CAPTURE_SPA_BOOTSTRAP__ = false;
       try {
+        delete window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__;
+      } catch {
+        window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__ = undefined;
+      }
+      try {
         delete window.onSharedCompanyFilterChanged;
       } catch {
         window.onSharedCompanyFilterChanged = undefined;
       }
     };
-  }, [bootLoading, me, companyId, companyCode]);
+  }, [bootLoading, me, companyId, companyCode, switchCompanySessionAndNavigate]);
 
   const onGroupClick = async (gid) => {
     await applySharedGroupClickWithCompanySwitch({
@@ -216,14 +259,14 @@ export default function DataCapturePage() {
       companies: companiesDeduped,
       currentCompanyId: companyId,
       setSelectedGroup,
-      switchCompany: async (comp) => switchCompanyFullReload(comp.id),
+      switchCompany: async (comp) => switchCompanySessionAndNavigate(comp.id),
     });
   };
 
   const onCompanyClick = async (comp) => {
     if (!comp?.id) return;
     persistDashboardGroupFilter(selectedGroup);
-    await switchCompanyFullReload(comp.id);
+    await switchCompanySessionAndNavigate(comp.id);
   };
 
   if (bootLoading) {
@@ -237,7 +280,7 @@ export default function DataCapturePage() {
   const list = filterCompaniesWithDisplayId(companiesDeduped);
 
   return (
-    <div className="container">
+    <div className="container" key={companyId ?? "none"}>
       <div
         style={{
           display: "flex",
@@ -266,7 +309,14 @@ export default function DataCapturePage() {
       <div className="top-section">
         <div className="form-column">
           <div className="form-container">
-            <form id="dataCaptureForm" className="process-form" method="POST">
+            <form
+              id="dataCaptureForm"
+              className="process-form"
+              method="POST"
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+            >
               {groups.length > 0 ? (
                 <div id="group-buttons-wrapper" className="data-capture-company-filter shared-group-wrapper">
                   <span className="data-capture-company-label">GroupID:</span>

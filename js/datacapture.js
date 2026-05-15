@@ -11,6 +11,18 @@ function buildApiUrl(pathAndQuery) {
     return new URL(pathAndQuery, base).href;
 }
 
+/** Strip specific query keys but keep others (e.g. SPA company_id). */
+function replaceUrlStrippingSearchParams(keysToRemove) {
+    try {
+        const u = new URL(window.location.href);
+        keysToRemove.forEach((key) => u.searchParams.delete(key));
+        const qs = u.searchParams.toString();
+        window.history.replaceState({}, document.title, `${u.pathname}${qs ? `?${qs}` : ''}${u.hash}`);
+    } catch (_) {
+        /* ignore */
+    }
+}
+
 function redirectToDashboardIfUnauthorizedCategory(errorMessage) {
     if (typeof errorMessage !== 'string') return false;
     const normalized = errorMessage.toLowerCase();
@@ -2755,7 +2767,7 @@ async function loadFormData() {
             finalUrl += `${finalUrl.includes('?') ? '&' : '?'}company_id=${encodeURIComponent(currentCompanyId)}`;
         }
 
-        const response = await fetch(finalUrl);
+        const response = await fetch(finalUrl, { credentials: 'include' });
         const result = await response.json();
 
         if (result.success) {
@@ -2792,7 +2804,7 @@ async function loadProcessesByDate() {
         const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_processes_by_day&date=${encodeURIComponent(selectedDate)}`);
         const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
 
-        const response = await fetch(finalUrl);
+        const response = await fetch(finalUrl, { credentials: 'include' });
         const result = await response.json();
 
         if (result.success) {
@@ -24469,8 +24481,8 @@ async function restoreFromLocalStorage() {
         // Update submit button state
         updateSubmitButtonState();
 
-        // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // Clean URL (keep e.g. company_id for SPA)
+        replaceUrlStrippingSearchParams(['restore']);
 
         console.log('Data restored successfully from localStorage');
 
@@ -24659,12 +24671,10 @@ async function initDataCapturePage() {
     // Check for URL parameters and show notifications
     if (urlParams.get('success') === '1') {
         showNotification('Data captured successfully!', 'success');
-        // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
+        replaceUrlStrippingSearchParams(['success']);
     } else if (urlParams.get('error') === '1') {
         showNotification('Failed to capture data. Please try again.', 'danger');
-        // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
+        replaceUrlStrippingSearchParams(['error']);
     } else if (shouldRestore) {
         // Restore data from localStorage
         await restoreFromLocalStorage();
@@ -24763,9 +24773,16 @@ function switchPermission(permission) {
 }
 
 async function switchDataCaptureCompany(companyId) {
+    const spaHandler = window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__;
+    if (typeof spaHandler === 'function') {
+        await spaHandler(companyId);
+        return;
+    }
     // 先更新 session
     try {
-        const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${encodeURIComponent(companyId)}`));
+        const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${encodeURIComponent(companyId)}`), {
+            credentials: 'include'
+        });
         const result = await response.json();
         if (!result.success) {
             console.error('更新 session 失败:', result.error);
