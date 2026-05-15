@@ -69,6 +69,7 @@ export default function UserModal({
   setSelectedProcessIds,
   applyPermTemplate,
   onSave,
+  sessionMutationsBlocked = false,
   t,
 }) {
   const cardRef = useRef(null);
@@ -200,7 +201,7 @@ export default function UserModal({
 
   const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
   const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
-  const pageReadOnlyLock = isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only);
+  const pageReadOnlyLock = Boolean(sessionMutationsBlocked) || isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only);
 
   useEffect(() => {
     if (!open || !pageReadOnlyLock) return;
@@ -344,20 +345,20 @@ export default function UserModal({
                     <span
                       className="read-only-toggle-inline read-only-toggle-after-title"
                       style={{
-                        opacity: readOnlyToggleCanInteract ? 1 : 0.6,
+                        opacity: readOnlyToggleCanInteract && !pageReadOnlyLock ? 1 : 0.6,
                       }}
                     >
                       <span className="read-only-label">{t("readOnly")}</span>
                       <label
                         className="toggle-switch"
                         style={{
-                          cursor: readOnlyToggleCanInteract ? "pointer" : "not-allowed",
+                          cursor: readOnlyToggleCanInteract && !pageReadOnlyLock ? "pointer" : "not-allowed",
                         }}
                       >
                         <input
                           type="checkbox"
                           checked={form.read_only}
-                          disabled={!readOnlyToggleCanInteract}
+                          disabled={!readOnlyToggleCanInteract || pageReadOnlyLock}
                           onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))}
                         />
                         <span className="toggle-slider" />

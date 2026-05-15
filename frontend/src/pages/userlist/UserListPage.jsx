@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import { isPartnershipAuditReadOnlyLocked } from "../../utils/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/userlist.css";
 import {
@@ -184,6 +185,7 @@ export default function UserListPage() {
   }, [usersRaw, search, showInactive, showAll, currentUserRole, sortColumn, sortDirection]);
 
   const canCreateUser = useMemo(() => getAvailableRolesForCreation(currentUserRole).length > 0, [currentUserRole]);
+  const userMutationsBlocked = useMemo(() => isPartnershipAuditReadOnlyLocked(me), [me]);
   const modalAccessReady = companyId != null && modalAccessReadyCompanyId != null && Number(modalAccessReadyCompanyId) === Number(companyId);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
@@ -344,6 +346,20 @@ export default function UserListPage() {
       } catch { navigate("/login", { replace: true }); } finally { setBootLoading(false); }
     })();
   }, [navigate]);
+
+  useEffect(() => {
+    const onCompanySession = async () => {
+      try {
+        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const meJson = await meRes.json();
+        if (meJson.success && meJson.data) setMe(meJson.data);
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("eazycount:company-session-updated", onCompanySession);
+    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+  }, []);
 
   useEffect(() => {
     if (!bootLoading && companyId && me) void fetchUsers();
@@ -547,6 +563,10 @@ export default function UserListPage() {
   }, [currentUserId, currentUserRole, fetchEditUserDetail, modalAccessReady, pageRows]);
 
   const openAdd = async () => {
+    if (userMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     if (!companyId) return;
     if (!modalAccessReady) return;
     const avail = getAvailableRolesForCreation(currentUserRole);
@@ -577,6 +597,10 @@ export default function UserListPage() {
   };
 
   const openEdit = async (row) => {
+    if (userMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     if (!companyId) return;
     if (row.is_owner_shadow && currentUserRole !== "owner") { notify(t("onlyOwnerCanEditOwner"), "danger"); return; }
     if (!modalAccessReady) return;
@@ -603,6 +627,10 @@ export default function UserListPage() {
   const closeModal = () => { modalLoadSeqRef.current += 1; setModalOpen(false); setEditingRow(null); };
 
   const toggleUserStatus = async (row) => {
+    if (userMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
     if (!caps.canToggleStatus) return;
     try {
@@ -615,6 +643,11 @@ export default function UserListPage() {
   };
 
   const confirmDelete = async () => {
+    if (userMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      setConfirmOpen(false);
+      return;
+    }
     const ids = pendingDeleteRef.current || []; pendingDeleteRef.current = []; setConfirmOpen(false);
     if (!ids.length) return;
     const results = await Promise.all(ids.map((id) => fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ action: "delete", id }) }).then((r) => r.json().catch(() => ({ success: false })))));
@@ -625,6 +658,10 @@ export default function UserListPage() {
 
   const saveUser = async (e) => {
     e.preventDefault();
+    if (userMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     if (isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only)) return;
     if (!isEditMode && !form.password.trim()) { notify(t("passwordRequired"), "danger"); return; }
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });
@@ -738,7 +775,7 @@ export default function UserListPage() {
               </div>
               <div className="user-toolbar-actions-right">
                 {canCreateUser ? (
-                <button type="button" className="btn btn-add" onClick={openAdd} disabled={!modalAccessReady}>
+                <button type="button" className="btn btn-add" onClick={openAdd} disabled={!modalAccessReady || userMutationsBlocked}>
                   <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                   </svg>
@@ -748,8 +785,12 @@ export default function UserListPage() {
                 <button
                   type="button"
                   className="btn btn-delete"
-                  disabled={!selectedDeleteIds.size}
+                  disabled={!selectedDeleteIds.size || userMutationsBlocked}
                   onClick={() => {
+                    if (userMutationsBlocked) {
+                      notify(t("readOnlyActionBlocked"), "danger");
+                      return;
+                    }
                     const ids = Array.from(selectedDeleteIds);
                     pendingDeleteRef.current = ids;
                     const selectedUserNames = usersRaw
@@ -836,6 +877,7 @@ export default function UserListPage() {
                     type="checkbox"
                     aria-label={t("selectAllDeletableAria")}
                     checked={selectAllUsers}
+                    disabled={userMutationsBlocked}
                     onChange={(e) => {
                       const on = e.target.checked;
                       const eligible = pageRows
@@ -868,11 +910,11 @@ export default function UserListPage() {
                     <div className="card-item">{r.name}</div>
                     <div className="card-item">{r.email || "-"}</div>
                     <div className="card-item"><span className={`role-badge ${roleBadgeClass(r.role)}`}>{String(r.role || "").toUpperCase()}</span></div>
-                    <div className="card-item"><span className={`role-badge ${normRole(r.status) === "active" ? "status-active" : "status-inactive"} ${caps.canToggleStatus ? "status-clickable" : ""}`} onClick={() => caps.canToggleStatus && toggleUserStatus(r)}>{String(r.status || "").toUpperCase()}</span></div>
+                    <div className="card-item"><span className={`role-badge ${normRole(r.status) === "active" ? "status-active" : "status-inactive"} ${caps.canToggleStatus && !userMutationsBlocked ? "status-clickable" : ""}`} onClick={() => !userMutationsBlocked && caps.canToggleStatus && toggleUserStatus(r)}>{String(r.status || "").toUpperCase()}</span></div>
                     <div className="card-item">{formatLastLogin(r.last_login)}</div>
                     <div className="card-item">{String(r.created_by || "-").toUpperCase()}</div>
                     <div className="card-item card-item--action">
-                      <button className="btn btn-edit" onClick={() => openEdit(r)} disabled={!editReady} style={{ opacity: editReady ? 1 : 0.3 }}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
+                      <button className="btn btn-edit" onClick={() => openEdit(r)} disabled={!editReady || userMutationsBlocked} style={{ opacity: editReady && !userMutationsBlocked ? 1 : 0.3 }}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
                     </div>
                     {showBulkDeleteColumn && (
                       <div className="card-item card-item--select">
@@ -880,7 +922,7 @@ export default function UserListPage() {
                           <input
                             type="checkbox"
                             aria-label={t("rowDeleteCheckboxAria")}
-                            disabled={del.disabled}
+                            disabled={del.disabled || userMutationsBlocked}
                             checked={selectedDeleteIds.has(Number(r.id))}
                             onChange={(e) =>
                               setSelectedDeleteIds((prev) => {
@@ -911,8 +953,8 @@ export default function UserListPage() {
         </div>
       </div>
       {toast && <div id="notificationContainer" className="notification-container"><div className={`notification notification-${toast.type} show`}>{toast.message}</div></div>}
-      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} t={t} />
-      <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} t={t} />
+      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={userMutationsBlocked} t={t} />
+      <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} confirmDisabled={userMutationsBlocked} t={t} />
     </>
   );
 }
