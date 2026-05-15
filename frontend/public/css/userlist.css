@@ -2255,6 +2255,26 @@ body.user-page .table-header .header-item:not(.header-item--select) {
     text-overflow: ellipsis;
 }
 
+/* Account 同款排序图标：标签可省略，图标保持宽度 */
+body.user-page .table-header .header-item.header-item--with-sort-icon {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+body.user-page .table-header .header-item.header-item--with-sort-icon .header-item__label {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.user-page .table-header .header-item.header-item--with-sort-icon .account-sort-icon {
+    flex-shrink: 0;
+}
+
 /* Show Inactive / Show All 时：第 10 列批量删除勾选（与表头全选对齐） */
 body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .table-header,
 body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .user-card {

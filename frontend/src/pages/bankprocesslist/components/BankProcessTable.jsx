@@ -104,33 +104,31 @@ export default function BankProcessTable({
 
   const gridCols = showSelectColumn ? BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT : BANK_GRID_TEMPLATE_COLUMNS;
 
-  const bankHeaders = [
-    { key: "no", label: t("no") },
-    {
-      key: "supplier",
-      label: (
-        <span className="bank-header-sortable" onClick={() => setSupplierSortDir((d) => (d === "asc" ? "desc" : "asc"))} role="presentation">
-          {t("supplier")} <span className="bank-sort-indicator">{supplierSortDir === "asc" ? "▲" : "▼"}</span>
-        </span>
-      ),
-    },
-    { key: "ccy", label: t("country") },
-    { key: "bank", label: t("bank") },
-    { key: "types", label: t("types") },
-    { key: "owner", label: t("cardOwner") },
-    { key: "contract", label: t("contract") },
-    { key: "insurance", label: t("insurance") },
-    { key: "customer", label: t("customer") },
-    { key: "cost", label: t("cost") },
-    { key: "price", label: t("price") },
-    { key: "profit", label: t("profit") },
-    { key: "status", label: t("status") },
-    { key: "date", label: t("date") },
-    { key: "action", label: t("action") },
+  const toggleSupplierSortDir = () => setSupplierSortDir((d) => (d === "asc" ? "desc" : "asc"));
+
+  const bankHeaderDefs = [
+    { key: "no", labelText: t("no") },
+    { key: "supplier", labelText: t("supplier"), sortable: true },
+    { key: "ccy", labelText: t("country") },
+    { key: "bank", labelText: t("bank") },
+    { key: "types", labelText: t("types") },
+    { key: "owner", labelText: t("cardOwner") },
+    { key: "contract", labelText: t("contract") },
+    { key: "insurance", labelText: t("insurance") },
+    { key: "customer", labelText: t("customer") },
+    { key: "cost", labelText: t("cost") },
+    { key: "price", labelText: t("price") },
+    { key: "profit", labelText: t("profit") },
+    { key: "status", labelText: t("status") },
+    { key: "date", labelText: t("date") },
+    { key: "action", labelText: t("action") },
   ];
+
+  const bankHeaders = [...bankHeaderDefs];
   if (showSelectColumn) {
     bankHeaders.push({
       key: "bulk",
+      isSelect: true,
       label:
         showHeaderSelectAll && deletableRows.length > 0 ? (
           <input
@@ -142,23 +140,49 @@ export default function BankProcessTable({
             onChange={(e) => toggleHeaderSelectAll(e.target.checked)}
           />
         ) : null,
-      isSelect: true,
     });
   }
 
   return (
     <div className={`process-table-wrapper${showSelectColumn ? " process-table-wrapper--select-col" : ""}`}>
       <div ref={headerRef} className="table-header" style={{ gridTemplateColumns: gridCols }}>
-        {bankHeaders.map((h) => (
-          <div
-            key={h.key}
-            className={`header-item bank-header${
-              h.key === "action" ? " bank-action-header" : ""
-            }${h.isSelect ? " header-item--select" : ""}`}
-          >
-            {h.label}
-          </div>
-        ))}
+        {bankHeaders.map((h) => {
+          if (h.isSelect) {
+            return (
+              <div key={h.key} className="header-item bank-header header-item--select">
+                {h.label}
+              </div>
+            );
+          }
+          const sortIconDir = h.sortable ? supplierSortDir : "asc";
+          return (
+            <div
+              key={h.key}
+              className={`header-item bank-header header-item--with-sort-icon${
+                h.sortable ? " header-sortable" : ""
+              }${h.key === "action" ? " bank-action-header" : ""}`}
+              role={h.sortable ? "button" : undefined}
+              tabIndex={h.sortable ? 0 : undefined}
+              onClick={h.sortable ? toggleSupplierSortDir : undefined}
+              onKeyDown={
+                h.sortable
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleSupplierSortDir();
+                      }
+                    }
+                  : undefined
+              }
+            >
+              <span className="header-item__label">{h.labelText}</span>
+              <span className={`account-sort-icon is-active is-${sortIconDir}`} aria-hidden="true">
+                <span className="account-sort-icon__up" />
+                <span className="account-sort-icon__down" />
+              </span>
+            </div>
+          );
+        })}
       </div>
       <div ref={cardsRef} className="process-cards bank-mode">
         {tableLoading && (

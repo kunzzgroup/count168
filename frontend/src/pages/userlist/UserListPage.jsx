@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import {
   ALL_ROLE_OPTIONS,
@@ -117,6 +118,24 @@ export default function UserListPage() {
   const [roleSelectDisabled, setRoleSelectDisabled] = useState(false);
   const [loginDisabled, setLoginDisabled] = useState(false);
   const [fieldLocks, setFieldLocks] = useState({ name: false, email: false, role: false, password: false, sidebar: false, company: false });
+
+  const handleUserListSort = useCallback((column) => {
+    setSortDirection((direction) => (sortColumn === column && direction === "asc" ? "desc" : "asc"));
+    setSortColumn(column);
+  }, [sortColumn]);
+
+  const renderUserListHeaderSortIcon = useCallback(
+    (sortKey) => {
+      const dir = sortKey && sortColumn === sortKey ? sortDirection : "asc";
+      return (
+        <span className={`account-sort-icon is-active is-${dir}`} aria-hidden="true">
+          <span className="account-sort-icon__up" />
+          <span className="account-sort-icon__down" />
+        </span>
+      );
+    },
+    [sortColumn, sortDirection],
+  );
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -862,15 +881,64 @@ export default function UserListPage() {
           </div>
           <div className={`user-table-wrapper${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
             <div className="table-header">
-              <div className="header-item">{t("no")}</div>
-              <div className="header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("loginId"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("loginId")} {sortColumn === "loginId" && (sortDirection === "asc" ? "▲" : "▼")}</div>
-              <div className="header-item">{t("name")}</div>
-              <div className="header-item">{t("email")}</div>
-              <div className="header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("role"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("role")} {sortColumn === "role" && (sortDirection === "asc" ? "▲" : "▼")}</div>
-              <div className="header-item">{t("status")}</div>
-              <div className="header-item">{t("lastLogin")}</div>
-              <div className="header-item">{t("createdBy")}</div>
-              <div className="header-item">{t("action")}</div>
+              <div className="header-item header-item--with-sort-icon">
+                <span className="header-item__label">{t("no")}</span>
+                {renderUserListHeaderSortIcon(null)}
+              </div>
+              <div
+                className="header-item header-item--with-sort-icon header-sortable"
+                role="button"
+                tabIndex={0}
+                onClick={() => handleUserListSort("loginId")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleUserListSort("loginId");
+                  }
+                }}
+              >
+                <span className="header-item__label">{t("loginId")}</span>
+                {renderUserListHeaderSortIcon("loginId")}
+              </div>
+              <div className="header-item header-item--with-sort-icon">
+                <span className="header-item__label">{t("name")}</span>
+                {renderUserListHeaderSortIcon(null)}
+              </div>
+              <div className="header-item header-item--with-sort-icon">
+                <span className="header-item__label">{t("email")}</span>
+                {renderUserListHeaderSortIcon(null)}
+              </div>
+              <div
+                className="header-item header-item--with-sort-icon header-sortable"
+                role="button"
+                tabIndex={0}
+                onClick={() => handleUserListSort("role")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleUserListSort("role");
+                  }
+                }}
+              >
+                <span className="header-item__label">{t("role")}</span>
+                {renderUserListHeaderSortIcon("role")}
+              </div>
+              <div className="header-item header-item--with-sort-icon">
+                <span className="header-item__label">{t("status")}</span>
+                {renderUserListHeaderSortIcon(null)}
+              </div>
+              <div className="header-item header-item--with-sort-icon">
+                <span className="header-item__label">{t("lastLogin")}</span>
+                {renderUserListHeaderSortIcon(null)}
+              </div>
+              <div className="header-item header-item--with-sort-icon">
+                <span className="header-item__label">{t("createdBy")}</span>
+                {renderUserListHeaderSortIcon(null)}
+              </div>
+              <div className="header-item header-item--with-sort-icon">
+                <span className="header-item__label">{t("action")}</span>
+                {renderUserListHeaderSortIcon(null)}
+              </div>
               {showBulkDeleteColumn && (
                 <div className="header-item header-item--select">
                   <input

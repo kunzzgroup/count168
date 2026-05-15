@@ -1071,6 +1071,25 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     min-width: 0;
 }
 
+.process-page .table-header .header-item.header-item--with-sort-icon {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.process-page .table-header .header-item.header-item--with-sort-icon .header-item__label {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.process-page .table-header .header-item.header-item--with-sort-icon .account-sort-icon {
+    flex-shrink: 0;
+}
+
 /* Bank Action 列固定宽度，避免 inactive 时多出 checkbox 导致表头与数据错位 */
 .process-page .table-header .bank-action-header {
     min-width: 90px;
@@ -1157,13 +1176,6 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 /* Bank：表头列间距与 Process List 一致（行已在 .process-cards.bank-mode 用 8px） */
 .process-page.process-page--bank .table-header {
     gap: 8px;
-}
-
-.process-page.process-page--bank .table-header .bank-header-sortable {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
 }
 
 .process-page .process-card:hover {
