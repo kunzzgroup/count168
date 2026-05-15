@@ -144,10 +144,6 @@
     transform: translateY(-1px);
 }
 
-#linkAccountModal .link-type-pill {
-    padding: 6px 4rem;
-}
-
 #linkAccountModal .link-account-item {
     padding-top: 6px;
     padding-bottom: 6px;
@@ -228,7 +224,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 6px 4rem;
+    padding: 6px 14px;
     border-radius: 9999px;
     cursor: pointer;
     transition: all 0.2s ease;
