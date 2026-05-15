@@ -203,10 +203,7 @@ export default function TransactionAddSection({
         {/* Row: Currency | Amount */}
         <div className={`tx-add-form-row tx-add-form-row--pair${reserveReverseColumnClass}`}>
           <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-currency-label">
-                Currency
-              </span>
+            <div className="report-outlined-shell report-outlined-shell--no-label">
               <div className="report-outlined-inner">
                 <div className="tx-add-icon-field">
                   <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-coins" /></span>
@@ -215,7 +212,7 @@ export default function TransactionAddSection({
                     className="transaction-select"
                     value={txCurrency}
                     onChange={(e) => setTxCurrency(e.target.value)}
-                    aria-labelledby="tx-add-currency-label"
+                    aria-label="Currency"
                   >
                     <option value="">--Select Currency--</option>
                     {currencyOptions.map((c) => (
@@ -230,10 +227,7 @@ export default function TransactionAddSection({
           </div>
 
           <div className="report-outlined-anchor tx-add-field-col">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-amount-label">
-                Amount
-              </span>
+            <div className="report-outlined-shell report-outlined-shell--no-label">
               <div className="report-outlined-inner">
                 <div className="tx-add-icon-field">
                   <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-dollar-sign" /></span>
@@ -244,7 +238,7 @@ export default function TransactionAddSection({
                     className="transaction-input"
                     value={txAmount}
                     onChange={(e) => setTxAmount(e.target.value)}
-                    aria-labelledby="tx-add-amount-label"
+                    aria-label="Amount"
                   />
                 </div>
               </div>
