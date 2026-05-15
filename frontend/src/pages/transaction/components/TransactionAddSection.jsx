@@ -60,10 +60,7 @@ export default function TransactionAddSection({
       {/* Row: Type | Date range (standard + RATE 同一套 outlined + transaction-date-range-group；两 picker 同页挂载供 init 绑定) */}
       <div className={`tx-add-form-row tx-add-form-row--pair${reserveReverseColumnClass}`}>
         <div className="report-outlined-anchor tx-add-field-col">
-          <div className="report-outlined-shell">
-            <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-type-label">
-              Type
-            </span>
+          <div className="report-outlined-shell report-outlined-shell--no-label">
             <div className="report-outlined-inner">
               <div className="tx-add-icon-field">
                 <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-exchange-alt" /></span>
@@ -72,7 +69,7 @@ export default function TransactionAddSection({
                   className="transaction-select"
                   value={txType}
                   onChange={(e) => setTxType(e.target.value)}
-                  aria-labelledby="tx-add-type-label"
+                  aria-label="Type"
                 >
                   <option value="CONTRA">CONTRA</option>
                   <option value="PAYMENT">PAYMENT</option>
@@ -89,10 +86,7 @@ export default function TransactionAddSection({
         </div>
 
         <div className="report-outlined-anchor tx-add-field-col">
-          <div className="report-outlined-shell">
-            <span className="report-outlined-label report-outlined-label--txn-add-date" id="tx-add-date-label">
-              Date range
-            </span>
+          <div className="report-outlined-shell report-outlined-shell--no-label">
             <div className="report-outlined-inner">
               <div
                 className="transaction-date-range-group tx-add-date-range-stack"
@@ -104,7 +98,7 @@ export default function TransactionAddSection({
                   id="add-tx-date-range-picker"
                   role="button"
                   tabIndex={0}
-                  aria-labelledby="tx-add-date-label"
+                  aria-label="Date range"
                   data-drp-from="add_tx_date_from"
                   data-drp-to="add_tx_date_to"
                   data-drp-display="add-tx-date-range-display"
@@ -127,7 +121,7 @@ export default function TransactionAddSection({
                   id="rate-tx-date-range-picker"
                   role="button"
                   tabIndex={0}
-                  aria-labelledby="tx-add-date-label"
+                  aria-label="Date range"
                   data-drp-from="rate_tx_date_from"
                   data-drp-to="rate_tx_date_to"
                   data-drp-display="rate-tx-date-range-display"
