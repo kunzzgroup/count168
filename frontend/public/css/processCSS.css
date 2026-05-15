@@ -2364,6 +2364,14 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     align-items: center;
 }
 
+.process-page .input-with-icon.input-with-icon--opens-picker {
+    cursor: pointer;
+}
+
+.process-page .input-with-icon.input-with-icon--opens-picker input {
+    cursor: pointer;
+}
+
 .process-page .input-with-icon input {
     flex: 1;
     padding-right: 2.5rem;

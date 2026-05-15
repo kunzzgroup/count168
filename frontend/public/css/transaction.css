@@ -1141,10 +1141,10 @@ body.transaction-page .calendar-popup--transaction-range .calendar-day.start-dat
     filter: grayscale(0.25);
 }
 
-/* 与 member.css 等分叉样式区分：chip 行本身不加 margin；与下方 Group 区由 .transaction-bottom-filters 顶部分隔线分开 */
+/* 与 member.css 等分叉样式区分：chip 行与上方控件留出间距；与下方 Group 区仍由 .transaction-bottom-filters 分隔 */
 body.transaction-page .transaction-search-section .transaction-checkboxes,
 .transaction-page .transaction-search-section .transaction-checkboxes {
-    margin: 0;
+    margin-top: 15px;
 }
 
 .transaction-page .transaction-checkboxes {
@@ -1165,7 +1165,7 @@ body.transaction-page .transaction-search-section .transaction-checkboxes.userli
     min-width: 0;
     width: 100%;
     align-items: center;
-    padding-bottom: 4px;
+    padding-bottom: 0px;
 }
 
 body.transaction-page .transaction-search-section .transaction-checkboxes.userlist-filter-chips .user-filter-chip {
