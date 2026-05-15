@@ -24,7 +24,6 @@ export function useTransactionForm({
   const [txAmount, setTxAmount] = useState("");
   const [txRemark, setTxRemark] = useState("");
   const [txConfirm, setTxConfirm] = useState(false);
-  const [winLoseSide, setWinLoseSide] = useState("WIN");
   const [submitting, setSubmitting] = useState(false);
 
   const [rateDate, setRateDate] = useState(null);
@@ -87,8 +86,18 @@ export function useTransactionForm({
       let amountDisplay = "";
 
       if (parsedBalance !== null) {
-        const absStr = MoneyDecimal.abs(String(parsedBalance)).toString();
-        amountDisplay = MoneyDecimal.formatFixedHalfUp(absStr, 2);
+        if (isProfitType) {
+          try {
+            const balDec = MoneyDecimal.toDecimal(String(parsedBalance), 0);
+            amountDisplay = MoneyDecimal.formatFixedHalfUp(balDec.toString(), 2);
+          } catch {
+            const absStr = MoneyDecimal.abs(String(parsedBalance)).toString();
+            amountDisplay = MoneyDecimal.formatFixedHalfUp(absStr, 2);
+          }
+        } else {
+          const absStr = MoneyDecimal.abs(String(parsedBalance)).toString();
+          amountDisplay = MoneyDecimal.formatFixedHalfUp(absStr, 2);
+        }
         amountSet = true;
       }
 
@@ -357,18 +366,35 @@ export function useTransactionForm({
       return;
     }
 
-    const amountStr = String(txAmount ?? "").trim();
-    const n = Number(amountStr);
-    if (!Number.isFinite(n) || amountStr === "") {
-      pushToast(isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount (>= 0)", "error");
+    const cleanedAmt = MoneyDecimal.cleanMoneyInput(txAmount);
+    if (cleanedAmt === "") {
+      pushToast(
+        isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount",
+        "error",
+      );
       return;
     }
-    if (!isAdjustment && n < 0) {
-      pushToast("Please enter a valid amount (>= 0)", "error");
+
+    let amtDec;
+    try {
+      amtDec = MoneyDecimal.toDecimal(cleanedAmt);
+    } catch {
+      pushToast("Please enter a valid amount", "error");
       return;
     }
-    if (isAdjustment && n === 0) {
+
+    const isProfitTx = txType === "PROFIT";
+
+    if (isAdjustment && amtDec.isZero()) {
       pushToast("Please enter a non-zero adjustment amount", "error");
+      return;
+    }
+    if (isProfitTx && amtDec.isZero()) {
+      pushToast("PROFIT: enter a non-zero amount (positive = WIN, negative = LOSE)", "error");
+      return;
+    }
+    if (!isAdjustment && !isProfitTx && amtDec.lt(0)) {
+      pushToast("Please enter a valid amount (>= 0)", "error");
       return;
     }
 
@@ -381,10 +407,10 @@ export function useTransactionForm({
     try {
       const clientRequestId = buildClientRequestId();
       const payload = {
-        transaction_type: txType === "PROFIT" ? winLoseSide : txType,
+        transaction_type: isProfitTx ? (amtDec.lt(0) ? "LOSE" : "WIN") : txType,
         account_id: toId,
         from_account_id: isAdjustment ? "" : fromId || "",
-        amount: txAmount,
+        amount: isProfitTx ? MoneyDecimal.formatFixedHalfUp(amtDec.abs().toString(), 2) : txAmount,
         transaction_date: txDate,
         description: "",
         sms: txRemark,
@@ -431,8 +457,6 @@ export function useTransactionForm({
     setTxRemark,
     txConfirm,
     setTxConfirm,
-    winLoseSide,
-    setWinLoseSide,
     submitting,
     setSubmitting,
     needsFromTo,

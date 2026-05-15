@@ -42,8 +42,6 @@ export default function TransactionAddSection({
   rateMiddlemanRate,
   setRateMiddlemanRate,
   rateMiddlemanAmount,
-  winLoseSide,
-  setWinLoseSide,
   txRemark,
   setTxRemark,
   txConfirm,
@@ -190,36 +188,6 @@ export default function TransactionAddSection({
             onChange={(e) => setTxAmount(e.target.value)}
           />
         </div>
-
-        {txType === "PROFIT" ? (
-          <div className="transaction-form-group transaction-inline-row">
-            <label className="transaction-label">Win / Lose</label>
-            <div className="transaction-win-lose-row">
-              <label className="transaction-radio-label">
-                <input
-                  type="radio"
-                  name="win_lose_side"
-                  value="WIN"
-                  checked={winLoseSide === "WIN"}
-                  disabled={mutationsBlocked}
-                  onChange={() => setWinLoseSide("WIN")}
-                />
-                WIN
-              </label>
-              <label className="transaction-radio-label">
-                <input
-                  type="radio"
-                  name="win_lose_side"
-                  value="LOSE"
-                  checked={winLoseSide === "LOSE"}
-                  disabled={mutationsBlocked}
-                  onChange={() => setWinLoseSide("LOSE")}
-                />
-                LOSE
-              </label>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>

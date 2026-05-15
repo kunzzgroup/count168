@@ -250,8 +250,6 @@ export default function TransactionPaymentPage() {
             setTxRemark={form.setTxRemark}
             txConfirm={form.txConfirm}
             setTxConfirm={form.setTxConfirm}
-            winLoseSide={form.winLoseSide}
-            setWinLoseSide={form.setWinLoseSide}
             submitting={form.submitting}
             onSubmitTx={form.onSubmitTx}
             onSearch={onSearch}
