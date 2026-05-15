@@ -260,6 +260,7 @@ export default function TransactionPaymentPage() {
             currencyOptions={data.currencyOptions}
             showStandardFromAndReverse={form.showStandardFromAndReverse}
             onReverseAccounts={form.onReverseAccounts}
+            mutationsBlocked={Boolean(filterSnapshot?.mutationsBlocked)}
             rateToAccount={form.rateToAccount}
             setRateToAccount={form.setRateToAccount}
             rateFromAccount={form.rateFromAccount}

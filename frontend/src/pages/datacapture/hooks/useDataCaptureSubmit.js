@@ -57,7 +57,7 @@ function convertTableFormatOnSubmit(tableData, dataCaptureType) {
   return { ...tableData, rows, rowCount: rows.length };
 }
 
-export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
+export function useDataCaptureSubmit({ selectedDescriptions, navigate, mutationsBlocked = false }) {
   const notify = useCallback((message, type = "success") => {
     const container = document.getElementById("processNotificationContainer");
     if (!container) return;
@@ -102,6 +102,11 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
         : null;
       const selectedDescriptionsList = Array.isArray(selectedDescriptions) ? selectedDescriptions : [];
       const sourceTableData = tableDataSnapshot || captureTableDataFromDom();
+
+      if (mutationsBlocked) {
+        notify("Read-only mode: cannot submit data", "danger");
+        return;
+      }
 
       if (!processId) {
         notify("Please select a process", "danger");
@@ -154,7 +159,7 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
         notify("Failed to capture data", "danger");
       }
     },
-    [navigate, notify, selectedDescriptions]
+    [mutationsBlocked, navigate, notify, selectedDescriptions]
   );
 
   return { submit };

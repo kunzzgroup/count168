@@ -10,6 +10,7 @@ export function useDataCaptureSubmitGate({
   currencyId,
   dataCaptureType,
   tableDataSnapshot,
+  mutationsBlocked = false,
 }) {
   return useMemo(() => {
     const descriptions = Array.isArray(selectedDescriptions) ? selectedDescriptions : [];
@@ -22,14 +23,15 @@ export function useDataCaptureSubmitGate({
       tableOk = citibetCaptureTableHasData(tableDataSnapshot);
     }
 
-    const canSubmit = processOk && descriptionsOk && currencyOk && tableOk;
+    const canSubmit = !mutationsBlocked && processOk && descriptionsOk && currencyOk && tableOk;
 
     let disabledTitle = "";
-    if (!processOk) disabledTitle = "Please select a process";
+    if (mutationsBlocked) disabledTitle = "Read-only mode: cannot submit";
+    else if (!processOk) disabledTitle = "Please select a process";
     else if (!descriptionsOk) disabledTitle = "Please select at least one description";
     else if (!currencyOk) disabledTitle = "Please select a currency";
     else if (!tableOk) disabledTitle = "Please enter data in the table";
 
     return { canSubmit, disabledTitle };
-  }, [selectedProcessId, selectedDescriptions, currencyId, dataCaptureType, tableDataSnapshot]);
+  }, [selectedProcessId, selectedDescriptions, currencyId, dataCaptureType, tableDataSnapshot, mutationsBlocked]);
 }

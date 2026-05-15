@@ -372,6 +372,14 @@ body.datacapture-page h1 {
     content: '▲';
 }
 
+.custom-select-button:disabled,
+.custom-select-button:disabled:hover {
+    background: #eceff3;
+    color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
 .custom-select-dropdown {
     position: absolute;
     top: 100%;
@@ -458,6 +466,14 @@ body.datacapture-page h1 {
 
 .process-form .form-group select option {
     font-weight: bold;
+}
+
+.process-form .form-group input:disabled,
+.process-form .form-group select:disabled {
+    background: #eceff3;
+    color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.85;
 }
 
 .submitted-list {
@@ -641,6 +657,15 @@ body.datacapture-page .bottom-section .form-actions {
     color: #0f172a;
 }
 
+.btn-cancel:disabled,
+.btn-cancel:disabled:hover {
+    background: #eceff3;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
 .input-with-icon {
     position: relative;
     flex: 1;
@@ -668,6 +693,14 @@ body.datacapture-page .bottom-section .form-actions {
 
 .add-icon:hover {
     background: var(--dc-accent-hover, #1d4ed8);
+}
+
+.add-icon:disabled,
+.add-icon:disabled:hover {
+    background: #cbd5e1;
+    color: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.75;
 }
 
 /* Modal Styles */
@@ -1209,6 +1242,13 @@ body.datacapture-page .bottom-section .form-actions {
     border-color: #0969da;
     box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.3);
     background-color: #ffffff;
+}
+
+.data-capture-type-selector:disabled {
+    background-color: #eceff3;
+    color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.85;
 }
 
 .excel-table td.multi-selected {

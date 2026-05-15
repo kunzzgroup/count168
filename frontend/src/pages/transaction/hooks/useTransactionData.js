@@ -18,6 +18,7 @@ import {
   getCompanyCurrencies,
   getUserCurrencyOrder,
 } from "../transactionApi.js";
+import { isPartnershipAuditReadOnlyLocked } from "../../../utils/partnershipAuditReadOnly.js";
 import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import { orderCurrencyRows, readTransactionCurrencyFilterState } from "../transactionPaymentLogic.js";
 
@@ -102,6 +103,7 @@ export function useTransactionData({
             snapCompanies: snapRows,
             snapGroupIds: sortedUniqueGroupIds(snapRows),
             viewerRole: String(u.role || "").toLowerCase(),
+            mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
           });
         }
       } catch {
@@ -114,6 +116,33 @@ export function useTransactionData({
       cancelled = true;
     };
   }, [navigate]);
+
+  useEffect(() => {
+    const refreshSessionFlags = async () => {
+      try {
+        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const meJson = await meRes.json();
+        if (!meRes.ok || !meJson.success || !meJson.data) return;
+        const u = meJson.data;
+        setFilterSnapshot((prev) =>
+          prev
+            ? {
+                ...prev,
+                viewerRole: String(u.role || "").toLowerCase(),
+                mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
+              }
+            : prev,
+        );
+      } catch {
+        // ignore transient refresh failures
+      }
+    };
+    const onCompanySession = () => {
+      void refreshSessionFlags();
+    };
+    window.addEventListener("eazycount:company-session-updated", onCompanySession);
+    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+  }, []);
 
   useEffect(() => {
     if (loading || forbidden || !filterSnapshot) return;
