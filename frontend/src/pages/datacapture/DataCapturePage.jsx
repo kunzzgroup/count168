@@ -418,8 +418,8 @@ export default function DataCapturePage() {
                 </div>
               </div>
 
-              <div className="dc-form-row-full">
-                <div className="form-group replace-word-group">
+              <div className="dc-form-two-col dc-form-two-col--stacked dc-form-two-col--tight">
+                <div className="form-group replace-word-group dc-replace-word-field">
                   <label htmlFor="capture_replace_word_from">Replace Word</label>
                   <div className="replace-word-fields">
                     <input type="text" id="capture_replace_word_from" name="replace_word_from" placeholder="Old word" />
@@ -427,9 +427,7 @@ export default function DataCapturePage() {
                     <input type="text" id="capture_replace_word_to" name="replace_word_to" placeholder="New word" />
                   </div>
                 </div>
-              </div>
 
-              <div className="dc-form-two-col dc-form-two-col--tight">
                 <div className="form-group dc-remove-word-field">
                   <label htmlFor="capture_remove_word">Remove Word</label>
                   <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />

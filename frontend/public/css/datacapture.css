@@ -246,9 +246,78 @@ body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .f
     flex: 0 0 auto;
 }
 
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group input,
-body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group select {
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group > input,
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group > select {
     width: 100%;
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group .input-with-icon input {
+    width: 100%;
+}
+
+/* Bottom block: Replace Word full width + Remove | Remark share same column tracks as fields above */
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked:has(.dc-replace-word-field) {
+    row-gap: clamp(10px, 0.85vw, 14px);
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .dc-replace-word-field {
+    grid-column: 1 / -1;
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .replace-word-group.dc-replace-word-field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: clamp(4px, 0.38vw, 6px);
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .replace-word-group.dc-replace-word-field > label {
+    width: auto;
+    max-width: 100%;
+    align-self: flex-start;
+    text-align: left;
+    padding-right: 0;
+    margin-bottom: 0;
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .replace-word-fields {
+    width: 100%;
+    min-width: 0;
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .replace-word-fields input {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    min-height: 36px;
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
+    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
+    font-size: clamp(10px, 0.74vw, 14px);
+    font-weight: 600;
+    box-sizing: border-box;
+}
+
+/* Remove Word column: stacked label → input → hint (override global :has(.field-help) grid in this row) */
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group.dc-remove-word-field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: clamp(4px, 0.38vw, 6px);
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .form-group.dc-remove-word-field > .field-help {
+    grid-column: auto;
+    margin-top: 0;
+}
+
+body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked.dc-form-two-col--tight {
+    margin-bottom: clamp(4px, 0.45vw, 8px);
 }
 
 body.datacapture-page .process-form .dc-form-two-col--tight {
