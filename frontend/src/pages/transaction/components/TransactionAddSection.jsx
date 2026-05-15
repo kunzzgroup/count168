@@ -111,7 +111,7 @@ export default function TransactionAddSection({
         </div>
 
         <div className="transaction-form-group transaction-inline-row">
-          <span className="transaction-label">Account</span>
+          <label className="transaction-label">Account</label>
           <div className={`transaction-account-inputs${showStandardFromAndReverse ? "" : " transaction-account-inputs--to-only"}`}>
             <AccountSelect
               ariaLabel="To Account"
@@ -169,7 +169,7 @@ export default function TransactionAddSection({
 
         {txType === "PROFIT" ? (
           <div className="transaction-form-group transaction-inline-row">
-            <span className="transaction-label">Win / Lose</span>
+            <label className="transaction-label">Win / Lose</label>
             <div className="transaction-win-lose-row">
               <label className="transaction-radio-label">
                 <input type="radio" name="win_lose_side" value="WIN" checked={winLoseSide === "WIN"} onChange={() => setWinLoseSide("WIN")} />
@@ -184,7 +184,7 @@ export default function TransactionAddSection({
         ) : null}
       </div>
 
-      <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>
+      <div id="rate-transaction-fields" className="rate-fields rate-fields-add-form-stack" style={{ display: txType === "RATE" ? "flex" : "none" }}>
         <div className="rate-section rate-section--add-pane">
           <label className="transaction-label" htmlFor="rate_transaction_date">
             Date
@@ -377,20 +377,18 @@ export default function TransactionAddSection({
         </div>
       </div>
 
-      <div className="transaction-two-col">
-        <div className="transaction-form-group" style={{ display: "none" }}>
-          <label className="transaction-label" htmlFor="action_description">
-            Description
-          </label>
-          <input type="text" id="action_description" className="transaction-input text-uppercase" />
-        </div>
+      <div className="transaction-form-group" style={{ display: "none" }}>
+        <label className="transaction-label" htmlFor="action_description">
+          Description
+        </label>
+        <input type="text" id="action_description" className="transaction-input text-uppercase" />
+      </div>
 
-        <div className="transaction-form-group" id="remark_form_group">
-          <label className="transaction-label" htmlFor="action_sms">
-            Remark
-          </label>
-          <input type="text" id="action_sms" className="transaction-input text-uppercase" value={txRemark} onChange={(e) => setTxRemark(e.target.value.toUpperCase())} />
-        </div>
+      <div className="transaction-form-group remark-form-group-inline" id="remark_form_group">
+        <label className="transaction-label" htmlFor="action_sms">
+          Remark
+        </label>
+        <input type="text" id="action_sms" className="transaction-input text-uppercase" value={txRemark} onChange={(e) => setTxRemark(e.target.value.toUpperCase())} />
       </div>
 
       <div className="transaction-confirm-actions">
