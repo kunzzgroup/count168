@@ -2772,6 +2772,42 @@ body.transaction-page .transaction-add-section .rate-row-two-cols > .custom-sele
     width: var(--tx-add-reverse-col);
 }
 
+/* SPA 右側新增 RATE — 對齊舊 transaction.php／圖二：五欄等寬、Middle-Man 「--Select Account--」、Rate 不偏灰窄欄 */
+body.transaction-page .transaction-add-section .rate-fields .rate-section--add-pane {
+    align-items: stretch;
+}
+
+body.transaction-page .transaction-add-section .rate-fields .rate-section--add-pane > .transaction-label {
+    align-self: center;
+    margin-bottom: 0;
+}
+
+body.transaction-page .transaction-add-section .rate-fields .rate-row.rate-row-five-cols {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+    align-items: stretch;
+}
+
+body.transaction-page .transaction-add-section .rate-fields .rate-row.rate-row-three-cols {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    align-items: stretch;
+}
+
+body.transaction-page .transaction-add-section .rate-fields #rate_exchange_rate.transaction-input {
+    background-color: #f3f3f3 !important;
+    opacity: 1 !important;
+    color: #1f2937 !important;
+}
+
+body.transaction-page .transaction-add-section .rate-fields input.transaction-input[readonly]#rate_currency_to_amount,
+body.transaction-page .transaction-add-section .rate-fields input.transaction-input[readonly]#rate_middleman_amount {
+    background-color: #f3f3f3 !important;
+    opacity: 1 !important;
+    color: #1f2937 !important;
+    -webkit-text-fill-color: #1f2937 !important;
+}
+
 /* Category Multi-Select Dropdown Styles */
 .transaction-category-multiselect {
     position: relative;

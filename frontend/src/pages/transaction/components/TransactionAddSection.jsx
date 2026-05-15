@@ -185,7 +185,7 @@ export default function TransactionAddSection({
       </div>
 
       <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>
-        <div className="rate-section">
+        <div className="rate-section rate-section--add-pane">
           <label className="transaction-label" htmlFor="rate_transaction_date">
             Date
           </label>
@@ -219,8 +219,8 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section">
-          <span className="transaction-label">Account</span>
+        <div className="rate-section rate-section--add-pane">
+          <label className="transaction-label">Account</label>
           <div className="rate-row rate-row-two-cols">
             <AccountSelect
               ariaLabel="To Account"
@@ -255,8 +255,8 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section">
-          <span className="transaction-label">Currency</span>
+        <div className="rate-section rate-section--add-pane">
+          <label className="transaction-label">Currency</label>
           <div className="rate-row rate-row-five-cols">
             <select id="rate_currency_from" className="transaction-select" value={rateCurrencyFrom} onChange={(e) => setRateCurrencyFrom(e.target.value)} aria-label="From currency">
               <option value="">Currency</option>
@@ -307,8 +307,8 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section">
-          <span className="transaction-label">Account</span>
+        <div className="rate-section rate-section--add-pane">
+          <label className="transaction-label">Account</label>
           <div className="rate-row rate-row-two-cols">
             <AccountSelect
               ariaLabel="To Account"
@@ -342,12 +342,12 @@ export default function TransactionAddSection({
           </div>
         </div>
 
-        <div className="rate-section">
-          <span className="transaction-label">Middle-Man</span>
+        <div className="rate-section rate-section--add-pane">
+          <label className="transaction-label">Middle-Man</label>
           <div className="rate-row rate-row-three-cols">
             <AccountSelect
-              ariaLabel="Middle-man account"
-              placeholder="Middleman Account"
+              ariaLabel="Middle-Man account"
+              placeholder="--Select Account--"
               options={accountOptions}
               value={rateMiddlemanAccount}
               onChange={setRateMiddlemanAccount}
