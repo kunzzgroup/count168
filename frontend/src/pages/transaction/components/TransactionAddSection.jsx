@@ -541,7 +541,7 @@ export default function TransactionAddSection({
                     <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-handshake" /></span>
                     <AccountSelect
                       ariaLabel="Middle-man account"
-                      placeholder="--Select Account--"
+                      placeholder="Middleman Account"
                       options={accountOptions}
                       value={rateMiddlemanAccount}
                       onChange={setRateMiddlemanAccount}
