@@ -153,7 +153,7 @@ export default function TransactionAddSection({
             <div className="report-outlined-shell report-outlined-shell--no-label">
               <div className="report-outlined-inner">
                 <div className="tx-add-icon-field">
-                  <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
+                  <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
                   <AccountSelect
                     ariaLabel="To Account"
                     placeholder="--Select To Account--"
@@ -173,7 +173,7 @@ export default function TransactionAddSection({
                 <div className="report-outlined-shell report-outlined-shell--no-label">
                   <div className="report-outlined-inner">
                     <div className="tx-add-icon-field">
-                      <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
+                      <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
                       <AccountSelect
                         ariaLabel="From Account"
                         placeholder="--Select From Account--"
@@ -249,10 +249,7 @@ export default function TransactionAddSection({
         {/* Row: Remark (full width) */}
         <div className="tx-add-form-row" id="remark_form_group">
           <div className="report-outlined-anchor tx-add-field-col tx-add-field-col--full">
-            <div className="report-outlined-shell">
-              <span className="report-outlined-label report-outlined-label--tx-add-icon" id="tx-add-remark-label">
-                Remark
-              </span>
+            <div className="report-outlined-shell report-outlined-shell--no-label">
               <div className="report-outlined-inner">
                 <div className="tx-add-icon-field">
                   <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-pen" /></span>
@@ -262,7 +259,7 @@ export default function TransactionAddSection({
                     className="transaction-input text-uppercase"
                     value={txRemark}
                     onChange={(e) => setTxRemark(e.target.value.toUpperCase())}
-                    aria-labelledby="tx-add-remark-label"
+                    aria-label="Remark"
                   />
                 </div>
               </div>
@@ -302,7 +299,7 @@ export default function TransactionAddSection({
                 </span>
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
-                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
                     <AccountSelect
                       ariaLabelledBy="rate-line1-to-acc-label"
                       placeholder="--Select To Account--"
@@ -322,7 +319,7 @@ export default function TransactionAddSection({
                 </span>
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
-                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
                     <AccountSelect
                       ariaLabelledBy="rate-line1-from-acc-label"
                       placeholder="--Select From Account--"
@@ -465,7 +462,7 @@ export default function TransactionAddSection({
                 </span>
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
-                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
                     <AccountSelect
                       ariaLabelledBy="rate-line2-to-acc-label"
                       placeholder="--Select To Account--"
@@ -485,7 +482,7 @@ export default function TransactionAddSection({
                 </span>
                 <div className="report-outlined-inner">
                   <div className="tx-add-icon-field">
-                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-minus" /></span>
+                    <span className="tx-add-input-icon" aria-hidden="true"><i className="fas fa-user-plus" /></span>
                     <AccountSelect
                       ariaLabelledBy="rate-line2-from-acc-label"
                       placeholder="--Select From Account--"
