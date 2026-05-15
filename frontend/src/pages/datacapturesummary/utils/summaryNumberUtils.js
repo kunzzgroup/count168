@@ -1,5 +1,3 @@
-import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
-
 export function safeEvalNumber(expression) {
   const raw = String(expression ?? "").trim();
   const accountingOnlyMatch = raw.match(/^\(\s*([+-]?\d+(?:\.\d+)?)\s*\)$/);
@@ -85,74 +83,4 @@ export function computeProcessedAmounts(formula, sourcePercent, rateValue) {
     baseProcessedAmount: formatFixed2(base),
     processedAmount: formatFixed2(final),
   };
-}
-
-/** Same as js/datacapturesummary.js truncateProcessedAmountTo6Decimals (sum parts only). */
-export function truncateProcessedAmountTo6Decimals(value) {
-  try {
-    return MoneyDecimal.formatFixed(value, 6);
-  } catch {
-    return "0.000000";
-  }
-}
-
-/** Same as js/datacapturesummary.js roundProcessedAmountTo2Decimals — half-up 2dp for total check. */
-export function roundProcessedAmountTo2DecimalsHalfUp(value) {
-  try {
-    return MoneyDecimal.formatFixedHalfUp(value, 2);
-  } catch {
-    return "0.00";
-  }
-}
-
-/**
- * Replicates submitSummaryData() total validation:
- * per-row display amount → truncate 6dp → sum → half-up 2dp → compare to [-0.05, 0.05].
- */
-export function legacySubmitTotalTolerance(summaryRows) {
-  let totalAmount = MoneyDecimal.toDecimal("0", 0);
-  let hasValue = false;
-
-  for (const row of summaryRows) {
-    if (row?.skipChecked) continue;
-    const cleaned = MoneyDecimal.cleanMoneyInput(row?.processedAmount);
-    if (cleaned === "") continue;
-    const rowForTotal = truncateProcessedAmountTo6Decimals(cleaned);
-    try {
-      totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
-      hasValue = true;
-    } catch {
-      /* ignore invalid row amount */
-    }
-  }
-
-  const finalTotalRaw = hasValue ? totalAmount.toString() : "0";
-  const finalTotal = roundProcessedAmountTo2DecimalsHalfUp(finalTotalRaw);
-  const ok = MoneyDecimal.cmp(finalTotal, "-0.05") >= 0 && MoneyDecimal.cmp(finalTotal, "0.05") <= 0;
-  let formattedTotal = finalTotal;
-  try {
-    formattedTotal = MoneyDecimal.formatThousands(finalTotal, 2);
-  } catch {
-    formattedTotal = finalTotal;
-  }
-  return { ok, finalTotal, formattedTotal };
-}
-
-/**
- * Rows with a real chosen account must have currency + formula (legacy submit pre-check).
- */
-export function legacyRowCurrencyFormulaOk(row) {
-  if (row?.skipChecked) return true;
-  const accountText = String(row?.account || "").trim();
-  const hasRealAccount =
-    row?.accountId != null && Number(row.accountId) > 0 && accountText !== "" && accountText !== "+";
-  if (!hasRealAccount) return true;
-
-  const cur = String(row?.currency || "")
-    .trim()
-    .replace(/[()]/g, "");
-  const formula = String(row?.formula || "").trim();
-  const currencyEmpty = !cur || /^select\s*curren/i.test(cur);
-  const formulaEmpty = !formula;
-  return !currencyEmpty && !formulaEmpty;
 }

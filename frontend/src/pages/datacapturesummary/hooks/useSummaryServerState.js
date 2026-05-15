@@ -1,5 +1,30 @@
 import { useEffect, useRef } from "react";
-import { buildSummaryStateSavePayload, buildSaveSummaryStateUrl } from "../utils/summaryServerPayload.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
+
+function stableRowKey(row) {
+  return `${row.idProduct}::${row.originalRowIndex}`;
+}
+
+function buildSavePayload(summaryRows, processMeta) {
+  const rowsByStableKey = {};
+  summaryRows.forEach((r) => {
+    rowsByStableKey[stableRowKey(r)] = {
+      formula: r.formula,
+      source: r.source,
+      rateValue: r.rateValue,
+      rateChecked: r.rateChecked,
+      accountId: r.accountId,
+      currencyId: r.currencyId,
+    };
+  });
+  return {
+    processId: processMeta.processId,
+    processCode: processMeta.processCode || "",
+    rowsByStableKey,
+    rowOrder: summaryRows.map((r) => stableRowKey(r)),
+    savedAt: Date.now(),
+  };
+}
 
 export function useSummaryServerState({ enabled, companyId, processMeta, summaryRows }) {
   const timerRef = useRef(null);
@@ -21,8 +46,9 @@ export function useSummaryServerState({ enabled, companyId, processMeta, summary
 
     timerRef.current = setTimeout(() => {
       if (navigatingRef.current) return;
-      const payload = buildSummaryStateSavePayload(summaryRows, processMeta);
-      const url = buildSaveSummaryStateUrl(companyId);
+      const payload = buildSavePayload(summaryRows, processMeta);
+      const baseUrl = buildApiUrl("api/datacapture_summary/summary_api.php?action=save_summary_state");
+      const url = companyId ? `${baseUrl}&company_id=${encodeURIComponent(String(companyId))}` : baseUrl;
       fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -35,25 +61,4 @@ export function useSummaryServerState({ enabled, companyId, processMeta, summary
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [companyId, enabled, processMeta.processCode, processMeta.processId, summaryRows]);
-
-  useEffect(() => {
-    const flushSave = () => {
-      if (!enabled || !processMeta.processId || navigatingRef.current) return;
-      const payload = buildSummaryStateSavePayload(summaryRows, processMeta);
-      const url = buildSaveSummaryStateUrl(companyId);
-      fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }).catch(() => {});
-    };
-    window.addEventListener("pagehide", flushSave);
-    window.addEventListener("beforeunload", flushSave);
-    return () => {
-      window.removeEventListener("pagehide", flushSave);
-      window.removeEventListener("beforeunload", flushSave);
-    };
-  }, [companyId, enabled, processMeta, summaryRows]);
 }
