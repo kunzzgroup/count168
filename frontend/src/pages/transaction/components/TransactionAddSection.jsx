@@ -63,12 +63,7 @@ export default function TransactionAddSection({
         <label className="transaction-label" htmlFor="transaction_type">
           Type
         </label>
-        <select
-          id="transaction_type"
-          className="transaction-select"
-          value={txType}
-          onChange={(e) => setTxType(e.target.value)}
-        >
+        <select id="transaction_type" className="transaction-select" value={txType} onChange={(e) => setTxType(e.target.value)}>
           <option value="CONTRA">CONTRA</option>
           <option value="PAYMENT">PAYMENT</option>
           <option value="RECEIVE">RECEIVE</option>
@@ -155,12 +150,7 @@ export default function TransactionAddSection({
           <label className="transaction-label" htmlFor="transaction_currency">
             Currency
           </label>
-          <select
-            id="transaction_currency"
-            className="transaction-select"
-            value={txCurrency}
-            onChange={(e) => setTxCurrency(e.target.value)}
-          >
+          <select id="transaction_currency" className="transaction-select" value={txCurrency} onChange={(e) => setTxCurrency(e.target.value)}>
             <option value="">--Select Currency--</option>
             {currencyOptions.map((c) => (
               <option key={c} value={c}>
@@ -174,14 +164,7 @@ export default function TransactionAddSection({
           <label className="transaction-label" htmlFor="action_amount">
             Amount
           </label>
-          <input
-            type="number"
-            step="0.01"
-            id="action_amount"
-            className="transaction-input"
-            value={txAmount}
-            onChange={(e) => setTxAmount(e.target.value)}
-          />
+          <input type="number" step="0.01" id="action_amount" className="transaction-input" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} />
         </div>
 
         {txType === "PROFIT" ? (
@@ -275,13 +258,7 @@ export default function TransactionAddSection({
         <div className="rate-section">
           <span className="transaction-label">Currency</span>
           <div className="rate-row rate-row-five-cols">
-            <select
-              id="rate_currency_from"
-              className="transaction-select"
-              value={rateCurrencyFrom}
-              onChange={(e) => setRateCurrencyFrom(e.target.value)}
-              aria-label="From currency"
-            >
+            <select id="rate_currency_from" className="transaction-select" value={rateCurrencyFrom} onChange={(e) => setRateCurrencyFrom(e.target.value)} aria-label="From currency">
               <option value="">Currency</option>
               {currencyOptions.map((c) => (
                 <option key={c} value={c}>
@@ -309,13 +286,7 @@ export default function TransactionAddSection({
               onChange={(e) => setRateExchangeRateRaw(e.target.value)}
               aria-label="Exchange rate"
             />
-            <select
-              id="rate_currency_to"
-              className="transaction-select"
-              value={rateCurrencyTo}
-              onChange={(e) => setRateCurrencyTo(e.target.value)}
-              aria-label="To currency"
-            >
+            <select id="rate_currency_to" className="transaction-select" value={rateCurrencyTo} onChange={(e) => setRateCurrencyTo(e.target.value)} aria-label="To currency">
               <option value="">Currency</option>
               {currencyOptions.map((c) => (
                 <option key={c} value={c}>
@@ -418,13 +389,7 @@ export default function TransactionAddSection({
           <label className="transaction-label" htmlFor="action_sms">
             Remark
           </label>
-          <input
-            type="text"
-            id="action_sms"
-            className="transaction-input text-uppercase"
-            value={txRemark}
-            onChange={(e) => setTxRemark(e.target.value.toUpperCase())}
-          />
+          <input type="text" id="action_sms" className="transaction-input text-uppercase" value={txRemark} onChange={(e) => setTxRemark(e.target.value.toUpperCase())} />
         </div>
       </div>
 

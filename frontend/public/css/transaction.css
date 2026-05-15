@@ -76,8 +76,16 @@ body.transaction-page {
 .transaction-page .transaction-add-section {
     display: flex;
     flex-direction: column;
-    gap: clamp(4px, 0.42vw, 6px);
+    --tx-add-row-gap: clamp(4px, 0.42vw, 6px);
+    gap: var(--tx-add-row-gap);
     --tx-add-reverse-col: clamp(54px, 4.2vw, 72px);
+}
+
+/* 与卡片顶 Type|Date 行用同一套垂直间距，避免内联 gap 与父级不一致 */
+body.transaction-page .transaction-add-section .tx-add-standard-fields-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tx-add-row-gap);
 }
 
 /* Outlined two-column rows (Type|Date, Currency|Amount) + accounts + remark.
@@ -118,7 +126,7 @@ body.transaction-page .transaction-add-section .tx-add-form-row--reserve-reverse
 body.transaction-page .transaction-add-section .tx-add-form-row--accounts.tx-add-form-row--with-reverse {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--tx-add-reverse-col);
-    align-items: flex-start;
+    align-items: center;
 }
 
 body.transaction-page .transaction-add-section .tx-add-form-row--reserve-reverse .tx-add-field-col,
@@ -161,8 +169,8 @@ body.transaction-page .transaction-add-section .tx-add-field-col--full {
 
 body.transaction-page .transaction-add-section .tx-add-account-reverse {
     flex: 0 0 auto;
-    align-self: self-end;
-    margin-top: 10px;
+    align-self: center;
+    margin-top: 0;
     width: var(--tx-add-reverse-col);
     min-height: clamp(26px, 2.25vw, 34px);
 }
