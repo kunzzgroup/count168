@@ -10,3 +10,7 @@
 .process-workspace__pane.is-active {
   display: block;
 }
+
+.process-workspace-boot .content {
+  min-height: 12rem;
+}

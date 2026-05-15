@@ -1072,10 +1072,12 @@ export default function ProcessListPage({ workspaceHost = false, isWorkspaceActi
     setSearch(filterSearchInput(e.target.value));
   };
 
-  if (loading || !cssReady) return null;
+  if (!workspaceHost && (loading || !cssReady)) return null;
+
+  const showBootShell = workspaceHost && isWorkspaceActive && (loading || !cssReady);
 
   return (
-    <div className="container">
+    <div className={`container${showBootShell ? " process-workspace-boot" : ""}`}>
       <div className="content" style={showAll ? { height: "auto", overflow: "visible" } : undefined}>
         <h1 className="page-title">{t("pageTitle")}</h1>
         <div className="action-buttons-container">

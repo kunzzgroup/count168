@@ -60,7 +60,7 @@ function accountingDuePeriodType(r) {
   return "monthly";
 }
 
-export default function BankProcessListPage() {
+export default function BankProcessListPage({ workspaceHost = false, isWorkspaceActive = true } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const resolveLang = useCallback(
@@ -75,7 +75,7 @@ export default function BankProcessListPage() {
   const [lang, setLang] = useState(() => resolveLang());
   const t = useCallback((key, params = {}) => getBankProcessText(lang, key, params), [lang]);
   const tAccount = useCallback((key, params = {}) => getAccountText(lang, key, params), [lang]);
-  const [cssReady, setCssReady] = useState(false);
+  const [cssReady, setCssReady] = useState(() => workspaceHost);
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
@@ -276,13 +276,14 @@ export default function BankProcessListPage() {
   };
 
   useLayoutEffect(() => {
+    if (workspaceHost) return;
     document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page", "process-page--bank");
     setCssReady(true);
     return () => {
       document.body.classList.remove("process-page", "process-page--bank", "process-page--bank-show-all");
     };
-  }, []);
+  }, [workspaceHost]);
 
   useEffect(() => {
     const syncLang = (event) => {
@@ -298,6 +299,7 @@ export default function BankProcessListPage() {
   }, [resolveLang]);
 
   useEffect(() => {
+    if (workspaceHost && !isWorkspaceActive) return;
     if (loading || !cssReady || bankDatePickerInitRef.current) return;
     bankDatePickerInitRef.current = true;
     ensureMaintenanceDateRangePicker();
@@ -332,10 +334,11 @@ export default function BankProcessListPage() {
       }
     }
     return () => { };
-  }, [loading, cssReady]);
+  }, [loading, cssReady, workspaceHost, isWorkspaceActive]);
 
   /* Keep date-range chip wording in sync when login/UI language changes (picker caches placeholder internally). */
   useEffect(() => {
+    if (workspaceHost && !isWorkspaceActive) return;
     if (loading || !cssReady || !bankDatePickerInitRef.current || !window.MaintenanceDateRangePicker?.init) return;
     window.MaintenanceDateRangePicker.init({
       allowEmpty: true,
@@ -348,9 +351,10 @@ export default function BankProcessListPage() {
         setDateTo(dt);
       },
     });
-  }, [lang, loading, cssReady, t]);
+  }, [lang, loading, cssReady, t, workspaceHost, isWorkspaceActive]);
 
   useEffect(() => {
+    if (workspaceHost && !isWorkspaceActive) return;
     (async () => {
       let skipLoadingDone = false;
       try {
@@ -497,9 +501,10 @@ export default function BankProcessListPage() {
   }, [companyId]);
 
   useEffect(() => {
+    if (workspaceHost && !isWorkspaceActive) return;
     if (showAll) document.body.classList.add("process-page--bank-show-all");
     else document.body.classList.remove("process-page--bank-show-all");
-  }, [showAll]);
+  }, [showAll, workspaceHost, isWorkspaceActive]);
 
   useEffect(() => {
     if (!modalOpen || !companyId) return;
@@ -679,6 +684,7 @@ export default function BankProcessListPage() {
   }, [companyId, search, notify, syncUrl]);
 
   useEffect(() => {
+    if (workspaceHost && !isWorkspaceActive) return;
     if (!companyId || loading) return;
     if (skipNextBankFetchRef.current) {
       skipNextBankFetchRef.current = false;
@@ -686,7 +692,7 @@ export default function BankProcessListPage() {
     }
     const t = window.setTimeout(() => { void fetchRows(); }, 80);
     return () => window.clearTimeout(t);
-  }, [companyId, loading, search, fetchRows]);
+  }, [companyId, loading, search, fetchRows, workspaceHost, isWorkspaceActive]);
 
   // URL still reflects active filters even though they're applied client-side.
   useEffect(() => {
@@ -1296,10 +1302,12 @@ export default function BankProcessListPage() {
     return visibleRows.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
   }, [visibleRows, showAll, currentPage, totalPages]);
 
-  if (loading || !cssReady) return null;
+  if (!workspaceHost && (loading || !cssReady)) return null;
+
+  const showBootShell = workspaceHost && isWorkspaceActive && (loading || !cssReady);
 
   return (
-    <div className="container">
+    <div className={`container${showBootShell ? " process-workspace-boot" : ""}`}>
       <div className="content">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 0, flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 12, position: "relative", zIndex: 1 }}>
