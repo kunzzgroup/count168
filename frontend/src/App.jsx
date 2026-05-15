@@ -5,7 +5,8 @@ import DomainPage from "./pages/domain/DomainPage.jsx";
 import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
 import AccountListPage from "./pages/account/AccountListPage.jsx";
-import ProcessWorkspacePage from "./pages/processlist/ProcessWorkspacePage.jsx";
+import ProcessListPage from "./pages/processlist/ProcessListPage.jsx";
+import BankProcessListPage from "./pages/bankprocesslist/BankProcessListPage.jsx";
 import UserListPage from "./pages/userlist/UserListPage.jsx";
 import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
 import DataCapturePage from "./pages/datacapture/DataCapturePage.jsx";
@@ -40,8 +41,9 @@ export default function App() {
         <Route path="/announcement" element={<AnnouncementPage />} />
         <Route path="/account-list" element={<AccountListPage />} />
         <Route path="/add-account" element={<AccountListPage />} />
-        <Route path="/:processPage(process-list|bank-process-list)" element={<ProcessWorkspacePage />} />
-        <Route path="/games-process-list" element={<Navigate to="/process-list" replace />} />
+        <Route path="/process-list" element={<ProcessListPage />} />
+        <Route path="/games-process-list" element={<ProcessListPage />} />
+        <Route path="/bank-process-list" element={<BankProcessListPage />} />
         <Route path="/userlist" element={<UserListPage />} />
         <Route path="/ownership" element={<OwnershipPage />} />
         <Route path="/datacapture" element={<DataCapturePage />} />

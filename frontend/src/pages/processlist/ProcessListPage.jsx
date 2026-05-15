@@ -49,12 +49,12 @@ function ProcessToastStack({ items }) {
   );
 }
 
-export default function ProcessListPage({ workspaceHost = false, isWorkspaceActive = true } = {}) {
+export default function ProcessListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getProcessListText(lang, key, params), [lang]);
-  const [cssReady, setCssReady] = useState(() => workspaceHost);
+  const [cssReady, setCssReady] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [pendingCompanyId, setPendingCompanyId] = useState(null);
@@ -109,14 +109,13 @@ export default function ProcessListPage({ workspaceHost = false, isWorkspaceActi
 
   // Layout phase (with BankProcessListPage): avoid deferred useEffect cleanup stripping body.process-page after route swap.
   useLayoutEffect(() => {
-    if (workspaceHost) return;
     document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page");
     setCssReady(true);
     return () => {
       document.body.classList.remove("process-page");
     };
-  }, [workspaceHost]);
+  }, []);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -522,11 +521,10 @@ export default function ProcessListPage({ workspaceHost = false, isWorkspaceActi
   };
 
   useEffect(() => {
-    if (workspaceHost && !isWorkspaceActive) return;
     if (showAll) document.body.classList.add("process-page--show-all");
     else document.body.classList.remove("process-page--show-all");
     return () => document.body.classList.remove("process-page--show-all");
-  }, [showAll, workspaceHost, isWorkspaceActive]);
+  }, [showAll]);
 
   useEffect(() => {
     return () => {
@@ -1072,12 +1070,10 @@ export default function ProcessListPage({ workspaceHost = false, isWorkspaceActi
     setSearch(filterSearchInput(e.target.value));
   };
 
-  if (!workspaceHost && (loading || !cssReady)) return null;
-
-  const showBootShell = workspaceHost && isWorkspaceActive && (loading || !cssReady);
+  if (loading || !cssReady) return null;
 
   return (
-    <div className={`container${showBootShell ? " process-workspace-boot" : ""}`}>
+    <div className="container">
       <div className="content" style={showAll ? { height: "auto", overflow: "visible" } : undefined}>
         <h1 className="page-title">{t("pageTitle")}</h1>
         <div className="action-buttons-container">

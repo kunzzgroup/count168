@@ -60,7 +60,7 @@ function accountingDuePeriodType(r) {
   return "monthly";
 }
 
-export default function BankProcessListPage({ workspaceHost = false, isWorkspaceActive = true } = {}) {
+export default function BankProcessListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const resolveLang = useCallback(
@@ -75,7 +75,7 @@ export default function BankProcessListPage({ workspaceHost = false, isWorkspace
   const [lang, setLang] = useState(() => resolveLang());
   const t = useCallback((key, params = {}) => getBankProcessText(lang, key, params), [lang]);
   const tAccount = useCallback((key, params = {}) => getAccountText(lang, key, params), [lang]);
-  const [cssReady, setCssReady] = useState(() => workspaceHost);
+  const [cssReady, setCssReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
@@ -276,14 +276,13 @@ export default function BankProcessListPage({ workspaceHost = false, isWorkspace
   };
 
   useLayoutEffect(() => {
-    if (workspaceHost) return;
     document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page", "process-page--bank");
     setCssReady(true);
     return () => {
       document.body.classList.remove("process-page", "process-page--bank", "process-page--bank-show-all");
     };
-  }, [workspaceHost]);
+  }, []);
 
   useEffect(() => {
     const syncLang = (event) => {
@@ -299,7 +298,6 @@ export default function BankProcessListPage({ workspaceHost = false, isWorkspace
   }, [resolveLang]);
 
   useEffect(() => {
-    if (workspaceHost && !isWorkspaceActive) return;
     if (loading || !cssReady || bankDatePickerInitRef.current) return;
     bankDatePickerInitRef.current = true;
     ensureMaintenanceDateRangePicker();
@@ -334,11 +332,10 @@ export default function BankProcessListPage({ workspaceHost = false, isWorkspace
       }
     }
     return () => { };
-  }, [loading, cssReady, workspaceHost, isWorkspaceActive]);
+  }, [loading, cssReady]);
 
   /* Keep date-range chip wording in sync when login/UI language changes (picker caches placeholder internally). */
   useEffect(() => {
-    if (workspaceHost && !isWorkspaceActive) return;
     if (loading || !cssReady || !bankDatePickerInitRef.current || !window.MaintenanceDateRangePicker?.init) return;
     window.MaintenanceDateRangePicker.init({
       allowEmpty: true,
@@ -351,10 +348,9 @@ export default function BankProcessListPage({ workspaceHost = false, isWorkspace
         setDateTo(dt);
       },
     });
-  }, [lang, loading, cssReady, t, workspaceHost, isWorkspaceActive]);
+  }, [lang, loading, cssReady, t]);
 
   useEffect(() => {
-    if (workspaceHost && !isWorkspaceActive) return;
     (async () => {
       let skipLoadingDone = false;
       try {
@@ -501,10 +497,9 @@ export default function BankProcessListPage({ workspaceHost = false, isWorkspace
   }, [companyId]);
 
   useEffect(() => {
-    if (workspaceHost && !isWorkspaceActive) return;
     if (showAll) document.body.classList.add("process-page--bank-show-all");
     else document.body.classList.remove("process-page--bank-show-all");
-  }, [showAll, workspaceHost, isWorkspaceActive]);
+  }, [showAll]);
 
   useEffect(() => {
     if (!modalOpen || !companyId) return;
@@ -684,7 +679,6 @@ export default function BankProcessListPage({ workspaceHost = false, isWorkspace
   }, [companyId, search, notify, syncUrl]);
 
   useEffect(() => {
-    if (workspaceHost && !isWorkspaceActive) return;
     if (!companyId || loading) return;
     if (skipNextBankFetchRef.current) {
       skipNextBankFetchRef.current = false;
@@ -692,7 +686,7 @@ export default function BankProcessListPage({ workspaceHost = false, isWorkspace
     }
     const t = window.setTimeout(() => { void fetchRows(); }, 80);
     return () => window.clearTimeout(t);
-  }, [companyId, loading, search, fetchRows, workspaceHost, isWorkspaceActive]);
+  }, [companyId, loading, search, fetchRows]);
 
   // URL still reflects active filters even though they're applied client-side.
   useEffect(() => {
@@ -1302,12 +1296,10 @@ export default function BankProcessListPage({ workspaceHost = false, isWorkspace
     return visibleRows.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
   }, [visibleRows, showAll, currentPage, totalPages]);
 
-  if (!workspaceHost && (loading || !cssReady)) return null;
-
-  const showBootShell = workspaceHost && isWorkspaceActive && (loading || !cssReady);
+  if (loading || !cssReady) return null;
 
   return (
-    <div className={`container${showBootShell ? " process-workspace-boot" : ""}`}>
+    <div className="container">
       <div className="content">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 0, flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 12, position: "relative", zIndex: 1 }}>
