@@ -63,6 +63,8 @@ export default function BankprocessMaintenancePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [rows, setRows] = useState([]);
+  const [bankprocessListEpoch, setBankprocessListEpoch] = useState(0);
+  const [bankprocessDataSourceCompanyId, setBankprocessDataSourceCompanyId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -72,6 +74,8 @@ export default function BankprocessMaintenancePage() {
   const [datePickerScriptReady, setDatePickerScriptReady] = useState(false);
   const today = useMemo(() => formatDmy(new Date()), []);
   const currentCompanyIdRef = useRef(null);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
   const initialBankprocessSearchDoneRef = useRef(false);
   const searchSeqRef = useRef(0);
   const searchAbortRef = useRef(null);
@@ -338,7 +342,9 @@ export default function BankprocessMaintenancePage() {
       if (seq !== searchSeqRef.current) return;
       if (searchCompanyId !== Number(currentCompanyIdRef.current)) return;
 
+      setBankprocessListEpoch((e) => e + 1);
       setRows(data);
+      setBankprocessDataSourceCompanyId(searchCompanyId);
       setHasSearched(true);
       setConfirmDelete(false);
       if (!quietRefresh) {
@@ -354,7 +360,9 @@ export default function BankprocessMaintenancePage() {
     } catch (err) {
       if (err?.name === "AbortError" || seq !== searchSeqRef.current) return;
       if (searchCompanyId !== Number(currentCompanyIdRef.current)) return;
+      setBankprocessListEpoch((e) => e + 1);
       setRows([]);
+      setBankprocessDataSourceCompanyId(null);
       setHasSearched(true);
       notify(err.message || t("searchFailed"), "error");
     } finally {
@@ -475,13 +483,15 @@ export default function BankprocessMaintenancePage() {
 
   const selectAll = selectableRows.length > 0 && selectedIds.length === selectableRows.length;
 
-  const onToggleSelectAll = (checked) => {
-    if (!checked) {
-      setSelectedIds([]);
-      return;
-    }
-    setSelectedIds(selectableRows.map((r) => r.transaction_id));
-  };
+  const onToggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const selectable = rowsRef.current.filter(
+        (r) => !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true),
+      );
+      if (prev.length === selectable.length && selectable.length > 0) return [];
+      return selectable.map((r) => r.transaction_id);
+    });
+  }, []);
 
   const onToggleRow = (transactionId) => {
     setSelectedIds((prev) => (prev.includes(transactionId) ? prev.filter((id) => id !== transactionId) : [...prev, transactionId]));
@@ -554,9 +564,12 @@ export default function BankprocessMaintenancePage() {
       />
 
       <BankprocessMaintenanceTable
+        key={bankprocessDataSourceCompanyId ?? companyId ?? "no-company"}
         loading={loading}
         rows={rows}
         hasSearched={hasSearched}
+        listEpoch={bankprocessListEpoch}
+        rowKeyCompanyId={bankprocessDataSourceCompanyId ?? companyId}
         selectedIds={selectedIds}
         onToggleRow={onToggleRow}
         selectAll={selectAll}
