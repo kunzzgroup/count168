@@ -432,10 +432,12 @@ export default function DataCapturePage() {
               <div className="dc-form-two-col dc-form-two-col--tight">
                 <div className="form-group dc-remove-word-field">
                   <label htmlFor="capture_remove_word">Remove Word</label>
-                  <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />
-                  <small className="field-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
-                    (Use semicolon to separate multiple words, e.g. abc;cde;efg)
-                  </small>
+                  <div className="dc-remove-word-stack">
+                    <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />
+                    <small className="field-help" style={{ fontStyle: "italic", color: "#666" }}>
+                      (Use semicolon to separate multiple words, e.g. abc;cde;efg)
+                    </small>
+                  </div>
                 </div>
 
                 <div className="form-group">

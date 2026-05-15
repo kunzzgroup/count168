@@ -220,27 +220,34 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     margin-bottom: 0;
 }
 
-/* Remove Word + helper: stack in half-width column (override global :has(>.field-help) grid) */
-body.datacapture-page .process-form .form-group.dc-remove-word-field {
+/* Remove Word: label | stack(input + hint), matches Remark’s label | input rhythm */
+body.datacapture-page .process-form .form-group.dc-remove-word-field .dc-remove-word-stack {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 4px;
+    gap: 3px;
 }
 
-body.datacapture-page .process-form .form-group.dc-remove-word-field label {
-    width: auto;
-    margin-bottom: 0;
-}
-
-body.datacapture-page .process-form .form-group.dc-remove-word-field input {
+body.datacapture-page .process-form .form-group.dc-remove-word-field .dc-remove-word-stack input {
     width: 100%;
-    box-sizing: border-box;
+    flex: 0 0 auto;
 }
 
-body.datacapture-page .process-form .form-group.dc-remove-word-field > .field-help {
-    margin-top: 0;
+body.datacapture-page .process-form .form-group.dc-remove-word-field .dc-remove-word-stack .field-help {
+    margin: 0;
     line-height: 1.25;
+    font-size: clamp(9px, 0.72vw, 12px);
+}
+
+/* Same baseline row for inputs next to Remark */
+body.datacapture-page .process-form .dc-form-two-col--tight .form-group {
+    align-items: flex-start;
+}
+
+body.datacapture-page .process-form .dc-form-two-col--tight .form-group > label {
+    padding-top: 10px;
 }
 
 .bottom-section {
