@@ -2773,7 +2773,7 @@ body.transaction-page .transaction-add-section .rate-row-two-cols > .custom-sele
 }
 
 /*
- * RATE 區控件：複用與其他 Type 相同的 .transaction-form-group；Currency 用五欄格；Middle-Man 第一欄對齊「To Account」寬度
+ * RATE 區控件：複用與其他 Type 相同的 .transaction-form-group；Currency 用五欄格；Middle-Man 三欄均分（對齊舊版 rate-row-three-cols）
  */
 body.transaction-page .transaction-add-section .rate-fields .rate-row.rate-row-five-cols {
     display: grid;
@@ -2786,15 +2786,11 @@ body.transaction-page .transaction-add-section .rate-fields .rate-row.rate-row-f
 }
 
 /*
- * Middle-Man：第一欄寬度與 Account 列「To Account」相同
- *（與 .rate-row-two-cols 的 1fr 1fr R + 兩道 gap 一致）
+ * Middle-Man：三欄同等寬（舊版 rate-row-three-cols / PHP 版面）
  */
 body.transaction-page .transaction-add-section .rate-fields .rate-row.rate-row-mm {
     display: grid;
-    grid-template-columns:
-        calc((100% - var(--tx-add-reverse-col) - 10px) / 2)
-        minmax(0, 1fr)
-        minmax(0, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 5px;
     align-items: stretch;
     flex: 1 1 auto;
