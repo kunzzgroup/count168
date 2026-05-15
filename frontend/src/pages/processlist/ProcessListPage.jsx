@@ -20,6 +20,7 @@ import {
   parseRemarkForForm,
   buildEditDescriptionSelection,
 } from "./processListHelpers.js";
+import { prefetchBankProcessListPayload } from "./processRoutePrefetch.js";
 import ProcessTable from "./components/ProcessTable.jsx";
 import ProcessFormModal from "./components/ProcessFormModal.jsx";
 import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
@@ -113,7 +114,6 @@ export default function ProcessListPage() {
     setCssReady(true);
     return () => {
       document.body.classList.remove("process-page");
-      document.body.classList.add("dashboard-page");
     };
   }, []);
 
@@ -333,7 +333,19 @@ export default function ProcessListPage() {
         if (currentCompanyRow?.company_id) {
           const bankCategory = await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
           if (bankCategory) {
-            navigate(`/bank-process-list?company_id=${effectiveCompany}`, { replace: true });
+            const warm = await prefetchBankProcessListPayload(effectiveCompany);
+            navigate(`/bank-process-list?company_id=${effectiveCompany}`, {
+              replace: true,
+              state: {
+                bankProcessListPrefetch: {
+                  companyId: effectiveCompany,
+                  companies: cs,
+                  groupFilterKind: "follow",
+                  rows: warm.rows,
+                  currencyCodes: warm.currencyCodes,
+                },
+              },
+            });
             skipLoadingDone = true;
             return;
           }
@@ -707,12 +719,25 @@ export default function ProcessListPage() {
         return;
       }
       notifyCompanySessionUpdated();
-      setCompanyId(nextId);
-      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
       const bankCategory = await isBankCategoryCompany(company.company_id, buildApiUrl);
       if (bankCategory) {
-        navigate(`/bank-process-list?company_id=${nextId}`, { replace: true });
+        const warm = await prefetchBankProcessListPayload(nextId);
+        navigate(`/bank-process-list?company_id=${nextId}`, {
+          replace: true,
+          state: {
+            bankProcessListPrefetch: {
+              companyId: nextId,
+              companies,
+              groupFilterKind,
+              rows: warm.rows,
+              currencyCodes: warm.currencyCodes,
+            },
+          },
+        });
+        return;
       }
+      setCompanyId(nextId);
+      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
     } catch {
       notify(t("switchCompanyFailed"), "danger");
     } finally {
