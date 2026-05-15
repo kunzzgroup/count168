@@ -1196,6 +1196,194 @@ body.dashboard-page.maintenance-page {
     }
 }
 
+/* Virtual table (aligned with payment maintenance) */
+.capture-maintenance-page-root {
+    --capture-list-cell-padding-y: clamp(4px, 0.5vw, 8px);
+    --capture-list-cell-padding-x: clamp(10px, 1vw, 18px);
+    --capture-list-cell-min-height: clamp(28px, 1.95vw, 36px);
+    --capture-list-cell-line-height: 1.35;
+}
 
+.capture-maintenance-page-root .capture-virtual-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
 
+.capture-maintenance-page-root .capture-virtual-table-inner {
+    min-width: 1100px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .maintenance-list-container--syncing .maintenance-virtual-scroll {
+    opacity: 0.92;
+    transition: opacity 0.15s ease;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.capture-maintenance-page-root .capture-virtual-head-row,
+.capture-maintenance-page-root .capture-virtual-data-row {
+    display: grid;
+    grid-template-columns:
+        minmax(28px, 4.5fr) minmax(100px, 13fr) minmax(64px, 10fr) minmax(64px, 10fr)
+        minmax(56px, 9.5fr) minmax(80px, 13.5fr) minmax(80px, 13.5fr) minmax(100px, 18fr)
+        minmax(40px, 6.5fr);
+    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-th {
+    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
+    color: #ffffff;
+    font-weight: bold;
+    font-size: clamp(10px, 0.89vw, 17px);
+    padding: clamp(5px, 0.55vw, 9px) var(--capture-list-cell-padding-x);
+    text-align: center;
+    min-height: clamp(30px, 2.1vw, 38px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .capture-virtual-th--left {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.capture-maintenance-page-root .capture-virtual-head-row .maintenance-virtual-th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.capture-maintenance-page-root .capture-virtual-th-checkbox {
+    border-top-right-radius: 8px;
+    padding: clamp(4px, 0.5vw, 8px) clamp(8px, 0.85vw, 14px) !important;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-scroll {
+    max-height: min(72vh, 900px);
+    overflow: auto;
+    border-radius: 0 0 8px 8px;
+    background: #fff;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-row-wrap {
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-row-wrap .capture-virtual-data-row {
+    height: 100%;
+    min-height: 100%;
+    align-items: stretch;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-data-row {
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-data-row--stripe {
+    background: #cceeff99;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-data-row:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell {
+    font-size: clamp(10px, 0.88vw, 15px);
+    font-weight: bold;
+    color: #374151;
+    line-height: var(--capture-list-cell-line-height);
+    padding: var(--capture-list-cell-padding-y) var(--capture-list-cell-padding-x);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    min-height: var(--capture-list-cell-min-height);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--left {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--mono {
+    font-variant-numeric: tabular-nums;
+}
+
+.capture-maintenance-page-root .capture-virtual-cell--wrap {
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    align-items: center;
+    align-self: stretch;
+    height: auto;
+    min-height: 100%;
+}
+
+.capture-maintenance-page-root .capture-virtual-cell-checkbox {
+    padding: clamp(4px, 0.5vw, 8px) clamp(8px, 0.85vw, 14px) !important;
+}
+
+.capture-maintenance-page-root .capture-virtual-cell--no {
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-data-row .maintenance-cell-currency {
+    text-align: center;
+    justify-content: center;
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(5) {
+    padding-left: clamp(8px, 0.9vw, 14px);
+    padding-right: clamp(10px, 1.1vw, 18px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(6),
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(7) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(10px, 1.05vw, 18px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(8) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(6px, 0.75vw, 12px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(9) {
+    padding-left: clamp(4px, 0.5vw, 10px);
+    padding-right: clamp(6px, 0.65vw, 12px);
+}
+
+.capture-maintenance-page-root .maintenance-row-deleted .maintenance-virtual-cell {
+    color: #b91c1c;
+    text-decoration: line-through;
+}
+
+.capture-maintenance-page-root .maintenance-row-deleted .capture-virtual-cell-checkbox {
+    text-decoration: none;
+}
+
+.capture-maintenance-page-root .maintenance-list-container--syncing {
+    pointer-events: none;
+}
 
