@@ -869,7 +869,7 @@ body.transaction-page {
     text-transform: uppercase;
 }
 
-/* ── Member Win/Loss: filters | balances matrix (total row inside grid, no spare column) ── */
+/* ── Member Win/Loss：三欄（篩選 | 矩陣 | Total）；第三欄與欄間距收緊以省空間 ── */
 .transaction-page.member-winloss-page .member-winloss-dash.transaction-main-content {
     margin-bottom: 12px;
 }
@@ -880,12 +880,12 @@ body.transaction-page {
 
 .member-dash-columns {
     display: grid;
-    grid-template-columns: minmax(268px, 1fr) minmax(280px, 1.35fr);
+    /* 拉高中欄 fr、壓縮右欄寬與留白，縮小矩陣與 Total 之間「空白帶」 */
+    grid-template-columns: minmax(252px, 0.96fr) minmax(188px, 1.72fr) minmax(92px, 0.41fr);
     gap: 0;
     align-items: stretch;
 }
 
-/* 中间列允许收缩，避免大块空白把第 2 / 3 列分隔线推到过右 */
 .member-dash-col-grid {
     min-width: 0;
 }
@@ -895,26 +895,36 @@ body.transaction-page {
     max-width: 100%;
 }
 
-/* 与中列分割线之间留白（第三列 TOTAL 已并入矩阵底部行，略收紧右侧） */
 .member-dash-col-grid.member-dash-col-split {
-    padding-right: clamp(8px, 1.1vw, 16px);
+    padding-right: clamp(4px, 0.65vw, 10px);
 }
 
 .member-dash-col-filters {
-    padding-right: clamp(10px, 1.2vw, 16px);
+    padding-right: clamp(8px, 1vw, 14px);
 }
 
 .member-dash-col-split {
     border-left: 1px solid #e5ecf6;
-    padding-left: clamp(12px, 1.4vw, 18px);
+    padding-left: clamp(10px, 1.1vw, 15px);
+}
+
+.member-dash-col-total-col.member-dash-col-split {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding-left: clamp(5px, 0.65vw, 9px);
+    padding-right: 2px;
+    padding-top: 0;
+    min-width: 0;
 }
 
 .member-dash-mini-toolbar {
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
-    gap: 8px;
-    margin-bottom: 6px;
+    gap: 6px;
+    margin-bottom: 4px;
     min-width: 0;
 }
 
@@ -1006,24 +1016,6 @@ body.transaction-page {
     border-bottom: none;
 }
 
-.member-balance-matrix-rowhead--total {
-    border-top: 2px solid #cdd8e8;
-    background: #e9f1ff;
-    letter-spacing: 0.06em;
-    font-size: clamp(10px, 0.75vw, 12px);
-    text-transform: uppercase;
-}
-
-.member-balance-matrix-cell--total {
-    border-top: 2px solid #cdd8e8;
-    background: #f2f7ff;
-    font-weight: 700;
-}
-
-.member-balance-matrix-amt--total-row {
-    font-weight: 700;
-}
-
 .member-balance-matrix-cell {
     padding: 4px 6px;
     text-align: right;
@@ -1074,22 +1066,125 @@ body.transaction-page {
     font-weight: 600;
 }
 
-/* 读屏：矩阵底部已有 Total 行，此处仅辅助播报 */
-.member-winloss-totals-sr-hint {
-    position: absolute;
-    width: 1px;
-    height: 1px;
+.member-dash-total-inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 0;
+    min-height: 0;
+    line-height: 1.15;
+    text-align: left;
+    width: 100%;
+    max-width: 100%;
+}
+
+.member-dash-total-caption {
+    font-size: clamp(9px, 0.62vw, 11px);
+    font-weight: 700;
+    color: #52667a;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0;
+}
+
+.member-dash-total-values {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+}
+
+.member-dash-total-values > .member-dash-total-amt {
+    line-height: 1.1;
+}
+
+.member-dash-total-amt {
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #002c49;
+}
+
+.member-dash-total-amt.member-dash-total-amt--neg {
+    color: #b91c1c;
+}
+
+.member-dash-total-values.member-dash-total-values--grid {
+    width: 100%;
+    min-width: 0;
+}
+
+.member-dash-total-currency-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
+.member-dash-total-grid-cell {
+    display: grid;
+    grid-template-columns: minmax(1.85em, 2.05em) minmax(0, 1fr);
+    column-gap: 4px;
+    align-items: baseline;
     padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.member-dash-total-grid-cell:last-child {
+    border-bottom: none;
+}
+
+.member-dash-total-grid-code {
+    font-size: clamp(9px, 0.65vw, 11px);
+    font-weight: 700;
+    color: #002c49;
+}
+
+.member-dash-total-grid-amt {
+    font-size: clamp(10px, 0.76vw, 13px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #002c49;
+    text-align: right;
+    line-height: 1.08;
+}
+
+.member-dash-total-grid-amt.member-dash-total-grid-amt--neg {
+    color: #b91c1c;
 }
 
 @media (max-width: 1180px) {
     .member-dash-columns {
         grid-template-columns: 1fr 1fr;
+    }
+    .member-dash-col-total-col {
+        grid-column: 1 / -1;
+    }
+    .member-dash-col-total-col.member-dash-col-split {
+        border-left: none;
+        padding-left: 0;
+        padding-right: 0;
+        padding-top: 4px;
+    }
+    .member-dash-total-inner {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+        min-height: 0;
+        padding-top: 4px;
+        border-top: 1px solid #e6edf7;
+        margin-top: 2px;
+        max-width: none;
+        width: 100%;
+        text-align: left;
+        gap: 12px;
     }
 }
 
