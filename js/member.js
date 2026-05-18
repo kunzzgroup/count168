@@ -132,6 +132,29 @@ function accountHoldsMiniGridCurrency(accountId, currencyUpper) {
     return set.has(cu);
 }
 
+/**
+ * 迷你网格余额行：当前查看账本优先用 fetchMemberSummary 的单户摘要（与货币 Tab / 主查询一致），
+ * 避免多 target_account_id + currency 的 search_api 返回与单户摘要不一致（如 C1 显示 0 而表尾为 -285.73）。
+ * 其它关联户仍用本次多账户请求的 combined 行。
+ */
+function findMemberMiniGridBalanceRow(accountDbId, currencyCodeRaw, apiRows) {
+    const idNum = Number(accountDbId);
+    const cuNorm = (currencyCodeRaw || '').trim().toUpperCase();
+    if (idNum > 0 && idNum === Number(memberConfig.accountId) && Array.isArray(memberCurrencySummary)) {
+        const fromSummary = memberCurrencySummary.find(row =>
+            Number(row.account_db_id) === idNum
+            && (row.currency || '').trim().toUpperCase() === cuNorm
+        );
+        if (fromSummary) {
+            return fromSummary;
+        }
+    }
+    return (apiRows || []).find(row =>
+        Number(row.account_db_id) === idNum
+        && (row.currency || '').trim().toUpperCase() === cuNorm
+    );
+}
+
 function loadMemberOwnedCurrencies() {
     const accountId = memberConfig.accountId;
     const companyId = memberConfig.companyId;
@@ -598,10 +621,7 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
     listOrdered.forEach((acc) => {
         const idNum = Number(acc.id);
         const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-        const hit = rows.find(row =>
-            Number(row.account_db_id) === idNum
-            && (row.currency || '').trim().toUpperCase() === currencyCode.trim().toUpperCase()
-        );
+        const hit = findMemberMiniGridBalanceRow(idNum, currencyCode, rows);
         const rawBal = hit && hit.balance !== undefined && hit.balance !== null ? hit.balance : '0';
 
         const cell = document.createElement('div');
@@ -619,10 +639,7 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
 
     const cuNorm = currencyCode.trim().toUpperCase();
     const viewAid = Number(memberConfig.accountId);
-    const viewHit = rows.find(row =>
-        Number(row.account_db_id) === viewAid
-        && (row.currency || '').trim().toUpperCase() === cuNorm
-    );
+    const viewHit = findMemberMiniGridBalanceRow(viewAid, currencyCode, rows);
     if (viewHit && viewHit.balance !== undefined && viewHit.balance !== null) {
         totalEl.textContent = formatNumber(viewHit.balance);
     } else if (memberLinkedCurrenciesLoaded && viewAid && !accountHoldsMiniGridCurrency(viewAid, cuNorm)) {
