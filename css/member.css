@@ -990,9 +990,20 @@ body.transaction-page {
 .member-bal-hblock-body {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 4px 10px;
-    padding: 5px 6px;
+    column-gap: 0;
+    row-gap: 4px;
+    padding: 4px 0;
     align-items: start;
+}
+
+/* 中央垂直分割線（左欄右緣）：色階較區塊外框深，對齊表格中線 */
+.member-bal-hblock-body > .member-bal-hblock-col:first-of-type {
+    padding: 4px 10px 4px 8px;
+    border-right: 1px solid #7d96b5;
+}
+
+.member-bal-hblock-body > .member-bal-hblock-col:nth-of-type(2) {
+    padding: 4px 8px 4px 10px;
 }
 
 .member-bal-hblock-col {
@@ -1042,9 +1053,12 @@ body.transaction-page {
         grid-template-columns: 1fr;
     }
 
-    .member-bal-hblock-body {
-        gap: 4px 8px;
-        padding: 5px;
+    .member-bal-hblock-body > .member-bal-hblock-col:first-of-type {
+        padding: 4px 8px 4px 6px;
+    }
+
+    .member-bal-hblock-body > .member-bal-hblock-col:nth-of-type(2) {
+        padding: 4px 6px 4px 8px;
     }
 }
 
