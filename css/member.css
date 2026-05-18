@@ -906,7 +906,7 @@ body.transaction-page.member-winloss-page {
 /* 帳號欄寬可隨 max-content 變寬；預留較大上限供長代碼 + 8 幣可視寬計算 */
 .member-dash-col-grid .member-balance-mini-grid.member-balance-mini-matrix {
     --member-mini-matrix-visible-ccy: 8;
-    --member-mini-ccy-min: 5rem;
+    --member-mini-ccy-min: 5.5rem;
     --member-mini-rowhead-max: 14rem;
     width: max-content;
     max-width: min(
@@ -981,6 +981,7 @@ body.transaction-page.member-winloss-page {
 .member-balance-mini-grid {
     display: grid;
     max-height: 240px;
+    /* 橫向捲動：與 .member-balance-matrix-corner / .member-balance-matrix-rowhead 的 position:sticky;left:0 搭配，僅幣別區滑過，帳號欄固定 */
     overflow-x: auto;
     overflow-y: auto;
 }
@@ -998,10 +999,14 @@ body.transaction-page.member-winloss-page {
 }
 
 .member-balance-matrix-corner {
+    position: sticky;
+    left: 0;
+    z-index: 3;
     background: #eff4fb;
     border-right: 1px solid #e5ecf6;
     border-bottom: 1px solid #dfe7ef;
     min-height: 22px;
+    box-shadow: 4px 0 8px -4px rgba(15, 41, 66, 0.12);
 }
 
 .member-balance-matrix-th {
@@ -1020,6 +1025,9 @@ body.transaction-page.member-winloss-page {
 }
 
 .member-balance-matrix-rowhead {
+    position: sticky;
+    left: 0;
+    z-index: 2;
     font-weight: 700;
     font-size: clamp(9px, 0.7vw, 11px);
     color: #002c49;
@@ -1034,6 +1042,7 @@ body.transaction-page.member-winloss-page {
     white-space: nowrap;
     overflow: visible;
     word-break: normal;
+    box-shadow: 4px 0 8px -4px rgba(15, 41, 66, 0.12);
 }
 
 .member-balance-matrix-rowhead--edge {

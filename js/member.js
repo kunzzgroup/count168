@@ -509,11 +509,11 @@ function getMemberMiniGridCurrencies() {
 
 /**
  * 迷你帳戶×幣別矩陣的 grid-template-columns。
- * 帳號欄 minmax(..., max-content) 允許 A-HUAT 等長代碼完整顯示；幣別欄 minmax(5rem, max-content)。
+ * 帳號欄 minmax(..., max-content) 允許 A-HUAT 等長代碼完整顯示；幣別欄略加寬與 member.css --member-mini-ccy-min 同步。
  */
 function memberMiniMatrixGridTemplateColumns(ncu) {
     const rowHeadClamp = 'minmax(2.75rem, max-content)';
-    return `${rowHeadClamp} repeat(${ncu}, minmax(5rem, max-content))`;
+    return `${rowHeadClamp} repeat(${ncu}, minmax(5.5rem, max-content))`;
 }
 
 function clearMemberMiniGridDisplay() {
