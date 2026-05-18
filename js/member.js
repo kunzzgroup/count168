@@ -496,7 +496,6 @@ function syncMemberLinkedFilterTrigger() {
 /**
  * 迷你网格展示的币别列表（顺序与 Currency 胶囊 / 明细表顺序一致）。
  * All：全部可用币别；单选 / 多选：仅在选中的可用币别中展示。
- * 用户手动取消全部胶囊且未选「All」时：返回 []（与下方「请选择货币」一致，不展示迷你矩阵与 Total）。
  */
 function getMemberMiniGridCurrencies() {
     const available = getAvailableCurrencies();
@@ -504,17 +503,8 @@ function getMemberMiniGridCurrencies() {
     if (memberIsAllSelected) {
         return available.slice();
     }
-    return available.filter(code => memberSelectedCurrencies.has(code));
-}
-
-/** 无选中币别时隐藏右侧矩阵 + Total；有币别时再显示（与 Currency 筛选联动）。 */
-function syncMemberMiniGridRailVisibility() {
-    const rail = document.querySelector('.member-dash-right-rail');
-    const wrap = document.querySelector('.member-dash-columns');
-    if (!rail || !wrap) return;
-    const show = getMemberMiniGridCurrencies().length > 0;
-    rail.classList.toggle('member-dash-right-rail--hidden', !show);
-    wrap.classList.toggle('member-dash-columns--no-mini-rail', !show);
+    const picked = available.filter(code => memberSelectedCurrencies.has(code));
+    return picked.length ? picked : available.slice();
 }
 
 /**
@@ -623,28 +613,11 @@ function renderMemberMiniGridInitialShell() {
     const currLine = document.getElementById('member_balance_grid_currency_line');
     if (!gridEl) return;
 
-    let orderUpper = getMemberMiniGridCurrencies().map((c) => String(c || '').trim().toUpperCase()).filter(Boolean);
-    if (!orderUpper.length) {
-        clearMemberMiniGridDisplay();
-        syncMemberMiniGridRailVisibility();
-        return;
-    }
-
-    if (typeof window.MEMBER_MINI_GRID_SHELL_CCY !== 'undefined' && Array.isArray(window.MEMBER_MINI_GRID_SHELL_CCY) && window.MEMBER_MINI_GRID_SHELL_CCY.length) {
-        const sel = new Set(orderUpper);
-        const filtered = window.MEMBER_MINI_GRID_SHELL_CCY
-            .map((c) => String(c || '').trim().toUpperCase())
-            .filter((c) => c && sel.has(c));
-        if (filtered.length) {
-            orderUpper = filtered;
-        }
-    }
-
-    if (!orderUpper.length) {
-        clearMemberMiniGridDisplay();
-        syncMemberMiniGridRailVisibility();
-        return;
-    }
+    const raw = (typeof window.MEMBER_MINI_GRID_SHELL_CCY !== 'undefined' && Array.isArray(window.MEMBER_MINI_GRID_SHELL_CCY))
+        ? window.MEMBER_MINI_GRID_SHELL_CCY
+        : ['MYR', 'SGD'];
+    const orderUpper = raw.map((c) => String(c || '').trim().toUpperCase()).filter(Boolean);
+    if (!orderUpper.length) return;
 
     if (hintEl) hintEl.textContent = '';
     if (currLine) currLine.textContent = '';
@@ -712,7 +685,6 @@ function renderMemberMiniGridInitialShell() {
     });
 
     renderMemberTotalPlaceholderShell(orderUpper);
-    syncMemberMiniGridRailVisibility();
 }
 
 function refreshMemberMiniGrid(seq) {
@@ -822,7 +794,7 @@ function renderMemberTotalSection(totalsByCu, currencyOrderUpper, seq) {
 }
 
 function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
-    const p = new Promise((resolve) => {
+    return new Promise((resolve) => {
         const hintEl = document.getElementById('member_balance_grid_hint');
         const currLine = document.getElementById('member_balance_grid_currency_line');
 
@@ -912,7 +884,6 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
                 resolve();
             });
     });
-    return p.finally(() => syncMemberMiniGridRailVisibility());
 }
 
 function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
@@ -1139,7 +1110,6 @@ function loadMemberLinkedAccounts() {
         if (filterEl) filterEl.style.display = 'none';
         syncMemberLinkedFilterTrigger();
         clearMemberMiniGridDisplay();
-        syncMemberMiniGridRailVisibility();
     };
 
     if (!rootAccountId || !companyId) {
@@ -1415,42 +1385,20 @@ function fetchMemberSummary(seq = memberSearchSeq) {
                     }
                 });
                 updateCurrencySelection();
-                loadMemberCurrencyOrder()
-                    .then(() => {
-                        if (seq !== memberSearchSeq) {
-                            resolve();
-                            return;
-                        }
-                        const currencies = getAvailableCurrencies();
-                        if (currencies.length > 0) {
-                            // 默认「全部货币」拉 history（一次请求、前端按币别分表），避免 Profit Sharing 等在非首列币别时被漏掉
-                            memberIsAllSelected = true;
-                            memberSelectedCurrencies.clear();
-                        }
-                        try {
-                            renderCurrencyFilters();
-                        } catch (e) {
-                            console.error('renderCurrencyFilters', e);
-                        }
-                        /* 勿阻塞在迷你矩阵：否则会拖住 fetchMemberHistory，主表一直显示「Loading...」 */
+                loadMemberCurrencyOrder().then(() => {
+                    if (seq !== memberSearchSeq) {
                         resolve();
-                        fetchMemberMiniGridBalances(seq).catch((err) => {
-                            if (err && err.name === 'AbortError') return;
-                            console.error('fetchMemberMiniGridBalances', err);
-                        });
-                    })
-                    .catch((err) => {
-                        console.error('loadMemberCurrencyOrder', err);
-                        if (seq === memberSearchSeq) {
-                            try {
-                                renderCurrencyFilters();
-                            } catch (e) {
-                                /* ignore */
-                            }
-                        }
-                        resolve();
-                        fetchMemberMiniGridBalances(seq).catch(() => {});
-                    });
+                        return;
+                    }
+                    const currencies = getAvailableCurrencies();
+                    if (currencies.length > 0) {
+                        // 默认「全部货币」拉 history（一次请求、前端按币别分表），避免 Profit Sharing 等在非首列币别时被漏掉
+                        memberIsAllSelected = true;
+                        memberSelectedCurrencies.clear();
+                    }
+                    renderCurrencyFilters();
+                    fetchMemberMiniGridBalances(seq).finally(() => resolve());
+                });
             })
             .catch(err => {
                 if (err && err.name === 'AbortError') {
@@ -1467,7 +1415,6 @@ function fetchMemberSummary(seq = memberSearchSeq) {
                 ensureMemberCurrencyChromeVisible();
                 renderCurrencyFilters();
                 clearMemberMiniGridDisplay();
-                syncMemberMiniGridRailVisibility();
                 setMemberTablesPlaceholder(err.message || 'Failed to load currency data.');
                 showNotification(err.message || 'Failed to load currency data', 'error');
                 reject(err);

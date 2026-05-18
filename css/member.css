@@ -919,15 +919,6 @@ body.transaction-page {
     box-sizing: border-box;
 }
 
-/* 未選任何幣別時隱藏迷你矩陣 + Total，頂欄僅剩篩選區 */
-.transaction-page.member-winloss-page .member-dash-right-rail.member-dash-right-rail--hidden {
-    display: none !important;
-}
-
-.transaction-page.member-winloss-page .member-dash-columns.member-dash-columns--no-mini-rail {
-    grid-template-columns: minmax(0, 1fr);
-}
-
 .member-dash-right-rail > .member-dash-col-grid.member-dash-col-split {
     border-left: none;
     padding-left: 0;
@@ -1167,7 +1158,7 @@ body.transaction-page {
     font-weight: 600;
 }
 
-/* ── Total：與左側「Accounts」工具列頂端對齊（不再插入 spacer 去對矩陣表頭） ── */
+/* ── 第 3 欄 Total：與左側迷你矩陣同款邊框／表頭／列線，並對齊 Accounts 工具列高度 ── */
 .member-dash-total-column-stack {
     display: flex;
     flex-direction: column;
@@ -1178,9 +1169,11 @@ body.transaction-page {
     width: 100%;
 }
 
-/* 原用於對齊矩陣幣別表頭；改為隱藏，使 Total 外框與 Accounts 按鈕同一水平線 */
+/* 與 .member-dash-mini-toolbar 同高，讓兩欄「表格外框」頂端與表頭列對齊 */
 .member-dash-total-toolbar-gap {
-    display: none;
+    flex: 0 0 auto;
+    min-height: var(--member-dash-matrix-toolbar-slot);
+    margin-bottom: 4px;
 }
 
 .member-dash-total-matrix {
@@ -1205,9 +1198,9 @@ body.transaction-page {
     letter-spacing: 0.1em;
     text-transform: uppercase;
     border-bottom: 1px solid #dfe7ef;
-    /* 與 .member-balance-matrix-th 同底色；高度與 Accounts 工具列 slot 一致 */
+    /* 與 .member-balance-matrix-th 同底色，與中欄矩陣表頭一條線 */
     background: #e9f1ff;
-    min-height: var(--member-dash-matrix-toolbar-slot);
+    min-height: 22px;
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -1318,6 +1311,9 @@ body.transaction-page {
         padding-right: 0;
         padding-top: 4px;
     }
+    .member-dash-total-toolbar-gap {
+        display: none;
+    }
 
     .member-dash-total-column-stack {
         padding-top: 4px;
@@ -1356,8 +1352,8 @@ body.transaction-page {
 
 /* Linked accounts modal：帳號清單不含幣別、窄版；須覆寫 .transaction-page .transaction-modal-content 的 clamp 寬 */
 .transaction-page .transaction-modal-content.member-linked-filter-modal-content {
-    width: min(100%, 440px);
-    max-width: min(100%, 440px);
+    width: min(100%, 380px);
+    max-width: min(100%, 380px);
     margin: 8% auto;
 }
 
@@ -1407,9 +1403,9 @@ body.transaction-page {
 
 .member-linked-filter-checkboxes {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px 8px;
-    max-height: min(40vh, 220px);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px 12px;
+    max-height: 280px;
     overflow-y: auto;
     padding: 8px 0;
 }
@@ -1417,19 +1413,11 @@ body.transaction-page {
 .member-linked-cb-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    min-width: 0;
+    gap: 8px;
     font-size: 12px;
     font-weight: 600;
     color: #1e293b;
     cursor: pointer;
-}
-
-.member-linked-cb-row span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .member-linked-filter-footer {
@@ -1454,6 +1442,6 @@ body.transaction-page {
 
 @media (max-width: 480px) {
     .member-linked-filter-checkboxes {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
     }
 }
