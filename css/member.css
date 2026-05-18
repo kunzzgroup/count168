@@ -869,7 +869,7 @@ body.transaction-page {
     text-transform: uppercase;
 }
 
-/* ── Member Win/Loss：三欄（篩選 | 矩陣 | Total）；第三欄與欄間距收緊以省空間 ── */
+/* ── Member Win/Loss：篩選 | 迷你矩陣 | 同風格 Total 表 ── */
 .transaction-page.member-winloss-page .member-winloss-dash.transaction-main-content {
     margin-bottom: 12px;
 }
@@ -880,8 +880,8 @@ body.transaction-page {
 
 .member-dash-columns {
     display: grid;
-    /* 拉高中欄 fr、壓縮右欄寬與留白，縮小矩陣與 Total 之間「空白帶」 */
-    grid-template-columns: minmax(252px, 0.96fr) minmax(188px, 1.72fr) minmax(92px, 0.41fr);
+    /* 中欄吃滿資料、右欄貼近 Total 小表，避免大塊留白 */
+    grid-template-columns: minmax(244px, 0.93fr) minmax(150px, 1.62fr) minmax(104px, 0.48fr);
     gap: 0;
     align-items: stretch;
 }
@@ -896,7 +896,7 @@ body.transaction-page {
 }
 
 .member-dash-col-grid.member-dash-col-split {
-    padding-right: clamp(4px, 0.65vw, 10px);
+    padding-right: clamp(2px, 0.35vw, 6px);
 }
 
 .member-dash-col-filters {
@@ -912,8 +912,8 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    align-items: flex-start;
-    padding-left: clamp(5px, 0.65vw, 9px);
+    align-items: stretch;
+    padding-left: clamp(3px, 0.4vw, 7px);
     padding-right: 2px;
     padding-top: 0;
     min-width: 0;
@@ -1092,49 +1092,74 @@ body.transaction-page {
     font-weight: 600;
 }
 
-.member-dash-total-inner {
+/* ── 第 3 欄 Total：與左側迷你矩陣同款邊框／表頭／列線，並對齊 Accounts 工具列高度 ── */
+.member-dash-total-column-stack {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    gap: 0;
+    flex: 1;
     min-height: 0;
-    line-height: 1.15;
-    text-align: left;
     width: 100%;
-    max-width: 100%;
 }
 
-.member-dash-total-caption {
-    font-size: clamp(9px, 0.62vw, 11px);
+/* 與 .member-dash-mini-toolbar 同高，讓 Total 表頭列與 MYR/SGD 表頭對齊 */
+.member-dash-total-toolbar-gap {
+    flex: 0 0 auto;
+    min-height: 30px;
+    margin-bottom: 4px;
+}
+
+.member-dash-total-matrix {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #dfe7ef;
+    border-radius: 4px;
+    background: #fff;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.member-dash-total-matrix-hd {
+    font-size: clamp(9px, 0.67vw, 11px);
     font-weight: 700;
-    color: #52667a;
-    letter-spacing: 0.04em;
+    color: #002c49;
+    text-align: center;
+    padding: 4px 6px;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    margin-bottom: 0;
+    border-bottom: 1px solid #dfe7ef;
+    background: linear-gradient(180deg, #e9f1ff 0%, #dfeaf8 100%);
+}
+
+.member-dash-total-matrix-body {
+    flex: 1;
+    min-height: 0;
 }
 
 .member-dash-total-values {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
+    align-items: stretch;
+    gap: 0;
     width: 100%;
+    min-width: 0;
 }
 
 .member-dash-total-values > .member-dash-total-amt {
-    line-height: 1.1;
-}
-
-.member-dash-total-amt {
-    font-size: clamp(11px, 0.82vw, 14px);
-    font-weight: 700;
+    display: block;
+    padding: 6px 5px;
+    text-align: right;
+    line-height: 1.2;
+    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: #002c49;
+    color: #0f2942;
 }
 
 .member-dash-total-amt.member-dash-total-amt--neg {
     color: #b91c1c;
+    font-weight: 700;
 }
 
 .member-dash-total-values.member-dash-total-values--grid {
@@ -1147,43 +1172,42 @@ body.transaction-page {
     flex-direction: column;
     gap: 0;
     width: 100%;
-    max-width: 100%;
 }
 
 .member-dash-total-grid-cell {
     display: grid;
-    grid-template-columns: minmax(1.85em, 2.05em) minmax(0, 1fr);
-    column-gap: 4px;
+    grid-template-columns: minmax(2em, auto) minmax(0, 1fr);
+    column-gap: 8px;
     align-items: baseline;
-    padding: 0;
+    padding: 3px 5px;
     margin: 0;
     border: none;
-    background: transparent;
+    background: #fff;
     border-radius: 0;
-    border-bottom: 1px solid #eef2f7;
 }
 
-.member-dash-total-grid-cell:last-child {
-    border-bottom: none;
+.member-dash-total-grid-cell:not(:last-child) {
+    border-bottom: 1px solid #dfe7ef;
 }
 
 .member-dash-total-grid-code {
-    font-size: clamp(9px, 0.65vw, 11px);
+    font-size: clamp(9px, 0.68vw, 11px);
     font-weight: 700;
     color: #002c49;
 }
 
 .member-dash-total-grid-amt {
-    font-size: clamp(10px, 0.76vw, 13px);
-    font-weight: 700;
+    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: #002c49;
+    color: #0f2942;
     text-align: right;
-    line-height: 1.08;
+    line-height: 1.15;
 }
 
 .member-dash-total-grid-amt.member-dash-total-grid-amt--neg {
     color: #b91c1c;
+    font-weight: 700;
 }
 
 @media (max-width: 1180px) {
@@ -1199,18 +1223,19 @@ body.transaction-page {
         padding-right: 0;
         padding-top: 4px;
     }
-    .member-dash-total-inner {
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: flex-start;
-        min-height: 0;
+    .member-dash-total-toolbar-gap {
+        display: none;
+    }
+
+    .member-dash-total-column-stack {
         padding-top: 4px;
-        border-top: 1px solid #e6edf7;
         margin-top: 2px;
-        max-width: none;
+        border-top: 1px solid #e6edf7;
         width: 100%;
-        text-align: left;
-        gap: 12px;
+    }
+
+    .member-dash-total-matrix {
+        max-width: min(100%, 400px);
     }
 }
 
