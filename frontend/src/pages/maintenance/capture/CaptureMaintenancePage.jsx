@@ -582,10 +582,8 @@ export default function CaptureMaintenancePage() {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDeleteAction}
-        title={m.confirmDeleteTitle}
-        cancelText={m.cancel}
-        confirmText={m.delete}
-        message={t("deleteConfirmRecords", { count: selectedIds.length })}
+        count={selectedIds.length}
+        t={t}
       />
     </div>
   );

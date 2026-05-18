@@ -955,7 +955,7 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-confirm-title {
     font-family: var(--font-heading-page);
-    font-size: clamp(20px, 1.67vw, 32px);
+    font-size: var(--text-h1);
     font-weight: 700;
     color: #1e293b;
     margin: 0 0 clamp(12px, 1.04vw, 20px) 0;
@@ -963,7 +963,7 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-confirm-message {
     font-family: var(--font-heading-page);
-    font-size: clamp(14px, 1.04vw, 20px);
+    font-size: var(--text-h3);
     color: #64748b;
     margin: 0 0 clamp(24px, 2.08vw, 40px) 0;
     line-height: 1.5;
@@ -979,7 +979,7 @@ body.dashboard-page.maintenance-page {
     padding: clamp(10px, 0.83vw, 16px) clamp(20px, 1.67vw, 32px);
     border: none;
     border-radius: 6px;
-    font-size: clamp(12px, 0.94vw, 18px);
+    font-size: var(--text-base);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1407,4 +1407,34 @@ body.dashboard-page.maintenance-page {
 .formula-maintenance-page-root .formula-virtual-th--right {
     justify-content: flex-end !important;
     text-align: right !important;
+}
+
+/* Force Process Select Dropdown Button to be Full Width and Align Arrow to the Far Right */
+.formula-process-control .custom-select-wrapper {
+    flex: 1 !important;
+    width: 100% !important;
+}
+
+.formula-process-control .custom-select-button {
+    width: 100% !important;
+    position: relative !important;
+    padding-right: 56px !important; /* Spaced to accommodate both chevron and clear button */
+}
+
+.formula-process-control .custom-select-button::after {
+    right: 14px !important;
+}
+
+/* Absolute position the clear icon button to prevent layout shifting/pushing */
+.formula-process-control {
+    position: relative !important;
+}
+
+.formula-process-control .formula-clear-icon-btn {
+    position: absolute !important;
+    right: 32px !important; /* Positioned nicely next to the dropdown arrow */
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 10 !important;
+    margin: 0 !important;
 }

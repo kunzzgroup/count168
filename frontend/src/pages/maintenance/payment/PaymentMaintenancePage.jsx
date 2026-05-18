@@ -486,10 +486,6 @@ export default function PaymentMaintenancePage() {
     selectedIds.length > 0 && selectedIds.length === selectableRowsCount;
 
   const handleDeleteClick = () => {
-    if (!confirmDelete) {
-      notify(t("pleaseConfirmDeletionCheckbox"), "error");
-      return;
-    }
     if (selectedIds.length === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -552,7 +548,7 @@ export default function PaymentMaintenancePage() {
         onDelete={handleDeleteClick}
         confirmDelete={confirmDelete}
         setConfirmDelete={setConfirmDelete}
-        deleteDisabled={selectedIds.length === 0 || !confirmDelete}
+        deleteDisabled={selectedIds.length === 0}
         m={m}
       />
 
@@ -582,10 +578,8 @@ export default function PaymentMaintenancePage() {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
-        title={m.confirmDeleteTitle}
-        cancelText={m.cancel}
-        confirmText={m.delete}
-        message={t("deleteConfirmRecords", { count: selectedIds.length })}
+        count={selectedIds.length}
+        t={t}
       />
 
       {/* Notifications */}

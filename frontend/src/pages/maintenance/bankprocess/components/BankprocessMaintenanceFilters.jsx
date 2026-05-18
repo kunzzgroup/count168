@@ -160,36 +160,10 @@ export default function BankprocessMaintenanceFilters({
               className="maintenance-delete-btn"
               id="deleteBtn"
               onClick={onDelete}
-              disabled={selectedIds.length === 0 || !confirmDelete}
+              disabled={selectedIds.length === 0}
             >
               {m.delete}
             </button>
-            <div className="userlist-filter-chips maintenance-confirm-filter-chips" role="group" aria-label={m.confirmDelete}>
-              <button
-                type="button"
-                id="confirmDelete"
-                className={`user-filter-chip${confirmDelete ? " is-selected" : ""}`}
-                aria-pressed={confirmDelete}
-                onClick={() => setConfirmDelete(!confirmDelete)}
-              >
-                <span className="user-filter-chip__dot" aria-hidden={true}>
-                  {confirmDelete ? (
-                    <svg
-                      className="user-filter-chip__check"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M6 12l4 4 8-8" />
-                    </svg>
-                  ) : null}
-                </span>
-                <span className="user-filter-chip__label">{m.confirmDelete}</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>

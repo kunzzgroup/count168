@@ -499,18 +499,24 @@ export function ensureMaintenanceDateRangePicker() {
 
     if (popup.style.display === "none" || !popup.style.display) {
       syncRangeStateFromHiddenInputs();
-      const rect = picker.getBoundingClientRect();
+      let rect = picker.getBoundingClientRect();
       let barWidth = rect.width;
-      const parent = picker.parentElement;
-      if (parent) {
-        const parentRect = parent.getBoundingClientRect();
-        if (
-          parent.classList &&
-          (parent.classList.contains("transaction-capture-date-row") || parent.classList.contains("transaction-date-range-group"))
-        ) {
-          barWidth = parentRect.width;
-        } else if (parentRect.width > barWidth) {
-          barWidth = parentRect.width;
+      const shell = picker.closest(".report-outlined-shell");
+      if (shell) {
+        rect = shell.getBoundingClientRect();
+        barWidth = rect.width;
+      } else {
+        const parent = picker.parentElement;
+        if (parent) {
+          const parentRect = parent.getBoundingClientRect();
+          if (
+            parent.classList &&
+            (parent.classList.contains("transaction-capture-date-row") || parent.classList.contains("transaction-date-range-group"))
+          ) {
+            barWidth = parentRect.width;
+          } else if (parentRect.width > barWidth) {
+            barWidth = parentRect.width;
+          }
         }
       }
       if (popup.classList.contains("calendar-popup--transaction-range")) {

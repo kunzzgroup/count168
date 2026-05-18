@@ -215,3 +215,16 @@ body.dashboard-page.maintenance-page .maintenance-table .maintenance-table-cell 
     font-size: var(--text-medium) !important;
     font-weight: var(--font-weight-bold) !important;
 }
+
+/* Delete confirmation modal — unified typography on all maintenance routes */
+body.dashboard-page.maintenance-page .maintenance-confirm-title {
+    font-size: var(--text-h1) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-confirm-message {
+    font-size: var(--text-h3) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-btn {
+    font-size: var(--text-base) !important;
+}

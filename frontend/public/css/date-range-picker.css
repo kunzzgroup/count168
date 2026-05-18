@@ -691,4 +691,26 @@ body.transaction-page .calendar-popup--transaction-range .calendar-day.end-date,
 body.transaction-page .calendar-popup--transaction-range .calendar-day.start-date.end-date, body.maintenance-page .calendar-popup--transaction-range .calendar-day.start-date.end-date, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-day.start-date.end-date{
     border-radius: 6px;
 }
-
+
+/* Align Date Range Input Shell Width with Calendar Popup Width */
+.report-date-range-picker-container,
+.report-date-range-picker-container .report-outlined-shell {
+    min-width: clamp(316px, 22vw, 336px) !important;
+    width: clamp(316px, 22vw, 336px) !important;
+    max-width: 100%;
+}
+
+/* Centered Date Range Typography and Balanced Spacing */
+.report-date-range-picker-container .date-range-picker {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding: 0 clamp(12px, 1vw, 18px) !important;
+    box-sizing: border-box !important;
+}
+
+.report-date-range-picker-container .date-range-picker span {
+    flex: 1 !important;
+    text-align: center !important;
+}

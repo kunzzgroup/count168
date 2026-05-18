@@ -587,10 +587,6 @@ export default function FormulaMaintenancePage() {
   }, [selectAllChecked, selectAllIndeterminate]);
 
   const handleDeleteClick = () => {
-    if (!confirmDelete) {
-      notify(t("pleaseConfirmDeleteCheckbox"), "error");
-      return;
-    }
     if (selectedCount === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -714,10 +710,8 @@ export default function FormulaMaintenancePage() {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
-        title={m.confirmDeleteTitle}
-        cancelText={m.cancel}
-        confirmText={m.delete}
-        message={t("deleteConfirmRecords", { count: selectedCount })}
+        count={selectedCount}
+        t={t}
       />
 
       <div id="notificationContainer" className="maintenance-notification-container">

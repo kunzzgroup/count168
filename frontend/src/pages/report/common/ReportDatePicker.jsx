@@ -205,7 +205,7 @@ export default function ReportDatePicker({
 
   if (outlinedFloatingLabel) {
     return (
-      <div className={`report-filter-group ${containerClass} report-outlined-anchor`}>
+      <div className={`report-filter-group ${containerClass} report-outlined-anchor report-date-range-picker-container`}>
         <div className="report-outlined-shell">
           <span className={labelClassName} id={anchorLabelId}>
             {label}
@@ -221,7 +221,7 @@ export default function ReportDatePicker({
   }
 
   return (
-    <div className={`report-filter-group ${containerClass}`}>
+    <div className={`report-filter-group ${containerClass} report-date-range-picker-container`}>
       <label className="maintenance-label">{label}</label>
       {dateBar}
       {hiddenInputsLegacy}

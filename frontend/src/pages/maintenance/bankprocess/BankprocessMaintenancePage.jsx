@@ -469,10 +469,6 @@ export default function BankprocessMaintenancePage() {
   };
 
   const onDelete = async () => {
-    if (!confirmDelete) {
-      notify(t("pleaseConfirmDeletionCheckbox"), "error");
-      return;
-    }
     if (selectedIds.length === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -491,7 +487,7 @@ export default function BankprocessMaintenancePage() {
       } catch {
         // ignore
       }
-      notify(result.message || t("successfullyDeletedN", { n: selectedIds.length }), "success");
+      notify(t("successfullyDeletedBankProcessN", { n: selectedIds.length }), "success");
       setSelectedIds([]);
       setConfirmDelete(false);
       void performSearch();
@@ -562,10 +558,8 @@ export default function BankprocessMaintenancePage() {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={onConfirmDelete}
-        title={m.confirmDeleteTitle}
-        cancelText={m.cancel}
-        confirmText={m.delete}
-        message={t("deleteConfirmBankProcess", { count: selectedIds.length })}
+        count={selectedIds.length}
+        t={t}
       />
     </div>
   );
