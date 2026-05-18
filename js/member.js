@@ -507,7 +507,7 @@ function clearMemberMiniGridDisplay() {
     const gridEl = document.getElementById('member_balance_grid');
     const hintEl = document.getElementById('member_balance_grid_hint');
     const currLine = document.getElementById('member_balance_grid_currency_line');
-    const totalEl = document.getElementById('member_balance_total_value');
+    const liveEl = document.getElementById('member_balance_totals_live');
     if (gridEl) {
         gridEl.innerHTML = '';
         gridEl.classList.remove('member-balance-mini-matrix');
@@ -517,15 +517,7 @@ function clearMemberMiniGridDisplay() {
     }
     if (hintEl) hintEl.textContent = '';
     if (currLine) currLine.textContent = '';
-    if (totalEl) {
-        totalEl.innerHTML = '';
-        totalEl.classList.remove('member-dash-total-values--grid');
-        totalEl.classList.remove('member-dash-total-values--multicur');
-        const ph = document.createElement('span');
-        ph.className = 'member-dash-total-amt';
-        ph.textContent = '–';
-        totalEl.appendChild(ph);
-    }
+    if (liveEl) liveEl.textContent = '';
 }
 
 function refreshMemberMiniGrid(seq) {
@@ -564,61 +556,20 @@ function fetchMiniGridHistoryClosingsForAccount(accountDbId, gridCurrencies, dat
         });
 }
 
-/** 第 3 列 TOTAL：单币大号数字；多币为「按币别分列」的横向网格，与中间矩阵列对齐。 */
-function renderMemberTotalSection(totalsByCu, currencyOrderUpper, seq) {
-    const totalEl = document.getElementById('member_balance_total_value');
-    if (!totalEl || seq !== memberSearchSeq) return;
-
-    totalEl.innerHTML = '';
-    totalEl.classList.remove('member-dash-total-values--multicur');
-    totalEl.classList.remove('member-dash-total-values--grid');
+/** 屏幕朗读：矩阵底部 TOTAL 行更新后顺带播报汇总。 */
+function announceMemberMiniGridTotalsAria(totalsByCu, currencyOrderUpper, seq) {
+    const liveEl = document.getElementById('member_balance_totals_live');
+    if (!liveEl || seq !== memberSearchSeq) return;
     const order = currencyOrderUpper.map(c => String(c || '').trim().toUpperCase()).filter(Boolean);
-
-    if (order.length === 0) {
-        const sp = document.createElement('span');
-        sp.className = 'member-dash-total-amt';
-        sp.textContent = '–';
-        totalEl.appendChild(sp);
+    if (!order.length) {
+        liveEl.textContent = '';
         return;
     }
-
-    if (order.length === 1) {
-        const cu = order[0];
+    const parts = order.map((cu) => {
         const dec = totalsByCu.get(cu) || normalizeNumber('0');
-        const sp = document.createElement('span');
-        sp.className = 'member-dash-total-amt';
-        sp.textContent = formatNumber(dec.toString());
-        if (typeof dec.lt === 'function' && dec.lt('0')) {
-            sp.classList.add('member-dash-total-amt--neg');
-        }
-        totalEl.appendChild(sp);
-        return;
-    }
-
-    totalEl.classList.add('member-dash-total-values--grid');
-    const grid = document.createElement('div');
-    grid.className = 'member-dash-total-currency-grid';
-    grid.setAttribute('role', 'group');
-    grid.setAttribute('aria-label', 'Totals by currency');
-
-    order.forEach((cu) => {
-        const dec = totalsByCu.get(cu) || normalizeNumber('0');
-        const cell = document.createElement('div');
-        cell.className = 'member-dash-total-grid-cell';
-        const lab = document.createElement('span');
-        lab.className = 'member-dash-total-grid-code';
-        lab.textContent = cu;
-        const amt = document.createElement('span');
-        amt.className = 'member-dash-total-grid-amt';
-        amt.textContent = formatNumber(dec.toString());
-        if (typeof dec.lt === 'function' && dec.lt('0')) {
-            amt.classList.add('member-dash-total-grid-amt--neg');
-        }
-        cell.appendChild(lab);
-        cell.appendChild(amt);
-        grid.appendChild(cell);
+        return `${cu} ${formatNumber(dec.toString())}`;
     });
-    totalEl.appendChild(grid);
+    liveEl.textContent = `Totals: ${parts.join(', ')}.`;
 }
 
 function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
@@ -743,7 +694,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
                 ? 'No accounts in the grid hold any of these currencies.'
                 : `No accounts in the grid hold ${currenciesUpper[0]}.`;
         }
-        renderMemberTotalSection(new Map(), [], seq);
+        announceMemberMiniGridTotalsAria(new Map(), [], seq);
         return;
     }
 
@@ -752,7 +703,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
 
     const ncu = currenciesUpper.length;
     if (ncu === 0) {
-        renderMemberTotalSection(totalsByCu, [], seq);
+        announceMemberMiniGridTotalsAria(totalsByCu, [], seq);
         return;
     }
 
@@ -768,7 +719,6 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     gridEl.appendChild(corner);
 
     const lastCi = ncu - 1;
-    const lastRi = listOrdered.length - 1;
 
     currenciesUpper.forEach((cu, ci) => {
         const th = document.createElement('div');
@@ -782,11 +732,9 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     listOrdered.forEach((acc, accIdx) => {
         const idNum = Number(acc.id);
         const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-        const isLastRow = accIdx === lastRi;
 
         const rowHead = document.createElement('div');
         rowHead.className = 'member-balance-matrix-rowhead';
-        if (isLastRow) rowHead.classList.add('member-balance-matrix-rowhead--edge');
         rowHead.setAttribute('role', 'rowheader');
         rowHead.textContent = code;
         rowHead.title = code;
@@ -808,7 +756,6 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
             cell.setAttribute('role', 'gridcell');
             if (accIdx % 2 === 1) cell.classList.add('member-balance-matrix-cell--alt');
             if (ci === lastCi) cell.classList.add('member-balance-matrix-cell--edge');
-            if (isLastRow) cell.classList.add('member-balance-matrix-cell--edge-row');
 
             if (!holds) {
                 cell.classList.add('member-balance-matrix-cell--na');
@@ -826,7 +773,30 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
         });
     });
 
-    renderMemberTotalSection(totalsByCu, currenciesUpper, seq);
+    const totalRh = document.createElement('div');
+    totalRh.className = 'member-balance-matrix-rowhead member-balance-matrix-rowhead--total member-balance-matrix-rowhead--edge';
+    totalRh.setAttribute('role', 'rowheader');
+    totalRh.textContent = 'Total';
+    gridEl.appendChild(totalRh);
+
+    currenciesUpper.forEach((cu, ci) => {
+        const dec = totalsByCu.get(cu) || normalizeNumber('0');
+        const cell = document.createElement('div');
+        cell.className = 'member-balance-matrix-cell member-balance-matrix-cell--total';
+        cell.setAttribute('role', 'gridcell');
+        if (ci === lastCi) cell.classList.add('member-balance-matrix-cell--edge');
+        cell.classList.add('member-balance-matrix-cell--edge-row');
+        const amt = document.createElement('span');
+        amt.className = 'member-balance-matrix-amt member-balance-matrix-amt--total-row';
+        amt.textContent = formatNumber(dec.toString());
+        if (typeof dec.lt === 'function' && dec.lt('0')) {
+            amt.classList.add('member-balance-matrix-amt--neg');
+        }
+        cell.appendChild(amt);
+        gridEl.appendChild(cell);
+    });
+
+    announceMemberMiniGridTotalsAria(totalsByCu, currenciesUpper, seq);
 }
 
 function buildMemberLinkedFilterModalList() {

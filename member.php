@@ -293,13 +293,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                         </div>
                         <div id="member_balance_grid" class="member-balance-mini-grid"></div>
                         <p id="member_balance_grid_hint" class="member-balance-mini-hint" style="margin:4px 0 0;"></p>
-                </div>
-
-                <div class="member-dash-col member-dash-col-total-col member-dash-col-split">
-                        <div class="member-dash-total-inner">
-                            <span class="member-dash-total-caption">Total</span>
-                            <div id="member_balance_total_value" class="member-dash-total-values" aria-live="polite"><span class="member-dash-total-amt">–</span></div>
-                        </div>
+                        <span id="member_balance_totals_live" class="member-winloss-totals-sr-hint" aria-live="polite"></span>
                 </div>
 
             </div>
