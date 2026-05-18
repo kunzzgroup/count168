@@ -911,13 +911,13 @@ body.transaction-page {
 }
 
 .member-dash-col-total-col.member-dash-col-split {
-    /* TOTAL 整块与左侧竖线拉开，避免大字与分割线视觉重叠 */
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: flex-start;
-    padding-left: clamp(10px, 1.2vw, 18px);
-    padding-right: clamp(6px, 0.85vw, 12px);
+    padding-left: clamp(8px, 1vw, 14px);
+    padding-right: clamp(4px, 0.65vw, 10px);
+    padding-top: 2px;
     min-width: 0;
 }
 
@@ -1071,37 +1071,39 @@ body.transaction-page {
 .member-dash-total-inner {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: flex-start;
-    gap: 4px;
+    gap: 1px;
     min-height: 0;
+    line-height: 1.15;
     text-align: left;
     width: 100%;
     max-width: 100%;
 }
 
 .member-dash-total-caption {
-    font-size: clamp(10px, 0.67vw, 11px);
+    font-size: clamp(9px, 0.58vw, 10px);
     font-weight: 700;
     color: #52667a;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
+    margin-bottom: 1px;
 }
 
 .member-dash-total-values {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
+    gap: 2px;
     width: 100%;
 }
 
 .member-dash-total-values > .member-dash-total-amt {
-    line-height: 1.12;
+    line-height: 1.1;
 }
 
 .member-dash-total-amt {
-    font-size: clamp(12px, 1vw, 15px);
+    font-size: clamp(11px, 0.85vw, 13px);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #002c49;
@@ -1127,35 +1129,34 @@ body.transaction-page {
 
 .member-dash-total-grid-cell {
     display: grid;
-    grid-template-columns: 2.5em minmax(0, 1fr);
-    column-gap: 8px;
+    grid-template-columns: 2.2em minmax(0, 1fr);
+    column-gap: 6px;
     align-items: baseline;
-    padding: 3px 0;
+    padding: 1px 0;
     margin: 0;
     border: none;
     background: transparent;
     border-radius: 0;
-    border-bottom: 1px solid #eef2f7;
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .member-dash-total-grid-cell:last-child {
     border-bottom: none;
-    padding-bottom: 0;
 }
 
 .member-dash-total-grid-code {
-    font-size: clamp(10px, 0.7vw, 11px);
+    font-size: clamp(9px, 0.6vw, 10px);
     font-weight: 700;
     color: #002c49;
 }
 
 .member-dash-total-grid-amt {
-    font-size: clamp(11px, 0.88vw, 13px);
+    font-size: clamp(10px, 0.74vw, 12px);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #002c49;
     text-align: right;
-    line-height: 1.2;
+    line-height: 1.08;
 }
 
 .member-dash-total-grid-amt.member-dash-total-grid-amt--neg {
@@ -1176,15 +1177,15 @@ body.transaction-page {
     .member-dash-total-inner {
         flex-direction: row;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         min-height: 0;
-        padding-top: 8px;
+        padding-top: 4px;
         border-top: 1px solid #e6edf7;
-        margin-top: 6px;
+        margin-top: 4px;
         max-width: none;
         width: 100%;
         text-align: left;
-        gap: 8px;
+        gap: 10px;
     }
 }
 
