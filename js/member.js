@@ -509,17 +509,12 @@ function getMemberMiniGridCurrencies() {
 
 /**
  * 迷你帳戶×幣別矩陣的 grid-template-columns。
- * 幣別欄勿用 1fr，否則在中欄寬版會被拉滿、出現大片空白（用戶截圖圖二）。
- * max-content 讓欄寬貼數字／表頭，外層 .member-balance-mini-grid 可橫向捲動。
+ * 帳號欄 minmax(2.1rem, 5rem)；幣別欄 repeat(ncu, minmax(5rem, max-content))，不依 1fr 撐滿中欄。
+ * 幣別多時總寬超過容器則由 .member-balance-mini-grid 橫向捲動。
  */
 function memberMiniMatrixGridTemplateColumns(ncu) {
-    const rowHeadClamp = 'minmax(2.1rem, 3.85rem)';
-    const cyMin =
-        ncu <= 3 ? '3rem' :
-        ncu <= 5 ? '2.6rem' :
-        ncu <= 8 ? '2.25rem' :
-        '2rem';
-    return `${rowHeadClamp} repeat(${ncu}, minmax(${cyMin}, max-content))`;
+    const rowHeadClamp = 'minmax(2.1rem, 5rem)';
+    return `${rowHeadClamp} repeat(${ncu}, minmax(5rem, max-content))`;
 }
 
 function clearMemberMiniGridDisplay() {
