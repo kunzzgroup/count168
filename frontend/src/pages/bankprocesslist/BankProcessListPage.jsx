@@ -170,6 +170,7 @@ export default function BankProcessListPage() {
   const [newBankName, setNewBankName] = useState("");
   const [selectedCountryChips, setSelectedCountryChips] = useState([]);
   const [selectedBankChips, setSelectedBankChips] = useState([]);
+  const [selectedBanksByCountry, setSelectedBanksByCountry] = useState({});
 
   const [profitShareModalOpen, setProfitShareModalOpen] = useState(false);
   const [profitShareRows, setProfitShareRows] = useState([]);
@@ -540,18 +541,60 @@ export default function BankProcessListPage() {
 
   useEffect(() => {
     if (!modalOpen || !companyId) return;
+    let cancelled = false;
     (async () => {
-      const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
-      url.searchParams.set("action", "get_countries");
-      url.searchParams.set("company_id", String(companyId));
-      const res = await fetch(url.toString(), { credentials: "include" });
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) setCountriesList(json.data);
+      try {
+        const base = buildApiUrl("api/processes/processlist_api.php");
+        const cid = encodeURIComponent(String(companyId));
+        const [countriesRes, selectedCountriesRes, selectedBanksRes] = await Promise.all([
+          fetch(`${base}?action=get_countries&company_id=${cid}`, { credentials: "include" }),
+          fetch(`${base}?action=get_selected_countries&company_id=${cid}`, { credentials: "include" }),
+          fetch(`${base}?action=get_selected_banks&company_id=${cid}`, { credentials: "include" }),
+        ]);
+        const [countriesJson, selectedCountriesJson, selectedBanksJson] = await Promise.all([
+          countriesRes.json(),
+          selectedCountriesRes.json(),
+          selectedBanksRes.json(),
+        ]);
+        if (cancelled) return;
+        if (countriesJson.success && Array.isArray(countriesJson.data)) {
+          setCountriesList(countriesJson.data);
+        }
+        if (selectedCountriesJson.success && Array.isArray(selectedCountriesJson.data)) {
+          const list = selectedCountriesJson.data
+            .map((c) => String(c || "").trim().toUpperCase())
+            .filter(Boolean);
+          setSelectedCountryChips([...new Set(list)]);
+        }
+        if (
+          selectedBanksJson.success
+          && selectedBanksJson.data
+          && typeof selectedBanksJson.data === "object"
+          && !Array.isArray(selectedBanksJson.data)
+        ) {
+          const map = {};
+          for (const [countryKey, banks] of Object.entries(selectedBanksJson.data)) {
+            const country = String(countryKey || "").trim();
+            if (!country) continue;
+            map[country] = Array.isArray(banks)
+              ? banks.map((b) => String(b || "").trim()).filter(Boolean)
+              : [];
+          }
+          setSelectedBanksByCountry(map);
+        }
+      } catch {
+        /* ignore */
+      }
     })();
+    return () => { cancelled = true; };
   }, [modalOpen, companyId]);
 
   useEffect(() => {
-    if (!modalOpen || !companyId || !form.country) { setBanksList([]); return; }
+    if (!modalOpen || !companyId || !form.country) {
+      setBanksList([]);
+      return;
+    }
+    let cancelled = false;
     (async () => {
       const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
       url.searchParams.set("action", "get_banks_by_country");
@@ -559,15 +602,21 @@ export default function BankProcessListPage() {
       url.searchParams.set("country", String(form.country));
       const res = await fetch(url.toString(), { credentials: "include" });
       const json = await res.json();
+      if (cancelled) return;
       if (json.success && Array.isArray(json.data)) setBanksList(json.data);
     })();
+    return () => { cancelled = true; };
   }, [modalOpen, companyId, form.country]);
 
   useEffect(() => {
-    if (!modalOpen || !editMode) return;
-    if (form.country) setCountriesList((prev) => (prev.includes(form.country) ? prev : [...prev, form.country].sort()));
-    if (form.bank && form.country) setBanksList((prev) => (prev.includes(form.bank) ? prev : [...prev, form.bank].sort()));
-  }, [modalOpen, editMode, form.country, form.bank]);
+    if (!modalOpen || editMode || !form.country) return;
+    const country = String(form.country || "").trim();
+    const allowed = selectedBanksByCountry[country] || [];
+    setForm((f) => {
+      if (!f.bank || allowed.includes(f.bank)) return f;
+      return { ...f, bank: "" };
+    });
+  }, [modalOpen, editMode, form.country, selectedBanksByCountry]);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -846,9 +895,39 @@ export default function BankProcessListPage() {
     setProfitShareModalOpen(false);
     setBankFormNote(null);
     setAddAccountModalOpen(false);
-    setSelectedCountryChips([]);
-    setSelectedBankChips([]);
     setModalOpen(true);
+  };
+
+  const persistSelectedCountries = async (countries) => {
+    if (!companyId) return;
+    const fd = new FormData();
+    fd.append("company_id", String(companyId));
+    for (const c of countries) fd.append("countries[]", c);
+    try {
+      await fetch(buildApiUrl("api/processes/processlist_api.php?action=save_selected_countries"), {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const persistSelectedBanksByCountry = async (map) => {
+    if (!companyId) return;
+    const fd = new FormData();
+    fd.append("company_id", String(companyId));
+    fd.append("selected", JSON.stringify(map || {}));
+    try {
+      await fetch(buildApiUrl("api/processes/processlist_api.php?action=save_selected_banks"), {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+    } catch {
+      /* ignore */
+    }
   };
 
   const submitNewCountry = async (e) => {
@@ -861,7 +940,6 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(apiMsg(json, "addCountryFailed"), "danger");
       setCountriesList((prev) => [...new Set([...prev, name])].sort());
-      setSelectedCountryChips((prev) => (prev.includes(name) ? prev : [...prev, name]));
       setNewCountryName("");
       notify(t("countryAdded"));
     } catch { notify(t("addCountryFailed"), "danger"); }
@@ -877,7 +955,6 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(apiMsg(json, "addBankFailed"), "danger");
       setBanksList((prev) => [...new Set([...prev, name])].sort());
-      setSelectedBankChips((prev) => (prev.includes(name) ? prev : [...prev, name]));
       setNewBankName("");
       notify(t("bankAdded"));
     } catch { notify(t("addBankFailed"), "danger"); }
@@ -886,14 +963,17 @@ export default function BankProcessListPage() {
   const removeAvailableCountry = async (countryName) => {
     const country = String(countryName || "").trim();
     if (!country || !companyId) return;
-    if (!window.confirm(t("removeCountryConfirm", { country }))) return;
     try {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", country);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=remove_country"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!res.ok || !json.success) return notify(apiMsg(json, "removeCountryFailed"), "danger");
       setCountriesList((prev) => prev.filter((c) => c !== country));
-      setSelectedCountryChips((prev) => prev.filter((c) => c !== country));
+      setSelectedCountryChips((prev) => {
+        const next = prev.filter((c) => c !== country);
+        void persistSelectedCountries(next);
+        return next;
+      });
       setForm((f) => (f.country === country ? { ...f, country: "", bank: "" } : f));
       notify(t("countryRemoved"));
     } catch { notify(t("removeCountryFailed"), "danger"); }
@@ -903,7 +983,6 @@ export default function BankProcessListPage() {
     const bank = String(bankName || "").trim();
     const country = String(form.country || "").trim();
     if (!bank || !country || !companyId) return;
-    if (!window.confirm(t("removeBankConfirm", { bank, country }))) return;
     try {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", country); fd.append("bank", bank);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=remove_bank"), { method: "POST", body: fd, credentials: "include" });
@@ -911,6 +990,14 @@ export default function BankProcessListPage() {
       if (!res.ok || !json.success) return notify(apiMsg(json, "removeBankFailed"), "danger");
       setBanksList((prev) => prev.filter((b) => b !== bank));
       setSelectedBankChips((prev) => prev.filter((b) => b !== bank));
+      setSelectedBanksByCountry((prev) => {
+        const list = (prev[country] || []).filter((b) => b !== bank);
+        const next = { ...prev };
+        if (list.length) next[country] = list;
+        else delete next[country];
+        void persistSelectedBanksByCountry(next);
+        return next;
+      });
       setForm((f) => (f.bank === bank ? { ...f, bank: "" } : f));
       notify(t("bankRemoved"));
     } catch { notify(t("removeBankFailed"), "danger"); }
@@ -1625,10 +1712,35 @@ export default function BankProcessListPage() {
 
       {modalOpen && (
         <BankProcessFormModal
-          editMode={editMode} form={form} setForm={setForm} accounts={accounts} countriesList={countriesList} banksList={banksList}
+          editMode={editMode} form={form} setForm={setForm} accounts={accounts}
+          countriesList={selectedCountryChips}
+          banksList={selectedBanksByCountry[String(form.country || "").trim()] || []}
           onClose={() => setModalOpen(false)} onSubmit={submitForm}
-          onOpenCountryModal={() => { setSelectedCountryChips(form.country ? [form.country] : []); setCountrySearch(""); setNewCountryName(""); setCountryModalOpen(true); }}
-          onOpenBankModal={() => { setSelectedBankChips(form.bank ? [form.bank] : []); setBankSearch(""); setNewBankName(""); setBankModalOpen(true); }}
+          onOpenCountryModal={() => {
+            setSelectedCountryChips((prev) => {
+              const set = new Set(prev);
+              const cur = String(form.country || "").trim().toUpperCase();
+              if (cur) set.add(cur);
+              return [...set].sort((a, b) => a.localeCompare(b));
+            });
+            setCountrySearch("");
+            setNewCountryName("");
+            setCountryModalOpen(true);
+          }}
+          onOpenBankModal={() => {
+            const country = String(form.country || "").trim();
+            if (!country) {
+              notify(t("pleaseSelectCountryFirst"), "warning");
+              return;
+            }
+            const banks = [...(selectedBanksByCountry[country] || [])];
+            const cur = String(form.bank || "").trim();
+            if (cur && !banks.includes(cur)) banks.push(cur);
+            setSelectedBankChips(banks);
+            setBankSearch("");
+            setNewBankName("");
+            setBankModalOpen(true);
+          }}
           onOpenProfitShareModal={openProfitShareModal}
           onOpenBankFormNoteModal={(kind) => setBankFormNote({ kind, draft: kind === "sop" ? String(form.sop || "") : String(form.remark || "") })}
           onOpenAddAccountForField={openAddAccountForField}
@@ -1652,7 +1764,8 @@ export default function BankProcessListPage() {
               ordered.push(u);
             }
             if (!ordered.length) return;
-            setCountriesList((prev) => [...new Set([...prev, ...ordered])].sort());
+            setSelectedCountryChips(ordered);
+            void persistSelectedCountries(ordered);
             setForm((f) => {
               const cur = String(f.country || "").trim().toUpperCase();
               const nextCountry = ordered.includes(cur) ? f.country : ordered[0];
@@ -1672,7 +1785,16 @@ export default function BankProcessListPage() {
           banksList={banksList} selectedBankChips={selectedBankChips} setSelectedBankChips={setSelectedBankChips}
           bankSearch={bankSearch} setBankSearch={setBankSearch} newBankName={newBankName} setNewBankName={setNewBankName}
           onSubmitNewBank={submitNewBank} onRemoveAvailableBank={removeAvailableBank}
-          onConfirm={(bank) => { setForm((f) => ({ ...f, bank })); setBankModalOpen(false); }}
+          onConfirm={(bank) => {
+            const country = String(form.country || "").trim();
+            if (!country) return;
+            const nextMap = { ...selectedBanksByCountry, [country]: [bank] };
+            setSelectedBanksByCountry(nextMap);
+            setSelectedBankChips([bank]);
+            void persistSelectedBanksByCountry(nextMap);
+            setForm((f) => ({ ...f, bank }));
+            setBankModalOpen(false);
+          }}
           onClose={() => setBankModalOpen(false)} notify={notify}
           t={t}
         />

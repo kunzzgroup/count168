@@ -15,9 +15,11 @@ export default function BankSelectionModal({
   notify,
   t,
 }) {
-  const toggleBankChipSelection = (b) => {
-    setSelectedBankChips((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]));
+  const pickBank = (b) => {
+    setSelectedBankChips((prev) => (prev.includes(b) ? prev : [...prev, b]));
   };
+
+  const availableBanks = (banksList || []).filter((b) => !selectedBankChips.includes(b));
 
   return (
     <div id="bankSelectionModal" className="modal bank-selection-modal-wrap" style={{ display: "block" }}>
@@ -55,17 +57,17 @@ export default function BankSelectionModal({
                 />
               </div>
               <div className="bank-list" id="existingBanks">
-                {banksList.filter((b) => !bankSearch.trim() || b.toUpperCase().includes(bankSearch.trim())).map((b) => (
+                {availableBanks.filter((b) => !bankSearch.trim() || b.toUpperCase().includes(bankSearch.trim())).map((b) => (
                   <div
                     key={b}
-                    className={`country-item${selectedBankChips.includes(b) ? " is-picked" : ""}`}
+                    className="country-item"
                     role="button"
                     tabIndex={0}
-                    onClick={() => toggleBankChipSelection(b)}
+                    onClick={() => pickBank(b)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        toggleBankChipSelection(b);
+                        pickBank(b);
                       }
                     }}
                   >
