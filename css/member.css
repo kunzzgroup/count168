@@ -892,13 +892,12 @@ body.transaction-page {
 .member-dash-columns {
     display: grid;
     /*
-     * 中欄用 minmax(0,1fr) 只吃「剩餘寬度」，迷你表在欄內捲動；勿用 max-content 撐滿導致 Total 被擠出視口。
-     * 左欄固定比例；右欄 Total 依內容寬。
+     * 兩欄：篩選 | 右側資料帶（帶內含 迷你矩陣 + Total，整塊靠右，避免「中欄 1fr + 表寬 max-content」左側巨大留白）
      */
     --member-dash-filter-track: clamp(260px, 40%, 560px);
-    /* 第 2 欄 Accounts 工具列與第 3 欄占位同高，兩個「表格外框」頂對齊 */
+    /* Accounts 工具列與 Total 占位同高 */
     --member-dash-matrix-toolbar-slot: 34px;
-    grid-template-columns: var(--member-dash-filter-track) minmax(0, 1fr) minmax(104px, max-content);
+    grid-template-columns: var(--member-dash-filter-track) minmax(0, 1fr);
     gap: 0;
     align-items: stretch;
     width: 100%;
@@ -906,7 +905,28 @@ body.transaction-page {
     box-sizing: border-box;
 }
 
+/* 右側：矩陣 + Total 貼齊卡片右緣（老闆要數字區在右邊成區，不靠中欄正中間浮一塊） */
+.member-dash-right-rail {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    align-items: stretch;
+    align-content: flex-start;
+    min-width: 0;
+    border-left: 1px solid #e5ecf6;
+    padding-left: clamp(10px, 1.1vw, 15px);
+    box-sizing: border-box;
+}
+
+.member-dash-right-rail > .member-dash-col-grid.member-dash-col-split {
+    border-left: none;
+    padding-left: 0;
+    padding-right: 2px;
+}
+
 .member-dash-col-grid {
+    flex: 0 1 auto;
     min-width: 0;
 }
 
@@ -927,10 +947,6 @@ body.transaction-page {
     );
 }
 
-.member-dash-col-grid.member-dash-col-split {
-    padding-right: 2px;
-}
-
 .member-dash-col-filters {
     min-width: 0;
     padding-right: clamp(8px, 1vw, 14px);
@@ -941,11 +957,12 @@ body.transaction-page {
     padding-left: clamp(10px, 1.1vw, 15px);
 }
 
-.member-dash-col-total-col.member-dash-col-split {
+.member-dash-right-rail > .member-dash-col-total-col.member-dash-col-split {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     align-items: stretch;
+    flex: 0 0 auto;
     padding-left: 6px;
     padding-right: 2px;
     padding-top: 0;
@@ -1276,11 +1293,18 @@ body.transaction-page {
 
 @media (max-width: 1180px) {
     .member-dash-columns {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
-    .member-dash-col-total-col {
-        grid-column: 1 / -1;
+
+    .member-dash-right-rail {
+        border-left: none;
+        padding-left: 0;
+        padding-top: 10px;
+        margin-top: 4px;
+        border-top: 1px solid #e5ecf6;
+        justify-content: flex-end;
     }
+
     .member-dash-col-total-col.member-dash-col-split {
         border-left: none;
         padding-left: 0;
@@ -1307,13 +1331,20 @@ body.transaction-page {
     .member-dash-columns {
         grid-template-columns: 1fr;
     }
-    .member-dash-col-split {
-        border-left: none;
+
+    /* 分割線只畫在右側資料帶頂部，避免 rail 內兩個 .member-dash-col-split 各畫一條 */
+    .member-dash-right-rail {
         border-top: 1px solid #e5ecf6;
-        padding-left: 0;
-        padding-top: 10px;
         margin-top: 4px;
+        padding-top: 10px;
     }
+
+    .member-dash-right-rail .member-dash-col-split {
+        border-top: none;
+        margin-top: 0;
+        padding-top: 0;
+    }
+
     .member-dash-col-filters {
         padding-right: 0;
     }

@@ -283,28 +283,31 @@ $default_date_to = $today_dt->format('d/m/Y');
                 </div>
                 </div>
 
-                <div class="member-dash-col member-dash-col-grid member-dash-col-split">
-                        <div class="member-dash-mini-toolbar">
-                            <button type="button" class="member-dash-filter-trigger" id="member_linked_filter_btn" title="Choose which linked accounts appear in the grid">
-                                <i class="fas fa-filter" aria-hidden="true"></i>
-                                <span>Accounts</span>
-                            </button>
-                            <span class="member-dash-grid-curr" id="member_balance_grid_currency_line"></span>
-                        </div>
-                        <div id="member_balance_grid" class="member-balance-mini-grid"></div>
-                        <p id="member_balance_grid_hint" class="member-balance-mini-hint" style="margin:4px 0 0;"></p>
-                </div>
+                <!-- 篩選在左，迷你矩陣 + Total 合併在右側一區（靠右，避免中欄大片留白） -->
+                <div class="member-dash-right-rail">
+                    <div class="member-dash-col member-dash-col-grid member-dash-col-split">
+                            <div class="member-dash-mini-toolbar">
+                                <button type="button" class="member-dash-filter-trigger" id="member_linked_filter_btn" title="Choose which linked accounts appear in the grid">
+                                    <i class="fas fa-filter" aria-hidden="true"></i>
+                                    <span>Accounts</span>
+                                </button>
+                                <span class="member-dash-grid-curr" id="member_balance_grid_currency_line"></span>
+                            </div>
+                            <div id="member_balance_grid" class="member-balance-mini-grid"></div>
+                            <p id="member_balance_grid_hint" class="member-balance-mini-hint" style="margin:4px 0 0;"></p>
+                    </div>
 
-                <div class="member-dash-col member-dash-col-total-col member-dash-col-split">
-                        <div class="member-dash-total-column-stack">
-                            <div class="member-dash-total-toolbar-gap" aria-hidden="true"></div>
-                            <div class="member-dash-total-matrix" role="region" aria-label="Balance totals">
-                                <div class="member-dash-total-matrix-hd">Total</div>
-                                <div class="member-dash-total-matrix-body">
-                                    <div id="member_balance_total_value" class="member-dash-total-values" aria-live="polite"><span class="member-dash-total-amt">–</span></div>
+                    <div class="member-dash-col member-dash-col-total-col member-dash-col-split">
+                            <div class="member-dash-total-column-stack">
+                                <div class="member-dash-total-toolbar-gap" aria-hidden="true"></div>
+                                <div class="member-dash-total-matrix" role="region" aria-label="Balance totals">
+                                    <div class="member-dash-total-matrix-hd">Total</div>
+                                    <div class="member-dash-total-matrix-body">
+                                        <div id="member_balance_total_value" class="member-dash-total-values" aria-live="polite"><span class="member-dash-total-amt">–</span></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                    </div>
                 </div>
 
             </div>
