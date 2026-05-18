@@ -883,7 +883,15 @@ body.transaction-page {
     /* 拉高中欄 fr、壓縮右欄寬與留白，縮小矩陣與 Total 之間「空白帶」 */
     grid-template-columns: minmax(252px, 0.96fr) minmax(188px, 1.72fr) minmax(92px, 0.41fr);
     gap: 0;
-    align-items: start;
+    /* stretch：右欄左側縱線隨最高欄延伸至列底（避免 TOTAL 區塊較矮時線條斷尾） */
+    align-items: stretch;
+}
+
+.member-dash-col-filters {
+    padding-right: clamp(8px, 1vw, 14px);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
 }
 
 .member-dash-col-grid {
@@ -892,10 +900,6 @@ body.transaction-page {
 
 .member-dash-col-grid.member-dash-col-split {
     padding-right: clamp(4px, 0.65vw, 10px);
-}
-
-.member-dash-col-filters {
-    padding-right: clamp(8px, 1vw, 14px);
 }
 
 .member-dash-col-split {
@@ -908,7 +912,6 @@ body.transaction-page {
     flex-direction: column;
     justify-content: flex-start;
     align-items: flex-start;
-    align-self: start;
     padding-left: clamp(5px, 0.65vw, 9px);
     padding-right: 2px;
     padding-top: 0;
