@@ -13,8 +13,11 @@ let memberIsAllSelected = true;
 let memberSearchSeq = 0;
 let memberSummaryAbortController = null;
 let memberHistoryAbortController = null;
-/** 账户在当前公司下拥有的全部币别（与日期区间无关），来自 account_currency_api */
-let memberOwnedCurrencies = [];
+/** 关联账号列表 [{id, account_id, name}]（与同公司 Link 可达），用于迷你网格 */
+let memberLinkedAccountsList = [];
+/** 用户在网格中要显示的账号 id（默认可登录闭包内全选）；按公司+会话账号记在 sessionStorage */
+const memberWLGridSelectedIds = new Set();
+let memberGridFetchAbortController = null;
 
 function loadMemberOwnedCurrencies() {
     const accountId = memberConfig.accountId;
@@ -74,9 +77,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureMemberCurrencyChromeVisible();
     initDatePickers();
     setupCompanyButtons();
-    loadMemberLinkedAccounts();
-    // 先拉齐账户拥有的全部币别（与区间内是否有余额无关），再搜报表，Currency 按钮列表始终完整
-    loadMemberOwnedCurrencies().finally(() => performMemberSearch());
+    setupMemberLinkedFilterModalHandlers();
+    Promise.all([
+        loadMemberLinkedAccounts(),
+        loadMemberOwnedCurrencies()
+    ]).finally(() => performMemberSearch());
 });
 
 function performMemberSearch() {
@@ -264,8 +269,9 @@ function setupCompanyButtons() {
                 });
 
                 showNotification(`Switched to company ${label || companyId}`, 'success');
-                loadMemberLinkedAccounts();
-                loadMemberOwnedCurrencies().finally(() => performMemberSearch());
+                loadMemberLinkedAccounts().finally(() => {
+                    loadMemberOwnedCurrencies().finally(() => performMemberSearch());
+                });
             })
             .catch(err => {
                 console.error('Failed to switch company:', err);
@@ -274,21 +280,313 @@ function setupCompanyButtons() {
     });
 }
 
+function memberWLGridStorageKey() {
+    return `member_wl_grid:${memberConfig.companyId}:${memberConfig.accountId}`;
+}
+
+function applyDefaultWLGridSelectionFromLinkedList() {
+    const ids = memberLinkedAccountsList.map(a => Number(a.id)).filter(x => x > 0);
+    memberWLGridSelectedIds.clear();
+    if (ids.length === 0) {
+        saveWLGridSelectionToStorage();
+        return;
+    }
+    let restored = false;
+    try {
+        const raw = sessionStorage.getItem(memberWLGridStorageKey());
+        if (raw) {
+            const arr = JSON.parse(raw);
+            arr.forEach((id) => {
+                const n = Number(id);
+                if (ids.includes(n)) memberWLGridSelectedIds.add(n);
+            });
+            if (memberWLGridSelectedIds.size > 0) restored = true;
+        }
+    } catch (e) { /* ignore */ }
+    if (!restored) {
+        ids.forEach((id) => memberWLGridSelectedIds.add(id));
+    }
+    saveWLGridSelectionToStorage();
+}
+
+function saveWLGridSelectionToStorage() {
+    try {
+        sessionStorage.setItem(memberWLGridStorageKey(), JSON.stringify([...memberWLGridSelectedIds]));
+    } catch (e) { /* ignore */ }
+}
+
+function syncMemberLinkedFilterTrigger() {
+    const btn = document.getElementById('member_linked_filter_btn');
+    if (!btn) return;
+    const show = memberLinkedAccountsList.length > 0;
+    btn.style.display = show ? 'inline-flex' : 'none';
+    btn.toggleAttribute('disabled', !show);
+}
+
+function getMemberMiniGridCurrencyCode() {
+    const currencies = getAvailableCurrencies();
+    if (!currencies.length) return '';
+    if (memberIsAllSelected) {
+        return currencies.length === 1 ? currencies[0] : '';
+    }
+    if (memberSelectedCurrencies.size === 1) {
+        return Array.from(memberSelectedCurrencies)[0];
+    }
+    return '';
+}
+
+function clearMemberMiniGridDisplay() {
+    const gridEl = document.getElementById('member_balance_grid');
+    const hintEl = document.getElementById('member_balance_grid_hint');
+    const currLine = document.getElementById('member_balance_grid_currency_line');
+    const totalEl = document.getElementById('member_balance_total_value');
+    if (gridEl) gridEl.innerHTML = '';
+    if (hintEl) hintEl.textContent = '';
+    if (currLine) currLine.textContent = '';
+    if (totalEl) totalEl.textContent = '–';
+}
+
+function refreshMemberMiniGrid(seq) {
+    return fetchMemberMiniGridBalances(seq != null ? seq : memberSearchSeq);
+}
+
+function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
+    return new Promise((resolve) => {
+        const hintEl = document.getElementById('member_balance_grid_hint');
+        const currLine = document.getElementById('member_balance_grid_currency_line');
+
+        clearMemberMiniGridDisplay();
+
+        if (!memberLinkedAccountsList.length) {
+            if (hintEl) hintEl.textContent = '';
+            resolve();
+            return;
+        }
+
+        const currencyCode = getMemberMiniGridCurrencyCode();
+        const dateFrom = document.getElementById('date_from') && document.getElementById('date_from').value;
+        const dateTo = document.getElementById('date_to') && document.getElementById('date_to').value;
+
+        if (!currencyCode || !dateFrom || !dateTo) {
+            if (!currencyCode) {
+                if (hintEl) {
+                    hintEl.textContent = 'Select one currency in the Currency row to show balances.';
+                }
+            }
+            resolve();
+            return;
+        }
+
+        if (currLine) currLine.textContent = currencyCode;
+        if (hintEl) hintEl.textContent = '';
+        const selectedSorted = [...memberWLGridSelectedIds].filter(id => allIds.has(Number(id))).sort((a, b) => a - b);
+        const targetIds = selectedSorted.length ? selectedSorted : [...allIds].sort((a, b) => a - b);
+
+        if (memberGridFetchAbortController) {
+            memberGridFetchAbortController.abort();
+        }
+        memberGridFetchAbortController = new AbortController();
+
+        const params = new URLSearchParams({
+            date_from: dateFrom,
+            date_to: dateTo,
+            target_account_id: targetIds.join(','),
+            company_id: memberConfig.companyId,
+            currency: currencyCode,
+            show_inactive: '1',
+            hide_zero_balance: '0'
+        });
+        fetch(`api/transactions/search_api.php?${params.toString()}&_t=${Date.now()}`, { cache: 'no-cache', signal: memberGridFetchAbortController.signal })
+            .then(res => res.text())
+            .then(text => parseJsonResponse(text))
+            .then(data => {
+                if (seq !== memberSearchSeq) {
+                    resolve();
+                    return;
+                }
+                if (!data.success) {
+                    throw new Error(data.error || 'Grid load failed');
+                }
+                const combined = [
+                    ...(data.data?.left_table ?? []),
+                    ...(data.data?.right_table ?? [])
+                ];
+                renderMemberMiniGrid(combined, currencyCode, seq);
+                resolve();
+            })
+            .catch((err) => {
+                if (err && err.name === 'AbortError') {
+                    resolve();
+                    return;
+                }
+                if (seq !== memberSearchSeq) {
+                    resolve();
+                    return;
+                }
+                clearMemberMiniGridDisplay();
+                if (hintEl) hintEl.textContent = err.message || 'Could not load grid.';
+                resolve();
+            });
+    });
+}
+
+function renderMemberMiniGrid(rows, currencyCode, seq) {
+    const gridEl = document.getElementById('member_balance_grid');
+    const totalEl = document.getElementById('member_balance_total_value');
+    const hintEl = document.getElementById('member_balance_grid_hint');
+
+    if (seq !== memberSearchSeq || !gridEl || !totalEl) return;
+
+    gridEl.innerHTML = '';
+    if (hintEl) hintEl.textContent = '';
+
+    const sel = new Set([...memberWLGridSelectedIds].map(Number));
+    const listOrdered = memberLinkedAccountsList.filter(a => sel.has(Number(a.id)));
+
+    let running = normalizeNumber('0');
+    listOrdered.forEach((acc) => {
+        const idNum = Number(acc.id);
+        const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
+        const hit = rows.find(row =>
+            Number(row.account_db_id) === idNum
+            && (row.currency || '').trim().toUpperCase() === currencyCode.trim().toUpperCase()
+        );
+        const rawBal = hit && hit.balance !== undefined && hit.balance !== null ? hit.balance : '0';
+        running = running.plus(normalizeNumber(rawBal));
+
+        const cell = document.createElement('div');
+        cell.className = 'member-balance-mini-cell';
+        const ln = document.createElement('span');
+        ln.className = 'member-balance-mini-acc';
+        ln.textContent = code;
+        const rv = document.createElement('span');
+        rv.className = 'member-balance-mini-val';
+        rv.textContent = formatNumber(rawBal);
+        cell.appendChild(ln);
+        cell.appendChild(rv);
+        gridEl.appendChild(cell);
+    });
+
+    totalEl.textContent = formatNumber(running.toString());
+}
+
+function buildMemberLinkedFilterModalList() {
+    const box = document.getElementById('member_linked_filter_checkbox_area');
+    if (!box) return;
+    box.innerHTML = '';
+    memberLinkedAccountsList.forEach((acc) => {
+        const id = Number(acc.id);
+        const label = ((acc.account_id || acc.name || String(id))).trim();
+        const row = document.createElement('label');
+        row.className = 'member-linked-cb-row';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = String(id);
+        cb.checked = memberWLGridSelectedIds.has(id);
+        const span = document.createElement('span');
+        span.textContent = label || id;
+        row.appendChild(cb);
+        row.appendChild(span);
+        box.appendChild(row);
+    });
+}
+
+function filterMemberLinkedModalRows(query) {
+    const q = (query || '').trim().toLowerCase();
+    document.querySelectorAll('#member_linked_filter_checkbox_area .member-linked-cb-row').forEach((row) => {
+        const t = row.textContent.toLowerCase();
+        row.style.display = (!q || t.includes(q)) ? '' : 'none';
+    });
+}
+
+function memberOpenLinkedFilterModal() {
+    const modal = document.getElementById('member_linked_filter_modal');
+    const searchEl = document.getElementById('member_linked_filter_search');
+    if (!modal || memberLinkedAccountsList.length === 0) return;
+    if (searchEl) searchEl.value = '';
+    buildMemberLinkedFilterModalList();
+    filterMemberLinkedModalRows('');
+    modal.style.display = 'block';
+}
+
+function memberCloseLinkedFilterModal() {
+    const modal = document.getElementById('member_linked_filter_modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function setupMemberLinkedFilterModalHandlers() {
+    const modal = document.getElementById('member_linked_filter_modal');
+    document.getElementById('member_linked_filter_btn') && document.getElementById('member_linked_filter_btn').addEventListener('click', () => {
+        memberOpenLinkedFilterModal();
+    });
+    modal && modal.addEventListener('click', (e) => {
+        if (e.target === modal) memberCloseLinkedFilterModal();
+    });
+    document.querySelectorAll('[data-member-close-modal]').forEach((el) => {
+        el.addEventListener('click', () => memberCloseLinkedFilterModal());
+    });
+
+    document.getElementById('member_linked_select_all') && document.getElementById('member_linked_select_all').addEventListener('click', () => {
+        document.querySelectorAll('#member_linked_filter_checkbox_area input[type=checkbox]').forEach((cb) => { cb.checked = true; });
+    });
+    document.getElementById('member_linked_clear_all') && document.getElementById('member_linked_clear_all').addEventListener('click', () => {
+        document.querySelectorAll('#member_linked_filter_checkbox_area input[type=checkbox]').forEach((cb) => { cb.checked = false; });
+    });
+
+    const searchEl = document.getElementById('member_linked_filter_search');
+    if (searchEl) {
+        searchEl.addEventListener('input', () => filterMemberLinkedModalRows(searchEl.value));
+    }
+
+    document.getElementById('member_linked_filter_apply') && document.getElementById('member_linked_filter_apply').addEventListener('click', () => {
+        const checked = [...document.querySelectorAll('#member_linked_filter_checkbox_area input[type=checkbox]:checked')]
+            .map((cb) => Number(cb.value)).filter(Boolean);
+        if (!checked.length) {
+            showNotification('Select at least one account.', 'warning');
+            return;
+        }
+        memberWLGridSelectedIds.clear();
+        checked.forEach((id) => memberWLGridSelectedIds.add(id));
+        saveWLGridSelectionToStorage();
+        memberCloseLinkedFilterModal();
+        refreshMemberMiniGrid(memberSearchSeq);
+    });
+
+    window.memberCloseLinkedFilterModal = memberCloseLinkedFilterModal;
+}
+
 function loadMemberLinkedAccounts() {
     const container = document.getElementById('member_account_buttons');
     const loadingEl = document.getElementById('member_account_loading');
-    if (!container) return;
-    if (loadingEl) loadingEl.style.display = 'inline';
+
+    memberLinkedAccountsList = [];
+    syncMemberLinkedFilterTrigger();
+
+    if (!container) {
+        return Promise.resolve();
+    }
     const accountId = memberConfig.accountId;
     const companyId = memberConfig.companyId;
-    if (!accountId || !companyId) {
+
+    const failEmptyUi = () => {
+        memberLinkedAccountsList = [];
+        memberWLGridSelectedIds.clear();
         if (loadingEl) loadingEl.style.display = 'none';
         container.innerHTML = '<span class="member-account-loading">-</span>';
         const filterEl = document.getElementById('member_account_filter');
         if (filterEl) filterEl.style.display = 'none';
-        return;
+        syncMemberLinkedFilterTrigger();
+        clearMemberMiniGridDisplay();
+    };
+
+    if (!accountId || !companyId) {
+        failEmptyUi();
+        return Promise.resolve();
     }
-    fetch(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
+
+    if (loadingEl) loadingEl.style.display = 'inline';
+
+    return fetch(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
         .then(res => res.text())
         .then(text => {
             let data;
@@ -299,44 +597,47 @@ function loadMemberLinkedAccounts() {
                 throw new Error('Invalid response');
             }
             if (!data.success || !Array.isArray(data.data)) {
-                container.innerHTML = '<span class="member-account-loading">-</span>';
-                const filterEl = document.getElementById('member_account_filter');
-                if (filterEl) filterEl.style.display = 'none';
+                failEmptyUi();
                 return;
             }
-            const list = data.data;
+            const list = data.data.map((acc) => ({
+                id: acc.id,
+                account_id: acc.account_id || '',
+                name: acc.name || ''
+            }));
+            memberLinkedAccountsList = list;
+            applyDefaultWLGridSelectionFromLinkedList();
+
             const filterEl = document.getElementById('member_account_filter');
             if (list.length <= 1) {
                 if (filterEl) filterEl.style.display = 'none';
                 container.innerHTML = '';
                 if (loadingEl) loadingEl.style.display = 'none';
-                return;
+            } else {
+                container.innerHTML = '';
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (filterEl) filterEl.style.display = 'flex';
+                list.forEach(acc => {
+                    const id = acc.id;
+                    const code = (acc.account_id || acc.name || String(id)).trim();
+                    const name = (acc.name || code).trim();
+                    const isActive = Number(id) === Number(memberConfig.accountId);
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'transaction-company-btn' + (isActive ? ' active' : '');
+                    btn.dataset.accountId = id;
+                    btn.dataset.accountCode = code;
+                    btn.dataset.accountName = name;
+                    btn.textContent = code || name || id;
+                    container.appendChild(btn);
+                });
+                setupAccountButtons();
             }
-            container.innerHTML = '';
-            if (loadingEl) loadingEl.style.display = 'none';
-            if (filterEl) filterEl.style.display = 'flex';
-            list.forEach(acc => {
-                const id = acc.id;
-                const code = (acc.account_id || acc.name || String(id)).trim();
-                const name = (acc.name || code).trim();
-                const isActive = Number(id) === Number(memberConfig.accountId);
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'transaction-company-btn' + (isActive ? ' active' : '');
-                btn.dataset.accountId = id;
-                btn.dataset.accountCode = code;
-                btn.dataset.accountName = name;
-                btn.textContent = code || name || id;
-                container.appendChild(btn);
-            });
-            setupAccountButtons();
+            syncMemberLinkedFilterTrigger();
         })
         .catch(err => {
             console.error('Failed to load linked accounts:', err);
-            if (loadingEl) loadingEl.style.display = 'none';
-            container.innerHTML = '<span class="member-account-loading">-</span>';
-            const filterEl = document.getElementById('member_account_filter');
-            if (filterEl) filterEl.style.display = 'none';
+            failEmptyUi();
         });
 }
 
@@ -361,7 +662,9 @@ function setupAccountButtons() {
                     container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     showNotification(`Switched to account ${code || name || accountId}`, 'success');
-                    loadMemberOwnedCurrencies().finally(() => performMemberSearch());
+                    loadMemberLinkedAccounts().finally(() => {
+                        loadMemberOwnedCurrencies().finally(() => performMemberSearch());
+                    });
                 })
                 .catch(err => {
                     console.error('Failed to switch account:', err);
@@ -560,7 +863,7 @@ function fetchMemberSummary(seq = memberSearchSeq) {
                         memberSelectedCurrencies.clear();
                     }
                     renderCurrencyFilters();
-                    resolve();
+                    fetchMemberMiniGridBalances(seq).finally(() => resolve());
                 });
             })
             .catch(err => {
@@ -577,6 +880,7 @@ function fetchMemberSummary(seq = memberSearchSeq) {
                 memberCurrencySortOrder.clear();
                 ensureMemberCurrencyChromeVisible();
                 renderCurrencyFilters();
+                clearMemberMiniGridDisplay();
                 setMemberTablesPlaceholder(err.message || 'Failed to load currency data.');
                 showNotification(err.message || 'Failed to load currency data', 'error');
                 reject(err);
@@ -721,6 +1025,7 @@ function saveMemberCurrencyOrder(order) {
                     memberSelectedCurrencies.clear();
                     renderCurrencyFilters();
                     fetchMemberHistory();
+                    refreshMemberMiniGrid(memberSearchSeq);
                 }
             }
         })
@@ -838,6 +1143,7 @@ function createCurrencyButton(code, label, isAll = false) {
                 memberSelectedCurrencies.clear();
                 renderCurrencyFilters();
                 fetchMemberHistory();
+                refreshMemberMiniGrid(memberSearchSeq);
             }
             return;
         }
@@ -852,6 +1158,7 @@ function createCurrencyButton(code, label, isAll = false) {
 
         renderCurrencyFilters();
         fetchMemberHistory();
+        refreshMemberMiniGrid(memberSearchSeq);
     });
     return btn;
 }

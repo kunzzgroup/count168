@@ -907,6 +907,25 @@ try {
         $company_id = $_SESSION['company_id'];
     }
 
+    // Member：target_account_id 仅可为当前会话账号在同公司的关联闭包内 id，防止越权查询他人余额
+    if ($isMemberUser && !empty($target_account_ids)) {
+        require_once __DIR__ . '/../includes/member_linked_closure.php';
+        $pivotId = (int) ($_SESSION['user_id'] ?? 0);
+        if ($pivotId > 0) {
+            $allowed = member_linked_member_closure_ids($pdo, $pivotId, (int) $company_id);
+            $allowedMap = [];
+            foreach ($allowed as $cid) {
+                $allowedMap[(int) $cid] = true;
+            }
+            $target_account_ids = array_values(array_filter($target_account_ids, function ($tid) use ($allowedMap) {
+                return !empty($allowedMap[(int) $tid]);
+            }));
+            if (empty($target_account_ids)) {
+                $target_account_ids = [$pivotId];
+            }
+        }
+    }
+
     // 验证必填参数
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');

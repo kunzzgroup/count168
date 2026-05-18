@@ -170,8 +170,10 @@ $default_date_to = $today_dt->format('d/m/Y');
         <h1 class="transaction-title">Win/Loss</h1>
         <div class="transaction-separator-line"></div>
 
-        <div class="transaction-main-content">
-            <div class="transaction-search-section" style="flex:1;">
+        <div class="transaction-main-content member-winloss-dash">
+            <div class="member-dash-columns">
+                <div class="member-dash-col member-dash-col-filters">
+                    <div class="transaction-search-section member-dash-filter-card" style="flex:1;">
                 <div class="transaction-form-group transaction-capture-date-group">
                     <label class="transaction-label transaction-date-range-label">Capture Date</label>
                     <div class="transaction-capture-date-row">
@@ -279,12 +281,61 @@ $default_date_to = $today_dt->format('d/m/Y');
                     <span class="transaction-company-label">Currency:</span>
                     <div id="member_currency_buttons" class="transaction-company-buttons member-currency-buttons"></div>
                 </div>
+                </div>
+                </div>
+
+                <div class="member-dash-col member-dash-col-grid">
+                    <div class="transaction-search-section member-dash-grid-card member-dash-mini-panel">
+                        <div class="member-dash-mini-toolbar">
+                            <button type="button" class="member-dash-filter-trigger" id="member_linked_filter_btn" title="Choose which linked accounts appear in the grid">
+                                <i class="fas fa-filter" aria-hidden="true"></i>
+                                <span>Accounts</span>
+                            </button>
+                            <span class="member-dash-grid-curr" id="member_balance_grid_currency_line"></span>
+                        </div>
+                        <div id="member_balance_grid" class="member-balance-mini-grid"></div>
+                        <p id="member_balance_grid_hint" class="member-balance-mini-hint" style="margin:4px 0 0;"></p>
+                    </div>
+                </div>
+
+                <div class="member-dash-col member-dash-col-total-col">
+                    <div class="transaction-search-section member-dash-total-card member-dash-mini-panel">
+                        <div class="member-dash-total-inner">
+                            <span class="member-dash-total-caption">Total</span>
+                            <span id="member_balance_total_value" class="member-dash-total-amt">–</span>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
         <div class="member-currency-section" id="member_currency_tables_section" style="display:flex;visibility:visible;">
             <div id="member_currency_tables" class="member-currency-tables">
                 <p class="member-currency-empty" style="margin:0;">Loading...</p>
+            </div>
+        </div>
+
+        <div id="member_linked_filter_modal" class="transaction-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="member_linked_filter_modal_title">
+            <div class="transaction-modal-content member-linked-filter-modal-content">
+                <div class="transaction-modal-header">
+                    <h3 id="member_linked_filter_modal_title">Accounts in grid</h3>
+                    <button type="button" class="transaction-modal-close member-linked-filter-close" data-member-close-modal="1" aria-label="Close">&times;</button>
+                </div>
+                <div class="transaction-modal-body">
+                    <div class="member-linked-filter-bar">
+                        <input type="search" id="member_linked_filter_search" class="member-linked-filter-search" placeholder="Search account…" autocomplete="off">
+                        <div class="member-linked-filter-bulk">
+                            <button type="button" class="member-linked-bulk-btn" id="member_linked_select_all">Select all</button>
+                            <button type="button" class="member-linked-bulk-btn" id="member_linked_clear_all">Clear</button>
+                        </div>
+                    </div>
+                    <div id="member_linked_filter_checkbox_area" class="member-linked-filter-checkboxes"></div>
+                </div>
+                <div class="member-linked-filter-footer">
+                    <button type="button" class="transaction-submit-btn" id="member_linked_filter_apply">Apply</button>
+                    <button type="button" class="btn btn-secondary member-linked-filter-cancel-btn" data-member-close-modal="1">Cancel</button>
+                </div>
             </div>
         </div>
 

@@ -831,3 +831,231 @@ body.transaction-page {
  .text-uppercase {
     text-transform: uppercase;
 }
+
+/* ── Member Win/Loss dashboard row: filters | mini grid | total ── */
+.transaction-page.member-winloss-page .member-winloss-dash.transaction-main-content {
+    margin-bottom: 12px;
+}
+
+.member-dash-columns {
+    display: grid;
+    grid-template-columns: minmax(260px, 1.05fr) minmax(220px, 1.25fr) minmax(148px, 0.72fr);
+    gap: clamp(10px, 1.5vw, 18px);
+    align-items: start;
+}
+
+.member-dash-filter-card {
+    margin-bottom: 0;
+}
+
+.member-dash-mini-panel.member-dash-grid-card,
+.member-dash-mini-panel.member-dash-total-card {
+    padding: clamp(10px, 0.95vw, 14px);
+    margin-bottom: 0;
+}
+
+.member-dash-mini-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.member-dash-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: clamp(10px, 0.74vw, 13px);
+    font-weight: 700;
+    color: #1e293b;
+    border: 1px solid #c7d4ef;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef4ff 100%);
+    cursor: pointer;
+}
+
+.member-dash-filter-trigger:hover {
+    border-color: #3b82f6;
+}
+
+.member-dash-grid-curr {
+    font-size: clamp(10px, 0.74vw, 13px);
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.04em;
+}
+
+.member-balance-mini-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 12px;
+    row-gap: 0;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.member-balance-mini-cell {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: clamp(10px, 0.72vw, 13px);
+    line-height: 1.2;
+}
+
+.member-balance-mini-acc {
+    font-weight: 600;
+    color: #334155;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.member-balance-mini-val {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: #0f172a;
+    flex-shrink: 0;
+}
+
+.member-balance-mini-hint {
+    font-size: clamp(10px, 0.72vw, 13px);
+    color: #64748b;
+    font-weight: 600;
+}
+
+.member-dash-total-inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    min-height: 72px;
+    text-align: center;
+}
+
+.member-dash-total-caption {
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.member-dash-total-amt {
+    font-size: clamp(16px, 1.55vw, 22px);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #002c49;
+}
+
+@media (max-width: 1180px) {
+    .member-dash-columns {
+        grid-template-columns: 1fr 1fr;
+    }
+    .member-dash-col-total-col {
+        grid-column: 1 / -1;
+    }
+    .member-dash-total-inner {
+        flex-direction: row;
+        justify-content: space-between;
+        min-height: 0;
+        padding-top: 4px;
+        border-top: 1px solid #e6edf7;
+        margin-top: 4px;
+    }
+}
+
+@media (max-width: 720px) {
+    .member-dash-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Linked accounts modal (subset for grid) */
+.member-linked-filter-modal-content {
+    max-width: 520px;
+    margin: 5% auto;
+}
+
+.member-linked-filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.member-linked-filter-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.member-linked-filter-bulk {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.member-linked-bulk-btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid #cfe0ff;
+    border-radius: 6px;
+    background: #f8fafc;
+    cursor: pointer;
+}
+
+.member-linked-filter-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px 12px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.member-linked-cb-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+}
+
+.member-linked-filter-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 32px clamp(14px, 1.04vw, 22px);
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.member-linked-filter-cancel-btn {
+    padding: 6px 16px;
+    font-size: clamp(11px, 0.74vw, 14px);
+    font-weight: 600;
+    border: 1px solid #cfd8e6;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+}
+
+@media (max-width: 480px) {
+    .member-linked-filter-checkboxes {
+        grid-template-columns: 1fr 1fr;
+    }
+}
