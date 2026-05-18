@@ -1146,6 +1146,10 @@ body.dashboard-page.maintenance-page {
     text-align: center;
 }
 
+.transaction-maintenance-page-root .maintenance-virtual-empty-loading {
+    min-height: clamp(120px, 22vh, 280px);
+}
+
 .maintenance-virtual-head-row,
 .maintenance-virtual-data-row {
     display: grid;

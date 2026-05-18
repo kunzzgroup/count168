@@ -128,7 +128,7 @@ export default function TransactionMaintenancePage() {
 
   const transactionData = transactionQuery.data ?? [];
   const listRowCount = transactionData.length;
-  /** 有上一屏数据时保留列表，仅无数据且请求中才用整表骨架（避免切换公司闪成全屏 Loading） */
+  /** 无上一屏数据且请求中：仅显示简洁 Loading 文案（不显示骨架行） */
   const showListSkeleton =
     listQueryEnabled &&
     (transactionQuery.isLoading || (transactionQuery.isFetching && listRowCount === 0));
@@ -533,7 +533,6 @@ export default function TransactionMaintenancePage() {
         <TransactionMaintenanceTable
           data={transactionData}
           showSkeleton={showListSkeleton}
-          isFetching={transactionQuery.isFetching}
           isPlaceholderData={transactionQuery.isPlaceholderData}
           isError={transactionQuery.isError}
           error={transactionQuery.error}
