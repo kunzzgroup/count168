@@ -843,9 +843,20 @@ body.transaction-page {
 
 .member-dash-columns {
     display: grid;
-    grid-template-columns: minmax(280px, 1.1fr) minmax(200px, 1.2fr) minmax(120px, 0.65fr);
+    /* 左：筛选项；中：账户小计（内容窄，不宜占过多 fr）；右：TOTAL 需略宽于旧版 0.65fr，分割更均衡 */
+    grid-template-columns: minmax(268px, 1.08fr) minmax(176px, 0.72fr) minmax(140px, 1.02fr);
     gap: 0;
     align-items: stretch;
+}
+
+/* 中间列允许收缩，避免大块空白把第 2 / 3 列分隔线推到过右 */
+.member-dash-col-grid {
+    min-width: 0;
+}
+
+.member-dash-col-grid .member-balance-mini-grid {
+    /* 三列时略增上限，避免过挤 */
+    max-width: min(100%, 420px);
 }
 
 .member-dash-col-filters {
@@ -858,7 +869,8 @@ body.transaction-page {
 }
 
 .member-dash-col-total-col.member-dash-col-split {
-    padding-right: 4px;
+    padding-left: clamp(14px, 1.5vw, 22px);
+    padding-right: clamp(10px, 1.2vw, 18px);
 }
 
 .member-dash-mini-toolbar {
@@ -896,11 +908,18 @@ body.transaction-page {
 
 .member-balance-mini-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 12px;
+    /* 三列：账户较多时排列更匀称（如 5 个呈 3+2）；横线仍为逐格分隔，观感更紧凑 */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: clamp(8px, 1vw, 12px);
     row-gap: 0;
     max-height: 180px;
     overflow-y: auto;
+}
+
+@media (max-width: 480px) {
+    .member-balance-mini-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .member-balance-mini-cell {

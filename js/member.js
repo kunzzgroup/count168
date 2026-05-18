@@ -25,12 +25,111 @@ let memberLinkedAccountsList = [];
 /** 用户在网格中要显示的账号 id（默认可登录闭包内全选）；按公司+会话账号记在 sessionStorage */
 const memberWLGridSelectedIds = new Set();
 let memberGridFetchAbortController = null;
+/** Accounts 迷你网格用到的：各 account.id → 配置的币别（大写）；未加载时不做严格过滤 */
+let memberLinkedAccountCurrenciesMap = new Map();
+let memberLinkedCurrenciesLoaded = false;
 
 /** Account  pills / grid 列表 API 的根 id（登录账号）；与 Win/Loss 当前查看账号 accountId 可不同 */
 function memberLinkedListRootId() {
     return memberConfig.linkedListRootAccountId > 0
         ? memberConfig.linkedListRootAccountId
         : memberConfig.accountId;
+}
+
+function getWlGridIncludedAccountIds() {
+    const allow = new Set(memberLinkedAccountsList.map(a => Number(a.id)).filter(Boolean));
+    let sel = [...memberWLGridSelectedIds].map(Number).filter(id => allow.has(id));
+    if (sel.length === 0) {
+        sel = [...allow];
+    }
+    return sel;
+}
+
+function collectLinkedUnionCurrencyCodesRaw() {
+    const codes = new Set();
+    getWlGridIncludedAccountIds().forEach((id) => {
+        const s = memberLinkedAccountCurrenciesMap.get(id);
+        if (s && s.size) {
+            s.forEach((c) => {
+                if (c) codes.add(String(c).trim().toUpperCase());
+            });
+        }
+    });
+    return [...codes];
+}
+
+function sanitizeMemberCurrencySelectionAfterUnionChange() {
+    if (!memberLinkedCurrenciesLoaded) return;
+    const avail = collectLinkedUnionCurrencyCodesRaw();
+    const availSet = new Set(avail);
+    [...memberSelectedCurrencies].forEach((c) => {
+        const u = String(c || '').trim().toUpperCase();
+        if (!availSet.has(u)) memberSelectedCurrencies.delete(c);
+    });
+    if (avail.length === 0 || memberSelectedCurrencies.size === 0) {
+        memberIsAllSelected = true;
+        memberSelectedCurrencies.clear();
+    }
+}
+
+/** 批量拉 Linked grid 中各账户配置的币别；完成后刷新 Currency Tabs（并入集） */
+function loadLinkedAccountsCurrencyMap() {
+    memberLinkedAccountCurrenciesMap = new Map();
+    memberLinkedCurrenciesLoaded = false;
+    const companyId = memberConfig.companyId;
+    const ids = memberLinkedAccountsList.map(a => Number(a.id)).filter(Boolean);
+    if (!ids.length || !companyId) {
+        memberLinkedCurrenciesLoaded = true;
+        return Promise.resolve();
+    }
+    const qs = new URLSearchParams({
+        action: 'get_batch_account_currencies',
+        account_ids: ids.join(','),
+        company_id: String(companyId),
+        _t: String(Date.now()),
+    });
+    return fetch(`api/accounts/account_currency_api.php?${qs}`, { cache: 'no-cache' })
+        .then(res => res.text())
+        .then(text => parseJsonResponse(text))
+        .then(data => {
+            if (!data.success || !Array.isArray(data.data)) {
+                return;
+            }
+            data.data.forEach((row) => {
+                const id = Number(row.account_id);
+                if (!id) return;
+                const set = new Set();
+                (row.currencies || []).forEach((c) => {
+                    const code = String(c.currency_code || c.code || '').trim().toUpperCase();
+                    if (code) {
+                        set.add(code);
+                        const cid = c.currency_id != null ? Number(c.currency_id) : null;
+                        if (cid && !memberCurrencySortOrder.has(code)) {
+                            memberCurrencySortOrder.set(code, cid);
+                        }
+                    }
+                });
+                memberLinkedAccountCurrenciesMap.set(id, set);
+            });
+        })
+        .catch((err) => {
+            console.error('Batch account currencies failed:', err);
+            memberLinkedAccountCurrenciesMap = new Map();
+        })
+        .finally(() => {
+            memberLinkedCurrenciesLoaded = true;
+            sanitizeMemberCurrencySelectionAfterUnionChange();
+        });
+}
+
+function accountHoldsMiniGridCurrency(accountId, currencyUpper) {
+    const cu = (currencyUpper || '').trim().toUpperCase();
+    if (!cu) return true;
+    if (!memberLinkedCurrenciesLoaded) return true;
+    const set = memberLinkedAccountCurrenciesMap.get(Number(accountId));
+    // 服务端未解析到币种行时不要用空集误伤（仍沿用原展示逻辑）
+    if (!set || set.size === 0) return true;
+    return set.has(cu);
 }
 
 function loadMemberOwnedCurrencies() {
@@ -403,7 +502,19 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
 
         const allIds = new Set(memberLinkedAccountsList.map(a => Number(a.id)).filter(Boolean));
         const selectedSorted = [...memberWLGridSelectedIds].filter(id => allIds.has(Number(id))).sort((a, b) => a - b);
-        const targetIds = selectedSorted.length ? selectedSorted : [...allIds].sort((a, b) => a - b);
+        const baseIds = selectedSorted.length ? selectedSorted : [...allIds].sort((a, b) => a - b);
+        const cu = currencyCode.trim().toUpperCase();
+        const targetIds = baseIds.filter((id) => accountHoldsMiniGridCurrency(id, cu));
+
+        if (memberLinkedCurrenciesLoaded && targetIds.length === 0) {
+            const totalBlank = document.getElementById('member_balance_total_value');
+            if (hintEl) {
+                hintEl.textContent = 'No accounts in the grid hold ' + cu + '.';
+            }
+            if (totalBlank) totalBlank.textContent = '–';
+            resolve();
+            return;
+        }
 
         if (memberGridFetchAbortController) {
             memberGridFetchAbortController.abort();
@@ -468,7 +579,17 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
     if (sel.size === 0) {
         allowIds.forEach((id) => sel.add(id));
     }
-    const listOrdered = memberLinkedAccountsList.filter(a => sel.has(Number(a.id)));
+    const listOrdered = memberLinkedAccountsList.filter(a =>
+        sel.has(Number(a.id)) && accountHoldsMiniGridCurrency(a.id, currencyCode)
+    );
+
+    if (!listOrdered.length && memberLinkedCurrenciesLoaded && (currencyCode || '').trim()) {
+        if (hintEl) {
+            hintEl.textContent = 'No accounts in the grid hold ' + String(currencyCode).trim().toUpperCase() + '.';
+        }
+        totalEl.textContent = '–';
+        return;
+    }
 
     let running = normalizeNumber('0');
     listOrdered.forEach((acc) => {
@@ -511,7 +632,12 @@ function buildMemberLinkedFilterModalList() {
         cb.value = String(id);
         cb.checked = memberWLGridSelectedIds.has(id);
         const span = document.createElement('span');
-        span.textContent = label || id;
+        const curTags = [];
+        const cset = memberLinkedAccountCurrenciesMap.get(id);
+        if (cset && cset.size) {
+            [...cset].sort().forEach((c) => { if (c) curTags.push(c); });
+        }
+        span.textContent = curTags.length ? `${label || id} · ${curTags.join('/')}` : String(label || id);
         row.appendChild(cb);
         row.appendChild(span);
         box.appendChild(row);
@@ -576,7 +702,8 @@ function setupMemberLinkedFilterModalHandlers() {
         checked.forEach((id) => memberWLGridSelectedIds.add(id));
         saveWLGridSelectionToStorage();
         memberCloseLinkedFilterModal();
-        refreshMemberMiniGrid(memberSearchSeq);
+        sanitizeMemberCurrencySelectionAfterUnionChange();
+        performMemberSearch();
     });
 
     window.memberCloseLinkedFilterModal = memberCloseLinkedFilterModal;
@@ -598,6 +725,8 @@ function loadMemberLinkedAccounts() {
     const failEmptyUi = () => {
         memberLinkedAccountsList = [];
         memberWLGridSelectedIds.clear();
+        memberLinkedAccountCurrenciesMap.clear();
+        memberLinkedCurrenciesLoaded = true;
         if (loadingEl) loadingEl.style.display = 'none';
         container.innerHTML = '<span class="member-account-loading">-</span>';
         const filterEl = document.getElementById('member_account_filter');
@@ -665,7 +794,8 @@ function loadMemberLinkedAccounts() {
         .catch(err => {
             console.error('Failed to load linked accounts:', err);
             failEmptyUi();
-        });
+        })
+        .then(() => loadLinkedAccountsCurrencyMap());
 }
 
 function setupAccountButtons() {
@@ -978,16 +1108,28 @@ function getAvailableCurrenciesFromSummaryOnly() {
     });
 }
 
-/** Win/Loss Currency 按钮：优先固定为账户拥有的全部币别，与区间内是否有数据无关 */
+/** Win/Loss Currency Tab：Accounts 迷你网格中出现的账户配置的币别之并集；与「只看哪套账(Account pill)」解耦 */
 function getAvailableCurrencies() {
-    const seen = new Set();
-    const baseOrder = [];
-    memberOwnedCurrencies.forEach(o => {
-        const c = (o.code || '').trim();
-        if (!c || seen.has(c)) return;
-        seen.add(c);
-        baseOrder.push(c);
-    });
+    let baseOrder = [];
+    let fromLinkedUnion = false;
+    if (memberLinkedCurrenciesLoaded) {
+        const u = [...new Set(collectLinkedUnionCurrencyCodesRaw()
+            .map(x => String(x || '').trim().toUpperCase())
+            .filter(Boolean))];
+        if (u.length) {
+            baseOrder = u;
+            fromLinkedUnion = true;
+        }
+    }
+    if (!fromLinkedUnion) {
+        const seen = new Set();
+        memberOwnedCurrencies.forEach(o => {
+            const c = (o.code || '').trim().toUpperCase();
+            if (!c || seen.has(c)) return;
+            seen.add(c);
+            baseOrder.push(c);
+        });
+    }
     if (baseOrder.length === 0) {
         return getAvailableCurrenciesFromSummaryOnly();
     }
@@ -1010,9 +1152,9 @@ function getAvailableCurrencies() {
         const orderA = memberCurrencySortOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
         const orderB = memberCurrencySortOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
         if (orderA !== orderB) return orderA - orderB;
-        const ia = memberOwnedCurrencies.findIndex(o => (o.code || '').trim() === a);
-        const ib = memberOwnedCurrencies.findIndex(o => (o.code || '').trim() === b);
-        if (ia !== ib) return ia - ib;
+        const ia = fromLinkedUnion ? -1 : memberOwnedCurrencies.findIndex(o => (o.code || '').trim().toUpperCase() === a);
+        const ib = fromLinkedUnion ? -1 : memberOwnedCurrencies.findIndex(o => (o.code || '').trim().toUpperCase() === b);
+        if (!fromLinkedUnion && ia !== ib) return ia - ib;
         return a.localeCompare(b);
     });
 }

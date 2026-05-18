@@ -245,6 +245,70 @@ try {
             exit;
         }
 
+        /**
+         * Member Win/Loss：批量返回多个账户在当前公司拥有的币别；member 仅能查关联闭包内账户。
+         * GET account_ids=1,2,3
+         */
+        if ($action === 'get_batch_account_currencies') {
+            if (!isset($_SESSION['user_id'])) {
+                jsonResponse(false, '请先登录', null, 401);
+                exit;
+            }
+            $raw = isset($_GET['account_ids']) ? trim((string) $_GET['account_ids']) : '';
+            $parts = $raw !== '' ? preg_split('/\s*,\s*/', $raw) : [];
+            $ids = [];
+            foreach ($parts as $p) {
+                $n = (int) $p;
+                if ($n > 0 && !in_array($n, $ids, true)) {
+                    $ids[] = $n;
+                }
+            }
+            if ($ids === []) {
+                jsonResponse(false, 'account_ids 参数无效', null, 400);
+                exit;
+            }
+            require_once __DIR__ . '/../includes/member_linked_closure.php';
+            $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
+            $allowedMap = null;
+            if ($userType === 'member') {
+                $loginId = member_session_canonical_account_id();
+                if ($loginId <= 0) {
+                    jsonResponse(false, '无法识别会话', null, 403);
+                    exit;
+                }
+                $allowed = member_linked_member_closure_ids($pdo, $loginId, (int) $company_id);
+                $allowedMap = [];
+                foreach ($allowed as $x) {
+                    $allowedMap[(int) $x] = true;
+                }
+            }
+            $result = [];
+            foreach ($ids as $aid) {
+                if ($allowedMap !== null && empty($allowedMap[$aid])) {
+                    continue;
+                }
+                if (!dbAccountBelongsToCompany($pdo, $aid, (int) $company_id)) {
+                    continue;
+                }
+                $rows = dbGetAccountOwnedCurrenciesResolved($pdo, $aid, (int) $company_id);
+                $clist = [];
+                foreach ($rows as $r) {
+                    $clist[] = [
+                        'currency_id' => isset($r['currency_id']) ? (int) $r['currency_id'] : (isset($r['id']) ? (int) $r['id'] : 0),
+                        'currency_code' => isset($r['currency_code'])
+                            ? strtoupper(trim((string) $r['currency_code']))
+                            : '',
+                    ];
+                }
+                $result[] = [
+                    'account_id' => $aid,
+                    'currencies' => $clist,
+                ];
+            }
+            jsonResponse(true, '', $result);
+            exit;
+        }
+
         jsonResponse(false, '无效的操作', null, 400);
         exit;
     }
