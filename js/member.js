@@ -504,7 +504,11 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
         const selectedSorted = [...memberWLGridSelectedIds].filter(id => allIds.has(Number(id))).sort((a, b) => a - b);
         const baseIds = selectedSorted.length ? selectedSorted : [...allIds].sort((a, b) => a - b);
         const cu = currencyCode.trim().toUpperCase();
-        const targetIds = baseIds.filter((id) => accountHoldsMiniGridCurrency(id, cu));
+        let targetIds = baseIds.filter((id) => accountHoldsMiniGridCurrency(id, cu));
+        const viewAid = Number(memberConfig.accountId);
+        if (viewAid && !targetIds.includes(viewAid) && accountHoldsMiniGridCurrency(viewAid, cu)) {
+            targetIds = [...targetIds, viewAid].sort((a, b) => a - b);
+        }
 
         if (memberLinkedCurrenciesLoaded && targetIds.length === 0) {
             const totalBlank = document.getElementById('member_balance_total_value');
@@ -591,7 +595,6 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
         return;
     }
 
-    let running = normalizeNumber('0');
     listOrdered.forEach((acc) => {
         const idNum = Number(acc.id);
         const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
@@ -600,7 +603,6 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
             && (row.currency || '').trim().toUpperCase() === currencyCode.trim().toUpperCase()
         );
         const rawBal = hit && hit.balance !== undefined && hit.balance !== null ? hit.balance : '0';
-        running = running.plus(normalizeNumber(rawBal));
 
         const cell = document.createElement('div');
         cell.className = 'member-balance-mini-cell';
@@ -615,7 +617,19 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
         gridEl.appendChild(cell);
     });
 
-    totalEl.textContent = formatNumber(running.toString());
+    const cuNorm = currencyCode.trim().toUpperCase();
+    const viewAid = Number(memberConfig.accountId);
+    const viewHit = rows.find(row =>
+        Number(row.account_db_id) === viewAid
+        && (row.currency || '').trim().toUpperCase() === cuNorm
+    );
+    if (viewHit && viewHit.balance !== undefined && viewHit.balance !== null) {
+        totalEl.textContent = formatNumber(viewHit.balance);
+    } else if (memberLinkedCurrenciesLoaded && viewAid && !accountHoldsMiniGridCurrency(viewAid, cuNorm)) {
+        totalEl.textContent = '–';
+    } else {
+        totalEl.textContent = formatNumber(viewHit && viewHit.balance != null ? viewHit.balance : '0');
+    }
 }
 
 function buildMemberLinkedFilterModalList() {
