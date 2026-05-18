@@ -10,6 +10,8 @@ import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/customer_report.css";
+import "../../../../public/css/report-outlined-fields.css";
 import "../../../../public/css/bankprocess_maintenance.css";
 import "../../../../public/css/maintenance_notifications.css";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
@@ -25,7 +27,6 @@ import {
 } from "./bankprocessMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
-import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 /** Dedupe empty-result toast (Strict Mode remount + back-to-back searches with same filters). */
 const bankprocessNoDataToastKeys = new Set();
@@ -137,8 +138,6 @@ export default function BankprocessMaintenancePage() {
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       ];
       await Promise.all(links.map((href) => injectStylesheet(href, { promoteToEnd: true }).catch(() => null)));
-      ensureMaintenanceDateRangePicker();
-      setDatePickerScriptReady(true);
     };
 
     setup().catch(() => null);
@@ -161,34 +160,6 @@ export default function BankprocessMaintenancePage() {
       document.body.classList.remove("maintenance-page");
     };
   }, [today]);
-
-  useEffect(() => {
-    if (!datePickerScriptReady || bootLoading || !me) return;
-    if (!document.getElementById("date-range-picker")) return;
-    if (!window?.MaintenanceDateRangePicker?.init) return;
-
-    // Wait until current paint completes so picker nodes exist for binding.
-    const timer = setTimeout(() => {
-      window.MaintenanceDateRangePicker.init({
-        onChange: () => {
-          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        },
-      });
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [datePickerScriptReady, bootLoading, me]);
-
-  useEffect(() => {
-    if (!datePickerScriptReady || bootLoading || !me) return;
-    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
-      placeholder: t("selectDateRange"),
-      selectEndDateHint: t("selectEndDate"),
-    });
-  }, [datePickerScriptReady, bootLoading, me, lang, t]);
 
   useEffect(() => {
     (async () => {
@@ -539,6 +510,8 @@ export default function BankprocessMaintenancePage() {
         setSelectedPermission={setSelectedPermission}
         dateFrom={dateFrom}
         dateTo={dateTo}
+        setDateFrom={setDateFrom}
+        setDateTo={setDateTo}
         today={today}
         query={query}
         setQuery={setQuery}
@@ -594,7 +567,6 @@ export default function BankprocessMaintenancePage() {
         confirmText={m.delete}
         message={t("deleteConfirmBankProcess", { count: selectedIds.length })}
       />
-      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }

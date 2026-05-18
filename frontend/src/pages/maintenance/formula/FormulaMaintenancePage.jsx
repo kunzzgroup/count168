@@ -10,6 +10,8 @@ import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/transaction.css";
+import "../../../../public/css/customer_report.css";
+import "../../../../public/css/report-outlined-fields.css";
 import "../../../../public/css/formula_maintenance.css";
 import { 
   fetchCompanyPermissions, 

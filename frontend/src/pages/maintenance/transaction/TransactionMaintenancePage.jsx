@@ -10,6 +10,8 @@ import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/transaction.css";
 import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/customer_report.css";
+import "../../../../public/css/report-outlined-fields.css";
 import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/transaction_maintenance.css";
 import {
@@ -21,7 +23,6 @@ import {
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
-import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
@@ -216,29 +217,7 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (bootLoading || !me || !cssReady) return;
-    if (!document.getElementById("date-range-picker")) return;
-    if (!window?.MaintenanceDateRangePicker?.init) return;
-
-    const timer = setTimeout(() => {
-      window.MaintenanceDateRangePicker.init({
-        onChange: () => {
-          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        },
-      });
-      const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-      const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-      if (nextFrom) setDateFrom(nextFrom);
-      if (nextTo) setDateTo(nextTo);
-      setDateRangeReady(true);
-    }, 0);
-
-    return () => {
-      clearTimeout(timer);
-      setDateRangeReady(false);
-    };
+    setDateRangeReady(true);
   }, [bootLoading, me, cssReady]);
 
   // Defer first search one tick after filters are ready (align with Payment/Capture maintenance).
@@ -540,6 +519,8 @@ export default function TransactionMaintenancePage() {
           setSelectedProcess={setSelectedProcess}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          setDateFrom={setDateFrom}
+          setDateTo={setDateTo}
           today={todayDmy}
           companyId={companyId}
           companies={companies}
@@ -568,7 +549,6 @@ export default function TransactionMaintenancePage() {
           </div>
         ))}
       </div>
-      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }

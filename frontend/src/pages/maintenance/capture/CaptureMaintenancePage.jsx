@@ -22,7 +22,6 @@ import {
 } from "./captureMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
-import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
@@ -140,8 +139,6 @@ export default function CaptureMaintenancePage() {
       if (!cancelled) setCssReady(true);
     });
 
-    ensureMaintenanceDateRangePicker();
-
     return () => {
       cancelled = true;
       setCssReady(false);
@@ -163,25 +160,6 @@ export default function CaptureMaintenancePage() {
       document.body.classList.remove("maintenance-page");
     };
   }, []);
-
-  useEffect(() => {
-    if (bootLoading || !me || !cssReady) return;
-    if (!document.getElementById("date-range-picker")) return;
-    if (!window?.MaintenanceDateRangePicker?.init) return;
-
-    const timer = setTimeout(() => {
-      window.MaintenanceDateRangePicker.init({
-        onChange: () => {
-          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        },
-      });
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [bootLoading, me, cssReady]);
 
   useEffect(() => {
     if (bootLoading || !me || !cssReady) return;
@@ -554,6 +532,8 @@ export default function CaptureMaintenancePage() {
           setSelectedProcess={setSelectedProcess}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          setDateFrom={setDateFrom}
+          setDateTo={setDateTo}
           today={todayDmy}
           companyId={companyId}
           companies={companies}
@@ -607,7 +587,6 @@ export default function CaptureMaintenancePage() {
         confirmText={m.delete}
         message={t("deleteConfirmRecords", { count: selectedIds.length })}
       />
-      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }
