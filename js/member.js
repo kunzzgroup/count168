@@ -507,6 +507,21 @@ function getMemberMiniGridCurrencies() {
     return picked.length ? picked : available.slice();
 }
 
+/**
+ * 迷你帳戶×幣別矩陣的 grid-template-columns。
+ * 幣別欄勿用 1fr，否則在中欄寬版會被拉滿、出現大片空白（用戶截圖圖二）。
+ * max-content 讓欄寬貼數字／表頭，外層 .member-balance-mini-grid 可橫向捲動。
+ */
+function memberMiniMatrixGridTemplateColumns(ncu) {
+    const rowHeadClamp = 'minmax(2.1rem, 3.85rem)';
+    const cyMin =
+        ncu <= 3 ? '3rem' :
+        ncu <= 5 ? '2.6rem' :
+        ncu <= 8 ? '2.25rem' :
+        '2rem';
+    return `${rowHeadClamp} repeat(${ncu}, minmax(${cyMin}, max-content))`;
+}
+
 function clearMemberMiniGridDisplay() {
     const gridEl = document.getElementById('member_balance_grid');
     const hintEl = document.getElementById('member_balance_grid_hint');
@@ -617,13 +632,7 @@ function renderMemberMiniGridInitialShell() {
     }
     gridEl.setAttribute('role', 'grid');
     gridEl.setAttribute('aria-label', 'Balances by account and currency');
-    const rowHeadClamp = 'minmax(2.1rem, 3.85rem)';
-    const cyMin =
-        ncu <= 3 ? '3rem' :
-        ncu <= 5 ? '2.6rem' :
-        ncu <= 8 ? '2.25rem' :
-        '2rem';
-    gridEl.style.gridTemplateColumns = `${rowHeadClamp} repeat(${ncu}, minmax(${cyMin}, 1fr))`;
+    gridEl.style.gridTemplateColumns = memberMiniMatrixGridTemplateColumns(ncu);
 
     const corner = document.createElement('div');
     corner.className = 'member-balance-matrix-corner';
@@ -900,13 +909,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     }
     gridEl.setAttribute('role', 'grid');
     gridEl.setAttribute('aria-label', 'Balances by account and currency');
-    const rowHeadClamp = `minmax(2.1rem, 3.85rem)`;
-    const cyMin =
-        ncu <= 3 ? '3rem' :
-        ncu <= 5 ? '2.6rem' :
-        ncu <= 8 ? '2.25rem' :
-        '2rem';
-    gridEl.style.gridTemplateColumns = `${rowHeadClamp} repeat(${ncu}, minmax(${cyMin}, 1fr))`;
+    gridEl.style.gridTemplateColumns = memberMiniMatrixGridTemplateColumns(ncu);
 
     const corner = document.createElement('div');
     corner.className = 'member-balance-matrix-corner';

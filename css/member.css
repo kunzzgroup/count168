@@ -888,6 +888,12 @@ body.transaction-page {
     max-width: 100%;
 }
 
+/* 矩陣實際寬度應依欄內容（勿被父屬 width:100% 拉成滿版再被 1fr 撐開空白） */
+.member-dash-col-grid .member-balance-mini-grid.member-balance-mini-matrix {
+    width: max-content;
+    max-width: 100%;
+}
+
 .member-dash-col-grid.member-dash-col-split {
     padding-right: clamp(2px, 0.35vw, 6px);
 }
