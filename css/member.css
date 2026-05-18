@@ -16,6 +16,11 @@ body.transaction-page {
     overflow-y: auto;
 }
 
+/* Win/Loss：允許必要時橫向捲動，避免 Total 被 body overflow-x:hidden 直接裁切 */
+body.transaction-page.member-winloss-page {
+    overflow-x: auto;
+}
+
 .transaction-page .transaction-container {
     max-width: none;
     margin: 0;
@@ -865,22 +870,28 @@ body.transaction-page {
 /* ── Member Win/Loss：篩選 | 迷你矩陣 | 同風格 Total 表 ── */
 .transaction-page.member-winloss-page .member-winloss-dash.transaction-main-content {
     margin-bottom: 12px;
+    min-width: 0;
 }
 
-.transaction-page.member-winloss-page .member-dash-unified-bar {
+.transaction-page.member-winloss-page .member-dash-unified-bar.transaction-search-section {
     margin-bottom: 0;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .member-dash-columns {
     display: grid;
     /*
-     * 左欄固定比例 + clamp，分割線（中欄 border-left）位置穩定；
-     * 勿用 1fr 吃滿剩餘，否則分界會隨矩陣/Total 寬度漂移。
+     * 中欄用 minmax(0,1fr) 只吃「剩餘寬度」，迷你表在欄內捲動；勿用 max-content 撐滿導致 Total 被擠出視口。
+     * 左欄固定比例；右欄 Total 依內容寬。
      */
     --member-dash-filter-track: clamp(260px, 40%, 560px);
-    grid-template-columns: var(--member-dash-filter-track) max-content minmax(104px, max-content);
+    grid-template-columns: var(--member-dash-filter-track) minmax(0, 1fr) minmax(104px, max-content);
     gap: 0;
     align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .member-dash-col-grid {
