@@ -844,7 +844,7 @@ body.transaction-page {
 .member-dash-columns {
     display: grid;
     /* 中间 Accounts 区域占弹性主体；TOTAL 仅占必要宽度（避免竖线右侧大片留白） */
-    grid-template-columns: minmax(268px, 1.05fr) minmax(200px, 1.42fr) minmax(92px, 0.38fr);
+    grid-template-columns: minmax(268px, 1.05fr) minmax(200px, 1.38fr) minmax(108px, 0.42fr);
     gap: 0;
     align-items: stretch;
 }
@@ -859,6 +859,11 @@ body.transaction-page {
     max-width: 100%;
 }
 
+/* 与中列分割线之间留白：避免迷你网格右侧数值紧贴竖线 */
+.member-dash-col-grid.member-dash-col-split {
+    padding-right: clamp(12px, 1.75vw, 22px);
+}
+
 .member-dash-col-filters {
     padding-right: clamp(10px, 1.2vw, 16px);
 }
@@ -869,13 +874,13 @@ body.transaction-page {
 }
 
 .member-dash-col-total-col.member-dash-col-split {
-    /* 内容靠分割线对齐，弱化「数值与竖线之间空一截」 */
+    /* TOTAL 整块与左侧竖线拉开，避免大字与分割线视觉重叠 */
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: flex-start;
-    padding-left: clamp(10px, 1vw, 14px);
-    padding-right: clamp(8px, 1vw, 14px);
+    padding-left: clamp(18px, 2.2vw, 28px);
+    padding-right: clamp(10px, 1.2vw, 16px);
     min-width: 0;
 }
 
