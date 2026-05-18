@@ -258,3 +258,62 @@ body.dashboard-page.maintenance-page .maintenance-confirm-message {
 body.dashboard-page.maintenance-page .maintenance-btn {
     font-size: var(--text-base) !important;
 }
+
+/*
+ * 所有 maintenance 列表数据区：行与行、列与列无缝衔接，无行间/列间空隙。
+ * 对齐 formula 列表：border-spacing 为 0，行无 box-shadow / hover 上浮。
+ */
+body.dashboard-page.maintenance-page .maintenance-list-container .maintenance-table {
+    border-spacing: 0 !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-table tbody tr {
+    box-shadow: none !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-table tbody tr:hover {
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-table tbody td,
+body.dashboard-page.maintenance-page .maintenance-table tbody td.maintenance-table-cell {
+    background-color: transparent !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-data-row:not(.formula-virtual-data-row--editing) {
+    box-shadow: none !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-data-row:not(.formula-virtual-data-row--editing):hover {
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap {
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .payment-virtual-data-row,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .capture-virtual-data-row,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .transaction-virtual-data-row,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .bankprocess-virtual-data-row,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-data-row {
+    height: 100%;
+    min-height: 100%;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-cell,
+body.dashboard-page.maintenance-page .maintenance-table tbody td.maintenance-table-cell {
+    border-bottom: none !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-thead {
+    margin-bottom: 0 !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-spacer {
+    margin-top: 0 !important;
+}

@@ -485,7 +485,7 @@ body.dashboard-page.maintenance-page {
     width: 100%;
     border-collapse: separate;
     table-layout: fixed;
-    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+    border-spacing: 0;
 }
 
 .maintenance-table th,
@@ -517,13 +517,18 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-table tbody tr {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    transition: all 0.2s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
+}
+
+.maintenance-table tbody td,
+.maintenance-table tbody td.maintenance-table-cell {
+    background-color: transparent;
 }
 
 .maintenance-table tbody tr:nth-child(even) {
@@ -925,7 +930,7 @@ body.dashboard-page.maintenance-page {
     width: 100%;
     border-collapse: separate;
     table-layout: fixed;
-    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+    border-spacing: 0;
 }
 
 .capture-maintenance-page-root .maintenance-table th,
@@ -956,13 +961,18 @@ body.dashboard-page.maintenance-page {
 
 .capture-maintenance-page-root .maintenance-table tbody tr {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    transition: all 0.2s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .capture-maintenance-page-root .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
+}
+
+.capture-maintenance-page-root .maintenance-table tbody td,
+.capture-maintenance-page-root .maintenance-table tbody td.maintenance-table-cell {
+    background-color: transparent;
 }
 
 .capture-maintenance-page-root .maintenance-table tbody tr:nth-child(even) {
@@ -1291,8 +1301,8 @@ body.dashboard-page.maintenance-page {
 
 .capture-maintenance-page-root .maintenance-virtual-data-row {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .capture-maintenance-page-root .maintenance-virtual-data-row--stripe {
@@ -1300,8 +1310,8 @@ body.dashboard-page.maintenance-page {
 }
 
 .capture-maintenance-page-root .maintenance-virtual-data-row:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
 }
 
 .capture-maintenance-page-root .maintenance-virtual-cell {
@@ -1313,7 +1323,7 @@ body.dashboard-page.maintenance-page {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    border-bottom: none;
     min-height: var(--capture-list-cell-min-height);
     box-sizing: border-box;
     display: flex;

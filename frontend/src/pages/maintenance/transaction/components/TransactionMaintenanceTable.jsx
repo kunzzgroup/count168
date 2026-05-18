@@ -226,6 +226,8 @@ export default function TransactionMaintenanceTable({
                       top: 0,
                       left: 0,
                       width: "100%",
+                      height: `${virtualRow.size}px`,
+                      minHeight: `${virtualRow.size}px`,
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
                   >
