@@ -472,9 +472,16 @@ export default function DataCapturePage() {
         <div className="excel-table-container">
           <div className="excel-table-header">
             <span>Data Capture Table</span>
-            <select id="dataCaptureTypeSelector" className="data-capture-type-selector" defaultValue="1.Text">
+            <select
+              id="dataCaptureTypeSelector"
+              className="data-capture-type-selector data-capture-type-selector--sr-only"
+              defaultValue="1.Text"
+              aria-hidden="true"
+              tabIndex={-1}
+            >
               <option value="1.Text">1.TEXT</option>
               <option value="2.Format">2.FORMAT</option>
+              <option value="CITIBET">CITIBET</option>
               <option value="CITIBET_MAJOR">3.CITIBET</option>
               <option value="4.RETURN">4.RETURN</option>
             </select>

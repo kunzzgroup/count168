@@ -88,6 +88,62 @@ let maxHistorySize = 50;
 // Current data capture type (1.Text / 2.Format / CITIBET / CITIBET_MAJOR)
 let currentDataCaptureType = '1.Text';
 
+/**
+ * 隱藏式模式切換：同步 currentDataCaptureType、DOM 選單值與 CITIBET 表格樣式（取代可見下拉）。
+ * @param {string} nextType
+ */
+function applyDataCaptureType(nextType) {
+    const previousType = currentDataCaptureType;
+    const t = String(nextType || '1.Text').trim() || '1.Text';
+    currentDataCaptureType = t;
+    const typeSelect = document.getElementById('dataCaptureTypeSelector');
+    if (typeSelect) {
+        const hasOption = Array.from(typeSelect.options || []).some(opt => opt && opt.value === t);
+        if (hasOption) typeSelect.value = t;
+    }
+    const excelTableContainer = document.querySelector('.excel-table-container');
+    if (excelTableContainer) {
+        if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
+        else excelTableContainer.classList.remove('citibet-mode');
+    }
+    if (currentDataCaptureType === '2.Format') {
+        let previewHtml = '';
+        try {
+            previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
+        } catch (_) { }
+
+        if (previewHtml) {
+            renderFormatPreview(previewHtml);
+            isFormatGridReady = true;
+        } else {
+            if (!isFormatGridReady) {
+                isFormatGridReady = false;
+            }
+        }
+    } else {
+        isFormatGridReady = false;
+
+        if (previousType === '2.Format') {
+            clearFormatStyles();
+        }
+    }
+
+    toggleTableDisplayForFormat();
+    updateSubmitButtonState();
+}
+
+/**
+ * 依純文字剪貼簿判斷是否為 Citibet 報表（不含鬆散 formatBased，避免一般 Excel 被誤判）。
+ * @param {string} pastedData
+ * @returns {string|null} CITIBET_MAJOR、CITIBET 或 null
+ */
+function autoDetectDataCaptureTypeFromPastePlainText(pastedData) {
+    if (!pastedData || typeof pastedData !== 'string') return null;
+    if (parseCitibetMajorPaymentReport(pastedData)) return 'CITIBET_MAJOR';
+    if (parseCitibetPaymentReport(pastedData)) return 'CITIBET';
+    return null;
+}
+
 // Highlight column and row headers based on selected cell
 function highlightHeadersForCell(cell) {
     if (!cell || cell.contentEditable !== 'true') return;
@@ -10003,6 +10059,16 @@ function handleCellPaste(e) {
         getClipboardData('text') ||
         getClipboardData('Text') ||
         '';
+
+    // 隱藏式格式偵測：Citibet 報表自動切換模式，避免仍停留在 1.Text 時被一般貼上邏輯搶先處理
+    const detectedCaptureType = autoDetectDataCaptureTypeFromPastePlainText(pastedData);
+    if (detectedCaptureType) {
+        applyDataCaptureType(detectedCaptureType);
+    } else if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
+        if (!parseCitibetMajorPaymentReport(pastedData) && !parseCitibetPaymentReport(pastedData)) {
+            applyDataCaptureType('1.Text');
+        }
+    }
 
     // 1.Text 专用解析：完全保持Excel原始格式，不做任何转换
     if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.Text') {
@@ -22621,7 +22687,7 @@ function resetForm() {
 
     // Reset 2.Format grid state (show paste area again)
     isFormatGridReady = false;
-    toggleTableDisplayForFormat();
+    applyDataCaptureType('1.Text');
 
     // Clear all selections
     clearAllSelections();
@@ -23293,7 +23359,17 @@ async function submitDataCaptureForm() {
     const processCode = processInput ? (processInput.getAttribute('data-process-code') || '').trim() : '';
     const processDisplayText = processInput ? processInput.textContent.trim() : '';
     const typeSelectEl = document.getElementById('dataCaptureTypeSelector');
-    const selectedDataCaptureType = typeSelectEl ? String(typeSelectEl.value || '').trim() : '';
+    let selectedDataCaptureType = String(currentDataCaptureType || '').trim();
+    if (!selectedDataCaptureType) {
+        selectedDataCaptureType = typeSelectEl ? String(typeSelectEl.value || '').trim() : '';
+    }
+    if (!selectedDataCaptureType) {
+        selectedDataCaptureType = '1.Text';
+    }
+    if (typeSelectEl && typeSelectEl.value !== selectedDataCaptureType) {
+        const hasOption = Array.from(typeSelectEl.options || []).some(opt => opt && opt.value === selectedDataCaptureType);
+        if (hasOption) typeSelectEl.value = selectedDataCaptureType;
+    }
 
     const processData = {
         date: formData.get('capture_date'),
@@ -24572,7 +24648,7 @@ async function initDataCapturePage() {
         document.body.classList.add('page-ready');
     }, 50);
 
-    // 初始化 Data Capture Type 选择器
+    // 初始化 Data Capture Type（選單可隱藏，仍以 DOM 保留 option 供還原與除錯）
     const typeSelect = document.getElementById('dataCaptureTypeSelector');
     const excelTableContainer = document.querySelector('.excel-table-container');
     if (excelTableContainer) {
@@ -24580,62 +24656,24 @@ async function initDataCapturePage() {
     }
     window.addEventListener('resize', updateActiveContextMenuPosition);
 
-    if (typeSelect) {
-        currentDataCaptureType = typeSelect.value || '1.Text';
-        // CITIBET 模式：为表格容器添加 class，用于完整显示数据（避免字母被裁剪）
-        if (excelTableContainer) {
-            if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
-            else excelTableContainer.classList.remove('citibet-mode');
-        }
-        // 初始化显示状态
-        toggleTableDisplayForFormat();
+    const urlParamsForCaptureType = new URLSearchParams(window.location.search);
+    const captureTypeFromUrl = String(urlParamsForCaptureType.get('captureType') || urlParamsForCaptureType.get('dataCaptureType') || '').trim();
 
-        // 初始化2.Format模式的粘贴区域监听（仅影响2.Format）
+    if (typeSelect) {
+        let initialType = typeSelect.value || '1.Text';
+        if (captureTypeFromUrl && Array.from(typeSelect.options || []).some(opt => opt && opt.value === captureTypeFromUrl)) {
+            initialType = captureTypeFromUrl;
+        }
+        applyDataCaptureType(initialType);
+
         initFormatPasteArea();
 
         typeSelect.addEventListener('change', () => {
-            const previousType = currentDataCaptureType;
-            currentDataCaptureType = typeSelect.value || '1.Text';
-            // CITIBET 模式：为表格容器添加/移除 class，用于完整显示数据（避免字母被裁剪）
-            if (excelTableContainer) {
-                if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
-                else excelTableContainer.classList.remove('citibet-mode');
-            }
-            // 切到2.Format时：检查是否有保存的预览数据，如果有则恢复显示
-            if (currentDataCaptureType === '2.Format') {
-                let previewHtml = '';
-                try {
-                    previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
-                } catch (_) { }
-
-                if (previewHtml) {
-                    // 如果有保存的预览数据，恢复显示
-                    renderFormatPreview(previewHtml);
-                    isFormatGridReady = true;
-                } else {
-                    // 如果没有保存的数据，显示粘贴区
-                    // 但是不要重置 isFormatGridReady，因为用户可能刚刚粘贴了数据
-                    // 如果 isFormatGridReady 已经是 true（刚刚粘贴），保持它
-                    if (!isFormatGridReady) {
-                        isFormatGridReady = false;
-                    }
-                }
-            } else {
-                // 切换到其他模式时，重置 2.Format 的状态
-                isFormatGridReady = false;
-
-                // 如果从2.Format切换到其他模式，清除2.Format模式留下的样式
-                if (previousType === '2.Format') {
-                    clearFormatStyles();
-                }
-            }
-
-            // 切换表格和输入区域的显示
-            toggleTableDisplayForFormat();
-
-            // 切换类型时，重新刷新 Submit 按钮的可用状态
-            updateSubmitButtonState();
+            applyDataCaptureType(typeSelect.value || '1.Text');
         });
+    } else {
+        applyDataCaptureType(captureTypeFromUrl || '1.Text');
+        initFormatPasteArea();
     }
 
     // 初始化 Process 输入框事件

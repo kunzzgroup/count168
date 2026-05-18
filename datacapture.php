@@ -242,22 +242,12 @@ if ($current_user_id && count($user_companies_all) > 0) {
                     <div class="excel-table-header">
                         <span>Data Capture Table</span>
                         <!-- Data Capture Type Selector -->
-                        <select id="dataCaptureTypeSelector" class="data-capture-type-selector">
+                        <select id="dataCaptureTypeSelector" class="data-capture-type-selector data-capture-type-selector--sr-only" aria-hidden="true" tabindex="-1">
                             <option value="1.Text">1.TEXT</option>
                             <option value="2.Format">2.FORMAT</option>
-                            <!-- <option value="3.API">API</option> -->
+                            <option value="CITIBET">CITIBET</option>
                             <option value="CITIBET_MAJOR">3.CITIBET</option>
                             <option value="4.RETURN">4.RETURN</option>
-                            <!-- <option value="GENERAL">GENERAL</option> -->
-                            <!-- <option value="VPOWER">VPOWER</option> -->
-                            <!-- <option value="API_RETURN">API-RETURN</option> -->
-                            <!-- <option value="WBET">WBET</option> -->
-                            <!-- <option value="ALIPAY">ALIPAY</option> -->
-                            <!-- <option value="PEGASUS">PEGASUS</option> -->
-                            <!-- <option value="C8PLAY">C8PLAY</option> -->
-                            <!-- <option value="MAXBET">MAXBET</option> -->
-                            <!-- <option value="WBET_API">WBET_API</option> -->
-                            <!-- <option value="INVOICE">INVOICE</option> -->
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
