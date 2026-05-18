@@ -1,8 +1,30 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { translateBankProcessApiMessage } from "../../../translateFile/bankProcessTranslate.js";
 import { deriveBankProcessUiStatus, normalizeBankIssueFlag, normalizeBankProcessStatus } from "../bankProcessHelpers.js";
 
-export default function BankProcessStatusControl({ row, onUpdated, notify: doNotify, buildApiUrl: apiUrl, t }) {
+const STATUS_LABEL_KEYS = {
+  ACTIVE: "statusActive",
+  INACTIVE: "statusInactive",
+  OFFICIAL: "statusOfficial",
+  E_INVOICE: "statusEInvoice",
+  BLOCK: "statusBlock",
+};
+
+function statusLabel(t, key) {
+  return t(STATUS_LABEL_KEYS[key] || key);
+}
+
+export default function BankProcessStatusControl({ row, onUpdated, notify: doNotify, buildApiUrl: apiUrl, t, lang }) {
+  const apiMsg = (json) =>
+    translateBankProcessApiMessage(
+      lang,
+      {
+        message: json?.message ?? json?.error,
+        errorCode: json?.data && typeof json.data === "object" && !Array.isArray(json.data) ? json.data.error : undefined,
+      },
+      t("statusUpdateFailed")
+    );
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0, minWidth: 118 });
   const wrapRef = useRef(null);
@@ -66,30 +88,30 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
       if (target === "ACTIVE") {
         if (hasFlag) {
           const j = await postIssueFlag(id, "");
-          if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
+          if (!j.success) return doNotify(apiMsg(j), "danger");
         }
         if (st !== "active") {
           const j = await postToggle(id);
-          if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
+          if (!j.success) return doNotify(apiMsg(j), "danger");
         }
       } else if (target === "INACTIVE") {
         if (hasFlag) {
           const j = await postIssueFlag(id, "");
-          if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
+          if (!j.success) return doNotify(apiMsg(j), "danger");
         }
         if (st === "active") {
           const j = await postToggle(id);
-          if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
+          if (!j.success) return doNotify(apiMsg(j), "danger");
         }
       } else if (target === "OFFICIAL") {
         const j = await postIssueFlag(id, "official");
-        if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
+        if (!j.success) return doNotify(apiMsg(j), "danger");
       } else if (target === "E_INVOICE") {
         const j = await postIssueFlag(id, "e_invoice");
-        if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
+        if (!j.success) return doNotify(apiMsg(j), "danger");
       } else if (target === "BLOCK") {
         const j = await postIssueFlag(id, "block");
-        if (!j.success) return doNotify(j.message || j.error || t("statusUpdateFailed"), "danger");
+        if (!j.success) return doNotify(apiMsg(j), "danger");
       }
       doNotify(t("statusUpdated"), "success");
       onUpdated();
@@ -100,7 +122,7 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
   };
 
   const options = ["ACTIVE", "INACTIVE", "OFFICIAL", "E_INVOICE", "BLOCK"];
-  const label = ui === "E_INVOICE" ? "E-INVOICE" : ui;
+  const label = statusLabel(t, ui);
 
   return (
     <div className={`bank-status-dropdown${open ? " open" : ""}`} ref={wrapRef}>
@@ -126,7 +148,7 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
               }}
             >
               {options.map((opt) => {
-                const optLabel = opt === "E_INVOICE" ? "E-INVOICE" : opt;
+                const optLabel = statusLabel(t, opt);
                 const cur = ui === opt;
                 return (
                   <button

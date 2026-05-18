@@ -56,8 +56,8 @@ export default function BankSelectionModal({
                     <button
                       type="button"
                       className="remove-country-modal"
-                      aria-label={`Remove ${b}`}
-                      title={`Remove ${b}`}
+                      aria-label={t("removeBankChipAria", { bank: b })}
+                      title={t("removeBankChipAria", { bank: b })}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -79,7 +79,7 @@ export default function BankSelectionModal({
                   selectedBankChips.map((b) => (
                     <div key={`sel-b-${b}`} className="selected-country-modal-item">
                       <span>{b}</span>
-                      <button type="button" className="remove-country-modal" aria-label={`Remove ${b}`} onClick={() => setSelectedBankChips((prev) => prev.filter((x) => x !== b))}>
+                      <button type="button" className="remove-country-modal" aria-label={t("removeBankChipAria", { bank: b })} onClick={() => setSelectedBankChips((prev) => prev.filter((x) => x !== b))}>
                         ×
                       </button>
                     </div>

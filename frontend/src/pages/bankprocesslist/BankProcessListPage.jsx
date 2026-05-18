@@ -14,7 +14,7 @@ import "../../../public/css/date-range-picker.css";
 
 import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../account/accountLogic.js";
 import { getAccountText } from "../../translateFile/accountTranslate.js";
-import { getBankProcessLocale, getBankProcessText } from "../../translateFile/bankProcessTranslate.js";
+import { getBankProcessLocale, getBankProcessText, translateBankProcessApiMessage } from "../../translateFile/bankProcessTranslate.js";
 
 // Helper imports
 import {
@@ -75,6 +75,18 @@ export default function BankProcessListPage() {
   const [lang, setLang] = useState(() => resolveLang());
   const bpLocale = useMemo(() => getBankProcessLocale(lang), [lang]);
   const t = useCallback((key, params = {}) => getBankProcessText(lang, key, params), [lang]);
+  const apiMsg = useCallback(
+    (json, fallbackKey) => {
+      const errorCode =
+        json?.data && typeof json.data === "object" && !Array.isArray(json.data) ? json.data.error : undefined;
+      return translateBankProcessApiMessage(
+        lang,
+        { message: json?.message ?? json?.error, errorCode },
+        fallbackKey ? t(fallbackKey) : ""
+      );
+    },
+    [lang, t]
+  );
   const tAccount = useCallback((key, params = {}) => getAccountText(lang, key, params), [lang]);
 
   const handleDatePickerChange = useCallback(() => {
@@ -215,7 +227,7 @@ export default function BankProcessListPage() {
         credentials: "include",
       });
       const json = await res.json();
-      if (!json.success || !json.data) return notify(json.message || json.error || t("failedCreateCurrency"), "danger");
+      if (!json.success || !json.data) return notify(apiMsg(json, "failedCreateCurrency"), "danger");
       setAccountModalCurrencies((prev) => [...prev, { id: json.data.id, code: json.data.code, is_linked: false }]);
       setAccountModalCurrencyInput("");
       notify(t("currencyCreated", { code }), "success");
@@ -233,7 +245,7 @@ export default function BankProcessListPage() {
         credentials: "include",
       });
       const json = await res.json();
-      if (!json.success) return notify(json.error || t("failedDeleteCurrency"), "danger");
+      if (!json.success) return notify(apiMsg(json, "failedDeleteCurrency"), "danger");
       setAccountModalCurrencies((prev) => prev.filter((c) => Number(c.id) !== Number(cid)));
       setAccountModalSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== Number(cid)));
     } catch {
@@ -268,7 +280,7 @@ export default function BankProcessListPage() {
     try {
       const res = await fetch(buildApiUrl("api/accounts/addaccountapi.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notify(json.message || json.error || t("saveFailed"), "danger");
+      if (!json.success) return notify(apiMsg(json, "saveFailed"), "danger");
 
       if (json?.data?.id && accountModalSelectedCompanyIds.length) {
         await Promise.all(
@@ -688,7 +700,7 @@ export default function BankProcessListPage() {
       const res = await fetch(url.toString(), { credentials: "include", signal: ac.signal });
       const json = await res.json();
       if (ac.signal.aborted) return;
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("failedLoadBankProcesses"), "danger");
+      if (!res.ok || !json.success) return notify(apiMsg(json, "failedLoadBankProcesses"), "danger");
       setRows(normalizeRows(json.data));
       setSelectedIds(new Set());
       setCurrentPage(1);
@@ -795,7 +807,7 @@ export default function BankProcessListPage() {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        return notify(json.message || json.error || t("switchCompanyFailed"), "danger");
+        return notify(apiMsg(json, "switchCompanyFailed"), "danger");
       }
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
@@ -845,7 +857,7 @@ export default function BankProcessListPage() {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", name);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=add_country"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("addCountryFailed"), "danger");
+      if (!res.ok || !json.success) return notify(apiMsg(json, "addCountryFailed"), "danger");
       setCountriesList((prev) => [...new Set([...prev, name])].sort());
       setSelectedCountryChips((prev) => (prev.includes(name) ? prev : [...prev, name]));
       setNewCountryName("");
@@ -861,7 +873,7 @@ export default function BankProcessListPage() {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", String(form.country)); fd.append("banks[]", name);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=save_country_banks"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("addBankFailed"), "danger");
+      if (!res.ok || !json.success) return notify(apiMsg(json, "addBankFailed"), "danger");
       setBanksList((prev) => [...new Set([...prev, name])].sort());
       setSelectedBankChips((prev) => (prev.includes(name) ? prev : [...prev, name]));
       setNewBankName("");
@@ -877,7 +889,7 @@ export default function BankProcessListPage() {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", country);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=remove_country"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("removeCountryFailed"), "danger");
+      if (!res.ok || !json.success) return notify(apiMsg(json, "removeCountryFailed"), "danger");
       setCountriesList((prev) => prev.filter((c) => c !== country));
       setSelectedCountryChips((prev) => prev.filter((c) => c !== country));
       setForm((f) => (f.country === country ? { ...f, country: "", bank: "" } : f));
@@ -894,7 +906,7 @@ export default function BankProcessListPage() {
       const fd = new FormData(); fd.append("company_id", String(companyId)); fd.append("country", country); fd.append("bank", bank);
       const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=remove_bank"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("removeBankFailed"), "danger");
+      if (!res.ok || !json.success) return notify(apiMsg(json, "removeBankFailed"), "danger");
       setBanksList((prev) => prev.filter((b) => b !== bank));
       setSelectedBankChips((prev) => prev.filter((b) => b !== bank));
       setForm((f) => (f.bank === bank ? { ...f, bank: "" } : f));
@@ -960,7 +972,7 @@ export default function BankProcessListPage() {
       url.searchParams.set("permission", "Bank");
       const res = await fetch(url.toString(), { credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success || !json.data) return notify(json.message || json.error || t("failedLoadBankProcess"), "danger");
+      if (!res.ok || !json.success || !json.data) return notify(apiMsg(json, "failedLoadBankProcess"), "danger");
       const d = json.data;
       setEditMode(true);
       setForm({
@@ -1019,7 +1031,7 @@ export default function BankProcessListPage() {
       const endpoint = editMode ? "api/processes/processlist_api.php?action=update_process" : "api/processes/addprocess_api.php";
       const res = await fetch(buildApiUrl(endpoint), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("saveFailed"), "danger");
+      if (!res.ok || !json.success) return notify(apiMsg(json, "saveFailed"), "danger");
       notify(editMode ? t("bankProcessUpdated") : t("bankProcessAdded"));
       notifyTransactionDataChanged("bank-process-list-react");
       setModalOpen(false); fetchRows();
@@ -1037,8 +1049,8 @@ export default function BankProcessListPage() {
       fd.append("allow_future_monthly", "1");
       const res = await fetch(buildApiUrl("api/processes/process_post_to_transaction_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("transactionPostFailed"), "danger");
-      notify(json.message || t("postedToTransaction"));
+      if (!res.ok || !json.success) return notify(apiMsg(json, "transactionPostFailed"), "danger");
+      notify(apiMsg(json, "postedToTransaction"));
       notifyTransactionDataChanged("bank-process-list-react");
       loadAccountingInbox(); fetchRows();
     } catch { notify(t("transactionPostFailed"), "danger"); }
@@ -1054,8 +1066,8 @@ export default function BankProcessListPage() {
       });
       const res = await fetch(buildApiUrl("api/processes/dismiss_accounting_due_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("deleteDueFailed"), "danger");
-      notify(json.message || t("removedFromDue"));
+      if (!res.ok || !json.success) return notify(apiMsg(json, "deleteDueFailed"), "danger");
+      notify(apiMsg(json, "removedFromDue"));
       notifyTransactionDataChanged("bank-process-list-react");
       loadAccountingInbox(); fetchRows();
     } catch { notify(t("deleteDueFailed"), "danger"); }
@@ -1067,7 +1079,7 @@ export default function BankProcessListPage() {
       const fd = new FormData(); fd.append("id", String(remarkRow.id)); fd.append("remark", remarkDraft);
       const res = await fetch(buildApiUrl("api/processes/update_bank_remark_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("remarkUpdateFailed"), "danger");
+      if (!res.ok || !json.success) return notify(apiMsg(json, "remarkUpdateFailed"), "danger");
       setRows((prev) => prev.map((r) => (Number(r.id) === Number(remarkRow.id) ? { ...r, remark: remarkDraft } : r)));
       notifyTransactionDataChanged("bank-process-list-react");
       notify(t("remarkUpdated"));
@@ -1103,11 +1115,14 @@ export default function BankProcessListPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        const msg = json.message || json.error || t("resendFailed");
-        if (isBankResendDayStartBackendErrorMessage(msg)) setResendInlineError(msg);
+        const rawMsg = json.message || json.error || "";
+        const msg = apiMsg(json, "resendFailed");
+        if (isBankResendDayStartBackendErrorMessage(rawMsg) || isBankResendDayStartBackendErrorMessage(msg)) {
+          setResendInlineError(msg);
+        }
         return notify(msg, "danger");
       }
-      notify(json.message || t("resendSuccessful"));
+      notify(apiMsg(json, "resendSuccessful"));
       notifyTransactionDataChanged("bank-process-list-react");
       void loadAccountingInbox({ silent: true });
       setResendModalOpen(false); setResendTarget(null);
@@ -1131,7 +1146,7 @@ export default function BankProcessListPage() {
         body: JSON.stringify({ ids: Array.from(selectedIds), permission: "Bank" }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || t("deleteFailed"), "danger");
+      if (!res.ok || !json.success) return notify(apiMsg(json, "deleteFailed"), "danger");
       const n = json?.data?.deleted ?? selectedIds.size;
       notify(n === 1 ? t("processDeletedOne") : t("processDeletedMany", { count: n }), "success");
       notifyTransactionDataChanged("bank-process-list-react");
@@ -1688,6 +1703,7 @@ export default function BankProcessListPage() {
           accountingSelected={accountingSelected} setAccountingSelected={setAccountingSelected}
           accountingDeleteSelected={accountingDeleteSelected} setAccountingDeleteSelected={setAccountingDeleteSelected}
           onPostToTransaction={postAccountingToTransaction} onDismissRows={dismissAccountingRows} onClose={() => setAccountingOpen(false)}
+          lang={lang}
           t={t}
         />
       )}

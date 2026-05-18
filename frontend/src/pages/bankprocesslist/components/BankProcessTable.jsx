@@ -224,6 +224,7 @@ export default function BankProcessTable({
             <div className="card-item bank-status-cell">
               <BankProcessStatusControl
                 row={r}
+                lang={lang}
                 notify={notify}
                 buildApiUrl={buildApiUrl}
                 t={t}
