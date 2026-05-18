@@ -132,27 +132,34 @@ function accountHoldsMiniGridCurrency(accountId, currencyUpper) {
     return set.has(cu);
 }
 
-/**
- * 迷你网格余额行：当前查看账本优先用 fetchMemberSummary 的单户摘要（与货币 Tab / 主查询一致），
- * 避免多 target_account_id + currency 的 search_api 返回与单户摘要不一致（如 C1 显示 0 而表尾为 -285.73）。
- * 其它关联户仍用本次多账户请求的 combined 行。
- */
-function findMemberMiniGridBalanceRow(accountDbId, currencyCodeRaw, apiRows) {
-    const idNum = Number(accountDbId);
-    const cuNorm = (currencyCodeRaw || '').trim().toUpperCase();
-    if (idNum > 0 && idNum === Number(memberConfig.accountId) && Array.isArray(memberCurrencySummary)) {
-        const fromSummary = memberCurrencySummary.find(row =>
-            Number(row.account_db_id) === idNum
-            && (row.currency || '').trim().toUpperCase() === cuNorm
-        );
-        if (fromSummary) {
-            return fromSummary;
-        }
+/** Currency 迷你网格中要展示的关联账户列表（顺序与 pills 同源）。 */
+function getOrderedMiniGridAccounts(currencyCode) {
+    const allowIds = new Set(memberLinkedAccountsList.map(a => Number(a.id)));
+    const sel = new Set([...memberWLGridSelectedIds].map(Number).filter((id) => allowIds.has(id)));
+    if (sel.size === 0) {
+        allowIds.forEach((id) => sel.add(id));
     }
-    return (apiRows || []).find(row =>
-        Number(row.account_db_id) === idNum
-        && (row.currency || '').trim().toUpperCase() === cuNorm
+    const cuUpper = String(currencyCode || '').trim().toUpperCase();
+    return memberLinkedAccountsList.filter(a =>
+        sel.has(Number(a.id)) && accountHoldsMiniGridCurrency(a.id, cuUpper)
     );
+}
+
+/**
+ * 与下方 Win/Loss 明细表 TOTAL 行的 Balance 同源：区间内最后一行的 running balance（含 Win/Loss + Cr/Dr）。
+ * search_api summary 与该跑表在部分场景口径不一致，故迷你网格不按 summary 取值。
+ */
+function memberHistoryClosingBalanceFromRows(rows, currencyUpper) {
+    let closing = normalizeNumber('0');
+    const cuFilter = String(currencyUpper || '').trim().toUpperCase();
+    (rows || []).forEach((row) => {
+        const rc = (row.currency || '').trim().toUpperCase();
+        if (cuFilter && rc !== cuFilter) return;
+        if (row.balance !== '-' && row.balance !== null && row.balance !== undefined && String(row.balance).trim() !== '') {
+            closing = normalizeNumber(row.balance);
+        }
+    });
+    return closing;
 }
 
 function loadMemberOwnedCurrencies() {
@@ -523,17 +530,10 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
         if (currLine) currLine.textContent = currencyCode;
         if (hintEl) hintEl.textContent = '';
 
-        const allIds = new Set(memberLinkedAccountsList.map(a => Number(a.id)).filter(Boolean));
-        const selectedSorted = [...memberWLGridSelectedIds].filter(id => allIds.has(Number(id))).sort((a, b) => a - b);
-        const baseIds = selectedSorted.length ? selectedSorted : [...allIds].sort((a, b) => a - b);
         const cu = currencyCode.trim().toUpperCase();
-        let targetIds = baseIds.filter((id) => accountHoldsMiniGridCurrency(id, cu));
-        const viewAid = Number(memberConfig.accountId);
-        if (viewAid && !targetIds.includes(viewAid) && accountHoldsMiniGridCurrency(viewAid, cu)) {
-            targetIds = [...targetIds, viewAid].sort((a, b) => a - b);
-        }
+        const orderedAccounts = getOrderedMiniGridAccounts(currencyCode);
 
-        if (memberLinkedCurrenciesLoaded && targetIds.length === 0) {
+        if (memberLinkedCurrenciesLoaded && orderedAccounts.length === 0) {
             const totalBlank = document.getElementById('member_balance_total_value');
             if (hintEl) {
                 hintEl.textContent = 'No accounts in the grid hold ' + cu + '.';
@@ -547,32 +547,50 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
             memberGridFetchAbortController.abort();
         }
         memberGridFetchAbortController = new AbortController();
+        const signal = memberGridFetchAbortController.signal;
 
-        const params = new URLSearchParams({
-            date_from: dateFrom,
-            date_to: dateTo,
-            target_account_id: targetIds.join(','),
-            company_id: memberConfig.companyId,
-            currency: currencyCode,
-            show_inactive: '1',
-            hide_zero_balance: '0'
-        });
-        fetch(`api/transactions/search_api.php?${params.toString()}&_t=${Date.now()}`, { cache: 'no-cache', signal: memberGridFetchAbortController.signal })
-            .then(res => res.text())
-            .then(text => parseJsonResponse(text))
-            .then(data => {
+        const fetchOneClosing = (accountDbId) => {
+            const params = new URLSearchParams({
+                account_id: String(accountDbId),
+                date_from: dateFrom,
+                date_to: dateTo,
+                company_id: String(memberConfig.companyId),
+                currency: currencyCode
+            });
+            return fetch(`api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`, {
+                cache: 'no-store',
+                signal
+            })
+                .then(res => res.text())
+                .then(text => parseJsonResponse(text))
+                .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.error || data.message || 'Could not load history');
+                    }
+                    const historyRows = data.data?.history ?? [];
+                    return memberHistoryClosingBalanceFromRows(historyRows, cu);
+                })
+                .catch(() => normalizeNumber('0'));
+        };
+
+        Promise.all(
+            orderedAccounts.map((acc) => {
+                const id = Number(acc.id);
+                return fetchOneClosing(id).then(closing => ({ id, closing }));
+            })
+        )
+            .then((pairs) => {
                 if (seq !== memberSearchSeq) {
                     resolve();
                     return;
                 }
-                if (!data.success) {
-                    throw new Error(data.error || 'Grid load failed');
-                }
-                const combined = [
-                    ...(data.data?.left_table ?? []),
-                    ...(data.data?.right_table ?? [])
-                ];
-                renderMemberMiniGrid(combined, currencyCode, seq);
+                const balanceMap = new Map();
+                (pairs || []).forEach(({ id, closing }) => {
+                    if (id > 0 && closing != null && typeof closing.plus === 'function') {
+                        balanceMap.set(id, closing);
+                    }
+                });
+                renderMemberMiniGrid(balanceMap, currencyCode, seq);
                 resolve();
             })
             .catch((err) => {
@@ -591,7 +609,7 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
     });
 }
 
-function renderMemberMiniGrid(rows, currencyCode, seq) {
+function renderMemberMiniGrid(balanceMap, currencyCode, seq) {
     const gridEl = document.getElementById('member_balance_grid');
     const totalEl = document.getElementById('member_balance_total_value');
     const hintEl = document.getElementById('member_balance_grid_hint');
@@ -601,14 +619,7 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
     gridEl.innerHTML = '';
     if (hintEl) hintEl.textContent = '';
 
-    const allowIds = new Set(memberLinkedAccountsList.map(a => Number(a.id)));
-    const sel = new Set([...memberWLGridSelectedIds].map(Number).filter((id) => allowIds.has(id)));
-    if (sel.size === 0) {
-        allowIds.forEach((id) => sel.add(id));
-    }
-    const listOrdered = memberLinkedAccountsList.filter(a =>
-        sel.has(Number(a.id)) && accountHoldsMiniGridCurrency(a.id, currencyCode)
-    );
+    const listOrdered = getOrderedMiniGridAccounts(currencyCode);
 
     if (!listOrdered.length && memberLinkedCurrenciesLoaded && (currencyCode || '').trim()) {
         if (hintEl) {
@@ -618,11 +629,14 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
         return;
     }
 
+    let runningTotal = normalizeNumber('0');
     listOrdered.forEach((acc) => {
         const idNum = Number(acc.id);
         const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-        const hit = findMemberMiniGridBalanceRow(idNum, currencyCode, rows);
-        const rawBal = hit && hit.balance !== undefined && hit.balance !== null ? hit.balance : '0';
+        const balDec = balanceMap && balanceMap.has(idNum)
+            ? balanceMap.get(idNum)
+            : normalizeNumber('0');
+        runningTotal = runningTotal.plus(balDec);
 
         const cell = document.createElement('div');
         cell.className = 'member-balance-mini-cell';
@@ -631,22 +645,13 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
         ln.textContent = code;
         const rv = document.createElement('span');
         rv.className = 'member-balance-mini-val';
-        rv.textContent = formatNumber(rawBal);
+        rv.textContent = formatNumber(balDec.toString());
         cell.appendChild(ln);
         cell.appendChild(rv);
         gridEl.appendChild(cell);
     });
 
-    const cuNorm = currencyCode.trim().toUpperCase();
-    const viewAid = Number(memberConfig.accountId);
-    const viewHit = findMemberMiniGridBalanceRow(viewAid, currencyCode, rows);
-    if (viewHit && viewHit.balance !== undefined && viewHit.balance !== null) {
-        totalEl.textContent = formatNumber(viewHit.balance);
-    } else if (memberLinkedCurrenciesLoaded && viewAid && !accountHoldsMiniGridCurrency(viewAid, cuNorm)) {
-        totalEl.textContent = '–';
-    } else {
-        totalEl.textContent = formatNumber(viewHit && viewHit.balance != null ? viewHit.balance : '0');
-    }
+    totalEl.textContent = formatNumber(runningTotal.toString());
 }
 
 function buildMemberLinkedFilterModalList() {
