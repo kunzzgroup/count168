@@ -996,17 +996,17 @@ body.transaction-page {
     column-gap: 0;
     row-gap: 4px;
     padding: 4px 0;
-    align-items: stretch;
+    align-items: start;
 }
 
-/* 中央垂直分割線（左欄右緣）：等高延伸到底 */
+/* 中央垂直分割線（左欄右緣）：色階較區塊外框深，對齊表格中線 */
 .member-bal-hblock-body > .member-bal-hblock-col:first-of-type {
-    padding: 4px 8px 4px 6px;
+    padding: 4px 10px 4px 8px;
     border-right: 1px solid #7d96b5;
 }
 
 .member-bal-hblock-body > .member-bal-hblock-col:nth-of-type(2) {
-    padding: 4px 6px 4px 8px;
+    padding: 4px 8px 4px 10px;
 }
 
 .member-bal-hblock-col {
@@ -1016,13 +1016,11 @@ body.transaction-page {
     min-width: 0;
 }
 
-/* acc 與金額緊貼（避免 grid 第二欄 1fr 把數字推到欄末端） */
 .member-bal-hblock-row {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: baseline;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: minmax(1.85rem, auto) minmax(0, 1fr);
     gap: 4px;
+    align-items: baseline;
     font-variant-numeric: tabular-nums;
 }
 
@@ -1030,15 +1028,14 @@ body.transaction-page {
     font-weight: 700;
     font-size: clamp(10px, 0.72vw, 12px);
     color: #002c49;
-    flex: 0 0 auto;
+    min-width: 0;
 }
 
 .member-bal-hblock-amt {
     font-weight: 600;
     font-size: clamp(10px, 0.74vw, 12px);
     color: #0f2942;
-    flex: 0 1 auto;
-    text-align: left;
+    text-align: right;
 }
 
 .member-bal-hblock-amt--neg {
