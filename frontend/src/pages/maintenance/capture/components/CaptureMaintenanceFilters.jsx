@@ -93,6 +93,8 @@ export default function CaptureMaintenanceFilters({
           captureDateStyle
           periodPresets={periodPresets}
           periodShortcutsAria={m.period}
+          monthLabels={m.monthsShort}
+          weekdaysShort={m.weekdaysShort}
         />
 
         <div className="maintenance-actions-top">

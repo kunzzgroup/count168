@@ -162,6 +162,15 @@ export default function BankprocessMaintenancePage() {
   }, [today]);
 
   useEffect(() => {
+    if (bootLoading || !me) return;
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: t("selectDateRange"),
+      selectEndDateHint: t("selectEndDate"),
+      monthLabels: m.monthsShort,
+    });
+  }, [bootLoading, me, lang, t, m]);
+
+  useEffect(() => {
     (async () => {
       try {
         const [meRes, compRes] = await Promise.all([

@@ -115,7 +115,7 @@ export const MAINTENANCE_I18N = {
   },
   zh: {
     category: "类别：",
-    groupId: "集团编号：",
+    groupId: "集团：",
     company: "公司：",
     currency: "货币：",
     currencyAll: "All",

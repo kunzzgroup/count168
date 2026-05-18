@@ -92,6 +92,8 @@ export default function BankprocessMaintenanceFilters({
             captureDateStyle
             periodPresets={periodPresets}
             periodShortcutsAria={m.period}
+            monthLabels={m.monthsShort}
+            weekdaysShort={m.weekdaysShort}
           />
 
           <div className="customer-report-filter-group report-outlined-anchor">

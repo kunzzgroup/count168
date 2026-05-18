@@ -34,11 +34,13 @@ export default function ReportDatePicker({
   periodPresets = [],
   /** Optional aria-label for the preset column (i18n). */
   periodShortcutsAria = "Period shortcuts",
+  monthLabels = MONTH_LABELS,
+  weekdaysShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
 }) {
   const anchorLabelId = "report-date-range-outlined-label";
 
   const parsedFrom = useMemo(() => parseYmd(dateFrom), [dateFrom]);
-  const initialMonthLabel = parsedFrom ? MONTH_LABELS[parsedFrom.getMonth()] : MONTH_LABELS[new Date().getMonth()];
+  const initialMonthLabel = parsedFrom ? monthLabels[parsedFrom.getMonth()] : monthLabels[new Date().getMonth()];
   const initialYearLabel = parsedFrom ? String(parsedFrom.getFullYear()) : String(new Date().getFullYear());
   const initialMonthValue = parsedFrom ? String(parsedFrom.getMonth()) : String(new Date().getMonth());
 
@@ -54,8 +56,9 @@ export default function ReportDatePicker({
     window.MaintenanceDateRangePicker.setLocaleStrings({
       placeholder,
       selectEndDateHint,
+      monthLabels,
     });
-  }, [placeholder, selectEndDateHint]);
+  }, [placeholder, selectEndDateHint, monthLabels]);
 
   useEffect(() => {
     let disposed = false;
@@ -167,7 +170,7 @@ export default function ReportDatePicker({
           </button>
         </div>
         <div className="calendar-weekdays">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+          {weekdaysShort.map((d) => (
             <div key={d} className="calendar-weekday">{d}</div>
           ))}
         </div>
@@ -182,7 +185,7 @@ export default function ReportDatePicker({
         </button>
         <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
           <select id="calendar-month-select" aria-label="Month">
-            {MONTH_LABELS.map((m, i) => (
+            {monthLabels.map((m, i) => (
               <option key={m} value={i}>{m}</option>
             ))}
           </select>
@@ -193,7 +196,7 @@ export default function ReportDatePicker({
         </button>
       </div>
       <div className="calendar-weekdays">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (<div key={d} className="calendar-weekday">{d}</div>))}
+        {weekdaysShort.map((d) => (<div key={d} className="calendar-weekday">{d}</div>))}
       </div>
       <div className="calendar-days" id="calendar-days" />
     </div>

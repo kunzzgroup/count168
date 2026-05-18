@@ -238,8 +238,9 @@ export default function TransactionMaintenancePage() {
     window.MaintenanceDateRangePicker?.setLocaleStrings?.({
       placeholder: t("selectDateRange"),
       selectEndDateHint: t("selectEndDate"),
+      monthLabels: m.monthsShort,
     });
-  }, [bootLoading, me, cssReady, lang, t]);
+  }, [bootLoading, me, cssReady, lang, t, m]);
 
   // -- Boot Logic --
   useEffect(() => {

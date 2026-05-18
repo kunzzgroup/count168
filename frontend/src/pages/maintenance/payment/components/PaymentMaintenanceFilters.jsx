@@ -97,6 +97,8 @@ export default function PaymentMaintenanceFilters({
           captureDateStyle
           periodPresets={periodPresets}
           periodShortcutsAria={m.period}
+          monthLabels={m.monthsShort}
+          weekdaysShort={m.weekdaysShort}
         />
 
         <div className="maintenance-actions-top">

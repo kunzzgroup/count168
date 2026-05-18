@@ -28,6 +28,8 @@ export default function CustomerReportFilters({
   showAllCurrencies,
   toggleAllCurrencies,
   t,
+  monthLabels,
+  weekdaysShort,
 }) {
   const [accountSearch, setAccountSearch] = useState("");
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
@@ -135,6 +137,8 @@ export default function CustomerReportFilters({
           captureDateStyle
           periodPresets={periodPresets}
           periodShortcutsAria={t("periodShortcutsAria")}
+          monthLabels={monthLabels}
+          weekdaysShort={weekdaysShort}
         />
 
         <div className="customer-report-quick-and-showall">

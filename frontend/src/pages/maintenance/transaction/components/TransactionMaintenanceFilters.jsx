@@ -106,6 +106,8 @@ export default function TransactionMaintenanceFilters({
           captureDateStyle
           periodPresets={periodPresets}
           periodShortcutsAria={m.period}
+          monthLabels={m.monthsShort}
+          weekdaysShort={m.weekdaysShort}
         />
       </div>
 
