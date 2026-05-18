@@ -903,11 +903,11 @@ body.transaction-page.member-winloss-page {
     max-width: 100%;
 }
 
-/* 矩陣寬：依內容；上限為可視 8 個幣別欄 + 帳號欄（與 member.js minmax(5rem) 一致），再多則橫向捲動，避免中欄拉寬擠壓右欄 Total */
+/* 帳號欄寬可隨 max-content 變寬；預留較大上限供長代碼 + 8 幣可視寬計算 */
 .member-dash-col-grid .member-balance-mini-grid.member-balance-mini-matrix {
     --member-mini-matrix-visible-ccy: 8;
     --member-mini-ccy-min: 5rem;
-    --member-mini-rowhead-max: 5rem;
+    --member-mini-rowhead-max: 14rem;
     width: max-content;
     max-width: min(
         100%,
@@ -1023,17 +1023,17 @@ body.transaction-page.member-winloss-page {
     font-weight: 700;
     font-size: clamp(9px, 0.7vw, 11px);
     color: #002c49;
-    padding: 3px 4px;
+    padding: 3px 6px;
     border-right: 1px solid #e5ecf6;
     border-bottom: 1px solid #eef2f7;
     background: #f5f8fc;
     border-left: 2px solid #4a7396;
     display: flex;
     align-items: center;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    justify-content: flex-start;
     white-space: nowrap;
+    overflow: visible;
+    word-break: normal;
 }
 
 .member-balance-matrix-rowhead--edge {
