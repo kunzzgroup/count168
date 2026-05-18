@@ -353,6 +353,7 @@ export default function BankProcessListPage() {
         allowEmpty: true,
         placeholder: t("selectDateRange"),
         selectEndDateHint: t("selectEndDate"),
+        clearDateLabel: t("clearDate"),
         monthLabels: bpLocale.monthsShort,
         onChange: handleDatePickerChange,
       });
@@ -381,6 +382,7 @@ export default function BankProcessListPage() {
     window.MaintenanceDateRangePicker.setLocaleStrings({
       placeholder: t("selectDateRange"),
       selectEndDateHint: t("selectEndDate"),
+      clearDateLabel: t("clearDate"),
       monthLabels: bpLocale.monthsShort,
     });
   }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
@@ -1774,6 +1776,11 @@ export default function BankProcessListPage() {
           ))}
         </div>
         <div className="calendar-days" id="calendar-days" />
+        <div className="calendar-popup-clear-wrap" id="calendar-popup-clear-wrap" style={{ display: "none" }} aria-hidden="true">
+          <button type="button" className="calendar-popup-clear-btn" id="calendar-popup-clear-btn">
+            {t("clearDate")}
+          </button>
+        </div>
       </div>
       {toast ? (
         <div className="process-notification-container">

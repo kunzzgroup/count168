@@ -23,6 +23,7 @@ export function ensureMaintenanceDateRangePicker() {
     placeholder: "Select date range",
     /** Shown after user picked start date and before end date (range selection). */
     selectEndDateHint: "Select end date",
+    clearDateLabel: "Clear",
     monthLabels,
   };
 
@@ -574,10 +575,35 @@ export function ensureMaintenanceDateRangePicker() {
       popup.style.display = "block";
       initCalendar();
       renderCalendar();
+      updateCalendarClearFooter();
     } else {
       popup.classList.remove("calendar-popup--match-anchor");
       popup.style.display = "none";
     }
+  }
+
+  function updateCalendarClearFooter() {
+    const wrap = document.getElementById("calendar-popup-clear-wrap");
+    const btn = document.getElementById("calendar-popup-clear-btn");
+    if (!wrap || !btn) return;
+    const show = !!activeRangeBinding.collapseSingleDisplay;
+    wrap.style.display = show ? "flex" : "none";
+    wrap.setAttribute("aria-hidden", show ? "false" : "true");
+    btn.textContent = config.clearDateLabel || "Clear";
+    const fromEl = document.getElementById(activeRangeBinding.dateFromId);
+    const hasValue = !!(fromEl?.value?.trim());
+    btn.disabled = !hasValue;
+  }
+
+  function bindCalendarClearFooterOnce() {
+    const btn = document.getElementById("calendar-popup-clear-btn");
+    if (!btn || btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      clearSelection(true);
+    });
   }
 
   function clearSelection(triggerOnChange) {
@@ -588,6 +614,7 @@ export function ensureMaintenanceDateRangePicker() {
     updateDateRangeDisplay();
     updateQuickPresetActive("");
     renderCalendar();
+    updateCalendarClearFooter();
     const popup = document.getElementById("calendar-popup");
     if (popup) popup.style.display = "none";
     if (triggerOnChange !== false && typeof config.onChange === "function") config.onChange();
@@ -632,6 +659,11 @@ export function ensureMaintenanceDateRangePicker() {
         }
       }
       updateDateRangeDisplay(config.rangeDisplayId || "date-range-display");
+      if (partial.clearDateLabel) {
+        const btn = document.getElementById("calendar-popup-clear-btn");
+        if (btn) btn.textContent = partial.clearDateLabel;
+      }
+      updateCalendarClearFooter();
     },
     getActiveRangeBinding() {
       return { ...activeRangeBinding };
@@ -703,6 +735,10 @@ export function ensureMaintenanceDateRangePicker() {
     clear() {
       clearSelection(true);
     },
+    clearForPicker(pickerEl) {
+      setActiveRangeBindingFromTrigger(pickerEl);
+      clearSelection(true);
+    },
     getDateFrom() {
       return document.getElementById(config.dateFromId)?.value || "";
     },
@@ -710,6 +746,8 @@ export function ensureMaintenanceDateRangePicker() {
       return document.getElementById(config.dateToId)?.value || "";
     },
   };
+
+  bindCalendarClearFooterOnce();
 
   if (!window.__maintenanceDatePickerDocClickBound) {
     document.addEventListener("click", (e) => {

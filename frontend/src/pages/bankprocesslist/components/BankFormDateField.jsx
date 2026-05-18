@@ -14,6 +14,7 @@ export default function BankFormDateField({
   disabled = false,
   minYmd,
   placeholder,
+  clearLabel = "Clear",
   className = "",
   wrapClassName = "",
 }) {
@@ -42,12 +43,18 @@ export default function BankFormDateField({
     });
   }, [displayDmy, fromId, toId, displayId]);
 
-  const HitboxTag = "div";
+  const handleClear = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (disabled || !displayDmy) return;
+    const picker = document.getElementById(pickerId);
+    if (picker) window.MaintenanceDateRangePicker?.clearForPicker?.(picker);
+  };
 
   return (
-    <HitboxTag className={`form-group ${className}`.trim()}>
+    <div className={`form-group ${className}`.trim()}>
       <label htmlFor={htmlFor || fieldKey}>{label}</label>
-      <HitboxTag className={`bank-form-datepicker-wrap ${wrapClassName}`.trim()}>
+      <div className={`bank-form-datepicker-wrap ${wrapClassName}`.trim()}>
         <input
           id={htmlFor || fieldKey}
           type="text"
@@ -59,9 +66,20 @@ export default function BankFormDateField({
           value={displayDmy}
           disabled={disabled}
         />
+        {displayDmy && !disabled ? (
+          <button
+            type="button"
+            className="bank-form-datepicker-clear"
+            title={clearLabel}
+            aria-label={clearLabel}
+            onClick={handleClear}
+          >
+            ×
+          </button>
+        ) : null}
         <input type="hidden" id={fromId} readOnly aria-hidden="true" data-min-ymd={minYmd || ""} />
         <input type="hidden" id={toId} readOnly aria-hidden="true" />
-        <HitboxTag
+        <div
           className={`date-range-picker bank-form-datepicker-hitbox${disabled ? " bank-form-datepicker-hitbox--disabled" : ""}`}
           id={pickerId}
           role="button"
@@ -82,8 +100,9 @@ export default function BankFormDateField({
           }}
         >
           <span id={displayId} className="bank-form-datepicker-sr-span" aria-hidden="true" />
-        </HitboxTag>
-      </HitboxTag>
-    </HitboxTag>
+        </div>
+      </div>
+    </div>
   );
 }
+

@@ -7,6 +7,7 @@ export const BANK_PROCESS_I18N = {
     selectDateRange: "Select date range",
     pickDate: "DD/MM/YYYY",
     selectEndDate: "Select end date",
+    clearDate: "Clear",
     clearDateRange: "Clear date range",
     monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
     weekdaysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
@@ -156,6 +157,7 @@ export const BANK_PROCESS_I18N = {
 
     selectAccount: "Select Account",
     searchAccount: "Search account...",
+    noAccountsFound: "No accounts found",
 
     resendToDueTitle: "Resend to Accounting Due",
     processLabel: "Process",
@@ -219,6 +221,7 @@ export const BANK_PROCESS_I18N = {
     selectDateRange: "选择日期范围",
     pickDate: "日/月/年",
     selectEndDate: "选择结束日期",
+    clearDate: "清除",
     clearDateRange: "清除日期范围",
     monthsShort: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
     weekdaysShort: ["日", "一", "二", "三", "四", "五", "六"],
@@ -368,6 +371,7 @@ export const BANK_PROCESS_I18N = {
 
     selectAccount: "选择账号",
     searchAccount: "搜索账号...",
+    noAccountsFound: "未找到账号",
 
     resendToDueTitle: "重发到待入账",
     processLabel: "流程",

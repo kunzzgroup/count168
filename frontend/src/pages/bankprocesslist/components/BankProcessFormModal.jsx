@@ -217,6 +217,7 @@ export default function BankProcessFormModal({
                       label={t("dayStart")}
                       value={form.day_start}
                       placeholder={t("pickDate")}
+                      clearLabel={t("clearDate")}
                       wrapClassName="bank-day-start-input-wrap"
                     />
                     <BankFormDateField
@@ -227,6 +228,7 @@ export default function BankProcessFormModal({
                       disabled={isOnce}
                       minYmd={isOnce ? undefined : dayEndMin}
                       placeholder={t("pickDate")}
+                      clearLabel={t("clearDate")}
                       wrapClassName="bank-day-end-input-wrap"
                       className={isOnce ? "bank-day-end-input-wrap--muted" : ""}
                     />
