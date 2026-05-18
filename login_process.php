@@ -111,8 +111,9 @@ try {
         
         // 检查账户是否存在且密码匹配
         if ($account) {
-            // Member 登录成功（保留 member_login_account_id 供 Win/Loss 刷新后恢复所选被连接方）
+            // Member：登录账号主键；Win/Loss 查看关联账仅写入 member_winloss_view_account_id，不改变登录身份 user_id
             $_SESSION['member_login_account_id'] = $account['id'];
+            unset($_SESSION['member_winloss_view_account_id']);
             $_SESSION['user_id'] = $account['id'];
             $_SESSION['login_id'] = $account['account_id'];
             $_SESSION['name'] = $account['name'];

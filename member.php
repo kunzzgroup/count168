@@ -12,27 +12,26 @@ if (strtolower($_SESSION['user_type'] ?? '') !== 'member') {
     exit();
 }
 
-$accountDbId = (int)$_SESSION['user_id'];
-$accountCode = $_SESSION['login_id'] ?? '';
-$accountName = $_SESSION['name'] ?? '';
-$currentCompanyId = isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 0;
+// Member：$_SESSION['user_id'] 恒为登录账号；Win/Loss「查看」哪套账来自 member_winloss_view_account_id
+require_once __DIR__ . '/api/includes/member_linked_closure.php';
+$memberLoginDbId = member_session_canonical_account_id();
+$memberWinLossViewDbId = member_session_winloss_view_account_id();
 
-// MEMBER 有连接其他账号时：不管怎样刷新都只在自己的账号（每次加载/刷新强制恢复为登录账号）
-if (isset($_SESSION['member_login_account_id'])) {
-    $memberLoginAccountId = (int)$_SESSION['member_login_account_id'];
-    $st = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id = ?");
-    $st->execute([$memberLoginAccountId]);
-    $row = $st->fetch(PDO::FETCH_ASSOC);
-    if ($row) {
-        $accountDbId = (int)$row['id'];
-        $accountCode = $row['account_id'] ?? '';
-        $accountName = $row['name'] ?? '';
-        $_SESSION['user_id'] = $accountDbId;
-        $_SESSION['login_id'] = $accountCode;
-        $_SESSION['name'] = $accountName;
-        $_SESSION['account_id'] = $accountCode;
+$accountDbId = $memberWinLossViewDbId;
+$accountCode = '';
+$accountName = '';
+try {
+    $wvStmt = $pdo->prepare('SELECT account_id, name FROM account WHERE id = ? LIMIT 1');
+    $wvStmt->execute([$memberWinLossViewDbId]);
+    $wvRow = $wvStmt->fetch(PDO::FETCH_ASSOC);
+    if ($wvRow) {
+        $accountCode = $wvRow['account_id'] ?? '';
+        $accountName = $wvRow['name'] ?? '';
     }
+} catch (PDOException $e) {
+    error_log('member Win/Loss view account label lookup failed: ' . $e->getMessage());
 }
+$currentCompanyId = isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 0;
 
 require_once __DIR__ . '/api/get_companies_helper.php';
 
@@ -40,7 +39,8 @@ require_once __DIR__ . '/api/get_companies_helper.php';
 $memberCompanies = [];
 $debugInfo = []; // 用于调试
 try {
-    $currentUserId   = $accountDbId;
+    // 公司/权限始终以「登录账号」为准，不以当前查看的关联账为准
+    $currentUserId   = $memberLoginDbId;
     $currentUserRole = strtolower($_SESSION['role'] ?? '');
     $currentUserType = strtolower($_SESSION['user_type'] ?? '');
     

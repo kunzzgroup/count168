@@ -53,7 +53,7 @@ if ($currentCompanyCode === 'C168') {
 // C168：Domain / Announcement 等，当前公司为 C168 且角色在 userlist 白名单（含 owner）
 $hasC168DomainPageAccess = $isCurrentCompanyC168 && userHasC168DomainPageAccess(strtolower((string) ($role ?? '')));
 
-$avatarLetter = $login_id ? strtoupper($login_id[0]) : 'U';
+$avatarLetter = $login_id !== '' ? strtoupper($login_id[0]) : 'U';
 
 // 头像 ID 与路径映射（与前端 avatarImages 一致，用于服务端输出初始 src 避免切换页面混乱）
 $avatarImages = [

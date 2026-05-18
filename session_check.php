@@ -272,6 +272,38 @@ if (isset($_SESSION['user_id'])) {
     exit();
 }
 
+// Member：会话身份恒定「登录时所选账号」；浏览关联 Win/Loss 仅 member_winloss_view_account_id（修复旧会话把查看账号写入 user_id 的问题）
+if (isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member') {
+    $memberLoginStored = (int) ($_SESSION['member_login_account_id'] ?? 0);
+    $uidRaw = (int) ($_SESSION['user_id'] ?? 0);
+    if ($memberLoginStored <= 0 && $uidRaw > 0) {
+        $_SESSION['member_login_account_id'] = $uidRaw;
+        $memberLoginStored = $uidRaw;
+    }
+    if ($memberLoginStored > 0 && $uidRaw > 0 && $memberLoginStored !== $uidRaw) {
+        if (!isset($_SESSION['member_winloss_view_account_id']) || (int) $_SESSION['member_winloss_view_account_id'] <= 0) {
+            $_SESSION['member_winloss_view_account_id'] = $uidRaw;
+        }
+        try {
+            $st = $pdo->prepare("SELECT account_id, name FROM account WHERE id = ? AND status = 'active' LIMIT 1");
+            $st->execute([$memberLoginStored]);
+            $lr = $st->fetch(PDO::FETCH_ASSOC);
+            if ($lr) {
+                $_SESSION['user_id'] = $memberLoginStored;
+                $_SESSION['login_id'] = (string) ($lr['account_id'] ?? '');
+                $_SESSION['name'] = (string) ($lr['name'] ?? '');
+                $_SESSION['account_id'] = $_SESSION['login_id'];
+            }
+        } catch (PDOException $e) {
+            error_log('member session identity normalize failed: ' . $e->getMessage());
+        }
+    }
+    $vw = (int) ($_SESSION['member_winloss_view_account_id'] ?? 0);
+    if ($vw > 0 && $vw === (int) ($_SESSION['member_login_account_id'] ?? 0)) {
+        unset($_SESSION['member_winloss_view_account_id']);
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Session 解锁优化（防止 PHP Session 排队阻塞并发 AJAX 请求）
 //

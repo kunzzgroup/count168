@@ -1,6 +1,35 @@
 <?php
 
 /**
+ * Member：登录身份与 Win/Loss「查看」账号（session 键）的读取。
+ * 「可关联账户」闭包枚举与 account_link_api ::getLinkedAccountsForMember() 一致。
+ */
+if (!function_exists('member_session_canonical_account_id')) {
+    function member_session_canonical_account_id(): int
+    {
+        if (!isset($_SESSION['user_type']) || strtolower((string) $_SESSION['user_type']) !== 'member') {
+            return (int) ($_SESSION['user_id'] ?? 0);
+        }
+        $m = (int) ($_SESSION['member_login_account_id'] ?? 0);
+        return $m > 0 ? $m : (int) ($_SESSION['user_id'] ?? 0);
+    }
+
+    /** Win/Loss 当前 pivot（account.id）；未切换时与登录账号相同 */
+    function member_session_winloss_view_account_id(): int
+    {
+        $login = member_session_canonical_account_id();
+        if (!isset($_SESSION['user_type']) || strtolower((string) $_SESSION['user_type']) !== 'member') {
+            return (int) ($_SESSION['user_id'] ?? 0);
+        }
+        $v = (int) ($_SESSION['member_winloss_view_account_id'] ?? 0);
+        if ($v > 0 && $v !== $login) {
+            return $v;
+        }
+        return $login;
+    }
+}
+
+/**
  * 当前会话 member 在公司下的「可关联账户」闭包内的 account.id 列表，
  * 与 api/accounts/account_link_api.php ::getLinkedAccountsForMember() 遍历一致。
  */
