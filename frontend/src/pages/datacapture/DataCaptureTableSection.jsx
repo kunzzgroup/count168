@@ -1,34 +1,31 @@
-import { memo } from "react";
+import { memo, useLayoutEffect, useRef } from "react";
+
+/** Injected once per mount so React does not own `<tr>` nodes legacy adds under `#tableBody` (avoids removeChild crashes on unmount). */
+const LEGACY_GRID_HTML = `
+<table class="excel-table" id="dataTable">
+  <thead id="tableHeader"><tr><th></th></tr></thead>
+  <tbody id="tableBody"></tbody>
+</table>
+<div id="tablePreviewFormat" class="table-preview-format" style="display:none">
+  <iframe id="tablePreviewFrameFormat" class="table-preview-frame-format" title="Format Table Preview"></iframe>
+</div>
+<div id="pasteAreaFormat" class="paste-area-format" style="display:none" contenteditable="true" data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."></div>
+`.trim();
 
 /**
  * Table grid, format preview iframe, and format paste area are fully owned by `js/datacapture.js`
- * (`initializeTable`, `toggleTableDisplayForFormat`, etc.). This shell never re-renders after mount
- * so React reconciliation cannot wipe legacy-inserted `<tr>` / cells.
+ * (`initializeTable`, `toggleTableDisplayForFormat`, etc.). This shell never re-renders after mount.
  */
 const LegacyDataCaptureGrid = memo(function LegacyDataCaptureGrid() {
-  return (
-    <>
-      <table className="excel-table" id="dataTable">
-        <thead id="tableHeader">
-          <tr>
-            <th />
-          </tr>
-        </thead>
-        <tbody id="tableBody" />
-      </table>
-      <div id="tablePreviewFormat" className="table-preview-format" style={{ display: "none" }}>
-        <iframe id="tablePreviewFrameFormat" className="table-preview-frame-format" title="Format Table Preview" />
-      </div>
-      <div
-        id="pasteAreaFormat"
-        className="paste-area-format"
-        style={{ display: "none" }}
-        contentEditable
-        data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
-        suppressContentEditableWarning
-      />
-    </>
-  );
+  const hostRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = hostRef.current;
+    if (!el || el.dataset.dcLegacyInjected === "1") return;
+    el.innerHTML = LEGACY_GRID_HTML;
+    el.dataset.dcLegacyInjected = "1";
+  }, []);
+
+  return <div ref={hostRef} className="legacy-data-capture-grid-host" style={{ display: "contents" }} />;
 }, () => true);
 
 /**

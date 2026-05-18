@@ -2409,8 +2409,14 @@ function renderSubmittedProcesses() {
 }
 // Notification functions
 function showNotification(message, type = 'success') {
-    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_PUSH_NOTIFICATION__ === 'function') {
-        window.__DC_PUSH_NOTIFICATION__(message, type);
+    // SPA: never append raw nodes into `#processNotificationContainer` — React owns that subtree.
+    // If the bridge is not ready yet, skipping DOM avoids removeChild conflicts with React.
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        if (typeof window.__DC_PUSH_NOTIFICATION__ === 'function') {
+            window.__DC_PUSH_NOTIFICATION__(message, type);
+        } else {
+            console.warn('[Data Capture SPA] Notification bridge not ready:', message);
+        }
         return;
     }
     const container = document.getElementById('processNotificationContainer');
