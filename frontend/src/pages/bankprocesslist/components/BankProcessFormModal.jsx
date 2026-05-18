@@ -1,6 +1,14 @@
 import React from "react";
 import BankSearchableAccountPick from "./BankSearchableAccountPick.jsx";
-import { parseProfitSharingToRows, parseBankContractTermMonths, contractBillingEndYmdForBankForm, bankProcessFrequencyNormalized } from "../bankProcessHelpers.js";
+import BankFormDateField from "./BankFormDateField.jsx";
+import {
+  parseProfitSharingToRows,
+  parseBankContractTermMonths,
+  contractBillingEndYmdForBankForm,
+  bankProcessFrequencyNormalized,
+  BANK_PROCESS_CONTRACT_OPTIONS,
+  formatBankProcessContractLabel,
+} from "../bankProcessHelpers.js";
 
 export default function BankProcessFormModal({
   editMode,
@@ -16,6 +24,7 @@ export default function BankProcessFormModal({
   onOpenProfitShareModal,
   onOpenBankFormNoteModal,
   onOpenAddAccountForField,
+  lang,
   t,
 }) {
   const hasDayEnd = !!String(form.day_end || "").trim();
@@ -202,32 +211,25 @@ export default function BankProcessFormModal({
               <div className="bank-form-row">
                 <div className="bank-form-cell bank-form-cell-left">
                   <div className="form-row bank-day-start-row">
-                    <div className="form-group bank-day-start-input-wrap">
-                      <label htmlFor="bank_day_start">{t("dayStart")}</label>
-                      <input id="bank_day_start" name="day_start" type="date" className="bank-input" value={form.day_start} onChange={(ev) => setForm((prev) => ({ ...prev, day_start: ev.target.value }))} />
-                    </div>
-                    <div className="form-group bank-day-end-input-wrap" style={isOnce ? { opacity: 0.75 } : undefined}>
-                      <label htmlFor="bank_day_end">{t("dayEnd")}</label>
-                      <input
-                        id="bank_day_end"
-                        name="day_end"
-                        type="date"
-                        className="bank-input"
-                        min={isOnce ? undefined : dayEndMin}
-                        disabled={isOnce}
-                        title={isOnce ? t("dayEndNotUsedWhenOnce") : undefined}
-                        value={form.day_end}
-                        onChange={(ev) => {
-                          const v = ev.target.value;
-                          setForm((prev) => {
-                            const hasEnd = !!String(v).trim();
-                            let freq = bankProcessFrequencyNormalized(prev.day_start_frequency);
-                            if (hasEnd && freq !== "once") freq = "1st_of_every_month";
-                            return { ...prev, day_end: v, day_start_frequency: freq };
-                          });
-                        }}
-                      />
-                    </div>
+                    <BankFormDateField
+                      fieldKey="bank_day_start"
+                      htmlFor="bank_day_start"
+                      label={t("dayStart")}
+                      value={form.day_start}
+                      placeholder={t("pickDate")}
+                      wrapClassName="bank-day-start-input-wrap"
+                    />
+                    <BankFormDateField
+                      fieldKey="bank_day_end"
+                      htmlFor="bank_day_end"
+                      label={t("dayEnd")}
+                      value={form.day_end}
+                      disabled={isOnce}
+                      minYmd={isOnce ? undefined : dayEndMin}
+                      placeholder={t("pickDate")}
+                      wrapClassName="bank-day-end-input-wrap"
+                      className={isOnce ? "bank-day-end-input-wrap--muted" : ""}
+                    />
                   </div>
                 </div>
                 <div className="bank-form-cell bank-form-cell-right">
@@ -312,13 +314,11 @@ export default function BankProcessFormModal({
                         disabled={isOnce}
                       >
                         <option value="">{t("contract")}</option>
-                        <option value="1 MONTH">1 MONTH</option>
-                        <option value="2 MONTHS">2 MONTHS</option>
-                        <option value="3 MONTHS">3 MONTHS</option>
-                        <option value="6 MONTHS">6 MONTHS</option>
-                        <option value="1+1">1+1 MONTH</option>
-                        <option value="1+2">1+2 MONTHS</option>
-                        <option value="1+3">1+3 MONTHS</option>
+                        {BANK_PROCESS_CONTRACT_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {formatBankProcessContractLabel(lang, opt.value)}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div className="form-group">

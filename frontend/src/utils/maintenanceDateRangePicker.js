@@ -456,12 +456,33 @@ export function ensureMaintenanceDateRangePicker() {
     renderCalendar();
   }
 
+  function bindDateRangePickers() {
+    document.querySelectorAll(".date-range-picker").forEach((pick) => {
+      pick.onclick = (e) => {
+        e.stopPropagation();
+        toggleCalendar(pick);
+      };
+    });
+  }
+
   function selectDate(date) {
     if (!calendarStartDate || (calendarStartDate && calendarEndDate)) {
       calendarStartDate = new Date(date);
       calendarEndDate = null;
       isSelectingRange = true;
       updateQuickPresetActive("");
+      if (activeRangeBinding.collapseSingleDisplay) {
+        calendarEndDate = new Date(date);
+        isSelectingRange = false;
+        syncToHiddenInputs();
+        updateDateRangeDisplay();
+        updateQuickPresetActive("");
+        if (typeof config.onChange === "function") config.onChange();
+        const popup = document.getElementById("calendar-popup");
+        if (popup) popup.style.display = "none";
+        renderCalendar();
+        return;
+      }
     } else {
       if (date.getTime() < calendarStartDate.getTime()) {
         calendarEndDate = new Date(calendarStartDate);
@@ -502,8 +523,12 @@ export function ensureMaintenanceDateRangePicker() {
       syncRangeStateFromHiddenInputs();
       let rect = picker.getBoundingClientRect();
       let barWidth = rect.width;
+      const bankWrap = picker.closest(".bank-form-datepicker-wrap");
       const shell = picker.closest(".report-outlined-shell");
-      if (shell) {
+      if (bankWrap) {
+        rect = bankWrap.getBoundingClientRect();
+        barWidth = rect.width;
+      } else if (shell) {
         rect = shell.getBoundingClientRect();
         barWidth = rect.width;
       } else {
@@ -521,13 +546,28 @@ export function ensureMaintenanceDateRangePicker() {
         }
       }
       if (popup.classList.contains("calendar-popup--transaction-range")) {
-        const popupWidth = Math.min(Math.max(window.innerWidth * 0.22, 316), 336);
-        const maxLeft = window.innerWidth - popupWidth - 12;
-        popup.style.left = `${Math.max(12, Math.min(rect.left, maxLeft))}px`;
-        popup.style.width = "";
+        if (bankWrap) {
+          const anchorWidth = Math.max(1, Math.round(barWidth));
+          popup.classList.add("calendar-popup--match-anchor");
+          popup.style.left = `${rect.left}px`;
+          popup.style.width = `${anchorWidth}px`;
+          popup.style.minWidth = `${anchorWidth}px`;
+          popup.style.maxWidth = `${anchorWidth}px`;
+        } else {
+          popup.classList.remove("calendar-popup--match-anchor");
+          const popupWidth = Math.min(Math.max(window.innerWidth * 0.22, 316), 336);
+          const maxLeft = window.innerWidth - popupWidth - 12;
+          popup.style.left = `${Math.max(12, Math.min(rect.left, maxLeft))}px`;
+          popup.style.width = "";
+          popup.style.minWidth = "";
+          popup.style.maxWidth = "";
+        }
       } else {
+        popup.classList.remove("calendar-popup--match-anchor");
         popup.style.left = `${rect.left}px`;
         popup.style.width = `${barWidth}px`;
+        popup.style.minWidth = "";
+        popup.style.maxWidth = "";
       }
       popup.style.top = `${rect.bottom + 8}px`;
       popup.style.boxSizing = "border-box";
@@ -535,6 +575,7 @@ export function ensureMaintenanceDateRangePicker() {
       initCalendar();
       renderCalendar();
     } else {
+      popup.classList.remove("calendar-popup--match-anchor");
       popup.style.display = "none";
     }
   }
@@ -579,11 +620,16 @@ export function ensureMaintenanceDateRangePicker() {
     if (dropdown) dropdown.classList.toggle("show");
   };
   window.MaintenanceDateRangePicker = {
+    bindPickers: bindDateRangePickers,
     setLocaleStrings(partial) {
       if (!partial || typeof partial !== "object") return;
       config = { ...config, ...partial };
       if (partial.monthLabels) {
         monthLabels = partial.monthLabels;
+        const popup = document.getElementById("calendar-popup");
+        if (popup && popup.style.display !== "none") {
+          renderCalendar();
+        }
       }
       updateDateRangeDisplay(config.rangeDisplayId || "date-range-display");
     },
@@ -597,6 +643,9 @@ export function ensureMaintenanceDateRangePicker() {
     init(options) {
       if (options) {
         config = { ...config, ...options };
+        if (options.monthLabels) {
+          monthLabels = options.monthLabels;
+        }
       }
       activeRangeBinding = {
         dateFromId: config.dateFromId,
@@ -625,12 +674,7 @@ export function ensureMaintenanceDateRangePicker() {
       syncToHiddenInputs();
       updateDateRangeDisplay();
 
-      document.querySelectorAll(".date-range-picker").forEach((pick) => {
-        pick.onclick = (e) => {
-          e.stopPropagation();
-          toggleCalendar(pick);
-        };
-      });
+      bindDateRangePickers();
       const monthSelect = document.getElementById("calendar-month-select");
       const yearSelect = document.getElementById("calendar-year-select");
       if (monthSelect) {

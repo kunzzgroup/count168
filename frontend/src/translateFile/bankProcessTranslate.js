@@ -5,8 +5,11 @@ export const BANK_PROCESS_I18N = {
     addProcess: "Add Process",
     addAccount: "Add Account",
     selectDateRange: "Select date range",
+    pickDate: "DD/MM/YYYY",
     selectEndDate: "Select end date",
     clearDateRange: "Clear date range",
+    monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    weekdaysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     search: "Search",
     showAll: "Show All",
     showInactive: "Show Inactive",
@@ -176,8 +179,11 @@ export const BANK_PROCESS_I18N = {
     addProcess: "新增流程",
     addAccount: "新增账号",
     selectDateRange: "选择日期范围",
+    pickDate: "日/月/年",
     selectEndDate: "选择结束日期",
     clearDateRange: "清除日期范围",
+    monthsShort: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+    weekdaysShort: ["日", "一", "二", "三", "四", "五", "六"],
     search: "搜索",
     showAll: "显示全部",
     showInactive: "显示停用",
@@ -343,8 +349,13 @@ export const BANK_PROCESS_I18N = {
   },
 };
 
+export function getBankProcessLocale(lang) {
+  return BANK_PROCESS_I18N[lang === "zh" ? "zh" : "en"] ?? BANK_PROCESS_I18N.en;
+}
+
 export function getBankProcessText(lang, key, params = {}) {
   const locale = lang === "zh" ? "zh" : "en";
   const template = BANK_PROCESS_I18N[locale][key] ?? BANK_PROCESS_I18N.en[key] ?? key;
+  if (typeof template !== "string") return template;
   return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
 }

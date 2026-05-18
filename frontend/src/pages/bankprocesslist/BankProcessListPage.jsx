@@ -14,7 +14,7 @@ import "../../../public/css/date-range-picker.css";
 
 import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../account/accountLogic.js";
 import { getAccountText } from "../../translateFile/accountTranslate.js";
-import { getBankProcessText } from "../../translateFile/bankProcessTranslate.js";
+import { getBankProcessLocale, getBankProcessText } from "../../translateFile/bankProcessTranslate.js";
 
 // Helper imports
 import {
@@ -73,8 +73,35 @@ export default function BankProcessListPage() {
     []
   );
   const [lang, setLang] = useState(() => resolveLang());
+  const bpLocale = useMemo(() => getBankProcessLocale(lang), [lang]);
   const t = useCallback((key, params = {}) => getBankProcessText(lang, key, params), [lang]);
   const tAccount = useCallback((key, params = {}) => getAccountText(lang, key, params), [lang]);
+
+  const handleDatePickerChange = useCallback(() => {
+    const b = window.MaintenanceDateRangePicker?.getActiveRangeBinding?.() || {};
+    const fromId = b.dateFromId || "";
+    const fromDmy = document.getElementById(fromId)?.value?.trim() || "";
+    const iso = dmyToIso(fromDmy);
+
+    if (fromId === "bank_day_start_drp_from") {
+      setForm((prev) => ({ ...prev, day_start: iso }));
+      return;
+    }
+    if (fromId === "bank_day_end_drp_from") {
+      const minYmd = document.getElementById("bank_day_end_drp_from")?.dataset?.minYmd || "";
+      if (minYmd && iso && iso < minYmd) return;
+      setForm((prev) => {
+        const hasEnd = !!iso;
+        let freq = bankProcessFrequencyNormalized(prev.day_start_frequency);
+        if (hasEnd && freq !== "once") freq = "1st_of_every_month";
+        return { ...prev, day_end: iso, day_start_frequency: freq };
+      });
+      return;
+    }
+    const toDmy = document.getElementById(b.dateToId)?.value?.trim() || "";
+    setDateFrom(dmyToIso(fromDmy));
+    setDateTo(dmyToIso(toDmy));
+  }, []);
   const [cssReady, setCssReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
@@ -314,12 +341,8 @@ export default function BankProcessListPage() {
         allowEmpty: true,
         placeholder: t("selectDateRange"),
         selectEndDateHint: t("selectEndDate"),
-        onChange: () => {
-          const df = dmyToIso(window.MaintenanceDateRangePicker.getDateFrom());
-          const dt = dmyToIso(window.MaintenanceDateRangePicker.getDateTo());
-          setDateFrom(df);
-          setDateTo(dt);
-        },
+        monthLabels: bpLocale.monthsShort,
+        onChange: handleDatePickerChange,
       });
       const clearBtn = document.getElementById("processListDateClearBtn");
       if (clearBtn) {
@@ -332,23 +355,23 @@ export default function BankProcessListPage() {
       }
     }
     return () => { };
-  }, [loading, cssReady]);
+  }, [loading, cssReady, bpLocale.monthsShort, t, handleDatePickerChange]);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.bindPickers?.();
+  }, [modalOpen]);
 
   /* Keep date-range chip wording in sync when login/UI language changes (picker caches placeholder internally). */
   useEffect(() => {
-    if (loading || !cssReady || !bankDatePickerInitRef.current || !window.MaintenanceDateRangePicker?.init) return;
-    window.MaintenanceDateRangePicker.init({
-      allowEmpty: true,
+    if (loading || !cssReady || !bankDatePickerInitRef.current || !window.MaintenanceDateRangePicker?.setLocaleStrings) return;
+    window.MaintenanceDateRangePicker.setLocaleStrings({
       placeholder: t("selectDateRange"),
       selectEndDateHint: t("selectEndDate"),
-      onChange: () => {
-        const df = dmyToIso(window.MaintenanceDateRangePicker.getDateFrom());
-        const dt = dmyToIso(window.MaintenanceDateRangePicker.getDateTo());
-        setDateFrom(df);
-        setDateTo(dt);
-      },
+      monthLabels: bpLocale.monthsShort,
     });
-  }, [lang, loading, cssReady, t]);
+  }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
 
   useEffect(() => {
     (async () => {
@@ -1577,6 +1600,7 @@ export default function BankProcessListPage() {
             setResendModalOpen(true);
           }}
           supplierSortDir={supplierSortDir} setSupplierSortDir={setSupplierSortDir}
+          lang={lang}
           t={t}
         />
         {!showAll && <div className="pagination-container"><button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>◀</button><span className="pagination-info">{t("pageOf", { current: currentPage, total: totalPages })}</span><button type="button" className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>▶</button></div>}
@@ -1591,6 +1615,7 @@ export default function BankProcessListPage() {
           onOpenProfitShareModal={openProfitShareModal}
           onOpenBankFormNoteModal={(kind) => setBankFormNote({ kind, draft: kind === "sop" ? String(form.sop || "") : String(form.remark || "") })}
           onOpenAddAccountForField={openAddAccountForField}
+          lang={lang}
           t={t}
         />
       )}
@@ -1714,19 +1739,23 @@ export default function BankProcessListPage() {
         }}
         t={tAccount}
       />
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
+      <div className="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style={{ display: "none" }}>
         <div className="calendar-header">
           <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
           <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
             <select id="calendar-month-select" aria-label="Month">
-              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (<option key={i} value={i}>{m}</option>))}
+              {bpLocale.monthsShort.map((m, i) => (<option key={i} value={i}>{m}</option>))}
             </select>
             <select id="calendar-year-select" aria-label="Year" />
           </div>
           <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
         </div>
         <div className="calendar-weekdays">
-          {(lang === "zh" ? ["日", "一", "二", "三", "四", "五", "六"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).map((d) => (<div key={d} className="calendar-weekday">{d}</div>))}
+          {bpLocale.weekdaysShort.map((d) => (
+            <div key={d} className="calendar-weekday">
+              {d}
+            </div>
+          ))}
         </div>
         <div className="calendar-days" id="calendar-days" />
       </div>

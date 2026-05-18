@@ -1,5 +1,22 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 
+const DAY_NAME_MAP = {
+  "MON": "dayMonday",
+  "TUE": "dayTuesday",
+  "WED": "dayWednesday",
+  "THU": "dayThursday",
+  "FRI": "dayFriday",
+  "SAT": "daySaturday",
+  "SUN": "daySunday",
+  "Monday": "dayMonday",
+  "Tuesday": "dayTuesday",
+  "Wednesday": "dayWednesday",
+  "Thursday": "dayThursday",
+  "Friday": "dayFriday",
+  "Saturday": "daySaturday",
+  "Sunday": "daySunday",
+};
+
 function sortedCopyFromOptions(existingProcesses) {
   if (!existingProcesses?.length) return [];
   return [...existingProcesses].sort((a, b) => {
@@ -463,11 +480,13 @@ export default function ProcessFormModal({
                             });
                           }}
                         >
-                          {t("groupFilterAll")}
+                          {t("allDay")}
                         </button>
                         {days.map((d) => {
                           const id = String(d.id);
                           const checked = form.day_use.includes(id);
+                          const dayKey = d.day_name ? DAY_NAME_MAP[String(d.day_name).toUpperCase()] : null;
+                          const displayText = dayKey ? t(dayKey) : String(d.day_name || "").toUpperCase();
                           return (
                             <button
                               key={id}
@@ -484,7 +503,7 @@ export default function ProcessFormModal({
                                 }));
                               }}
                             >
-                              {String(d.day_name || "").toUpperCase()}
+                              {displayText}
                             </button>
                           );
                         })}

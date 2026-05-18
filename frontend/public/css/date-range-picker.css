@@ -360,6 +360,7 @@ body.maintenance-page .quick-select-dropdown .dropdown-item:hover {
 
 
 /* Maintenance Page Date Picker Parity Styles */
+body.process-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets,
 body.transaction-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets,
 body.maintenance-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets , body.dashboard-page.report-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets {
     grid-template-columns: 1fr;
@@ -485,7 +486,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-year, b
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
-body.transaction-page .calendar-popup--transaction-range .calendar-month-year select, body.maintenance-page .calendar-popup--transaction-range .calendar-month-year select, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-month-year select,
+body.process-page .calendar-popup--transaction-range .calendar-month-year select, body.transaction-page .calendar-popup--transaction-range .calendar-month-year select, body.maintenance-page .calendar-popup--transaction-range .calendar-month-year select, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-month-year select,
 body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger, body.maintenance-page .calendar-popup--transaction-range .calendar-month-trigger, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-month-trigger,
 body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger, body.maintenance-page .calendar-popup--transaction-range .calendar-year-trigger, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-year-trigger{
     border: none;

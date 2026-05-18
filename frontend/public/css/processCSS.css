@@ -910,7 +910,23 @@ body.process-page {
 }
 
 body.process-page .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
-    text-align: right;
+    text-align: left;
+    justify-self: start;
+}
+
+/* Bank Process List：GroupID / Company / Currency 标签与分段按钮左对齐，各行胶囊起始列一致 */
+body.process-page.process-page--bank .action-buttons-container .user-gc-inline-panel {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+}
+
+body.process-page.process-page--bank .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
+    width: auto;
+    min-width: 5.5rem;
+}
+
+body.lang-zh.process-page.process-page--bank .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
+    min-width: 4.25rem;
 }
 
 .process-page .action-buttons-container .user-gc-inline-pills--segment-scroll {
