@@ -562,6 +562,7 @@ function renderMemberTotalSection(totalsByCu, currencyOrderUpper, seq) {
     if (!totalEl || seq !== memberSearchSeq) return;
 
     totalEl.innerHTML = '';
+    totalEl.classList.remove('member-dash-total-values--multicur');
     const order = currencyOrderUpper.map(c => String(c || '').trim().toUpperCase()).filter(Boolean);
 
     if (order.length === 0) {
@@ -578,9 +579,14 @@ function renderMemberTotalSection(totalsByCu, currencyOrderUpper, seq) {
         const sp = document.createElement('span');
         sp.className = 'member-dash-total-amt';
         sp.textContent = formatNumber(dec.toString());
+        if (typeof dec.lt === 'function' && dec.lt('0')) {
+            sp.classList.add('member-dash-total-amt--neg');
+        }
         totalEl.appendChild(sp);
         return;
     }
+
+    totalEl.classList.add('member-dash-total-values--multicur');
 
     order.forEach((cu) => {
         const dec = totalsByCu.get(cu) || normalizeNumber('0');
@@ -592,6 +598,9 @@ function renderMemberTotalSection(totalsByCu, currencyOrderUpper, seq) {
         const amt = document.createElement('span');
         amt.className = 'member-dash-total-multi-amt';
         amt.textContent = formatNumber(dec.toString());
+        if (typeof dec.lt === 'function' && dec.lt('0')) {
+            amt.classList.add('member-dash-total-multi-amt--neg');
+        }
         row.appendChild(lab);
         row.appendChild(amt);
         totalEl.appendChild(row);
@@ -724,12 +733,11 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     currenciesUpper.forEach((cu) => totalsByCu.set(cu, normalizeNumber('0')));
 
     const multiCu = currenciesUpper.length > 1;
-    const accentHues = [215, 172, 265, 32, 200, 310, 145];
-
     listOrdered.forEach((acc, accIdx) => {
         const idNum = Number(acc.id);
         const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-        const hue = accentHues[accIdx % accentHues.length];
+        // 仅用青蓝～靛紫色相，避免序号循环到 Hue 30+ 看起来像「告警橙」；按 account id 稳定映射
+        const hue = 204 + (((idNum >>> 0) * 7919 + accIdx + 131) % 58);
 
         currenciesUpper.forEach((cu) => {
             if (!accountHoldsMiniGridCurrency(idNum, cu)) return;

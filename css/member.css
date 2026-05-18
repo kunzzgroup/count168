@@ -1036,12 +1036,12 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: flex-start;
-    gap: 2px;
+    align-items: stretch;
+    gap: 4px;
     min-height: 52px;
     text-align: left;
     width: 100%;
-    max-width: 10.5rem;
+    max-width: 11.5rem;
 }
 
 .member-dash-total-caption {
@@ -1071,27 +1071,45 @@ body.transaction-page {
     color: #002c49;
 }
 
-/* All / 多币别：第 3 列按币别分项合计（不把不同 currency 的金额相加） */
+.member-dash-total-amt.member-dash-total-amt--neg {
+    color: #b91c1c;
+}
+
+/* All / 多币别：两列表格式，币别与金额列对齐紧凑 */
+.member-dash-total-values.member-dash-total-values--multicur {
+    align-items: stretch;
+    gap: 6px;
+}
+
 .member-dash-total-multi-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
     width: 100%;
     font-variant-numeric: tabular-nums;
 }
 
 .member-dash-total-multi-code {
-    font-size: clamp(9px, 0.65vw, 11px);
+    font-size: clamp(10px, 0.72vw, 12px);
     font-weight: 800;
     color: #475569;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    justify-self: start;
+    padding-top: 1px;
 }
 
 .member-dash-total-multi-amt {
     font-size: clamp(11px, 0.95vw, 15px);
     font-weight: 800;
     color: #002c49;
+    justify-self: end;
+    text-align: right;
+    min-width: 0;
+}
+
+.member-dash-total-multi-amt.member-dash-total-multi-amt--neg {
+    color: #b91c1c;
 }
 
 @media (max-width: 1180px) {
