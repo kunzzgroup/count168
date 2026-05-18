@@ -892,10 +892,16 @@ body.transaction-page {
     max-width: 100%;
 }
 
-/* 矩陣實際寬度應依欄內容（勿被父屬 width:100% 拉成滿版再被 1fr 撐開空白） */
+/* 矩陣寬：依內容；上限為可視 8 個幣別欄 + 帳號欄（與 member.js minmax(5rem) 一致），再多則橫向捲動，避免中欄拉寬擠壓右欄 Total */
 .member-dash-col-grid .member-balance-mini-grid.member-balance-mini-matrix {
+    --member-mini-matrix-visible-ccy: 8;
+    --member-mini-ccy-min: 5rem;
+    --member-mini-rowhead-max: 5rem;
     width: max-content;
-    max-width: 100%;
+    max-width: min(
+        100%,
+        calc(var(--member-mini-rowhead-max) + var(--member-mini-matrix-visible-ccy) * var(--member-mini-ccy-min))
+    );
 }
 
 .member-dash-col-grid.member-dash-col-split {
