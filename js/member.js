@@ -496,6 +496,7 @@ function syncMemberLinkedFilterTrigger() {
 /**
  * 迷你网格展示的币别列表（顺序与 Currency 胶囊 / 明细表顺序一致）。
  * All：全部可用币别；单选 / 多选：仅在选中的可用币别中展示。
+ * 未选 All 且未勾选任何币别时返回空（勿用 available 兜底，否则与「请选择货币」矛盾）。
  */
 function getMemberMiniGridCurrencies() {
     const available = getAvailableCurrencies();
@@ -503,8 +504,18 @@ function getMemberMiniGridCurrencies() {
     if (memberIsAllSelected) {
         return available.slice();
     }
-    const picked = available.filter(code => memberSelectedCurrencies.has(code));
-    return picked.length ? picked : available.slice();
+    return available.filter(code => memberSelectedCurrencies.has(code));
+}
+
+/** 迷你矩陣 + Total 僅在有关联账号且已選幣別（含 All）時顯示。 */
+function syncMemberDashRightRailVisibility() {
+    const rail = document.querySelector('.member-dash-right-rail');
+    const cols = document.querySelector('.member-dash-columns');
+    if (!rail || !cols) return;
+    const show = memberLinkedAccountsList.length > 0 && getMemberMiniGridCurrencies().length > 0;
+    rail.style.display = show ? '' : 'none';
+    rail.setAttribute('aria-hidden', show ? 'false' : 'true');
+    cols.classList.toggle('member-dash-columns--no-mini-rail', !show);
 }
 
 /**
@@ -541,6 +552,7 @@ function clearMemberMiniGridDisplay() {
         ph.textContent = '–';
         totalEl.appendChild(ph);
     }
+    syncMemberDashRightRailVisibility();
 }
 
 /** 右欄 Total：與多幣 matrix 同版型，金額先顯示 en dash（待 API）。 */
@@ -810,6 +822,7 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
         const dateTo = document.getElementById('date_to') && document.getElementById('date_to').value;
 
         if (!dateFrom || !dateTo) {
+            syncMemberDashRightRailVisibility();
             resolve();
             return;
         }
@@ -819,6 +832,8 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
         if (!orderUpper.length) {
             if (hintEl && getAvailableCurrencies().length === 0) {
                 hintEl.textContent = 'No currencies in range for balances.';
+            } else if (hintEl) {
+                hintEl.textContent = '';
             }
             clearMemberMiniGridDisplay();
             resolve();
@@ -835,6 +850,7 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
 
         if (memberLinkedCurrenciesLoaded && orderedAccounts.length === 0) {
             renderMemberMiniGrid(new Map(), orderUpper, seq);
+            syncMemberDashRightRailVisibility();
             resolve();
             return;
         }
@@ -881,6 +897,7 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
                 }
                 clearMemberMiniGridDisplay();
                 if (hintEl) hintEl.textContent = err.message || 'Could not load grid.';
+                syncMemberDashRightRailVisibility();
                 resolve();
             });
     });
@@ -913,6 +930,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
                 : `No accounts in the grid hold ${currenciesUpper[0]}.`;
         }
         renderMemberTotalSection(new Map(), [], seq);
+        syncMemberDashRightRailVisibility();
         return;
     }
 
@@ -922,6 +940,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     const ncu = currenciesUpper.length;
     if (ncu === 0) {
         renderMemberTotalSection(totalsByCu, [], seq);
+        syncMemberDashRightRailVisibility();
         return;
     }
 
@@ -998,6 +1017,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     });
 
     renderMemberTotalSection(totalsByCu, currenciesUpper, seq);
+    syncMemberDashRightRailVisibility();
 }
 
 function buildMemberLinkedFilterModalList() {
@@ -1740,6 +1760,7 @@ function fetchMemberHistory(forcedFilter, seq = memberSearchSeq) {
     if (!targetCurrencies.length) {
         if (availableCurrencies.length > 0) {
             // 没有选择任何货币时，不显示任何表格，只显示提示
+            clearMemberMiniGridDisplay();
             setMemberTablesPlaceholder('请选择货币');
             return;
         }

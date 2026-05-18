@@ -905,6 +905,11 @@ body.transaction-page {
     box-sizing: border-box;
 }
 
+/* 右側迷你區隱藏時，頂欄改單欄讓篩選區吃滿寬 */
+.member-dash-columns.member-dash-columns--no-mini-rail {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 /* 右側：矩陣 + Total 貼齊卡片右緣（老闆要數字區在右邊成區，不靠中欄正中間浮一塊） */
 .member-dash-right-rail {
     display: flex;
