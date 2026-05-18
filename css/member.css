@@ -910,16 +910,18 @@ body.transaction-page {
     grid-template-columns: minmax(0, 1fr);
 }
 
-/* 右側：Accounts 與 Total 同列頂對齊；矩陣僅佔左下（Grid 第2列） */
+/* 右側：Accounts 與 Total 同列頂對齊；矩陣僅佔左下。勿讓第2欄 min-width:0 把 Total 壓成 0 寬 */
 .member-dash-columns > .member-dash-right-rail {
-    justify-self: end;
-    width: max-content;
+    justify-self: stretch;
+    width: 100%;
     max-width: 100%;
+    min-width: 0;
 }
 
 .member-dash-right-rail {
     display: grid;
-    grid-template-columns: max-content max-content;
+    /* 第1欄可縮、內部橫向捲；第2欄 Total 保留最小寬度，避免在 minmax(0,1fr) 父格里被壓消失 */
+    grid-template-columns: minmax(0, 1fr) minmax(104px, max-content);
     grid-template-rows: auto auto;
     column-gap: 0;
     row-gap: 4px;
@@ -949,7 +951,7 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    min-width: 0;
+    min-width: 104px;
 }
 
 .member-dash-right-rail .member-dash-total-column-stack {
@@ -1013,10 +1015,10 @@ body.transaction-page {
     align-items: stretch;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 104px;
     padding-left: 6px;
     padding-right: 2px;
     padding-top: 0;
-    min-width: 0;
     max-width: 100%;
 }
 
