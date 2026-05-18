@@ -510,7 +510,7 @@ function clearMemberMiniGridDisplay() {
     const totalEl = document.getElementById('member_balance_total_value');
     if (gridEl) {
         gridEl.innerHTML = '';
-        gridEl.classList.remove('member-balance-mini-hblocks');
+        gridEl.classList.remove('member-balance-mini-matrix');
         gridEl.style.gridTemplateColumns = '';
         gridEl.removeAttribute('role');
         gridEl.removeAttribute('aria-label');
@@ -725,7 +725,8 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     if (seq !== memberSearchSeq || !gridEl) return;
 
     gridEl.innerHTML = '';
-    gridEl.classList.remove('member-balance-mini-hblocks');
+    gridEl.classList.remove('member-balance-mini-matrix');
+    gridEl.style.gridTemplateColumns = '';
     gridEl.removeAttribute('role');
     gridEl.removeAttribute('aria-label');
     if (hintEl) hintEl.textContent = '';
@@ -755,77 +756,74 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
         return;
     }
 
-    gridEl.classList.add('member-balance-mini-hblocks');
-    gridEl.setAttribute('role', 'group');
-    gridEl.setAttribute('aria-label', 'Balances by currency');
+    gridEl.classList.add('member-balance-mini-matrix');
+    gridEl.setAttribute('role', 'grid');
+    gridEl.setAttribute('aria-label', 'Balances by account and currency');
+    gridEl.style.gridTemplateColumns =
+        `minmax(3.25rem, 5.25rem) repeat(${ncu}, minmax(${ncu <= 3 ? '4rem' : '3.25rem'}, 1fr))`;
 
-    const makeAccountColumns = (cu, holders) => {
-        const mid = Math.ceil(holders.length / 2);
-        const left = holders.slice(0, mid);
-        const right = holders.slice(mid);
-        const mkCol = (accs) => {
-            const col = document.createElement('div');
-            col.className = 'member-bal-hblock-col';
-            accs.forEach((acc) => {
-                const idNum = Number(acc.id);
-                const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-                const key = `${idNum}|${cu}`;
-                const balDec = balanceMap && balanceMap.has(key)
-                    ? balanceMap.get(key)
-                    : normalizeNumber('0');
+    const corner = document.createElement('div');
+    corner.className = 'member-balance-matrix-corner';
+    corner.setAttribute('aria-hidden', 'true');
+    gridEl.appendChild(corner);
 
+    const lastCi = ncu - 1;
+    const lastRi = listOrdered.length - 1;
+
+    currenciesUpper.forEach((cu, ci) => {
+        const th = document.createElement('div');
+        th.className = 'member-balance-matrix-th';
+        if (ci === lastCi) th.classList.add('member-balance-matrix-th--edge');
+        th.setAttribute('role', 'columnheader');
+        th.textContent = cu;
+        gridEl.appendChild(th);
+    });
+
+    listOrdered.forEach((acc, accIdx) => {
+        const idNum = Number(acc.id);
+        const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
+        const isLastRow = accIdx === lastRi;
+
+        const rowHead = document.createElement('div');
+        rowHead.className = 'member-balance-matrix-rowhead';
+        if (isLastRow) rowHead.classList.add('member-balance-matrix-rowhead--edge');
+        rowHead.setAttribute('role', 'rowheader');
+        rowHead.textContent = code;
+        rowHead.title = code;
+        gridEl.appendChild(rowHead);
+
+        currenciesUpper.forEach((cu, ci) => {
+            const holds = accountHoldsMiniGridCurrency(idNum, cu);
+            const key = `${idNum}|${cu}`;
+            const balDec = holds && balanceMap && balanceMap.has(key)
+                ? balanceMap.get(key)
+                : normalizeNumber('0');
+
+            if (holds) {
                 totalsByCu.set(cu, totalsByCu.get(cu).plus(balDec));
+            }
 
-                const row = document.createElement('div');
-                row.className = 'member-bal-hblock-row';
-                const lab = document.createElement('span');
-                lab.className = 'member-bal-hblock-code';
-                lab.textContent = code;
-                lab.title = code;
+            const cell = document.createElement('div');
+            cell.className = 'member-balance-matrix-cell';
+            cell.setAttribute('role', 'gridcell');
+            if (accIdx % 2 === 1) cell.classList.add('member-balance-matrix-cell--alt');
+            if (ci === lastCi) cell.classList.add('member-balance-matrix-cell--edge');
+            if (isLastRow) cell.classList.add('member-balance-matrix-cell--edge-row');
+
+            if (!holds) {
+                cell.classList.add('member-balance-matrix-cell--na');
+                cell.textContent = '–';
+            } else {
                 const amt = document.createElement('span');
-                amt.className = 'member-bal-hblock-amt';
+                amt.className = 'member-balance-matrix-amt';
                 amt.textContent = formatNumber(balDec.toString());
                 if (typeof balDec.lt === 'function' && balDec.lt('0')) {
-                    amt.classList.add('member-bal-hblock-amt--neg');
+                    amt.classList.add('member-balance-matrix-amt--neg');
                 }
-                row.appendChild(lab);
-                row.appendChild(amt);
-                col.appendChild(row);
-            });
-            return col;
-        };
-        return [mkCol(left), mkCol(right)];
-    };
-
-    currenciesUpper.forEach((cu) => {
-        const holders = listOrdered.filter((acc) => accountHoldsMiniGridCurrency(Number(acc.id), cu));
-
-        const block = document.createElement('section');
-        block.className = 'member-bal-hblock';
-        block.setAttribute('role', 'region');
-        block.setAttribute('aria-label', `${cu}`);
-
-        const hd = document.createElement('div');
-        hd.className = 'member-bal-hblock-hd';
-        hd.textContent = cu;
-
-        const body = document.createElement('div');
-        body.className = 'member-bal-hblock-body';
-
-        if (holders.length === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'member-bal-hblock-empty';
-            empty.textContent = '–';
-            body.appendChild(empty);
-        } else {
-            const [c0, c1] = makeAccountColumns(cu, holders);
-            body.appendChild(c0);
-            body.appendChild(c1);
-        }
-
-        block.appendChild(hd);
-        block.appendChild(body);
-        gridEl.appendChild(block);
+                cell.appendChild(amt);
+            }
+            gridEl.appendChild(cell);
+        });
     });
 
     renderMemberTotalSection(totalsByCu, currenciesUpper, seq);

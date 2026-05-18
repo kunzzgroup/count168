@@ -173,7 +173,7 @@ $default_date_to = $today_dt->format('d/m/Y');
         <div class="transaction-main-content member-winloss-dash">
             <div class="transaction-search-section member-dash-unified-bar">
             <div class="member-dash-columns">
-                <div class="member-dash-col member-dash-col-filters" id="member_dash_col_filters">
+                <div class="member-dash-col member-dash-col-filters">
                 <div class="transaction-form-group transaction-capture-date-group">
                     <label class="transaction-label transaction-date-range-label">Capture Date</label>
                     <div class="transaction-capture-date-row">

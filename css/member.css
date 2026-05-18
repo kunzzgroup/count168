@@ -869,7 +869,7 @@ body.transaction-page {
     text-transform: uppercase;
 }
 
-/* ── Member Win/Loss：篩選 | 按幣雙欄帳表 | Total；右欄與中段間距收緊 ── */
+/* ── Member Win/Loss：三欄（篩選 | 矩陣 | Total）；第三欄與欄間距收緊以省空間 ── */
 .transaction-page.member-winloss-page .member-winloss-dash.transaction-main-content {
     margin-bottom: 12px;
 }
@@ -883,14 +883,6 @@ body.transaction-page {
     /* 拉高中欄 fr、壓縮右欄寬與留白，縮小矩陣與 Total 之間「空白帶」 */
     grid-template-columns: minmax(252px, 0.96fr) minmax(188px, 1.72fr) minmax(92px, 0.41fr);
     gap: 0;
-    /* stretch：右欄左側縱線隨最高欄延伸至列底（避免 TOTAL 區塊較矮時線條斷尾） */
-    align-items: stretch;
-}
-
-.member-dash-col-filters {
-    padding-right: clamp(8px, 1vw, 14px);
-    display: flex;
-    flex-direction: column;
     align-items: stretch;
 }
 
@@ -898,8 +890,17 @@ body.transaction-page {
     min-width: 0;
 }
 
+.member-dash-col-grid .member-balance-mini-grid {
+    width: 100%;
+    max-width: 100%;
+}
+
 .member-dash-col-grid.member-dash-col-split {
-    padding-right: clamp(2px, 0.38vw, 6px);
+    padding-right: clamp(4px, 0.65vw, 10px);
+}
+
+.member-dash-col-filters {
+    padding-right: clamp(8px, 1vw, 14px);
 }
 
 .member-dash-col-split {
@@ -912,7 +913,7 @@ body.transaction-page {
     flex-direction: column;
     justify-content: flex-start;
     align-items: flex-start;
-    padding-left: clamp(3px, 0.42vw, 7px);
+    padding-left: clamp(5px, 0.65vw, 9px);
     padding-right: 2px;
     padding-top: 0;
     min-width: 0;
@@ -956,123 +957,106 @@ body.transaction-page {
     white-space: nowrap;
 }
 
-/* 迷你餘額：按幣別區塊，每幣內左右兩欄帳戶＋數字（不捲動、省垂直空間） */
 .member-balance-mini-grid {
-    display: block;
-    max-height: none;
-    overflow: visible;
-}
-
-.member-balance-mini-grid.member-balance-mini-hblocks {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(112px, 100%), auto));
-    justify-items: start;
-    gap: 6px 8px;
-    align-items: start;
+    max-height: 240px;
+    overflow: auto;
 }
 
-.member-bal-hblock {
+/* 账户 × 币别矩阵：扁平、主题蓝灰（与页面 #002C49 / sidebar 同源），少装饰 */
+.member-balance-mini-matrix {
+    row-gap: 0;
+    column-gap: 0;
     border: 1px solid #dfe7ef;
     border-radius: 4px;
     background: #fff;
     box-sizing: border-box;
-    min-width: 0;
-    overflow: visible;
-    width: max-content;
-    max-width: 100%;
 }
 
-.member-bal-hblock-hd {
-    font-size: clamp(10px, 0.72vw, 12px);
+.member-balance-matrix-corner {
+    background: #eff4fb;
+    border-right: 1px solid #e5ecf6;
+    border-bottom: 1px solid #dfe7ef;
+    min-height: 24px;
+}
+
+.member-balance-matrix-th {
+    font-size: clamp(10px, 0.71vw, 12px);
     font-weight: 700;
     color: #002c49;
     text-align: center;
-    letter-spacing: 0.06em;
-    padding: 4px 6px;
-    background: linear-gradient(180deg, #e9f1ff 0%, #dfeaf8 100%);
+    padding: 5px 4px;
+    border-right: 1px solid #e5ecf6;
     border-bottom: 1px solid #dfe7ef;
+    background: #e9f1ff;
 }
 
-.member-bal-hblock-body {
-    display: grid;
-    grid-template-columns: auto auto;
-    column-gap: 0;
-    row-gap: 4px;
-    padding: 3px 0;
-    align-items: stretch;
+.member-balance-matrix-th--edge {
+    border-right: none;
 }
 
-/* 中央垂直線與等高 stretch；收窄內距讓帳號／金額靠攏、整塊變窄 */
-.member-bal-hblock-body > .member-bal-hblock-col:first-of-type {
-    padding: 4px 5px 4px 5px;
-    border-right: 1px solid #7d96b5;
-}
-
-.member-bal-hblock-body > .member-bal-hblock-col:nth-of-type(2) {
-    padding: 4px 5px 4px 5px;
-}
-
-.member-bal-hblock-col {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-}
-
-.member-bal-hblock-row {
-    display: grid;
-    grid-template-columns: auto auto;
-    column-gap: 6px;
-    justify-content: start;
-    align-items: baseline;
-    font-variant-numeric: tabular-nums;
-    width: max-content;
-    max-width: 100%;
-}
-
-.member-bal-hblock-code {
+.member-balance-matrix-rowhead {
     font-weight: 700;
     font-size: clamp(10px, 0.72vw, 12px);
     color: #002c49;
+    padding: 4px 6px;
+    border-right: 1px solid #e5ecf6;
+    border-bottom: 1px solid #eef2f7;
+    background: #f5f8fc;
+    border-left: 2px solid #4a7396;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.member-balance-matrix-rowhead--edge {
+    border-bottom: none;
+}
+
+.member-balance-matrix-cell {
+    padding: 4px 6px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    border-right: 1px solid #eef2f7;
+    border-bottom: 1px solid #eef2f7;
+    background: #fff;
     min-width: 0;
 }
 
-.member-bal-hblock-amt {
-    font-weight: 600;
-    font-size: clamp(10px, 0.74vw, 12px);
-    color: #0f2942;
-    text-align: right;
+.member-balance-matrix-cell--alt {
+    background: #f9fbfd;
 }
 
-.member-bal-hblock-amt--neg {
-    color: #b91c1c;
+.member-balance-matrix-cell--edge {
+    border-right: none;
 }
 
-.member-bal-hblock-empty {
-    grid-column: 1 / -1;
-    padding: 4px;
+.member-balance-matrix-cell--edge-row {
+    border-bottom: none;
+}
+
+.member-balance-matrix-cell--na {
     text-align: center;
     color: #94a3b8;
     font-weight: 600;
+}
+
+.member-balance-matrix-amt {
+    font-weight: 600;
     font-size: clamp(11px, 0.78vw, 13px);
+    color: #0f2942;
+}
+
+.member-balance-matrix-amt--neg {
+    color: #b91c1c;
 }
 
 @media (max-width: 520px) {
-    .member-balance-mini-grid.member-balance-mini-hblocks {
-        grid-template-columns: 1fr;
-    }
-
-    .member-bal-hblock {
-        width: 100%;
-        max-width: 100%;
-    }
-
-    .member-bal-hblock-body > .member-bal-hblock-col:first-of-type {
-        padding: 4px 6px 4px 5px;
-    }
-
-    .member-bal-hblock-body > .member-bal-hblock-col:nth-of-type(2) {
-        padding: 4px 5px 4px 6px;
+    .member-balance-mini-matrix {
+        max-height: 200px;
     }
 }
 
@@ -1089,97 +1073,10 @@ body.transaction-page {
     align-items: stretch;
     gap: 0;
     min-height: 0;
-    line-height: 1.2;
+    line-height: 1.15;
     text-align: left;
     width: 100%;
     max-width: 100%;
-}
-
-/* ── Total 區：小卡片質感 + 分隔線橫跨整塊 ──（僅 Win/Loss 頁 body class）*/
-.transaction-page.member-winloss-page .member-dash-col-total-col .member-dash-total-inner {
-    padding: 9px 10px 10px;
-    border-radius: 8px;
-    background: linear-gradient(165deg, #fbfdff 0%, #eef4ff 52%, #e6eefb 100%);
-    border: 1px solid #c9d9ef;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.92),
-        0 1px 2px rgba(15, 41, 66, 0.05);
-    box-sizing: border-box;
-}
-
-.transaction-page.member-winloss-page .member-dash-total-caption {
-    font-size: clamp(9px, 0.64vw, 11px);
-    font-weight: 800;
-    color: #3d5a73;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding-bottom: 7px;
-    margin: 0 0 8px;
-    border-bottom: 1px solid #b8cae0;
-}
-
-.transaction-page.member-winloss-page .member-dash-total-values {
-    gap: 0;
-}
-
-.transaction-page.member-winloss-page .member-dash-total-values > .member-dash-total-amt {
-    padding: 4px 0 2px;
-    font-size: clamp(12px, 0.86vw, 15px);
-}
-
-.transaction-page.member-winloss-page .member-dash-total-amt {
-    font-weight: 800;
-}
-
-.transaction-page.member-winloss-page .member-dash-total-values.member-dash-total-values--grid {
-    margin-top: 0;
-}
-
-.transaction-page.member-winloss-page .member-dash-total-currency-grid {
-    width: 100%;
-    gap: 0;
-}
-
-/* 分隔線改用偽元素，強制橫跨整欄（避免只在幣種代碼下顯示一截線）*/
-.transaction-page.member-winloss-page .member-dash-total-grid-cell {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(2rem, auto) minmax(0, 1fr);
-    column-gap: 10px;
-    align-items: baseline;
-    padding: 8px 0 9px;
-    margin: 0;
-    border: none;
-    background: transparent;
-    border-radius: 0;
-    border-bottom: none;
-}
-
-.transaction-page.member-winloss-page .member-dash-total-grid-cell:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 1px;
-    background: linear-gradient(90deg, rgba(184, 202, 224, 0.25) 0%, #8aa9c4 35%, #8aa9c4 65%, rgba(184, 202, 224, 0.25) 100%);
-}
-
-.transaction-page.member-winloss-page .member-dash-total-grid-code {
-    font-size: clamp(10px, 0.72vw, 12px);
-    font-weight: 800;
-    color: #002c49;
-}
-
-.transaction-page.member-winloss-page .member-dash-total-grid-amt {
-    font-size: clamp(11px, 0.8vw, 14px);
-    font-weight: 800;
-    letter-spacing: 0.01em;
-    text-align: right;
-}
-
-.transaction-page.member-winloss-page .member-dash-total-grid-amt.member-dash-total-grid-amt--neg {
-    color: #b91c1c;
 }
 
 .member-dash-total-caption {
@@ -1288,19 +1185,6 @@ body.transaction-page {
         width: 100%;
         text-align: left;
         gap: 12px;
-    }
-
-    .transaction-page.member-winloss-page .member-dash-col-total-col .member-dash-total-inner {
-        margin-top: 8px;
-        padding-top: 12px;
-        border-top: none;
-    }
-
-    .transaction-page.member-winloss-page .member-dash-total-caption {
-        align-self: center;
-        margin-bottom: 0;
-        padding-bottom: 0;
-        border-bottom: none;
     }
 }
 
