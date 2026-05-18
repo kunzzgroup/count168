@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fetchSubmissionsByCaptureDate } from "./dataCaptureApi.js";
 
 export function useDataCaptureSubmittedList(companyId, captureDate) {
@@ -21,12 +21,17 @@ export function useDataCaptureSubmittedList(companyId, captureDate) {
     }
   }, [companyId, captureDate]);
 
+  const refreshRef = useRef(refreshSubmitted);
+  refreshRef.current = refreshSubmitted;
+
   useEffect(() => {
     void refreshSubmitted();
   }, [refreshSubmitted]);
 
   useLayoutEffect(() => {
-    window.__DC_REFRESH_SUBMITTED_PROCESSES__ = refreshSubmitted;
+    window.__DC_REFRESH_SUBMITTED_PROCESSES__ = async () => {
+      await refreshRef.current();
+    };
     return () => {
       try {
         delete window.__DC_REFRESH_SUBMITTED_PROCESSES__;
@@ -34,7 +39,7 @@ export function useDataCaptureSubmittedList(companyId, captureDate) {
         window.__DC_REFRESH_SUBMITTED_PROCESSES__ = undefined;
       }
     };
-  }, [refreshSubmitted]);
+  }, []);
 
   return { submittedItems: items, refreshSubmitted };
 }

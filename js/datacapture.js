@@ -1137,13 +1137,22 @@ function __dcIsDataCaptureSpa() {
     return false;
 }
 
+/** Second line of defense: same marker check alone (for stale/partial script deploys). */
+function __dcSpaShellByDomMarker() {
+    try {
+        var form = document.getElementById('dataCaptureForm');
+        return !!(form && form.hasAttribute('data-ezc-spa'));
+    } catch (e) {
+        return false;
+    }
+}
+
 // Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交时刻 created_at（含日期）
 async function loadSubmittedProcesses() {
-    if (typeof window.__DC_REFRESH_SUBMITTED_PROCESSES__ === 'function') {
-        await window.__DC_REFRESH_SUBMITTED_PROCESSES__();
-        return;
-    }
-    if (__dcIsDataCaptureSpa()) {
+    if (__dcIsDataCaptureSpa() || __dcSpaShellByDomMarker()) {
+        if (typeof window.__DC_REFRESH_SUBMITTED_PROCESSES__ === 'function') {
+            await window.__DC_REFRESH_SUBMITTED_PROCESSES__();
+        }
         return;
     }
     try {
@@ -2374,7 +2383,7 @@ async function addSubmittedProcess(processData) {
 
 // Render submitted processes list
 function renderSubmittedProcesses() {
-    if (__dcIsDataCaptureSpa()) {
+    if (__dcIsDataCaptureSpa() || __dcSpaShellByDomMarker()) {
         return;
     }
     const listContainer = document.getElementById('submittedProcessesList');
@@ -2501,7 +2510,7 @@ function getProcessId(buttonElement) {
 
 // ==================== 初始化 Process 自定义下拉选单 ====================
 function initProcessInput() {
-    if (window.__DATA_CAPTURE_REACT_FORM__) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ || __dcIsDataCaptureSpa() || __dcSpaShellByDomMarker()) {
         return;
     }
     const processButton = document.getElementById('capture_process');
@@ -2680,7 +2689,7 @@ function initProcessInput() {
 
 // Load process data when a process is selected
 async function loadProcessData(processId) {
-    if (window.__DATA_CAPTURE_REACT_FORM__) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ || __dcIsDataCaptureSpa() || __dcSpaShellByDomMarker()) {
         return;
     }
     console.log('Loading process data for ID:', processId);
@@ -2990,6 +2999,16 @@ async function loadProcessesByDate() {
             const optionsContainer = processDropdown?.querySelector('.custom-select-options');
 
             if (!processButton || !processDropdown || !optionsContainer) return;
+
+            // React renders `.custom-select-options` children — never clear/rebuild on SPA shell.
+            const hostForm = processButton.closest('#dataCaptureForm');
+            if ((hostForm && hostForm.hasAttribute('data-ezc-spa')) || __dcSpaShellByDomMarker()) {
+                if (typeof window.__DC_SET_PROCESS_LIST__ === 'function') {
+                    window.__DC_SET_PROCESS_LIST__(rows, selectedDate);
+                }
+                updateSubmitButtonState();
+                return;
+            }
 
             optionsContainer.innerHTML = '';
 
@@ -25036,7 +25055,7 @@ async function switchDataCaptureCompany(companyId) {
 function setupFormValidationListeners() {
     // Listen for date changes
     const dateInput = document.getElementById('capture_date');
-    if (dateInput && !__dcIsDataCaptureSpa()) {
+    if (dateInput && !__dcIsDataCaptureSpa() && !__dcSpaShellByDomMarker()) {
         dateInput.addEventListener('change', async function () {
             console.log('Date changed to:', this.value);
             // Reload processes based on new date
