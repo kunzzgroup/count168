@@ -121,12 +121,18 @@ export function useDataCaptureFormEngine(companyId) {
   }, [companyId, captureDate, reloadProcessesForDate]);
 
   const onDateChange = useCallback(
-    async (e) => {
+    (e) => {
       const v = e.target.value;
       setCaptureDate(v);
-      await reloadProcessesForDate(v, { preserveSelection: false });
-      // Submitted list: `useDataCaptureSubmittedList` refreshes when `captureDate` changes — do not call
-      // `loadSubmittedProcesses()` here (avoids racing legacy/React DOM updates on `#submittedProcessesList`).
+      // Defer fetch past the native <select> close + layout (avoids insertBefore issues on touch / async flush).
+      const run = () => void reloadProcessesForDate(v, { preserveSelection: false });
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => {
+          queueMicrotask(run);
+        });
+      } else {
+        queueMicrotask(run);
+      }
     },
     [reloadProcessesForDate]
   );

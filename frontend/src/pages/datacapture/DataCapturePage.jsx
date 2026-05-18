@@ -108,6 +108,18 @@ export default function DataCapturePage() {
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
 
+  /** Set as soon as this route mounts (including Loading…), before scripts run — legacy uses it to skip DOM that React owns. */
+  useLayoutEffect(() => {
+    window.__DATA_CAPTURE_SPA_BOOTSTRAP__ = true;
+    return () => {
+      try {
+        delete window.__DATA_CAPTURE_SPA_BOOTSTRAP__;
+      } catch {
+        window.__DATA_CAPTURE_SPA_BOOTSTRAP__ = undefined;
+      }
+    };
+  }, []);
+
   const companiesNormalized = useMemo(() => companies.map(normalizeOwnerCompanyRow), [companies]);
 
   const companiesDeduped = useMemo(
@@ -315,8 +327,6 @@ export default function DataCapturePage() {
   useEffect(() => {
     if (bootLoading || !me || !companyId) return;
 
-    window.__DATA_CAPTURE_SPA_BOOTSTRAP__ = true;
-
     window.DATACAPTURE_COMPANY_ID = companyId;
     window.DATACAPTURE_USER_ROLE = String(me.role || "").toLowerCase();
     window.DATACAPTURE_COMPANY_CODE = companyCode || String(companyId);
@@ -350,7 +360,6 @@ export default function DataCapturePage() {
 
     return () => {
       alive = false;
-      window.__DATA_CAPTURE_SPA_BOOTSTRAP__ = false;
       try {
         delete window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__;
       } catch {
