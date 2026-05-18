@@ -25,9 +25,10 @@ body.transaction-page {
     box-sizing: border-box;
 }
 
-/* Win/Loss：整頁不要橫向捲動；橫向只在迷你矩陣 .member-balance-mini-grid 內 */
+/* Win/Loss：用 clip 取代 hidden，避免垂直方向被當成可捲區而裁切 Period 下拉；橫向仍以矩陣內捲動為主 */
 .transaction-page.member-winloss-page .transaction-container {
-    overflow-x: hidden;
+    overflow-x: clip;
+    overflow-y: visible;
     max-width: 100%;
 }
 .transaction-page .transaction-title {
@@ -883,8 +884,8 @@ body.transaction-page {
     margin-bottom: 0;
     min-width: 0;
     max-width: 100%;
-    /* 勿只寫 overflow-x:hidden，否則依規範另一軸可能變為 auto，整塊白卡出現直向捲軸，Period 像在 overflow */
-    overflow-x: hidden;
+    /* clip：可與 overflow-y:visible 並存，下拉不被當成區塊內捲而裁切底部 */
+    overflow-x: clip;
     overflow-y: visible;
 }
 
@@ -946,7 +947,8 @@ body.transaction-page {
     padding-left: clamp(3px, 0.4vw, 7px);
     padding-right: 2px;
     padding-top: 0;
-    min-width: min-content;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .member-dash-mini-toolbar {
@@ -1141,6 +1143,8 @@ body.transaction-page {
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    min-width: 0;
+    max-width: 100%;
     width: 100%;
 }
 
