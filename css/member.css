@@ -910,18 +910,18 @@ body.transaction-page {
     grid-template-columns: minmax(0, 1fr);
 }
 
-/* 右側：Accounts 與 Total 同列頂對齊；矩陣僅佔左下。勿讓第2欄 min-width:0 把 Total 壓成 0 寬 */
+/* 整塊迷你表+Total 靠父欄右緣（老闆要從右邊）。Grid 子項用 justify-self: end，勿用 flex-end */
 .member-dash-columns > .member-dash-right-rail {
-    justify-self: stretch;
-    width: 100%;
+    justify-self: end;
+    width: max-content;
     max-width: 100%;
     min-width: 0;
 }
 
 .member-dash-right-rail {
     display: grid;
-    /* 第1欄可縮、內部橫向捲；第2欄 Total 保留最小寬度，避免在 minmax(0,1fr) 父格里被壓消失 */
-    grid-template-columns: minmax(0, 1fr) minmax(104px, max-content);
+    /* 矩陣寬 max-content（內部 capped）；Total 欄 min 104px 防止被壓沒 */
+    grid-template-columns: minmax(0, max-content) minmax(104px, max-content);
     grid-template-rows: auto auto;
     column-gap: 0;
     row-gap: 4px;
@@ -1339,6 +1339,13 @@ body.transaction-page {
 @media (max-width: 1180px) {
     .member-dash-columns {
         grid-template-columns: 1fr;
+    }
+
+    /* 單欄時右側帶改滿寬堆疊，避免仍 justify-self:end 導致版面異常 */
+    .member-dash-columns > .member-dash-right-rail {
+        justify-self: stretch;
+        width: 100%;
+        max-width: 100%;
     }
 
     .member-dash-right-rail {
