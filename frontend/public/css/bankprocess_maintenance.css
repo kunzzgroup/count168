@@ -355,8 +355,10 @@ body.dashboard-page.maintenance-page .container {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: var(--maintenance-control-height); /* match Date Range */
-    width: clamp(38px, 3vw, 44px);    /* slightly smaller */
+    height: var(--maintenance-control-height);
+    /* match Date Range */
+    width: clamp(38px, 3vw, 44px);
+    /* slightly smaller */
     margin: 0;
     border: 1px solid #d1d5db;
     border-radius: clamp(4px, 0.42vw, 8px);
@@ -864,15 +866,18 @@ body.dashboard-page.maintenance-page .container {
 
 .flatpickr-calendar {
     font-family: var(--font-heading-page);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .flatpickr-day.selected {
     background: #4a90e2;
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today {
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today:hover,
 .flatpickr-day.today:focus {
     background: #e6f2ff;
@@ -1032,9 +1037,7 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
 .bankprocess-maintenance-page-root .bankprocess-virtual-data-row {
     display: grid;
     grid-template-columns:
-        minmax(28px, 3.7fr) minmax(100px, 11fr) minmax(64px, 9fr) minmax(80px, 14fr)
-        minmax(72px, 8.5fr) minmax(120px, 25fr) minmax(64px, 9fr) minmax(56px, 8fr)
-        minmax(40px, 6fr);
+        minmax(28px, 3.7fr) minmax(100px, 11fr) minmax(64px, 9fr) minmax(80px, 14fr) minmax(72px, 8.5fr) minmax(120px, 25fr) minmax(64px, 9fr) minmax(56px, 8fr) minmax(40px, 6fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
@@ -1044,7 +1047,7 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     color: #ffffff;
     font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
     padding: var(--bankprocess-list-cell-padding-y) var(--bankprocess-list-cell-padding-x);
     text-align: center;
     min-height: var(--bankprocess-list-cell-min-height);
@@ -1101,8 +1104,8 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
 }
 
 .bankprocess-maintenance-page-root .maintenance-virtual-cell {
-    font-size: clamp(10px, 0.88vw, 15px);
-    font-weight: bold;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
     color: #374151;
     line-height: var(--bankprocess-list-cell-line-height);
     padding: var(--bankprocess-list-cell-padding-y) var(--bankprocess-list-cell-padding-x);

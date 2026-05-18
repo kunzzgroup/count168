@@ -423,8 +423,8 @@ body.dashboard-page.maintenance-page {
     appearance: none;
     -webkit-appearance: none;
     margin-right: 8px;
-    width: clamp(10px, 0.83vw, 16px);
-    height: clamp(10px, 0.83vw, 16px);
+    width: clamp(12px, 0.83vw, 16px);
+    height: clamp(12px, 0.83vw, 16px);
     border: 2px solid #000000ff;
     border-radius: 3px;
     background-color: white;
@@ -452,15 +452,18 @@ body.dashboard-page.maintenance-page {
 
 .flatpickr-calendar {
     font-family: var(--font-heading-page);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .flatpickr-day.selected {
     background: #4a90e2;
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today {
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today:hover,
 .flatpickr-day.today:focus {
     background: #e6f2ff;
@@ -906,6 +909,7 @@ body.dashboard-page.maintenance-page {
     0% {
         transform: translateX(-120%);
     }
+
     100% {
         transform: translateX(420%);
     }
@@ -986,12 +990,12 @@ body.dashboard-page.maintenance-page {
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(3),
 .capture-maintenance-page-root .maintenance-table td:nth-child(3) {
-    width: 10%;
+    width: 14%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(4),
 .capture-maintenance-page-root .maintenance-table td:nth-child(4) {
-    width: 10%;
+    width: 12.5%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(5),
@@ -1001,22 +1005,22 @@ body.dashboard-page.maintenance-page {
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(6),
 .capture-maintenance-page-root .maintenance-table td:nth-child(6) {
-    width: 13.5%;
+    width: 14.5%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(7),
 .capture-maintenance-page-root .maintenance-table td:nth-child(7) {
-    width: 13.5%;
+    width: 9%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(8),
 .capture-maintenance-page-root .maintenance-table td:nth-child(8) {
-    width: 18%;
+    width: 15%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(9),
 .capture-maintenance-page-root .maintenance-table td:nth-child(9) {
-    width: 6.5%;
+    width: 5%;
     min-width: clamp(40px, 3.5vw, 56px);
     box-sizing: border-box;
 }
@@ -1074,6 +1078,8 @@ body.dashboard-page.maintenance-page {
 .capture-maintenance-page-root .maintenance-table td:nth-child(4),
 .capture-maintenance-page-root .maintenance-table th:nth-child(6),
 .capture-maintenance-page-root .maintenance-table td:nth-child(6),
+.capture-maintenance-page-root .maintenance-table th:nth-child(7),
+.capture-maintenance-page-root .maintenance-table td:nth-child(7),
 .capture-maintenance-page-root .maintenance-table th:nth-child(8),
 .capture-maintenance-page-root .maintenance-table td:nth-child(8) {
     text-align: left;
@@ -1172,8 +1178,8 @@ body.dashboard-page.maintenance-page {
 }
 
 /* 勾选列：thead th 与 tbody td 的 padding 来源不同（th 无 maintenance-table-cell），纵向看勾选框易左右错位；对称 padding + 全宽 flex 内层与表头/行共用 */
-.capture-maintenance-page-root .maintenance-list-container .maintenance-table > thead > tr > th.maintenance-select-all-header,
-.capture-maintenance-page-root .maintenance-list-container .maintenance-table > tbody > tr > td.maintenance-cell-checkbox {
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table>thead>tr>th.maintenance-select-all-header,
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table>tbody>tr>td.maintenance-cell-checkbox {
     padding: clamp(4px, 0.5vw, 8px) clamp(8px, 0.85vw, 14px) !important;
     text-align: center;
     vertical-align: middle;
@@ -1231,9 +1237,7 @@ body.dashboard-page.maintenance-page {
 .capture-maintenance-page-root .capture-virtual-data-row {
     display: grid;
     grid-template-columns:
-        minmax(28px, 4.5fr) minmax(100px, 13fr) minmax(64px, 10fr) minmax(64px, 10fr)
-        minmax(56px, 9.5fr) minmax(80px, 13.5fr) minmax(80px, 13.5fr) minmax(100px, 18fr)
-        minmax(40px, 6.5fr);
+        minmax(28px, 4.5fr) minmax(100px, 13fr) minmax(64px, 14fr) minmax(64px, 12.5fr) minmax(56px, 9.5fr) minmax(80px, 14.5fr) minmax(80px, 9fr) minmax(100px, 15fr) minmax(40px, 6.5fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
@@ -1243,7 +1247,7 @@ body.dashboard-page.maintenance-page {
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     color: #ffffff;
     font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
     padding: clamp(5px, 0.55vw, 9px) var(--capture-list-cell-padding-x);
     text-align: center;
     min-height: clamp(30px, 2.1vw, 38px);
@@ -1270,7 +1274,7 @@ body.dashboard-page.maintenance-page {
 .capture-maintenance-page-root .maintenance-virtual-scroll {
     max-height: min(72vh, 900px);
     overflow: auto;
-    border-radius: 0 0 8px 8px;
+    border-radius: 8px;
     background: #fff;
 }
 
@@ -1301,8 +1305,8 @@ body.dashboard-page.maintenance-page {
 }
 
 .capture-maintenance-page-root .maintenance-virtual-cell {
-    font-size: clamp(10px, 0.88vw, 15px);
-    font-weight: bold;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
     color: #374151;
     line-height: var(--capture-list-cell-line-height);
     padding: var(--capture-list-cell-padding-y) var(--capture-list-cell-padding-x);
@@ -1387,3 +1391,24 @@ body.dashboard-page.maintenance-page {
     pointer-events: none;
 }
 
+/* Truncate long text with ellipsis and support hover tooltips */
+.capture-maintenance-page-root .capture-cell-text {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--left .capture-cell-text {
+    text-align: left;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--center .capture-cell-text {
+    text-align: center;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--right .capture-cell-text {
+    text-align: right;
+}

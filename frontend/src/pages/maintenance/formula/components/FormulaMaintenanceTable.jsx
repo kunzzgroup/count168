@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toUpperDisplay } from "../formulaMaintenanceLogic.js";
 import { assetUrl } from "../../../../utils/apiUrl.js";
 import FormulaVirtualRows from "./FormulaVirtualRows.jsx";
@@ -19,6 +19,8 @@ export default function FormulaMaintenanceTable({
   onToggleSelectAll,
   onSaveRow,
   onListScrolling,
+  scrollRestoreRowId = null,
+  onScrollRestoreComplete,
   accounts,
   m,
   inputMethodOptions,
@@ -297,21 +299,6 @@ export default function FormulaMaintenanceTable({
       >
         {hydrateHint}
         <div className="maintenance-virtual-table-inner formula-virtual-table-inner" role="table">
-          <div className="maintenance-virtual-thead" role="rowgroup">
-            <div className="maintenance-virtual-head-row formula-virtual-head-row" role="row">
-              {headerLabels.map((label) => (
-                <div key={label} role="columnheader" className="maintenance-virtual-th">
-                  {label}
-                </div>
-              ))}
-              <div role="columnheader" className="maintenance-virtual-th formula-virtual-th-actions">
-                <div className="maintenance-formula-actions-inner">
-                  <span className="maintenance-action-edit-placeholder" aria-hidden="true" />
-                  {selectAllCheckbox}
-                </div>
-              </div>
-            </div>
-          </div>
           <FormulaVirtualRows
             rows={data}
             rowHeight={ROW_HEIGHT}
@@ -328,6 +315,12 @@ export default function FormulaMaintenanceTable({
             onEdit={handleEdit}
             m={m}
             onScrollingChange={onListScrolling}
+            scrollRestoreRowId={scrollRestoreRowId}
+            onScrollRestoreComplete={onScrollRestoreComplete}
+            listHydrating={listHydrating}
+            selectAllRef={selectAllRef}
+            selectAllChecked={selectAllChecked}
+            onToggleSelectAll={onToggleSelectAll}
           />
         </div>
       </div>

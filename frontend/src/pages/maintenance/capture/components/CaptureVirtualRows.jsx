@@ -12,6 +12,54 @@ function isRowDeleted(row) {
   return row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
 }
 
+function CaptureVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, disableSelectAll }) {
+  const labels = [
+    m.tblNo,
+    m.tblDtsCreated,
+    m.tblProduct,
+    m.tblProcess,
+    m.tblCurrency,
+    m.tblWlGroup,
+    m.tblSubmittedBy,
+    m.tblDeletedBy,
+  ];
+
+  return (
+    <div className="maintenance-virtual-thead" role="rowgroup">
+      <div className="maintenance-virtual-head-row capture-virtual-head-row" role="row">
+        {labels.map((label, i) => (
+          <div
+            key={label}
+            role="columnheader"
+            className={`maintenance-virtual-th${
+              i === 2 || i === 3 || i === 5 || i === 6 || i === 7 ? " capture-virtual-th--left" : ""
+            }${i === 0 ? " capture-virtual-th--no" : ""}`}
+          >
+            {label}
+          </div>
+        ))}
+        <div
+          role="columnheader"
+          className="maintenance-virtual-th capture-virtual-th-checkbox maintenance-select-all-header"
+        >
+          <span className="maintenance-checkbox-cell-inner">
+            <input
+              type="checkbox"
+              id={disableSelectAll ? undefined : "select_all_capture"}
+              ref={disableSelectAll ? undefined : selectAllRef}
+              className="maintenance-row-checkbox"
+              checked={selectAll}
+              onChange={toggleSelectAll}
+              title={m.selectAll}
+              disabled={disableSelectAll}
+            />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CaptureVirtualRows({
   rows,
   rowHeight,
@@ -19,6 +67,11 @@ export default function CaptureVirtualRows({
   selectedSet,
   onToggleRow,
   alreadyDeletedTitle,
+  selectAllRef,
+  selectAll,
+  toggleSelectAll,
+  m,
+  disableSelectAll,
 }) {
   const scrollRef = useRef(null);
   const sizeCacheRef = useRef(new Map());
@@ -74,6 +127,13 @@ export default function CaptureVirtualRows({
 
   return (
     <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
+      <CaptureVirtualTableHead
+        selectAllRef={selectAllRef}
+        selectAll={selectAll}
+        toggleSelectAll={toggleSelectAll}
+        m={m}
+        disableSelectAll={disableSelectAll}
+      />
       <div className="maintenance-virtual-spacer" style={{ height: totalH, position: "relative", width: "100%" }}>
         {vItems.map((virtualRow) => {
           const row = rows[virtualRow.index];

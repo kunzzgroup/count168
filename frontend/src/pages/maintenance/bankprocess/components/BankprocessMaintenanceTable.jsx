@@ -1,7 +1,7 @@
-﻿import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import BankprocessVirtualRows from "./BankprocessVirtualRows.jsx";
 
-const ROW_HEIGHT = 56;
+const ROW_HEIGHT = 46;
 
 function isRowDeleted(row) {
   return row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
@@ -26,9 +26,8 @@ function BankprocessVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll,
           <div
             key={label}
             role="columnheader"
-            className={`maintenance-virtual-th${
-              i === 1 || i === 2 || i === 3 || i === 5 || i === 6 || i === 7 ? " bankprocess-virtual-th--left" : ""
-            }${i === 0 ? " bankprocess-virtual-th--no" : ""}${i === 4 ? " maintenance-header-amount" : ""}`}
+            className={`maintenance-virtual-th${i === 1 || i === 2 || i === 3 || i === 5 || i === 6 || i === 7 ? " bankprocess-virtual-th--left" : ""
+              }${i === 0 ? " bankprocess-virtual-th--no" : ""}${i === 4 ? " maintenance-header-amount" : ""}`}
           >
             {label}
           </div>

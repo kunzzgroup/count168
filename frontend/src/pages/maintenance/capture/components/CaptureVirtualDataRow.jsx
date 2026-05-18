@@ -1,4 +1,22 @@
-﻿import { memo } from "react";
+import { memo } from "react";
+
+function WrapCell({ children, align = "left", className = "", title }) {
+  const alignClass =
+    align === "center"
+      ? "maintenance-virtual-cell--center"
+      : align === "right"
+        ? "maintenance-virtual-cell--right"
+        : "maintenance-virtual-cell--left";
+  return (
+    <div
+      role="cell"
+      className={`maintenance-virtual-cell ${alignClass} ${className}`}
+      title={title}
+    >
+      <span className="capture-cell-text">{children}</span>
+    </div>
+  );
+}
 
 const CaptureVirtualDataRow = memo(function CaptureVirtualDataRow({
   row,
@@ -26,30 +44,30 @@ const CaptureVirtualDataRow = memo(function CaptureVirtualDataRow({
 
   return (
     <div role="row" className={rowClass}>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center capture-virtual-cell--no">
+      <WrapCell align="center" className="capture-virtual-cell--no" title={String(row.no || index + 1)}>
         {row.no || index + 1}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--mono">
+      </WrapCell>
+      <WrapCell align="center" className="maintenance-virtual-cell--mono" title={row.dts_created || "-"}>
         {row.dts_created || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left capture-virtual-cell--wrap">
+      </WrapCell>
+      <WrapCell align="left" title={row.product || "-"}>
         {row.product || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left capture-virtual-cell--wrap">
+      </WrapCell>
+      <WrapCell align="left" title={row.process || "-"}>
         {row.process || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-cell-currency">
+      </WrapCell>
+      <WrapCell align="center" className="maintenance-cell-currency" title={row.currency || "-"}>
         {row.currency || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left capture-virtual-cell--wrap">
+      </WrapCell>
+      <WrapCell align="left" title={row.wl_group || "-"}>
         {row.wl_group || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left capture-virtual-cell--wrap">
+      </WrapCell>
+      <WrapCell align="left" title={row.submitted_by || "-"}>
         {row.submitted_by || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left capture-virtual-cell--wrap">
+      </WrapCell>
+      <WrapCell align="left" title={deletedDisplay || "-"}>
         {deletedDisplay}
-      </div>
+      </WrapCell>
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center capture-virtual-cell-checkbox">
         <span className="maintenance-checkbox-cell-inner">
           <input

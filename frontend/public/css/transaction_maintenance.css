@@ -412,15 +412,18 @@ body.dashboard-page.maintenance-page {
 /* Flatpickr 自定义样式 */
 .flatpickr-calendar {
     font-family: var(--font-heading-page);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .flatpickr-day.selected {
     background: #4a90e2;
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today {
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today:hover,
 .flatpickr-day.today:focus {
     background: #e6f2ff;
@@ -823,7 +826,7 @@ body.dashboard-page.maintenance-page {
     background: white;
     border: 1px solid #ddd;
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     display: none;
     max-height: 300px;
@@ -900,7 +903,6 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table {
     width: 100%;
-    min-width: 1520px;
     border-collapse: separate;
     table-layout: fixed;
     border-spacing: 0 clamp(2px, 0.28vw, 4px);
@@ -927,13 +929,13 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(1),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(1) {
-    width: 3%;
+    width: 4%;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(2),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(2) {
-    width: 13%;
-    min-width: 192px;
+    width: 7%;
+    min-width: 80px;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(3),
@@ -953,12 +955,12 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(6),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(6) {
-    width: 14%;
+    width: 12.7%;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(7),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(7) {
-    width: 9%;
+    width: 8%;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(8),
@@ -978,7 +980,7 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(11),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(11) {
-    width:7%;
+    width: 7%;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(12),
@@ -988,7 +990,8 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(13),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(13) {
-    width: 7%;
+    width: 6%;
+    text-align: center;
 }
 
 .transaction-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(4),
@@ -1024,9 +1027,7 @@ body.dashboard-page.maintenance-page {
 .transaction-maintenance-page-root .maintenance-table th:nth-child(6),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(6),
 .transaction-maintenance-page-root .maintenance-table th:nth-child(7),
-.transaction-maintenance-page-root .maintenance-table td:nth-child(7),
-.transaction-maintenance-page-root .maintenance-table th:nth-child(13),
-.transaction-maintenance-page-root .maintenance-table td:nth-child(13) {
+.transaction-maintenance-page-root .maintenance-table td:nth-child(7) {
     text-align: left;
 }
 
@@ -1083,6 +1084,7 @@ body.dashboard-page.maintenance-page {
     0% {
         background-position: 100% 0;
     }
+
     100% {
         background-position: -100% 0;
     }
@@ -1117,7 +1119,6 @@ body.dashboard-page.maintenance-page {
 }
 
 .maintenance-virtual-table-inner {
-    min-width: 1520px;
     width: 100%;
     box-sizing: border-box;
     border-collapse: separate;
@@ -1149,9 +1150,7 @@ body.dashboard-page.maintenance-page {
 .maintenance-virtual-data-row {
     display: grid;
     grid-template-columns:
-        minmax(28px, 3fr) minmax(150px, 13fr) minmax(56px, 8fr) minmax(64px, 8.5fr) minmax(68px, 9fr)
-        minmax(96px, 14fr) minmax(64px, 9fr) minmax(40px, 5fr) minmax(40px, 5fr) minmax(48px, 6fr)
-        minmax(52px, 6fr) minmax(52px, 6fr) minmax(68px, 8fr);
+        minmax(36px, 4fr) minmax(80px, 7fr) minmax(56px, 9fr) minmax(64px, 10fr) minmax(68px, 11fr) minmax(80px, 12fr) minmax(55px, 8fr) minmax(40px, 5fr) minmax(40px, 5fr) minmax(48px, 6fr) minmax(52px, 6fr) minmax(52px, 6fr) minmax(56px, 6fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
@@ -1161,7 +1160,7 @@ body.dashboard-page.maintenance-page {
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     color: #ffffff;
     font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
     padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1vw, 18px);
     text-align: center;
     min-height: clamp(30px, 2.1vw, 38px);
@@ -1182,7 +1181,7 @@ body.dashboard-page.maintenance-page {
 .maintenance-virtual-scroll {
     max-height: min(72vh, 900px);
     overflow: auto;
-    border-radius: 0 0 8px 8px;
+    border-radius: 8px;
     background: #fff;
 }
 
@@ -1213,7 +1212,7 @@ body.dashboard-page.maintenance-page {
 }
 
 .maintenance-virtual-cell {
-    font-size: clamp(10px, 0.88vw, 15px);
+    font-size: var(--text-medium);
     font-weight: bold;
     color: #374151;
     line-height: var(--transaction-list-cell-line-height);
@@ -1266,7 +1265,29 @@ body.dashboard-page.maintenance-page {
     font-variant-numeric: tabular-nums;
 }
 
+.maintenance-virtual-cell--center {
+    justify-content: center;
+    text-align: center;
+}
+
 .maintenance-virtual-data-row .maintenance-cell-currency {
     text-align: center;
     justify-content: center;
+}
+
+/* Created At: Optimize font size of the time display so it visually aligns perfectly with the date */
+.transaction-created-at-display {
+    display: inline-block;
+    text-align: center;
+}
+
+.transaction-created-at-date {
+    font-size: 0.95em;
+}
+
+.transaction-created-at-time {
+    font-size: 0.95em;
+    /* Slightly larger time font size to compensate for narrower colon and parenthesis characters */
+    display: inline-block;
+    margin-top: 1px;
 }

@@ -425,6 +425,7 @@ body.dashboard-page.maintenance-page {
     0% {
         transform: translateX(-120%);
     }
+
     100% {
         transform: translateX(420%);
     }
@@ -1242,9 +1243,7 @@ body.dashboard-page.maintenance-page {
     display: grid;
     /* 列宽与 table nth-child 比例对齐；第 7 列 Input Method 加宽 */
     grid-template-columns:
-        minmax(28px, 4fr) minmax(64px, 13fr) minmax(52px, 9fr) minmax(36px, 5fr)
-        minmax(40px, 6fr) minmax(52px, 8.5fr) minmax(180px, 26fr) minmax(96px, 18fr) minmax(56px, 10fr)
-        minmax(48px, 7fr);
+        minmax(28px, 4fr) minmax(64px, 13fr) minmax(52px, 9fr) minmax(36px, 5fr) minmax(40px, 6fr) minmax(52px, 8.5fr) minmax(180px, 26fr) minmax(96px, 18fr) minmax(56px, 10fr) minmax(48px, 7fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
@@ -1254,7 +1253,7 @@ body.dashboard-page.maintenance-page {
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     color: #ffffff;
     font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
     padding: var(--formula-list-cell-padding-y) var(--formula-list-cell-padding-x);
     text-align: center;
     min-height: var(--formula-list-cell-min-height);
@@ -1307,8 +1306,8 @@ body.dashboard-page.maintenance-page {
 
 /* 虚拟列表（数据 ≥ 60 条）：不用 table/td，改 .maintenance-table-cell 无效 */
 .formula-maintenance-page-root .maintenance-virtual-cell {
-    font-size: clamp(10px, 0.88vw, 15px);
-    font-weight: bold;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
     color: #374151;
     line-height: var(--formula-list-cell-line-height);
     padding: var(--formula-list-cell-padding-y) var(--formula-list-cell-padding-x);
@@ -1398,4 +1397,14 @@ body.dashboard-page.maintenance-page {
     box-sizing: border-box;
     font-size: clamp(10px, 0.88vw, 14px);
     font-weight: bold;
+}
+
+.formula-maintenance-page-root .formula-virtual-th--left {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+.formula-maintenance-page-root .formula-virtual-th--right {
+    justify-content: flex-end !important;
+    text-align: right !important;
 }

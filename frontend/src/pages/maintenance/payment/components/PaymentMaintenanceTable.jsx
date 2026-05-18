@@ -2,52 +2,9 @@ import { useEffect, useMemo, useRef } from "react";
 import { isPaymentMaintenanceRowSelectable } from "../paymentMaintenanceLogic.js";
 import PaymentVirtualRows from "./PaymentVirtualRows.jsx";
 
-const ROW_HEIGHT = 56;
+const ROW_HEIGHT = 40;
 
-function PaymentVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, disableSelectAll }) {
-  const labels = [
-    m.tblNo,
-    m.tblCreatedAt,
-    m.tblAccountTo,
-    m.tblAccountFrom,
-    m.tblAmount,
-    m.tblDescription,
-    m.tblRemark,
-    m.tblSubmitter,
-    m.tblDeleter,
-  ];
 
-  return (
-    <div className="maintenance-virtual-thead" role="rowgroup">
-      <div className="maintenance-virtual-head-row payment-virtual-head-row" role="row">
-        {labels.map((label, i) => (
-          <div
-            key={label}
-            role="columnheader"
-            className={`maintenance-virtual-th${i === 4 ? " maintenance-header-amount" : ""}`}
-          >
-            {label}
-          </div>
-        ))}
-        <div
-          role="columnheader"
-          className="maintenance-virtual-th payment-virtual-th-checkbox maintenance-select-all-header"
-        >
-          <input
-            type="checkbox"
-            id={disableSelectAll ? undefined : "select_all_payment"}
-            ref={disableSelectAll ? undefined : selectAllRef}
-            className="maintenance-row-checkbox"
-            checked={selectAll}
-            onChange={toggleSelectAll}
-            title={m.selectAll}
-            disabled={disableSelectAll}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function PaymentMaintenanceTable({
   data,
@@ -127,19 +84,17 @@ export default function PaymentMaintenanceTable({
       style={{ display: "block" }}
     >
       <div className="maintenance-virtual-table-inner payment-virtual-table-inner" role="table">
-        <PaymentVirtualTableHead
-          selectAllRef={selectAllRef}
-          selectAll={selectAll}
-          toggleSelectAll={toggleSelectAll}
-          m={m}
-          disableSelectAll={false}
-        />
         <PaymentVirtualRows
           rows={data}
           rowHeight={ROW_HEIGHT}
           rowKeyPrefix={rowKeyPrefix}
           selectedSet={selectedSet}
           onToggleRow={toggleSelect}
+          selectAllRef={selectAllRef}
+          selectAll={selectAll}
+          toggleSelectAll={toggleSelectAll}
+          m={m}
+          disableSelectAll={false}
         />
       </div>
     </div>
