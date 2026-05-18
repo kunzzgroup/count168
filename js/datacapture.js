@@ -1120,8 +1120,17 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-/** SPA shell: React route and/or bootstrap flag. Uses truthy flags (not only === true) for robustness. */
+/**
+ * SPA shell: prefer DOM marker on `#dataCaptureForm` so legacy skips React-owned nodes even if globals
+ * are missing/out-of-order (CDN, double script, timing). PHP classic pages do not set `data-ezc-spa`.
+ */
 function __dcIsDataCaptureSpa() {
+    try {
+        var form = document.getElementById('dataCaptureForm');
+        if (form && form.hasAttribute('data-ezc-spa')) return true;
+    } catch (e) {
+        /* ignore */
+    }
     if (__dcIsSpaReactProcessUi()) return true;
     if (window.__DATA_CAPTURE_SPA_BOOTSTRAP__) return true;
     if (window.__DATA_CAPTURE_REACT_FORM__) return true;
@@ -25130,10 +25139,17 @@ window.initializeTable = initializeTable;
 window.submitDataCaptureForm = submitDataCaptureForm;
 
 window.initDataCapturePage = initDataCapturePage;
-if (!window.__DATA_CAPTURE_SPA_BOOTSTRAP__) {
+(function __dcScheduleClassicAutoInit() {
+    if (window.__DATA_CAPTURE_SPA_BOOTSTRAP__) return;
+    try {
+        var formEarly = document.getElementById('dataCaptureForm');
+        if (formEarly && formEarly.hasAttribute('data-ezc-spa')) return;
+    } catch (e) {
+        /* ignore */
+    }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => void initDataCapturePage());
     } else {
         void initDataCapturePage();
     }
-}
+})();

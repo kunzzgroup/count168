@@ -401,7 +401,7 @@ export default function DataCapturePage() {
   const list = filterCompaniesWithDisplayId(companiesDeduped);
 
   return (
-    <DataCaptureErrorBoundary>
+    <DataCaptureErrorBoundary key={companyId ?? "none"}>
       <div className="container" key={companyId ?? "none"}>
       <div
         style={{
@@ -448,6 +448,7 @@ export default function DataCapturePage() {
           <div className="form-container">
             <form
               id="dataCaptureForm"
+              data-ezc-spa="1"
               className="process-form"
               method="POST"
               onSubmit={(e) => {

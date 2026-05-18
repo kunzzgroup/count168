@@ -49,7 +49,9 @@ export function useDataCaptureCategoryPermissions(companyCode) {
       if (companyCode) {
         localStorage.setItem(`selectedPermission_${companyCode}`, permission);
       }
-      if (typeof window.loadProcessesByDate === "function") {
+      if (typeof window.__DC_RELOAD_PROCESSES__ === "function") {
+        void window.__DC_RELOAD_PROCESSES__();
+      } else if (typeof window.loadProcessesByDate === "function") {
         void window.loadProcessesByDate();
       }
     },
