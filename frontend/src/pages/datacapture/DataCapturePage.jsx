@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
@@ -63,6 +63,39 @@ function loadScriptOnce(src, isAlreadyLoaded) {
   });
 }
 
+class DataCaptureErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("DataCaptureErrorBoundary", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.error) {
+      const msg = this.state.error?.message || String(this.state.error);
+      return (
+        <div className="container" style={{ padding: "24px" }}>
+          <h2 style={{ marginTop: 0 }}>Data Capture failed to render</h2>
+          <p style={{ color: "#b91c1c", marginBottom: 12 }} role="alert">
+            {msg}
+          </p>
+          <p style={{ margin: 0, color: "#666", fontSize: 14 }}>
+            Refresh the page. If it keeps happening, open the browser console (F12) and share the first error line with support.
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function DataCapturePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -75,19 +108,27 @@ export default function DataCapturePage() {
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
 
+  const companiesNormalized = useMemo(() => companies.map(normalizeOwnerCompanyRow), [companies]);
+
   const companiesDeduped = useMemo(
-    () => dedupeOwnerCompaniesByCode(companies.map(normalizeOwnerCompanyRow), companyId),
-    [companies, companyId]
+    () => dedupeOwnerCompaniesByCode(companiesNormalized, companyId),
+    [companiesNormalized, companyId]
   );
 
   const groups = useMemo(() => sortedUniqueGroupIds(companiesDeduped), [companiesDeduped]);
 
+  /** Full list: deduped strips rows without display code; URL session can still target a valid numeric id. */
   const currentCompanyRow = useMemo(
-    () => companiesDeduped.find((c) => Number(c.id) === Number(companyId)) || null,
-    [companiesDeduped, companyId]
+    () => companiesNormalized.find((c) => Number(c.id) === Number(companyId)) || null,
+    [companiesNormalized, companyId]
   );
 
-  const companyCode = currentCompanyRow?.company_id ? String(currentCompanyRow.company_id) : "";
+  const companyCode = useMemo(() => {
+    const raw = currentCompanyRow?.company_id;
+    if (raw != null && String(raw).trim() !== "") return String(raw).trim();
+    if (companyId != null && Number(companyId) > 0) return String(companyId);
+    return "";
+  }, [currentCompanyRow, companyId]);
 
   const form = useDataCaptureFormEngine(companyId);
 
@@ -272,13 +313,13 @@ export default function DataCapturePage() {
   }, [navigate]);
 
   useEffect(() => {
-    if (bootLoading || !me || !companyId || !companyCode) return;
+    if (bootLoading || !me || !companyId) return;
 
     window.__DATA_CAPTURE_SPA_BOOTSTRAP__ = true;
 
     window.DATACAPTURE_COMPANY_ID = companyId;
     window.DATACAPTURE_USER_ROLE = String(me.role || "").toLowerCase();
-    window.DATACAPTURE_COMPANY_CODE = companyCode;
+    window.DATACAPTURE_COMPANY_CODE = companyCode || String(companyId);
 
     window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__ = async (rawId) => {
       await switchCompanySessionAndNavigate(Number(rawId));
@@ -351,7 +392,8 @@ export default function DataCapturePage() {
   const list = filterCompaniesWithDisplayId(companiesDeduped);
 
   return (
-    <div className="container" key={companyId ?? "none"}>
+    <DataCaptureErrorBoundary>
+      <div className="container" key={companyId ?? "none"}>
       <div
         style={{
           display: "flex",
@@ -691,5 +733,6 @@ export default function DataCapturePage() {
         onClose={closeDeleteDialog}
       />
     </div>
+    </DataCaptureErrorBoundary>
   );
 }

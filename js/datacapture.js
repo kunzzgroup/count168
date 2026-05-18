@@ -22905,8 +22905,10 @@ function updateSubmitButtonState() {
     // Enable submit button only if all validations pass
     const processId = getProcessId(processInput);
     const isValid = processId &&
+        processInput &&
         processInput.getAttribute('data-value') &&
         descriptions.length > 0 &&
+        currencySelect &&
         currencySelect.value &&
         currencySelect.value !== '' &&
         hasTableData;
@@ -23507,6 +23509,12 @@ async function submitDataCaptureForm() {
         if (hasOption) typeSelectEl.value = selectedDataCaptureType;
     }
 
+    const currencyOpt =
+        currencySelect &&
+        currencySelect.selectedIndex >= 0 &&
+        currencySelect.options[currencySelect.selectedIndex]
+            ? currencySelect.options[currencySelect.selectedIndex]
+            : null;
     const processData = {
         date: formData.get('capture_date'),
         process: processId,
@@ -23515,7 +23523,7 @@ async function submitDataCaptureForm() {
         dataCaptureType: selectedDataCaptureType,
         descriptions: window.selectedDescriptions || [],
         currency: formData.get('currency'),
-        currencyName: currencySelect.options[currencySelect.selectedIndex].text,
+        currencyName: currencyOpt ? currencyOpt.text : '',
         removeWord: formData.get('remove_word') || '',
         replaceWordFrom: formData.get('replace_word_from') || '',
         replaceWordTo: formData.get('replace_word_to') || '',
