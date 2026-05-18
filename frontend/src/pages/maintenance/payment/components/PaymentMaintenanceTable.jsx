@@ -20,7 +20,19 @@ function PaymentVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, 
   return (
     <div className="maintenance-virtual-thead" role="rowgroup">
       <div className="maintenance-virtual-head-row payment-virtual-head-row" role="row">
-        <div role="columnheader" className="maintenance-virtual-th payment-virtual-th-checkbox maintenance-select-all-header">
+        {labels.map((label, i) => (
+          <div
+            key={label}
+            role="columnheader"
+            className={`maintenance-virtual-th${i === 4 ? " maintenance-header-amount" : ""}`}
+          >
+            {label}
+          </div>
+        ))}
+        <div
+          role="columnheader"
+          className="maintenance-virtual-th payment-virtual-th-checkbox maintenance-select-all-header"
+        >
           <input
             type="checkbox"
             id={disableSelectAll ? undefined : "select_all_payment"}
@@ -32,15 +44,6 @@ function PaymentVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, 
             disabled={disableSelectAll}
           />
         </div>
-        {labels.map((label, i) => (
-          <div
-            key={label}
-            role="columnheader"
-            className={`maintenance-virtual-th${i === 4 ? " maintenance-header-amount" : ""}`}
-          >
-            {label}
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -80,9 +83,6 @@ export default function PaymentMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th className="maintenance-select-all-header">
-                <input type="checkbox" className="maintenance-row-checkbox" disabled />
-              </th>
               <th>{m.tblNo}</th>
               <th>{m.tblCreatedAt}</th>
               <th>{m.tblAccountTo}</th>
@@ -92,6 +92,9 @@ export default function PaymentMaintenanceTable({
               <th>{m.tblRemark}</th>
               <th>{m.tblSubmitter}</th>
               <th>{m.tblDeleter}</th>
+              <th className="maintenance-select-all-header maintenance-cell-checkbox">
+                <input type="checkbox" className="maintenance-row-checkbox" disabled />
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -142,3 +145,4 @@ export default function PaymentMaintenanceTable({
     </div>
   );
 }
+
