@@ -10,6 +10,8 @@ import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/transaction.css";
+import "../../../../public/css/customer_report.css";
+import "../../../../public/css/report-outlined-fields.css";
 import "../../../../public/css/formula_maintenance.css";
 import { 
   fetchCompanyPermissions, 
@@ -22,6 +24,8 @@ import {
   updateSessionCompany,
   isBankOnlyCategoryCompany,
   prepareFormulaRowsForDisplay,
+  formulaRowIdsMatch,
+  patchFormulaRowAfterSave,
 } from "./formulaMaintenanceLogic.js";
 
 // Components
@@ -178,7 +182,8 @@ export default function FormulaMaintenancePage() {
 
   /** 先展示前 N 行，其余用 rAF 分批追加，避免一次性渲染卡住 UI */
   const hydrateFormulaList = useCallback(
-    (fullList) => {
+    (fullList, options = {}) => {
+      const { ensureRowId = null } = options;
       if (progressiveRafRef.current) {
         cancelAnimationFrame(progressiveRafRef.current);
         progressiveRafRef.current = null;
@@ -198,16 +203,26 @@ export default function FormulaMaintenancePage() {
         }
       };
 
-      if (full.length <= INITIAL_DISPLAY_ROWS) {
+      let firstSliceEnd = INITIAL_DISPLAY_ROWS;
+      if (ensureRowId != null) {
+        const anchorIdx = full.findIndex((r) => formulaRowIdsMatch(r.id, ensureRowId));
+        if (anchorIdx >= 0) {
+          applySlice(full.length, false);
+          setListHydrating(false);
+          return;
+        }
+      }
+
+      if (full.length <= firstSliceEnd) {
         applySlice(full.length, false);
         setListHydrating(false);
         return;
       }
 
-      applySlice(INITIAL_DISPLAY_ROWS, false);
+      applySlice(firstSliceEnd, false);
       setListHydrating(true);
 
-      let end = INITIAL_DISPLAY_ROWS;
+      let end = firstSliceEnd;
       const tick = () => {
         if (listScrollActiveRef.current) {
           progressiveRafRef.current = requestAnimationFrame(tick);
@@ -345,8 +360,10 @@ export default function FormulaMaintenancePage() {
 
   // -- Search Logic --
   /** 首次整表 Loading；之后（切换公司等）listSyncing 保留旧表直至新数据返回 */
+  const [scrollRestoreRowId, setScrollRestoreRowId] = useState(null);
+
   const performSearch = useCallback(async (overrides = {}) => {
-    const { companyId: overrideCompanyId } = overrides;
+    const { companyId: overrideCompanyId, scrollRestoreRowId: restoreRowId = null } = overrides;
     const effectiveCompanyId = overrideCompanyId ?? companyId;
     if (!effectiveCompanyId) return;
 
@@ -378,7 +395,7 @@ export default function FormulaMaintenancePage() {
       if (searchCompanyId !== Number(companyIdRef.current)) return;
 
       setConfirmDelete(false);
-      hydrateFormulaList(data);
+      hydrateFormulaList(data, { ensureRowId: restoreRowId });
 
       if (!quietRefresh) {
         if (data.length === 0) {
@@ -570,10 +587,6 @@ export default function FormulaMaintenancePage() {
   }, [selectAllChecked, selectAllIndeterminate]);
 
   const handleDeleteClick = () => {
-    if (!confirmDelete) {
-      notify(t("pleaseConfirmDeleteCheckbox"), "error");
-      return;
-    }
     if (selectedCount === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -598,17 +611,28 @@ export default function FormulaMaintenancePage() {
       const payload = {
         template_id: id,
         company_id: companyId,
-        ...editForm
+        ...editForm,
       };
-      await updateFormulaTemplate(payload);
+      const serverData = await updateFormulaTemplate(payload);
       notify(t("updateSuccessful"), "success");
-      performSearch();
+
+      const account = accounts.find((a) => formulaRowIdsMatch(a.id, editForm.account_id));
+      const accountLabel = account?.display_text ?? "";
+      const patchOpts = { id, editForm, accountLabel, serverData };
+      const mergeRow = (row) => patchFormulaRowAfterSave(row, patchOpts);
+
+      formulaDataFullRef.current = formulaDataFullRef.current.map(mergeRow);
+      setFormulaData((prev) => prev.map(mergeRow));
       return true;
     } catch (err) {
       notify(err.message || t("saveFailed"), "error");
       return false;
     }
   };
+
+  const handleScrollRestoreComplete = useCallback(() => {
+    setScrollRestoreRowId(null);
+  }, []);
 
   if (bootLoading || !me) return null;
 
@@ -673,6 +697,8 @@ export default function FormulaMaintenancePage() {
         onToggleSelectAll={toggleSelectAll}
         onSaveRow={handleSaveRow}
         onListScrolling={handleListScrolling}
+        scrollRestoreRowId={scrollRestoreRowId}
+        onScrollRestoreComplete={handleScrollRestoreComplete}
         accounts={accounts}
         m={m}
         inputMethodOptions={inputMethodOptions}
@@ -684,10 +710,8 @@ export default function FormulaMaintenancePage() {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
-        title={m.confirmDeleteTitle}
-        cancelText={m.cancel}
-        confirmText={m.delete}
-        message={t("deleteConfirmRecords", { count: selectedCount })}
+        count={selectedCount}
+        t={t}
       />
 
       <div id="notificationContainer" className="maintenance-notification-container">

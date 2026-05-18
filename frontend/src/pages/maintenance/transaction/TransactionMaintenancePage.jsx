@@ -10,6 +10,8 @@ import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/transaction.css";
 import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/customer_report.css";
+import "../../../../public/css/report-outlined-fields.css";
 import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/transaction_maintenance.css";
 import {
@@ -21,7 +23,6 @@ import {
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
-import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
@@ -76,13 +77,28 @@ export default function TransactionMaintenancePage() {
 
   const [toasts, setToasts] = useState([]);
   const [cssReady, setCssReady] = useState(false);
+  /** Boot finished metadata; date picker synced — avoids racing search with boot/meta fetches. */
+  const [filtersReady, setFiltersReady] = useState(false);
+  const [dateRangeReady, setDateRangeReady] = useState(false);
+  const [searchDeferredReady, setSearchDeferredReady] = useState(false);
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
   /** When set, meta effect reuses permissions from the last company switch instead of calling domain_api again. */
   const switchPermsCacheRef = useRef(null);
+  /** Boot already loaded process/permission meta — skip duplicate meta effect on first paint. */
+  const skipMetaAfterBootRef = useRef(false);
 
-  const listQueryEnabled = Boolean(!bootLoading && companyId && dateFrom && dateTo && cssReady);
+  const listQueryEnabled = Boolean(
+    !bootLoading &&
+    filtersReady &&
+    dateRangeReady &&
+    companyId &&
+    dateFrom &&
+    dateTo &&
+    cssReady &&
+    (permissions.length === 0 || activePermission),
+  );
 
   const transactionQuery = useQuery({
     queryKey: [
@@ -102,15 +118,17 @@ export default function TransactionMaintenancePage() {
         category: activePermission,
         signal,
       }),
-    enabled: listQueryEnabled,
+    enabled: listQueryEnabled && searchDeferredReady,
     staleTime: 2 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
+    retry: (failureCount, error) =>
+      error?.name !== "AbortError" && failureCount < 1,
   });
 
   const transactionData = transactionQuery.data ?? [];
   const listRowCount = transactionData.length;
-  /** 有上一屏数据时保留列表，仅无数据且请求中才用整表骨架（避免切换公司闪成全屏 Loading） */
+  /** 无上一屏数据且请求中：仅显示简洁 Loading 文案（不显示骨架行） */
   const showListSkeleton =
     listQueryEnabled &&
     (transactionQuery.isLoading || (transactionQuery.isFetching && listRowCount === 0));
@@ -199,30 +217,30 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (bootLoading || !me || !cssReady) return;
-    if (!document.getElementById("date-range-picker")) return;
-    if (!window?.MaintenanceDateRangePicker?.init) return;
-
-    const timer = setTimeout(() => {
-      window.MaintenanceDateRangePicker.init({
-        onChange: () => {
-          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        },
-      });
-    }, 0);
-
-    return () => clearTimeout(timer);
+    setDateRangeReady(true);
   }, [bootLoading, me, cssReady]);
+
+  // Defer first search one tick after filters are ready (align with Payment/Capture maintenance).
+  useEffect(() => {
+    if (!listQueryEnabled) {
+      setSearchDeferredReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setSearchDeferredReady(true), 0);
+    return () => {
+      clearTimeout(timer);
+      setSearchDeferredReady(false);
+    };
+  }, [listQueryEnabled]);
 
   useEffect(() => {
     if (bootLoading || !me || !cssReady) return;
     window.MaintenanceDateRangePicker?.setLocaleStrings?.({
       placeholder: t("selectDateRange"),
       selectEndDateHint: t("selectEndDate"),
+      monthLabels: m.monthsShort,
     });
-  }, [bootLoading, me, cssReady, lang, t]);
+  }, [bootLoading, me, cssReady, lang, t, m]);
 
   // -- Boot Logic --
   useEffect(() => {
@@ -301,7 +319,8 @@ export default function TransactionMaintenancePage() {
 
           // Cache permissions so the meta-effect below skips redundant API call
           switchPermsCacheRef.current = { companyCode: code, perms: companyPerms };
-          
+          skipMetaAfterBootRef.current = true;
+
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(filtered.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
           
@@ -320,6 +339,7 @@ export default function TransactionMaintenancePage() {
         console.error("Boot error:", err);
         navigate("/login", { replace: true });
       } finally {
+        setFiltersReady(true);
         setBootLoading(false);
       }
     })();
@@ -328,6 +348,10 @@ export default function TransactionMaintenancePage() {
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
     if (bootLoading || !companyId) return;
+    if (skipMetaAfterBootRef.current) {
+      skipMetaAfterBootRef.current = false;
+      return;
+    }
 
     let cancelled = false;
     const cid = companyId;
@@ -397,6 +421,7 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (!transactionQuery.isError || !transactionQuery.error) return;
+    if (transactionQuery.error?.name === "AbortError") return;
     const msg = transactionQuery.error.message || t("searchFailed");
     if (lastErrorMsgRef.current === msg) return;
     lastErrorMsgRef.current = msg;
@@ -428,6 +453,7 @@ export default function TransactionMaintenancePage() {
       const nextActive =
         saved && perms.includes(saved) ? saved : perms.length > 0 ? perms[0] : "";
       switchPermsCacheRef.current = { companyCode: code, perms };
+      skipMetaAfterBootRef.current = true;
       setActivePermission(nextActive);
       setPermissions(perms);
 
@@ -494,6 +520,8 @@ export default function TransactionMaintenancePage() {
           setSelectedProcess={setSelectedProcess}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          setDateFrom={setDateFrom}
+          setDateTo={setDateTo}
           today={todayDmy}
           companyId={companyId}
           companies={companies}
@@ -506,7 +534,6 @@ export default function TransactionMaintenancePage() {
         <TransactionMaintenanceTable
           data={transactionData}
           showSkeleton={showListSkeleton}
-          isFetching={transactionQuery.isFetching}
           isPlaceholderData={transactionQuery.isPlaceholderData}
           isError={transactionQuery.isError}
           error={transactionQuery.error}
@@ -522,7 +549,6 @@ export default function TransactionMaintenancePage() {
           </div>
         ))}
       </div>
-      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }

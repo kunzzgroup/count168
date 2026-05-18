@@ -24,6 +24,8 @@ export function useTransactionSearch({
   txType,
   currencyRowsOrdered,
   setCurrencyRowsOrdered,
+  m,
+  t,
 }) {
   const [dateFrom, setDateFrom] = useState(null);
   const [dateTo, setDateTo] = useState(null);
@@ -276,12 +278,12 @@ export function useTransactionSearch({
       const notifyErr = notifyErrorsOpt !== undefined ? notifyErrorsOpt : !silent;
       if (!cid) return;
       if (!effectiveDateFrom || !effectiveDateTo) {
-        pushToast("Please select date range", "error");
+        pushToast(m.pleaseSelectDateRange, "error");
         return;
       }
       if (!showAllCurrencies && selectedCurrencies.length === 0) {
         setTablesVisible(false);
-        pushToast("Please select at least one Currency or select All", "info");
+        pushToast(m.pleaseSelectAtLeastOneCurrency, "info");
         return;
       }
 
@@ -359,17 +361,11 @@ export function useTransactionSearch({
         const displayed = countDisplayedRows(cleaned, searchState, txType);
         if (!silent) {
           if (totalAccounts === 0) {
-            pushToast(
-              "Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted",
-              "info",
-            );
+            pushToast(m.searchCompletedNoData, "info");
           } else if (displayed === 0 && totalAccounts > 0) {
-            pushToast(
-              `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show 0 balance" or adjust filters.`,
-              "info",
-            );
+            pushToast(t("searchReturnedRowsNoneMatch", { totalAccounts }), "info");
           } else {
-            pushToast(`Search completed, found ${displayed} record(s)`, "success");
+            pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
           }
         }
       };
@@ -379,7 +375,7 @@ export function useTransactionSearch({
         if (latestRunTokenRef.current !== runToken) return;
         if (!result?.success || !result?.data) {
           if (notifyErr) {
-            pushToast(result?.message || result?.error || "Search failed", "error");
+            pushToast(result?.message || result?.error || m.searchFailed, "error");
           }
           if (!silent) {
             setRawSearchData(null);
@@ -435,7 +431,7 @@ export function useTransactionSearch({
       } catch (e) {
         if (e?.name === "AbortError" || e?.name === "CanceledError") return;
         console.error(e);
-        if (notifyErr) pushToast(`Search failed: ${e.message}`, "error");
+        if (notifyErr) pushToast(t("searchFailedWithMessage", { message: e.message }), "error");
       } finally {
         if (didSetBlockingLoading) setSearchLoading(false);
       }
@@ -452,6 +448,8 @@ export function useTransactionSearch({
       saveTxListToSession,
       queryClient,
       txType,
+      m,
+      t,
     ],
   );
   runSearchRef.current = runSearch;

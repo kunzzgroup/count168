@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
-import "../../../../public/css/userlist.css";
-import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/customer_report.css";
+import "../../../../public/css/report-outlined-fields.css";
+import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/payment_maintenance.css";
 import {
   fetchCompanyPermissions,
@@ -20,7 +20,6 @@ import {
 } from "./paymentMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
-import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 // Components
 import PaymentMaintenanceFilters from "./components/PaymentMaintenanceFilters.jsx";
@@ -154,8 +153,6 @@ export default function PaymentMaintenancePage() {
       if (!cancelled) setCssReady(true);
     });
 
-    ensureMaintenanceDateRangePicker();
-
     return () => {
       cancelled = true;
       searchAbortRef.current?.abort();
@@ -177,33 +174,6 @@ export default function PaymentMaintenancePage() {
       document.body.classList.remove("maintenance-page");
     };
   }, []);
-
-  useEffect(() => {
-    if (bootLoading || !me) return;
-    if (!document.getElementById("date-range-picker")) return;
-    if (!window?.MaintenanceDateRangePicker?.init) return;
-
-    const timer = setTimeout(() => {
-      window.MaintenanceDateRangePicker.init({
-        onChange: () => {
-          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        },
-      });
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [bootLoading, me]);
-
-  useEffect(() => {
-    if (bootLoading || !me) return;
-    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
-      placeholder: t("selectDateRange"),
-      selectEndDateHint: t("selectEndDate"),
-    });
-  }, [bootLoading, me, lang, t]);
 
   // Handle sidebar company switch
   useEffect(() => {
@@ -516,10 +486,6 @@ export default function PaymentMaintenancePage() {
     selectedIds.length > 0 && selectedIds.length === selectableRowsCount;
 
   const handleDeleteClick = () => {
-    if (!confirmDelete) {
-      notify(t("pleaseConfirmDeletionCheckbox"), "error");
-      return;
-    }
     if (selectedIds.length === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -568,6 +534,8 @@ export default function PaymentMaintenancePage() {
         setTransactionType={setTransactionType}
         dateFrom={dateFrom}
         dateTo={dateTo}
+        setDateFrom={setDateFrom}
+        setDateTo={setDateTo}
         today={todayDmy}
         companyId={companyId}
         companies={companies}
@@ -580,7 +548,7 @@ export default function PaymentMaintenancePage() {
         onDelete={handleDeleteClick}
         confirmDelete={confirmDelete}
         setConfirmDelete={setConfirmDelete}
-        deleteDisabled={selectedIds.length === 0 || !confirmDelete}
+        deleteDisabled={selectedIds.length === 0}
         m={m}
       />
 
@@ -610,10 +578,8 @@ export default function PaymentMaintenancePage() {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
-        title={m.confirmDeleteTitle}
-        cancelText={m.cancel}
-        confirmText={m.delete}
-        message={t("deleteConfirmRecords", { count: selectedIds.length })}
+        count={selectedIds.length}
+        t={t}
       />
 
       {/* Notifications */}
@@ -624,7 +590,6 @@ export default function PaymentMaintenancePage() {
           </div>
         ))}
       </div>
-      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }

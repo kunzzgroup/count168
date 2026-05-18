@@ -1,7 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import PaymentVirtualDataRow from "./PaymentVirtualDataRow.jsx";
-import { isPaymentMaintenanceRowSelectable } from "../paymentMaintenanceLogic.js";
+import CaptureVirtualDataRow from "./CaptureVirtualDataRow.jsx";
 
 function pickOverscan(count) {
   if (count > 2000) return 2;
@@ -9,65 +8,65 @@ function pickOverscan(count) {
   return 4;
 }
 
-function PaymentVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, disableSelectAll }) {
+function isRowDeleted(row) {
+  return row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
+}
+
+function CaptureVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, disableSelectAll }) {
   const labels = [
     m.tblNo,
-    m.tblCreatedAt,
-    m.tblAccountTo,
-    m.tblAccountFrom,
-    m.tblAmount,
-    m.tblDescription,
-    m.tblRemark,
-    m.tblSubmitter,
-    m.tblDeleter,
+    m.tblDtsCreated,
+    m.tblProduct,
+    m.tblProcess,
+    m.tblCurrency,
+    m.tblWlGroup,
+    m.tblSubmittedBy,
+    m.tblDeletedBy,
   ];
 
   return (
     <div className="maintenance-virtual-thead" role="rowgroup">
-      <div className="maintenance-virtual-head-row payment-virtual-head-row" role="row">
-        {labels.map((label, i) => {
-          const alignClass =
-            i === 2 || i === 3 || i === 5 || i === 6 || i === 7
-              ? " payment-virtual-th--left"
-              : i === 4
-                ? " payment-virtual-th--right"
-                : "";
-          return (
-            <div
-              key={label}
-              role="columnheader"
-              className={`maintenance-virtual-th${alignClass}${i === 4 ? " maintenance-header-amount" : ""}`}
-            >
-              {label}
-            </div>
-          );
-        })}
+      <div className="maintenance-virtual-head-row capture-virtual-head-row" role="row">
+        {labels.map((label, i) => (
+          <div
+            key={label}
+            role="columnheader"
+            className={`maintenance-virtual-th${
+              i === 2 || i === 3 || i === 5 || i === 6 || i === 7 ? " capture-virtual-th--left" : ""
+            }${i === 0 ? " capture-virtual-th--no" : ""}`}
+          >
+            {label}
+          </div>
+        ))}
         <div
           role="columnheader"
-          className="maintenance-virtual-th payment-virtual-th-checkbox maintenance-select-all-header"
+          className="maintenance-virtual-th capture-virtual-th-checkbox maintenance-select-all-header"
         >
-          <input
-            type="checkbox"
-            id={disableSelectAll ? undefined : "select_all_payment"}
-            ref={disableSelectAll ? undefined : selectAllRef}
-            className="maintenance-row-checkbox"
-            checked={selectAll}
-            onChange={toggleSelectAll}
-            title={m.selectAll}
-            disabled={disableSelectAll}
-          />
+          <span className="maintenance-checkbox-cell-inner">
+            <input
+              type="checkbox"
+              id={disableSelectAll ? undefined : "select_all_capture"}
+              ref={disableSelectAll ? undefined : selectAllRef}
+              className="maintenance-row-checkbox"
+              checked={selectAll}
+              onChange={toggleSelectAll}
+              title={m.selectAll}
+              disabled={disableSelectAll}
+            />
+          </span>
         </div>
       </div>
     </div>
   );
 }
 
-export default function PaymentVirtualRows({
+export default function CaptureVirtualRows({
   rows,
   rowHeight,
   rowKeyPrefix,
   selectedSet,
   onToggleRow,
+  alreadyDeletedTitle,
   selectAllRef,
   selectAll,
   toggleSelectAll,
@@ -86,9 +85,9 @@ export default function PaymentVirtualRows({
   const getItemKey = useCallback(
     (index) => {
       const row = rows[index];
-      const tid = row?.transaction_id;
-      if (tid != null && rowKeyPrefix) return `${rowKeyPrefix}-${tid}`;
-      return tid != null ? tid : index;
+      const cid = row?.capture_id;
+      if (cid != null && rowKeyPrefix) return `${rowKeyPrefix}-${cid}`;
+      return cid != null ? cid : index;
     },
     [rows, rowKeyPrefix],
   );
@@ -97,7 +96,7 @@ export default function PaymentVirtualRows({
     (el) => {
       if (!el) return rowHeight;
       const idx = Number(el.dataset?.index);
-      const inner = el.querySelector(".payment-virtual-data-row");
+      const inner = el.querySelector(".capture-virtual-data-row");
       const target = inner ?? el;
       const h = Math.max(rowHeight, Math.ceil(target.scrollHeight || target.getBoundingClientRect().height || rowHeight));
       if (Number.isFinite(idx)) {
@@ -128,7 +127,7 @@ export default function PaymentVirtualRows({
 
   return (
     <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
-      <PaymentVirtualTableHead
+      <CaptureVirtualTableHead
         selectAllRef={selectAllRef}
         selectAll={selectAll}
         toggleSelectAll={toggleSelectAll}
@@ -139,9 +138,8 @@ export default function PaymentVirtualRows({
         {vItems.map((virtualRow) => {
           const row = rows[virtualRow.index];
           if (!row) return null;
-          const tid = row.transaction_id;
-          const canSelect = isPaymentMaintenanceRowSelectable(row);
-          const isDeleted = row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
+          const cid = row.capture_id;
+          const isDeleted = isRowDeleted(row);
 
           return (
             <div
@@ -159,11 +157,12 @@ export default function PaymentVirtualRows({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <PaymentVirtualDataRow
+              <CaptureVirtualDataRow
                 row={row}
                 index={virtualRow.index}
-                selected={canSelect && !isDeleted && selectedSet.has(tid)}
+                selected={!isDeleted && selectedSet.has(cid)}
                 onToggleRow={onToggleRow}
+                alreadyDeletedTitle={alreadyDeletedTitle}
               />
             </div>
           );

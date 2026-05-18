@@ -200,7 +200,8 @@ body.dashboard-page.maintenance-page {
 /* 让 payment 页面的原生 select 在视觉和尺寸上贴近
    transaction_maintenance.php 中的自定义下拉（custom-select-button） */
 .maintenance-form-group .maintenance-select {
-    padding: clamp(6px, 0.42vw, 8px) 30px clamp(6px, 0.42vw, 8px) 12px;   /* 与 custom-select-button 相同的内边距 */
+    padding: clamp(6px, 0.42vw, 8px) 30px clamp(6px, 0.42vw, 8px) 12px;
+    /* 与 custom-select-button 相同的内边距 */
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: clamp(9px, 0.73vw, 14px);
@@ -476,15 +477,18 @@ body.dashboard-page.maintenance-page {
 /* Flatpickr 自定义样式 */
 .flatpickr-calendar {
     font-family: var(--font-heading-page);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .flatpickr-day.selected {
     background: #4a90e2;
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today {
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today:hover,
 .flatpickr-day.today:focus {
     background: #e6f2ff;
@@ -527,6 +531,7 @@ body.dashboard-page.maintenance-page {
     0% {
         transform: translateX(-120%);
     }
+
     100% {
         transform: translateX(420%);
     }
@@ -542,7 +547,7 @@ body.dashboard-page.maintenance-page {
     width: 100%;
     border-collapse: separate;
     table-layout: fixed;
-    border-spacing: 0 2px;
+    border-spacing: 0;
 }
 
 .maintenance-table thead tr {
@@ -573,13 +578,18 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-table tbody tr {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    transition: all 0.2s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
+}
+
+.maintenance-table tbody td,
+.maintenance-table tbody td.maintenance-table-cell {
+    background-color: transparent;
 }
 
 .maintenance-table tbody tr:nth-child(even) {
@@ -594,70 +604,91 @@ body.dashboard-page.maintenance-page {
     border-bottom: none;
 }
 
-/* 按列设置宽度：合计 100%，最左为删除勾选 */
+/* 按列设置宽度：删除勾选在最右（Deleter 之后） */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 3.4%;   /* Delete checkbox */
+    width: 4%;
+    /* No. */
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 3.5%;   /* No. */
+    width: 9.7%;
+    /* Created At */
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 9.7%;  /* Created At */
+    width: 9%;
+    /* Account(To) */
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 9%;  /* Account(To) */
+    width: 9.5%;
+    /* Account(From) */
     text-align: left;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 9.5%;  /* Account(From) */
-    text-align: left;
+    width: 8.5%;
+    /* Currency & Amount */
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 8.5%;   /* Currency & Amount */
+    width: 22%;
+    /* Description */
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 22%;  /* Description */
+    width: 10%;
+    /* Remark */
     text-align: left;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 10%;  /* Remark */
-    text-align: left;
+    width: 5.7%;
+    /* Submitter */
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 5.7%;   /* Submitter */
+    width: 12.89%;
+    /* Deleter */
+    text-align: center;
 }
 
 .maintenance-table th:nth-child(10),
 .maintenance-table td:nth-child(10) {
-    width: 12.89%;  /* Deleter */
+    width: 5.5%;
+    /* Delete checkbox */
     text-align: center;
 }
 
 /* Deleter：提高优先级，确保表头/数据在列内居中 */
-.maintenance-list-container .maintenance-table thead th:nth-child(10),
-.maintenance-list-container .maintenance-table tbody td:nth-child(10) {
+.maintenance-list-container .maintenance-table thead th:nth-child(9),
+.maintenance-list-container .maintenance-table tbody td:nth-child(9) {
     text-align: center;
 }
 
+/* 勾选列：与 Deleter 留出间距 */
+.maintenance-list-container .maintenance-table thead th:nth-child(10),
+.maintenance-list-container .maintenance-table tbody td:nth-child(10) {
+    text-align: center;
+    padding-left: clamp(28px, 2.2vw, 44px) !important;
+    padding-right: clamp(14px, 1.2vw, 22px) !important;
+}
+
 /* Keep No. fully visible without ellipsis. */
-.maintenance-table td:nth-child(2).maintenance-table-cell {
+.maintenance-table td:nth-child(1).maintenance-table-cell {
     overflow: visible;
     text-overflow: clip;
 }
@@ -692,17 +723,16 @@ body.dashboard-page.maintenance-page {
     text-align: center;
 }
 
-/* 全选 / 行删除勾选：靠左一列，与左边缘留出间距 */
+/* 全选 / 行删除勾选：最右列，与 Deleter 留出较宽间距 */
 .maintenance-select-all-header {
     text-align: center;
     vertical-align: middle;
-    padding-left: clamp(18px, 1.5vw, 28px) !important;
-    padding-right: clamp(10px, 0.9vw, 14px) !important;
 }
 
-.maintenance-table td.maintenance-cell-checkbox {
-    padding-left: clamp(18px, 1.5vw, 28px);
-    padding-right: clamp(10px, 0.9vw, 14px);
+.payment-maintenance-page-root .maintenance-table th.maintenance-cell-checkbox,
+.payment-maintenance-page-root .maintenance-table td.maintenance-cell-checkbox {
+    padding-left: clamp(28px, 2.2vw, 44px) !important;
+    padding-right: clamp(14px, 1.2vw, 22px) !important;
 }
 
 /* 已删除记录样式：红色、删除线 */
@@ -864,7 +894,7 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-confirm-title {
     font-family: var(--font-heading-page);
-    font-size: clamp(20px, 1.67vw, 32px);
+    font-size: var(--text-h1);
     font-weight: 700;
     color: #1e293b;
     margin: 0 0 clamp(12px, 1.04vw, 20px) 0;
@@ -872,7 +902,7 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-confirm-message {
     font-family: var(--font-heading-page);
-    font-size: clamp(14px, 1.04vw, 20px);
+    font-size: var(--text-h3);
     color: #64748b;
     margin: 0 0 clamp(24px, 2.08vw, 40px) 0;
     line-height: 1.5;
@@ -888,7 +918,7 @@ body.dashboard-page.maintenance-page {
     padding: clamp(10px, 0.83vw, 16px) clamp(20px, 1.67vw, 32px);
     border: none;
     border-radius: 6px;
-    font-size: clamp(12px, 0.94vw, 18px);
+    font-size: var(--text-base);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -919,16 +949,16 @@ body.dashboard-page.maintenance-page {
 
 @media (max-width: 1400px) {
 
-    .maintenance-table-cell{
+    .maintenance-table-cell {
         white-space: normal;
     }
 }
 
 /* —— Payment virtual table（与 formula maintenance 同套 grid + TanStack Virtual）—— */
 .payment-maintenance-page-root {
-    --payment-list-cell-padding-y: clamp(7px, 0.65vw, 11px);
+    --payment-list-cell-padding-y: clamp(4px, 0.4vw, 7px);
     --payment-list-cell-padding-x: clamp(8px, 0.8vw, 14px);
-    --payment-list-cell-min-height: clamp(30px, 2vw, 38px);
+    --payment-list-cell-min-height: clamp(28px, 1.8vw, 32px);
     --payment-list-cell-line-height: 1.35;
     --payment-list-cell-line-clamp: 2;
     --payment-col-description-padding-x: clamp(10px, 1vw, 16px);
@@ -979,9 +1009,7 @@ body.dashboard-page.maintenance-page {
 .payment-maintenance-page-root .payment-virtual-data-row {
     display: grid;
     grid-template-columns:
-        minmax(36px, 3.4fr) minmax(28px, 3.5fr) minmax(100px, 9.7fr) minmax(64px, 9fr)
-        minmax(64px, 9.5fr) minmax(72px, 8.5fr) minmax(140px, 22fr) minmax(64px, 10fr)
-        minmax(48px, 5.7fr) minmax(80px, 12.89fr);
+        minmax(32px, 3.5fr) minmax(100px, 9.7fr) minmax(64px, 9fr) minmax(64px, 9.5fr) minmax(72px, 8.5fr) minmax(140px, 22fr) minmax(64px, 10fr) minmax(48px, 5.7fr) minmax(80px, 12.89fr) minmax(52px, 5.5fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
@@ -991,7 +1019,7 @@ body.dashboard-page.maintenance-page {
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     color: #ffffff;
     font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
     padding: var(--payment-list-cell-padding-y) var(--payment-list-cell-padding-x);
     text-align: center;
     min-height: var(--payment-list-cell-min-height);
@@ -1001,14 +1029,14 @@ body.dashboard-page.maintenance-page {
     box-sizing: border-box;
 }
 
-.payment-maintenance-page-root .payment-virtual-th-checkbox {
+.payment-maintenance-page-root .payment-virtual-head-row .maintenance-virtual-th:first-child {
     border-top-left-radius: 8px;
-    padding-left: clamp(18px, 1.5vw, 28px) !important;
-    padding-right: clamp(10px, 0.9vw, 14px) !important;
 }
 
-.payment-maintenance-page-root .payment-virtual-head-row .maintenance-virtual-th:last-child {
+.payment-maintenance-page-root .payment-virtual-th-checkbox {
     border-top-right-radius: 8px;
+    padding-left: clamp(28px, 2.2vw, 44px) !important;
+    padding-right: clamp(14px, 1.2vw, 22px) !important;
 }
 
 .payment-maintenance-page-root .maintenance-virtual-scroll {
@@ -1031,8 +1059,8 @@ body.dashboard-page.maintenance-page {
 
 .payment-maintenance-page-root .maintenance-virtual-data-row {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .payment-maintenance-page-root .maintenance-virtual-data-row--stripe {
@@ -1040,20 +1068,20 @@ body.dashboard-page.maintenance-page {
 }
 
 .payment-maintenance-page-root .maintenance-virtual-data-row:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
 }
 
 .payment-maintenance-page-root .maintenance-virtual-cell {
-    font-size: clamp(10px, 0.88vw, 15px);
-    font-weight: bold;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
     color: #374151;
     line-height: var(--payment-list-cell-line-height);
     padding: var(--payment-list-cell-padding-y) var(--payment-list-cell-padding-x);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    border-bottom: none;
     min-height: var(--payment-list-cell-min-height);
     box-sizing: border-box;
     display: flex;
@@ -1099,13 +1127,21 @@ body.dashboard-page.maintenance-page {
 }
 
 .payment-maintenance-page-root .payment-virtual-cell-checkbox {
-    padding-left: clamp(18px, 1.5vw, 28px);
-    padding-right: clamp(10px, 0.9vw, 14px);
+    padding-left: clamp(28px, 2.2vw, 44px);
+    padding-right: clamp(14px, 1.2vw, 22px);
 }
 
+.payment-maintenance-page-root .payment-virtual-head-row .maintenance-virtual-th:first-child,
 .payment-maintenance-page-root .payment-virtual-cell--no {
+    min-width: 2rem;
+    padding-left: clamp(4px, 0.4vw, 8px);
+    padding-right: clamp(4px, 0.4vw, 8px);
+    font-variant-numeric: tabular-nums;
+    justify-content: center;
+    text-align: center;
     overflow: visible;
     text-overflow: clip;
+    white-space: nowrap;
 }
 
 .payment-maintenance-page-root .maintenance-virtual-data-row .maintenance-cell-amount {
@@ -1121,4 +1157,35 @@ body.dashboard-page.maintenance-page {
 .payment-maintenance-page-root .maintenance-row-deleted .maintenance-virtual-cell {
     color: #b91c1c;
     text-decoration: line-through;
+}
+
+.payment-maintenance-page-root .payment-virtual-th--left {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+.payment-maintenance-page-root .payment-virtual-th--right {
+    justify-content: flex-end !important;
+    text-align: right !important;
+}
+
+.payment-maintenance-page-root .payment-cell-text {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.payment-maintenance-page-root .maintenance-virtual-cell--left .payment-cell-text {
+    text-align: left;
+}
+
+.payment-maintenance-page-root .maintenance-virtual-cell--center .payment-cell-text {
+    text-align: center;
+}
+
+.payment-maintenance-page-root .maintenance-virtual-cell--right .payment-cell-text {
+    text-align: right;
 }

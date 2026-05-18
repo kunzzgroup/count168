@@ -34,6 +34,73 @@ const PaymentVirtualDataRow = memo(function PaymentVirtualDataRow({
         isDeleted ? " maintenance-row-deleted" : ""
       }`}
     >
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--center payment-virtual-cell--no"
+        title={String(index + 1)}
+      >
+        <span className="payment-cell-text">{index + 1}</span>
+      </div>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--center maintenance-virtual-cell--mono"
+        title={row.dts_created || "-"}
+      >
+        <span className="payment-cell-text">{row.dts_created || "-"}</span>
+      </div>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left"
+        title={row.account || "-"}
+      >
+        <span className="payment-cell-text">{row.account || "-"}</span>
+      </div>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left"
+        title={row.from_account && row.from_account !== "-" ? row.from_account : "-"}
+      >
+        <span className="payment-cell-text">
+          {row.from_account && row.from_account !== "-" ? row.from_account : "-"}
+        </span>
+      </div>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--right maintenance-cell-amount"
+        title={row.currency && row.amount ? `${row.currency} ${formatAmount(row.amount)}` : "-"}
+      >
+        <span className="payment-cell-text">
+          {row.currency || ""} {formatAmount(row.amount)}
+        </span>
+      </div>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left payment-virtual-cell--description"
+        title={displayDescription || "-"}
+      >
+        <span className="payment-cell-text">{displayDescription || "-"}</span>
+      </div>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left"
+        title={row.remark || "-"}
+      >
+        <span className="payment-cell-text">{row.remark || "-"}</span>
+      </div>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left"
+        title={row.created_by || "-"}
+      >
+        <span className="payment-cell-text">{row.created_by || "-"}</span>
+      </div>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--center"
+        title={deletedDisplay || "-"}
+      >
+        <span className="payment-cell-text">{deletedDisplay}</span>
+      </div>
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center payment-virtual-cell-checkbox">
         <input
           type="checkbox"
@@ -43,42 +110,11 @@ const PaymentVirtualDataRow = memo(function PaymentVirtualDataRow({
           disabled={isDeleted || !canSelect}
         />
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center payment-virtual-cell--no">
-        {index + 1}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--mono">
-        {row.dts_created || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left payment-virtual-cell--wrap">
-        {row.account || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left payment-virtual-cell--wrap">
-        {row.from_account && row.from_account !== "-" ? row.from_account : "-"}
-      </div>
-      <div
-        role="cell"
-        className="maintenance-virtual-cell maintenance-virtual-cell--right maintenance-cell-amount"
-      >
-        {row.currency || ""} {formatAmount(row.amount)}
-      </div>
-      <div
-        role="cell"
-        className="maintenance-virtual-cell maintenance-virtual-cell--left payment-virtual-cell--wrap payment-virtual-cell--description"
-        title={displayDescription}
-      >
-        <span className="payment-cell-clamp-2">{displayDescription || "-"}</span>
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left payment-virtual-cell--wrap">
-        <span className="payment-cell-clamp-2">{row.remark || "-"}</span>
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
-        {row.created_by || "-"}
-      </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center">
-        {deletedDisplay}
-      </div>
     </div>
   );
 });
 
 export default PaymentVirtualDataRow;
+
+
+

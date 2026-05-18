@@ -12,7 +12,7 @@ export function ensureMaintenanceDateRangePicker() {
   let isSelectingRange = false;
   let calendarCurrentDate = new Date();
   let calendarViewMode = "days";
-  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  let monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   let config = {
     dateFromId: "date_from",
     dateToId: "date_to",
@@ -23,6 +23,7 @@ export function ensureMaintenanceDateRangePicker() {
     placeholder: "Select date range",
     /** Shown after user picked start date and before end date (range selection). */
     selectEndDateHint: "Select end date",
+    monthLabels,
   };
 
   /** Which hidden inputs + display span the shared #calendar-popup edits (multi-trigger support). */
@@ -87,7 +88,7 @@ export function ensureMaintenanceDateRangePicker() {
     if (!monthControl) return;
     monthControl.value = String(monthIndex);
     if (monthControl.tagName !== "SELECT") {
-      monthControl.textContent = monthLabels[monthIndex] || "";
+      monthControl.textContent = config.monthLabels[monthIndex] || "";
     }
   }
 
@@ -309,7 +310,7 @@ export function ensureMaintenanceDateRangePicker() {
     daysContainer.classList.add("calendar-month-grid");
     daysContainer.innerHTML = "";
     const currentMonth = Number(document.getElementById("calendar-month-select")?.value ?? calendarCurrentDate.getMonth());
-    monthLabels.forEach((label, monthIndex) => {
+    config.monthLabels.forEach((label, monthIndex) => {
       const monthButton = document.createElement("button");
       monthButton.type = "button";
       monthButton.className = "calendar-month-option";
@@ -499,18 +500,24 @@ export function ensureMaintenanceDateRangePicker() {
 
     if (popup.style.display === "none" || !popup.style.display) {
       syncRangeStateFromHiddenInputs();
-      const rect = picker.getBoundingClientRect();
+      let rect = picker.getBoundingClientRect();
       let barWidth = rect.width;
-      const parent = picker.parentElement;
-      if (parent) {
-        const parentRect = parent.getBoundingClientRect();
-        if (
-          parent.classList &&
-          (parent.classList.contains("transaction-capture-date-row") || parent.classList.contains("transaction-date-range-group"))
-        ) {
-          barWidth = parentRect.width;
-        } else if (parentRect.width > barWidth) {
-          barWidth = parentRect.width;
+      const shell = picker.closest(".report-outlined-shell");
+      if (shell) {
+        rect = shell.getBoundingClientRect();
+        barWidth = rect.width;
+      } else {
+        const parent = picker.parentElement;
+        if (parent) {
+          const parentRect = parent.getBoundingClientRect();
+          if (
+            parent.classList &&
+            (parent.classList.contains("transaction-capture-date-row") || parent.classList.contains("transaction-date-range-group"))
+          ) {
+            barWidth = parentRect.width;
+          } else if (parentRect.width > barWidth) {
+            barWidth = parentRect.width;
+          }
         }
       }
       if (popup.classList.contains("calendar-popup--transaction-range")) {
@@ -575,6 +582,9 @@ export function ensureMaintenanceDateRangePicker() {
     setLocaleStrings(partial) {
       if (!partial || typeof partial !== "object") return;
       config = { ...config, ...partial };
+      if (partial.monthLabels) {
+        monthLabels = partial.monthLabels;
+      }
       updateDateRangeDisplay(config.rangeDisplayId || "date-range-display");
     },
     getActiveRangeBinding() {

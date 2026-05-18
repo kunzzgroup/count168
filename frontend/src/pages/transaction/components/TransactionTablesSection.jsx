@@ -9,12 +9,14 @@ export default function TransactionTablesSection({
   fallbackRoleClass,
   openHistory,
   handleBalanceCellClick,
+  m,
+  t,
 }) {
   return (
     <>
       <div className="transaction-tables-section" style={{ display: tablesVisible ? "block" : "none" }}>
         <div id="transaction-tables-loading" className="transaction-tables-loading" style={{ display: searchLoading ? "flex" : "none" }} aria-live="polite">
-          Loading data
+          {m.loadingData}
         </div>
         <div
           id="default-tables-container"
@@ -37,9 +39,9 @@ export default function TransactionTablesSection({
               <table className="transaction-table" id="table_left">
                 <thead>
                   <tr className="transaction-table-header">
-                    <th>Account</th>
-                    <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>Name</th>
-                    <th>B/F</th><th>Win/Loss</th><th>Cr/Dr</th><th>Balance</th>
+                    <th>{m.accountTable}</th>
+                    <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{m.nameTable}</th>
+                    <th>{m.bfTable}</th><th>{m.winLossTable}</th><th>{m.crDrTable}</th><th>{m.balanceTable}</th>
                   </tr>
                 </thead>
                 <tbody id="tbody_left">
@@ -60,7 +62,7 @@ export default function TransactionTablesSection({
                 </tbody>
                 <tfoot>
                   <tr className="transaction-table-footer">
-                    <td>Total</td>
+                    <td>{m.total}</td>
                     <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
                     <td id="left_total_bf">{formatPaymentHistoryMoneyHalfUp(tp.totalsLeft?.bf ?? "0")}</td>
                     <td id="left_total_winloss">{formatPaymentHistoryMoneyHalfUp(tp.totalsLeft?.win_loss ?? "0")}</td>
@@ -74,9 +76,9 @@ export default function TransactionTablesSection({
               <table className="transaction-table" id="table_right">
                 <thead>
                   <tr className="transaction-table-header">
-                    <th>Account</th>
-                    <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>Name</th>
-                    <th>B/F</th><th>Win/Loss</th><th>Cr/Dr</th><th>Balance</th>
+                    <th>{m.accountTable}</th>
+                    <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{m.nameTable}</th>
+                    <th>{m.bfTable}</th><th>{m.winLossTable}</th><th>{m.crDrTable}</th><th>{m.balanceTable}</th>
                   </tr>
                 </thead>
                 <tbody id="tbody_right">
@@ -97,7 +99,7 @@ export default function TransactionTablesSection({
                 </tbody>
                 <tfoot>
                   <tr className="transaction-table-footer">
-                    <td>Total</td>
+                    <td>{m.total}</td>
                     <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
                     <td id="right_total_bf">{formatPaymentHistoryMoneyHalfUp(tp.totalsRight?.bf ?? "0")}</td>
                     <td id="right_total_winloss">{formatPaymentHistoryMoneyHalfUp(tp.totalsRight?.win_loss ?? "0")}</td>
@@ -113,7 +115,7 @@ export default function TransactionTablesSection({
           {(tp.grouped || []).map((g) => (
             <div key={g.currency} style={{ marginBottom: 24 }}>
               <h3 style={{ margin: "20px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937" }}>
-                Currency: {g.currency}
+                {m.currencyLabel} {g.currency}
               </h3>
               <div style={{ display: "flex", gap: 20, width: "100%" }}>
                 {[
@@ -124,9 +126,9 @@ export default function TransactionTablesSection({
                     <table className="transaction-table">
                       <thead>
                         <tr className="transaction-table-header">
-                          <th>Account</th>
-                          <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>Name</th>
-                          <th>B/F</th><th>Win/Loss</th><th>Cr/Dr</th><th>Balance</th>
+                          <th>{m.accountTable}</th>
+                          <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{m.nameTable}</th>
+                          <th>{m.bfTable}</th><th>{m.winLossTable}</th><th>{m.crDrTable}</th><th>{m.balanceTable}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -147,7 +149,7 @@ export default function TransactionTablesSection({
                       </tbody>
                       <tfoot>
                         <tr className="transaction-table-footer">
-                          <td>Total</td>
+                          <td>{m.total}</td>
                           <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
                           <td>{formatPaymentHistoryMoneyHalfUp(side.totals?.bf ?? "0")}</td>
                           <td>{formatPaymentHistoryMoneyHalfUp(side.totals?.win_loss ?? "0")}</td>
@@ -161,12 +163,12 @@ export default function TransactionTablesSection({
               </div>
               <div style={{ margin: "12px auto", maxWidth: 400 }}>
                 <table className="transaction-summary-table" style={{ margin: "0 auto", maxWidth: 400 }}>
-                  <thead><tr className="transaction-table-header"><th colSpan={2}>Total</th></tr></thead>
+                  <thead><tr className="transaction-table-header"><th colSpan={2}>{m.total}</th></tr></thead>
                   <tbody>
-                    <tr className="transaction-table-row"><td className="transaction-summary-label">B/F</td><td>{formatPaymentHistoryMoneyHalfUp(g.totalsSummary?.bf ?? "0")}</td></tr>
-                    <tr className="transaction-table-row"><td className="transaction-summary-label">Win/Loss</td><td>{formatPaymentHistoryMoneyHalfUp(g.totalsSummary?.win_loss ?? "0")}</td></tr>
-                    <tr className="transaction-table-row"><td className="transaction-summary-label">Cr/Dr</td><td>{formatPaymentHistoryMoneyHalfUp(g.totalsSummary?.cr_dr ?? "0")}</td></tr>
-                    <tr className="transaction-table-row"><td className="transaction-summary-label">Balance</td><td>{formatPaymentHistoryMoneyHalfUp(g.totalsSummary?.balance ?? "0")}</td></tr>
+                    <tr className="transaction-table-row"><td className="transaction-summary-label">{m.bfTable}</td><td>{formatPaymentHistoryMoneyHalfUp(g.totalsSummary?.bf ?? "0")}</td></tr>
+                    <tr className="transaction-table-row"><td className="transaction-summary-label">{m.winLossTable}</td><td>{formatPaymentHistoryMoneyHalfUp(g.totalsSummary?.win_loss ?? "0")}</td></tr>
+                    <tr className="transaction-table-row"><td className="transaction-summary-label">{m.crDrTable}</td><td>{formatPaymentHistoryMoneyHalfUp(g.totalsSummary?.cr_dr ?? "0")}</td></tr>
+                    <tr className="transaction-table-row"><td className="transaction-summary-label">{m.balanceTable}</td><td>{formatPaymentHistoryMoneyHalfUp(g.totalsSummary?.balance ?? "0")}</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -176,12 +178,12 @@ export default function TransactionTablesSection({
       </div>
       <div className="transaction-summary-section" style={{ display: tablesVisible && tp.mode !== "grouped" ? "flex" : "none" }}>
         <table className="transaction-summary-table">
-          <thead><tr className="transaction-table-header"><th colSpan={2}>Total</th></tr></thead>
+          <thead><tr className="transaction-table-header"><th colSpan={2}>{m.total}</th></tr></thead>
           <tbody>
-            <tr className="transaction-table-row"><td className="transaction-summary-label">B/F</td><td id="sum_total_bf">{formatPaymentHistoryMoneyHalfUp(tp.totalsSummary?.bf ?? "0")}</td></tr>
-            <tr className="transaction-table-row"><td className="transaction-summary-label">Win/Loss</td><td id="sum_total_winloss">{formatPaymentHistoryMoneyHalfUp(tp.totalsSummary?.win_loss ?? "0")}</td></tr>
-            <tr className="transaction-table-row"><td className="transaction-summary-label">Cr/Dr</td><td id="sum_total_crdr">{formatPaymentHistoryMoneyHalfUp(tp.totalsSummary?.cr_dr ?? "0")}</td></tr>
-            <tr className="transaction-table-row"><td className="transaction-summary-label">Balance</td><td id="sum_total_balance">{formatPaymentHistoryMoneyHalfUp(tp.totalsSummary?.balance ?? "0")}</td></tr>
+            <tr className="transaction-table-row"><td className="transaction-summary-label">{m.bfTable}</td><td id="sum_total_bf">{formatPaymentHistoryMoneyHalfUp(tp.totalsSummary?.bf ?? "0")}</td></tr>
+            <tr className="transaction-table-row"><td className="transaction-summary-label">{m.winLossTable}</td><td id="sum_total_winloss">{formatPaymentHistoryMoneyHalfUp(tp.totalsSummary?.win_loss ?? "0")}</td></tr>
+            <tr className="transaction-table-row"><td className="transaction-summary-label">{m.crDrTable}</td><td id="sum_total_crdr">{formatPaymentHistoryMoneyHalfUp(tp.totalsSummary?.cr_dr ?? "0")}</td></tr>
+            <tr className="transaction-table-row"><td className="transaction-summary-label">{m.balanceTable}</td><td id="sum_total_balance">{formatPaymentHistoryMoneyHalfUp(tp.totalsSummary?.balance ?? "0")}</td></tr>
           </tbody>
         </table>
       </div>

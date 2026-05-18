@@ -10,6 +10,8 @@ import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/customer_report.css";
+import "../../../../public/css/report-outlined-fields.css";
 import "../../../../public/css/bankprocess_maintenance.css";
 import "../../../../public/css/maintenance_notifications.css";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
@@ -25,7 +27,6 @@ import {
 } from "./bankprocessMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
-import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 /** Dedupe empty-result toast (Strict Mode remount + back-to-back searches with same filters). */
 const bankprocessNoDataToastKeys = new Set();
@@ -63,6 +64,8 @@ export default function BankprocessMaintenancePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [rows, setRows] = useState([]);
+  const [bankprocessListEpoch, setBankprocessListEpoch] = useState(0);
+  const [bankprocessDataSourceCompanyId, setBankprocessDataSourceCompanyId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -72,6 +75,8 @@ export default function BankprocessMaintenancePage() {
   const [datePickerScriptReady, setDatePickerScriptReady] = useState(false);
   const today = useMemo(() => formatDmy(new Date()), []);
   const currentCompanyIdRef = useRef(null);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
   const initialBankprocessSearchDoneRef = useRef(false);
   const searchSeqRef = useRef(0);
   const searchAbortRef = useRef(null);
@@ -133,8 +138,6 @@ export default function BankprocessMaintenancePage() {
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       ];
       await Promise.all(links.map((href) => injectStylesheet(href, { promoteToEnd: true }).catch(() => null)));
-      ensureMaintenanceDateRangePicker();
-      setDatePickerScriptReady(true);
     };
 
     setup().catch(() => null);
@@ -159,32 +162,13 @@ export default function BankprocessMaintenancePage() {
   }, [today]);
 
   useEffect(() => {
-    if (!datePickerScriptReady || bootLoading || !me) return;
-    if (!document.getElementById("date-range-picker")) return;
-    if (!window?.MaintenanceDateRangePicker?.init) return;
-
-    // Wait until current paint completes so picker nodes exist for binding.
-    const timer = setTimeout(() => {
-      window.MaintenanceDateRangePicker.init({
-        onChange: () => {
-          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        },
-      });
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [datePickerScriptReady, bootLoading, me]);
-
-  useEffect(() => {
-    if (!datePickerScriptReady || bootLoading || !me) return;
+    if (bootLoading || !me) return;
     window.MaintenanceDateRangePicker?.setLocaleStrings?.({
       placeholder: t("selectDateRange"),
       selectEndDateHint: t("selectEndDate"),
+      monthLabels: m.monthsShort,
     });
-  }, [datePickerScriptReady, bootLoading, me, lang, t]);
+  }, [bootLoading, me, lang, t, m]);
 
   useEffect(() => {
     (async () => {
@@ -338,7 +322,9 @@ export default function BankprocessMaintenancePage() {
       if (seq !== searchSeqRef.current) return;
       if (searchCompanyId !== Number(currentCompanyIdRef.current)) return;
 
+      setBankprocessListEpoch((e) => e + 1);
       setRows(data);
+      setBankprocessDataSourceCompanyId(searchCompanyId);
       setHasSearched(true);
       setConfirmDelete(false);
       if (!quietRefresh) {
@@ -354,7 +340,9 @@ export default function BankprocessMaintenancePage() {
     } catch (err) {
       if (err?.name === "AbortError" || seq !== searchSeqRef.current) return;
       if (searchCompanyId !== Number(currentCompanyIdRef.current)) return;
+      setBankprocessListEpoch((e) => e + 1);
       setRows([]);
+      setBankprocessDataSourceCompanyId(null);
       setHasSearched(true);
       notify(err.message || t("searchFailed"), "error");
     } finally {
@@ -475,23 +463,21 @@ export default function BankprocessMaintenancePage() {
 
   const selectAll = selectableRows.length > 0 && selectedIds.length === selectableRows.length;
 
-  const onToggleSelectAll = (checked) => {
-    if (!checked) {
-      setSelectedIds([]);
-      return;
-    }
-    setSelectedIds(selectableRows.map((r) => r.transaction_id));
-  };
+  const onToggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const selectable = rowsRef.current.filter(
+        (r) => !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true),
+      );
+      if (prev.length === selectable.length && selectable.length > 0) return [];
+      return selectable.map((r) => r.transaction_id);
+    });
+  }, []);
 
   const onToggleRow = (transactionId) => {
     setSelectedIds((prev) => (prev.includes(transactionId) ? prev.filter((id) => id !== transactionId) : [...prev, transactionId]));
   };
 
   const onDelete = async () => {
-    if (!confirmDelete) {
-      notify(t("pleaseConfirmDeletionCheckbox"), "error");
-      return;
-    }
     if (selectedIds.length === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -510,7 +496,7 @@ export default function BankprocessMaintenancePage() {
       } catch {
         // ignore
       }
-      notify(result.message || t("successfullyDeletedN", { n: selectedIds.length }), "success");
+      notify(t("successfullyDeletedBankProcessN", { n: selectedIds.length }), "success");
       setSelectedIds([]);
       setConfirmDelete(false);
       void performSearch();
@@ -529,6 +515,8 @@ export default function BankprocessMaintenancePage() {
         setSelectedPermission={setSelectedPermission}
         dateFrom={dateFrom}
         dateTo={dateTo}
+        setDateFrom={setDateFrom}
+        setDateTo={setDateTo}
         today={today}
         query={query}
         setQuery={setQuery}
@@ -554,9 +542,12 @@ export default function BankprocessMaintenancePage() {
       />
 
       <BankprocessMaintenanceTable
+        key={bankprocessDataSourceCompanyId ?? companyId ?? "no-company"}
         loading={loading}
         rows={rows}
         hasSearched={hasSearched}
+        listEpoch={bankprocessListEpoch}
+        rowKeyCompanyId={bankprocessDataSourceCompanyId ?? companyId}
         selectedIds={selectedIds}
         onToggleRow={onToggleRow}
         selectAll={selectAll}
@@ -576,12 +567,9 @@ export default function BankprocessMaintenancePage() {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={onConfirmDelete}
-        title={m.confirmDeleteTitle}
-        cancelText={m.cancel}
-        confirmText={m.delete}
-        message={t("deleteConfirmBankProcess", { count: selectedIds.length })}
+        count={selectedIds.length}
+        t={t}
       />
-      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }

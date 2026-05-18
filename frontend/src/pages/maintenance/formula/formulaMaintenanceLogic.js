@@ -142,6 +142,29 @@ export const toUpperDisplay = (val) => {
   return str ? str.toUpperCase() : '-';
 };
 
+/** Loose id match (API may return number, UI may hold string). */
+export function formulaRowIdsMatch(a, b) {
+  if (a == null || b == null) return false;
+  return String(a) === String(b);
+}
+
+/** Merge save payload + API response into one list row (keeps scroll position; no full reload). */
+export function patchFormulaRowAfterSave(row, { id, editForm, accountLabel, serverData }) {
+  if (!formulaRowIdsMatch(row.id, id)) return row;
+  const next = {
+    ...row,
+    account_id: editForm.account_id,
+    account: accountLabel || row.account,
+    source_ref: serverData?.source_ref ?? editForm.source_columns,
+    source: serverData?.source_summary_display ?? editForm.source_columns ?? row.source,
+    input_method: editForm.input_method ?? "",
+    formula: serverData?.formula_display_paren ?? editForm.formula,
+    formula_edit: serverData?.formula_edit ?? editForm.formula,
+    description: editForm.description ?? "",
+  };
+  return prepareFormulaRowsForDisplay([next])[0];
+}
+
 /** Precompute display strings once per row to avoid repeated toUpperDisplay during scroll. */
 export function prepareFormulaRowsForDisplay(rows) {
   if (!Array.isArray(rows)) return [];

@@ -412,15 +412,18 @@ body.dashboard-page.maintenance-page {
 /* Flatpickr 自定义样式 */
 .flatpickr-calendar {
     font-family: var(--font-heading-page);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .flatpickr-day.selected {
     background: #4a90e2;
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today {
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today:hover,
 .flatpickr-day.today:focus {
     background: #e6f2ff;
@@ -442,7 +445,7 @@ body.dashboard-page.maintenance-page {
     width: 100%;
     border-collapse: separate;
     table-layout: fixed;
-    border-spacing: 0 2px;
+    border-spacing: 0;
 }
 
 .maintenance-table th,
@@ -471,13 +474,18 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-table tbody tr {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    transition: all 0.2s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
+}
+
+.maintenance-table tbody td,
+.maintenance-table tbody td.maintenance-table-cell {
+    background-color: transparent;
 }
 
 .maintenance-table tbody tr:nth-child(even) {
@@ -726,7 +734,7 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-confirm-title {
     font-family: var(--font-heading-page);
-    font-size: clamp(20px, 1.67vw, 32px);
+    font-size: var(--text-h1);
     font-weight: 700;
     color: #1e293b;
     margin: 0 0 clamp(12px, 1.04vw, 20px) 0;
@@ -734,7 +742,7 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-confirm-message {
     font-family: var(--font-heading-page);
-    font-size: clamp(14px, 1.04vw, 20px);
+    font-size: var(--text-h3);
     color: #64748b;
     margin: 0 0 clamp(24px, 2.08vw, 40px) 0;
     line-height: 1.5;
@@ -750,7 +758,7 @@ body.dashboard-page.maintenance-page {
     padding: clamp(10px, 0.83vw, 16px) clamp(20px, 1.67vw, 32px);
     border: none;
     border-radius: 6px;
-    font-size: clamp(12px, 0.94vw, 18px);
+    font-size: var(--text-base);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -823,7 +831,7 @@ body.dashboard-page.maintenance-page {
     background: white;
     border: 1px solid #ddd;
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     display: none;
     max-height: 300px;
@@ -900,10 +908,9 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table {
     width: 100%;
-    min-width: 1520px;
     border-collapse: separate;
     table-layout: fixed;
-    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+    border-spacing: 0;
 }
 
 .transaction-maintenance-page-root .maintenance-table thead th {
@@ -927,13 +934,13 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(1),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(1) {
-    width: 3%;
+    width: 4%;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(2),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(2) {
-    width: 13%;
-    min-width: 192px;
+    width: 7%;
+    min-width: 80px;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(3),
@@ -953,12 +960,12 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(6),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(6) {
-    width: 14%;
+    width: 12.7%;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(7),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(7) {
-    width: 9%;
+    width: 8%;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(8),
@@ -978,7 +985,7 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(11),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(11) {
-    width:7%;
+    width: 7%;
 }
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(12),
@@ -988,7 +995,8 @@ body.dashboard-page.maintenance-page {
 
 .transaction-maintenance-page-root .maintenance-table th:nth-child(13),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(13) {
-    width: 7%;
+    width: 6%;
+    text-align: center;
 }
 
 .transaction-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(4),
@@ -1024,9 +1032,7 @@ body.dashboard-page.maintenance-page {
 .transaction-maintenance-page-root .maintenance-table th:nth-child(6),
 .transaction-maintenance-page-root .maintenance-table td:nth-child(6),
 .transaction-maintenance-page-root .maintenance-table th:nth-child(7),
-.transaction-maintenance-page-root .maintenance-table td:nth-child(7),
-.transaction-maintenance-page-root .maintenance-table th:nth-child(13),
-.transaction-maintenance-page-root .maintenance-table td:nth-child(13) {
+.transaction-maintenance-page-root .maintenance-table td:nth-child(7) {
     text-align: left;
 }
 
@@ -1083,19 +1089,41 @@ body.dashboard-page.maintenance-page {
     0% {
         background-position: 100% 0;
     }
+
     100% {
         background-position: -100% 0;
     }
 }
 
 /* —— TanStack Virtual：全量数据只挂载视口附近行 —— */
+.transaction-maintenance-page-root {
+    --transaction-list-cell-padding-y: clamp(4px, 0.5vw, 8px);
+    --transaction-list-cell-padding-x: clamp(10px, 1vw, 18px);
+    --transaction-list-cell-min-height: clamp(36px, 2.6vw, 48px);
+    --transaction-list-cell-line-height: 1.35;
+    --transaction-list-cell-line-clamp: 2;
+}
+
+.transaction-maintenance-page-root .transaction-cell-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--transaction-list-cell-line-clamp);
+    line-clamp: var(--transaction-list-cell-line-clamp);
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    text-overflow: ellipsis;
+    line-height: var(--transaction-list-cell-line-height);
+}
+
 .transaction-maintenance-page-root .maintenance-virtual-table {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
 
 .maintenance-virtual-table-inner {
-    min-width: 1520px;
     width: 100%;
     box-sizing: border-box;
     border-collapse: separate;
@@ -1123,13 +1151,15 @@ body.dashboard-page.maintenance-page {
     text-align: center;
 }
 
+.transaction-maintenance-page-root .maintenance-virtual-empty-loading {
+    min-height: clamp(120px, 22vh, 280px);
+}
+
 .maintenance-virtual-head-row,
 .maintenance-virtual-data-row {
     display: grid;
     grid-template-columns:
-        minmax(28px, 3fr) minmax(150px, 13fr) minmax(56px, 8fr) minmax(64px, 8.5fr) minmax(68px, 9fr)
-        minmax(96px, 14fr) minmax(64px, 9fr) minmax(40px, 5fr) minmax(40px, 5fr) minmax(48px, 6fr)
-        minmax(52px, 6fr) minmax(52px, 6fr) minmax(68px, 8fr);
+        minmax(36px, 4fr) minmax(80px, 7fr) minmax(56px, 9fr) minmax(64px, 10fr) minmax(68px, 11fr) minmax(80px, 12fr) minmax(55px, 8fr) minmax(40px, 5fr) minmax(40px, 5fr) minmax(48px, 6fr) minmax(52px, 6fr) minmax(52px, 6fr) minmax(56px, 6fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
@@ -1139,7 +1169,7 @@ body.dashboard-page.maintenance-page {
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     color: #ffffff;
     font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
     padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1vw, 18px);
     text-align: center;
     min-height: clamp(30px, 2.1vw, 38px);
@@ -1160,18 +1190,25 @@ body.dashboard-page.maintenance-page {
 .maintenance-virtual-scroll {
     max-height: min(72vh, 900px);
     overflow: auto;
-    border-radius: 0 0 8px 8px;
+    border-radius: 8px;
     background: #fff;
 }
 
 .maintenance-virtual-row-wrap {
     box-sizing: border-box;
+    overflow: visible;
+}
+
+.transaction-maintenance-page-root .maintenance-virtual-row-wrap .transaction-virtual-data-row {
+    height: 100%;
+    min-height: 100%;
+    align-items: stretch;
 }
 
 .maintenance-virtual-data-row {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .maintenance-virtual-data-row--stripe {
@@ -1179,24 +1216,48 @@ body.dashboard-page.maintenance-page {
 }
 
 .maintenance-virtual-data-row:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
 }
 
 .maintenance-virtual-cell {
-    font-size: clamp(10px, 0.88vw, 15px);
+    font-size: var(--text-medium);
     font-weight: bold;
     color: #374151;
-    padding: clamp(4px, 0.5vw, 8px) clamp(10px, 1vw, 18px);
+    line-height: var(--transaction-list-cell-line-height);
+    padding: var(--transaction-list-cell-padding-y) var(--transaction-list-cell-padding-x);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-    min-height: clamp(28px, 1.95vw, 36px);
+    border-bottom: none;
+    min-height: var(--transaction-list-cell-min-height);
     box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: center;
+    align-self: stretch;
+}
+
+.transaction-maintenance-page-root .transaction-virtual-cell--wrap {
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    align-items: center;
+    align-self: stretch;
+    height: auto;
+    min-height: 100%;
+}
+
+.transaction-maintenance-page-root .transaction-virtual-cell--wrap .transaction-cell-clamp-2 {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.transaction-maintenance-page-root .transaction-virtual-cell--no {
+    overflow: visible;
+    text-overflow: clip;
 }
 
 .maintenance-virtual-cell--left {
@@ -1213,7 +1274,29 @@ body.dashboard-page.maintenance-page {
     font-variant-numeric: tabular-nums;
 }
 
+.maintenance-virtual-cell--center {
+    justify-content: center;
+    text-align: center;
+}
+
 .maintenance-virtual-data-row .maintenance-cell-currency {
     text-align: center;
     justify-content: center;
+}
+
+/* Created At: Optimize font size of the time display so it visually aligns perfectly with the date */
+.transaction-created-at-display {
+    display: inline-block;
+    text-align: center;
+}
+
+.transaction-created-at-date {
+    font-size: 0.95em;
+}
+
+.transaction-created-at-time {
+    font-size: 0.95em;
+    /* Slightly larger time font size to compensate for narrower colon and parenthesis characters */
+    display: inline-block;
+    margin-top: 1px;
 }

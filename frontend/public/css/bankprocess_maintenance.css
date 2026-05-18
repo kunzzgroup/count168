@@ -355,8 +355,10 @@ body.dashboard-page.maintenance-page .container {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: var(--maintenance-control-height); /* match Date Range */
-    width: clamp(38px, 3vw, 44px);    /* slightly smaller */
+    height: var(--maintenance-control-height);
+    /* match Date Range */
+    width: clamp(38px, 3vw, 44px);
+    /* slightly smaller */
     margin: 0;
     border: 1px solid #d1d5db;
     border-radius: clamp(4px, 0.42vw, 8px);
@@ -519,7 +521,7 @@ body.dashboard-page.maintenance-page .container {
     width: 100%;
     border-collapse: separate;
     table-layout: fixed;
-    border-spacing: 0 2px;
+    border-spacing: 0;
 }
 
 .maintenance-table thead tr {
@@ -542,13 +544,18 @@ body.dashboard-page.maintenance-page .container {
 
 .maintenance-table tbody tr {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    transition: all 0.2s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
+}
+
+.maintenance-table tbody td,
+.maintenance-table tbody td.maintenance-table-cell {
+    background-color: transparent;
 }
 
 .maintenance-table tbody tr:nth-child(even) {
@@ -809,7 +816,7 @@ body.dashboard-page.maintenance-page .container {
 
 .maintenance-confirm-title {
     font-family: var(--font-heading-page);
-    font-size: clamp(20px, 1.67vw, 32px);
+    font-size: var(--text-h1);
     font-weight: 700;
     color: #1e293b;
     margin: 0 0 clamp(12px, 1.04vw, 20px) 0;
@@ -817,7 +824,7 @@ body.dashboard-page.maintenance-page .container {
 
 .maintenance-confirm-message {
     font-family: var(--font-heading-page);
-    font-size: clamp(14px, 1.04vw, 20px);
+    font-size: var(--text-h3);
     color: #64748b;
     margin: 0 0 clamp(24px, 2.08vw, 40px) 0;
     line-height: 1.5;
@@ -833,7 +840,7 @@ body.dashboard-page.maintenance-page .container {
     padding: clamp(10px, 0.83vw, 16px) clamp(20px, 1.67vw, 32px);
     border: none;
     border-radius: 6px;
-    font-size: clamp(12px, 0.94vw, 18px);
+    font-size: var(--text-base);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -864,15 +871,18 @@ body.dashboard-page.maintenance-page .container {
 
 .flatpickr-calendar {
     font-family: var(--font-heading-page);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .flatpickr-day.selected {
     background: #4a90e2;
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today {
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today:hover,
 .flatpickr-day.today:focus {
     background: #e6f2ff;
@@ -899,7 +909,7 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
     width: 100%;
     table-layout: fixed;
     border-collapse: separate;
-    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+    border-spacing: 0;
 }
 
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th,
@@ -984,4 +994,194 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
     text-overflow: ellipsis;
     white-space: nowrap;
     box-sizing: border-box;
+}
+
+/* —— Bank Process virtual table（与 payment maintenance 同套 TanStack Virtual + 两行 clamp）—— */
+.bankprocess-maintenance-page-root {
+    --bankprocess-list-cell-padding-y: clamp(7px, 0.65vw, 11px);
+    --bankprocess-list-cell-padding-x: clamp(8px, 0.8vw, 14px);
+    --bankprocess-list-cell-min-height: clamp(30px, 2vw, 38px);
+    --bankprocess-list-cell-line-height: 1.35;
+    --bankprocess-list-cell-line-clamp: 2;
+    --bankprocess-col-description-padding-x: clamp(10px, 1vw, 16px);
+}
+
+.bankprocess-maintenance-page-root .bankprocess-cell-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--bankprocess-list-cell-line-clamp);
+    line-clamp: var(--bankprocess-list-cell-line-clamp);
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    text-overflow: ellipsis;
+    line-height: var(--bankprocess-list-cell-line-height);
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-table-inner {
+    min-width: 1280px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-head-row,
+.bankprocess-maintenance-page-root .bankprocess-virtual-data-row {
+    display: grid;
+    grid-template-columns:
+        minmax(28px, 3.7fr) minmax(100px, 11fr) minmax(64px, 9fr) minmax(80px, 14fr) minmax(72px, 8.5fr) minmax(120px, 25fr) minmax(64px, 9fr) minmax(56px, 8fr) minmax(40px, 6fr);
+    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-th {
+    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
+    color: #ffffff;
+    font-weight: bold;
+    font-size: var(--text-base);
+    padding: var(--bankprocess-list-cell-padding-y) var(--bankprocess-list-cell-padding-x);
+    text-align: center;
+    min-height: var(--bankprocess-list-cell-min-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-th--left {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-head-row .maintenance-virtual-th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-th-checkbox {
+    border-top-right-radius: 8px;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-scroll {
+    max-height: min(72vh, 900px);
+    overflow: auto;
+    border-radius: 0 0 8px 8px;
+    background: #fff;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-row-wrap {
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-row-wrap .bankprocess-virtual-data-row {
+    height: 100%;
+    min-height: 100%;
+    align-items: stretch;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-data-row {
+    background: #ffffff;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-data-row--stripe {
+    background: #cceeff99;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-data-row:hover {
+    box-shadow: none;
+    transform: none;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-cell {
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
+    color: #374151;
+    line-height: var(--bankprocess-list-cell-line-height);
+    padding: var(--bankprocess-list-cell-padding-y) var(--bankprocess-list-cell-padding-x);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: none;
+    min-height: var(--bankprocess-list-cell-min-height);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-cell--left {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-cell--mono {
+    font-variant-numeric: tabular-nums;
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-cell--wrap {
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    align-items: center;
+    align-self: stretch;
+    height: auto;
+    min-height: 100%;
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-cell--wrap .bankprocess-cell-clamp-2 {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-cell--description {
+    padding-left: var(--bankprocess-col-description-padding-x);
+    padding-right: var(--bankprocess-col-description-padding-x);
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-cell-checkbox {
+    padding-left: clamp(8px, 0.85vw, 14px);
+    padding-right: clamp(8px, 0.85vw, 14px);
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-cell--no {
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-data-row .maintenance-cell-currency-amount {
+    text-align: center;
+    justify-content: center;
+}
+
+.bankprocess-maintenance-page-root .maintenance-virtual-head-row .maintenance-header-amount {
+    justify-content: center;
+    text-align: center !important;
+}
+
+.bankprocess-maintenance-page-root .maintenance-row-deleted .maintenance-virtual-cell {
+    color: #b91c1c;
+    text-decoration: line-through;
+}
+
+.bankprocess-maintenance-page-root .maintenance-row-deleted .bankprocess-virtual-cell-checkbox {
+    text-decoration: none;
 }

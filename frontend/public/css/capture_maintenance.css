@@ -423,8 +423,8 @@ body.dashboard-page.maintenance-page {
     appearance: none;
     -webkit-appearance: none;
     margin-right: 8px;
-    width: clamp(10px, 0.83vw, 16px);
-    height: clamp(10px, 0.83vw, 16px);
+    width: clamp(12px, 0.83vw, 16px);
+    height: clamp(12px, 0.83vw, 16px);
     border: 2px solid #000000ff;
     border-radius: 3px;
     background-color: white;
@@ -452,15 +452,18 @@ body.dashboard-page.maintenance-page {
 
 .flatpickr-calendar {
     font-family: var(--font-heading-page);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .flatpickr-day.selected {
     background: #4a90e2;
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today {
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today:hover,
 .flatpickr-day.today:focus {
     background: #e6f2ff;
@@ -482,7 +485,7 @@ body.dashboard-page.maintenance-page {
     width: 100%;
     border-collapse: separate;
     table-layout: fixed;
-    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+    border-spacing: 0;
 }
 
 .maintenance-table th,
@@ -514,13 +517,18 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-table tbody tr {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    transition: all 0.2s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
+}
+
+.maintenance-table tbody td,
+.maintenance-table tbody td.maintenance-table-cell {
+    background-color: transparent;
 }
 
 .maintenance-table tbody tr:nth-child(even) {
@@ -824,7 +832,7 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-confirm-title {
     font-family: var(--font-heading-page);
-    font-size: clamp(20px, 1.67vw, 32px);
+    font-size: var(--text-h1);
     font-weight: 700;
     color: #1e293b;
     margin: 0 0 clamp(12px, 1.04vw, 20px) 0;
@@ -832,7 +840,7 @@ body.dashboard-page.maintenance-page {
 
 .maintenance-confirm-message {
     font-family: var(--font-heading-page);
-    font-size: clamp(14px, 1.04vw, 20px);
+    font-size: var(--text-h3);
     color: #64748b;
     margin: 0 0 clamp(24px, 2.08vw, 40px) 0;
     line-height: 1.5;
@@ -848,7 +856,7 @@ body.dashboard-page.maintenance-page {
     padding: clamp(10px, 0.83vw, 16px) clamp(20px, 1.67vw, 32px);
     border: none;
     border-radius: 6px;
-    font-size: clamp(12px, 0.94vw, 18px);
+    font-size: var(--text-base);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -906,6 +914,7 @@ body.dashboard-page.maintenance-page {
     0% {
         transform: translateX(-120%);
     }
+
     100% {
         transform: translateX(420%);
     }
@@ -921,7 +930,7 @@ body.dashboard-page.maintenance-page {
     width: 100%;
     border-collapse: separate;
     table-layout: fixed;
-    border-spacing: 0 clamp(2px, 0.28vw, 4px);
+    border-spacing: 0;
 }
 
 .capture-maintenance-page-root .maintenance-table th,
@@ -952,13 +961,18 @@ body.dashboard-page.maintenance-page {
 
 .capture-maintenance-page-root .maintenance-table tbody tr {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    transition: all 0.2s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .capture-maintenance-page-root .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
+}
+
+.capture-maintenance-page-root .maintenance-table tbody td,
+.capture-maintenance-page-root .maintenance-table tbody td.maintenance-table-cell {
+    background-color: transparent;
 }
 
 .capture-maintenance-page-root .maintenance-table tbody tr:nth-child(even) {
@@ -986,12 +1000,12 @@ body.dashboard-page.maintenance-page {
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(3),
 .capture-maintenance-page-root .maintenance-table td:nth-child(3) {
-    width: 10%;
+    width: 14%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(4),
 .capture-maintenance-page-root .maintenance-table td:nth-child(4) {
-    width: 10%;
+    width: 12.5%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(5),
@@ -1001,22 +1015,22 @@ body.dashboard-page.maintenance-page {
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(6),
 .capture-maintenance-page-root .maintenance-table td:nth-child(6) {
-    width: 13.5%;
+    width: 14.5%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(7),
 .capture-maintenance-page-root .maintenance-table td:nth-child(7) {
-    width: 13.5%;
+    width: 9%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(8),
 .capture-maintenance-page-root .maintenance-table td:nth-child(8) {
-    width: 18%;
+    width: 15%;
 }
 
 .capture-maintenance-page-root .maintenance-table th:nth-child(9),
 .capture-maintenance-page-root .maintenance-table td:nth-child(9) {
-    width: 6.5%;
+    width: 5%;
     min-width: clamp(40px, 3.5vw, 56px);
     box-sizing: border-box;
 }
@@ -1074,6 +1088,8 @@ body.dashboard-page.maintenance-page {
 .capture-maintenance-page-root .maintenance-table td:nth-child(4),
 .capture-maintenance-page-root .maintenance-table th:nth-child(6),
 .capture-maintenance-page-root .maintenance-table td:nth-child(6),
+.capture-maintenance-page-root .maintenance-table th:nth-child(7),
+.capture-maintenance-page-root .maintenance-table td:nth-child(7),
 .capture-maintenance-page-root .maintenance-table th:nth-child(8),
 .capture-maintenance-page-root .maintenance-table td:nth-child(8) {
     text-align: left;
@@ -1172,8 +1188,8 @@ body.dashboard-page.maintenance-page {
 }
 
 /* 勾选列：thead th 与 tbody td 的 padding 来源不同（th 无 maintenance-table-cell），纵向看勾选框易左右错位；对称 padding + 全宽 flex 内层与表头/行共用 */
-.capture-maintenance-page-root .maintenance-list-container .maintenance-table > thead > tr > th.maintenance-select-all-header,
-.capture-maintenance-page-root .maintenance-list-container .maintenance-table > tbody > tr > td.maintenance-cell-checkbox {
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table>thead>tr>th.maintenance-select-all-header,
+.capture-maintenance-page-root .maintenance-list-container .maintenance-table>tbody>tr>td.maintenance-cell-checkbox {
     padding: clamp(4px, 0.5vw, 8px) clamp(8px, 0.85vw, 14px) !important;
     text-align: center;
     vertical-align: middle;
@@ -1196,6 +1212,213 @@ body.dashboard-page.maintenance-page {
     }
 }
 
+/* Virtual table (aligned with payment maintenance) */
+.capture-maintenance-page-root {
+    --capture-list-cell-padding-y: clamp(4px, 0.5vw, 8px);
+    --capture-list-cell-padding-x: clamp(10px, 1vw, 18px);
+    --capture-list-cell-min-height: clamp(28px, 1.95vw, 36px);
+    --capture-list-cell-line-height: 1.35;
+}
 
+.capture-maintenance-page-root .capture-virtual-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
 
+.capture-maintenance-page-root .capture-virtual-table-inner {
+    min-width: 1100px;
+    width: 100%;
+    box-sizing: border-box;
+}
 
+.capture-maintenance-page-root .maintenance-list-container--syncing .maintenance-virtual-scroll {
+    opacity: 0.92;
+    transition: opacity 0.15s ease;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.capture-maintenance-page-root .capture-virtual-head-row,
+.capture-maintenance-page-root .capture-virtual-data-row {
+    display: grid;
+    grid-template-columns:
+        minmax(28px, 4.5fr) minmax(100px, 13fr) minmax(64px, 14fr) minmax(64px, 12.5fr) minmax(56px, 9.5fr) minmax(80px, 14.5fr) minmax(80px, 9fr) minmax(100px, 15fr) minmax(40px, 6.5fr);
+    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-th {
+    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
+    color: #ffffff;
+    font-weight: bold;
+    font-size: var(--text-base);
+    padding: clamp(5px, 0.55vw, 9px) var(--capture-list-cell-padding-x);
+    text-align: center;
+    min-height: clamp(30px, 2.1vw, 38px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .capture-virtual-th--left {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.capture-maintenance-page-root .capture-virtual-head-row .maintenance-virtual-th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.capture-maintenance-page-root .capture-virtual-th-checkbox {
+    border-top-right-radius: 8px;
+    padding: clamp(4px, 0.5vw, 8px) clamp(8px, 0.85vw, 14px) !important;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-scroll {
+    max-height: min(72vh, 900px);
+    overflow: auto;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-row-wrap {
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-row-wrap .capture-virtual-data-row {
+    height: 100%;
+    min-height: 100%;
+    align-items: stretch;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-data-row {
+    background: #ffffff;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-data-row--stripe {
+    background: #cceeff99;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-data-row:hover {
+    box-shadow: none;
+    transform: none;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell {
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
+    color: #374151;
+    line-height: var(--capture-list-cell-line-height);
+    padding: var(--capture-list-cell-padding-y) var(--capture-list-cell-padding-x);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: none;
+    min-height: var(--capture-list-cell-min-height);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--left {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--mono {
+    font-variant-numeric: tabular-nums;
+}
+
+.capture-maintenance-page-root .capture-virtual-cell--wrap {
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    align-items: center;
+    align-self: stretch;
+    height: auto;
+    min-height: 100%;
+}
+
+.capture-maintenance-page-root .capture-virtual-cell-checkbox {
+    padding: clamp(4px, 0.5vw, 8px) clamp(8px, 0.85vw, 14px) !important;
+}
+
+.capture-maintenance-page-root .capture-virtual-cell--no {
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-data-row .maintenance-cell-currency {
+    text-align: center;
+    justify-content: center;
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(5) {
+    padding-left: clamp(8px, 0.9vw, 14px);
+    padding-right: clamp(10px, 1.1vw, 18px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(6),
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(7) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(10px, 1.05vw, 18px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(8) {
+    padding-left: clamp(10px, 1.05vw, 18px);
+    padding-right: clamp(6px, 0.75vw, 12px);
+}
+
+.capture-maintenance-page-root .maintenance-list-container .maintenance-virtual-data-row .maintenance-virtual-cell:nth-child(9) {
+    padding-left: clamp(4px, 0.5vw, 10px);
+    padding-right: clamp(6px, 0.65vw, 12px);
+}
+
+.capture-maintenance-page-root .maintenance-row-deleted .maintenance-virtual-cell {
+    color: #b91c1c;
+    text-decoration: line-through;
+}
+
+.capture-maintenance-page-root .maintenance-row-deleted .capture-virtual-cell-checkbox {
+    text-decoration: none;
+}
+
+.capture-maintenance-page-root .maintenance-list-container--syncing {
+    pointer-events: none;
+}
+
+/* Truncate long text with ellipsis and support hover tooltips */
+.capture-maintenance-page-root .capture-cell-text {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--left .capture-cell-text {
+    text-align: left;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--center .capture-cell-text {
+    text-align: center;
+}
+
+.capture-maintenance-page-root .maintenance-virtual-cell--right .capture-cell-text {
+    text-align: right;
+}
