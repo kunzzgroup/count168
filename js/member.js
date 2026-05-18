@@ -560,10 +560,24 @@ function renderMemberTotalPlaceholderShell(orderUpper) {
     }
 
     if (order.length === 1) {
-        const sp = document.createElement('span');
-        sp.className = 'member-dash-total-amt';
-        sp.textContent = '–';
-        totalEl.appendChild(sp);
+        const cu = order[0];
+        totalEl.classList.add('member-dash-total-values--grid');
+        const grid = document.createElement('div');
+        grid.className = 'member-dash-total-currency-grid';
+        grid.setAttribute('role', 'group');
+        grid.setAttribute('aria-label', 'Totals by currency');
+        const cell = document.createElement('div');
+        cell.className = 'member-dash-total-grid-cell';
+        const lab = document.createElement('span');
+        lab.className = 'member-dash-total-grid-code';
+        lab.textContent = cu;
+        const amt = document.createElement('span');
+        amt.className = 'member-dash-total-grid-amt';
+        amt.textContent = '–';
+        cell.appendChild(lab);
+        cell.appendChild(amt);
+        grid.appendChild(cell);
+        totalEl.appendChild(grid);
         return;
     }
 
@@ -606,7 +620,7 @@ function renderMemberMiniGridInitialShell() {
     if (!orderUpper.length) return;
 
     if (hintEl) hintEl.textContent = '';
-    if (currLine) currLine.textContent = orderUpper.length > 1 ? '' : (orderUpper[0] || '');
+    if (currLine) currLine.textContent = '';
 
     const rowCount = Math.max(3, Number(window.MEMBER_MINI_GRID_SHELL_ROWS) > 0 ? Number(window.MEMBER_MINI_GRID_SHELL_ROWS) : 5);
     let listOrdered = getOrderedMiniGridAccountsForCurrencies(orderUpper);
@@ -730,13 +744,26 @@ function renderMemberTotalSection(totalsByCu, currencyOrderUpper, seq) {
     if (order.length === 1) {
         const cu = order[0];
         const dec = totalsByCu.get(cu) || normalizeNumber('0');
-        const sp = document.createElement('span');
-        sp.className = 'member-dash-total-amt';
-        sp.textContent = formatNumber(dec.toString());
+        totalEl.classList.add('member-dash-total-values--grid');
+        const grid = document.createElement('div');
+        grid.className = 'member-dash-total-currency-grid';
+        grid.setAttribute('role', 'group');
+        grid.setAttribute('aria-label', 'Totals by currency');
+        const cell = document.createElement('div');
+        cell.className = 'member-dash-total-grid-cell';
+        const lab = document.createElement('span');
+        lab.className = 'member-dash-total-grid-code';
+        lab.textContent = cu;
+        const amt = document.createElement('span');
+        amt.className = 'member-dash-total-grid-amt';
+        amt.textContent = formatNumber(dec.toString());
         if (typeof dec.lt === 'function' && dec.lt('0')) {
-            sp.classList.add('member-dash-total-amt--neg');
+            amt.classList.add('member-dash-total-grid-amt--neg');
         }
-        totalEl.appendChild(sp);
+        cell.appendChild(lab);
+        cell.appendChild(amt);
+        grid.appendChild(cell);
+        totalEl.appendChild(grid);
         return;
     }
 
@@ -803,7 +830,7 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
         if (hintEl) hintEl.textContent = '';
 
         if (currLine) {
-            currLine.textContent = orderUpper.length > 1 ? '' : (orderUpper[0] || '');
+            currLine.textContent = '';
         }
 
         if (memberLinkedCurrenciesLoaded && orderedAccounts.length === 0) {

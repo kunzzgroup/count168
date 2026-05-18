@@ -969,6 +969,10 @@ body.transaction-page {
     border-color: #3b82f6;
 }
 
+.member-dash-grid-curr:empty {
+    display: none;
+}
+
 .member-dash-grid-curr {
     font-size: clamp(10px, 0.74vw, 13px);
     font-weight: 700;
@@ -1149,9 +1153,8 @@ body.transaction-page {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    overflow-x: visible;
-    overflow-y: auto;
-    max-height: 240px;
+    overflow: visible;
+    /* 勿在此設 max-height + overflow-y，與 flex 子項 flex:1 並用易在內容不多時仍出現捲軸；捲動只在 .member-dash-total-matrix-body */
 }
 
 .member-dash-total-matrix-hd {
@@ -1167,8 +1170,11 @@ body.transaction-page {
 }
 
 .member-dash-total-matrix-body {
-    flex: 1;
+    flex: 0 1 auto;
     min-height: 0;
+    max-height: 240px;
+    overflow-x: visible;
+    overflow-y: auto;
 }
 
 .member-dash-total-values {
