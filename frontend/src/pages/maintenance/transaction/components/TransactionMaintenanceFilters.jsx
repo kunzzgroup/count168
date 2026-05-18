@@ -110,7 +110,7 @@ export default function TransactionMaintenanceFilters({
       </div>
 
       <div className="maintenance-filter-row">
-        <div className="maintenance-filter-left">
+        <div className="maintenance-filter-left-full">
           <ReportGcFilterPanel
             groupIds={snapGroupIds}
             groupFilterKind={selectedGroup ? "follow" : "all"}

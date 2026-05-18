@@ -124,11 +124,23 @@ export default function BankprocessMaintenanceFilters({
               </div>
             </div>
           </div>
+
+          <div className="maintenance-actions-top">
+            <button
+              type="button"
+              className="maintenance-delete-btn"
+              id="deleteBtn"
+              onClick={onDelete}
+              disabled={selectedIds.length === 0}
+            >
+              {m.delete}
+            </button>
+          </div>
         </div>
 
-        <div className="maintenance-filter-row">
-          <div className="maintenance-filter-left">
-            <ReportGcFilterPanel
+      <div className="maintenance-filter-row">
+        <div className="maintenance-filter-left-full">
+          <ReportGcFilterPanel
               groupIds={groupedIds}
               groupFilterKind={selectedGroup ? "follow" : "all"}
               selectedGroupKey={selectedGroup}
@@ -152,18 +164,6 @@ export default function BankprocessMaintenanceFilters({
                 return m[key] || key;
               }}
             />
-          </div>
-
-          <div className="maintenance-actions">
-            <button
-              type="button"
-              className="maintenance-delete-btn"
-              id="deleteBtn"
-              onClick={onDelete}
-              disabled={selectedIds.length === 0}
-            >
-              {m.delete}
-            </button>
           </div>
         </div>
       </div>

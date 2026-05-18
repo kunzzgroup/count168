@@ -94,10 +94,22 @@ export default function CaptureMaintenanceFilters({
           periodPresets={periodPresets}
           periodShortcutsAria={m.period}
         />
+
+        <div className="maintenance-actions-top">
+          <button
+            type="button"
+            className="maintenance-delete-btn"
+            id="deleteBtn"
+            onClick={onDelete}
+            disabled={!canDelete}
+          >
+            {m.delete}
+          </button>
+        </div>
       </div>
 
       <div className="maintenance-filter-row">
-        <div className="maintenance-filter-left">
+        <div className="maintenance-filter-left-full">
           <ReportGcFilterPanel
             groupIds={snapGroupIds}
             groupFilterKind={selectedGroup ? "follow" : "all"}
@@ -115,18 +127,6 @@ export default function CaptureMaintenanceFilters({
               return m[key] || key;
             }}
           />
-        </div>
-
-        <div className="maintenance-actions">
-          <button
-            type="button"
-            className="maintenance-delete-btn"
-            id="deleteBtn"
-            onClick={onDelete}
-            disabled={!canDelete}
-          >
-            {m.delete}
-          </button>
         </div>
       </div>
     </div>

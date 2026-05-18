@@ -68,17 +68,33 @@ body.maintenance-page .maintenance-outlined-field .search-input-container.formul
 }
 
 /* GroupID / Company / Currency — Account List style user-gc strip */
-body.maintenance-page .maintenance-gc-panel.user-gc-inline-panel {
-    margin-left: -20px;
-    margin-right: 0;
-    width: calc(100% + 20px);
-    max-width: none;
-    box-sizing: border-box;
+body.maintenance-page .user-gc-inline-panel {
+    margin-top: 4px;
+    margin-left: -4px;
+    margin-right: -4px;
 }
 
 body.maintenance-page .maintenance-filter-left {
     flex: 1 1 auto;
     min-width: 0;
+    margin-left: -4px;
+    margin-right: -4px;
+}
+
+body.maintenance-page .maintenance-filter-left-full {
+    flex: 1 1 auto;
+    min-width: 0;
+    position: relative;
+    width: 100%;
+    margin-left: -4px;
+    margin-right: -4px;
+}
+
+body.maintenance-page .maintenance-delete-wrapper {
+    position: absolute;
+    right: 0;
+    top: 10px;
+    z-index: 10;
 }
 
 body.maintenance-page .maintenance-filter-row {
@@ -88,6 +104,20 @@ body.maintenance-page .maintenance-filter-row {
     flex-wrap: nowrap;
     gap: clamp(12px, 1.04vw, 20px);
     width: 100%;
+}
+
+/* Delete + Confirm：在上方、贴合分割线 */
+body.maintenance-page .maintenance-actions-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: clamp(12px, 1.04vw, 20px);
+    flex-shrink: 0;
+    margin-left: auto;
+    margin-top: 10px;
+    padding-top: 0;
+    border-top: none;
+    align-self: flex-end;
 }
 
 /* Delete + Confirm：与左侧 Group/Company 区域底边对齐（与 Company 行同一水平线） */
