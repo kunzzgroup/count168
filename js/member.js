@@ -13,10 +13,6 @@ let memberIsAllSelected = true;
 let memberSearchSeq = 0;
 let memberSummaryAbortController = null;
 let memberHistoryAbortController = null;
-/** 同一 link 组的账户列表 [{id, account_id, name}]，顺序与切换按钮一致 */
-let memberLinkedAccountsList = [];
-let memberLinkedQuickAbortController = null;
-let memberLinkedQuickCache = { key: '', rows: [] };
 /** 账户在当前公司下拥有的全部币别（与日期区间无关），来自 account_currency_api */
 let memberOwnedCurrencies = [];
 
@@ -78,10 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureMemberCurrencyChromeVisible();
     initDatePickers();
     setupCompanyButtons();
-    Promise.all([
-        loadMemberLinkedAccounts(),
-        loadMemberOwnedCurrencies()
-    ]).finally(() => performMemberSearch());
+    loadMemberLinkedAccounts();
+    // 先拉齐账户拥有的全部币别（与区间内是否有余额无关），再搜报表，Currency 按钮列表始终完整
+    loadMemberOwnedCurrencies().finally(() => performMemberSearch());
 });
 
 function performMemberSearch() {
@@ -269,10 +264,8 @@ function setupCompanyButtons() {
                 });
 
                 showNotification(`Switched to company ${label || companyId}`, 'success');
-                Promise.all([
-                    loadMemberLinkedAccounts(),
-                    loadMemberOwnedCurrencies()
-                ]).finally(() => performMemberSearch());
+                loadMemberLinkedAccounts();
+                loadMemberOwnedCurrencies().finally(() => performMemberSearch());
             })
             .catch(err => {
                 console.error('Failed to switch company:', err);
@@ -284,36 +277,18 @@ function setupCompanyButtons() {
 function loadMemberLinkedAccounts() {
     const container = document.getElementById('member_account_buttons');
     const loadingEl = document.getElementById('member_account_loading');
-
-    memberLinkedAccountsList = [];
-    memberLinkedQuickCache = { key: '', rows: [] };
-    setLinkedQuickStripVisible(false);
-
-    const emptyAccountUi = () => {
-        if (!container) {
-            return;
-        }
-        memberLinkedAccountsList = [];
+    if (!container) return;
+    if (loadingEl) loadingEl.style.display = 'inline';
+    const accountId = memberConfig.accountId;
+    const companyId = memberConfig.companyId;
+    if (!accountId || !companyId) {
         if (loadingEl) loadingEl.style.display = 'none';
         container.innerHTML = '<span class="member-account-loading">-</span>';
         const filterEl = document.getElementById('member_account_filter');
         if (filterEl) filterEl.style.display = 'none';
-        setLinkedQuickStripVisible(false);
-    };
-
-    if (!container) {
-        return Promise.resolve();
+        return;
     }
-    if (loadingEl) loadingEl.style.display = 'inline';
-
-    const accountId = memberConfig.accountId;
-    const companyId = memberConfig.companyId;
-    if (!accountId || !companyId) {
-        emptyAccountUi();
-        return Promise.resolve();
-    }
-
-    return fetch(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
+    fetch(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
         .then(res => res.text())
         .then(text => {
             let data;
@@ -324,19 +299,17 @@ function loadMemberLinkedAccounts() {
                 throw new Error('Invalid response');
             }
             if (!data.success || !Array.isArray(data.data)) {
-                emptyAccountUi();
+                container.innerHTML = '<span class="member-account-loading">-</span>';
+                const filterEl = document.getElementById('member_account_filter');
+                if (filterEl) filterEl.style.display = 'none';
                 return;
             }
-            memberLinkedAccountsList = data.data.slice();
-            memberLinkedQuickCache = { key: '', rows: [] };
-
-            const list = memberLinkedAccountsList;
+            const list = data.data;
             const filterEl = document.getElementById('member_account_filter');
             if (list.length <= 1) {
                 if (filterEl) filterEl.style.display = 'none';
                 container.innerHTML = '';
                 if (loadingEl) loadingEl.style.display = 'none';
-                setLinkedQuickStripVisible(false);
                 return;
             }
             container.innerHTML = '';
@@ -360,208 +333,11 @@ function loadMemberLinkedAccounts() {
         })
         .catch(err => {
             console.error('Failed to load linked accounts:', err);
-            emptyAccountUi();
+            if (loadingEl) loadingEl.style.display = 'none';
+            container.innerHTML = '<span class="member-account-loading">-</span>';
+            const filterEl = document.getElementById('member_account_filter');
+            if (filterEl) filterEl.style.display = 'none';
         });
-}
-
-function setLinkedQuickStripVisible(show) {
-    const strip = document.getElementById('member_linked_quick_strip');
-    if (!strip) return;
-    strip.style.display = show ? '' : 'none';
-}
-
-/** 单行快览仅在选定单一币种时显示；「All」且多币种时隐藏以免歧义 */
-function getLinkedQuickCurrencyCode() {
-    const currencies = getAvailableCurrencies();
-    if (!currencies.length) {
-        return '';
-    }
-    if (memberIsAllSelected) {
-        return currencies.length === 1 ? currencies[0] : '';
-    }
-    if (memberSelectedCurrencies.size === 1) {
-        return Array.from(memberSelectedCurrencies)[0];
-    }
-    return '';
-}
-
-function wlSignClass(dec) {
-    try {
-        const c = typeof dec.cmp === 'function' ? dec.cmp(0) : 0;
-        if (c < 0) return 'member-quick-wl-neg';
-        if (c > 0) return 'member-quick-wl-pos';
-    } catch (e) {}
-    return 'member-quick-wl-zero';
-}
-
-function refreshMemberLinkedQuickStrip() {
-    fetchMemberLinkedQuickTotals(memberSearchSeq);
-}
-
-function fetchMemberLinkedQuickTotals(seq) {
-    return new Promise(resolve => {
-        const strip = document.getElementById('member_linked_quick_strip');
-        if (!strip) {
-            resolve();
-            return;
-        }
-        const accounts = memberLinkedAccountsList || [];
-        const curr = getLinkedQuickCurrencyCode();
-        const dateFrom = document.getElementById('date_from') && document.getElementById('date_from').value;
-        const dateTo = document.getElementById('date_to') && document.getElementById('date_to').value;
-
-        if (accounts.length <= 1 || !curr || !dateFrom || !dateTo) {
-            setLinkedQuickStripVisible(false);
-            resolve();
-            return;
-        }
-
-        const ids = [...new Set(accounts.map(a => Number(a.id)).filter(x => x > 0))].sort((a, b) => a - b);
-        const cacheKey = `${memberConfig.companyId}|${dateFrom}|${dateTo}|${curr}|${ids.join(',')}`;
-        if (memberLinkedQuickCache.rows && memberLinkedQuickCache.rows.length && memberLinkedQuickCache.key === cacheKey) {
-            setLinkedQuickStripVisible(true);
-            renderMemberLinkedQuickStrip(memberLinkedQuickCache.rows, seq, curr);
-            resolve();
-            return;
-        }
-
-        if (memberLinkedQuickAbortController) {
-            memberLinkedQuickAbortController.abort();
-        }
-        memberLinkedQuickAbortController = new AbortController();
-
-        const params = new URLSearchParams({
-            date_from: dateFrom,
-            date_to: dateTo,
-            target_account_id: ids.join(','),
-            company_id: memberConfig.companyId,
-            currency: curr,
-            show_inactive: '1',
-            hide_zero_balance: '0'
-        });
-        const url = `api/transactions/search_api.php?${params.toString()}&_t=${Date.now()}`;
-        fetch(url, { cache: 'no-cache', signal: memberLinkedQuickAbortController.signal })
-            .then(res => res.text())
-            .then(text => parseJsonResponse(text))
-            .then(data => {
-                if (seq !== memberSearchSeq) {
-                    resolve();
-                    return;
-                }
-                if (!data.success) {
-                    throw new Error(data.error || 'Linked quick view failed');
-                }
-                const combined = [
-                    ...(data.data?.left_table ?? []),
-                    ...(data.data?.right_table ?? [])
-                ];
-                memberLinkedQuickCache = { key: cacheKey, rows: combined };
-                setLinkedQuickStripVisible(true);
-                renderMemberLinkedQuickStrip(combined, seq, curr);
-                resolve();
-            })
-            .catch(err => {
-                if (err && err.name === 'AbortError') {
-                    resolve();
-                    return;
-                }
-                if (seq !== memberSearchSeq) {
-                    resolve();
-                    return;
-                }
-                console.warn('Linked quick totals:', err.message || err);
-                setLinkedQuickStripVisible(false);
-                resolve();
-            });
-    });
-}
-
-function renderMemberLinkedQuickStrip(rows, seq, currencyCode) {
-    const currEl = document.getElementById('member_linked_quick_currency');
-    const grid = document.getElementById('member_linked_quick_grid');
-    const foot = document.getElementById('member_linked_quick_total');
-    if (!grid || !foot) return;
-    if (seq !== memberSearchSeq) return;
-
-    const curr = currencyCode || getLinkedQuickCurrencyCode();
-    if (!currEl) return;
-
-    currEl.textContent = curr;
-    grid.innerHTML = '';
-
-    let sumWl = normalizeNumber('0');
-    let sumBal = normalizeNumber('0');
-
-    memberLinkedAccountsList.forEach(acc => {
-        const idNum = Number(acc.id);
-        const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-        const row = rows.find(r =>
-            Number(r.account_db_id) === idNum
-            && (r.currency || '').trim().toUpperCase() === String(curr).trim().toUpperCase()
-        );
-        const wlSrc = row && row.win_loss != null && row.win_loss !== '-' ? row.win_loss : '0';
-        const balSrc = row && row.balance != null && row.balance !== '-' ? row.balance : '0';
-        const wlDec = normalizeNumber(wlSrc);
-        const balDec = normalizeNumber(balSrc);
-        sumWl = sumWl.plus(wlDec);
-        sumBal = sumBal.plus(balDec);
-
-        const cell = document.createElement('div');
-        cell.className = 'member-quick-cell';
-        const accSpan = document.createElement('span');
-        accSpan.className = 'member-quick-acc';
-        accSpan.textContent = code;
-
-        const mid = document.createElement('span');
-        mid.className = 'member-quick-pair';
-        const wlTag = document.createElement('span');
-        wlTag.className = 'member-quick-tag';
-        wlTag.textContent = 'WL';
-        const wlAmt = document.createElement('span');
-        wlAmt.className = wlSignClass(wlDec);
-        wlAmt.textContent = formatNumber(wlDec.toString());
-
-        const rt = document.createElement('span');
-        rt.className = 'member-quick-pair';
-        const bTag = document.createElement('span');
-        bTag.className = 'member-quick-tag';
-        bTag.textContent = 'Bal';
-        const bAmt = document.createElement('span');
-        bAmt.className = 'member-quick-bal';
-        bAmt.textContent = formatNumber(balDec.toString());
-
-        mid.appendChild(wlTag);
-        mid.appendChild(wlAmt);
-        rt.appendChild(bTag);
-        rt.appendChild(bAmt);
-
-        cell.appendChild(accSpan);
-        cell.appendChild(mid);
-        cell.appendChild(rt);
-        grid.appendChild(cell);
-    });
-
-    foot.innerHTML = '';
-    const l1 = document.createElement('span');
-    l1.className = 'member-quick-tlabel';
-    l1.textContent = `Σ WL (${curr})`;
-
-    const v1 = document.createElement('span');
-    v1.className = 'member-quick-tval ' + wlSignClass(sumWl);
-    v1.textContent = formatNumber(sumWl.toString());
-
-    const l2 = document.createElement('span');
-    l2.className = 'member-quick-tlabel';
-    l2.textContent = `Σ Bal (${curr})`;
-
-    const v2 = document.createElement('span');
-    v2.className = 'member-quick-tval member-quick-bal';
-    v2.textContent = formatNumber(sumBal.toString());
-
-    foot.appendChild(l1);
-    foot.appendChild(v1);
-    foot.appendChild(l2);
-    foot.appendChild(v2);
 }
 
 function setupAccountButtons() {
@@ -585,9 +361,7 @@ function setupAccountButtons() {
                     container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     showNotification(`Switched to account ${code || name || accountId}`, 'success');
-                    loadMemberLinkedAccounts().finally(() => {
-                        loadMemberOwnedCurrencies().finally(() => performMemberSearch());
-                    });
+                    loadMemberOwnedCurrencies().finally(() => performMemberSearch());
                 })
                 .catch(err => {
                     console.error('Failed to switch account:', err);
@@ -786,7 +560,7 @@ function fetchMemberSummary(seq = memberSearchSeq) {
                         memberSelectedCurrencies.clear();
                     }
                     renderCurrencyFilters();
-                    fetchMemberLinkedQuickTotals(seq).finally(() => resolve());
+                    resolve();
                 });
             })
             .catch(err => {
@@ -803,7 +577,6 @@ function fetchMemberSummary(seq = memberSearchSeq) {
                 memberCurrencySortOrder.clear();
                 ensureMemberCurrencyChromeVisible();
                 renderCurrencyFilters();
-                setLinkedQuickStripVisible(false);
                 setMemberTablesPlaceholder(err.message || 'Failed to load currency data.');
                 showNotification(err.message || 'Failed to load currency data', 'error');
                 reject(err);
@@ -948,7 +721,6 @@ function saveMemberCurrencyOrder(order) {
                     memberSelectedCurrencies.clear();
                     renderCurrencyFilters();
                     fetchMemberHistory();
-                    refreshMemberLinkedQuickStrip();
                 }
             }
         })
@@ -1066,7 +838,6 @@ function createCurrencyButton(code, label, isAll = false) {
                 memberSelectedCurrencies.clear();
                 renderCurrencyFilters();
                 fetchMemberHistory();
-                refreshMemberLinkedQuickStrip();
             }
             return;
         }
@@ -1081,7 +852,6 @@ function createCurrencyButton(code, label, isAll = false) {
 
         renderCurrencyFilters();
         fetchMemberHistory();
-        refreshMemberLinkedQuickStrip();
     });
     return btn;
 }

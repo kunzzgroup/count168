@@ -907,53 +907,6 @@ try {
         $company_id = $_SESSION['company_id'];
     }
 
-    $company_id = (int) $company_id;
-
-    // Member 批量 target_account_id 仅允许在同一公司关联闭包内（与 account_link_api::getLinkedAccountsForMember BFS 一致）；防篡改逗号分隔 id 读取他人报表
-    if ($isMemberUser && !empty($target_account_ids)) {
-        $memberPivot = (int) ($_SESSION['user_id'] ?? 0);
-        if ($memberPivot <= 0) {
-            throw new Exception('无效的会员会话');
-        }
-        $visited = [];
-        $queue = [$memberPivot];
-        $linkNeighborSql = "
-            SELECT account_id_2 AS linked_id, link_type, source_account_id
-            FROM account_link WHERE account_id_1 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
-            UNION
-            SELECT account_id_1 AS linked_id, link_type, source_account_id
-            FROM account_link WHERE account_id_2 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
-        ";
-        $linkStmt = $pdo->prepare($linkNeighborSql);
-        while (!empty($queue)) {
-            $current_id = (int) array_shift($queue);
-            if (isset($visited[$current_id])) {
-                continue;
-            }
-            $visited[$current_id] = true;
-            $linkStmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
-            $linked_rows = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($linked_rows as $lr) {
-                $linked_id = (int) ($lr['linked_id'] ?? 0);
-                if (!isset($visited[$linked_id])) {
-                    $visited[$linked_id] = true;
-                    if (($lr['link_type'] ?? '') === 'bidirectional') {
-                        $queue[] = $linked_id;
-                    }
-                }
-            }
-        }
-        $allowed = array_flip(array_map('intval', array_keys($visited)));
-        $target_account_ids = array_values(array_filter($target_account_ids, static function ($tid) use ($allowed) {
-            return isset($allowed[(int) $tid]);
-        }));
-        if (empty($target_account_ids)) {
-            $target_account_ids = [$memberPivot];
-        }
-    }
-
     // 验证必填参数
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');

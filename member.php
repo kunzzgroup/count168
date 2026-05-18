@@ -282,15 +282,6 @@ $default_date_to = $today_dt->format('d/m/Y');
             </div>
         </div>
 
-        <div id="member_linked_quick_strip" class="member-linked-quick-strip" style="display:none;" aria-live="polite">
-            <div class="member-linked-quick-hdr">
-                <span class="member-linked-quick-title">Linked</span>
-                <span id="member_linked_quick_currency" class="member-linked-quick-curr"></span>
-            </div>
-            <div id="member_linked_quick_grid" class="member-linked-quick-grid"></div>
-            <div id="member_linked_quick_total" class="member-linked-quick-total"></div>
-        </div>
-
         <div class="member-currency-section" id="member_currency_tables_section" style="display:flex;visibility:visible;">
             <div id="member_currency_tables" class="member-currency-tables">
                 <p class="member-currency-empty" style="margin:0;">Loading...</p>
