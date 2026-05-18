@@ -964,68 +964,15 @@ body.transaction-page {
     /* 三列：账户较多时排列更匀称（如 5 个呈 3+2）；横线仍为逐格分隔，观感更紧凑 */
     grid-template-columns: repeat(3, minmax(0, 1fr));
     column-gap: clamp(8px, 1vw, 12px);
-    row-gap: 0;
+    row-gap: 4px;
     max-height: 180px;
     overflow-y: auto;
 }
 
-/* All / 多币别：按账户分组纵向堆叠，避免同一户多币拆散在九宫格里 */
-.member-balance-mini-grid.member-balance-mini-grid--multicur {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    grid-template-columns: unset;
-    max-height: 220px;
-}
-
 @media (max-width: 480px) {
-    .member-balance-mini-grid:not(.member-balance-mini-grid--multicur) {
+    .member-balance-mini-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-}
-
-.member-balance-mini-acc-group {
-    border: 1px solid #dfe7f6;
-    border-radius: 6px;
-    background: #fafcff;
-    overflow: hidden;
-    min-width: 0;
-}
-
-.member-balance-mini-acc-group-header {
-    font-size: clamp(10px, 0.72vw, 12px);
-    font-weight: 800;
-    color: #475569;
-    letter-spacing: 0.02em;
-    padding: 4px 8px;
-    background: linear-gradient(180deg, #eef4ff 0%, #e2e8f0 100%);
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.member-balance-mini-cur-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 8px;
-    border-bottom: 1px solid #eef2f7;
-    font-size: clamp(10px, 0.7vw, 12px);
-    line-height: 1.2;
-}
-
-.member-balance-mini-cur-row:last-child {
-    border-bottom: none;
-}
-
-.member-balance-mini-cur-tag {
-    flex-shrink: 0;
-    font-size: clamp(9px, 0.62vw, 11px);
-    font-weight: 800;
-    color: #075985;
-    background: rgba(99, 196, 255, 0.28);
-    padding: 2px 6px;
-    border-radius: 4px;
-    letter-spacing: 0.06em;
 }
 
 .member-balance-mini-cell {
@@ -1033,19 +980,43 @@ body.transaction-page {
     justify-content: space-between;
     align-items: baseline;
     gap: 8px;
-    padding: 2px 0;
-    border-bottom: 1px solid #f1f5f9;
+    padding: 4px 6px 4px 8px;
+    border-radius: 5px;
+    border-left: 3px solid var(--mini-band-accent, #cbd5e1);
+    background: var(--mini-band-bg, rgba(249, 251, 253, 0.9));
     font-size: clamp(10px, 0.72vw, 13px);
     line-height: 1.2;
+    min-width: 0;
 }
 
 .member-balance-mini-acc {
-    font-weight: 600;
-    color: #334155;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.member-balance-mini-acc-code {
+    font-weight: 800;
+    color: #1e293b;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* 多币时：币种小标签跟在账户代号后，三列网格里仍一眼看出同属一户 */
+.member-balance-mini-cu-chip {
+    font-size: clamp(8px, 0.56vw, 10px);
+    font-weight: 800;
+    color: #075985;
+    background: rgba(99, 196, 255, 0.3);
+    padding: 2px 5px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
 }
 
 .member-balance-mini-val {

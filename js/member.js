@@ -702,7 +702,6 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     if (seq !== memberSearchSeq || !gridEl) return;
 
     gridEl.innerHTML = '';
-    gridEl.classList.remove('member-balance-mini-grid--multicur');
     if (hintEl) hintEl.textContent = '';
 
     const currenciesUpper = Array.isArray(orderUpper)
@@ -725,47 +724,12 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     currenciesUpper.forEach((cu) => totalsByCu.set(cu, normalizeNumber('0')));
 
     const multiCu = currenciesUpper.length > 1;
-    gridEl.classList.toggle('member-balance-mini-grid--multicur', multiCu);
+    const accentHues = [215, 172, 265, 32, 200, 310, 145];
 
-    const appendGroupedCurRow = (parentEl, cu, balDec) => {
-        const crow = document.createElement('div');
-        crow.className = 'member-balance-mini-cur-row';
-        const tag = document.createElement('span');
-        tag.className = 'member-balance-mini-cur-tag';
-        tag.textContent = cu;
-        const val = document.createElement('span');
-        val.className = 'member-balance-mini-val';
-        val.textContent = formatNumber(balDec.toString());
-        crow.appendChild(tag);
-        crow.appendChild(val);
-        parentEl.appendChild(crow);
-    };
-
-    listOrdered.forEach((acc) => {
+    listOrdered.forEach((acc, accIdx) => {
         const idNum = Number(acc.id);
         const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-
-        if (multiCu) {
-            const group = document.createElement('div');
-            group.className = 'member-balance-mini-acc-group';
-            const head = document.createElement('div');
-            head.className = 'member-balance-mini-acc-group-header';
-            head.textContent = code;
-            group.appendChild(head);
-            let any = false;
-            currenciesUpper.forEach((cu) => {
-                if (!accountHoldsMiniGridCurrency(idNum, cu)) return;
-                any = true;
-                const key = `${idNum}|${cu}`;
-                const balDec = balanceMap && balanceMap.has(key)
-                    ? balanceMap.get(key)
-                    : normalizeNumber('0');
-                totalsByCu.set(cu, totalsByCu.get(cu).plus(balDec));
-                appendGroupedCurRow(group, cu, balDec);
-            });
-            if (any) gridEl.appendChild(group);
-            return;
-        }
+        const hue = accentHues[accIdx % accentHues.length];
 
         currenciesUpper.forEach((cu) => {
             if (!accountHoldsMiniGridCurrency(idNum, cu)) return;
@@ -777,9 +741,22 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
 
             const cell = document.createElement('div');
             cell.className = 'member-balance-mini-cell';
+            cell.style.setProperty('--mini-band-accent', `hsl(${hue} 52% 40%)`);
+            cell.style.setProperty('--mini-band-bg', `hsl(${hue} 38% 97%)`);
+
             const ln = document.createElement('span');
             ln.className = 'member-balance-mini-acc';
-            ln.textContent = code;
+            const codeSpan = document.createElement('span');
+            codeSpan.className = 'member-balance-mini-acc-code';
+            codeSpan.textContent = code;
+            ln.appendChild(codeSpan);
+            if (multiCu) {
+                const chip = document.createElement('span');
+                chip.className = 'member-balance-mini-cu-chip';
+                chip.textContent = cu;
+                ln.appendChild(chip);
+            }
+
             const rv = document.createElement('span');
             rv.className = 'member-balance-mini-val';
             rv.textContent = formatNumber(balDec.toString());
