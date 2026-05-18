@@ -1415,20 +1415,42 @@ function fetchMemberSummary(seq = memberSearchSeq) {
                     }
                 });
                 updateCurrencySelection();
-                loadMemberCurrencyOrder().then(() => {
-                    if (seq !== memberSearchSeq) {
+                loadMemberCurrencyOrder()
+                    .then(() => {
+                        if (seq !== memberSearchSeq) {
+                            resolve();
+                            return;
+                        }
+                        const currencies = getAvailableCurrencies();
+                        if (currencies.length > 0) {
+                            // 默认「全部货币」拉 history（一次请求、前端按币别分表），避免 Profit Sharing 等在非首列币别时被漏掉
+                            memberIsAllSelected = true;
+                            memberSelectedCurrencies.clear();
+                        }
+                        try {
+                            renderCurrencyFilters();
+                        } catch (e) {
+                            console.error('renderCurrencyFilters', e);
+                        }
+                        /* 勿阻塞在迷你矩阵：否则会拖住 fetchMemberHistory，主表一直显示「Loading...」 */
                         resolve();
-                        return;
-                    }
-                    const currencies = getAvailableCurrencies();
-                    if (currencies.length > 0) {
-                        // 默认「全部货币」拉 history（一次请求、前端按币别分表），避免 Profit Sharing 等在非首列币别时被漏掉
-                        memberIsAllSelected = true;
-                        memberSelectedCurrencies.clear();
-                    }
-                    renderCurrencyFilters();
-                    fetchMemberMiniGridBalances(seq).finally(() => resolve());
-                });
+                        fetchMemberMiniGridBalances(seq).catch((err) => {
+                            if (err && err.name === 'AbortError') return;
+                            console.error('fetchMemberMiniGridBalances', err);
+                        });
+                    })
+                    .catch((err) => {
+                        console.error('loadMemberCurrencyOrder', err);
+                        if (seq === memberSearchSeq) {
+                            try {
+                                renderCurrencyFilters();
+                            } catch (e) {
+                                /* ignore */
+                            }
+                        }
+                        resolve();
+                        fetchMemberMiniGridBalances(seq).catch(() => {});
+                    });
             })
             .catch(err => {
                 if (err && err.name === 'AbortError') {
