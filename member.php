@@ -298,7 +298,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                 <div class="member-dash-col member-dash-col-total-col member-dash-col-split">
                         <div class="member-dash-total-inner">
                             <span class="member-dash-total-caption">Total</span>
-                            <span id="member_balance_total_value" class="member-dash-total-amt">–</span>
+                            <div id="member_balance_total_value" class="member-dash-total-values" aria-live="polite"><span class="member-dash-total-amt">–</span></div>
                         </div>
                 </div>
 

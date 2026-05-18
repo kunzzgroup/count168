@@ -844,7 +844,7 @@ body.transaction-page {
 .member-dash-columns {
     display: grid;
     /* 中间 Accounts 区域占弹性主体；TOTAL 仅占必要宽度（避免竖线右侧大片留白） */
-    grid-template-columns: minmax(268px, 1.05fr) minmax(200px, 1.38fr) minmax(108px, 0.42fr);
+    grid-template-columns: minmax(268px, 1.05fr) minmax(200px, 1.38fr) minmax(132px, 0.52fr);
     gap: 0;
     align-items: stretch;
 }
@@ -975,7 +975,7 @@ body.transaction-page {
     min-height: 72px;
     text-align: left;
     width: 100%;
-    max-width: 9rem;
+    max-width: 13rem;
 }
 
 .member-dash-total-caption {
@@ -986,10 +986,45 @@ body.transaction-page {
     text-transform: uppercase;
 }
 
+.member-dash-total-values {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+}
+
+.member-dash-total-values > .member-dash-total-amt {
+    line-height: 1.15;
+}
+
 .member-dash-total-amt {
     font-size: clamp(15px, 1.35vw, 20px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
+    color: #002c49;
+}
+
+/* All / 多币别：第 3 列按币别分项合计（不把不同 currency 的金额相加） */
+.member-dash-total-multi-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    font-variant-numeric: tabular-nums;
+}
+
+.member-dash-total-multi-code {
+    font-size: clamp(10px, 0.74vw, 12px);
+    font-weight: 800;
+    color: #475569;
+    letter-spacing: 0.04em;
+}
+
+.member-dash-total-multi-amt {
+    font-size: clamp(13px, 1.12vw, 18px);
+    font-weight: 800;
     color: #002c49;
 }
 

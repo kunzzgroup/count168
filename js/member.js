@@ -132,17 +132,40 @@ function accountHoldsMiniGridCurrency(accountId, currencyUpper) {
     return set.has(cu);
 }
 
+function accountHoldsAnyMiniGridCurrency(accountId, currenciesUpper) {
+    const list = Array.isArray(currenciesUpper) ? currenciesUpper : [];
+    if (list.length === 0) return true;
+    return list.some((cu) => accountHoldsMiniGridCurrency(accountId, cu));
+}
+
 /** Currency 迷你网格中要展示的关联账户列表（顺序与 pills 同源）。 */
-function getOrderedMiniGridAccounts(currencyCode) {
+function getOrderedMiniGridAccountsForCurrencies(currenciesUpperList) {
     const allowIds = new Set(memberLinkedAccountsList.map(a => Number(a.id)));
     const sel = new Set([...memberWLGridSelectedIds].map(Number).filter((id) => allowIds.has(id)));
     if (sel.size === 0) {
         allowIds.forEach((id) => sel.add(id));
     }
-    const cuUpper = String(currencyCode || '').trim().toUpperCase();
+    const uppers = (currenciesUpperList || []).map((c) => String(c || '').trim().toUpperCase()).filter(Boolean);
     return memberLinkedAccountsList.filter(a =>
-        sel.has(Number(a.id)) && accountHoldsMiniGridCurrency(a.id, cuUpper)
+        sel.has(Number(a.id)) && accountHoldsAnyMiniGridCurrency(a.id, uppers)
     );
+}
+
+/**
+ * 与下方 Win/Loss 明细表同源：对已返回 history 行，按币别各自取区间内最后一笔有效 Balance。
+ * （单币筛选时等价于 {@link memberHistoryClosingBalanceFromRows}。）
+ */
+function memberHistoryClosingBalancesForAllCurrencies(rows, wantedUpperSet) {
+    const map = new Map();
+    wantedUpperSet.forEach((cu) => map.set(cu, normalizeNumber('0')));
+    (rows || []).forEach((row) => {
+        const rc = (row.currency || '').trim().toUpperCase();
+        if (!wantedUpperSet.has(rc)) return;
+        if (row.balance !== '-' && row.balance !== null && row.balance !== undefined && String(row.balance).trim() !== '') {
+            map.set(rc, normalizeNumber(row.balance));
+        }
+    });
+    return map;
 }
 
 /**
@@ -150,16 +173,9 @@ function getOrderedMiniGridAccounts(currencyCode) {
  * search_api summary 与该跑表在部分场景口径不一致，故迷你网格不按 summary 取值。
  */
 function memberHistoryClosingBalanceFromRows(rows, currencyUpper) {
-    let closing = normalizeNumber('0');
     const cuFilter = String(currencyUpper || '').trim().toUpperCase();
-    (rows || []).forEach((row) => {
-        const rc = (row.currency || '').trim().toUpperCase();
-        if (cuFilter && rc !== cuFilter) return;
-        if (row.balance !== '-' && row.balance !== null && row.balance !== undefined && String(row.balance).trim() !== '') {
-            closing = normalizeNumber(row.balance);
-        }
-    });
-    return closing;
+    if (!cuFilter) return normalizeNumber('0');
+    return memberHistoryClosingBalancesForAllCurrencies(rows, new Set([cuFilter])).get(cuFilter) || normalizeNumber('0');
 }
 
 function loadMemberOwnedCurrencies() {
@@ -473,16 +489,18 @@ function syncMemberLinkedFilterTrigger() {
     btn.toggleAttribute('disabled', !show);
 }
 
-function getMemberMiniGridCurrencyCode() {
-    const currencies = getAvailableCurrencies();
-    if (!currencies.length) return '';
+/**
+ * 迷你网格展示的币别列表（顺序与 Currency 胶囊 / 明细表顺序一致）。
+ * All：全部可用币别；单选 / 多选：仅在选中的可用币别中展示。
+ */
+function getMemberMiniGridCurrencies() {
+    const available = getAvailableCurrencies();
+    if (!available.length) return [];
     if (memberIsAllSelected) {
-        return currencies.length === 1 ? currencies[0] : '';
+        return available.slice();
     }
-    if (memberSelectedCurrencies.size === 1) {
-        return Array.from(memberSelectedCurrencies)[0];
-    }
-    return '';
+    const picked = available.filter(code => memberSelectedCurrencies.has(code));
+    return picked.length ? picked : available.slice();
 }
 
 function clearMemberMiniGridDisplay() {
@@ -493,11 +511,91 @@ function clearMemberMiniGridDisplay() {
     if (gridEl) gridEl.innerHTML = '';
     if (hintEl) hintEl.textContent = '';
     if (currLine) currLine.textContent = '';
-    if (totalEl) totalEl.textContent = '–';
+    if (totalEl) {
+        totalEl.innerHTML = '';
+        const ph = document.createElement('span');
+        ph.className = 'member-dash-total-amt';
+        ph.textContent = '–';
+        totalEl.appendChild(ph);
+    }
 }
 
 function refreshMemberMiniGrid(seq) {
     return fetchMemberMiniGridBalances(seq != null ? seq : memberSearchSeq);
+}
+
+function fetchMiniGridHistoryClosingsForAccount(accountDbId, gridCurrencies, dateFrom, dateTo, signal) {
+    const uppers = gridCurrencies.map(c => String(c || '').trim().toUpperCase()).filter(Boolean);
+    const wanted = new Set(uppers);
+    const params = new URLSearchParams({
+        account_id: String(accountDbId),
+        date_from: dateFrom,
+        date_to: dateTo,
+        company_id: String(memberConfig.companyId)
+    });
+    if (uppers.length === 1) {
+        params.append('currency', uppers[0]);
+    }
+    return fetch(`api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal
+    })
+        .then(res => res.text())
+        .then(text => parseJsonResponse(text))
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.error || data.message || 'Could not load history');
+            }
+            const historyRows = data.data?.history ?? [];
+            return memberHistoryClosingBalancesForAllCurrencies(historyRows, wanted);
+        })
+        .catch(() => {
+            const fallback = new Map();
+            wanted.forEach((cu) => fallback.set(cu, normalizeNumber('0')));
+            return fallback;
+        });
+}
+
+/** 第 3 列 TOTAL：单币大号数字；多币按行展示各币总和（不把不同币种金额相加）。 */
+function renderMemberTotalSection(totalsByCu, currencyOrderUpper, seq) {
+    const totalEl = document.getElementById('member_balance_total_value');
+    if (!totalEl || seq !== memberSearchSeq) return;
+
+    totalEl.innerHTML = '';
+    const order = currencyOrderUpper.map(c => String(c || '').trim().toUpperCase()).filter(Boolean);
+
+    if (order.length === 0) {
+        const sp = document.createElement('span');
+        sp.className = 'member-dash-total-amt';
+        sp.textContent = '–';
+        totalEl.appendChild(sp);
+        return;
+    }
+
+    if (order.length === 1) {
+        const cu = order[0];
+        const dec = totalsByCu.get(cu) || normalizeNumber('0');
+        const sp = document.createElement('span');
+        sp.className = 'member-dash-total-amt';
+        sp.textContent = formatNumber(dec.toString());
+        totalEl.appendChild(sp);
+        return;
+    }
+
+    order.forEach((cu) => {
+        const dec = totalsByCu.get(cu) || normalizeNumber('0');
+        const row = document.createElement('div');
+        row.className = 'member-dash-total-multi-row';
+        const lab = document.createElement('span');
+        lab.className = 'member-dash-total-multi-code';
+        lab.textContent = cu;
+        const amt = document.createElement('span');
+        amt.className = 'member-dash-total-multi-amt';
+        amt.textContent = formatNumber(dec.toString());
+        row.appendChild(lab);
+        row.appendChild(amt);
+        totalEl.appendChild(row);
+    });
 }
 
 function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
@@ -513,32 +611,39 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
             return;
         }
 
-        const currencyCode = getMemberMiniGridCurrencyCode();
+        const gridCurrencies = getMemberMiniGridCurrencies();
         const dateFrom = document.getElementById('date_from') && document.getElementById('date_from').value;
         const dateTo = document.getElementById('date_to') && document.getElementById('date_to').value;
 
-        if (!currencyCode || !dateFrom || !dateTo) {
-            if (!currencyCode) {
-                if (hintEl) {
-                    hintEl.textContent = 'Select one currency in the Currency row to show balances.';
-                }
+        if (!dateFrom || !dateTo) {
+            resolve();
+            return;
+        }
+
+        const orderUpper = gridCurrencies.map((c) => String(c || '').trim().toUpperCase()).filter(Boolean);
+
+        if (!orderUpper.length) {
+            if (hintEl && getAvailableCurrencies().length === 0) {
+                hintEl.textContent = 'No currencies in range for balances.';
             }
             resolve();
             return;
         }
 
-        if (currLine) currLine.textContent = currencyCode;
+        const orderedAccounts = getOrderedMiniGridAccountsForCurrencies(orderUpper);
+
         if (hintEl) hintEl.textContent = '';
 
-        const cu = currencyCode.trim().toUpperCase();
-        const orderedAccounts = getOrderedMiniGridAccounts(currencyCode);
+        if (currLine) {
+            currLine.textContent = orderUpper.length > 1 ? orderUpper.join(' · ') : orderUpper[0];
+        }
 
         if (memberLinkedCurrenciesLoaded && orderedAccounts.length === 0) {
-            const totalBlank = document.getElementById('member_balance_total_value');
             if (hintEl) {
-                hintEl.textContent = 'No accounts in the grid hold ' + cu + '.';
+                hintEl.textContent = orderUpper.length > 1
+                    ? 'No accounts in the grid hold any of these currencies.'
+                    : `No accounts in the grid hold ${orderUpper[0]}.`;
             }
-            if (totalBlank) totalBlank.textContent = '–';
             resolve();
             return;
         }
@@ -549,34 +654,11 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
         memberGridFetchAbortController = new AbortController();
         const signal = memberGridFetchAbortController.signal;
 
-        const fetchOneClosing = (accountDbId) => {
-            const params = new URLSearchParams({
-                account_id: String(accountDbId),
-                date_from: dateFrom,
-                date_to: dateTo,
-                company_id: String(memberConfig.companyId),
-                currency: currencyCode
-            });
-            return fetch(`api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`, {
-                cache: 'no-store',
-                signal
-            })
-                .then(res => res.text())
-                .then(text => parseJsonResponse(text))
-                .then(data => {
-                    if (!data.success) {
-                        throw new Error(data.error || data.message || 'Could not load history');
-                    }
-                    const historyRows = data.data?.history ?? [];
-                    return memberHistoryClosingBalanceFromRows(historyRows, cu);
-                })
-                .catch(() => normalizeNumber('0'));
-        };
-
         Promise.all(
             orderedAccounts.map((acc) => {
                 const id = Number(acc.id);
-                return fetchOneClosing(id).then(closing => ({ id, closing }));
+                return fetchMiniGridHistoryClosingsForAccount(id, orderUpper, dateFrom, dateTo, signal)
+                    .then((byCurMap) => ({ id, byCurMap }));
             })
         )
             .then((pairs) => {
@@ -585,12 +667,16 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
                     return;
                 }
                 const balanceMap = new Map();
-                (pairs || []).forEach(({ id, closing }) => {
-                    if (id > 0 && closing != null && typeof closing.plus === 'function') {
-                        balanceMap.set(id, closing);
-                    }
+                (pairs || []).forEach(({ id, byCurMap }) => {
+                    if (id <= 0 || !(byCurMap instanceof Map)) return;
+                    orderUpper.forEach((cu) => {
+                        const dec = byCurMap.get(cu);
+                        if (dec != null && typeof dec.plus === 'function') {
+                            balanceMap.set(`${id}|${cu}`, dec);
+                        }
+                    });
                 });
-                renderMemberMiniGrid(balanceMap, currencyCode, seq);
+                renderMemberMiniGrid(balanceMap, orderUpper, seq);
                 resolve();
             })
             .catch((err) => {
@@ -609,49 +695,62 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
     });
 }
 
-function renderMemberMiniGrid(balanceMap, currencyCode, seq) {
+function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     const gridEl = document.getElementById('member_balance_grid');
-    const totalEl = document.getElementById('member_balance_total_value');
     const hintEl = document.getElementById('member_balance_grid_hint');
 
-    if (seq !== memberSearchSeq || !gridEl || !totalEl) return;
+    if (seq !== memberSearchSeq || !gridEl) return;
 
     gridEl.innerHTML = '';
     if (hintEl) hintEl.textContent = '';
 
-    const listOrdered = getOrderedMiniGridAccounts(currencyCode);
+    const currenciesUpper = Array.isArray(orderUpper)
+        ? orderUpper.map((c) => String(c || '').trim().toUpperCase()).filter(Boolean)
+        : [];
 
-    if (!listOrdered.length && memberLinkedCurrenciesLoaded && (currencyCode || '').trim()) {
+    const listOrdered = getOrderedMiniGridAccountsForCurrencies(currenciesUpper);
+
+    if (!listOrdered.length && memberLinkedCurrenciesLoaded && currenciesUpper.length) {
         if (hintEl) {
-            hintEl.textContent = 'No accounts in the grid hold ' + String(currencyCode).trim().toUpperCase() + '.';
+            hintEl.textContent = currenciesUpper.length > 1
+                ? 'No accounts in the grid hold any of these currencies.'
+                : `No accounts in the grid hold ${currenciesUpper[0]}.`;
         }
-        totalEl.textContent = '–';
+        renderMemberTotalSection(new Map(), [], seq);
         return;
     }
 
-    let runningTotal = normalizeNumber('0');
+    const totalsByCu = new Map();
+    currenciesUpper.forEach((cu) => totalsByCu.set(cu, normalizeNumber('0')));
+
+    const multiCu = currenciesUpper.length > 1;
+
     listOrdered.forEach((acc) => {
         const idNum = Number(acc.id);
         const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-        const balDec = balanceMap && balanceMap.has(idNum)
-            ? balanceMap.get(idNum)
-            : normalizeNumber('0');
-        runningTotal = runningTotal.plus(balDec);
+        currenciesUpper.forEach((cu) => {
+            if (!accountHoldsMiniGridCurrency(idNum, cu)) return;
+            const key = `${idNum}|${cu}`;
+            const balDec = balanceMap && balanceMap.has(key)
+                ? balanceMap.get(key)
+                : normalizeNumber('0');
+            totalsByCu.set(cu, totalsByCu.get(cu).plus(balDec));
 
-        const cell = document.createElement('div');
-        cell.className = 'member-balance-mini-cell';
-        const ln = document.createElement('span');
-        ln.className = 'member-balance-mini-acc';
-        ln.textContent = code;
-        const rv = document.createElement('span');
-        rv.className = 'member-balance-mini-val';
-        rv.textContent = formatNumber(balDec.toString());
-        cell.appendChild(ln);
-        cell.appendChild(rv);
-        gridEl.appendChild(cell);
+            const cell = document.createElement('div');
+            cell.className = 'member-balance-mini-cell';
+            const ln = document.createElement('span');
+            ln.className = 'member-balance-mini-acc';
+            ln.textContent = multiCu ? `${code} · ${cu}` : code;
+            const rv = document.createElement('span');
+            rv.className = 'member-balance-mini-val';
+            rv.textContent = formatNumber(balDec.toString());
+            cell.appendChild(ln);
+            cell.appendChild(rv);
+            gridEl.appendChild(cell);
+        });
     });
 
-    totalEl.textContent = formatNumber(runningTotal.toString());
+    renderMemberTotalSection(totalsByCu, currenciesUpper, seq);
 }
 
 function buildMemberLinkedFilterModalList() {
