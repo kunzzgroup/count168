@@ -150,6 +150,43 @@ body.transaction-page {
     gap: clamp(8px, 1vw, 16px);
     flex-wrap: wrap;
 }
+
+/* Member Win/Loss：首列收窄时避免 Period 掉到下一行；标签独立一行 */
+.transaction-page.member-winloss-page .member-dash-col-filters .transaction-form-group.transaction-capture-date-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+}
+.transaction-page.member-winloss-page .member-dash-col-filters .transaction-form-group.transaction-capture-date-group .transaction-date-range-label {
+    margin-bottom: 0;
+}
+.transaction-page.member-winloss-page .member-dash-col-filters .transaction-capture-date-row {
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+.transaction-page.member-winloss-page .member-dash-col-filters .transaction-date-range-wrap {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 8px;
+}
+.transaction-page.member-winloss-page .member-dash-col-filters .transaction-date-range-wrap .transaction-date-range-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    font-size: clamp(8px, 0.65vw, 12px);
+}
+.transaction-page.member-winloss-page .member-dash-col-filters .transaction-quick-select-wrap {
+    flex-shrink: 0;
+    justify-content: center;
+}
+.transaction-page.member-winloss-page .member-dash-col-filters .transaction-quick-select-dropdown.dropdown {
+    width: auto;
+    min-width: min(132px, 100%);
+}
+.transaction-page.member-winloss-page .member-dash-col-filters .transaction-quick-select-btn.dropdown-toggle {
+    padding: clamp(6px, 0.42vw, 8px) clamp(8px, 0.6vw, 12px);
+    font-size: clamp(9px, 0.62vw, 12px);
+}
 .transaction-page .transaction-quick-select-wrap {
     display: flex;
     flex-direction: column;
@@ -844,7 +881,7 @@ body.transaction-page {
 .member-dash-columns {
     display: grid;
     /* 中间 Accounts 区域占弹性主体；TOTAL 仅占必要宽度（避免竖线右侧大片留白） */
-    grid-template-columns: minmax(268px, 1.05fr) minmax(200px, 1.38fr) minmax(132px, 0.52fr);
+    grid-template-columns: minmax(268px, 1.05fr) minmax(200px, 1.38fr) minmax(108px, 0.42fr);
     gap: 0;
     align-items: stretch;
 }
@@ -879,17 +916,18 @@ body.transaction-page {
     flex-direction: column;
     justify-content: center;
     align-items: flex-start;
-    padding-left: clamp(18px, 2.2vw, 28px);
-    padding-right: clamp(10px, 1.2vw, 16px);
+    padding-left: clamp(12px, 1.5vw, 22px);
+    padding-right: clamp(8px, 1vw, 14px);
     min-width: 0;
 }
 
 .member-dash-mini-toolbar {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
     margin-bottom: 6px;
+    min-width: 0;
 }
 
 .member-dash-filter-trigger {
@@ -915,6 +953,10 @@ body.transaction-page {
     font-weight: 700;
     color: #475569;
     letter-spacing: 0.04em;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .member-balance-mini-grid {
@@ -927,10 +969,63 @@ body.transaction-page {
     overflow-y: auto;
 }
 
+/* All / 多币别：按账户分组纵向堆叠，避免同一户多币拆散在九宫格里 */
+.member-balance-mini-grid.member-balance-mini-grid--multicur {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    grid-template-columns: unset;
+    max-height: 220px;
+}
+
 @media (max-width: 480px) {
-    .member-balance-mini-grid {
+    .member-balance-mini-grid:not(.member-balance-mini-grid--multicur) {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+}
+
+.member-balance-mini-acc-group {
+    border: 1px solid #dfe7f6;
+    border-radius: 6px;
+    background: #fafcff;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.member-balance-mini-acc-group-header {
+    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: 800;
+    color: #475569;
+    letter-spacing: 0.02em;
+    padding: 4px 8px;
+    background: linear-gradient(180deg, #eef4ff 0%, #e2e8f0 100%);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.member-balance-mini-cur-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 8px;
+    border-bottom: 1px solid #eef2f7;
+    font-size: clamp(10px, 0.7vw, 12px);
+    line-height: 1.2;
+}
+
+.member-balance-mini-cur-row:last-child {
+    border-bottom: none;
+}
+
+.member-balance-mini-cur-tag {
+    flex-shrink: 0;
+    font-size: clamp(9px, 0.62vw, 11px);
+    font-weight: 800;
+    color: #075985;
+    background: rgba(99, 196, 255, 0.28);
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
 }
 
 .member-balance-mini-cell {
@@ -971,15 +1066,15 @@ body.transaction-page {
     flex-direction: column;
     justify-content: center;
     align-items: flex-start;
-    gap: 4px;
-    min-height: 72px;
+    gap: 2px;
+    min-height: 52px;
     text-align: left;
     width: 100%;
-    max-width: 13rem;
+    max-width: 10.5rem;
 }
 
 .member-dash-total-caption {
-    font-size: clamp(11px, 0.82vw, 14px);
+    font-size: clamp(10px, 0.68vw, 12px);
     font-weight: 700;
     color: #475569;
     letter-spacing: 0.06em;
@@ -990,16 +1085,16 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 4px;
     width: 100%;
 }
 
 .member-dash-total-values > .member-dash-total-amt {
-    line-height: 1.15;
+    line-height: 1.12;
 }
 
 .member-dash-total-amt {
-    font-size: clamp(15px, 1.35vw, 20px);
+    font-size: clamp(13px, 1.12vw, 17px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     color: #002c49;
@@ -1010,20 +1105,20 @@ body.transaction-page {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
     width: 100%;
     font-variant-numeric: tabular-nums;
 }
 
 .member-dash-total-multi-code {
-    font-size: clamp(10px, 0.74vw, 12px);
+    font-size: clamp(9px, 0.65vw, 11px);
     font-weight: 800;
     color: #475569;
     letter-spacing: 0.04em;
 }
 
 .member-dash-total-multi-amt {
-    font-size: clamp(13px, 1.12vw, 18px);
+    font-size: clamp(11px, 0.95vw, 15px);
     font-weight: 800;
     color: #002c49;
 }
