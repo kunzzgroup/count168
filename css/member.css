@@ -1078,10 +1078,97 @@ body.transaction-page {
     align-items: stretch;
     gap: 0;
     min-height: 0;
-    line-height: 1.15;
+    line-height: 1.2;
     text-align: left;
     width: 100%;
     max-width: 100%;
+}
+
+/* ── Total 區：小卡片質感 + 分隔線橫跨整塊 ──（僅 Win/Loss 頁 body class）*/
+.transaction-page.member-winloss-page .member-dash-col-total-col .member-dash-total-inner {
+    padding: 9px 10px 10px;
+    border-radius: 8px;
+    background: linear-gradient(165deg, #fbfdff 0%, #eef4ff 52%, #e6eefb 100%);
+    border: 1px solid #c9d9ef;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.92),
+        0 1px 2px rgba(15, 41, 66, 0.05);
+    box-sizing: border-box;
+}
+
+.transaction-page.member-winloss-page .member-dash-total-caption {
+    font-size: clamp(9px, 0.64vw, 11px);
+    font-weight: 800;
+    color: #3d5a73;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding-bottom: 7px;
+    margin: 0 0 8px;
+    border-bottom: 1px solid #b8cae0;
+}
+
+.transaction-page.member-winloss-page .member-dash-total-values {
+    gap: 0;
+}
+
+.transaction-page.member-winloss-page .member-dash-total-values > .member-dash-total-amt {
+    padding: 4px 0 2px;
+    font-size: clamp(12px, 0.86vw, 15px);
+}
+
+.transaction-page.member-winloss-page .member-dash-total-amt {
+    font-weight: 800;
+}
+
+.transaction-page.member-winloss-page .member-dash-total-values.member-dash-total-values--grid {
+    margin-top: 0;
+}
+
+.transaction-page.member-winloss-page .member-dash-total-currency-grid {
+    width: 100%;
+    gap: 0;
+}
+
+/* 分隔線改用偽元素，強制橫跨整欄（避免只在幣種代碼下顯示一截線）*/
+.transaction-page.member-winloss-page .member-dash-total-grid-cell {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(2rem, auto) minmax(0, 1fr);
+    column-gap: 10px;
+    align-items: baseline;
+    padding: 8px 0 9px;
+    margin: 0;
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    border-bottom: none;
+}
+
+.transaction-page.member-winloss-page .member-dash-total-grid-cell:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(184, 202, 224, 0.25) 0%, #8aa9c4 35%, #8aa9c4 65%, rgba(184, 202, 224, 0.25) 100%);
+}
+
+.transaction-page.member-winloss-page .member-dash-total-grid-code {
+    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: 800;
+    color: #002c49;
+}
+
+.transaction-page.member-winloss-page .member-dash-total-grid-amt {
+    font-size: clamp(11px, 0.8vw, 14px);
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-align: right;
+}
+
+.transaction-page.member-winloss-page .member-dash-total-grid-amt.member-dash-total-grid-amt--neg {
+    color: #b91c1c;
 }
 
 .member-dash-total-caption {
@@ -1190,6 +1277,19 @@ body.transaction-page {
         width: 100%;
         text-align: left;
         gap: 12px;
+    }
+
+    .transaction-page.member-winloss-page .member-dash-col-total-col .member-dash-total-inner {
+        margin-top: 8px;
+        padding-top: 12px;
+        border-top: none;
+    }
+
+    .transaction-page.member-winloss-page .member-dash-total-caption {
+        align-self: center;
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
     }
 }
 
