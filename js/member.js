@@ -507,21 +507,12 @@ function getMemberMiniGridCurrencies() {
     return available.filter(code => memberSelectedCurrencies.has(code));
 }
 
-/**
- * 右側迷你矩陣＋Total 實際用到的幣別列：選「All」時視為未選定具體幣別，不展示（與篩選列下留白一致）。
- * {@link getMemberMiniGridCurrencies} 在 All 時仍返回全表，供他處如果需要區分語意請勿混用。
- */
-function getMemberMiniGridDisplayCurrencies() {
-    if (memberIsAllSelected) return [];
-    return getMemberMiniGridCurrencies();
-}
-
-/** 迷你矩陣 + Total 僅在有关联账号且已選定具體幣別（非 All）時顯示。 */
+/** 迷你矩陣 + Total 僅在有关联账号且已選幣別（含 All）時顯示。 */
 function syncMemberDashRightRailVisibility() {
     const rail = document.querySelector('.member-dash-right-rail');
     const cols = document.querySelector('.member-dash-columns');
     if (!rail || !cols) return;
-    const show = memberLinkedAccountsList.length > 0 && getMemberMiniGridDisplayCurrencies().length > 0;
+    const show = memberLinkedAccountsList.length > 0 && getMemberMiniGridCurrencies().length > 0;
     rail.style.display = show ? '' : 'none';
     rail.setAttribute('aria-hidden', show ? 'false' : 'true');
     cols.classList.toggle('member-dash-columns--no-mini-rail', !show);
@@ -633,11 +624,6 @@ function renderMemberMiniGridInitialShell() {
     const hintEl = document.getElementById('member_balance_grid_hint');
     const currLine = document.getElementById('member_balance_grid_currency_line');
     if (!gridEl) return;
-
-    if (memberIsAllSelected || getMemberMiniGridCurrencies().length === 0) {
-        clearMemberMiniGridDisplay();
-        return;
-    }
 
     const raw = (typeof window.MEMBER_MINI_GRID_SHELL_CCY !== 'undefined' && Array.isArray(window.MEMBER_MINI_GRID_SHELL_CCY))
         ? window.MEMBER_MINI_GRID_SHELL_CCY
@@ -831,7 +817,7 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
             return;
         }
 
-        const gridCurrencies = getMemberMiniGridDisplayCurrencies();
+        const gridCurrencies = getMemberMiniGridCurrencies();
         const dateFrom = document.getElementById('date_from') && document.getElementById('date_from').value;
         const dateTo = document.getElementById('date_to') && document.getElementById('date_to').value;
 

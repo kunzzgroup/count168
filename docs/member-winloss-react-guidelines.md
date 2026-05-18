@@ -130,30 +130,19 @@ CSS 要點：
 
 - `memberIsAllSelected`（boolean）
 - `memberSelectedCurrencies`（`Set`，大寫幣別）
-- **All**：下方明細表仍可一次拉「全部幣別」；**不叫**「選了具體 MYR/SGD…」
+- **All**：展示 `getAvailableCurrencies()` 全部
 - **非 All、且未勾任何幣**：`getMemberMiniGridCurrencies()` 必須回 **[]**（**禁止**再用 `available` 全列表兜底），否則會與下方「请选择货币」矛盾
 
-### 6.2 「右側迷你區」幣別語意（拆分兩個 helper）
-
-- `getMemberMiniGridCurrencies()`：All 時回傳 **全部 `available`**（若他處語意需要「邏輯上含全部幣」可讀此函式）
-- **`getMemberMiniGridDisplayCurrencies()`**（實際畫矩陣／Total／顯示右欄）：**若 `memberIsAllSelected` → 一律 `[]`**；否則等同 `getMemberMiniGridCurrencies()`
-
-產品：**選 All 時篩選區下方留白**（無迷你矩陣、無 Total）；**僅在點選具體幣別（可多選）後**才出現右側區塊（對齊圖一，而非 All 仍掛一塊表的圖二）。
-
-### 6.3 右側迷你區顯示條件（`syncMemberDashRightRailVisibility`）
+### 6.2 右側迷你區顯示條件（`syncMemberDashRightRailVisibility`）
 
 顯示 **同時** 滿足：
 
 1. `memberLinkedAccountsList.length > 0`
-2. `getMemberMiniGridDisplayCurrencies().length > 0`（**非 All 且** 至少一枚具體幣別）
+2. `getMemberMiniGridCurrencies().length > 0`
 
 否則：`member-dash-right-rail` `display: none`，並在 `member-dash-columns` 加上 `member-dash-columns--no-mini-rail`。
 
-`fetchMemberMiniGridBalances` 取幣別列表時與 **6.2** 同一套 `getMemberMiniGridDisplayCurrencies()`。
-
-`renderMemberMiniGridInitialShell()`：若 **`memberIsAllSelected` 或** `getMemberMiniGridCurrencies().length === 0`，則 **`clearMemberMiniGridDisplay()`** 後 return，不畫骨架。
-
-### 6.4 與明細表一致
+### 6.3 與明細表一致
 
 - `fetchMemberHistory`：若「有可用幣別但使用者未選任何幣」→ 只顯示占位（如「请选择货币」），並應 **clear 迷你區**（與現行 JS 一致）
 
@@ -205,7 +194,7 @@ CSS 要點：
 | 幣別 | `useCurrencyFilters()`：`allSelected`、`selectedSet`、`availableCurrencies` |
 | 迷你矩陣 | `MiniBalanceMatrix`：props `currencies[]`、`accounts[]`、`balances`、`onScroll` |
 | Total | `MiniTotalsPanel`：單幣也顯示 code + amount |
-| 右欄可見性 | `useMemo`：`showRail = linkedAccounts.length > 0 && !allSelected && concreteCurrencies.length > 0`（**All 時不顯示**右欄） |
+| 右欄可見性 | `useMemo`：`showRail = linkedAccounts.length > 0 && gridCurrencies.length > 0` |
 | 佈局 | 頂層：`CSS Grid`；右欄內：`Grid`（toolbar+matrix / total 跨越行），**禁止** Total 欄 `min-width: 0` 無下限 |
 | Modal | `Dialog` + 4-column `display:grid` checkbox 區；**不含幣別長字串** |
 
@@ -213,9 +202,8 @@ CSS 要點：
 
 ## 11. 驗收檢查清單（React）
 
-- [ ] **選 All**：迷你矩陣 + Total **隱藏**，篩選白卡下方留白（與圖一一致）  
-- [ ] **僅選具體幣別（一個或多個）**：右側區塊顯示、靠卡片右緣，Total **不消失**  
 - [ ] 非 All 且未選任何幣：迷你矩陣 + Total **隱藏**，明細區提示選幣別  
+- [ ] All 或已選幣：右側整塊 **靠卡片右緣**，Total **不消失**（第二欄 `minmax(104px, max-content)`）  
 - [ ] Accounts 按鈕列與 Total 卡片 **頂邊對齊**（Grid 跨行，**非** 再用 spacer 對齊矩陣表頭）  
 - [ ] 迷你矩陣橫向捲動、帳號欄 sticky  
 - [ ] Modal 4 欄、無幣別贅字、寬度不繼承全站 1000px+ modal  
