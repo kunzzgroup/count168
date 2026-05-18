@@ -133,14 +133,32 @@ function applyDataCaptureType(nextType) {
 }
 
 /**
- * 依純文字剪貼簿判斷是否為 Citibet 報表（不含鬆散 formatBased，避免一般 Excel 被誤判）。
+ * Citibet 報表剪貼簿常為 Tab 分隔，且含 Upline/Downline 區塊標題；用於降低「一般表格含 overall 字樣」的誤判。
+ * @param {string} pastedData
+ */
+function pastedPlainTextLooksCitibetReport(pastedData) {
+    if (!pastedData || typeof pastedData !== 'string' || !pastedData.includes('\t')) return false;
+    const lower = pastedData.toLowerCase();
+    return (
+        lower.includes('upline payment') ||
+        lower.includes('downline payment') ||
+        lower.includes('upline payment report') ||
+        lower.includes('downline payment report')
+    );
+}
+
+/**
+ * 依純文字剪貼簿判斷是否為 Citibet 報表（偏嚴格，避免一般 Excel Submit 後 summary 錯位）。
  * @param {string} pastedData
  * @returns {string|null} CITIBET_MAJOR、CITIBET 或 null
  */
 function autoDetectDataCaptureTypeFromPastePlainText(pastedData) {
     if (!pastedData || typeof pastedData !== 'string') return null;
     if (parseCitibetMajorPaymentReport(pastedData)) return 'CITIBET_MAJOR';
-    if (parseCitibetPaymentReport(pastedData)) return 'CITIBET';
+    // 舊版 Citibet：須像報表（Tab + Upline/Downline），避免僅「overall + my earnings」誤判
+    if (pastedPlainTextLooksCitibetReport(pastedData) && parseCitibetPaymentReport(pastedData)) {
+        return 'CITIBET';
+    }
     return null;
 }
 
@@ -10065,7 +10083,11 @@ function handleCellPaste(e) {
     if (detectedCaptureType) {
         applyDataCaptureType(detectedCaptureType);
     } else if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
-        if (!parseCitibetMajorPaymentReport(pastedData) && !parseCitibetPaymentReport(pastedData)) {
+        const stillCitibetShape =
+            parseCitibetMajorPaymentReport(pastedData) ||
+            parseCitibetPaymentReport(pastedData) ||
+            (pastedPlainTextLooksCitibetReport(pastedData) && parseCitibetFormatBasedPaste(pastedData));
+        if (!stillCitibetShape) {
             applyDataCaptureType('1.Text');
         }
     }
@@ -16454,10 +16476,14 @@ function handleCellPaste(e) {
     }
 
     // Citibet 专用解析（先于通用 Payment 逻辑）
-    // 优先用结构化解析（得到第二张图那样的 OVERALL / Upline Major / My Earnings / 多行 Downline Major）；都不行再按格式粘贴
+    // 优先用结构化解析（得到第二张图那样的 OVERALL / Upline Major / My Earnings / 多行 Downline Major）；
+    // parseCitibetFormatBasedPaste 極鬆，僅在內容具 Citibet 報表特徵時才後備，避免一般 Tab Excel 被整表重排導致 Submit 錯亂。
     let citibetParsed = null;
     if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
-        citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData) || parseCitibetFormatBasedPaste(pastedData);
+        citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+        if (!citibetParsed && pastedPlainTextLooksCitibetReport(pastedData)) {
+            citibetParsed = parseCitibetFormatBasedPaste(pastedData);
+        }
     } else {
         citibetParsed = parseCitibetPaymentReport(pastedData);
     }
