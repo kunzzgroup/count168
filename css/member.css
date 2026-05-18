@@ -910,21 +910,65 @@ body.transaction-page {
     grid-template-columns: minmax(0, 1fr);
 }
 
-/* 右側：矩陣 + Total 貼齊卡片右緣（老闆要數字區在右邊成區，不靠中欄正中間浮一塊） */
+/* 右側：Accounts 與 Total 同列頂對齊；矩陣僅佔左下（Grid 第2列） */
+.member-dash-columns > .member-dash-right-rail {
+    justify-self: end;
+    width: max-content;
+    max-width: 100%;
+}
+
 .member-dash-right-rail {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    justify-content: flex-end;
-    align-items: stretch;
-    align-content: flex-start;
+    display: grid;
+    grid-template-columns: max-content max-content;
+    grid-template-rows: auto auto;
+    column-gap: 0;
+    row-gap: 4px;
+    align-items: start;
     min-width: 0;
     border-left: 1px solid #e5ecf6;
     padding-left: clamp(10px, 1.1vw, 15px);
     box-sizing: border-box;
 }
 
-.member-dash-right-rail > .member-dash-col-grid.member-dash-col-split {
+.member-dash-rail-toolbar {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+}
+
+.member-dash-rail-matrix {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+}
+
+.member-dash-rail-total {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.member-dash-right-rail .member-dash-total-column-stack {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.member-dash-right-rail .member-dash-total-matrix {
+    flex: 1;
+    min-height: 0;
+}
+
+.member-dash-right-rail .member-dash-mini-toolbar {
+    margin-bottom: 0;
+}
+
+.member-dash-right-rail > .member-dash-rail-matrix.member-dash-col-split {
     border-left: none;
     padding-left: 0;
     padding-right: 2px;
@@ -962,12 +1006,13 @@ body.transaction-page {
     padding-left: clamp(10px, 1.1vw, 15px);
 }
 
-.member-dash-right-rail > .member-dash-col-total-col.member-dash-col-split {
+.member-dash-right-rail > .member-dash-rail-total.member-dash-col-total-col.member-dash-col-split {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     align-items: stretch;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
+    min-height: 0;
     padding-left: 6px;
     padding-right: 2px;
     padding-top: 0;
@@ -1163,7 +1208,7 @@ body.transaction-page {
     font-weight: 600;
 }
 
-/* ── 第 3 欄 Total：與左側迷你矩陣同款邊框／表頭／列線，並對齊 Accounts 工具列高度 ── */
+/* 第 3 欄 Total：與左側迷你矩陣同款邊框；頂列與 Accounts 對齊（見 .member-dash-right-rail Grid） */
 .member-dash-total-column-stack {
     display: flex;
     flex-direction: column;
@@ -1172,13 +1217,6 @@ body.transaction-page {
     min-width: 0;
     max-width: 100%;
     width: 100%;
-}
-
-/* 與 .member-dash-mini-toolbar 同高，讓兩欄「表格外框」頂端與表頭列對齊 */
-.member-dash-total-toolbar-gap {
-    flex: 0 0 auto;
-    min-height: var(--member-dash-matrix-toolbar-slot);
-    margin-bottom: 4px;
 }
 
 .member-dash-total-matrix {
@@ -1213,7 +1251,7 @@ body.transaction-page {
 }
 
 .member-dash-total-matrix-body {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     min-height: 0;
     max-height: 240px;
     overflow-x: visible;
@@ -1302,12 +1340,24 @@ body.transaction-page {
     }
 
     .member-dash-right-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        width: 100%;
+        max-width: 100%;
         border-left: none;
         padding-left: 0;
         padding-top: 10px;
         margin-top: 4px;
         border-top: 1px solid #e5ecf6;
-        justify-content: flex-end;
+    }
+
+    .member-dash-rail-toolbar,
+    .member-dash-rail-matrix,
+    .member-dash-rail-total {
+        grid-column: auto;
+        grid-row: auto;
+        align-self: flex-end;
     }
 
     .member-dash-col-total-col.member-dash-col-split {
@@ -1315,9 +1365,6 @@ body.transaction-page {
         padding-left: 0;
         padding-right: 0;
         padding-top: 4px;
-    }
-    .member-dash-total-toolbar-gap {
-        display: none;
     }
 
     .member-dash-total-column-stack {
@@ -1357,8 +1404,8 @@ body.transaction-page {
 
 /* Linked accounts modal：帳號清單不含幣別、窄版；須覆寫 .transaction-page .transaction-modal-content 的 clamp 寬 */
 .transaction-page .transaction-modal-content.member-linked-filter-modal-content {
-    width: min(100%, 380px);
-    max-width: min(100%, 380px);
+    width: min(100%, 400px);
+    max-width: min(100%, 400px);
     margin: 8% auto;
 }
 
@@ -1408,11 +1455,11 @@ body.transaction-page {
 
 .member-linked-filter-checkboxes {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px 12px;
-    max-height: 280px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px 10px;
+    max-height: 260px;
     overflow-y: auto;
-    padding: 8px 0;
+    padding: 6px 0;
 }
 
 .member-linked-cb-row {
@@ -1447,6 +1494,6 @@ body.transaction-page {
 
 @media (max-width: 480px) {
     .member-linked-filter-checkboxes {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
