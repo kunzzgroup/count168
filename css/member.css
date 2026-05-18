@@ -926,7 +926,7 @@ body.transaction-page {
     padding-left: clamp(3px, 0.4vw, 7px);
     padding-right: 2px;
     padding-top: 0;
-    min-width: 0;
+    min-width: min-content;
 }
 
 .member-dash-mini-toolbar {
@@ -1127,7 +1127,9 @@ body.transaction-page {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    overflow: hidden;
+    overflow-x: visible;
+    overflow-y: auto;
+    max-height: 240px;
 }
 
 .member-dash-total-matrix-hd {
@@ -1186,10 +1188,11 @@ body.transaction-page {
 
 .member-dash-total-grid-cell {
     display: grid;
-    grid-template-columns: minmax(2em, auto) minmax(0, 1fr);
+    /* 第二欄勿用 minmax(0,1fr)，會在窄欄內把金額壓扁裁切 */
+    grid-template-columns: minmax(2.5em, auto) minmax(min-content, max-content);
     column-gap: 8px;
     align-items: baseline;
-    padding: 3px 5px;
+    padding: 3px 6px;
     margin: 0;
     border: none;
     background: #fff;
@@ -1213,6 +1216,8 @@ body.transaction-page {
     color: #0f2942;
     text-align: right;
     line-height: 1.15;
+    white-space: nowrap;
+    min-width: min-content;
 }
 
 .member-dash-total-grid-amt.member-dash-total-grid-amt--neg {
