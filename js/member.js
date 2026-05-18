@@ -598,7 +598,6 @@ function renderMemberTotalSection(totalsByCu, currencyOrderUpper, seq) {
     totalEl.classList.add('member-dash-total-values--grid');
     const grid = document.createElement('div');
     grid.className = 'member-dash-total-currency-grid';
-    grid.style.gridTemplateColumns = `repeat(${order.length}, minmax(0, 1fr))`;
     grid.setAttribute('role', 'group');
     grid.setAttribute('aria-label', 'Totals by currency');
 
@@ -783,7 +782,6 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     listOrdered.forEach((acc, accIdx) => {
         const idNum = Number(acc.id);
         const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-        const hue = 204 + (((idNum >>> 0) * 7919 + accIdx + 131) % 58);
         const isLastRow = accIdx === lastRi;
 
         const rowHead = document.createElement('div');
@@ -792,8 +790,6 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
         rowHead.setAttribute('role', 'rowheader');
         rowHead.textContent = code;
         rowHead.title = code;
-        rowHead.style.setProperty('--mini-band-accent', `hsl(${hue} 52% 40%)`);
-        rowHead.style.setProperty('--mini-band-bg', `hsl(${hue} 38% 97%)`);
         gridEl.appendChild(rowHead);
 
         currenciesUpper.forEach((cu, ci) => {

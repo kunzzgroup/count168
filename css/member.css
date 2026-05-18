@@ -880,8 +880,8 @@ body.transaction-page {
 
 .member-dash-columns {
     display: grid;
-    /* 中区为「账户×币别」矩阵；TOTAL 用同列数横向网格，适当加宽 */
-    grid-template-columns: minmax(268px, 1.02fr) minmax(220px, 1.55fr) minmax(128px, 0.78fr);
+    /* TOTAL 为多行紧凑文本，右侧列收窄 */
+    grid-template-columns: minmax(268px, 1.05fr) minmax(216px, 1.52fr) minmax(104px, 0.52fr);
     gap: 0;
     align-items: stretch;
 }
@@ -916,8 +916,8 @@ body.transaction-page {
     flex-direction: column;
     justify-content: center;
     align-items: flex-start;
-    padding-left: clamp(12px, 1.5vw, 22px);
-    padding-right: clamp(8px, 1vw, 14px);
+    padding-left: clamp(10px, 1.2vw, 18px);
+    padding-right: clamp(6px, 0.85vw, 12px);
     min-width: 0;
 }
 
@@ -965,33 +965,32 @@ body.transaction-page {
     overflow: auto;
 }
 
-/* 账户 × 币别矩阵（首行：币别表头；下列：账户 + 各币余额） */
+/* 账户 × 币别矩阵：扁平、主题蓝灰（与页面 #002C49 / sidebar 同源），少装饰 */
 .member-balance-mini-matrix {
     row-gap: 0;
     column-gap: 0;
-    border: 1px solid #d5e0f0;
-    border-radius: 8px;
+    border: 1px solid #dfe7ef;
+    border-radius: 4px;
     background: #fff;
     box-sizing: border-box;
 }
 
 .member-balance-matrix-corner {
-    background: #eef3fa;
-    border-right: 1px solid #cfdcf0;
-    border-bottom: 1px solid #c7d4ef;
-    min-height: 28px;
+    background: #eff4fb;
+    border-right: 1px solid #e5ecf6;
+    border-bottom: 1px solid #dfe7ef;
+    min-height: 24px;
 }
 
 .member-balance-matrix-th {
-    font-size: clamp(9px, 0.68vw, 11px);
-    font-weight: 800;
-    color: #0f2744;
-    letter-spacing: 0.05em;
+    font-size: clamp(9px, 0.67vw, 11px);
+    font-weight: 700;
+    color: #002c49;
     text-align: center;
-    padding: 6px 5px;
-    border-right: 1px solid #dfe8f4;
-    border-bottom: 1px solid #c7d4ef;
-    background: linear-gradient(180deg, #e9f1fb 0%, #dce8f8 100%);
+    padding: 5px 4px;
+    border-right: 1px solid #e5ecf6;
+    border-bottom: 1px solid #dfe7ef;
+    background: #e9f1ff;
 }
 
 .member-balance-matrix-th--edge {
@@ -999,14 +998,14 @@ body.transaction-page {
 }
 
 .member-balance-matrix-rowhead {
-    font-weight: 800;
+    font-weight: 700;
     font-size: clamp(10px, 0.72vw, 12px);
-    color: #1e293b;
-    padding: 5px 8px 5px 10px;
-    border-right: 1px solid #dfe8f4;
+    color: #002c49;
+    padding: 4px 6px;
+    border-right: 1px solid #e5ecf6;
     border-bottom: 1px solid #eef2f7;
-    background: var(--mini-band-bg, #f8fafc);
-    border-left: 3px solid var(--mini-band-accent, #94a3b8);
+    background: #f5f8fc;
+    border-left: 2px solid #4a7396;
     display: flex;
     align-items: center;
     min-width: 0;
@@ -1020,17 +1019,17 @@ body.transaction-page {
 }
 
 .member-balance-matrix-cell {
-    padding: 5px 8px;
+    padding: 4px 6px;
     text-align: right;
     font-variant-numeric: tabular-nums;
     border-right: 1px solid #eef2f7;
     border-bottom: 1px solid #eef2f7;
-    background: #ffffff;
+    background: #fff;
     min-width: 0;
 }
 
 .member-balance-matrix-cell--alt {
-    background: #f9fbff;
+    background: #f9fbfd;
 }
 
 .member-balance-matrix-cell--edge {
@@ -1048,9 +1047,9 @@ body.transaction-page {
 }
 
 .member-balance-matrix-amt {
-    font-weight: 700;
-    font-size: clamp(10px, 0.72vw, 12px);
-    color: #0f172a;
+    font-weight: 600;
+    font-size: clamp(10px, 0.71vw, 12px);
+    color: #0f2942;
 }
 
 .member-balance-matrix-amt--neg {
@@ -1073,19 +1072,19 @@ body.transaction-page {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: stretch;
-    gap: 6px;
-    min-height: 52px;
+    align-items: flex-start;
+    gap: 4px;
+    min-height: 0;
     text-align: left;
     width: 100%;
     max-width: 100%;
 }
 
 .member-dash-total-caption {
-    font-size: clamp(10px, 0.68vw, 12px);
+    font-size: clamp(10px, 0.67vw, 11px);
     font-weight: 700;
-    color: #475569;
-    letter-spacing: 0.06em;
+    color: #52667a;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
 }
 
@@ -1102,8 +1101,8 @@ body.transaction-page {
 }
 
 .member-dash-total-amt {
-    font-size: clamp(13px, 1.12vw, 17px);
-    font-weight: 800;
+    font-size: clamp(12px, 1vw, 15px);
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #002c49;
 }
@@ -1112,48 +1111,51 @@ body.transaction-page {
     color: #b91c1c;
 }
 
-/* 多币：TOTAL 与中间矩阵同序，按「一币一格」横向展示 */
+/* 多币 TOTAL：纵向紧凑两行式，不占宽、无卡片 */
 .member-dash-total-values.member-dash-total-values--grid {
     width: 100%;
     min-width: 0;
-    overflow-x: auto;
 }
 
 .member-dash-total-currency-grid {
-    display: grid;
-    gap: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
     width: 100%;
-    min-width: 0;
+    max-width: 100%;
 }
 
 .member-dash-total-grid-cell {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-    padding: 8px 10px;
-    border: 1px solid #d5e0f0;
-    border-radius: 8px;
-    background: linear-gradient(180deg, #fafcff 0%, #f0f6fd 100%);
-    min-width: 0;
-    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 2.5em minmax(0, 1fr);
+    column-gap: 8px;
+    align-items: baseline;
+    padding: 3px 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.member-dash-total-grid-cell:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
 }
 
 .member-dash-total-grid-code {
-    font-size: clamp(10px, 0.72vw, 12px);
-    font-weight: 800;
-    color: #475569;
-    letter-spacing: 0.08em;
+    font-size: clamp(10px, 0.7vw, 11px);
+    font-weight: 700;
+    color: #002c49;
 }
 
 .member-dash-total-grid-amt {
-    font-size: clamp(11px, 0.98vw, 15px);
-    font-weight: 800;
+    font-size: clamp(11px, 0.88vw, 13px);
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #002c49;
     text-align: right;
     line-height: 1.2;
-    word-break: break-all;
 }
 
 .member-dash-total-grid-amt.member-dash-total-grid-amt--neg {
