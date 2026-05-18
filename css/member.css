@@ -1319,10 +1319,23 @@ body.transaction-page {
     }
 }
 
-/* Linked accounts modal (subset for grid) */
-.member-linked-filter-modal-content {
-    max-width: 520px;
-    margin: 5% auto;
+/* Linked accounts modal：帳號清單不含幣別、窄版；須覆寫 .transaction-page .transaction-modal-content 的 clamp 寬 */
+.transaction-page .transaction-modal-content.member-linked-filter-modal-content {
+    width: min(100%, 380px);
+    max-width: min(100%, 380px);
+    margin: 8% auto;
+}
+
+.transaction-page .transaction-modal-content.member-linked-filter-modal-content .transaction-modal-body {
+    padding: 12px 16px;
+}
+
+.transaction-page .transaction-modal-content.member-linked-filter-modal-content .transaction-modal-header {
+    padding: 12px 16px;
+}
+
+.transaction-page .transaction-modal-content.member-linked-filter-modal-content .member-linked-filter-footer {
+    padding: 10px 16px 14px;
 }
 
 .member-linked-filter-bar {
@@ -1398,6 +1411,6 @@ body.transaction-page {
 
 @media (max-width: 480px) {
     .member-linked-filter-checkboxes {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
 }

@@ -1014,12 +1014,7 @@ function buildMemberLinkedFilterModalList() {
         cb.value = String(id);
         cb.checked = memberWLGridSelectedIds.has(id);
         const span = document.createElement('span');
-        const curTags = [];
-        const cset = memberLinkedAccountCurrenciesMap.get(id);
-        if (cset && cset.size) {
-            [...cset].sort().forEach((c) => { if (c) curTags.push(c); });
-        }
-        span.textContent = curTags.length ? `${label || id} · ${curTags.join('/')}` : String(label || id);
+        span.textContent = String(label || id);
         row.appendChild(cb);
         row.appendChild(span);
         box.appendChild(row);
