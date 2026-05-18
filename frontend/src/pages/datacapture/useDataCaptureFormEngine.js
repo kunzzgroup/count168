@@ -125,9 +125,8 @@ export function useDataCaptureFormEngine(companyId) {
       const v = e.target.value;
       setCaptureDate(v);
       await reloadProcessesForDate(v, { preserveSelection: false });
-      if (typeof window.loadSubmittedProcesses === "function") {
-        await window.loadSubmittedProcesses();
-      }
+      // Submitted list: `useDataCaptureSubmittedList` refreshes when `captureDate` changes — do not call
+      // `loadSubmittedProcesses()` here (avoids racing legacy/React DOM updates on `#submittedProcessesList`).
     },
     [reloadProcessesForDate]
   );
@@ -182,9 +181,6 @@ export function useDataCaptureFormEngine(companyId) {
     setCaptureDate(today);
     clearProcessSelection();
     void reloadProcessesForDate(today, { preserveSelection: false });
-    if (typeof window.loadSubmittedProcesses === "function") {
-      void window.loadSubmittedProcesses();
-    }
   }, [clearProcessSelection, reloadProcessesForDate]);
 
   const windowHooksRef = useRef({});

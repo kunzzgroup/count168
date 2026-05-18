@@ -1117,8 +1117,13 @@ function getLocalDateString(date = null) {
 
 // Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交时刻 created_at（含日期）
 async function loadSubmittedProcesses() {
-    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_REFRESH_SUBMITTED_PROCESSES__ === 'function') {
+    const spa =
+        window.__DATA_CAPTURE_REACT_FORM__ === true || window.__DATA_CAPTURE_SPA_BOOTSTRAP__ === true;
+    if (spa && typeof window.__DC_REFRESH_SUBMITTED_PROCESSES__ === 'function') {
         await window.__DC_REFRESH_SUBMITTED_PROCESSES__();
+        return;
+    }
+    if (spa) {
         return;
     }
     try {
@@ -2349,10 +2354,11 @@ async function addSubmittedProcess(processData) {
 
 // Render submitted processes list
 function renderSubmittedProcesses() {
-    if (window.__DATA_CAPTURE_REACT_FORM__) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ || window.__DATA_CAPTURE_SPA_BOOTSTRAP__) {
         return;
     }
     const listContainer = document.getElementById('submittedProcessesList');
+    if (!listContainer) return;
 
     if (submittedProcesses.length === 0) {
         listContainer.innerHTML = '<div class="no-data">No processes submitted for this date</div>';
@@ -2411,7 +2417,7 @@ function renderSubmittedProcesses() {
 function showNotification(message, type = 'success') {
     // SPA: never append raw nodes into `#processNotificationContainer` — React owns that subtree.
     // If the bridge is not ready yet, skipping DOM avoids removeChild conflicts with React.
-    if (window.__DATA_CAPTURE_REACT_FORM__) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ || window.__DATA_CAPTURE_SPA_BOOTSTRAP__) {
         if (typeof window.__DC_PUSH_NOTIFICATION__ === 'function') {
             window.__DC_PUSH_NOTIFICATION__(message, type);
         } else {
@@ -2950,7 +2956,9 @@ async function loadProcessesByDate() {
             const rows = result.data || [];
             syncProcessDataMapFromApiData(rows);
 
-            if (window.__DATA_CAPTURE_REACT_FORM__) {
+            const spa =
+                window.__DATA_CAPTURE_REACT_FORM__ === true || window.__DATA_CAPTURE_SPA_BOOTSTRAP__ === true;
+            if (spa) {
                 if (typeof window.__DC_SET_PROCESS_LIST__ === 'function') {
                     window.__DC_SET_PROCESS_LIST__(rows, selectedDate);
                 }
@@ -25010,7 +25018,9 @@ async function switchDataCaptureCompany(companyId) {
 function setupFormValidationListeners() {
     // Listen for date changes
     const dateInput = document.getElementById('capture_date');
-    if (dateInput && !window.__DATA_CAPTURE_REACT_FORM__) {
+    const skipNativeDateListener =
+        window.__DATA_CAPTURE_REACT_FORM__ === true || window.__DATA_CAPTURE_SPA_BOOTSTRAP__ === true;
+    if (dateInput && !skipNativeDateListener) {
         dateInput.addEventListener('change', async function () {
             console.log('Date changed to:', this.value);
             // Reload processes based on new date
