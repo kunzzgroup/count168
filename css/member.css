@@ -899,7 +899,7 @@ body.transaction-page {
 }
 
 .member-dash-col-grid.member-dash-col-split {
-    padding-right: clamp(4px, 0.65vw, 10px);
+    padding-right: clamp(2px, 0.38vw, 6px);
 }
 
 .member-dash-col-split {
@@ -912,7 +912,7 @@ body.transaction-page {
     flex-direction: column;
     justify-content: flex-start;
     align-items: flex-start;
-    padding-left: clamp(5px, 0.65vw, 9px);
+    padding-left: clamp(3px, 0.42vw, 7px);
     padding-right: 2px;
     padding-top: 0;
     min-width: 0;
@@ -965,8 +965,9 @@ body.transaction-page {
 
 .member-balance-mini-grid.member-balance-mini-hblocks {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(156px, 100%), 1fr));
-    gap: 8px 10px;
+    grid-template-columns: repeat(auto-fit, minmax(min(112px, 100%), auto));
+    justify-items: start;
+    gap: 6px 8px;
     align-items: start;
 }
 
@@ -976,7 +977,9 @@ body.transaction-page {
     background: #fff;
     box-sizing: border-box;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
+    width: max-content;
+    max-width: 100%;
 }
 
 .member-bal-hblock-hd {
@@ -992,21 +995,21 @@ body.transaction-page {
 
 .member-bal-hblock-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: auto auto;
     column-gap: 0;
     row-gap: 4px;
-    padding: 4px 0;
-    align-items: start;
+    padding: 3px 0;
+    align-items: stretch;
 }
 
-/* 中央垂直分割線（左欄右緣）：色階較區塊外框深，對齊表格中線 */
+/* 中央垂直線與等高 stretch；收窄內距讓帳號／金額靠攏、整塊變窄 */
 .member-bal-hblock-body > .member-bal-hblock-col:first-of-type {
-    padding: 4px 10px 4px 8px;
+    padding: 4px 5px 4px 5px;
     border-right: 1px solid #7d96b5;
 }
 
 .member-bal-hblock-body > .member-bal-hblock-col:nth-of-type(2) {
-    padding: 4px 8px 4px 10px;
+    padding: 4px 5px 4px 5px;
 }
 
 .member-bal-hblock-col {
@@ -1018,10 +1021,13 @@ body.transaction-page {
 
 .member-bal-hblock-row {
     display: grid;
-    grid-template-columns: minmax(1.85rem, auto) minmax(0, 1fr);
-    gap: 4px;
+    grid-template-columns: auto auto;
+    column-gap: 6px;
+    justify-content: start;
     align-items: baseline;
     font-variant-numeric: tabular-nums;
+    width: max-content;
+    max-width: 100%;
 }
 
 .member-bal-hblock-code {
@@ -1056,12 +1062,17 @@ body.transaction-page {
         grid-template-columns: 1fr;
     }
 
+    .member-bal-hblock {
+        width: 100%;
+        max-width: 100%;
+    }
+
     .member-bal-hblock-body > .member-bal-hblock-col:first-of-type {
-        padding: 4px 8px 4px 6px;
+        padding: 4px 6px 4px 5px;
     }
 
     .member-bal-hblock-body > .member-bal-hblock-col:nth-of-type(2) {
-        padding: 4px 6px 4px 8px;
+        padding: 4px 5px 4px 6px;
     }
 }
 
