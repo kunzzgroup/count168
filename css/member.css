@@ -896,6 +896,8 @@ body.transaction-page {
      * 左欄固定比例；右欄 Total 依內容寬。
      */
     --member-dash-filter-track: clamp(260px, 40%, 560px);
+    /* 第 2 欄 Accounts 工具列與第 3 欄占位同高，兩個「表格外框」頂對齊 */
+    --member-dash-matrix-toolbar-slot: 34px;
     grid-template-columns: var(--member-dash-filter-track) minmax(0, 1fr) minmax(104px, max-content);
     gap: 0;
     align-items: stretch;
@@ -926,7 +928,7 @@ body.transaction-page {
 }
 
 .member-dash-col-grid.member-dash-col-split {
-    padding-right: clamp(2px, 0.35vw, 6px);
+    padding-right: 2px;
 }
 
 .member-dash-col-filters {
@@ -944,7 +946,7 @@ body.transaction-page {
     flex-direction: column;
     justify-content: flex-start;
     align-items: stretch;
-    padding-left: clamp(3px, 0.4vw, 7px);
+    padding-left: 6px;
     padding-right: 2px;
     padding-top: 0;
     min-width: 0;
@@ -958,6 +960,8 @@ body.transaction-page {
     gap: 6px;
     margin-bottom: 4px;
     min-width: 0;
+    min-height: var(--member-dash-matrix-toolbar-slot);
+    box-sizing: border-box;
 }
 
 .member-dash-filter-trigger {
@@ -1148,10 +1152,10 @@ body.transaction-page {
     width: 100%;
 }
 
-/* 與 .member-dash-mini-toolbar 同高，讓 Total 表頭列與 MYR/SGD 表頭對齊 */
+/* 與 .member-dash-mini-toolbar 同高，讓兩欄「表格外框」頂端與表頭列對齊 */
 .member-dash-total-toolbar-gap {
     flex: 0 0 auto;
-    min-height: 30px;
+    min-height: var(--member-dash-matrix-toolbar-slot);
     margin-bottom: 4px;
 }
 
@@ -1177,7 +1181,13 @@ body.transaction-page {
     letter-spacing: 0.1em;
     text-transform: uppercase;
     border-bottom: 1px solid #dfe7ef;
-    background: linear-gradient(180deg, #e9f1ff 0%, #dfeaf8 100%);
+    /* 與 .member-balance-matrix-th 同底色，與中欄矩陣表頭一條線 */
+    background: #e9f1ff;
+    min-height: 22px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .member-dash-total-matrix-body {
