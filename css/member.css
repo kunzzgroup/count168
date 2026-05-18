@@ -832,26 +832,33 @@ body.transaction-page {
     text-transform: uppercase;
 }
 
-/* ── Member Win/Loss dashboard row: filters | mini grid | total ── */
+/* ── Member Win/Loss: single bar, three columns (filters | grid | total) ── */
 .transaction-page.member-winloss-page .member-winloss-dash.transaction-main-content {
     margin-bottom: 12px;
 }
 
+.transaction-page.member-winloss-page .member-dash-unified-bar {
+    margin-bottom: 0;
+}
+
 .member-dash-columns {
     display: grid;
-    grid-template-columns: minmax(260px, 1.05fr) minmax(220px, 1.25fr) minmax(148px, 0.72fr);
-    gap: clamp(10px, 1.5vw, 18px);
-    align-items: start;
+    grid-template-columns: minmax(280px, 1.1fr) minmax(200px, 1.2fr) minmax(120px, 0.65fr);
+    gap: 0;
+    align-items: stretch;
 }
 
-.member-dash-filter-card {
-    margin-bottom: 0;
+.member-dash-col-filters {
+    padding-right: clamp(10px, 1.2vw, 16px);
 }
 
-.member-dash-mini-panel.member-dash-grid-card,
-.member-dash-mini-panel.member-dash-total-card {
-    padding: clamp(10px, 0.95vw, 14px);
-    margin-bottom: 0;
+.member-dash-col-split {
+    border-left: 1px solid #e5ecf6;
+    padding-left: clamp(12px, 1.4vw, 18px);
+}
+
+.member-dash-col-total-col.member-dash-col-split {
+    padding-right: 4px;
 }
 
 .member-dash-mini-toolbar {
@@ -961,19 +968,34 @@ body.transaction-page {
     .member-dash-col-total-col {
         grid-column: 1 / -1;
     }
+    .member-dash-col-total-col.member-dash-col-split {
+        border-left: none;
+        padding-left: 0;
+    }
     .member-dash-total-inner {
         flex-direction: row;
         justify-content: space-between;
+        align-items: center;
         min-height: 0;
-        padding-top: 4px;
+        padding-top: 8px;
         border-top: 1px solid #e6edf7;
-        margin-top: 4px;
+        margin-top: 6px;
     }
 }
 
 @media (max-width: 720px) {
     .member-dash-columns {
         grid-template-columns: 1fr;
+    }
+    .member-dash-col-split {
+        border-left: none;
+        border-top: 1px solid #e5ecf6;
+        padding-left: 0;
+        padding-top: 10px;
+        margin-top: 4px;
+    }
+    .member-dash-col-filters {
+        padding-right: 0;
     }
 }
 

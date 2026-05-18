@@ -171,9 +171,9 @@ $default_date_to = $today_dt->format('d/m/Y');
         <div class="transaction-separator-line"></div>
 
         <div class="transaction-main-content member-winloss-dash">
+            <div class="transaction-search-section member-dash-unified-bar">
             <div class="member-dash-columns">
                 <div class="member-dash-col member-dash-col-filters">
-                    <div class="transaction-search-section member-dash-filter-card" style="flex:1;">
                 <div class="transaction-form-group transaction-capture-date-group">
                     <label class="transaction-label transaction-date-range-label">Capture Date</label>
                     <div class="transaction-capture-date-row">
@@ -282,10 +282,8 @@ $default_date_to = $today_dt->format('d/m/Y');
                     <div id="member_currency_buttons" class="transaction-company-buttons member-currency-buttons"></div>
                 </div>
                 </div>
-                </div>
 
-                <div class="member-dash-col member-dash-col-grid">
-                    <div class="transaction-search-section member-dash-grid-card member-dash-mini-panel">
+                <div class="member-dash-col member-dash-col-grid member-dash-col-split">
                         <div class="member-dash-mini-toolbar">
                             <button type="button" class="member-dash-filter-trigger" id="member_linked_filter_btn" title="Choose which linked accounts appear in the grid">
                                 <i class="fas fa-filter" aria-hidden="true"></i>
@@ -295,18 +293,16 @@ $default_date_to = $today_dt->format('d/m/Y');
                         </div>
                         <div id="member_balance_grid" class="member-balance-mini-grid"></div>
                         <p id="member_balance_grid_hint" class="member-balance-mini-hint" style="margin:4px 0 0;"></p>
-                    </div>
                 </div>
 
-                <div class="member-dash-col member-dash-col-total-col">
-                    <div class="transaction-search-section member-dash-total-card member-dash-mini-panel">
+                <div class="member-dash-col member-dash-col-total-col member-dash-col-split">
                         <div class="member-dash-total-inner">
                             <span class="member-dash-total-caption">Total</span>
                             <span id="member_balance_total_value" class="member-dash-total-amt">–</span>
                         </div>
-                    </div>
                 </div>
 
+            </div>
             </div>
         </div>
 

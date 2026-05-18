@@ -306,6 +306,13 @@ function applyDefaultWLGridSelectionFromLinkedList() {
     if (!restored) {
         ids.forEach((id) => memberWLGridSelectedIds.add(id));
     }
+    const allow = new Set(ids);
+    [...memberWLGridSelectedIds].forEach((id) => {
+        if (!allow.has(Number(id))) memberWLGridSelectedIds.delete(id);
+    });
+    if (memberWLGridSelectedIds.size === 0) {
+        ids.forEach((id) => memberWLGridSelectedIds.add(id));
+    }
     saveWLGridSelectionToStorage();
 }
 
@@ -379,6 +386,8 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
 
         if (currLine) currLine.textContent = currencyCode;
         if (hintEl) hintEl.textContent = '';
+
+        const allIds = new Set(memberLinkedAccountsList.map(a => Number(a.id)).filter(Boolean));
         const selectedSorted = [...memberWLGridSelectedIds].filter(id => allIds.has(Number(id))).sort((a, b) => a - b);
         const targetIds = selectedSorted.length ? selectedSorted : [...allIds].sort((a, b) => a - b);
 
@@ -440,7 +449,11 @@ function renderMemberMiniGrid(rows, currencyCode, seq) {
     gridEl.innerHTML = '';
     if (hintEl) hintEl.textContent = '';
 
-    const sel = new Set([...memberWLGridSelectedIds].map(Number));
+    const allowIds = new Set(memberLinkedAccountsList.map(a => Number(a.id)));
+    const sel = new Set([...memberWLGridSelectedIds].map(Number).filter((id) => allowIds.has(id)));
+    if (sel.size === 0) {
+        allowIds.forEach((id) => sel.add(id));
+    }
     const listOrdered = memberLinkedAccountsList.filter(a => sel.has(Number(a.id)));
 
     let running = normalizeNumber('0');
