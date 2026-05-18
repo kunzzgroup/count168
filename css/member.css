@@ -960,7 +960,8 @@ body.transaction-page {
 .member-balance-mini-grid {
     display: grid;
     max-height: 240px;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: auto;
 }
 
 /* 账户 × 币别矩阵：扁平、主题蓝灰（与页面 #002C49 / sidebar 同源），少装饰 */
@@ -971,21 +972,23 @@ body.transaction-page {
     border-radius: 4px;
     background: #fff;
     box-sizing: border-box;
+    width: max-content;
+    max-width: 100%;
 }
 
 .member-balance-matrix-corner {
     background: #eff4fb;
     border-right: 1px solid #e5ecf6;
     border-bottom: 1px solid #dfe7ef;
-    min-height: 24px;
+    min-height: 22px;
 }
 
 .member-balance-matrix-th {
-    font-size: clamp(10px, 0.71vw, 12px);
+    font-size: clamp(9px, 0.67vw, 11px);
     font-weight: 700;
     color: #002c49;
     text-align: center;
-    padding: 5px 4px;
+    padding: 4px 3px;
     border-right: 1px solid #e5ecf6;
     border-bottom: 1px solid #dfe7ef;
     background: #e9f1ff;
@@ -997,9 +1000,9 @@ body.transaction-page {
 
 .member-balance-matrix-rowhead {
     font-weight: 700;
-    font-size: clamp(10px, 0.72vw, 12px);
+    font-size: clamp(9px, 0.7vw, 11px);
     color: #002c49;
-    padding: 4px 6px;
+    padding: 3px 4px;
     border-right: 1px solid #e5ecf6;
     border-bottom: 1px solid #eef2f7;
     background: #f5f8fc;
@@ -1017,7 +1020,7 @@ body.transaction-page {
 }
 
 .member-balance-matrix-cell {
-    padding: 4px 6px;
+    padding: 3px 4px;
     text-align: right;
     font-variant-numeric: tabular-nums;
     border-right: 1px solid #eef2f7;
@@ -1046,12 +1049,35 @@ body.transaction-page {
 
 .member-balance-matrix-amt {
     font-weight: 600;
-    font-size: clamp(11px, 0.78vw, 13px);
+    font-size: clamp(10px, 0.72vw, 12px);
     color: #0f2942;
 }
 
 .member-balance-matrix-amt--neg {
     color: #b91c1c;
+}
+
+/* ≥8 幣：再收緊欄與字級，並依賴外層橫向捲動 */
+.member-balance-mini-matrix.member-balance-mini-matrix--many-ccy > .member-balance-matrix-corner {
+    min-height: 20px;
+}
+
+.member-balance-mini-matrix.member-balance-mini-matrix--many-ccy > .member-balance-matrix-th {
+    padding: 3px 2px;
+    font-size: clamp(9px, 0.62vw, 10px);
+}
+
+.member-balance-mini-matrix.member-balance-mini-matrix--many-ccy > .member-balance-matrix-rowhead {
+    padding: 2px 3px;
+    font-size: clamp(9px, 0.62vw, 10px);
+}
+
+.member-balance-mini-matrix.member-balance-mini-matrix--many-ccy > .member-balance-matrix-cell {
+    padding: 2px 3px;
+}
+
+.member-balance-mini-matrix.member-balance-mini-matrix--many-ccy .member-balance-matrix-amt {
+    font-size: clamp(9px, 0.67vw, 11px);
 }
 
 @media (max-width: 520px) {

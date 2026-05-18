@@ -511,6 +511,7 @@ function clearMemberMiniGridDisplay() {
     if (gridEl) {
         gridEl.innerHTML = '';
         gridEl.classList.remove('member-balance-mini-matrix');
+        gridEl.classList.remove('member-balance-mini-matrix--many-ccy');
         gridEl.style.gridTemplateColumns = '';
         gridEl.removeAttribute('role');
         gridEl.removeAttribute('aria-label');
@@ -726,6 +727,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
 
     gridEl.innerHTML = '';
     gridEl.classList.remove('member-balance-mini-matrix');
+    gridEl.classList.remove('member-balance-mini-matrix--many-ccy');
     gridEl.style.gridTemplateColumns = '';
     gridEl.removeAttribute('role');
     gridEl.removeAttribute('aria-label');
@@ -757,10 +759,18 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     }
 
     gridEl.classList.add('member-balance-mini-matrix');
+    if (ncu >= 8) {
+        gridEl.classList.add('member-balance-mini-matrix--many-ccy');
+    }
     gridEl.setAttribute('role', 'grid');
     gridEl.setAttribute('aria-label', 'Balances by account and currency');
-    gridEl.style.gridTemplateColumns =
-        `minmax(3.25rem, 5.25rem) repeat(${ncu}, minmax(${ncu <= 3 ? '4rem' : '3.25rem'}, 1fr))`;
+    const rowHeadClamp = `minmax(2.1rem, 3.85rem)`;
+    const cyMin =
+        ncu <= 3 ? '3rem' :
+        ncu <= 5 ? '2.6rem' :
+        ncu <= 8 ? '2.25rem' :
+        '2rem';
+    gridEl.style.gridTemplateColumns = `${rowHeadClamp} repeat(${ncu}, minmax(${cyMin}, 1fr))`;
 
     const corner = document.createElement('div');
     corner.className = 'member-balance-matrix-corner';
