@@ -905,9 +905,20 @@ body.transaction-page {
     box-sizing: border-box;
 }
 
-/* 右側迷你區隱藏時，頂欄改單欄讓篩選區吃滿寬 */
+/* 右側迷你區隱藏時：單欄網格；篩選區寬度與「有右欄時左欄」一致（clamp），避免 Capture Date 整行被 flex:1 拉到整卡寬 */
 .member-dash-columns.member-dash-columns--no-mini-rail {
     grid-template-columns: minmax(0, 1fr);
+}
+
+.member-dash-columns.member-dash-columns--no-mini-rail .member-dash-col-filters {
+    width: min(100%, var(--member-dash-filter-track));
+    box-sizing: border-box;
+}
+
+.member-dash-columns.member-dash-columns--no-mini-rail .member-dash-col-filters .transaction-date-range-wrap {
+    flex: 0 1 auto;
+    min-width: clamp(160px, 14vw, 260px);
+    max-width: min(288px, 100%);
 }
 
 /* 整塊迷你表+Total 靠父欄右緣（老闆要從右邊）。Grid 子項用 justify-self: end，勿用 flex-end */
