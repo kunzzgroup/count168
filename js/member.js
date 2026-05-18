@@ -29,11 +29,6 @@ let memberGridFetchAbortController = null;
 let memberLinkedAccountCurrenciesMap = new Map();
 let memberLinkedCurrenciesLoaded = false;
 
-/** 帳戶列數達此值時改用較密行高（左欄篩選區高度為準，矩陣內捲動） */
-const MEMBER_MATRIX_DENSE_ROW_THRESHOLD = 10;
-let memberMiniMatrixResizeObserver = null;
-let memberMiniMatrixResizeBound = false;
-
 /** Account  pills / grid 列表 API 的根 id（登录账号）；与 Win/Loss 当前查看账号 accountId 可不同 */
 function memberLinkedListRootId() {
     return memberConfig.linkedListRootAccountId > 0
@@ -239,7 +234,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const sectionEl = document.getElementById('member_currency_tables_section');
     console.log('Member page: currency_filter exists=', !!filterEl, 'tables_section exists=', !!sectionEl);
     ensureMemberCurrencyChromeVisible();
-    bindMemberMiniMatrixHeightSync();
     initDatePickers();
     setupCompanyButtons();
     setupMemberLinkedFilterModalHandlers();
@@ -509,37 +503,6 @@ function getMemberMiniGridCurrencies() {
     return picked.length ? picked : available.slice();
 }
 
-/** 將迷你矩陣外欄底部對齊左欄篩選區，避免多出帳戶撐高整張白卡。 */
-function syncMemberMiniMatrixMaxHeight() {
-    const filt = document.getElementById('member_dash_col_filters');
-    const gridCol = document.querySelector('.member-dash-col-grid-stack');
-    if (!filt || !gridCol) return;
-    const filtRect = filt.getBoundingClientRect();
-    const colRect = gridCol.getBoundingClientRect();
-    const gapPx = 6;
-    const h = Math.max(120, Math.floor(filtRect.bottom - colRect.top - gapPx));
-    gridCol.style.setProperty('--member-grid-col-max-h', `${h}px`);
-}
-
-function bindMemberMiniMatrixHeightSync() {
-    if (typeof window === 'undefined') return;
-    if (!memberMiniMatrixResizeBound) {
-        memberMiniMatrixResizeBound = true;
-        window.addEventListener('resize', syncMemberMiniMatrixMaxHeight, { passive: true });
-    }
-    const filt = document.getElementById('member_dash_col_filters');
-    if (filt && typeof ResizeObserver !== 'undefined') {
-        if (memberMiniMatrixResizeObserver) memberMiniMatrixResizeObserver.disconnect();
-        memberMiniMatrixResizeObserver = new ResizeObserver(() => syncMemberMiniMatrixMaxHeight());
-        memberMiniMatrixResizeObserver.observe(filt);
-    }
-    syncMemberMiniMatrixMaxHeight();
-    requestAnimationFrame(() => {
-        syncMemberMiniMatrixMaxHeight();
-        requestAnimationFrame(syncMemberMiniMatrixMaxHeight);
-    });
-}
-
 function clearMemberMiniGridDisplay() {
     const gridEl = document.getElementById('member_balance_grid');
     const hintEl = document.getElementById('member_balance_grid_hint');
@@ -547,8 +510,7 @@ function clearMemberMiniGridDisplay() {
     const totalEl = document.getElementById('member_balance_total_value');
     if (gridEl) {
         gridEl.innerHTML = '';
-        gridEl.classList.remove('member-balance-mini-matrix');
-        gridEl.classList.remove('member-balance-mini-matrix--many');
+        gridEl.classList.remove('member-balance-mini-hblocks');
         gridEl.style.gridTemplateColumns = '';
         gridEl.removeAttribute('role');
         gridEl.removeAttribute('aria-label');
@@ -564,7 +526,6 @@ function clearMemberMiniGridDisplay() {
         ph.textContent = '–';
         totalEl.appendChild(ph);
     }
-    requestAnimationFrame(() => syncMemberMiniMatrixMaxHeight());
 }
 
 function refreshMemberMiniGrid(seq) {
@@ -764,9 +725,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     if (seq !== memberSearchSeq || !gridEl) return;
 
     gridEl.innerHTML = '';
-    gridEl.classList.remove('member-balance-mini-matrix');
-    gridEl.classList.remove('member-balance-mini-matrix--many');
-    gridEl.style.gridTemplateColumns = '';
+    gridEl.classList.remove('member-balance-mini-hblocks');
     gridEl.removeAttribute('role');
     gridEl.removeAttribute('aria-label');
     if (hintEl) hintEl.textContent = '';
@@ -784,7 +743,6 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
                 : `No accounts in the grid hold ${currenciesUpper[0]}.`;
         }
         renderMemberTotalSection(new Map(), [], seq);
-        requestAnimationFrame(() => syncMemberMiniMatrixMaxHeight());
         return;
     }
 
@@ -794,85 +752,83 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     const ncu = currenciesUpper.length;
     if (ncu === 0) {
         renderMemberTotalSection(totalsByCu, [], seq);
-        requestAnimationFrame(() => syncMemberMiniMatrixMaxHeight());
         return;
     }
 
-    gridEl.classList.add('member-balance-mini-matrix');
-    if (listOrdered.length >= MEMBER_MATRIX_DENSE_ROW_THRESHOLD) {
-        gridEl.classList.add('member-balance-mini-matrix--many');
-    }
-    gridEl.setAttribute('role', 'grid');
-    gridEl.setAttribute('aria-label', 'Balances by account and currency');
-    gridEl.style.gridTemplateColumns =
-        `minmax(3.25rem, 5.25rem) repeat(${ncu}, minmax(${ncu <= 3 ? '4rem' : '3.25rem'}, 1fr))`;
+    gridEl.classList.add('member-balance-mini-hblocks');
+    gridEl.setAttribute('role', 'group');
+    gridEl.setAttribute('aria-label', 'Balances by currency');
 
-    const corner = document.createElement('div');
-    corner.className = 'member-balance-matrix-corner';
-    corner.setAttribute('aria-hidden', 'true');
-    gridEl.appendChild(corner);
+    const makeAccountColumns = (cu, holders) => {
+        const mid = Math.ceil(holders.length / 2);
+        const left = holders.slice(0, mid);
+        const right = holders.slice(mid);
+        const mkCol = (accs) => {
+            const col = document.createElement('div');
+            col.className = 'member-bal-hblock-col';
+            accs.forEach((acc) => {
+                const idNum = Number(acc.id);
+                const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
+                const key = `${idNum}|${cu}`;
+                const balDec = balanceMap && balanceMap.has(key)
+                    ? balanceMap.get(key)
+                    : normalizeNumber('0');
 
-    const lastCi = ncu - 1;
-    const lastRi = listOrdered.length - 1;
-
-    currenciesUpper.forEach((cu, ci) => {
-        const th = document.createElement('div');
-        th.className = 'member-balance-matrix-th';
-        if (ci === lastCi) th.classList.add('member-balance-matrix-th--edge');
-        th.setAttribute('role', 'columnheader');
-        th.textContent = cu;
-        gridEl.appendChild(th);
-    });
-
-    listOrdered.forEach((acc, accIdx) => {
-        const idNum = Number(acc.id);
-        const code = (acc.account_id || acc.name || String(idNum)).trim() || String(idNum);
-        const isLastRow = accIdx === lastRi;
-
-        const rowHead = document.createElement('div');
-        rowHead.className = 'member-balance-matrix-rowhead';
-        if (isLastRow) rowHead.classList.add('member-balance-matrix-rowhead--edge');
-        rowHead.setAttribute('role', 'rowheader');
-        rowHead.textContent = code;
-        rowHead.title = code;
-        gridEl.appendChild(rowHead);
-
-        currenciesUpper.forEach((cu, ci) => {
-            const holds = accountHoldsMiniGridCurrency(idNum, cu);
-            const key = `${idNum}|${cu}`;
-            const balDec = holds && balanceMap && balanceMap.has(key)
-                ? balanceMap.get(key)
-                : normalizeNumber('0');
-
-            if (holds) {
                 totalsByCu.set(cu, totalsByCu.get(cu).plus(balDec));
-            }
 
-            const cell = document.createElement('div');
-            cell.className = 'member-balance-matrix-cell';
-            cell.setAttribute('role', 'gridcell');
-            if (accIdx % 2 === 1) cell.classList.add('member-balance-matrix-cell--alt');
-            if (ci === lastCi) cell.classList.add('member-balance-matrix-cell--edge');
-            if (isLastRow) cell.classList.add('member-balance-matrix-cell--edge-row');
-
-            if (!holds) {
-                cell.classList.add('member-balance-matrix-cell--na');
-                cell.textContent = '–';
-            } else {
+                const row = document.createElement('div');
+                row.className = 'member-bal-hblock-row';
+                const lab = document.createElement('span');
+                lab.className = 'member-bal-hblock-code';
+                lab.textContent = code;
+                lab.title = code;
                 const amt = document.createElement('span');
-                amt.className = 'member-balance-matrix-amt';
+                amt.className = 'member-bal-hblock-amt';
                 amt.textContent = formatNumber(balDec.toString());
                 if (typeof balDec.lt === 'function' && balDec.lt('0')) {
-                    amt.classList.add('member-balance-matrix-amt--neg');
+                    amt.classList.add('member-bal-hblock-amt--neg');
                 }
-                cell.appendChild(amt);
-            }
-            gridEl.appendChild(cell);
-        });
+                row.appendChild(lab);
+                row.appendChild(amt);
+                col.appendChild(row);
+            });
+            return col;
+        };
+        return [mkCol(left), mkCol(right)];
+    };
+
+    currenciesUpper.forEach((cu) => {
+        const holders = listOrdered.filter((acc) => accountHoldsMiniGridCurrency(Number(acc.id), cu));
+
+        const block = document.createElement('section');
+        block.className = 'member-bal-hblock';
+        block.setAttribute('role', 'region');
+        block.setAttribute('aria-label', `${cu}`);
+
+        const hd = document.createElement('div');
+        hd.className = 'member-bal-hblock-hd';
+        hd.textContent = cu;
+
+        const body = document.createElement('div');
+        body.className = 'member-bal-hblock-body';
+
+        if (holders.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'member-bal-hblock-empty';
+            empty.textContent = '–';
+            body.appendChild(empty);
+        } else {
+            const [c0, c1] = makeAccountColumns(cu, holders);
+            body.appendChild(c0);
+            body.appendChild(c1);
+        }
+
+        block.appendChild(hd);
+        block.appendChild(body);
+        gridEl.appendChild(block);
     });
 
     renderMemberTotalSection(totalsByCu, currenciesUpper, seq);
-    requestAnimationFrame(() => syncMemberMiniMatrixMaxHeight());
 }
 
 function buildMemberLinkedFilterModalList() {

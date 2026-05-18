@@ -283,7 +283,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                 </div>
                 </div>
 
-                <div class="member-dash-col member-dash-col-grid member-dash-col-grid-stack member-dash-col-split">
+                <div class="member-dash-col member-dash-col-grid member-dash-col-split">
                         <div class="member-dash-mini-toolbar">
                             <button type="button" class="member-dash-filter-trigger" id="member_linked_filter_btn" title="Choose which linked accounts appear in the grid">
                                 <i class="fas fa-filter" aria-hidden="true"></i>
@@ -291,9 +291,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                             </button>
                             <span class="member-dash-grid-curr" id="member_balance_grid_currency_line"></span>
                         </div>
-                        <div class="member-balance-mini-grid-shell">
-                            <div id="member_balance_grid" class="member-balance-mini-grid"></div>
-                        </div>
+                        <div id="member_balance_grid" class="member-balance-mini-grid"></div>
                         <p id="member_balance_grid_hint" class="member-balance-mini-hint" style="margin:4px 0 0;"></p>
                 </div>
 
