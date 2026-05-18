@@ -873,8 +873,12 @@ body.transaction-page {
 
 .member-dash-columns {
     display: grid;
-    /* 中/右欄依內容寬，左欄 1fr 吃掉剩餘空間，避免中欄被 fr 拉寬而在矩陣與 Total 之間留白 */
-    grid-template-columns: minmax(244px, 1fr) max-content minmax(104px, max-content);
+    /*
+     * 左欄固定比例 + clamp，分割線（中欄 border-left）位置穩定；
+     * 勿用 1fr 吃滿剩餘，否則分界會隨矩陣/Total 寬度漂移。
+     */
+    --member-dash-filter-track: clamp(260px, 40%, 560px);
+    grid-template-columns: var(--member-dash-filter-track) max-content minmax(104px, max-content);
     gap: 0;
     align-items: stretch;
 }
@@ -899,6 +903,7 @@ body.transaction-page {
 }
 
 .member-dash-col-filters {
+    min-width: 0;
     padding-right: clamp(8px, 1vw, 14px);
 }
 
