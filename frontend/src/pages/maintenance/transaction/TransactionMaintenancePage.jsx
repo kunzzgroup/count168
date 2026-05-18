@@ -76,13 +76,28 @@ export default function TransactionMaintenancePage() {
 
   const [toasts, setToasts] = useState([]);
   const [cssReady, setCssReady] = useState(false);
+  /** Boot finished metadata; date picker synced — avoids racing search with boot/meta fetches. */
+  const [filtersReady, setFiltersReady] = useState(false);
+  const [dateRangeReady, setDateRangeReady] = useState(false);
+  const [searchDeferredReady, setSearchDeferredReady] = useState(false);
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
   /** When set, meta effect reuses permissions from the last company switch instead of calling domain_api again. */
   const switchPermsCacheRef = useRef(null);
+  /** Boot already loaded process/permission meta — skip duplicate meta effect on first paint. */
+  const skipMetaAfterBootRef = useRef(false);
 
-  const listQueryEnabled = Boolean(!bootLoading && companyId && dateFrom && dateTo && cssReady);
+  const listQueryEnabled = Boolean(
+    !bootLoading &&
+    filtersReady &&
+    dateRangeReady &&
+    companyId &&
+    dateFrom &&
+    dateTo &&
+    cssReady &&
+    (permissions.length === 0 || activePermission),
+  );
 
   const transactionQuery = useQuery({
     queryKey: [
@@ -102,10 +117,12 @@ export default function TransactionMaintenancePage() {
         category: activePermission,
         signal,
       }),
-    enabled: listQueryEnabled,
+    enabled: listQueryEnabled && searchDeferredReady,
     staleTime: 2 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
+    retry: (failureCount, error) =>
+      error?.name !== "AbortError" && failureCount < 1,
   });
 
   const transactionData = transactionQuery.data ?? [];
@@ -211,10 +228,31 @@ export default function TransactionMaintenancePage() {
           setDateTo(nextTo);
         },
       });
+      const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
+      const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
+      if (nextFrom) setDateFrom(nextFrom);
+      if (nextTo) setDateTo(nextTo);
+      setDateRangeReady(true);
     }, 0);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      setDateRangeReady(false);
+    };
   }, [bootLoading, me, cssReady]);
+
+  // Defer first search one tick after filters are ready (align with Payment/Capture maintenance).
+  useEffect(() => {
+    if (!listQueryEnabled) {
+      setSearchDeferredReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setSearchDeferredReady(true), 0);
+    return () => {
+      clearTimeout(timer);
+      setSearchDeferredReady(false);
+    };
+  }, [listQueryEnabled]);
 
   useEffect(() => {
     if (bootLoading || !me || !cssReady) return;
@@ -301,7 +339,8 @@ export default function TransactionMaintenancePage() {
 
           // Cache permissions so the meta-effect below skips redundant API call
           switchPermsCacheRef.current = { companyCode: code, perms: companyPerms };
-          
+          skipMetaAfterBootRef.current = true;
+
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(filtered.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
           
@@ -320,6 +359,7 @@ export default function TransactionMaintenancePage() {
         console.error("Boot error:", err);
         navigate("/login", { replace: true });
       } finally {
+        setFiltersReady(true);
         setBootLoading(false);
       }
     })();
@@ -328,6 +368,10 @@ export default function TransactionMaintenancePage() {
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
     if (bootLoading || !companyId) return;
+    if (skipMetaAfterBootRef.current) {
+      skipMetaAfterBootRef.current = false;
+      return;
+    }
 
     let cancelled = false;
     const cid = companyId;
@@ -397,6 +441,7 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (!transactionQuery.isError || !transactionQuery.error) return;
+    if (transactionQuery.error?.name === "AbortError") return;
     const msg = transactionQuery.error.message || t("searchFailed");
     if (lastErrorMsgRef.current === msg) return;
     lastErrorMsgRef.current = msg;
@@ -428,6 +473,7 @@ export default function TransactionMaintenancePage() {
       const nextActive =
         saved && perms.includes(saved) ? saved : perms.length > 0 ? perms[0] : "";
       switchPermsCacheRef.current = { companyCode: code, perms };
+      skipMetaAfterBootRef.current = true;
       setActivePermission(nextActive);
       setPermissions(perms);
 
