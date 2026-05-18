@@ -184,6 +184,7 @@ body.transaction-page {
 .transaction-page.member-winloss-page .member-dash-col-filters .transaction-quick-select-wrap {
     flex-shrink: 0;
     justify-content: center;
+    overflow: visible;
 }
 .transaction-page.member-winloss-page .member-dash-col-filters .transaction-quick-select-dropdown.dropdown {
     width: auto;
@@ -202,6 +203,7 @@ body.transaction-page {
     position: relative;
     display: inline-block;
     width: clamp(100px, 8vw, 140px);
+    overflow: visible;
 }
 .transaction-page .transaction-quick-select-btn.dropdown-toggle {
     display: flex;
@@ -243,6 +245,9 @@ body.transaction-page {
     z-index: 1000;
     width: 100%;
     box-sizing: border-box;
+    max-height: none;
+    overflow-x: visible;
+    overflow-y: visible;
 }
 .transaction-page #quick-select-dropdown.dropdown-menu.show {
     display: block;
@@ -878,7 +883,9 @@ body.transaction-page {
     margin-bottom: 0;
     min-width: 0;
     max-width: 100%;
+    /* 勿只寫 overflow-x:hidden，否則依規範另一軸可能變為 auto，整塊白卡出現直向捲軸，Period 像在 overflow */
     overflow-x: hidden;
+    overflow-y: visible;
 }
 
 .member-dash-columns {
