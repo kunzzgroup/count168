@@ -1,8 +1,15 @@
 const memberConfig = {
+    /** Win/Loss 当前查看的账本（与 session member_winloss_view 一致） */
     accountId: (typeof window.MEMBER_ACCOUNT_ID !== 'undefined' ? window.MEMBER_ACCOUNT_ID : 0),
     accountCode: (typeof window.MEMBER_ACCOUNT_CODE !== 'undefined' ? window.MEMBER_ACCOUNT_CODE : ''),
     accountName: (typeof window.MEMBER_ACCOUNT_NAME !== 'undefined' ? window.MEMBER_ACCOUNT_NAME : ''),
-    companyId: (typeof window.MEMBER_COMPANY_ID !== 'undefined' ? window.MEMBER_COMPANY_ID : 0)
+    companyId: (typeof window.MEMBER_COMPANY_ID !== 'undefined' ? window.MEMBER_COMPANY_ID : 0),
+    /**
+     * Account 横条与迷你网格的「关联列表」始终以登录账号为根拉取，避免切到 C1 后只剩 C1+A2（与图一排序一致）
+     */
+    linkedListRootAccountId: (typeof window.MEMBER_LINKED_ROOT_ACCOUNT_ID !== 'undefined' && Number(window.MEMBER_LINKED_ROOT_ACCOUNT_ID) > 0
+        ? Number(window.MEMBER_LINKED_ROOT_ACCOUNT_ID)
+        : (typeof window.MEMBER_ACCOUNT_ID !== 'undefined' ? Number(window.MEMBER_ACCOUNT_ID) : 0))
 };
 
 let memberCurrencySummary = [];
@@ -18,6 +25,13 @@ let memberLinkedAccountsList = [];
 /** 用户在网格中要显示的账号 id（默认可登录闭包内全选）；按公司+会话账号记在 sessionStorage */
 const memberWLGridSelectedIds = new Set();
 let memberGridFetchAbortController = null;
+
+/** Account  pills / grid 列表 API 的根 id（登录账号）；与 Win/Loss 当前查看账号 accountId 可不同 */
+function memberLinkedListRootId() {
+    return memberConfig.linkedListRootAccountId > 0
+        ? memberConfig.linkedListRootAccountId
+        : memberConfig.accountId;
+}
 
 function loadMemberOwnedCurrencies() {
     const accountId = memberConfig.accountId;
@@ -281,7 +295,7 @@ function setupCompanyButtons() {
 }
 
 function memberWLGridStorageKey() {
-    return `member_wl_grid:${memberConfig.companyId}:${memberConfig.accountId}`;
+    return `member_wl_grid:${memberConfig.companyId}:${memberLinkedListRootId()}`;
 }
 
 function applyDefaultWLGridSelectionFromLinkedList() {
@@ -578,7 +592,7 @@ function loadMemberLinkedAccounts() {
     if (!container) {
         return Promise.resolve();
     }
-    const accountId = memberConfig.accountId;
+    const rootAccountId = memberLinkedListRootId();
     const companyId = memberConfig.companyId;
 
     const failEmptyUi = () => {
@@ -592,14 +606,14 @@ function loadMemberLinkedAccounts() {
         clearMemberMiniGridDisplay();
     };
 
-    if (!accountId || !companyId) {
+    if (!rootAccountId || !companyId) {
         failEmptyUi();
         return Promise.resolve();
     }
 
     if (loadingEl) loadingEl.style.display = 'inline';
 
-    return fetch(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
+    return fetch(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${rootAccountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
         .then(res => res.text())
         .then(text => {
             let data;

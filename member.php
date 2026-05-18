@@ -339,7 +339,8 @@ $default_date_to = $today_dt->format('d/m/Y');
     </div>
 
     <script>
-        window.MEMBER_ACCOUNT_ID = <?php echo $accountDbId; ?>;
+        window.MEMBER_LINKED_ROOT_ACCOUNT_ID = <?php echo (int) $memberLoginDbId; ?>;
+        window.MEMBER_ACCOUNT_ID = <?php echo (int) $accountDbId; ?>;
         window.MEMBER_ACCOUNT_CODE = <?php echo json_encode($accountCode ?? ''); ?>;
         window.MEMBER_ACCOUNT_NAME = <?php echo json_encode($accountName ?? ''); ?>;
         window.MEMBER_COMPANY_ID = <?php echo (int)$currentCompanyId; ?>;
