@@ -349,6 +349,9 @@ $default_date_to = $today_dt->format('d/m/Y');
         window.MEMBER_ACCOUNT_CODE = <?php echo json_encode($accountCode ?? ''); ?>;
         window.MEMBER_ACCOUNT_NAME = <?php echo json_encode($accountName ?? ''); ?>;
         window.MEMBER_COMPANY_ID = <?php echo (int)$currentCompanyId; ?>;
+        /** 迷你網格首屏外框：進頁即有與載入後相同的欄位樣式（數值仍待 API）。 */
+        window.MEMBER_MINI_GRID_SHELL_CCY = ['MYR', 'SGD'];
+        window.MEMBER_MINI_GRID_SHELL_ROWS = 5;
     </script>
     <script src="js/decimal.min.js?v=<?php echo file_exists('js/decimal.min.js') ? filemtime('js/decimal.min.js') : time(); ?>"></script>
     <script src="js/money-decimal.js?v=<?php echo file_exists('js/money-decimal.js') ? filemtime('js/money-decimal.js') : time(); ?>"></script>

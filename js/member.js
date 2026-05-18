@@ -237,10 +237,14 @@ document.addEventListener('DOMContentLoaded', () => {
     initDatePickers();
     setupCompanyButtons();
     setupMemberLinkedFilterModalHandlers();
+    renderMemberMiniGridInitialShell();
     Promise.all([
         loadMemberLinkedAccounts(),
         loadMemberOwnedCurrencies()
-    ]).finally(() => performMemberSearch());
+    ]).finally(() => {
+        renderMemberMiniGridInitialShell();
+        performMemberSearch();
+    });
 });
 
 function performMemberSearch() {
@@ -529,6 +533,142 @@ function clearMemberMiniGridDisplay() {
     }
 }
 
+/** 右欄 Total：與多幣 matrix 同版型，金額先顯示 en dash（待 API）。 */
+function renderMemberTotalPlaceholderShell(orderUpper) {
+    const totalEl = document.getElementById('member_balance_total_value');
+    if (!totalEl) return;
+    const order = orderUpper.map((c) => String(c || '').trim().toUpperCase()).filter(Boolean);
+    totalEl.innerHTML = '';
+    totalEl.classList.remove('member-dash-total-values--multicur');
+
+    if (order.length === 0) {
+        const sp = document.createElement('span');
+        sp.className = 'member-dash-total-amt';
+        sp.textContent = '–';
+        totalEl.appendChild(sp);
+        return;
+    }
+
+    if (order.length === 1) {
+        const sp = document.createElement('span');
+        sp.className = 'member-dash-total-amt';
+        sp.textContent = '–';
+        totalEl.appendChild(sp);
+        return;
+    }
+
+    totalEl.classList.add('member-dash-total-values--grid');
+    const grid = document.createElement('div');
+    grid.className = 'member-dash-total-currency-grid';
+    grid.setAttribute('role', 'group');
+    grid.setAttribute('aria-label', 'Totals by currency');
+
+    order.forEach((cu) => {
+        const cell = document.createElement('div');
+        cell.className = 'member-dash-total-grid-cell';
+        const lab = document.createElement('span');
+        lab.className = 'member-dash-total-grid-code';
+        lab.textContent = cu;
+        const amt = document.createElement('span');
+        amt.className = 'member-dash-total-grid-amt';
+        amt.textContent = '–';
+        cell.appendChild(lab);
+        cell.appendChild(amt);
+        grid.appendChild(cell);
+    });
+    totalEl.appendChild(grid);
+}
+
+/**
+ * 首屏即畫出與載入後相同的矩陣外框（幣別表頭、列線、Total 雙欄），避免 API 回傳前整塊空白。
+ * 關聯列表尚未載入時左欄為佔位列；載入後會再呼叫一次以帶入真實帳號代碼。
+ */
+function renderMemberMiniGridInitialShell() {
+    const gridEl = document.getElementById('member_balance_grid');
+    const hintEl = document.getElementById('member_balance_grid_hint');
+    const currLine = document.getElementById('member_balance_grid_currency_line');
+    if (!gridEl) return;
+
+    const raw = (typeof window.MEMBER_MINI_GRID_SHELL_CCY !== 'undefined' && Array.isArray(window.MEMBER_MINI_GRID_SHELL_CCY))
+        ? window.MEMBER_MINI_GRID_SHELL_CCY
+        : ['MYR', 'SGD'];
+    const orderUpper = raw.map((c) => String(c || '').trim().toUpperCase()).filter(Boolean);
+    if (!orderUpper.length) return;
+
+    if (hintEl) hintEl.textContent = '';
+    if (currLine) currLine.textContent = orderUpper.length > 1 ? '' : (orderUpper[0] || '');
+
+    const rowCount = Math.max(3, Number(window.MEMBER_MINI_GRID_SHELL_ROWS) > 0 ? Number(window.MEMBER_MINI_GRID_SHELL_ROWS) : 5);
+    let listOrdered = getOrderedMiniGridAccountsForCurrencies(orderUpper);
+    if (!listOrdered.length) {
+        listOrdered = Array.from({ length: rowCount }, () => ({
+            id: -1,
+            account_id: '\u2013',
+            name: ''
+        }));
+    }
+
+    gridEl.innerHTML = '';
+    gridEl.classList.remove('member-balance-mini-matrix--many-ccy');
+    gridEl.classList.add('member-balance-mini-matrix');
+    const ncu = orderUpper.length;
+    if (ncu >= 8) {
+        gridEl.classList.add('member-balance-mini-matrix--many-ccy');
+    }
+    gridEl.setAttribute('role', 'grid');
+    gridEl.setAttribute('aria-label', 'Balances by account and currency');
+    const rowHeadClamp = 'minmax(2.1rem, 3.85rem)';
+    const cyMin =
+        ncu <= 3 ? '3rem' :
+        ncu <= 5 ? '2.6rem' :
+        ncu <= 8 ? '2.25rem' :
+        '2rem';
+    gridEl.style.gridTemplateColumns = `${rowHeadClamp} repeat(${ncu}, minmax(${cyMin}, 1fr))`;
+
+    const corner = document.createElement('div');
+    corner.className = 'member-balance-matrix-corner';
+    corner.setAttribute('aria-hidden', 'true');
+    gridEl.appendChild(corner);
+
+    const lastCi = ncu - 1;
+    const lastRi = listOrdered.length - 1;
+
+    orderUpper.forEach((cu, ci) => {
+        const th = document.createElement('div');
+        th.className = 'member-balance-matrix-th';
+        if (ci === lastCi) th.classList.add('member-balance-matrix-th--edge');
+        th.setAttribute('role', 'columnheader');
+        th.textContent = cu;
+        gridEl.appendChild(th);
+    });
+
+    listOrdered.forEach((acc, accIdx) => {
+        const code = (acc.account_id || acc.name || '').trim() || '\u2013';
+        const isLastRow = accIdx === lastRi;
+
+        const rowHead = document.createElement('div');
+        rowHead.className = 'member-balance-matrix-rowhead';
+        if (isLastRow) rowHead.classList.add('member-balance-matrix-rowhead--edge');
+        rowHead.setAttribute('role', 'rowheader');
+        rowHead.textContent = code;
+        rowHead.title = code;
+        gridEl.appendChild(rowHead);
+
+        orderUpper.forEach((cu, ci) => {
+            const cell = document.createElement('div');
+            cell.className = 'member-balance-matrix-cell member-balance-matrix-cell--na';
+            cell.setAttribute('role', 'gridcell');
+            if (accIdx % 2 === 1) cell.classList.add('member-balance-matrix-cell--alt');
+            if (ci === lastCi) cell.classList.add('member-balance-matrix-cell--edge');
+            if (isLastRow) cell.classList.add('member-balance-matrix-cell--edge-row');
+            cell.textContent = '\u2013';
+            gridEl.appendChild(cell);
+        });
+    });
+
+    renderMemberTotalPlaceholderShell(orderUpper);
+}
+
 function refreshMemberMiniGrid(seq) {
     return fetchMemberMiniGridBalances(seq != null ? seq : memberSearchSeq);
 }
@@ -627,9 +767,8 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
         const hintEl = document.getElementById('member_balance_grid_hint');
         const currLine = document.getElementById('member_balance_grid_currency_line');
 
-        clearMemberMiniGridDisplay();
-
         if (!memberLinkedAccountsList.length) {
+            clearMemberMiniGridDisplay();
             if (hintEl) hintEl.textContent = '';
             resolve();
             return;
@@ -650,6 +789,7 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
             if (hintEl && getAvailableCurrencies().length === 0) {
                 hintEl.textContent = 'No currencies in range for balances.';
             }
+            clearMemberMiniGridDisplay();
             resolve();
             return;
         }
@@ -663,11 +803,7 @@ function fetchMemberMiniGridBalances(seq = memberSearchSeq) {
         }
 
         if (memberLinkedCurrenciesLoaded && orderedAccounts.length === 0) {
-            if (hintEl) {
-                hintEl.textContent = orderUpper.length > 1
-                    ? 'No accounts in the grid hold any of these currencies.'
-                    : `No accounts in the grid hold ${orderUpper[0]}.`;
-            }
+            renderMemberMiniGrid(new Map(), orderUpper, seq);
             resolve();
             return;
         }

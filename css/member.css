@@ -750,13 +750,6 @@ body.transaction-page {
     flex-direction: column;
     gap: 16px;
 }
-.member-currency-table-wrapper {
-    /* border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    background-color: #fff;
-    padding: clamp(12px, 1.04vw, 18px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); */
-}
 .member-currency-table-title {
     margin: 0 0 12px 0;
     font-size: clamp(14px, 1.1vw, 18px);
