@@ -16,11 +16,6 @@ body.transaction-page {
     overflow-y: auto;
 }
 
-/* Win/Loss：允許必要時橫向捲動，避免 Total 被 body overflow-x:hidden 直接裁切 */
-body.transaction-page.member-winloss-page {
-    overflow-x: auto;
-}
-
 .transaction-page .transaction-container {
     max-width: none;
     margin: 0;
@@ -28,6 +23,12 @@ body.transaction-page.member-winloss-page {
     width: 100%;
     min-height: 100vh;
     box-sizing: border-box;
+}
+
+/* Win/Loss：整頁不要橫向捲動；橫向只在迷你矩陣 .member-balance-mini-grid 內 */
+.transaction-page.member-winloss-page .transaction-container {
+    overflow-x: hidden;
+    max-width: 100%;
 }
 .transaction-page .transaction-title {
     color: #002C49;
@@ -877,6 +878,7 @@ body.transaction-page.member-winloss-page {
     margin-bottom: 0;
     min-width: 0;
     max-width: 100%;
+    overflow-x: hidden;
 }
 
 .member-dash-columns {

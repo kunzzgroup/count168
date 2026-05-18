@@ -512,7 +512,8 @@ function getMemberMiniGridCurrencies() {
  * 帳號欄 minmax(..., max-content) 允許 A-HUAT 等長代碼完整顯示；幣別欄略加寬與 member.css --member-mini-ccy-min 同步。
  */
 function memberMiniMatrixGridTemplateColumns(ncu) {
-    const rowHeadClamp = 'minmax(2.75rem, max-content)';
+    /* 帳號欄最小寬加寬（左側 A2 / A-HUAT 區）；上限仍為 max-content */
+    const rowHeadClamp = 'minmax(5.5rem, max-content)';
     return `${rowHeadClamp} repeat(${ncu}, minmax(5.5rem, max-content))`;
 }
 
