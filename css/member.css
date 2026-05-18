@@ -873,8 +873,8 @@ body.transaction-page {
 
 .member-dash-columns {
     display: grid;
-    /* 中欄吃滿資料、右欄貼近 Total 小表，避免大塊留白 */
-    grid-template-columns: minmax(244px, 0.93fr) minmax(150px, 1.62fr) minmax(104px, 0.48fr);
+    /* 中/右欄依內容寬，左欄 1fr 吃掉剩餘空間，避免中欄被 fr 拉寬而在矩陣與 Total 之間留白 */
+    grid-template-columns: minmax(244px, 1fr) max-content minmax(104px, max-content);
     gap: 0;
     align-items: stretch;
 }
