@@ -29,6 +29,11 @@ let memberGridFetchAbortController = null;
 let memberLinkedAccountCurrenciesMap = new Map();
 let memberLinkedCurrenciesLoaded = false;
 
+/** 帳戶列數達此值時改用較密行高（左欄篩選區高度為準，矩陣內捲動） */
+const MEMBER_MATRIX_DENSE_ROW_THRESHOLD = 10;
+let memberMiniMatrixResizeObserver = null;
+let memberMiniMatrixResizeBound = false;
+
 /** Account  pills / grid 列表 API 的根 id（登录账号）；与 Win/Loss 当前查看账号 accountId 可不同 */
 function memberLinkedListRootId() {
     return memberConfig.linkedListRootAccountId > 0
@@ -234,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sectionEl = document.getElementById('member_currency_tables_section');
     console.log('Member page: currency_filter exists=', !!filterEl, 'tables_section exists=', !!sectionEl);
     ensureMemberCurrencyChromeVisible();
+    bindMemberMiniMatrixHeightSync();
     initDatePickers();
     setupCompanyButtons();
     setupMemberLinkedFilterModalHandlers();
@@ -503,6 +509,37 @@ function getMemberMiniGridCurrencies() {
     return picked.length ? picked : available.slice();
 }
 
+/** 將迷你矩陣外欄底部對齊左欄篩選區，避免多出帳戶撐高整張白卡。 */
+function syncMemberMiniMatrixMaxHeight() {
+    const filt = document.getElementById('member_dash_col_filters');
+    const gridCol = document.querySelector('.member-dash-col-grid-stack');
+    if (!filt || !gridCol) return;
+    const filtRect = filt.getBoundingClientRect();
+    const colRect = gridCol.getBoundingClientRect();
+    const gapPx = 6;
+    const h = Math.max(120, Math.floor(filtRect.bottom - colRect.top - gapPx));
+    gridCol.style.setProperty('--member-grid-col-max-h', `${h}px`);
+}
+
+function bindMemberMiniMatrixHeightSync() {
+    if (typeof window === 'undefined') return;
+    if (!memberMiniMatrixResizeBound) {
+        memberMiniMatrixResizeBound = true;
+        window.addEventListener('resize', syncMemberMiniMatrixMaxHeight, { passive: true });
+    }
+    const filt = document.getElementById('member_dash_col_filters');
+    if (filt && typeof ResizeObserver !== 'undefined') {
+        if (memberMiniMatrixResizeObserver) memberMiniMatrixResizeObserver.disconnect();
+        memberMiniMatrixResizeObserver = new ResizeObserver(() => syncMemberMiniMatrixMaxHeight());
+        memberMiniMatrixResizeObserver.observe(filt);
+    }
+    syncMemberMiniMatrixMaxHeight();
+    requestAnimationFrame(() => {
+        syncMemberMiniMatrixMaxHeight();
+        requestAnimationFrame(syncMemberMiniMatrixMaxHeight);
+    });
+}
+
 function clearMemberMiniGridDisplay() {
     const gridEl = document.getElementById('member_balance_grid');
     const hintEl = document.getElementById('member_balance_grid_hint');
@@ -511,6 +548,7 @@ function clearMemberMiniGridDisplay() {
     if (gridEl) {
         gridEl.innerHTML = '';
         gridEl.classList.remove('member-balance-mini-matrix');
+        gridEl.classList.remove('member-balance-mini-matrix--many');
         gridEl.style.gridTemplateColumns = '';
         gridEl.removeAttribute('role');
         gridEl.removeAttribute('aria-label');
@@ -526,6 +564,7 @@ function clearMemberMiniGridDisplay() {
         ph.textContent = '–';
         totalEl.appendChild(ph);
     }
+    requestAnimationFrame(() => syncMemberMiniMatrixMaxHeight());
 }
 
 function refreshMemberMiniGrid(seq) {
@@ -726,6 +765,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
 
     gridEl.innerHTML = '';
     gridEl.classList.remove('member-balance-mini-matrix');
+    gridEl.classList.remove('member-balance-mini-matrix--many');
     gridEl.style.gridTemplateColumns = '';
     gridEl.removeAttribute('role');
     gridEl.removeAttribute('aria-label');
@@ -744,6 +784,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
                 : `No accounts in the grid hold ${currenciesUpper[0]}.`;
         }
         renderMemberTotalSection(new Map(), [], seq);
+        requestAnimationFrame(() => syncMemberMiniMatrixMaxHeight());
         return;
     }
 
@@ -753,10 +794,14 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     const ncu = currenciesUpper.length;
     if (ncu === 0) {
         renderMemberTotalSection(totalsByCu, [], seq);
+        requestAnimationFrame(() => syncMemberMiniMatrixMaxHeight());
         return;
     }
 
     gridEl.classList.add('member-balance-mini-matrix');
+    if (listOrdered.length >= MEMBER_MATRIX_DENSE_ROW_THRESHOLD) {
+        gridEl.classList.add('member-balance-mini-matrix--many');
+    }
     gridEl.setAttribute('role', 'grid');
     gridEl.setAttribute('aria-label', 'Balances by account and currency');
     gridEl.style.gridTemplateColumns =
@@ -827,6 +872,7 @@ function renderMemberMiniGrid(balanceMap, orderUpper, seq) {
     });
 
     renderMemberTotalSection(totalsByCu, currenciesUpper, seq);
+    requestAnimationFrame(() => syncMemberMiniMatrixMaxHeight());
 }
 
 function buildMemberLinkedFilterModalList() {

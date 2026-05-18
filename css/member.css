@@ -883,16 +883,42 @@ body.transaction-page {
     /* 拉高中欄 fr、壓縮右欄寬與留白，縮小矩陣與 Total 之間「空白帶」 */
     grid-template-columns: minmax(252px, 0.96fr) minmax(188px, 1.72fr) minmax(92px, 0.41fr);
     gap: 0;
+    align-items: start;
+}
+
+/* 第 2 欄高度由 JS 依第 1 欄篩選區對齊；矩陣在殼層內捲動，整卡高度不再被多出帳戶列撐開 */
+.member-dash-col-grid-stack {
+    display: flex;
+    flex-direction: column;
     align-items: stretch;
+    align-self: start;
+    min-height: 0;
+    overflow: hidden;
+    max-height: var(--member-grid-col-max-h, none);
+}
+
+.member-dash-col-grid-stack > .member-dash-mini-toolbar {
+    flex: 0 0 auto;
+}
+
+.member-balance-mini-grid-shell {
+    flex: 1 1 auto;
+    min-height: 64px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.member-dash-col-grid-stack .member-balance-mini-grid-shell .member-balance-mini-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    width: 100%;
+    max-width: 100%;
 }
 
 .member-dash-col-grid {
     min-width: 0;
-}
-
-.member-dash-col-grid .member-balance-mini-grid {
-    width: 100%;
-    max-width: 100%;
 }
 
 .member-dash-col-grid.member-dash-col-split {
@@ -913,6 +939,7 @@ body.transaction-page {
     flex-direction: column;
     justify-content: flex-start;
     align-items: flex-start;
+    align-self: start;
     padding-left: clamp(5px, 0.65vw, 9px);
     padding-right: 2px;
     padding-top: 0;
@@ -959,6 +986,7 @@ body.transaction-page {
 
 .member-balance-mini-grid {
     display: grid;
+    /* 無 JS 對齊時的後備上限；對齊後由 shell flex 約束高度 */
     max-height: 240px;
     overflow: auto;
 }
@@ -971,6 +999,42 @@ body.transaction-page {
     border-radius: 4px;
     background: #fff;
     box-sizing: border-box;
+}
+
+/* 捲動時表頭固定在矩陣頂端，多列帳戶時仍對應得到幣欄 */
+.transaction-page.member-winloss-page .member-balance-mini-matrix > .member-balance-matrix-corner {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 3;
+}
+
+.transaction-page.member-winloss-page .member-balance-mini-matrix > .member-balance-matrix-th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+/* ≥10 帳戶：收緊行高／內距，在與 Column1 對齊的固定視窗中容納更多列 */
+.transaction-page.member-winloss-page .member-balance-mini-matrix.member-balance-mini-matrix--many > .member-balance-matrix-corner {
+    min-height: 18px;
+}
+
+.transaction-page.member-winloss-page .member-balance-mini-matrix.member-balance-mini-matrix--many > .member-balance-matrix-th {
+    padding: 2px 3px;
+}
+
+.transaction-page.member-winloss-page .member-balance-mini-matrix.member-balance-mini-matrix--many > .member-balance-matrix-rowhead {
+    padding: 2px 4px;
+    font-size: clamp(9px, 0.68vw, 11px);
+}
+
+.transaction-page.member-winloss-page .member-balance-mini-matrix.member-balance-mini-matrix--many > .member-balance-matrix-cell {
+    padding: 2px 4px;
+}
+
+.transaction-page.member-winloss-page .member-balance-mini-matrix.member-balance-mini-matrix--many .member-balance-matrix-amt {
+    font-size: clamp(10px, 0.72vw, 12px);
 }
 
 .member-balance-matrix-corner {
@@ -1055,8 +1119,8 @@ body.transaction-page {
 }
 
 @media (max-width: 520px) {
-    .member-balance-mini-matrix {
-        max-height: 200px;
+    .transaction-page.member-winloss-page .member-balance-mini-grid-shell {
+        min-height: 52px;
     }
 }
 
