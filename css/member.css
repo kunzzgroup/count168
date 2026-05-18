@@ -1017,10 +1017,11 @@ body.transaction-page {
 }
 
 .member-bal-hblock-row {
-    display: grid;
-    grid-template-columns: minmax(1.85rem, auto) minmax(0, 1fr);
-    gap: 4px;
+    display: flex;
+    flex-wrap: nowrap;
     align-items: baseline;
+    justify-content: flex-start;
+    gap: clamp(6px, 0.85vw, 10px);
     font-variant-numeric: tabular-nums;
 }
 
@@ -1029,12 +1030,14 @@ body.transaction-page {
     font-size: clamp(10px, 0.72vw, 12px);
     color: #002c49;
     min-width: 0;
+    flex: 0 0 auto;
 }
 
 .member-bal-hblock-amt {
     font-weight: 600;
     font-size: clamp(10px, 0.74vw, 12px);
     color: #0f2942;
+    flex: 0 1 auto;
     text-align: right;
 }
 
