@@ -130,6 +130,10 @@ function applyDataCaptureType(nextType) {
 
     toggleTableDisplayForFormat();
     updateSubmitButtonState();
+
+    if (typeof window.__DC_ON_CAPTURE_TYPE_APPLIED__ === 'function') {
+        window.__DC_ON_CAPTURE_TYPE_APPLIED__(t);
+    }
 }
 
 /**
@@ -1085,6 +1089,23 @@ let submittedProcesses = [];
 // Process data storage for searchable dropdown
 let processDataMap = new Map(); // 存储 process display_text -> {id, process_id, description_name}
 
+// 由 SPA React 表單與此處共用：依 API 列填充 processDataMap（供 restore / submit 匹配）
+function syncProcessDataMapFromApiData(processList) {
+    processDataMap.clear();
+    if (!processList || !processList.length) return;
+    processList.forEach(process => {
+        const displayText = (process.process_display != null && String(process.process_display).trim() !== '')
+            ? String(process.process_display).trim()
+            : (process.description_name ? `${process.process_id} (${process.description_name})` : process.process_id);
+        processDataMap.set(displayText, {
+            id: process.id,
+            process_id: process.process_id,
+            description_name: process.description_name || null
+        });
+    });
+}
+window.syncProcessDataMapFromApiData = syncProcessDataMapFromApiData;
+
 // Helper function to get local date in YYYY-MM-DD format (avoid timezone issues)
 function getLocalDateString(date = null) {
     const d = date || new Date();
@@ -1096,6 +1117,10 @@ function getLocalDateString(date = null) {
 
 // Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交时刻 created_at（含日期）
 async function loadSubmittedProcesses() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_REFRESH_SUBMITTED_PROCESSES__ === 'function') {
+        await window.__DC_REFRESH_SUBMITTED_PROCESSES__();
+        return;
+    }
     try {
         const dateInput = document.getElementById('capture_date');
         const selectedDate = (dateInput && dateInput.value) ? dateInput.value : getLocalDateString();
@@ -1353,6 +1378,11 @@ function showDeleteDialog(e) {
 
     hideContextMenu();
 
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_OPEN_DELETE_DIALOG__ === 'function') {
+        window.__DC_OPEN_DELETE_DIALOG__();
+        return;
+    }
+
     const deleteDialog = document.getElementById('deleteDialog');
     if (deleteDialog) {
         deleteDialog.style.display = 'block';
@@ -1385,6 +1415,10 @@ function showDeleteDialog(e) {
 
 // Close delete dialog
 function closeDeleteDialog() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_CLOSE_DELETE_DIALOG__ === 'function') {
+        window.__DC_CLOSE_DELETE_DIALOG__();
+        return;
+    }
     const deleteDialog = document.getElementById('deleteDialog');
     if (deleteDialog) {
         deleteDialog.style.display = 'none';
@@ -1401,14 +1435,18 @@ function confirmDelete() {
         return;
     }
 
-    const selectedOption = document.querySelector('input[name="deleteOption"]:checked');
-    if (!selectedOption) {
-        console.log('No option selected');
-        closeDeleteDialog();
-        return;
+    let deleteType;
+    if (window.__DATA_CAPTURE_REACT_FORM__ && window.__DC_DELETE_DIALOG_OPTION__ != null && String(window.__DC_DELETE_DIALOG_OPTION__) !== '') {
+        deleteType = String(window.__DC_DELETE_DIALOG_OPTION__);
+    } else {
+        const selectedOption = document.querySelector('input[name="deleteOption"]:checked');
+        if (!selectedOption) {
+            console.log('No option selected');
+            closeDeleteDialog();
+            return;
+        }
+        deleteType = selectedOption.value;
     }
-
-    const deleteType = selectedOption.value;
     console.log('Delete type:', deleteType);
 
     const tableBody = document.getElementById('tableBody');
@@ -2311,6 +2349,9 @@ async function addSubmittedProcess(processData) {
 
 // Render submitted processes list
 function renderSubmittedProcesses() {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     const listContainer = document.getElementById('submittedProcessesList');
 
     if (submittedProcesses.length === 0) {
@@ -2368,6 +2409,10 @@ function renderSubmittedProcesses() {
 }
 // Notification functions
 function showNotification(message, type = 'success') {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_PUSH_NOTIFICATION__ === 'function') {
+        window.__DC_PUSH_NOTIFICATION__(message, type);
+        return;
+    }
     const container = document.getElementById('processNotificationContainer');
 
     if (!container) {
@@ -2424,6 +2469,9 @@ function getProcessId(buttonElement) {
 
 // ==================== 初始化 Process 自定义下拉选单 ====================
 function initProcessInput() {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     const processButton = document.getElementById('capture_process');
     const processDropdown = document.getElementById('capture_process_dropdown');
     const searchInput = processDropdown?.querySelector('.custom-select-search input');
@@ -2600,6 +2648,9 @@ function initProcessInput() {
 
 // Load process data when a process is selected
 async function loadProcessData(processId) {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     console.log('Loading process data for ID:', processId);
     try {
         // Ensure currency dropdown is loaded
@@ -2746,6 +2797,11 @@ async function loadProcessData(processId) {
 
 // Clear process data when no process is selected
 function clearProcessData() {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        window.selectedDescriptions = [];
+        updateSubmitButtonState();
+        return;
+    }
     // Clear currency field
     const currencySelect = document.getElementById('capture_currency');
     if (currencySelect) {
@@ -2830,6 +2886,9 @@ function generateDateOptions() {
 
 // Load form data on page load
 async function loadFormData() {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     try {
         // Generate date options first
         generateDateOptions();
@@ -2871,7 +2930,7 @@ async function loadFormData() {
 async function loadProcessesByDate() {
     try {
         const dateInput = document.getElementById('capture_date');
-        const selectedDate = dateInput.value || getLocalDateString();
+        const selectedDate = (dateInput && dateInput.value) ? dateInput.value : getLocalDateString();
 
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
@@ -2882,6 +2941,17 @@ async function loadProcessesByDate() {
         const result = await response.json();
 
         if (result.success) {
+            const rows = result.data || [];
+            syncProcessDataMapFromApiData(rows);
+
+            if (window.__DATA_CAPTURE_REACT_FORM__) {
+                if (typeof window.__DC_SET_PROCESS_LIST__ === 'function') {
+                    window.__DC_SET_PROCESS_LIST__(rows, selectedDate);
+                }
+                updateSubmitButtonState();
+                return;
+            }
+
             // Fill process custom select
             const processButton = document.getElementById('capture_process');
             const processDropdown = document.getElementById('capture_process_dropdown');
@@ -2889,8 +2959,6 @@ async function loadProcessesByDate() {
 
             if (!processButton || !processDropdown || !optionsContainer) return;
 
-            // 清空数据映射和选项
-            processDataMap.clear();
             optionsContainer.innerHTML = '';
 
             // 保存之前的值
@@ -2914,13 +2982,6 @@ async function loadProcessesByDate() {
                         option.setAttribute('data-description-name', process.description_name);
                     }
                     optionsContainer.appendChild(option);
-
-                    // 存储映射：display_text -> {id, process_id, description_name}
-                    processDataMap.set(displayText, {
-                        id: process.id,
-                        process_id: process.process_id,
-                        description_name: process.description_name || null
-                    });
                 });
 
                 // 恢复之前的值（如果仍然存在）
@@ -2984,6 +3045,10 @@ async function loadProcessesByDate() {
 }
 
 function expandDescription() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_OPEN_DESCRIPTION_MODAL__ === 'function') {
+        window.__DC_OPEN_DESCRIPTION_MODAL__();
+        return;
+    }
     // Show description selection modal
     const modal = document.getElementById('descriptionSelectionModal');
     loadExistingDescriptions();
@@ -2994,6 +3059,9 @@ function expandDescription() {
 
 // Load existing descriptions
 async function loadExistingDescriptions() {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     try {
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
@@ -3073,6 +3141,9 @@ async function loadExistingDescriptions() {
 
 // Filter descriptions based on search
 function filterDescriptions() {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     const searchTerm = document.getElementById('descriptionSearch').value.toLowerCase();
     const descriptionItems = document.querySelectorAll('#existingDescriptions .description-item');
 
@@ -3088,6 +3159,9 @@ function filterDescriptions() {
 
 // Update selected descriptions in modal (initialize with existing selections)
 function updateSelectedDescriptionsInModal() {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     const selectedList = document.getElementById('selectedDescriptionsInModal');
     selectedList.innerHTML = '';
 
@@ -3108,6 +3182,9 @@ function updateSelectedDescriptionsInModal() {
 
 // Move description to selected list (left side)
 function moveDescriptionToSelected(checkbox) {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     const descriptionName = checkbox.value;
     const descriptionId = checkbox.dataset.descriptionId;
     const descriptionItem = checkbox.closest('.description-item');
@@ -3137,6 +3214,9 @@ function moveDescriptionToSelected(checkbox) {
 
 // Move description back to available list (right side)
 function moveDescriptionBackToAvailable(descriptionName, descriptionId) {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     // Remove from selected descriptions array
     if (window.selectedDescriptions) {
         const index = window.selectedDescriptions.indexOf(descriptionName);
@@ -3203,6 +3283,9 @@ function moveDescriptionBackToAvailable(descriptionName, descriptionId) {
 
 // Move description to available list (right side) - for checkbox uncheck
 function moveDescriptionToAvailable(checkbox) {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     const descriptionName = checkbox.value;
     const descriptionId = checkbox.dataset.descriptionId;
     const descriptionItem = checkbox.closest('.description-item');
@@ -3226,6 +3309,9 @@ function moveDescriptionToAvailable(checkbox) {
 
 // Delete description from list (and backend)
 async function deleteDescription(descriptionId, descriptionName, itemElement) {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     if (!descriptionId) return;
     const confirmed = confirm(`Are you sure you want to delete description ${descriptionName}? This action cannot be undone.`);
     if (!confirmed) return;
@@ -3270,6 +3356,10 @@ async function deleteDescription(descriptionId, descriptionName, itemElement) {
 
 // Close description selection modal
 function closeDescriptionSelectionModal() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_CLOSE_DESCRIPTION_MODAL__ === 'function') {
+        window.__DC_CLOSE_DESCRIPTION_MODAL__();
+        return;
+    }
     const modal = document.getElementById('descriptionSelectionModal');
     modal.classList.remove('show');
     modal.style.display = 'none';
@@ -3282,12 +3372,19 @@ function closeDescriptionSelectionModal() {
 
 // Confirm descriptions and close modal
 function confirmDescriptions() {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     if (window.selectedDescriptions && window.selectedDescriptions.length > 0) {
         // Update the input field to show selected descriptions
         document.getElementById('capture_description').value = window.selectedDescriptions.join(', ');
 
         // Update submit button state
         updateSubmitButtonState();
+
+        if (typeof window.__DC_ON_DESCRIPTIONS_CONFIRMED__ === 'function') {
+            window.__DC_ON_DESCRIPTIONS_CONFIRMED__(window.selectedDescriptions);
+        }
 
         closeDescriptionSelectionModal();
     } else {
@@ -3303,9 +3400,15 @@ function displaySelectedDescriptions(descriptions) {
 
         // Store selected descriptions for form submission
         window.selectedDescriptions = descriptions;
+        if (typeof window.__DC_ON_DESCRIPTIONS_CONFIRMED__ === 'function') {
+            window.__DC_ON_DESCRIPTIONS_CONFIRMED__(descriptions);
+        }
     } else {
         document.getElementById('capture_description').value = '';
         window.selectedDescriptions = [];
+        if (typeof window.__DC_ON_DESCRIPTIONS_CONFIRMED__ === 'function') {
+            window.__DC_ON_DESCRIPTIONS_CONFIRMED__([]);
+        }
     }
 }
 
@@ -22557,62 +22660,69 @@ function initFormatPasteArea() {
 
 // Reset form
 function resetForm() {
-    document.getElementById('dataCaptureForm').reset();
-    // Reset date to today (which should already be selected by default)
-    const today = getLocalDateString();
-    document.getElementById('capture_date').value = today;
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        if (typeof window.__DC_REACT_FORM_RESET__ === 'function') {
+            window.__DC_REACT_FORM_RESET__();
+        }
+        window.selectedDescriptions = [];
+    } else {
+        document.getElementById('dataCaptureForm').reset();
+        // Reset date to today (which should already be selected by default)
+        const today = getLocalDateString();
+        document.getElementById('capture_date').value = today;
 
-    // Clear process selection
-    const processInput = document.getElementById('capture_process');
-    if (processInput) {
-        processInput.textContent = processInput.getAttribute('data-placeholder') || 'Select Process';
-        processInput.removeAttribute('data-value');
-        processInput.removeAttribute('data-process-code');
-        processInput.removeAttribute('data-description-name');
-    }
-    clearProcessData();
+        // Clear process selection
+        const processInput = document.getElementById('capture_process');
+        if (processInput) {
+            processInput.textContent = processInput.getAttribute('data-placeholder') || 'Select Process';
+            processInput.removeAttribute('data-value');
+            processInput.removeAttribute('data-process-code');
+            processInput.removeAttribute('data-description-name');
+        }
+        clearProcessData();
 
-    // Clear replace word fields
-    const replaceFromInput = document.getElementById('capture_replace_word_from');
-    const replaceToInput = document.getElementById('capture_replace_word_to');
-    if (replaceFromInput) {
-        replaceFromInput.value = '';
-    }
-    if (replaceToInput) {
-        replaceToInput.value = '';
-    }
+        // Clear replace word fields
+        const replaceFromInput = document.getElementById('capture_replace_word_from');
+        const replaceToInput = document.getElementById('capture_replace_word_to');
+        if (replaceFromInput) {
+            replaceFromInput.value = '';
+        }
+        if (replaceToInput) {
+            replaceToInput.value = '';
+        }
 
-    // Clear remark field
-    const remarkInput = document.getElementById('capture_remark');
-    if (remarkInput) {
-        remarkInput.value = '';
-    }
+        // Clear remark field
+        const remarkInput = document.getElementById('capture_remark');
+        if (remarkInput) {
+            remarkInput.value = '';
+        }
 
-    window.selectedDescriptions = [];
+        window.selectedDescriptions = [];
 
-    // Reset process button (custom select)
-    const processButton = document.getElementById('capture_process');
-    if (processButton) {
-        const placeholder = processButton.getAttribute('data-placeholder') || 'Select Process';
-        processButton.textContent = placeholder;
-        processButton.removeAttribute('data-value');
-        processButton.removeAttribute('data-process-code');
-        processButton.removeAttribute('data-description-name');
+        // Reset process button (custom select)
+        const processButton = document.getElementById('capture_process');
+        if (processButton) {
+            const placeholder = processButton.getAttribute('data-placeholder') || 'Select Process';
+            processButton.textContent = placeholder;
+            processButton.removeAttribute('data-value');
+            processButton.removeAttribute('data-process-code');
+            processButton.removeAttribute('data-description-name');
 
-        // Clear selected state in dropdown options
-        const processDropdown = document.getElementById('capture_process_dropdown');
-        if (processDropdown) {
-            const optionsContainer = processDropdown.querySelector('.custom-select-options');
-            if (optionsContainer) {
-                optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
-                    opt.classList.remove('selected');
-                });
+            // Clear selected state in dropdown options
+            const processDropdown = document.getElementById('capture_process_dropdown');
+            if (processDropdown) {
+                const optionsContainer = processDropdown.querySelector('.custom-select-options');
+                if (optionsContainer) {
+                    optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+                }
             }
         }
-    }
 
-    // Clear process-related data
-    clearProcessData();
+        // Clear process-related data
+        clearProcessData();
+    }
 
     // Clear all table data (including styles and HTML)
     const tableBody = document.getElementById('tableBody');
@@ -24287,12 +24397,15 @@ async function restoreFromLocalStorage() {
 
         // Set flag to prevent date change event from clearing process selection
         isRestoringData = true;
+        window.__DC_IS_RESTORING__ = true;
 
         const tableDataStr = localStorage.getItem('capturedTableData');
         const processDataStr = localStorage.getItem('capturedProcessData');
 
         if (!tableDataStr || !processDataStr) {
             console.log('No saved data found in localStorage');
+            isRestoringData = false;
+            window.__DC_IS_RESTORING__ = false;
             return;
         }
 
@@ -24583,6 +24696,15 @@ async function restoreFromLocalStorage() {
         // Update submit button state
         updateSubmitButtonState();
 
+        if (typeof window.__DC_POST_LEGACY_RESTORE_SYNC__ === 'function') {
+            try {
+                await window.__DC_POST_LEGACY_RESTORE_SYNC__(processData);
+            } catch (syncErr) {
+                console.warn('__DC_POST_LEGACY_RESTORE_SYNC__', syncErr);
+            }
+        }
+        window.__DC_IS_RESTORING__ = false;
+
         // Clean URL (keep e.g. company_id for SPA)
         replaceUrlStrippingSearchParams(['restore']);
 
@@ -24594,6 +24716,7 @@ async function restoreFromLocalStorage() {
         console.error('Error restoring data from localStorage:', error);
         // Reset flag even on error
         isRestoringData = false;
+        window.__DC_IS_RESTORING__ = false;
     }
 }
 
@@ -24694,9 +24817,11 @@ async function initDataCapturePage() {
 
         initFormatPasteArea();
 
-        typeSelect.addEventListener('change', () => {
-            applyDataCaptureType(typeSelect.value || '1.Text');
-        });
+        if (!window.__DATA_CAPTURE_REACT_FORM__) {
+            typeSelect.addEventListener('change', () => {
+                applyDataCaptureType(typeSelect.value || '1.Text');
+            });
+        }
     } else {
         applyDataCaptureType(captureTypeFromUrl || '1.Text');
         initFormatPasteArea();
@@ -24725,12 +24850,14 @@ async function initDataCapturePage() {
     setupFormValidationListeners();
 
     // Enforce uppercase on relevant text inputs
-    addUppercaseConversion('capture_remove_word');
-    addUppercaseConversion('capture_replace_word_from');
-    addUppercaseConversion('capture_replace_word_to');
-    addUppercaseConversion('capture_remark');
-    addUppercaseConversion('new_description_name');
-    addUppercaseConversion('descriptionSearch');
+    if (!window.__DATA_CAPTURE_REACT_FORM__) {
+        addUppercaseConversion('capture_remove_word');
+        addUppercaseConversion('capture_replace_word_from');
+        addUppercaseConversion('capture_replace_word_to');
+        addUppercaseConversion('capture_remark');
+        addUppercaseConversion('new_description_name');
+        addUppercaseConversion('descriptionSearch');
+    }
 
     // Check for URL parameters and show notifications
     if (urlParams.get('success') === '1') {
@@ -24751,6 +24878,9 @@ let selectedPermission = null;
 
 // 加载权限按钮
 async function loadPermissionButtons() {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        return;
+    }
     const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
     const currentCompanyCode = (typeof window.DATACAPTURE_COMPANY_CODE !== 'undefined' ? window.DATACAPTURE_COMPANY_CODE : '');
 
@@ -24866,7 +24996,7 @@ async function switchDataCaptureCompany(companyId) {
 function setupFormValidationListeners() {
     // Listen for date changes
     const dateInput = document.getElementById('capture_date');
-    if (dateInput) {
+    if (dateInput && !window.__DATA_CAPTURE_REACT_FORM__) {
         dateInput.addEventListener('change', async function () {
             console.log('Date changed to:', this.value);
             // Reload processes based on new date
@@ -24960,6 +25090,13 @@ function addUppercaseConversion(inputId) {
     });
 }
 window.switchDataCaptureCompany = switchDataCaptureCompany;
+
+window.applyDataCaptureType = applyDataCaptureType;
+window.confirmDelete = confirmDelete;
+window.closeDeleteDialog = closeDeleteDialog;
+window.resetForm = resetForm;
+window.initializeTable = initializeTable;
+window.submitDataCaptureForm = submitDataCaptureForm;
 
 window.initDataCapturePage = initDataCapturePage;
 if (!window.__DATA_CAPTURE_SPA_BOOTSTRAP__) {

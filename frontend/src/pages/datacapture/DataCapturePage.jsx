@@ -18,6 +18,17 @@ import "../../../public/css/datacapture.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
 
+import { formatSubmittedProcessDateTime } from "./dataCaptureApi.js";
+import DataCaptureContextMenus from "./DataCaptureContextMenus.jsx";
+import DataCaptureDeleteDialog from "./DataCaptureDeleteDialog.jsx";
+import DataCaptureTableSection from "./DataCaptureTableSection.jsx";
+import DescriptionSelectionModal from "./DescriptionSelectionModal.jsx";
+import ProcessNotificationContainer from "./ProcessNotificationContainer.jsx";
+import { useDataCaptureCategoryPermissions } from "./useDataCaptureCategoryPermissions.js";
+import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
+import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
+import { useDataCaptureSubmittedList } from "./useDataCaptureSubmittedList.js";
+
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
   return new Promise((resolve, reject) => {
@@ -77,6 +88,69 @@ export default function DataCapturePage() {
   );
 
   const companyCode = currentCompanyRow?.company_id ? String(currentCompanyRow.company_id) : "";
+
+  const form = useDataCaptureFormEngine(companyId);
+
+  const { submittedItems } = useDataCaptureSubmittedList(companyId, form.captureDate);
+
+  const { permissions, selectedPermission, selectPermission, showPermissionFilter } =
+    useDataCaptureCategoryPermissions(companyCode);
+
+  const {
+    captureType,
+    handleCaptureTypeChange,
+    deleteOpen,
+    deleteOption,
+    setDeleteOption,
+    handleConfirmDelete,
+    closeDeleteDialog,
+  } = useDataCaptureLegacyChrome();
+
+  const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
+
+  const openDescriptionModal = useCallback(() => {
+    if (!companyId) return;
+    setDescriptionModalOpen(true);
+  }, [companyId]);
+
+  const closeDescriptionModal = useCallback(() => setDescriptionModalOpen(false), []);
+
+  const handleDescriptionsConfirmed = useCallback((names) => {
+    window.selectedDescriptions = [...names];
+    if (typeof window.__DC_ON_DESCRIPTIONS_CONFIRMED__ === "function") {
+      window.__DC_ON_DESCRIPTIONS_CONFIRMED__(names);
+    }
+    setTimeout(() => {
+      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+    }, 0);
+    setDescriptionModalOpen(false);
+  }, []);
+
+  useLayoutEffect(() => {
+    window.__DC_OPEN_DESCRIPTION_MODAL__ = openDescriptionModal;
+    window.__DC_CLOSE_DESCRIPTION_MODAL__ = closeDescriptionModal;
+    return () => {
+      try {
+        delete window.__DC_OPEN_DESCRIPTION_MODAL__;
+        delete window.__DC_CLOSE_DESCRIPTION_MODAL__;
+      } catch {
+        window.__DC_OPEN_DESCRIPTION_MODAL__ = undefined;
+        window.__DC_CLOSE_DESCRIPTION_MODAL__ = undefined;
+      }
+    };
+  }, [openDescriptionModal, closeDescriptionModal]);
+
+  useEffect(() => {
+    if (!form.processOpen) return;
+    const onDoc = (e) => {
+      const btn = document.getElementById("capture_process");
+      const dd = document.getElementById("capture_process_dropdown");
+      if (btn?.contains(e.target) || dd?.contains(e.target)) return;
+      form.setProcessOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [form.processOpen, form.setProcessOpen]);
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page");
@@ -289,9 +363,25 @@ export default function DataCapturePage() {
         <h1 style={{ margin: 0 }}>Data Capture</h1>
 
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
-          <div id="data-capture-permission-filter" className="data-capture-company-filter data-capture-permission-filter-header" style={{ display: "none" }}>
+          <div
+            id="data-capture-permission-filter"
+            className="data-capture-company-filter data-capture-permission-filter-header"
+            style={{ display: showPermissionFilter ? "flex" : "none" }}
+          >
             <span className="data-capture-company-label">Category:</span>
-            <div id="data-capture-permission-buttons" className="data-capture-company-buttons" />
+            <div id="data-capture-permission-buttons" className="data-capture-company-buttons">
+              {permissions.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`data-capture-company-btn${selectedPermission === p ? " active" : ""}`.trim()}
+                  data-permission={p}
+                  onClick={() => selectPermission(p)}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -370,22 +460,76 @@ export default function DataCapturePage() {
               <div className="dc-form-two-col dc-form-two-col--stacked">
                 <div className="form-group">
                   <label htmlFor="capture_date">Date</label>
-                  <select id="capture_date" name="capture_date" required defaultValue="">
-                    <option value="">Select Date</option>
+                  <select id="capture_date" name="capture_date" required value={form.captureDate} onChange={(e) => void form.onDateChange(e)}>
+                    {form.dateOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="form-group">
                   <label htmlFor="capture_process">Process</label>
                   <div className="custom-select-wrapper">
-                    <button type="button" className="custom-select-button" id="capture_process" data-placeholder="Select Process" name="process">
-                      Select Process
+                    <button
+                      type="button"
+                      className={`custom-select-button${form.processOpen ? " open" : ""}`.trim()}
+                      id="capture_process"
+                      data-placeholder="Select Process"
+                      name="process"
+                      {...(form.selectedProcess?.id
+                        ? {
+                            "data-value": form.selectedProcess.id,
+                            "data-process-code": form.selectedProcess.process_id || "",
+                            ...(form.selectedProcess.description_name
+                              ? { "data-description-name": form.selectedProcess.description_name }
+                              : {}),
+                          }
+                        : {})}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (typeof window.tableActive !== "undefined") window.tableActive = false;
+                        form.setProcessOpen((o) => !o);
+                      }}
+                    >
+                      {form.selectedProcess?.displayText || "Select Process"}
                     </button>
-                    <div className="custom-select-dropdown" id="capture_process_dropdown">
+                    <div
+                      className={`custom-select-dropdown${form.processOpen ? " show" : ""}`.trim()}
+                      id="capture_process_dropdown"
+                    >
                       <div className="custom-select-search">
-                        <input type="text" placeholder="Search process..." autoComplete="off" />
+                        <input
+                          ref={form.processSearchInputRef}
+                          type="text"
+                          placeholder="Search process..."
+                          autoComplete="off"
+                          value={form.processFilter}
+                          onChange={(e) => form.setProcessFilter(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              form.setProcessOpen(false);
+                            } else if (e.key === "Enter") {
+                              e.preventDefault();
+                              const first = form.filteredProcesses[0];
+                              if (first) void form.selectProcessRow(first);
+                            }
+                          }}
+                        />
                       </div>
-                      <div className="custom-select-options" />
+                      <div className="custom-select-options">
+                        {form.filteredProcesses.map((row) => (
+                          <div
+                            key={row.id}
+                            role="presentation"
+                            className="custom-select-option"
+                            onClick={() => void form.selectProcessRow(row)}
+                          >
+                            {form.displayTextFromProcessRow(row)}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -402,6 +546,7 @@ export default function DataCapturePage() {
                       required
                       readOnly
                       placeholder="Click + to select descriptions"
+                      value={form.descriptionDisplay}
                     />
                     <button type="button" className="add-icon" onClick={() => window.expandDescription?.()}>
                       +
@@ -411,8 +556,21 @@ export default function DataCapturePage() {
 
                 <div className="form-group">
                   <label htmlFor="capture_currency">Currency</label>
-                  <select id="capture_currency" name="currency" defaultValue="">
+                  <select
+                    id="capture_currency"
+                    name="currency"
+                    value={form.currencyId}
+                    onChange={(e) => {
+                      form.setCurrencyId(e.target.value);
+                      setTimeout(() => window.updateSubmitButtonState?.(), 0);
+                    }}
+                  >
                     <option value="">Select Currency</option>
+                    {form.currencies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.code}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -421,9 +579,23 @@ export default function DataCapturePage() {
                 <div className="form-group replace-word-group dc-replace-word-field">
                   <label htmlFor="capture_replace_word_from">Replace Word</label>
                   <div className="replace-word-fields">
-                    <input type="text" id="capture_replace_word_from" name="replace_word_from" placeholder="Old word" />
+                    <input
+                      type="text"
+                      id="capture_replace_word_from"
+                      name="replace_word_from"
+                      placeholder="Old word"
+                      value={form.replaceFrom}
+                      onChange={(e) => form.setReplaceFrom(e.target.value.toUpperCase())}
+                    />
                     <span className="replace-arrow">→</span>
-                    <input type="text" id="capture_replace_word_to" name="replace_word_to" placeholder="New word" />
+                    <input
+                      type="text"
+                      id="capture_replace_word_to"
+                      name="replace_word_to"
+                      placeholder="New word"
+                      value={form.replaceTo}
+                      onChange={(e) => form.setReplaceTo(e.target.value.toUpperCase())}
+                    />
                   </div>
                 </div>
 
@@ -440,6 +612,8 @@ export default function DataCapturePage() {
                     name="remove_word"
                     className="dc-remove-remark__input dc-remove-remark__input--rm"
                     placeholder="Enter words to remove"
+                    value={form.removeWord}
+                    onChange={(e) => form.setRemoveWord(e.target.value.toUpperCase())}
                   />
                   <input
                     type="text"
@@ -447,6 +621,8 @@ export default function DataCapturePage() {
                     name="remark"
                     className="dc-remove-remark__input dc-remove-remark__input--mk"
                     placeholder="Enter remark"
+                    value={form.remark}
+                    onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
                   />
                   <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
                     (Use semicolon to separate multiple words, e.g. abc;cde;efg)
@@ -462,198 +638,58 @@ export default function DataCapturePage() {
           <div className="submitted-container">
             <h2 className="submitted-title">Submitted Processes</h2>
             <div className="submitted-list" id="submittedProcessesList">
-              <div className="no-data">No processes submitted yet</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bottom-section">
-        <div className="excel-table-container">
-          <div className="excel-table-header">
-            <span>Data Capture Table</span>
-            <select
-              id="dataCaptureTypeSelector"
-              className="data-capture-type-selector data-capture-type-selector--sr-only"
-              defaultValue="1.Text"
-              aria-hidden="true"
-              tabIndex={-1}
-            >
-              <option value="1.Text">1.TEXT</option>
-              <option value="2.Format">2.FORMAT</option>
-              <option value="CITIBET">CITIBET</option>
-              <option value="CITIBET_MAJOR">3.CITIBET</option>
-              <option value="4.RETURN">4.RETURN</option>
-            </select>
-            <button type="button" className="btn btn-cancel" onClick={() => window.resetForm?.()}>
-              Reset
-            </button>
-          </div>
-          <table className="excel-table" id="dataTable">
-            <thead id="tableHeader">
-              <tr>
-                <th />
-              </tr>
-            </thead>
-            <tbody id="tableBody" />
-          </table>
-          <div id="tablePreviewFormat" className="table-preview-format" style={{ display: "none" }}>
-            <iframe id="tablePreviewFrameFormat" className="table-preview-frame-format" title="Format Table Preview" />
-          </div>
-          <div
-            id="pasteAreaFormat"
-            className="paste-area-format"
-            style={{ display: "none" }}
-            contentEditable
-            data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
-            suppressContentEditableWarning
-          />
-        </div>
-
-        <div className="form-actions">
-          <button id="dataCaptureSubmitBtn" type="submit" className="btn btn-save" onClick={() => window.submitDataCaptureForm?.()}>
-            Submit
-          </button>
-        </div>
-      </div>
-
-      <div id="descriptionSelectionModal" className="modal" style={{ display: "none" }}>
-        <div className="modal-content description-selection-modal">
-          <div className="modal-header">
-            <h2>Select or Add Description</h2>
-            <span className="close" onClick={() => window.closeDescriptionSelectionModal?.()} role="presentation">
-              &times;
-            </span>
-          </div>
-          <div className="modal-body">
-            <div className="description-selection-container">
-              <div className="selected-descriptions-section">
-                <h3>Selected Descriptions</h3>
-                <div className="selected-descriptions-list" id="selectedDescriptionsInModal" />
-              </div>
-
-              <div className="available-descriptions-section">
-                <div className="add-description-bar">
-                  <h3>Add New Description</h3>
-                  <form id="addDescriptionForm" className="add-description-form">
-                    <div className="add-description-input-group">
-                      <input type="text" id="new_description_name" name="description_name" placeholder="Enter new description name..." required />
-                      <button type="submit" className="btn btn-save">
-                        Add
-                      </button>
+              {submittedItems.length === 0 ? (
+                <div className="no-data">No processes submitted for this date</div>
+              ) : (
+                submittedItems.map((process, index) => (
+                  <div
+                    key={
+                      process.id != null
+                        ? String(process.id)
+                        : `sub-${index}-${process.process_code}-${process.created_at || ""}-${process.submitted_by || ""}`
+                    }
+                    className="submitted-item"
+                  >
+                    <div className="submitted-details">
+                      <div className="detail-row">
+                        <strong>
+                          {process.process_code}
+                          {process.description_name ? ` (${process.description_name})` : ""}
+                        </strong>
+                        <div className="submitted-meta">
+                          <span className="submitted-by">{process.submitted_by}</span>
+                          <span className="submitted-date">{formatSubmittedProcessDateTime(process)}</span>
+                        </div>
+                      </div>
                     </div>
-                  </form>
-                </div>
-
-                <h3>Available Descriptions</h3>
-                <div className="description-search">
-                  <input type="text" id="descriptionSearch" placeholder="Search descriptions..." onKeyUp={() => window.filterDescriptions?.()} />
-                </div>
-                <div className="description-list" id="existingDescriptions" />
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={() => window.confirmDescriptions?.()}>
-                Confirm
-              </button>
-              <button type="button" className="btn btn-cancel" onClick={() => window.closeDescriptionSelectionModal?.()}>
-                Cancel
-              </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div id="processNotificationContainer" className="process-notification-container" />
+      <DataCaptureTableSection captureType={captureType} onCaptureTypeChange={handleCaptureTypeChange} />
 
-      <div id="contextMenu" className="context-menu" style={{ display: "none" }}>
-        <div className="context-menu-item" role="presentation" onClick={(e) => { e.stopPropagation(); window.copySelectedCells?.(); }}>
-          <span>📋 Copy</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={(e) => { e.stopPropagation(); window.pasteToSelectedCells?.(); }}>
-          <span>📄 Paste</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={(e) => { e.stopPropagation(); window.clearSelectedCells?.(); }}>
-          <span>🗑️ Clear</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={(e) => { e.stopPropagation(); window.showDeleteDialog?.(e); }}>
-          <span>🗑️ Delete</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={(e) => window.selectAllCells?.(e)}>
-          <span>☑️ Select All</span>
-        </div>
-      </div>
+      <DescriptionSelectionModal
+        open={descriptionModalOpen}
+        onClose={closeDescriptionModal}
+        companyId={companyId}
+        onConfirm={handleDescriptionsConfirmed}
+      />
 
-      <div id="columnContextMenu" className="context-menu" style={{ display: "none" }}>
-        <div className="context-menu-item" role="presentation" onClick={() => window.insertColumnLeft?.()}>
-          <span>➕ Insert 1 column left</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={() => window.insertColumnRight?.()}>
-          <span>➕ Insert 1 column right</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={() => window.deleteColumn?.()}>
-          <span>🗑️ Delete column</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={() => window.clearColumn?.()}>
-          <span>❌ Clear column</span>
-        </div>
-      </div>
+      <ProcessNotificationContainer />
 
-      <div id="rowContextMenu" className="context-menu" style={{ display: "none" }}>
-        <div className="context-menu-item" role="presentation" onClick={() => window.insertRowAbove?.()}>
-          <span>➕ Insert 1 row above</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={() => window.insertRowBelow?.()}>
-          <span>➕ Insert 1 row below</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={() => window.deleteRow?.()}>
-          <span>🗑️ Delete row</span>
-        </div>
-        <div className="context-menu-item" role="presentation" onClick={() => window.clearRow?.()}>
-          <span>❌ Clear row</span>
-        </div>
-      </div>
+      <DataCaptureContextMenus />
 
-      <div id="deleteDialog" className="delete-dialog" style={{ display: "none" }}>
-        <div className="delete-dialog-content">
-          <div className="delete-dialog-header">
-            <span>Delete</span>
-            <span className="delete-dialog-close" role="presentation" onClick={() => window.closeDeleteDialog?.()}>
-              &times;
-            </span>
-          </div>
-          <div className="delete-dialog-body">
-            <div className="delete-dialog-title">Delete</div>
-            <div className="delete-options">
-              <label className="delete-option">
-                <input type="radio" name="deleteOption" value="shiftLeft" defaultChecked />
-                <span>Shift cells left</span>
-              </label>
-              <label className="delete-option">
-                <input type="radio" name="deleteOption" value="shiftUp" />
-                <span>Shift cells up</span>
-              </label>
-              <label className="delete-option">
-                <input type="radio" name="deleteOption" value="entireRow" />
-                <span>Entire row</span>
-              </label>
-              <label className="delete-option">
-                <input type="radio" name="deleteOption" value="entireColumn" />
-                <span>Entire column</span>
-              </label>
-            </div>
-          </div>
-          <div className="delete-dialog-footer">
-            <button type="button" className="btn btn-save" onClick={(e) => { e.stopPropagation(); window.confirmDelete?.(); }}>
-              OK
-            </button>
-            <button type="button" className="btn btn-cancel" onClick={(e) => { e.stopPropagation(); window.closeDeleteDialog?.(); }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
+      <DataCaptureDeleteDialog
+        open={deleteOpen}
+        deleteOption={deleteOption}
+        onDeleteOptionChange={setDeleteOption}
+        onConfirm={handleConfirmDelete}
+        onClose={closeDeleteDialog}
+      />
     </div>
   );
 }

@@ -1499,6 +1499,7 @@ body.datacapture-page .bottom-section .form-actions {
 
 /* Context Menu Styles */
 .context-menu {
+    display: none;
     position: fixed;
     background: white;
     border: 1px solid #d0d7de;
