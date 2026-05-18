@@ -15,6 +15,8 @@ export function useTransactionForm({
   refreshContraInboxBadge,
   filterSnapshot,
   accountOptions,
+  m,
+  t,
 }) {
   const [txType, setTxType] = useState("CONTRA");
   const [txDate, setTxDate] = useState(null);
@@ -66,7 +68,7 @@ export function useTransactionForm({
         row.currency && String(row.currency).trim() ? String(row.currency).trim().toUpperCase() : "";
       const resolved = resolveGridRowToAccountOption(row, accountOptions);
       if (!resolved) {
-        pushToast("Could not resolve account for this row", "error");
+        pushToast(m.couldNotResolveAccount, "error");
         return;
       }
       const accountCurrency = resolved.currency ? String(resolved.currency).trim().toUpperCase() : "";
@@ -111,11 +113,11 @@ export function useTransactionForm({
         }
         if (amountSet) setRateCurrencyFromAmount(amountDisplay);
         if (syncCurrency) setRateCurrencyFrom(syncCurrency);
-        parts.push(`${treatAsPositiveRow ? "From" : "To"} Account: ${row.account_id || resolved.account_id}`);
-        if (amountSet) parts.push(`Amount: ${amountDisplay}`);
-        if (syncCurrency) parts.push(`Currency: ${syncCurrency}`);
-        if (parts.length) pushToast(`Synced ${parts.join(", ")}`, "success");
-        else if (amountSet) pushToast(`Synced Amount: ${amountDisplay}`, "success");
+        parts.push(t("syncedFromAccount", { account: row.account_id || resolved.account_id }).replace("From", treatAsPositiveRow ? m.fromAccount : m.toAccount));
+        if (amountSet) parts.push(t("syncedAmountShort", { amount: amountDisplay }));
+        if (syncCurrency) parts.push(t("syncedCurrency", { currency: syncCurrency }));
+        if (parts.length) pushToast(t("synced", { text: parts.join(", ") }), "success");
+        else if (amountSet) pushToast(t("syncedAmount", { amount: amountDisplay }), "success");
         return;
       }
 
@@ -127,13 +129,13 @@ export function useTransactionForm({
       if (amountSet) setTxAmount(amountDisplay);
       if (syncCurrency) setTxCurrency(syncCurrency);
 
-      parts.push(`${treatAsPositiveRow ? "From" : "To"} Account: ${row.account_id || resolved.account_id}`);
-      if (amountSet) parts.push(`Amount: ${amountDisplay}`);
-      if (syncCurrency) parts.push(`Currency: ${syncCurrency}`);
-      if (parts.length) pushToast(`Synced ${parts.join(", ")}`, "success");
-      else if (amountSet) pushToast(`Synced Amount: ${amountDisplay}`, "success");
+      parts.push(t("syncedFromAccount", { account: row.account_id || resolved.account_id }).replace("From", treatAsPositiveRow ? m.fromAccount : m.toAccount));
+      if (amountSet) parts.push(t("syncedAmountShort", { amount: amountDisplay }));
+      if (syncCurrency) parts.push(t("syncedCurrency", { currency: syncCurrency }));
+      if (parts.length) pushToast(t("synced", { text: parts.join(", ") }), "success");
+      else if (amountSet) pushToast(t("syncedAmount", { amount: amountDisplay }), "success");
     },
-    [accountOptions, filterSnapshot?.mutationsBlocked, pushToast, txType],
+    [accountOptions, filterSnapshot?.mutationsBlocked, pushToast, txType, m, t],
   );
 
   const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
@@ -213,7 +215,7 @@ export function useTransactionForm({
     if (!txConfirm) return;
     if (submitting) return;
     if (filterSnapshot?.mutationsBlocked) {
-      pushToast("Read-only mode: cannot submit transactions", "error");
+      pushToast(m.readOnlyModeCannotSubmit, "error");
       return;
     }
 
@@ -221,7 +223,7 @@ export function useTransactionForm({
     if (!companyId) return;
 
     if (!txType) {
-      pushToast("Please select transaction type", "error");
+      pushToast(m.pleaseSelectTransactionType, "error");
       return;
     }
 
@@ -229,7 +231,7 @@ export function useTransactionForm({
     const fromId = txFromAccount?.id ? String(txFromAccount.id) : "";
 
     if (!toId) {
-      pushToast("Please select To Account", "error");
+      pushToast(m.pleaseSelectToAccount, "error");
       return;
     }
 
@@ -238,22 +240,22 @@ export function useTransactionForm({
 
     if (txType === "PROFIT") {
       if (!fromId) {
-        pushToast("PROFIT: Please select From Account", "error");
+        pushToast(m.profitPleaseSelectFromAccount, "error");
         return;
       }
       if (toId && fromId && toId === fromId) {
-        pushToast("PROFIT: Select To Account and Select From Account cannot be the same", "error");
+        pushToast(m.profitSameAccountError, "error");
         return;
       }
     }
 
     if (needsFromTo && (!fromId || fromId === toId)) {
-      pushToast("PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR transaction requires From Account", "error");
+      pushToast(m.paymentContraEtcNeedFromAccount, "error");
       return;
     }
 
     if (!txDate) {
-      pushToast("Please select transaction date", "error");
+      pushToast(m.pleaseSelectTransactionDate, "error");
       return;
     }
 
@@ -261,15 +263,15 @@ export function useTransactionForm({
       const toId = rateToAccount?.id ? String(rateToAccount.id) : "";
       const fromId = rateFromAccount?.id ? String(rateFromAccount.id) : "";
       if (!toId) {
-        pushToast("Please select To Account", "error");
+        pushToast(m.pleaseSelectToAccount, "error");
         return;
       }
       if (!fromId) {
-        pushToast("Rate transaction requires From Account", "error");
+        pushToast(m.rateTransactionNeedFromAccount, "error");
         return;
       }
       if (!rateCurrencyFrom || !rateCurrencyTo) {
-        pushToast("Please select both currencies", "error");
+        pushToast(m.pleaseSelectBothCurrencies, "error");
         return;
       }
       const fromAmt = toNumberLike(rateCurrencyFromAmount);
@@ -277,34 +279,34 @@ export function useTransactionForm({
       const toGrossStr = toGrossRaw !== "" ? toGrossRaw : String(rateCurrencyToAmount || "").trim().replace(/,/g, "");
       const grossNum = toNumberLike(toGrossStr);
       if (!Number.isFinite(fromAmt) || fromAmt <= 0 || !Number.isFinite(grossNum) || grossNum <= 0) {
-        pushToast("Please enter valid currency amounts", "error");
+        pushToast(m.pleaseEnterValidCurrencyAmounts, "error");
         return;
       }
       const parsedRate = parseRateExpression(rateExchangeRateRaw);
       if (!parsedRate.valid) {
-        pushToast("Please enter a valid rate value (supports * and /, max 8 decimal places)", "error");
+        pushToast(m.pleaseEnterValidRateValue, "error");
         return;
       }
       if (!rateDate) {
-        pushToast("Please select transaction date", "error");
+        pushToast(m.pleaseSelectTransactionDate, "error");
         return;
       }
 
       const middleId = rateMiddlemanAccount?.id ? String(rateMiddlemanAccount.id) : "";
 
       if ((middleId || String(rateMiddlemanRate || "").trim()) && !middleId) {
-        pushToast("Please select Middle-Man account", "error");
+        pushToast(m.pleaseSelectMiddleManAccount, "error");
         return;
       }
       if ((middleId || String(rateMiddlemanRate || "").trim()) && (!rateMiddlemanRate || Number(rateMiddlemanRate) <= 0)) {
-        pushToast("Please enter Middle-Man rate multiplier", "error");
+        pushToast(m.pleaseEnterMiddleManRate, "error");
         return;
       }
       const mmrNorm = String(rateMiddlemanRate ?? "")
         .replace(/,/g, "")
         .trim();
       if (middleId && mmrNorm !== "" && countRateDecimalPlaces(mmrNorm) > 8) {
-        pushToast("Middle-Man rate supports max 8 decimal places", "error");
+        pushToast(m.middleManRateMaxDecimals, "error");
         return;
       }
 
@@ -335,9 +337,9 @@ export function useTransactionForm({
         if (res?.success) {
           const approvalStatus = res?.data?.approval_status ? String(res.data.approval_status).toUpperCase() : "";
           if (approvalStatus === "PENDING") {
-            pushToast("Submitted. Waiting for Manager+ approval to take effect.", "info");
+            pushToast(m.submittedWaitingApproval, "info");
           } else {
-            pushToast(res?.message || "RATE transaction submitted successfully", "success");
+            pushToast(res?.message || m.rateTransactionSubmitted, "success");
           }
           await refreshContraInboxBadge();
           setTxConfirm(false);
@@ -356,10 +358,10 @@ export function useTransactionForm({
           await onSearch({ forceRefresh: true });
           return;
         }
-        pushToast(res?.message || "Submit failed", "error");
+        pushToast(res?.message || m.submitFailed, "error");
       } catch (e) {
         console.error(e);
-        pushToast("Network error. Please try again.", "error");
+        pushToast(m.networkError, "error");
       } finally {
         setSubmitting(false);
       }
@@ -369,7 +371,7 @@ export function useTransactionForm({
     const cleanedAmt = MoneyDecimal.cleanMoneyInput(txAmount);
     if (cleanedAmt === "") {
       pushToast(
-        isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount",
+        isAdjustment ? m.pleaseEnterNonZeroAdjustment : m.pleaseEnterValidAmount,
         "error",
       );
       return;
@@ -379,27 +381,27 @@ export function useTransactionForm({
     try {
       amtDec = MoneyDecimal.toDecimal(cleanedAmt);
     } catch {
-      pushToast("Please enter a valid amount", "error");
+      pushToast(m.pleaseEnterValidAmount, "error");
       return;
     }
 
     const isProfitTx = txType === "PROFIT";
 
     if (isAdjustment && amtDec.isZero()) {
-      pushToast("Please enter a non-zero adjustment amount", "error");
+      pushToast(m.pleaseEnterNonZeroAdjustment, "error");
       return;
     }
     if (isProfitTx && amtDec.isZero()) {
-      pushToast("PROFIT: enter a non-zero amount (positive = WIN, negative = LOSE)", "error");
+      pushToast(m.profitEnterNonZeroAmount, "error");
       return;
     }
     if (!isAdjustment && !isProfitTx && amtDec.lt(0)) {
-      pushToast("Please enter a valid amount (>= 0)", "error");
+      pushToast(m.pleaseEnterValidAmountGteZero, "error");
       return;
     }
 
     if (!txCurrency) {
-      pushToast("Please select Currency", "error");
+      pushToast(m.pleaseSelectCurrency, "error");
       return;
     }
 
@@ -421,9 +423,9 @@ export function useTransactionForm({
       if (res?.success) {
         const approvalStatus = res?.data?.approval_status ? String(res.data.approval_status).toUpperCase() : "";
         if (approvalStatus === "PENDING") {
-          pushToast("Submitted. Waiting for Manager+ approval to take effect.", "info");
+          pushToast(m.submittedWaitingApproval, "info");
         } else {
-          pushToast(res?.message || "Transaction submitted successfully", "success");
+          pushToast(res?.message || m.transactionSubmitted, "success");
         }
         await refreshContraInboxBadge();
         setTxAmount("");
@@ -431,10 +433,10 @@ export function useTransactionForm({
         await onSearch({ forceRefresh: true });
         return;
       }
-      pushToast(res?.message || "Submit failed", "error");
+      pushToast(res?.message || m.submitFailed, "error");
     } catch (e) {
       console.error(e);
-      pushToast("Network error. Please try again.", "error");
+      pushToast(m.networkError, "error");
     } finally {
       setSubmitting(false);
     }

@@ -51,6 +51,8 @@ export default function TransactionAddSection({
   onSearch,
   searchLoading,
   mutationsBlocked = false,
+  m,
+  t,
 }) {
   const standardHidden = txType === "RATE";
   const dateDisplayStandard = txDate?.trim() || todayDmy;
@@ -60,7 +62,7 @@ export default function TransactionAddSection({
     <div className={`transaction-add-section${mutationsBlocked ? " transaction-add-section--read-only" : ""}`}>
       <div className="transaction-form-group">
         <label className="transaction-label" htmlFor="transaction_type">
-          Type
+          {m.type}
         </label>
         <select
           id="transaction_type"
@@ -83,7 +85,7 @@ export default function TransactionAddSection({
       <div id="standard-transaction-fields" style={{ display: standardHidden ? "none" : "block" }}>
         <div className="transaction-form-group">
           <label className="transaction-label" htmlFor="transaction_date">
-            Date
+            {m.date}
           </label>
           <div className="transaction-add-datepicker-wrap">
             <input
@@ -93,7 +95,7 @@ export default function TransactionAddSection({
               readOnly
               tabIndex={-1}
               aria-hidden="true"
-              placeholder="dd/mm/yyyy"
+              placeholder={m.placeholderDdMmYyyy}
               value={dateDisplayStandard}
             />
             <input type="hidden" id="add_tx_date_from" readOnly aria-hidden="true" />
@@ -116,11 +118,11 @@ export default function TransactionAddSection({
         </div>
 
         <div className="transaction-form-group transaction-inline-row">
-          <label className="transaction-label">Account</label>
+          <label className="transaction-label">{m.account}</label>
           <div className={`transaction-account-inputs${showStandardFromAndReverse ? "" : " transaction-account-inputs--to-only"}`}>
             <AccountSelect
-              ariaLabel="To Account"
-              placeholder="--Select To Account--"
+              ariaLabel={m.toAccount}
+              placeholder={m.selectToAccount}
               options={accountOptions}
               value={txToAccount}
               onChange={setTxToAccount}
@@ -130,8 +132,8 @@ export default function TransactionAddSection({
             {showStandardFromAndReverse ? (
               <>
                 <AccountSelect
-                  ariaLabel="From Account"
-                  placeholder="--Select From Account--"
+                  ariaLabel={m.fromAccount}
+                  placeholder={m.selectFromAccount}
                   options={accountOptions}
                   value={txFromAccount}
                   onChange={setTxFromAccount}
@@ -142,12 +144,12 @@ export default function TransactionAddSection({
                   type="button"
                   id="account_reverse_btn"
                   className="transaction-account-reverse-btn"
-                  title="Reverse accounts"
-                  aria-label="Reverse accounts"
+                  title={m.reverseAccounts}
+                  aria-label={m.reverseAccounts}
                   disabled={mutationsBlocked}
                   onClick={onReverseAccounts}
                 >
-                  Reverse
+                  {m.reverse}
                 </button>
               </>
             ) : null}
@@ -156,7 +158,7 @@ export default function TransactionAddSection({
 
         <div className="transaction-form-group transaction-inline-row">
           <label className="transaction-label" htmlFor="transaction_currency">
-            Currency
+            {m.currency}
           </label>
           <select
             id="transaction_currency"
@@ -165,7 +167,7 @@ export default function TransactionAddSection({
             disabled={mutationsBlocked}
             onChange={(e) => setTxCurrency(e.target.value)}
           >
-            <option value="">--Select Currency--</option>
+            <option value="">{m.selectCurrency}</option>
             {currencyOptions.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -176,7 +178,7 @@ export default function TransactionAddSection({
 
         <div className="transaction-form-group">
           <label className="transaction-label" htmlFor="action_amount">
-            Amount
+            {m.amount}
           </label>
           <input
             type="number"
@@ -193,7 +195,7 @@ export default function TransactionAddSection({
       <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>
         <div className="transaction-form-group">
           <label className="transaction-label" htmlFor="rate_transaction_date">
-            Date
+            {m.date}
           </label>
           <div className="transaction-date-rate-wrap-inner">
             <input
@@ -203,7 +205,7 @@ export default function TransactionAddSection({
               readOnly
               tabIndex={-1}
               aria-hidden="true"
-              placeholder="dd/mm/yyyy"
+              placeholder={m.placeholderDdMmYyyy}
               value={dateDisplayRate}
             />
             <input type="hidden" id="rate_tx_date_from" readOnly aria-hidden="true" />
@@ -213,7 +215,7 @@ export default function TransactionAddSection({
               id="rate-tx-date-range-picker"
               role="button"
               tabIndex={mutationsBlocked ? -1 : 0}
-              aria-label="Rate transaction date"
+              aria-label={m.rateTransactionDate}
               data-drp-from="rate_tx_date_from"
               data-drp-to="rate_tx_date_to"
               data-drp-display="rate-tx-date-range-display"
@@ -226,11 +228,11 @@ export default function TransactionAddSection({
         </div>
 
         <div className="transaction-form-group transaction-inline-row">
-          <label className="transaction-label">Account</label>
+          <label className="transaction-label">{m.account}</label>
           <div className="transaction-account-inputs">
             <AccountSelect
-              ariaLabel="To Account"
-              placeholder="--Select To Account--"
+              ariaLabel={m.toAccount}
+              placeholder={m.selectToAccount}
               options={accountOptions}
               value={rateToAccount}
               onChange={setRateToAccount}
@@ -238,8 +240,8 @@ export default function TransactionAddSection({
               selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
             />
             <AccountSelect
-              ariaLabel="From Account"
-              placeholder="--Select From Account--"
+              ariaLabel={m.fromAccount}
+              placeholder={m.selectFromAccount}
               options={accountOptions}
               value={rateFromAccount}
               onChange={setRateFromAccount}
@@ -250,8 +252,8 @@ export default function TransactionAddSection({
               type="button"
               id="rate_account_reverse_btn"
               className="transaction-account-reverse-btn rate-reverse-btn"
-              title="Reverse accounts"
-              aria-label="Reverse accounts"
+              title={m.reverseAccounts}
+              aria-label={m.reverseAccounts}
               disabled={mutationsBlocked}
               onClick={() => {
                 setRateToAccount(rateFromAccount);
@@ -259,13 +261,13 @@ export default function TransactionAddSection({
                 onRateCurrencyRowReverse?.();
               }}
             >
-              Reverse
+              {m.reverse}
             </button>
           </div>
         </div>
 
         <div className="transaction-form-group transaction-inline-row">
-          <label className="transaction-label">Currency</label>
+          <label className="transaction-label">{m.currency}</label>
           <div className="rate-row rate-row-five-cols">
             <select
               id="rate_currency_from"
@@ -273,9 +275,9 @@ export default function TransactionAddSection({
               value={rateCurrencyFrom}
               disabled={mutationsBlocked}
               onChange={(e) => setRateCurrencyFrom(e.target.value)}
-              aria-label="From currency"
+              aria-label={m.fromAccount}
             >
-              <option value="">Currency</option>
+              <option value="">{m.currency}</option>
               {currencyOptions.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -287,22 +289,22 @@ export default function TransactionAddSection({
               step="0.01"
               id="rate_currency_from_amount"
               className="transaction-input"
-              placeholder="Amount"
+              placeholder={m.amount}
               value={rateCurrencyFromAmount}
               disabled={mutationsBlocked}
               onChange={(e) => setRateCurrencyFromAmount(e.target.value)}
-              aria-label="From amount"
+              aria-label={m.fromAccount}
             />
             <input
               type="text"
               inputMode="decimal"
               id="rate_exchange_rate"
               className="transaction-input"
-              placeholder="Rate"
+              placeholder={m.rate}
               value={rateExchangeRateRaw}
               disabled={mutationsBlocked}
               onChange={(e) => setRateExchangeRateRaw(e.target.value)}
-              aria-label="Exchange rate"
+              aria-label={m.rate}
             />
             <select
               id="rate_currency_to"
@@ -310,9 +312,9 @@ export default function TransactionAddSection({
               value={rateCurrencyTo}
               disabled={mutationsBlocked}
               onChange={(e) => setRateCurrencyTo(e.target.value)}
-              aria-label="To currency"
+              aria-label={m.toAccount}
             >
-              <option value="">Currency</option>
+              <option value="">{m.currency}</option>
               {currencyOptions.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -324,21 +326,21 @@ export default function TransactionAddSection({
               step="0.01"
               id="rate_currency_to_amount"
               className="transaction-input"
-              placeholder="Amount"
+              placeholder={m.amount}
               readOnly
               disabled={mutationsBlocked}
               value={rateCurrencyToAmount}
-              aria-label="To amount"
+              aria-label={m.toAccount}
             />
           </div>
         </div>
 
         <div className="transaction-form-group transaction-inline-row">
-          <label className="transaction-label">Account</label>
+          <label className="transaction-label">{m.account}</label>
           <div className="transaction-account-inputs">
             <AccountSelect
-              ariaLabel="To Account"
-              placeholder="--Select To Account--"
+              ariaLabel={m.toAccount}
+              placeholder={m.selectToAccount}
               options={accountOptions}
               value={rateTransferToAccount}
               onChange={setRateTransferToAccount}
@@ -346,8 +348,8 @@ export default function TransactionAddSection({
               selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
             />
             <AccountSelect
-              ariaLabel="From Account"
-              placeholder="--Select From Account--"
+              ariaLabel={m.fromAccount}
+              placeholder={m.selectFromAccount}
               options={accountOptions}
               value={rateTransferFromAccount}
               onChange={setRateTransferFromAccount}
@@ -358,26 +360,26 @@ export default function TransactionAddSection({
               type="button"
               id="rate_transfer_reverse_btn"
               className="transaction-account-reverse-btn rate-reverse-btn"
-              title="Reverse accounts"
-              aria-label="Reverse accounts"
+              title={m.reverseAccounts}
+              aria-label={m.reverseAccounts}
               disabled={mutationsBlocked}
               onClick={() => {
                 setRateTransferToAccount(rateTransferFromAccount);
                 setRateTransferFromAccount(rateTransferToAccount);
               }}
             >
-              Reverse
+              {m.reverse}
             </button>
           </div>
         </div>
 
         <div className="transaction-form-group transaction-inline-row">
-          <label className="transaction-label">Middle-Man</label>
+          <label className="transaction-label">{m.middleMan}</label>
           <div className="rate-row rate-row-mm">
             <div className="rate-mm-to-wrap">
               <AccountSelect
-                ariaLabel="Middle-Man account"
-                placeholder="--Select Account--"
+                ariaLabel={m.middleMan}
+                placeholder={m.selectMiddleManAccount}
                 options={accountOptions}
                 value={rateMiddlemanAccount}
                 onChange={setRateMiddlemanAccount}
@@ -390,22 +392,22 @@ export default function TransactionAddSection({
               step="0.0001"
               id="rate_middleman_rate"
               className="transaction-input"
-              placeholder="Rate multiplier"
+              placeholder={m.rateMultiplier}
               value={rateMiddlemanRate}
               disabled={mutationsBlocked}
               onChange={(e) => setRateMiddlemanRate(e.target.value)}
-              aria-label="Rate multiplier"
+              aria-label={m.rateMultiplier}
             />
             <input
               type="number"
               step="0.01"
               id="rate_middleman_amount"
               className="transaction-input"
-              placeholder="Amount"
+              placeholder={m.amount}
               readOnly
               disabled={mutationsBlocked}
               value={rateMiddlemanAmount}
-              aria-label="Middle-man amount"
+              aria-label={m.middleMan}
             />
           </div>
         </div>
@@ -413,7 +415,7 @@ export default function TransactionAddSection({
 
       <div className="transaction-form-group" style={{ display: "none" }}>
         <label className="transaction-label" htmlFor="action_description">
-          Description
+          {m.descriptionField}
         </label>
         <input type="text" id="action_description" className="transaction-input text-uppercase" />
       </div>
@@ -424,7 +426,7 @@ export default function TransactionAddSection({
         style={{ display: txType === "RATE" ? "none" : undefined }}
       >
         <label className="transaction-label" htmlFor="action_sms">
-          Remark
+          {m.remark}
         </label>
         <input
           type="text"
@@ -446,7 +448,7 @@ export default function TransactionAddSection({
             disabled={mutationsBlocked}
             onChange={(e) => setTxConfirm(e.target.checked)}
           />
-          Confirm Submit
+          {m.confirmSubmit}
         </label>
         <div className="transaction-action-btns">
           <button
@@ -456,10 +458,10 @@ export default function TransactionAddSection({
             disabled={!txConfirm || submitting || mutationsBlocked}
             onClick={onSubmitTx}
           >
-            {submitting ? "Submitting..." : "Submit"}
+            {submitting ? m.submitting : m.submit}
           </button>
           <button type="button" id="action_search_btn" className="transaction-search-btn" onClick={onSearch} disabled={searchLoading}>
-            Search
+            {m.search}
           </button>
         </div>
       </div>

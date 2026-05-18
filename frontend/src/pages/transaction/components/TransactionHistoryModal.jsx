@@ -6,6 +6,8 @@ export default function TransactionHistoryModal({
   setHistory,
   histMoney,
   showDescriptionColumn,
+  m,
+  t,
 }) {
   // Align `js/transaction.js`: close Payment History on × and on ESC (document keydown when modal visible).
   useEffect(() => {
@@ -49,7 +51,7 @@ export default function TransactionHistoryModal({
               }}
               aria-live="polite"
             >
-              Loading history…
+              {m.loadingHistory}
             </div>
           ) : null}
           <div className="transaction-history-table-frame">
@@ -58,18 +60,18 @@ export default function TransactionHistoryModal({
             >
               <thead>
                 <tr className="transaction-table-header">
-                  <th className="transaction-history-col-date">Date</th>
-                  <th className="transaction-history-col-product">Id Product</th>
-                  <th className="transaction-history-col-currency">Currency</th>
-                  <th className="transaction-history-col-rate">Rate</th>
-                  <th className="transaction-history-col-winloss">Win/Loss</th>
-                  <th className="transaction-history-col-crdr">Cr/Dr</th>
-                  <th className="transaction-history-col-balance">Balance</th>
+                  <th className="transaction-history-col-date">{m.date}</th>
+                  <th className="transaction-history-col-product">{m.idProduct}</th>
+                  <th className="transaction-history-col-currency">{m.currency}</th>
+                  <th className="transaction-history-col-rate">{m.rate}</th>
+                  <th className="transaction-history-col-winloss">{m.winLossTable}</th>
+                  <th className="transaction-history-col-crdr">{m.crDrTable}</th>
+                  <th className="transaction-history-col-balance">{m.balanceTable}</th>
                   {showDescriptionColumn ? (
-                    <th className="transaction-history-col-description">Description</th>
+                    <th className="transaction-history-col-description">{m.description}</th>
                   ) : null}
-                  <th className="transaction-history-col-remark">Remark</th>
-                  <th className="transaction-history-col-created">Created by</th>
+                  <th className="transaction-history-col-remark">{m.remark}</th>
+                  <th className="transaction-history-col-created">{m.createdBy}</th>
                 </tr>
               </thead>
               <tbody id="modal_tbody">
