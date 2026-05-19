@@ -29,6 +29,7 @@ import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
 import { useDataCaptureGrid } from "./useDataCaptureGrid.js";
 import { useDataCapturePaste } from "./useDataCapturePaste.js";
 import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
+import { useDataCaptureFormatPaste } from "./useDataCaptureFormatPaste.js";
 import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./useDataCaptureSubmitReset.js";
 import { useDataCaptureSubmittedList } from "./useDataCaptureSubmittedList.js";

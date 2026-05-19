@@ -680,7 +680,6 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
         });
 
         window.__DC_PUSH_PASTE_HISTORY__?.(currentPasteChanges);
-        }
 
         if (successCount > 0) {
             window.showNotification?.(`成功粘贴表格 (${headerRows.length} 个表头行, ${dataRows.length} 个数据行 x ${maxCols} 列)，已保持完整表格结构!`, 'success');
