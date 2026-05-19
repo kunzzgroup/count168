@@ -132,6 +132,14 @@ class SummaryPageErrorBoundary extends Component {
           <p role="alert" style={{ color: "#b91c1c", padding: "12px 0" }}>
             Failed to load Data Capture Summary. Please refresh the page or return to Data Capture.
           </p>
+          <button
+            type="button"
+            className="btn btn-cancel"
+            style={{ marginTop: 8 }}
+            onClick={() => this.setState({ error: null })}
+          >
+            Try again
+          </button>
         </div>
       );
     }

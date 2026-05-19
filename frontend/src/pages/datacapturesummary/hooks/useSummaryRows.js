@@ -47,6 +47,22 @@ export function useSummaryRows(tableData, enabled) {
     setRows((prev) => prev.filter((row) => !keySet.has(row.key)));
   }, []);
 
+  /** After legacy clears a main row in-place, remount with a new key so React DOM matches props. */
+  const remountRowsByKeys = useCallback((keys) => {
+    if (!Array.isArray(keys) || keys.length === 0) return;
+    const keySet = new Set(keys.filter(Boolean));
+    if (keySet.size === 0) return;
+    setRows((prev) =>
+      prev.map((row) => {
+        if (!keySet.has(row.key)) return row;
+        return {
+          ...row,
+          key: `${row.key}-cleared-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        };
+      })
+    );
+  }, []);
+
   const resetToInitialRows = useCallback(() => {
     flushSync(() => {
       setRows(initialRows);
@@ -80,19 +96,22 @@ export function useSummaryRows(tableData, enabled) {
       unsetWindowProperty("__SUMMARY_REACT_ADD_SUB_ROW__");
       unsetWindowProperty("__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__");
       unsetWindowProperty("__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__");
+      unsetWindowProperty("__SUMMARY_REACT_REMOUNT_ROWS_BY_KEYS__");
       return undefined;
     }
 
     window.__SUMMARY_REACT_ADD_SUB_ROW__ = addSubRow;
     window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ = syncFromDom;
     window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ = removeRowsByKeys;
+    window.__SUMMARY_REACT_REMOUNT_ROWS_BY_KEYS__ = remountRowsByKeys;
 
     return () => {
       unsetWindowProperty("__SUMMARY_REACT_ADD_SUB_ROW__", addSubRow);
       unsetWindowProperty("__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__", syncFromDom);
       unsetWindowProperty("__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__", removeRowsByKeys);
+      unsetWindowProperty("__SUMMARY_REACT_REMOUNT_ROWS_BY_KEYS__", remountRowsByKeys);
     };
-  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys]);
+  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys, remountRowsByKeys]);
 
-  return { rows, syncFromDom, resetToInitialRows, removeRowsByKeys };
+  return { rows, syncFromDom, resetToInitialRows, removeRowsByKeys, remountRowsByKeys };
 }
