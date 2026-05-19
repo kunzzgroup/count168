@@ -15,6 +15,10 @@ import {
   registerSummarySaveFormula,
   unregisterSummarySaveFormula,
 } from "./summarySaveFormula.js";
+import {
+  registerSummarySubTemplatePopulate,
+  unregisterSummarySubTemplatePopulate,
+} from "../summarySubTemplatePopulate.js";
 
 /** Register React formula utilities for legacy datacapturesummary.js (Strangler). */
 export function registerSummaryFormulaEngineShims() {
@@ -33,9 +37,11 @@ export function registerSummaryFormulaEngineShims() {
 
   registerSummaryFormulaReferenceEngine();
   registerSummarySaveFormula();
+  registerSummarySubTemplatePopulate();
 }
 
 export function unregisterSummaryFormulaEngineShims() {
+  unregisterSummarySubTemplatePopulate();
   unregisterSummarySaveFormula();
   unregisterSummaryFormulaReferenceEngine();
   delete window.__SUMMARY_FORMULA_ENGINE__;

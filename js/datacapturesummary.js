@@ -16011,50 +16011,23 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         return aIndex - bIndex;
                     });
 
-                    // Apply each main template to its corresponding row based on account_id and row_index
-                    // Use mainTemplate.id_product so we find the correct row when multiple mains (e.g. "ABC (AAA)", "ABC (TTT)")
-                    let anySubsApplied = false;
+                    // Apply each main template to its corresponding row (subs applied once below — not per main)
                     sortedTemplates.forEach((mainTemplate, accountOrderIndex) => {
                         const mainIdProduct = mainTemplate.id_product || originalIdProduct;
-                        const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate, accountOrderIndex);
-                        // Apply subs whose parent matches this main row. Exact match (after stripping leading "N " from DB) or when only one main, allow normalized match.
-                        if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                            const mainTrimmed = (mainIdProduct || '').trim();
-                            const mainNorm = normalizeIdProductText(mainTrimmed);
-                            const onlyOneMain = sortedTemplates.length === 1;
-                            const subsForThisMain = template.subs.filter(sub => {
-                                const subParentRaw = (sub.parent_id_product || '').trim();
-                                const subParentNorm = subParentRaw.replace(/^\d+\s+/, '').trim(); // strip leading "1 " from DB
-                                const subParentBare = normalizeIdProductText(subParentNorm);
-                                const exactMatch = (subParentRaw === mainTrimmed) || (subParentNorm === mainTrimmed);
-                                const normalizedMatch = onlyOneMain && mainNorm && subParentBare === mainNorm;
-                                return exactMatch || normalizedMatch;
-                            });
-                            if (subsForThisMain.length > 0) {
-                                applySubTemplatesToSummaryRow(mainIdProduct, mainRow, subsForThisMain);
-                                anySubsApplied = true;
-                            }
-                        }
+                        applyMainTemplateToRow(mainIdProduct, mainTemplate, accountOrderIndex);
                     });
-                    // Fallback: when we have subs but none were applied (e.g. main row was deleted), only apply subs to a row whose main id_product **exactly** matches the sub's parent (e.g. GAMS(SV)HKD), never to another id_product (e.g. GAMS(SV)MYR), otherwise sub 会跑去和别的 id_product mix
-                    if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                        const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
-                        if (firstRow) {
-                            const idProductCell = firstRow.querySelector('td:first-child');
-                            const productValues = getProductValuesFromCell(idProductCell);
-                            const rowMainId = (productValues.main || '').trim();
-                            // 必须整串一致才套用：避免 GAMS(SV)HKD 的 sub 被套到 GAMS(SV)MYR 行（normalize 后都是 GAMS）
-                            const rowIsExactParent = rowMainId === (originalIdProduct || '').trim();
-                            if (rowIsExactParent) {
-                                const mainNorm = normalizedIdProduct;
-                                const subsToApply = template.subs.filter(sub => {
-                                    const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
-                                    return mainNorm && normalizeIdProductText(subParentNorm) === mainNorm;
-                                });
-                                if (subsToApply.length > 0) {
-                                    applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
-                                }
-                            }
+                    // Subs: one pass per template id, parent main chosen by row_index (avoids duplicate sub on refresh)
+                    if (template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
+                        const subsForParent = (typeof window.__SUMMARY_FILTER_SUBS_FOR_PARENT__ === 'function')
+                            ? window.__SUMMARY_FILTER_SUBS_FOR_PARENT__(template.subs, originalIdProduct, normalizedIdProduct)
+                            : template.subs.filter((sub) => {
+                                const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
+                                const subParentBare = normalizeIdProductText(subParentNorm);
+                                return subParentBare === normalizedIdProduct
+                                    || subParentNorm === (originalIdProduct || '').trim();
+                            });
+                        if (subsForParent.length > 0) {
+                            applySubsForIdProductGroup(originalIdProduct, subsForParent);
                         }
                     }
                 } else {
@@ -16715,7 +16688,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
         }
 
         if (Array.isArray(subTemplates) && subTemplates.length > 0) {
-            applySubTemplatesToSummaryRow(idProduct, targetRow, subTemplates);
+            applySubsForIdProductGroup(idProduct, subTemplates);
         }
 
         // Skip only if row already contains real data in the account cell (not just the + button)
@@ -18158,6 +18131,110 @@ function getOrCreateSubPlaceholderRow(idProduct) {
     return button ? { row, button } : null;
 }
 
+/** SPA: React summarySubTemplatePopulate.js; PHP-only page uses *Legacy below. */
+function applySubsForIdProductGroup(idProduct, subTemplates) {
+    if (typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
+        return window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(idProduct, subTemplates);
+    }
+    return applySubsForIdProductGroupLegacy(idProduct, subTemplates);
+}
+
+/** Collect main rows for an id_product (DOM order) with row_index for sub parent matching. */
+function collectMainRowsForIdProductLegacy(idProduct) {
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) return [];
+
+    const normalizedTargetId = normalizeIdProductText(idProduct);
+    if (!normalizedTargetId) return [];
+
+    const mains = [];
+    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+    allRows.forEach((row, domIndex) => {
+        const productType = row.getAttribute('data-product-type') || 'main';
+        if (productType !== 'main') return;
+
+        const idProductCell = row.querySelector('td:first-child');
+        const productValues = getProductValuesFromCell(idProductCell);
+        const mainText = normalizeIdProductText(productValues.main || '');
+        if (!mainText || mainText !== normalizedTargetId) return;
+
+        const rowIndexAttr = row.getAttribute('data-row-index');
+        const rowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+            ? Number(rowIndexAttr)
+            : domIndex;
+        mains.push({ row, rowIndex });
+    });
+    return mains;
+}
+
+/**
+ * Pick the main row a sub template should attach under (same row_index logic as applySubTemplatesToSummaryRow).
+ */
+function findMainRowForSubTemplateLegacy(idProduct, subTemplate) {
+    const mains = collectMainRowsForIdProductLegacy(idProduct);
+    if (mains.length === 0) return null;
+    if (mains.length === 1) return mains[0].row;
+
+    const desiredIndex = (subTemplate && subTemplate.row_index !== undefined && subTemplate.row_index !== null)
+        ? Number(subTemplate.row_index)
+        : null;
+
+    if (desiredIndex !== null && !Number.isNaN(desiredIndex)) {
+        let best = null;
+        for (const info of mains) {
+            if (info.rowIndex <= desiredIndex) {
+                if (!best || info.rowIndex > best.rowIndex) {
+                    best = info;
+                }
+            }
+        }
+        if (best) return best.row;
+    }
+
+    return mains[0].row;
+}
+
+/**
+ * Apply sub templates once per template id, grouped under the correct parent main row.
+ * Prevents duplicate 1SLOT rows when the same id_product has multiple main accounts (e.g. NO + CITIBET).
+ */
+function applySubsForIdProductGroupLegacy(idProduct, subTemplates) {
+    if (!Array.isArray(subTemplates) || subTemplates.length === 0) {
+        return false;
+    }
+
+    const appliedTemplateIds = new Set();
+    const subsByMainRow = new Map();
+
+    subTemplates.forEach((sub) => {
+        if (!sub) return;
+        const templateId = sub.id != null ? String(sub.id) : null;
+        if (templateId && appliedTemplateIds.has(templateId)) {
+            return;
+        }
+
+        const mainRow = findMainRowForSubTemplateLegacy(idProduct, sub);
+        if (!mainRow) return;
+
+        if (!subsByMainRow.has(mainRow)) {
+            subsByMainRow.set(mainRow, []);
+        }
+        subsByMainRow.get(mainRow).push(sub);
+        if (templateId) {
+            appliedTemplateIds.add(templateId);
+        }
+    });
+
+    if (subsByMainRow.size === 0) {
+        return false;
+    }
+
+    subsByMainRow.forEach((subs, mainRow) => {
+        applySubTemplatesToSummaryRow(idProduct, mainRow, subs);
+    });
+    return true;
+}
+
 function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     if (!Array.isArray(subTemplates) || subTemplates.length === 0) {
         return;
@@ -18294,9 +18371,15 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         // Also check if any row is currently being updated from batch input (should not create new row)
         if (templateId || templateKey || formulaVariant) {
             const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+            const normalizedIdProduct = normalizeIdProductText(idProduct);
             for (const row of allRows) {
                 const productType = row.getAttribute('data-product-type') || 'main';
                 if (productType !== 'sub') continue;
+
+                const rowIdCell = row.querySelector('td:first-child');
+                const rowProductValues = rowIdCell ? getProductValuesFromCell(rowIdCell) : {};
+                const rowIdNorm = normalizeIdProductText(rowProductValues.main || '');
+                const sameIdProductGroup = !normalizedIdProduct || !rowIdNorm || rowIdNorm === normalizedIdProduct;
 
                 // Check if this row is currently being updated from batch input
                 // If so, and it matches the template, use it instead of creating a new one
@@ -18318,8 +18401,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 const rowSubOrder = (rowSubOrderRaw !== null && rowSubOrderRaw !== '') ? Number(rowSubOrderRaw) : null;
                 const subOrderMatch = (templateSubOrder === null && rowSubOrder === null) || (templateSubOrder !== null && rowSubOrder !== null && templateSubOrder === rowSubOrder);
 
-                // Match by template_id (most precise)
-                if (parentRowMatch && templateId && rowTemplateId && rowTemplateId === String(templateId)) {
+                // Match by template_id (DB primary key — unique; do not require parent row match to avoid duplicate sub rows on refresh)
+                if (sameIdProductGroup && templateId && rowTemplateId && rowTemplateId === String(templateId)) {
                     targetRow = row;
                     console.log('Found existing sub row by template_id:', templateId);
                     break;
