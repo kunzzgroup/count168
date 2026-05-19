@@ -1,6 +1,5 @@
-/** Phase 4d — VPOWER paste handler. */
+/** VPOWER paste. */
 import { parseVPowerTableFormat } from "./dataCaptureVPowerParser.js";
-
 
 function ensurePasteGrid(rows, cols) {
   if (typeof window.__DC_INITIALIZE_TABLE__ === "function") {

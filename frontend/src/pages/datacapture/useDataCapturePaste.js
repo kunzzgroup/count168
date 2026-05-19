@@ -5,6 +5,7 @@ import {
   parseCitibetPaymentReport,
 } from "./paste/dataCaptureCitibetParsers.js";
 import { handleCellPasteEvent } from "./paste/dataCapturePasteHandler.js";
+import { handleGenericPaste } from "./paste/dataCaptureGenericPaste.js";
 import { parseAndFillHtmlTableForText } from "./paste/dataCaptureTextHtmlPaste.js";
 import { detectHtmlTableInClipboard } from "./paste/dataCaptureHtmlClipboard.js";
 import {
@@ -33,6 +34,7 @@ export function useDataCapturePaste() {
     window.__DC_DETECT_HTML_TABLE__ = detectHtmlTableInClipboard;
     window.__DC_PARSE_HTML_WBET__ = parseAndFillHtmlTableForWbet;
     window.__DC_PARSE_HTML_WBET_API__ = parseAndFillHtmlTableForWbetApi;
+    window.__DC_HANDLE_GENERIC_PASTE__ = handleGenericPaste;
 
     return () => {
       delete window.__DC_HANDLE_CELL_PASTE__;
@@ -43,6 +45,7 @@ export function useDataCapturePaste() {
       delete window.__DC_DETECT_HTML_TABLE__;
       delete window.__DC_PARSE_HTML_WBET__;
       delete window.__DC_PARSE_HTML_WBET_API__;
+      delete window.__DC_HANDLE_GENERIC_PASTE__;
     };
   }, []);
 }

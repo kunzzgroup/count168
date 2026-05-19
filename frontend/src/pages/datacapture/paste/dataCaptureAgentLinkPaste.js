@@ -1,7 +1,6 @@
-/** Phase 4d — AGENT_LINK (PS3838) paste handler. */
+/** AGENT_LINK paste. */
 import { detectHtmlTableInClipboard } from "./dataCaptureHtmlClipboard.js";
 import { parseAgentLinkTableFormat } from "./dataCaptureAgentLinkParser.js";
-
 
 function ensurePasteGrid(rows, cols) {
   if (typeof window.__DC_INITIALIZE_TABLE__ === "function") {

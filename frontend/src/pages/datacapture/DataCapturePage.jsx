@@ -365,7 +365,7 @@ export default function DataCapturePage() {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
         await loadScriptOnce(
-          buildApiUrl("js/datacapture.js?v=20260519-spa20"),
+          buildApiUrl("js/datacapture.js?v=20260519-spa21"),
           () => typeof window.initDataCapturePage === "function"
         );
         if (!alive) return;

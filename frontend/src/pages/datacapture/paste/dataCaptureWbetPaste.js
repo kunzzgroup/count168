@@ -1,7 +1,6 @@
-/** Phase 4d — WBET paste handler. */
+/** WBET paste. */
 import { detectHtmlTableInClipboard } from "./dataCaptureHtmlClipboard.js";
 import { parseAndFillHtmlTableForWbet } from "./dataCaptureWbetHtmlPaste.js";
-
 
 function ensurePasteGrid(rows, cols) {
   if (typeof window.__DC_INITIALIZE_TABLE__ === "function") {

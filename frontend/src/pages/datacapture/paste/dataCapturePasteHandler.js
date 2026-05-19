@@ -1,7 +1,5 @@
-import { isCitibetCaptureType } from "../dataCaptureTypeConstants.js";
 import {
-  getClipboardPlainText,
-  isTypingModeCell,
+  getClipboardPlainText,  isTypingModeCell,
   resolvePasteCell,
 } from "./dataCaptureClipboard.js";
 import {
@@ -12,10 +10,11 @@ import {
 import { handleCitibetPaste } from "./dataCaptureCitibetPaste.js";
 import { handleTextModePaste } from "./dataCaptureTextPaste.js";
 import {
-  handleSpecialFormatPaste,
-  SPECIAL_CAPTURE_TYPES,
-} from "./dataCaptureSpecialPasteHandler.js";
+  handleTypedCapturePaste,
+  TYPED_CAPTURE_TYPES,
+} from "./dataCaptureAllPasteHandler.js";
 import { handleFormatCellPaste } from "./dataCaptureFormatPasteHandler.js";
+import { handleGenericPaste } from "./dataCaptureGenericPaste.js";
 import {
   clearLegacyPasteContext,
   setLegacyPasteContext,
@@ -36,20 +35,23 @@ function applyCaptureType(nextType) {
   }
 }
 
-/**
- * Phase 4 paste orchestrator — React owns migrated format paths;
- * legacy `legacyHandleCellPasteInternal` handles unmigrated formats + fallback.
- */
-function invokeLegacyPaste(e, captureType, legacyFallback) {
-  if (typeof legacyFallback !== "function") return;
+function invokeGenericPasteFallback(e, pastedData, captureType, legacyFallback) {
   setLegacyPasteContext(captureType, "fallback");
   try {
-    legacyFallback(e);
+    if (handleGenericPaste(e, pastedData)) return true;
+    if (typeof legacyFallback === "function" && !window.__DATA_CAPTURE_REACT_FORM__) {
+      legacyFallback(e);
+      return true;
+    }
+    return false;
   } finally {
     clearLegacyPasteContext();
   }
 }
 
+/**
+ * Full paste orchestrator — all formats in React; legacy body is non-SPA only.
+ */
 export function handleCellPasteEvent(e, legacyFallback) {
   const cell = resolvePasteCell(e.target);
 
@@ -73,13 +75,13 @@ export function handleCellPasteEvent(e, legacyFallback) {
 
   if (captureType === "2.Format") {
     if (handleFormatCellPaste(e, pastedData)) return;
-    invokeLegacyPaste(e, captureType, legacyFallback);
+    invokeGenericPasteFallback(e, pastedData, captureType, legacyFallback);
     return;
   }
 
-  if (SPECIAL_CAPTURE_TYPES.has(captureType)) {
-    if (handleSpecialFormatPaste(e, pastedData, captureType)) return;
-    invokeLegacyPaste(e, captureType, legacyFallback);
+  if (TYPED_CAPTURE_TYPES.has(captureType)) {
+    if (handleTypedCapturePaste(e, pastedData, captureType)) return;
+    invokeGenericPasteFallback(e, pastedData, captureType, legacyFallback);
     return;
   }
 
@@ -92,5 +94,5 @@ export function handleCellPasteEvent(e, legacyFallback) {
     if (handleCitibetPaste(e, pastedData, cell, captureType, citibetParsed)) return;
   }
 
-  invokeLegacyPaste(e, captureType, legacyFallback);
+  invokeGenericPasteFallback(e, pastedData, captureType, legacyFallback);
 }

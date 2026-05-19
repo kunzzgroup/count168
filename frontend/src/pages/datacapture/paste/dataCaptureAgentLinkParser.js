@@ -1,4 +1,4 @@
-/** Phase 4d — AGENT_LINK (PS3838) parser. */
+/** AGENT_LINK parser. */
 
 export function parseAgentLinkTableFormat(pastedData) {
     if (!pastedData || typeof pastedData !== 'string') return null;

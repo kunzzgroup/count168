@@ -1,30 +1,31 @@
-/** Phase 4e — context passed when React delegates to legacy paste fallback. */
+/** Phase 4f — all capture types migrated to React; legacy paste is non-SPA only. */
 
 export const MIGRATED_PASTE_TYPES = new Set([
   "1.Text",
-  "CITIBET",
   "2.Format",
+  "CITIBET",
   "4.RETURN",
   "API_RETURN",
   "VPOWER",
   "AGENT_LINK",
   "WBET",
   "WBET_API",
+  "INVOICE",
+  "2.SPECIAL",
+  "3.API",
+  "AWC",
+  "PEGASUS",
+  "ALIPAY",
+  "C8PLAY",
+  "MAXBET",
 ]);
 
-/**
- * @param {string} captureType
- * @param {'primary' | 'fallback'} mode
- */
 export function setLegacyPasteContext(captureType, mode = "fallback") {
-  const skipPrimaryBlocks =
-    mode === "primary" || MIGRATED_PASTE_TYPES.has(captureType);
-
   window.__DC_LEGACY_PASTE_CTX__ = {
     captureType,
     mode,
     skipAutoDetect: true,
-    skipPrimaryBlocks,
+    skipPrimaryBlocks: true,
   };
 }
 

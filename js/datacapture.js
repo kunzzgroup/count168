@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa20';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa21';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -10292,8 +10292,30 @@ function dcLegacyPasteShouldSkipPrimaryBlocks() {
     return window.__DATA_CAPTURE_REACT_FORM__ && window.__DC_LEGACY_PASTE_CTX__?.skipPrimaryBlocks;
 }
 
-// 处理单元格粘贴事件（legacy body — Phase 4: SPA delegates to React via handleCellPaste wrapper）
+// 处理单元格粘贴事件（legacy body — SPA uses React; non-SPA only below）
 function legacyHandleCellPasteInternal(e) {
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
+        if (typeof window.__DC_HANDLE_GENERIC_PASTE__ === 'function') {
+            const clipboard = (e.clipboardData || window.clipboardData);
+            const getClipboardData = (type) => {
+                try {
+                    if (!clipboard || typeof clipboard.getData !== 'function') return '';
+                    return clipboard.getData(type) || '';
+                } catch (err) {
+                    return '';
+                }
+            };
+            const pastedData =
+                getClipboardData('text/plain') ||
+                getClipboardData('text') ||
+                getClipboardData('Text') ||
+                '';
+            window.__DC_HANDLE_GENERIC_PASTE__(e, pastedData);
+        }
+        return;
+    }
+
+    // --- Non-SPA legacy paste (full body) ---
     // 获取单元格元素（支持文本节点和元素节点）
     const cell = e.target.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
 

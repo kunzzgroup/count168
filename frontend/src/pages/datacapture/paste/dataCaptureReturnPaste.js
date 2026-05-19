@@ -1,9 +1,5 @@
-/** Phase 4d — API_RETURN & 4.RETURN cell paste handlers. */
-import {
-  parseApiReturnFormat,
-  parseApiReturnTableFormat,
-} from "./dataCaptureApiReturnParsers.js";
-
+/** API_RETURN & 4.RETURN paste. */
+import { parseApiReturnFormat, parseApiReturnTableFormat } from "./dataCaptureApiReturnParsers.js";
 
 function ensurePasteGrid(rows, cols) {
   if (typeof window.__DC_INITIALIZE_TABLE__ === "function") {
@@ -19,7 +15,6 @@ function parseGenericHtmlTable(htmlString, startCell) {
   }
   return false;
 }
-
 
 /** @returns {boolean} */
 export function handleApiReturnPaste(e, pastedData) {
@@ -436,7 +431,6 @@ export function handleApiReturnPaste(e, pastedData) {
         }
   return false;
 }
-
 
 /** @returns {boolean} */
 export function handle4ReturnPaste(e, pastedData) {

@@ -1,5 +1,5 @@
-/** Phase 4d — WBET / WBET_API HTML table paste. */
-
+/** WBET / WBET_API HTML paste. */
+import { formatMoneyDisplay, fixSummaryRowTotalColumns } from "./dataCapturePasteMoneyUtils.js";
 
 function ensurePasteGrid(rows, cols) {
   if (typeof window.__DC_INITIALIZE_TABLE__ === "function") {

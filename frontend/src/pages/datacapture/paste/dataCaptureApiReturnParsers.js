@@ -1,4 +1,4 @@
-/** Phase 4d — API-RETURN / 4.RETURN parsers (from js/datacapture.js). */
+/** API-RETURN / 4.RETURN parsers. */
 
 export function smartSplitPreservingDates(text) {
     if (!text || typeof text !== 'string') return [];

@@ -1,4 +1,4 @@
-/** Phase 4d — VPOWER parser. */
+/** VPOWER parser. */
 
 export function parseVPowerTableFormat(pastedData) {
     if (!pastedData || typeof pastedData !== 'string') return null;
