@@ -1,3 +1,4 @@
+import { pushSummaryNotification } from "./summaryNotify.js";
 import { stripSummarySuccessParamFromUrl } from "./summaryStorage.js";
 
 /**
@@ -89,10 +90,10 @@ function runSummaryTablePostPopulateFinally() {
 export function showSummarySuccessNotificationIfNeeded() {
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get("success") === "1") {
-    window.showNotification?.("Success", "Data captured and summary generated successfully!", "success");
+    pushSummaryNotification("Success", "Data captured and summary generated successfully!", "success");
     stripSummarySuccessParamFromUrl();
   } else if (urlParams.get("error") === "1") {
-    window.showNotification?.("Error", "Failed to generate summary. Please try again.", "error");
+    pushSummaryNotification("Error", "Failed to generate summary. Please try again.", "error");
     stripSummarySuccessParamFromUrl();
   }
 }

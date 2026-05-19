@@ -178,12 +178,12 @@ export default function DataCaptureSummaryPage() {
     const runInit = () => {
       if (cancelled || initGenerationRef.current !== generation) return;
       hydrateRef.current();
-      showSummarySuccessNotificationIfNeededFromReact();
       const shell = document.querySelector(".container");
       if (shell) delete shell.dataset.summaryPageInit;
       if (typeof window.initDataCaptureSummaryPage === "function") {
         window.initDataCaptureSummaryPage();
       }
+      showSummarySuccessNotificationIfNeededFromReact();
     };
 
     const id = requestAnimationFrame(runInit);

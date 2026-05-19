@@ -16,6 +16,10 @@ function showNotification(title, message, type = 'success') {
     const popup = document.getElementById('notificationPopup');
     const titleEl = document.getElementById('notificationTitle');
     const messageEl = document.getElementById('notificationMessage');
+    if (!popup || !titleEl || !messageEl) {
+        console.warn('Summary notification DOM not available:', title, message);
+        return;
+    }
 
     titleEl.textContent = title;
     messageEl.textContent = message;
@@ -88,6 +92,7 @@ function hideNotification() {
         return;
     }
     const popup = document.getElementById('notificationPopup');
+    if (!popup) return;
     popup.classList.remove('show');
     setTimeout(() => {
         popup.style.display = 'none';

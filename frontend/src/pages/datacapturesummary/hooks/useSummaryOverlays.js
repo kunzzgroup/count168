@@ -73,12 +73,33 @@ export function useSummaryOverlays() {
     cb?.();
   }, [closeConfirmDelete]);
 
+  const showNotificationRef = useRef(showNotification);
+  const hideNotificationRef = useRef(hideNotification);
+  const showConfirmDeleteRef = useRef(showConfirmDelete);
+  const closeConfirmDeleteRef = useRef(closeConfirmDelete);
+  const confirmDeleteRef = useRef(confirmDelete);
+  showNotificationRef.current = showNotification;
+  hideNotificationRef.current = hideNotification;
+  showConfirmDeleteRef.current = showConfirmDelete;
+  closeConfirmDeleteRef.current = closeConfirmDelete;
+  confirmDeleteRef.current = confirmDelete;
+
   useLayoutEffect(() => {
-    window.__SUMMARY_REACT_SHOW_NOTIFICATION__ = showNotification;
-    window.__SUMMARY_REACT_HIDE_NOTIFICATION__ = hideNotification;
-    window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ = showConfirmDelete;
-    window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__ = closeConfirmDelete;
-    window.__SUMMARY_REACT_CONFIRM_DELETE__ = confirmDelete;
+    window.__SUMMARY_REACT_SHOW_NOTIFICATION__ = (title, message, type) => {
+      showNotificationRef.current?.(title, message, type);
+    };
+    window.__SUMMARY_REACT_HIDE_NOTIFICATION__ = () => {
+      hideNotificationRef.current?.();
+    };
+    window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ = (message, callback) => {
+      showConfirmDeleteRef.current?.(message, callback);
+    };
+    window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__ = () => {
+      closeConfirmDeleteRef.current?.();
+    };
+    window.__SUMMARY_REACT_CONFIRM_DELETE__ = () => {
+      confirmDeleteRef.current?.();
+    };
 
     return () => {
       delete window.__SUMMARY_REACT_SHOW_NOTIFICATION__;
@@ -87,7 +108,7 @@ export function useSummaryOverlays() {
       delete window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__;
       delete window.__SUMMARY_REACT_CONFIRM_DELETE__;
     };
-  }, [showNotification, hideNotification, showConfirmDelete, closeConfirmDelete, confirmDelete]);
+  }, []);
 
   useEffect(
     () => () => {
