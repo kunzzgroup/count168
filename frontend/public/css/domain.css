@@ -2741,6 +2741,11 @@ body.domain-page .domain-react-page .btn-delete.active {
 }
 
 
+/* Add Account (Share % in Company Settings) — above Company Settings overlay (2147483001) */
+body.domain-page #account-addModal.account-modal {
+    z-index: 2147483002 !important;
+}
+
 /* Modal Styles */
 .modal {
     display: none;

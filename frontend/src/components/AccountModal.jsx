@@ -32,6 +32,8 @@ export default function AccountModal({
   onSubmit,
   onClose,
   t,
+  /** When nested above other modals (e.g. Domain Company Settings at 2147483001) */
+  overlayZIndex,
 }) {
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
@@ -163,7 +165,10 @@ export default function AccountModal({
 
   return (
     <>
-    <div id={modalId} className="account-modal" style={{ display: "block" }}>
+    <div id={modalId} className="account-modal" style={{
+        display: "block",
+        ...(overlayZIndex != null ? { zIndex: overlayZIndex } : {}),
+      }}>
       <div className="account-modal-content">
         <div className="account-modal-header">
           <h2>{title}</h2>

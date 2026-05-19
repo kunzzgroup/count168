@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/domain.css";
 import "../../../public/css/accountCSS.css";
+import "../../../public/css/userlist.css";
 import {
   ROWS_PER_PAGE,
   MAX_VISIBLE_CHIPS,

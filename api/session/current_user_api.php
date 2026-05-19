@@ -10,6 +10,7 @@ try {
     require_once __DIR__ . '/../../config.php';
     require_once __DIR__ . '/../../includes/c168_domain_access.php';
     require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
+    require_once __DIR__ . '/../includes/member_linked_closure.php';
 } catch (Throwable $e) {
     // Do not fail bootstrap because of DB wiring errors; session data is still enough for routing.
     error_log('current_user_api config load failed: ' . $e->getMessage());
@@ -168,15 +169,48 @@ if ($companyId && $pdo instanceof PDO) {
     }
 }
 
+$memberLoginId = null;
+$memberViewId = null;
+$memberViewCode = '';
+$memberViewName = '';
+if ($userType === 'member' && $pdo instanceof PDO) {
+    member_ensure_login_session_fields();
+    $memberLoginId = member_session_canonical_account_id();
+    $memberViewId = member_session_winloss_view_account_id();
+    try {
+        $accStmt = $pdo->prepare('SELECT account_id, name FROM account WHERE id = ? LIMIT 1');
+        $accStmt->execute([$memberViewId]);
+        $accRow = $accStmt->fetch(PDO::FETCH_ASSOC);
+        if ($accRow) {
+            $memberViewCode = (string) ($accRow['account_id'] ?? '');
+            $memberViewName = (string) ($accRow['name'] ?? '');
+        }
+    } catch (Throwable $e) {
+        error_log('current_user_api member view account lookup: ' . $e->getMessage());
+    }
+}
+
+$responseUserId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+if ($userType === 'member' && $memberLoginId > 0) {
+    $responseUserId = $memberLoginId;
+}
+$sessionName = (string) ($_SESSION['name'] ?? '');
+$sessionLoginId = (string) ($_SESSION['login_id'] ?? '');
+
 session_write_close();
 
 echo json_encode([
     'success' => true,
     'message' => '',
     'data' => [
-        'user_id' => isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null,
-        'name' => (string) ($_SESSION['name'] ?? ''),
-        'login_id' => (string) ($_SESSION['login_id'] ?? ''),
+        'user_id' => $responseUserId,
+        'member_login_account_id' => $memberLoginId,
+        'member_winloss_view_account_id' => $memberViewId,
+        'winloss_view_account_id' => $memberViewId,
+        'account_code' => $memberViewCode,
+        'account_name' => $memberViewName,
+        'name' => $sessionName,
+        'login_id' => $sessionLoginId,
         'role' => (string) ($_SESSION['role'] ?? ''),
         'user_type' => $userType,
         'permissions' => is_array($permissions) ? array_values($permissions) : [],

@@ -10,7 +10,6 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/deleted_log.php';
-require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 /**
  * 标准 JSON 响应
@@ -73,16 +72,6 @@ function resolveCompanyId($pdo) {
         return $requested;
     }
     return $company_id;
-}
-
-function getAccountCurrencyIdColumn(PDO $pdo) {
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM account LIKE 'currency_id'");
-        $column = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
-        return $column ?: null;
-    } catch (PDOException $e) {
-        return null;
-    }
 }
 
 /**
@@ -161,72 +150,6 @@ function dbGetLinkedCurrencyIds($pdo, $account_id) {
     $stmt = $pdo->prepare("SELECT currency_id FROM account_currency WHERE account_id = ?");
     $stmt->execute([$account_id]);
     return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'currency_id');
-}
-
-/**
- * 旧账号可能只存在 account.currency_id，没有 account_currency 记录。
- */
-function dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id) {
-    try {
-        if (!getAccountCurrencyIdColumn($pdo)) {
-            return null;
-        }
-        $stmt = $pdo->prepare("
-            SELECT c.id
-            FROM account a
-            INNER JOIN currency c ON a.currency_id = c.id
-            WHERE a.id = ? AND c.company_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$account_id, $company_id]);
-        $id = $stmt->fetchColumn();
-        return $id ? (int) $id : null;
-    } catch (PDOException $e) {
-        return null;
-    }
-}
-
-function dbGetResolvedLinkedCurrencyIds(PDO $pdo, int $account_id, int $company_id): array {
-    $ids = array_map('intval', dbGetLinkedCurrencyIds($pdo, $account_id));
-    $legacy_id = dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id);
-    if ($legacy_id && !in_array($legacy_id, $ids, true)) {
-        $ids[] = $legacy_id;
-    }
-    return $ids;
-}
-
-function dbSyncLegacyCurrencyAfterRemoval(PDO $pdo, int $account_id, int $removed_currency_id, int $company_id): void {
-    $column = getAccountCurrencyIdColumn($pdo);
-    if (!$column) {
-        return;
-    }
-
-    $currentStmt = $pdo->prepare("SELECT currency_id FROM account WHERE id = ? LIMIT 1");
-    $currentStmt->execute([$account_id]);
-    if ((int)$currentStmt->fetchColumn() !== $removed_currency_id) {
-        return;
-    }
-
-    $nextStmt = $pdo->prepare("
-        SELECT ac.currency_id
-        FROM account_currency ac
-        INNER JOIN currency c ON c.id = ac.currency_id
-        WHERE ac.account_id = ? AND c.company_id = ?
-        ORDER BY c.code ASC, ac.currency_id ASC
-        LIMIT 1
-    ");
-    $nextStmt->execute([$account_id, $company_id]);
-    $next_currency_id = $nextStmt->fetchColumn();
-    if ($next_currency_id) {
-        $stmt = $pdo->prepare("UPDATE account SET currency_id = ? WHERE id = ? AND currency_id = ?");
-        $stmt->execute([(int)$next_currency_id, $account_id, $removed_currency_id]);
-        return;
-    }
-
-    if (strtoupper((string)($column['Null'] ?? '')) === 'YES') {
-        $stmt = $pdo->prepare("UPDATE account SET currency_id = NULL WHERE id = ? AND currency_id = ?");
-        $stmt->execute([$account_id, $removed_currency_id]);
-    }
 }
 
 /**
@@ -310,18 +233,78 @@ try {
         if ($action === 'get_available_currencies') {
             $account_id = isset($_GET['account_id']) ? (int)$_GET['account_id'] : 0;
             $all = dbGetCompanyCurrencies($pdo, $company_id);
-            $linked_ids = $account_id ? array_map('intval', dbGetLinkedCurrencyIds($pdo, $account_id)) : [];
-            $legacy_currency_id = $account_id ? dbGetLegacyAccountCurrencyId($pdo, $account_id, $company_id) : null;
-            if ($legacy_currency_id && !in_array($legacy_currency_id, $linked_ids, true)) {
-                $linked_ids[] = $legacy_currency_id;
-            }
+            $linked_ids = $account_id ? dbGetLinkedCurrencyIds($pdo, $account_id) : [];
             $result = array_map(function($c) use ($linked_ids) {
                 return [
                     'id' => (int) $c['id'],
                     'code' => $c['code'],
-                    'is_linked' => in_array((int) $c['id'], $linked_ids, true)
+                    'is_linked' => in_array($c['id'], $linked_ids)
                 ];
             }, $all);
+            jsonResponse(true, '', $result);
+            exit;
+        }
+
+        /**
+         * Member Win/Loss：批量返回多个账户在当前公司拥有的币别；member 仅能查关联闭包内账户。
+         * GET account_ids=1,2,3
+         */
+        if ($action === 'get_batch_account_currencies') {
+            if (!isset($_SESSION['user_id'])) {
+                jsonResponse(false, '请先登录', null, 401);
+                exit;
+            }
+            $raw = isset($_GET['account_ids']) ? trim((string) $_GET['account_ids']) : '';
+            $parts = $raw !== '' ? preg_split('/\s*,\s*/', $raw) : [];
+            $ids = [];
+            foreach ($parts as $p) {
+                $n = (int) $p;
+                if ($n > 0 && !in_array($n, $ids, true)) {
+                    $ids[] = $n;
+                }
+            }
+            if ($ids === []) {
+                jsonResponse(false, 'account_ids 参数无效', null, 400);
+                exit;
+            }
+            require_once __DIR__ . '/../includes/member_linked_closure.php';
+            $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
+            $allowedMap = null;
+            if ($userType === 'member') {
+                $loginId = member_session_canonical_account_id();
+                if ($loginId <= 0) {
+                    jsonResponse(false, '无法识别会话', null, 403);
+                    exit;
+                }
+                $allowed = member_linked_member_closure_ids($pdo, $loginId, (int) $company_id);
+                $allowedMap = [];
+                foreach ($allowed as $x) {
+                    $allowedMap[(int) $x] = true;
+                }
+            }
+            $result = [];
+            foreach ($ids as $aid) {
+                if ($allowedMap !== null && empty($allowedMap[$aid])) {
+                    continue;
+                }
+                if (!dbAccountBelongsToCompany($pdo, $aid, (int) $company_id)) {
+                    continue;
+                }
+                $rows = dbGetAccountOwnedCurrenciesResolved($pdo, $aid, (int) $company_id);
+                $clist = [];
+                foreach ($rows as $r) {
+                    $clist[] = [
+                        'currency_id' => isset($r['currency_id']) ? (int) $r['currency_id'] : (isset($r['id']) ? (int) $r['id'] : 0),
+                        'currency_code' => isset($r['currency_code'])
+                            ? strtoupper(trim((string) $r['currency_code']))
+                            : '',
+                    ];
+                }
+                $result[] = [
+                    'account_id' => $aid,
+                    'currencies' => $clist,
+                ];
+            }
             jsonResponse(true, '', $result);
             exit;
         }
@@ -331,10 +314,6 @@ try {
     }
 
     if ($method === 'POST') {
-        if (is_partnership_audit_read_only_active($pdo)) {
-            jsonResponse(false, '只读账号无法修改货币关联', null, 403);
-            exit;
-        }
         $data = json_decode(file_get_contents('php://input'), true) ?: [];
 
         if ($action === 'add_currency') {
@@ -372,13 +351,7 @@ try {
                 jsonResponse(false, '账户不存在或无权限访问', null, 403);
                 exit;
             }
-            if (!dbCurrencyBelongsToCompany($pdo, $currency_id, $company_id)) {
-                jsonResponse(false, '货币不存在或无权限访问', null, 403);
-                exit;
-            }
-            $linkedCurrencyIds = dbGetResolvedLinkedCurrencyIds($pdo, $account_id, $company_id);
-            $isLegacyLink = in_array($currency_id, $linkedCurrencyIds, true);
-            if (count($linkedCurrencyIds) <= 1) {
+            if (dbCountAccountCurrencies($pdo, $account_id) <= 1) {
                 jsonResponse(false, '账户必须至少保留一个货币，无法删除', null, 400);
                 exit;
             }
@@ -398,11 +371,10 @@ try {
                 );
             }
             $deleted = dbRemoveAccountCurrency($pdo, $account_id, $currency_id);
-            if ($deleted === 0 && !$isLegacyLink) {
+            if ($deleted === 0) {
                 jsonResponse(false, '关联不存在', null, 400);
                 exit;
             }
-            dbSyncLegacyCurrencyAfterRemoval($pdo, $account_id, $currency_id, $company_id);
             jsonResponse(true, '货币移除成功');
             exit;
         }
