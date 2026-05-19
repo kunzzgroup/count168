@@ -55,16 +55,13 @@ export function useSummaryAddAccount({ scriptsReady }) {
   useEffect(() => {
     if (!scriptsReady) return undefined;
 
+    // Legacy showAddAccountModal / closeAddModal delegate to __SUMMARY_REACT_* — do not overwrite globals.
     window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ = showAddAccount;
     window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__ = closeAddAccount;
-    window.showAddAccountModal = showAddAccount;
-    window.closeAddModal = closeAddAccount;
 
     return () => {
       delete window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__;
       delete window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__;
-      delete window.showAddAccountModal;
-      delete window.closeAddModal;
     };
   }, [scriptsReady, showAddAccount, closeAddAccount]);
 

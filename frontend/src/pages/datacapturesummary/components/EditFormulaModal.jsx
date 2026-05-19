@@ -77,7 +77,9 @@ export default function EditFormulaModal({ open, productValue, onClose }) {
                       <button
                         type="button"
                         className="account-add-btn"
-                        onClick={() => window.showAddAccountModal?.()}
+                        onClick={() =>
+                          window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__?.() ?? window.showAddAccountModal?.()
+                        }
                         title="Add New Account"
                       >
                         +

@@ -1,4 +1,5 @@
 import { useLayoutEffect } from "react";
+import { unsetWindowProperty } from "../../utils/unsetWindowProperty.js";
 import { pushDataCaptureNotification } from "./dataCaptureNotify.js";
 
 /**
@@ -6,26 +7,22 @@ import { pushDataCaptureNotification } from "./dataCaptureNotify.js";
  */
 export function useDataCaptureGlobalShims() {
   useLayoutEffect(() => {
-    window.showNotification = pushDataCaptureNotification;
-
-    window.resetForm = () => {
+    const resetForm = () => {
       window.__DC_RESET__?.();
     };
 
-    window.submitDataCaptureForm = () => {
+    const submitDataCaptureForm = () => {
       window.__DC_SUBMIT__?.();
     };
 
+    window.showNotification = pushDataCaptureNotification;
+    window.resetForm = resetForm;
+    window.submitDataCaptureForm = submitDataCaptureForm;
+
     return () => {
-      if (window.showNotification === pushDataCaptureNotification) {
-        delete window.showNotification;
-      }
-      if (window.resetForm) {
-        delete window.resetForm;
-      }
-      if (window.submitDataCaptureForm) {
-        delete window.submitDataCaptureForm;
-      }
+      unsetWindowProperty("showNotification", pushDataCaptureNotification);
+      unsetWindowProperty("resetForm", resetForm);
+      unsetWindowProperty("submitDataCaptureForm", submitDataCaptureForm);
     };
   }, []);
 }
