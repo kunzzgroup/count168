@@ -145,11 +145,12 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
 
   const restoreFromStorage = useCallback(async () => {
     if (!shouldRestoreFromUrl()) return;
-    if (restoreStartedRef.current) return;
-    restoreStartedRef.current = true;
+    if (restoreInFlightRef.current) return;
+    restoreInFlightRef.current = true;
 
     const session = loadCaptureSession();
     if (!session) {
+      restoreInFlightRef.current = false;
       window.__DC_IS_RESTORING__ = false;
       stripRestoreParamFromUrl();
       return;
