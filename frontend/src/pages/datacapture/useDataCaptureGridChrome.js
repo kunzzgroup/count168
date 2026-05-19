@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 /**
  * Phase 5a: SPA-owned page chrome that legacy `initDataCapturePage` used to bind.
- * Context menu positioning still lives in legacy; React owns scroll/resize + page-ready.
+ * Context menu positioning lives in dataCaptureContextMenu.js; React owns scroll/resize + page-ready.
  */
 export function useDataCaptureGridChrome(scriptsReady) {
   useEffect(() => {

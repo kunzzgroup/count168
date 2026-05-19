@@ -12,8 +12,16 @@ import {
   setActiveCellWithoutFocus,
 } from "./dataCaptureGridActiveCell.js";
 
+import {
+  hideContextMenu,
+  showColumnContextMenu,
+  showContextMenu,
+  showRowContextMenu,
+  updateActiveContextMenuPosition,
+} from "./dataCaptureContextMenu.js";
+
 /**
- * Phase 5a: SPA-owned grid interaction (document keyboard, delegation, active cell, cell keydown).
+ * Phase 5a/5b: SPA-owned grid interaction + context menus.
  */
 export function useDataCaptureGridInteraction(scriptsReady) {
   useLayoutEffect(() => {
@@ -28,6 +36,13 @@ export function useDataCaptureGridInteraction(scriptsReady) {
     window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS__ = setActiveCellWithoutFocus;
     window.__DC_MOVE_CARET_TO_END__ = moveCaretToEnd;
 
+    window.__DC_SHOW_CONTEXT_MENU_REACT__ = showContextMenu;
+    window.__DC_SHOW_COLUMN_CONTEXT_MENU_REACT__ = showColumnContextMenu;
+    window.__DC_SHOW_ROW_CONTEXT_MENU_REACT__ = showRowContextMenu;
+    window.__DC_HIDE_CONTEXT_MENU__ = hideContextMenu;
+    window.__DC_UPDATE_CONTEXT_MENU_POSITION__ = updateActiveContextMenuPosition;
+    window.updateActiveContextMenuPosition = updateActiveContextMenuPosition;
+
     return () => {
       delete window.__DC_SET_ACTIVE_CELL_CORE_REACT__;
       delete window.__DC_SET_ACTIVE_CELL_REACT__;
@@ -36,6 +51,14 @@ export function useDataCaptureGridInteraction(scriptsReady) {
       delete window.__DC_MOVE_CARET_TO_CLICK_REACT__;
       delete window.__DC_HANDLE_CELL_CLICK_REACT__;
       delete window.__DC_HANDLE_CELL_KEYDOWN_REACT__;
+      delete window.__DC_SHOW_CONTEXT_MENU_REACT__;
+      delete window.__DC_SHOW_COLUMN_CONTEXT_MENU_REACT__;
+      delete window.__DC_SHOW_ROW_CONTEXT_MENU_REACT__;
+      delete window.__DC_HIDE_CONTEXT_MENU__;
+      delete window.__DC_UPDATE_CONTEXT_MENU_POSITION__;
+      if (window.updateActiveContextMenuPosition === updateActiveContextMenuPosition) {
+        delete window.updateActiveContextMenuPosition;
+      }
     };
   }, []);
 

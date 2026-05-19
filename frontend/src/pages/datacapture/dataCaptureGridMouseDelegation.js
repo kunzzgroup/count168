@@ -73,6 +73,13 @@ export function attachGridMouseDelegation(dataTable) {
     if (rowHeader && dataTable.contains(rowHeader)) {
       e.preventDefault();
       window.__DC_SHOW_ROW_CONTEXT_MENU__?.(e);
+      return;
+    }
+
+    const cell = findEditableCell(e.target, dataTable);
+    if (cell) {
+      e.preventDefault();
+      window.__DC_SHOW_CONTEXT_MENU_REACT__?.(e, cell);
     }
   };
 

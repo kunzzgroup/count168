@@ -1248,6 +1248,9 @@ let copiedData = null;
 let activeContextMenuAnchor = null;
 
 function positionContextMenu(menu, e, anchorElement) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_POSITION_CONTEXT_MENU__ === 'function') {
+        return window.__DC_POSITION_CONTEXT_MENU__(menu, e, anchorElement);
+    }
     if (!menu || !e) return;
 
     if (!anchorElement) {
@@ -1270,6 +1273,9 @@ function positionContextMenu(menu, e, anchorElement) {
 }
 
 function updateActiveContextMenuPosition() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_UPDATE_CONTEXT_MENU_POSITION__ === 'function') {
+        return window.__DC_UPDATE_CONTEXT_MENU_POSITION__();
+    }
     if (!activeContextMenuAnchor) return;
 
     const { menu, anchorElement, offsetX, offsetY, scrollContainer } = activeContextMenuAnchor;
@@ -1320,6 +1326,9 @@ function positionContextMenuAtPoint(menuElement, cursorX, cursorY) {
 
 // Show context menu
 function showContextMenu(e, cell) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_SHOW_CONTEXT_MENU_REACT__ === 'function') {
+        return window.__DC_SHOW_CONTEXT_MENU_REACT__(e, cell);
+    }
     const contextMenu = document.getElementById('contextMenu');
 
     console.log('showContextMenu called, current selectedCells.size:', selectedCells.size);
@@ -1372,6 +1381,9 @@ function showContextMenu(e, cell) {
 
 // Hide context menu
 function hideContextMenu() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HIDE_CONTEXT_MENU__ === 'function') {
+        return window.__DC_HIDE_CONTEXT_MENU__();
+    }
     const contextMenu = document.getElementById('contextMenu');
     const columnContextMenu = document.getElementById('columnContextMenu');
     const rowContextMenu = document.getElementById('rowContextMenu');
@@ -1383,6 +1395,9 @@ function hideContextMenu() {
 
 // Show column header context menu
 function showColumnContextMenu(e, colIndex) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_SHOW_COLUMN_CONTEXT_MENU_REACT__ === 'function') {
+        return window.__DC_SHOW_COLUMN_CONTEXT_MENU_REACT__(e, colIndex);
+    }
     e.preventDefault();
     e.stopPropagation();
     // Get actual column index from DOM position
@@ -1402,6 +1417,9 @@ function showColumnContextMenu(e, colIndex) {
 
 // Show row header context menu
 function showRowContextMenu(e, rowIndex) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_SHOW_ROW_CONTEXT_MENU_REACT__ === 'function') {
+        return window.__DC_SHOW_ROW_CONTEXT_MENU_REACT__(e, rowIndex);
+    }
     e.preventDefault();
     e.stopPropagation();
     // Get actual row index from DOM position
@@ -3565,10 +3583,12 @@ function bindDataCaptureCellEvents(cell) {
             handleCellClick(e, this);
         });
     }
-    cell.addEventListener('contextmenu', function (e) {
-        e.preventDefault();
-        showContextMenu(e, this);
-    });
+    if (!spaGrid) {
+        cell.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+            showContextMenu(e, this);
+        });
+    }
 }
 
 // Generate column labels (A, B, C, ..., Z, AA, AB, ...)
@@ -25345,6 +25365,12 @@ window.__DC_HAS_PASTE_HISTORY__ = function () {
 window.__DC_UNDO_LAST_PASTE__ = undoLastPaste;
 window.__DC_REGISTER_SELECTED_CELL__ = function (cell) {
     if (cell) selectedCells.add(cell);
+};
+window.__DC_SET_CONTEXT_MENU_COLUMN__ = function (index) {
+    currentColumnIndex = index;
+};
+window.__DC_SET_CONTEXT_MENU_ROW__ = function (index) {
+    currentRowIndex = index;
 };
 window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS__ = setActiveCellWithoutFocus;
 window.__DC_SET_ACTIVE_CELL__ = setActiveCell;
