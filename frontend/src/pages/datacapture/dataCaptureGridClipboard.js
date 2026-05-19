@@ -2,22 +2,12 @@
  * Context menu clipboard actions — extracted from js/datacapture.js.
  */
 import { hideContextMenu } from "./dataCaptureContextMenu.js";
-
-function getSelectedCells() {
-  return window.__DC_GET_SELECTED_CELLS__?.() ?? [];
-}
-
-function getSelectedCellCount() {
-  return window.__DC_GET_SELECTED_CELL_COUNT__?.() ?? 0;
-}
-
-function clearAllSelections() {
-  window.__DC_CLEAR_ALL_SELECTIONS__?.();
-}
-
-function registerSelectedCell(cell) {
-  window.__DC_REGISTER_SELECTED_CELL__?.(cell);
-}
+import {
+  clearAllSelections,
+  getSelectedCellCount,
+  getSelectedCells,
+  registerSelectedCell,
+} from "./dataCaptureGridSelection.js";
 
 function recomputeSubmitState() {
   window.__DC_RECOMPUTE_SUBMIT_STATE__?.();

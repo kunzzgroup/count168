@@ -441,6 +441,9 @@ function moveCaretToClickPosition(cell, clickEvent) {
 
 // Handle mouse down
 function handleCellMouseDown(e) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_CELL_MOUSEDOWN__ === 'function' && window.__DC_HANDLE_CELL_MOUSEDOWN__ !== handleCellMouseDown) {
+        return window.__DC_HANDLE_CELL_MOUSEDOWN__(e);
+    }
     // Check if this is a right-click (button === 2)
     // If right-click, don't modify selection - let contextmenu event handle it
     if (e.button === 2) {
@@ -490,6 +493,9 @@ function handleCellMouseDown(e) {
 
 // Handle mouse hover
 function handleCellMouseOver(e) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_CELL_MOUSEOVER__ === 'function' && window.__DC_HANDLE_CELL_MOUSEOVER__ !== handleCellMouseOver) {
+        return window.__DC_HANDLE_CELL_MOUSEOVER__(e);
+    }
     if (!isSelecting || !startCell) return;
     const hoverCell = (e.target && e.target.closest) ? e.target.closest('td[contenteditable="true"]') : e.target;
     if (!hoverCell || hoverCell.contentEditable !== 'true') return;
@@ -534,6 +540,9 @@ function handleCellMouseOver(e) {
 
 // Handle mouse release
 function handleMouseUp() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_MOUSE_UP__ === 'function' && window.__DC_HANDLE_MOUSE_UP__ !== handleMouseUp) {
+        return window.__DC_HANDLE_MOUSE_UP__();
+    }
     isSelecting = false;
     startCell = null;
     isSelectingColumns = false;
@@ -567,6 +576,9 @@ function getRowIndexFromHeader(rowHeader) {
 
 // Handle column header click (both left and right click)
 function handleColumnHeaderClick(e, colIndex) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_COLUMN_HEADER_CLICK__ === 'function') {
+        return window.__DC_HANDLE_COLUMN_HEADER_CLICK__(e, colIndex);
+    }
     e.preventDefault();
     tableActive = true;
 
@@ -591,6 +603,9 @@ function handleColumnHeaderClick(e, colIndex) {
 
 // Handle row header click (both left and right click)
 function handleRowHeaderClick(e, rowIndex) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_ROW_HEADER_CLICK__ === 'function') {
+        return window.__DC_HANDLE_ROW_HEADER_CLICK__(e, rowIndex);
+    }
     e.preventDefault();
     tableActive = true;
 
@@ -617,6 +632,9 @@ function handleRowHeaderClick(e, rowIndex) {
 
 // Handle column header mouse over (for drag selection)
 function handleColumnHeaderMouseOver(e, colIndex) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__ === 'function' && window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__ !== handleColumnHeaderMouseOver) {
+        return window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__(e);
+    }
     if (isSelectingColumns && startColumnIndex !== null) {
         // Get actual column index from DOM position
         const actualColIndex = getColumnIndexFromHeader(e.target);
@@ -627,6 +645,9 @@ function handleColumnHeaderMouseOver(e, colIndex) {
 
 // Handle row header mouse over (for drag selection)
 function handleRowHeaderMouseOver(e, rowIndex) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__ === 'function' && window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__ !== handleRowHeaderMouseOver) {
+        return window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__(e);
+    }
     if (isSelectingRows && startRowIndex !== null) {
         // Get actual row index from DOM position
         const actualRowIndex = getRowIndexFromHeader(e.target);
@@ -637,6 +658,9 @@ function handleRowHeaderMouseOver(e, rowIndex) {
 
 // Select entire column(s) - supports range selection and Ctrl multi-select
 function selectColumn(colIndex, endColIndex = null, append = false) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_SELECT_COLUMN__ === 'function' && window.__DC_SELECT_COLUMN__ !== selectColumn) {
+        return window.__DC_SELECT_COLUMN__(colIndex, endColIndex, append);
+    }
     // Activate table when column is selected
     tableActive = true;
 
@@ -3492,6 +3516,9 @@ function handleCellClick(e, cellEl) {
 
 /** Shared per-cell listeners for grid cells (used by build + submit-time column expansion). */
 function bindDataCaptureCellEvents(cell) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_BIND_GRID_CELL__ === 'function') {
+        return window.__DC_BIND_GRID_CELL__(cell);
+    }
     const spaGrid = __dcIsDataCaptureSpa();
     if (!spaGrid) {
         cell.addEventListener('mousedown', handleCellMouseDown);
@@ -3877,6 +3904,9 @@ function addNewColumn() {
 
 // Undo last paste operation
 function undoLastPaste() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_UNDO_LAST_PASTE__ === 'function' && window.__DC_UNDO_LAST_PASTE__ !== undoLastPaste) {
+        return window.__DC_UNDO_LAST_PASTE__();
+    }
     if (pasteHistory.length === 0) {
         showNotification('No paste operation to undo', 'danger');
         return;
@@ -25293,6 +25323,16 @@ window.__DC_GET_TABLE_ACTIVE__ = function () {
     return tableActive;
 };
 window.__DC_CLEAR_ALL_SELECTIONS__ = clearAllSelections;
+window.__DC_ADOPT_SELECTION_SET__ = function (externalSet) {
+    if (externalSet && typeof externalSet.add === 'function') {
+        selectedCells = externalSet;
+    }
+};
+window.__DC_ADOPT_PASTE_HISTORY__ = function (externalHistory) {
+    if (Array.isArray(externalHistory)) {
+        pasteHistory = externalHistory;
+    }
+};
 window.__DC_GET_SELECTED_CELLS__ = function () {
     return Array.from(selectedCells);
 };
