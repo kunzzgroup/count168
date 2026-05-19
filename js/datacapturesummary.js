@@ -1141,12 +1141,7 @@ function restoreFormulaSourceFromRefresh() {
             // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
             const finalFormula = existingFormulaText || savedFormulaDisplay || formula;
 
-            cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span>${getFormulaEditButtonHtml(finalFormula)}</div>`;
-            const span = cells[4].querySelector('.formula-text');
-            if (span) span.textContent = finalFormula;
-            row.setAttribute('data-formula-raw', finalFormula || '');
-            if (finalFormula) row.setAttribute('data-formula-display', finalFormula);
-            else row.removeAttribute('data-formula-display');
+            setSummaryFormulaCellDisplay(cells[4], row, finalFormula, imForTooltip);
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
         // Source 优先保留当前行（后端最新）值，避免被 refresh/localStorage 里的旧值覆盖
@@ -1963,9 +1958,7 @@ function populateOriginalTableWithColumnAData(tableData) {
                         summaryTableBody.querySelectorAll('tr').forEach((row) => {
                             const cells = row.querySelectorAll('td');
                             if (cells[4]) {
-                                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
-                                const span = cells[4].querySelector('.formula-text');
-                                if (span) span.textContent = '';
+                                clearSummaryFormulaCellDom(cells[4]);
                             }
                             if (cells[5]) cells[5].textContent = '';
                             row.removeAttribute('data-formula-operators');
@@ -14921,20 +14914,16 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         // Get input method from row or data for tooltip
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
         const inputMethodTooltip = inputMethod || '';
-        cells[4].innerHTML = `
-            <div class="formula-cell-content" ${inputMethodTooltip ? `title="${String(inputMethodTooltip).replace(/"/g, '&quot;')}"` : ''}>
-                <span class="formula-text editable-cell"></span>
-                ${getFormulaEditButtonHtml(formulaText)}
-            </div>
-        `;
+        setSummaryFormulaCellDisplay(cells[4], row, formulaText, inputMethodTooltip);
+        if (!window.__SUMMARY_REACT_TABLE__) {
         const formulaTextSpan = cells[4].querySelector('.formula-text');
         if (formulaTextSpan) {
-            formulaTextSpan.textContent = formulaText;
             if (inputMethodTooltip) formulaTextSpan.setAttribute('title', inputMethodTooltip);
             formulaTextSpan.addEventListener('dblclick', function (e) {
                 e.stopPropagation();
                 enableFormulaInlineEdit(this, row);
             });
+        }
         }
     }
 
@@ -15632,14 +15621,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 
             const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
             const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
-            cells[4].innerHTML = `
-                <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
-                    <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${displayText}</span>
-                    ${getFormulaEditButtonHtml(displayText)}
-                </div>
-            `;
-            // Attach double-click event listener
-            attachInlineEditListeners(row);
+            setSummaryFormulaCellDisplay(cells[4], row, displayText, inputMethodTooltip);
         }
 
         // Source % column (index 5) - display as percentage
@@ -16095,9 +16077,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 if (!hasTemplate) {
                     const cells = summaryRow.querySelectorAll('td');
                     if (cells[4]) {
-                        cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
-                        const span = cells[4].querySelector('.formula-text');
-                        if (span) span.textContent = '';
+                        clearSummaryFormulaCellDom(cells[4]);
                     }
                     summaryRow.removeAttribute('data-formula-operators');
                     summaryRow.removeAttribute('data-template-formula-operators');
@@ -19623,6 +19603,36 @@ function clearSummaryFormulaCellDom(cell) {
         return;
     }
     cell.innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+}
+
+/** React SPA: never replace formula td with innerHTML (causes removeChild crash on re-render). */
+function setSummaryFormulaCellDisplay(cell, row, displayText, inputMethodTooltip) {
+    if (!cell) return;
+    const text = displayText != null ? String(displayText) : '';
+    if (window.__SUMMARY_REACT_TABLE__) {
+        clearSummaryFormulaCellDom(cell);
+        if (text) cell.textContent = text;
+        if (row) {
+            if (text) {
+                row.setAttribute('data-formula-display', text);
+                row.setAttribute('data-formula-raw', text);
+            } else {
+                row.removeAttribute('data-formula-display');
+                row.removeAttribute('data-formula-raw');
+            }
+        }
+        return;
+    }
+    const tooltip = inputMethodTooltip
+        ? ` title="${String(inputMethodTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`
+        : '';
+    cell.innerHTML = `
+        <div class="formula-cell-content"${tooltip}>
+            <span class="formula-text editable-cell"${tooltip}>${text}</span>
+            ${getFormulaEditButtonHtml(text)}
+        </div>
+    `;
+    if (row && typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
 }
 
 function deleteSelectedRows() {

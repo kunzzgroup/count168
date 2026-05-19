@@ -37,14 +37,7 @@ export function useSummaryRows(tableData, enabled) {
   }, []);
 
   const syncFromDom = useCallback(() => {
-    try {
-      flushSync(() => {
-        setRows((prev) => applyRowsFromDom(prev));
-      });
-    } catch (err) {
-      console.warn("syncFromDom flushSync failed, falling back to async update:", err);
-      setRows((prev) => applyRowsFromDom(prev));
-    }
+    setRows((prev) => applyRowsFromDom(prev));
   }, [applyRowsFromDom]);
 
   const removeRowsByKeys = useCallback((keys) => {
