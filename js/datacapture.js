@@ -22507,6 +22507,9 @@ let isFormatGridReady = false;
 
 // Clear 2.Format mode styles from table cells
 function clearFormatStyles() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_CLEAR_FORMAT_STYLES__ === 'function' && window.__DC_CLEAR_FORMAT_STYLES__ !== clearFormatStyles) {
+        return window.__DC_CLEAR_FORMAT_STYLES__();
+    }
     console.log('Format: Clearing styles from table cells');
 
     // Clear table body cells
@@ -22576,6 +22579,9 @@ function clearFormatStyles() {
 
 // Toggle table display for 2.Format mode
 function toggleTableDisplayForFormat() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_TOGGLE_FORMAT_DISPLAY__ === 'function' && window.__DC_TOGGLE_FORMAT_DISPLAY__ !== toggleTableDisplayForFormat) {
+        return window.__DC_TOGGLE_FORMAT_DISPLAY__();
+    }
     const dataTable = document.getElementById('dataTable');
     const tablePreviewFormat = document.getElementById('tablePreviewFormat');
     const pasteAreaFormat = document.getElementById('pasteAreaFormat');
@@ -22848,6 +22854,9 @@ function initFormatPasteArea() {
 
 /** Clears legacy grid + 2.Format UI (phase 1 React reset helper). */
 function clearCaptureTableForReset() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_CLEAR_CAPTURE_TABLE__ === 'function' && window.__DC_CLEAR_CAPTURE_TABLE__ !== clearCaptureTableForReset) {
+        return window.__DC_CLEAR_CAPTURE_TABLE__();
+    }
     if (typeof window.__DC_CLEAR_GRID_CELLS__ === 'function') {
         window.__DC_CLEAR_GRID_CELLS__();
     } else {
@@ -22935,6 +22944,9 @@ function clearCaptureTableForReset() {
 
 /** Restores legacy grid from localStorage snapshot (phase 1 React restore helper). */
 async function restoreCaptureTableFromData(tableData, savedType) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_RESTORE_CAPTURE_TABLE__ === 'function' && window.__DC_RESTORE_CAPTURE_TABLE__ !== restoreCaptureTableFromData) {
+        return window.__DC_RESTORE_CAPTURE_TABLE__(tableData, savedType);
+    }
     const type = normalizeCaptureTypeValue(savedType || '1.Text');
 
     if (!tableData || !tableData.rows || tableData.rows.length === 0) {

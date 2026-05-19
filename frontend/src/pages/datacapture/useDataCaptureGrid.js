@@ -2,6 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { buildDataCaptureTable } from "./dataCaptureBuildGrid.js";
 import { DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS } from "./dataCaptureGridConstants.js";
 import {
+  clearCaptureTableForReset,
+  restoreCaptureTableFromData,
+} from "./dataCaptureGridClearRestore.js";
+import {
   clearEditableGridCells,
   populateGridFromSnapshot,
   readGridDimensions,
@@ -83,6 +87,8 @@ export function useDataCaptureGrid(scriptsReady) {
     window.__DC_POPULATE_GRID_FROM_SNAPSHOT__ = populateGridFromSnapshot;
     window.__DC_CLEAR_GRID_CELLS__ = clearEditableGridCells;
     window.__DC_GET_GRID_DIMENSIONS__ = readGridDimensions;
+    window.__DC_CLEAR_CAPTURE_TABLE__ = clearCaptureTableForReset;
+    window.__DC_RESTORE_CAPTURE_TABLE__ = restoreCaptureTableFromData;
 
     return () => {
       delete window.__DC_BUILD_GRID_REACT__;
@@ -92,6 +98,8 @@ export function useDataCaptureGrid(scriptsReady) {
       delete window.__DC_POPULATE_GRID_FROM_SNAPSHOT__;
       delete window.__DC_CLEAR_GRID_CELLS__;
       delete window.__DC_GET_GRID_DIMENSIONS__;
+      delete window.__DC_CLEAR_CAPTURE_TABLE__;
+      delete window.__DC_RESTORE_CAPTURE_TABLE__;
     };
   }, []);
 
