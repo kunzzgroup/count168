@@ -15822,6 +15822,16 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             return;
         }
 
+        // React SPA: drop existing sub rows before re-applying templates so refresh / retry cannot stack duplicates
+        if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_STRIP_SUB_ROWS__ === 'function') {
+            window.__SUMMARY_STRIP_SUB_ROWS__();
+            await new Promise(function (resolve) {
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(resolve);
+                });
+            });
+        }
+
         // 用完整 id_product 列表请求，不按「括号前」合并，保证 GAMS(SV)HKD 与 GAMS(SV)MYR 分开
         const uniqueIds = [...new Set(idProducts.map(v => (v || '').trim()).filter(Boolean))];
 
@@ -18406,6 +18416,22 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     targetRow = row;
                     console.log('Found existing sub row by template_id:', templateId);
                     break;
+                }
+
+                // Match by account_id within same id_product (re-populate / refresh must update, not duplicate)
+                if (!targetRow && sameIdProductGroup && subOrderMatch) {
+                    const templateAccountId = template.account_id != null ? String(template.account_id) : null;
+                    const accountCell = row.querySelector('td:nth-child(2)');
+                    const rowAccountDbId = accountCell?.getAttribute('data-account-id');
+                    if (templateAccountId && rowAccountDbId && rowAccountDbId === templateAccountId) {
+                        const rowFv = rowFormulaVariant;
+                        const tplFv = (formulaVariant !== undefined && formulaVariant !== null) ? String(formulaVariant) : null;
+                        if (!tplFv || !rowFv || rowFv === tplFv) {
+                            targetRow = row;
+                            console.log('Found existing sub row by account_id (+ formula_variant):', templateAccountId);
+                            break;
+                        }
+                    }
                 }
 
                 // Match by template_key + formula_variant (if template_id not available)

@@ -43,9 +43,15 @@ async function executeSummaryPopulate({ tableData, syncFromDom }) {
   }
 }
 
-async function runPopulateAttempts({ tableData, syncFromDom }) {
-  for (let attempt = 0; attempt < MAX_POPULATE_ATTEMPTS; attempt += 1) {
+async function runPopulateAttempts({ tableData, syncFromDom, resetToInitialRows, fromExplicitReset }) {
+  const maxAttempts = fromExplicitReset ? 1 : MAX_POPULATE_ATTEMPTS;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (attempt > 0) {
+      resetToInitialRows?.();
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      });
       await new Promise((resolve) => window.setTimeout(resolve, 180 * attempt));
     }
     const populated = await executeSummaryPopulate({ tableData, syncFromDom });
@@ -84,7 +90,12 @@ export function useSummaryTablePopulate({
           requestAnimationFrame(() => requestAnimationFrame(resolve));
         });
       }
-      const populated = await runPopulateAttempts({ tableData, syncFromDom });
+      const populated = await runPopulateAttempts({
+        tableData,
+        syncFromDom,
+        resetToInitialRows,
+        fromExplicitReset: shouldReset,
+      });
       if (!populated) {
         console.warn("Summary template populate incomplete after retries");
       }

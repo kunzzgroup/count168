@@ -48,6 +48,9 @@ export function findMainRowForSubTemplate(idProduct, subTemplate) {
       : null;
 
   if (desiredIndex !== null && !Number.isNaN(desiredIndex)) {
+    const exactMain = mains.find((info) => info.rowIndex === desiredIndex);
+    if (exactMain) return exactMain.row;
+
     let best = null;
     for (const info of mains) {
       if (info.rowIndex <= desiredIndex) {
@@ -97,7 +100,14 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
   subTemplates.forEach((sub) => {
     if (!sub) return;
     const templateId = sub.id != null ? String(sub.id) : null;
+    const accountKey =
+      sub.account_id != null
+        ? `${String(sub.account_id)}:${sub.sub_order != null ? Number(sub.sub_order) : ""}:${sub.formula_variant != null ? sub.formula_variant : ""}`
+        : null;
     if (templateId && appliedTemplateIds.has(templateId)) {
+      return;
+    }
+    if (accountKey && appliedTemplateIds.has(`acc:${accountKey}`)) {
       return;
     }
 
@@ -110,6 +120,9 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
     subsByMainRow.get(mainRow).push(sub);
     if (templateId) {
       appliedTemplateIds.add(templateId);
+    }
+    if (accountKey) {
+      appliedTemplateIds.add(`acc:${accountKey}`);
     }
   });
 

@@ -49,6 +49,13 @@ export function useSummaryRows(tableData, enabled) {
     });
   }, [initialRows]);
 
+  /** Remove all sub rows before re-applying templates (prevents duplicate subs on refresh). */
+  const stripSubRows = useCallback(() => {
+    flushSync(() => {
+      setRows((prev) => prev.filter((row) => row.productType !== "sub"));
+    });
+  }, []);
+
   const addSubRow = useCallback((parentProcessValue, insertAfterRow, rowIndex) => {
     const insertAfterKey = insertAfterRow?.getAttribute?.("data-react-row-key") || null;
     let newKey = "";
@@ -81,13 +88,17 @@ export function useSummaryRows(tableData, enabled) {
     window.__SUMMARY_REACT_ADD_SUB_ROW__ = addSubRow;
     window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ = syncFromDom;
     window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ = removeRowsByKeys;
+    window.__SUMMARY_STRIP_SUB_ROWS__ = stripSubRows;
+    window.__SUMMARY_REACT_RESET_ROWS__ = resetToInitialRows;
 
     return () => {
       delete window.__SUMMARY_REACT_ADD_SUB_ROW__;
       delete window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__;
       delete window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__;
+      delete window.__SUMMARY_STRIP_SUB_ROWS__;
+      delete window.__SUMMARY_REACT_RESET_ROWS__;
     };
-  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys]);
+  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys, stripSubRows, resetToInitialRows]);
 
-  return { rows, syncFromDom, resetToInitialRows, removeRowsByKeys };
+  return { rows, syncFromDom, resetToInitialRows, removeRowsByKeys, stripSubRows };
 }
