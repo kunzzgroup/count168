@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa11';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa13';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -3678,6 +3678,19 @@ function initializeTable(rows = 26, cols = 20) {
         return window.__DC_INITIALIZE_TABLE__(rows, cols);
     }
     return buildDataCaptureTable(rows, cols);
+}
+
+/** SPA: ensure grid exists after scripts + React mount (Phase 3). */
+function ensureDataCaptureGridReady(rows, cols) {
+    if (typeof window.__DC_ENSURE_GRID_READY__ === 'function') {
+        const result = window.__DC_ENSURE_GRID_READY__(rows, cols);
+        const tableBody = document.getElementById('tableBody');
+        if (tableBody && tableBody.children.length < 1 && typeof window.__DC_LEGACY_BUILD_TABLE__ === 'function') {
+            window.__DC_LEGACY_BUILD_TABLE__(rows, cols);
+        }
+        return result;
+    }
+    return initializeTable(rows, cols);
 }
 
 // Add global click listener to deactivate table when clicking outside
@@ -22862,6 +22875,7 @@ async function restoreCaptureTableFromData(tableData, savedType) {
 
     if (!tableData || !tableData.rows || tableData.rows.length === 0) {
         if (type) applyDataCaptureType(type);
+        ensureDataCaptureGridReady(26, 20);
         return;
     }
 
@@ -25030,9 +25044,10 @@ async function initDataCapturePage() {
     if (!shouldRestore) {
         // Submitted Processes：按左侧 Date（capture_date）加载
         loadSubmittedProcesses();
-        // Phase 3: React SPA owns default grid init via useDataCaptureGrid
         if (!window.__DATA_CAPTURE_REACT_FORM__) {
             initializeTable(26, 20);
+        } else {
+            ensureDataCaptureGridReady(26, 20);
         }
     }
 
@@ -25062,6 +25077,7 @@ async function initDataCapturePage() {
     } else if (shouldRestore) {
         // Restore data from localStorage
         await restoreFromLocalStorage();
+        ensureDataCaptureGridReady(26, 20);
     }
 }
 

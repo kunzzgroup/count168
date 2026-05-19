@@ -5,7 +5,11 @@ import {
   populateGridFromSnapshot,
   readGridDimensions,
 } from "./dataCaptureGridSnapshot.js";
-import { shouldRestoreFromUrl } from "./dataCaptureStorage.js";
+
+/** Minimum rows/cols to consider the grid already built. */
+function gridLooksInitialized(dims) {
+  return dims.rows >= 1 && dims.cols >= 1;
+}
 
 /**
  * Phase 3: Grid lifecycle in React — init dimensions, clear, restore cell values.
@@ -13,7 +17,6 @@ import { shouldRestoreFromUrl } from "./dataCaptureStorage.js";
  */
 export function useDataCaptureGrid(scriptsReady) {
   const dimensionsRef = useRef({ rows: DEFAULT_GRID_ROWS, cols: DEFAULT_GRID_COLS });
-  const defaultInitDoneRef = useRef(false);
 
   const initializeGrid = useCallback((rows = DEFAULT_GRID_ROWS, cols = DEFAULT_GRID_COLS) => {
     const r = Math.max(1, Number(rows) || DEFAULT_GRID_ROWS);
@@ -22,25 +25,69 @@ export function useDataCaptureGrid(scriptsReady) {
 
     if (typeof window.__DC_LEGACY_BUILD_TABLE__ === "function") {
       window.__DC_LEGACY_BUILD_TABLE__(r, c);
-    } else if (typeof window.initializeTable === "function") {
-      window.initializeTable(r, c);
     }
 
+    const dataTable = document.getElementById("dataTable");
+    if (dataTable && dataTable.style.display === "none") {
+      dataTable.style.display = "table";
+    }
+
+    window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
     window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
     return dimensionsRef.current;
   }, []);
 
+  const ensureGridReady = useCallback(
+    (rows = DEFAULT_GRID_ROWS, cols = DEFAULT_GRID_COLS) => {
+      const r = Math.max(1, Number(rows) || DEFAULT_GRID_ROWS);
+      const c = Math.max(1, Number(cols) || DEFAULT_GRID_COLS);
+
+      let dims = readGridDimensions();
+      if (!gridLooksInitialized(dims)) {
+        initializeGrid(r, c);
+        dims = readGridDimensions();
+      }
+
+      // Legacy script may load after first ensure — build directly if still empty.
+      if (!gridLooksInitialized(dims) && typeof window.__DC_LEGACY_BUILD_TABLE__ === "function") {
+        window.__DC_LEGACY_BUILD_TABLE__(r, c);
+        dims = readGridDimensions();
+        dimensionsRef.current = dims;
+      }
+
+      const dataTable = document.getElementById("dataTable");
+      if (dataTable && dataTable.style.display === "none") {
+        const captureType =
+          typeof window.__DC_GET_CAPTURE_TYPE__ === "function" ? window.__DC_GET_CAPTURE_TYPE__() : "";
+        const formatReady =
+          typeof window.__DC_GET_FORMAT_GRID_READY__ === "function"
+            ? window.__DC_GET_FORMAT_GRID_READY__()
+            : false;
+        if (captureType !== "2.Format" || formatReady) {
+          dataTable.style.display = "table";
+        }
+      }
+
+      window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
+      window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+      return dims;
+    },
+    [initializeGrid],
+  );
+
   const handlersRef = useRef({});
-  handlersRef.current = { initializeGrid };
+  handlersRef.current = { initializeGrid, ensureGridReady };
 
   useLayoutEffect(() => {
     window.__DC_INITIALIZE_TABLE__ = (rows, cols) => handlersRef.current.initializeGrid(rows, cols);
+    window.__DC_ENSURE_GRID_READY__ = (rows, cols) => handlersRef.current.ensureGridReady(rows, cols);
     window.__DC_POPULATE_GRID_FROM_SNAPSHOT__ = populateGridFromSnapshot;
     window.__DC_CLEAR_GRID_CELLS__ = clearEditableGridCells;
     window.__DC_GET_GRID_DIMENSIONS__ = readGridDimensions;
 
     return () => {
       delete window.__DC_INITIALIZE_TABLE__;
+      delete window.__DC_ENSURE_GRID_READY__;
       delete window.__DC_POPULATE_GRID_FROM_SNAPSHOT__;
       delete window.__DC_CLEAR_GRID_CELLS__;
       delete window.__DC_GET_GRID_DIMENSIONS__;
@@ -48,17 +95,9 @@ export function useDataCaptureGrid(scriptsReady) {
   }, []);
 
   useEffect(() => {
-    if (!scriptsReady || defaultInitDoneRef.current) return;
-    if (shouldRestoreFromUrl()) return;
-
-    defaultInitDoneRef.current = true;
-    const dims = readGridDimensions();
-    if (dims.rows > 0 && dims.cols > 0) {
-      dimensionsRef.current = dims;
-      return;
-    }
-    initializeGrid(DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS);
-  }, [scriptsReady, initializeGrid]);
+    if (!scriptsReady) return;
+    handlersRef.current.ensureGridReady(DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS);
+  }, [scriptsReady]);
 
   useEffect(() => {
     if (!scriptsReady) return;
@@ -98,6 +137,7 @@ export function useDataCaptureGrid(scriptsReady) {
 
   return {
     initializeGrid,
+    ensureGridReady,
     dimensions: dimensionsRef.current,
   };
 }

@@ -361,7 +361,7 @@ export default function DataCapturePage() {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
         await loadScriptOnce(
-          buildApiUrl("js/datacapture.js?v=20260519-spa11"),
+          buildApiUrl("js/datacapture.js?v=20260519-spa13"),
           () => typeof window.initDataCapturePage === "function"
         );
         if (!alive) return;
@@ -370,6 +370,9 @@ export default function DataCapturePage() {
         }
         if (typeof window.__DC_INIT_FORMAT_PASTE__ === "function") {
           window.__DC_INIT_FORMAT_PASTE__();
+        }
+        if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
+          window.__DC_ENSURE_GRID_READY__(26, 20);
         }
         if (typeof window.__DC_RECOMPUTE_SUBMIT_STATE__ === "function") {
           window.__DC_RECOMPUTE_SUBMIT_STATE__();

@@ -1,10 +1,36 @@
-import { memo } from "react";
+import { memo, useLayoutEffect } from "react";
+import { DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS } from "./dataCaptureGridConstants.js";
 
 /**
  * Stable grid shell — React owns DOM structure; legacy `buildDataCaptureTable` fills rows/cells.
- * Format preview + paste area IDs must match legacy selectors.
  */
 function DataCaptureGrid() {
+  useLayoutEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryEnsure = () => {
+      if (cancelled) return;
+      if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
+        window.__DC_ENSURE_GRID_READY__(DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS);
+        const dims =
+          typeof window.__DC_GET_GRID_DIMENSIONS__ === "function"
+            ? window.__DC_GET_GRID_DIMENSIONS__()
+            : { rows: 0, cols: 0 };
+        if (dims.rows >= 1 && dims.cols >= 1) return;
+      }
+      attempts += 1;
+      if (attempts < 60) {
+        setTimeout(tryEnsure, 50);
+      }
+    };
+
+    tryEnsure();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       <table className="excel-table" id="dataTable">
