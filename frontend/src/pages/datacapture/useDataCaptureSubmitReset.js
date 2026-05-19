@@ -37,7 +37,7 @@ function buildProcessCapturePayload(form, captureType, currencies) {
  */
 export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
-  const restoreStartedRef = useRef(false);
+  const restoreInFlightRef = useRef(false);
   const captureTypeRef = useRef(captureType);
   captureTypeRef.current = captureType;
 
@@ -201,6 +201,7 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
     } catch (err) {
       console.error("React restore failed:", err);
     } finally {
+      restoreInFlightRef.current = false;
       window.__DC_IS_RESTORING__ = false;
       recomputeSubmitState();
     }

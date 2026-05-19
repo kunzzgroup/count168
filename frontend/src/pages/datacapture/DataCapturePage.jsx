@@ -128,6 +128,7 @@ export default function DataCapturePage() {
   /** Set as soon as this route mounts (including Loading…), before scripts run — legacy uses it to skip DOM that React owns. */
   useLayoutEffect(() => {
     window.__DATA_CAPTURE_SPA_BOOTSTRAP__ = true;
+    window.isNavigatingAwayByBackOrSubmit = false;
     return () => {
       try {
         delete window.__DATA_CAPTURE_SPA_BOOTSTRAP__;
@@ -244,6 +245,7 @@ export default function DataCapturePage() {
     document.body.classList.add("dashboard-page", "datacapture-page");
     return () => {
       document.body.classList.remove("datacapture-page", "page-ready");
+      document.getElementById("dataCaptureForm")?.removeAttribute("data-dc-page-init");
     };
   }, []);
 
@@ -412,6 +414,7 @@ export default function DataCapturePage() {
         if (typeof window.__DC_SPA_INIT_PAGE__ === "function") {
           await window.__DC_SPA_INIT_PAGE__();
         }
+        if (!alive) return;
         if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
           window.__DC_ENSURE_GRID_READY__(26, 20);
         }
@@ -430,6 +433,7 @@ export default function DataCapturePage() {
     return () => {
       alive = false;
       setScriptsReady(false);
+      document.getElementById("dataCaptureForm")?.removeAttribute("data-dc-page-init");
       try {
         delete window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__;
       } catch {
@@ -441,7 +445,13 @@ export default function DataCapturePage() {
         window.onSharedCompanyFilterChanged = undefined;
       }
     };
-  }, [bootLoading, me, companyId, companyCode, switchCompanySessionAndNavigate]);
+  }, [bootLoading, me, companyId, switchCompanySessionAndNavigate]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    window.DATACAPTURE_COMPANY_ID = companyId;
+    window.DATACAPTURE_COMPANY_CODE = companyCode || String(companyId);
+  }, [companyId, companyCode]);
 
   const onGroupClick = async (gid) => {
     await applySharedGroupClickWithCompanySwitch({
