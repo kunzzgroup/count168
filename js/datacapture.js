@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa16';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa17';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -4425,6 +4425,9 @@ function detectAndParseHTML(e) {
 
 // 2.Format模式专用解析：支持识别表头行并填充到tableHeader，完整保留表格结构和样式
 function parseAndFillHTMLTableForFormat(htmlString) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_PARSE_HTML_FORMAT__ === 'function') {
+        return window.__DC_PARSE_HTML_FORMAT__(htmlString);
+    }
     try {
         // 在解析前先检查原始HTML是否包含<br>标签
         // Check if original HTML contains <br> tags before parsing
@@ -22614,6 +22617,9 @@ function handleCellPaste(e) {
 }
 
 function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_FORMAT_CLIPBOARD__ === 'function') {
+        return window.__DC_HANDLE_FORMAT_CLIPBOARD__(clipboard, fallbackHTML);
+    }
     if (currentDataCaptureType !== '2.Format') return false;
 
     const pasteAreaFormat = document.getElementById('pasteAreaFormat');
@@ -22667,6 +22673,10 @@ function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
 
 // 为2.Format模式的粘贴区域添加paste事件监听（支持直接粘贴整张表格）
 function initFormatPasteArea() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_INIT_FORMAT_PASTE__ === 'function') {
+        window.__DC_INIT_FORMAT_PASTE__();
+        return;
+    }
     const pasteAreaFormat = document.getElementById('pasteAreaFormat');
     if (!pasteAreaFormat) {
         console.log('Format: pasteAreaFormat element not found');
@@ -24555,6 +24565,7 @@ function renderFormatPreview(tableHtml) {
 // 全局粘贴强制落入容器（bubble阶段）：2.Format模式下把“表格粘贴”拦截并插入到pasteArea容器，避免跑到页面最上面
 // 说明：部分浏览器在capture阶段取不到clipboardData，因此这里用bubble阶段确保可读剪贴板
 document.addEventListener('paste', function (e) {
+    if (window.__DATA_CAPTURE_SPA_BOOTSTRAP__) return;
     if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '2.Format') return;
 
     const pasteAreaFormat = document.getElementById('pasteAreaFormat');

@@ -52,6 +52,11 @@ export function handleCellPasteEvent(e, legacyFallback) {
 
   const captureType = getCaptureType();
 
+  if (captureType === "2.Format") {
+    if (typeof legacyFallback === "function") legacyFallback(e);
+    return;
+  }
+
   if (captureType === "1.Text") {
     if (handleTextModePaste(e, pastedData, cell)) return;
   }

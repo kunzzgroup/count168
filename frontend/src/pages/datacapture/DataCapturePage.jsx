@@ -173,6 +173,7 @@ export default function DataCapturePage() {
 
   useDataCaptureGrid(scriptsReady);
   useDataCapturePaste();
+  useDataCaptureFormatPaste();
 
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
 
@@ -363,7 +364,7 @@ export default function DataCapturePage() {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
         await loadScriptOnce(
-          buildApiUrl("js/datacapture.js?v=20260519-spa16"),
+          buildApiUrl("js/datacapture.js?v=20260519-spa17"),
           () => typeof window.initDataCapturePage === "function"
         );
         if (!alive) return;
