@@ -1,6 +1,8 @@
 import { useLayoutEffect } from "react";
 
 /** Set synchronously so legacy init never runs the DOM table/empty-state path before layout effects. */
+import "../formula/summaryFormulaEngineBridge.js";
+
 if (typeof window !== "undefined") {
   window.__SUMMARY_REACT_TABLE__ = true;
   window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;

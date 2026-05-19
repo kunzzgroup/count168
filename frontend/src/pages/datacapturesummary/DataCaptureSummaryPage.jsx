@@ -23,6 +23,7 @@ import {
   removeLegacySummaryEmptyStateDom,
 } from "./hooks/useSummaryTableBridge.js";
 import { useSummaryTablePopulate } from "./hooks/useSummaryTablePopulate.js";
+import { useSummaryFormulaEngine } from "./hooks/useSummaryFormulaEngine.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
 import "../../../public/css/accountCSS.css";
@@ -179,6 +180,7 @@ function DataCaptureSummaryPageInner() {
 
   const pageActions = useSummaryPageActions({ companyId, scriptsReady });
   const editFormula = useSummaryEditFormula({ scriptsReady });
+  useSummaryFormulaEngine();
   const overlays = useSummaryOverlays();
   useSummaryLegacyChrome(scriptsReady);
 

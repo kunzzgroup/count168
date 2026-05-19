@@ -2128,6 +2128,9 @@ function preserveSourceStructure(savedSourceExpression, newSourceData) {
 // 从单段引用解析出完整 id_product、row_label、dataColumnIndex（id_product 可含冒号，如 G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)）
 // 格式：id_product:row_label:column_index 或 id_product:column_index，从右侧解析以保留完整 id_product
 function parseIdProductColumnRef(part) {
+    if (typeof window.__SUMMARY_PARSE_ID_PRODUCT_COLUMN_REF__ === 'function') {
+        return window.__SUMMARY_PARSE_ID_PRODUCT_COLUMN_REF__(part);
+    }
     const p = (part || '').trim();
     if (!p) return null;
     const lastColon = p.lastIndexOf(':');
@@ -2160,6 +2163,9 @@ function parseIdProductColumnRef(part) {
 // 1. "id_product:row_label:column_index" (e.g., "BB:C:3")
 // 2. "id_product:column_index" (e.g., "BB:3")
 function isNewIdProductColumnFormat(sourceColumnsValue) {
+    if (typeof window.__SUMMARY_IS_NEW_ID_PRODUCT_COLUMN_FORMAT__ === 'function') {
+        return window.__SUMMARY_IS_NEW_ID_PRODUCT_COLUMN_FORMAT__(sourceColumnsValue);
+    }
     if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
         return false;
     }
@@ -11233,6 +11239,9 @@ function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = nu
 }
 
 function removeThousandsSeparators(value) {
+    if (typeof window.__SUMMARY_REMOVE_THOUSANDS_SEPARATORS__ === 'function') {
+        return window.__SUMMARY_REMOVE_THOUSANDS_SEPARATORS__(value);
+    }
     if (value === null || value === undefined) {
         return value;
     }
@@ -11257,6 +11266,9 @@ function formatDecimalValue(value) {
 // Format negative numbers in formula by wrapping them with parentheses
 // Example: -84.56 -> (-84.56), 2873.76+-84.56 -> 2873.76+(-84.56)
 function formatNegativeNumbersInFormula(formula) {
+    if (typeof window.__SUMMARY_FORMAT_NEGATIVE_NUMBERS_IN_FORMULA__ === 'function') {
+        return window.__SUMMARY_FORMAT_NEGATIVE_NUMBERS_IN_FORMULA__(formula);
+    }
     if (!formula || typeof formula !== 'string') {
         return formula;
     }
@@ -11285,6 +11297,9 @@ function formatNegativeNumbersInFormula(formula) {
 }
 
 function evaluateMoneyExpression(expression) {
+    if (typeof window.__SUMMARY_EVALUATE_MONEY_EXPRESSION__ === 'function') {
+        return window.__SUMMARY_EVALUATE_MONEY_EXPRESSION__(expression);
+    }
     let expr = removeThousandsSeparators(String(expression || '').trim())
         .replace(/\u2212/g, '-')
         .replace(/\s*\([A-Z]{2,4}\)\s*/g, ' ')
@@ -11374,6 +11389,9 @@ function evaluateMoneyExpression(expression) {
 }
 
 function evaluateExpression(expression) {
+    if (typeof window.__SUMMARY_EVALUATE_EXPRESSION__ === 'function') {
+        return window.__SUMMARY_EVALUATE_EXPRESSION__(expression);
+    }
     try {
         if (!expression || typeof expression !== 'string') {
             // 使用 warn 避免在控制台显示严重错误，但保持返回 0 的逻辑
@@ -13380,6 +13398,9 @@ function cancelSourcePercentEdit(input, row, originalValue) {
 
 // Helper function to parse complete formula and extract base formula and source percent
 function parseCompleteFormula(completeFormula) {
+    if (typeof window.__SUMMARY_PARSE_COMPLETE_FORMULA__ === 'function') {
+        return window.__SUMMARY_PARSE_COMPLETE_FORMULA__(completeFormula);
+    }
     if (!completeFormula || !completeFormula.trim()) {
         return { baseFormula: '', sourcePercent: '' };
     }
@@ -19855,6 +19876,9 @@ function updateRate() {
 
 // Parse source columns input (e.g. "5+4" -> {columnNumbers: [5, 4], operators: "+"})
 function parseSourceColumnsInput(input) {
+    if (typeof window.__SUMMARY_PARSE_SOURCE_COLUMNS_INPUT__ === 'function') {
+        return window.__SUMMARY_PARSE_SOURCE_COLUMNS_INPUT__(input);
+    }
     try {
         // Normalize Chinese parentheses to English parentheses
         input = input.replace(/[（）]/g, function (match) {
