@@ -7,6 +7,10 @@ import {
   removeThousandsSeparators,
 } from "./summaryFormulaParseUtils.js";
 import { evaluateExpression, evaluateMoneyExpression } from "./summaryFormulaEvaluate.js";
+import {
+  registerSummaryFormulaReferenceEngine,
+  unregisterSummaryFormulaReferenceEngine,
+} from "./summaryFormulaReference.js";
 
 /** Register React formula utilities for legacy datacapturesummary.js (Strangler). */
 export function registerSummaryFormulaEngineShims() {
@@ -20,12 +24,14 @@ export function registerSummaryFormulaEngineShims() {
   window.__SUMMARY_EVALUATE_MONEY_EXPRESSION__ = evaluateMoneyExpression;
   window.__SUMMARY_EVALUATE_EXPRESSION__ = evaluateExpression;
 
-  // Legacy global names used by inline handlers and older bridges
   window.removeThousandsSeparators = removeThousandsSeparators;
   window.evaluateExpression = evaluateExpression;
+
+  registerSummaryFormulaReferenceEngine();
 }
 
 export function unregisterSummaryFormulaEngineShims() {
+  unregisterSummaryFormulaReferenceEngine();
   delete window.__SUMMARY_FORMULA_ENGINE__;
   delete window.__SUMMARY_REMOVE_THOUSANDS_SEPARATORS__;
   delete window.__SUMMARY_PARSE_ID_PRODUCT_COLUMN_REF__;

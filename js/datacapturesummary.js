@@ -9276,6 +9276,9 @@ function getColumnValueFromCellReference(cellReference, processValue, rowIndexOv
 // Example: "[iphsp3 : 4] + [iphsp3 : 2]" -> "17 + 42"
 // Also supports cell references: "A4 + A3" -> "17 + 42"
 function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
+    if (typeof window.__SUMMARY_PARSE_REFERENCE_FORMULA__ === 'function') {
+        return window.__SUMMARY_PARSE_REFERENCE_FORMULA__(formula, processValueOverride, clickedCellRefsOverride, rowIndexOverride);
+    }
     try {
         if (!formula || formula.trim() === '') {
             return '';
@@ -9608,6 +9611,9 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
 
 // Evaluate formula expression directly
 function evaluateFormulaExpression(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
+    if (typeof window.__SUMMARY_EVALUATE_FORMULA_EXPRESSION__ === 'function') {
+        return window.__SUMMARY_EVALUATE_FORMULA_EXPRESSION__(formula, processValueOverride, clickedCellRefsOverride, rowIndexOverride);
+    }
     try {
         if (!formula || formula.trim() === '') {
             return 0;
@@ -10284,6 +10290,9 @@ function getFormulaEditButtonHtml(formulaText) {
 
 // Calculate formula result from expression
 function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true, processValueForRefs = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
+    if (typeof window.__SUMMARY_CALCULATE_FORMULA_RESULT_FROM_EXPRESSION__ === 'function') {
+        return window.__SUMMARY_CALCULATE_FORMULA_RESULT_FROM_EXPRESSION__(formula, sourcePercentValue, inputMethod, enableInputMethod, enableSourcePercent, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
+    }
     try {
         if (!formula) {
             return 0;
