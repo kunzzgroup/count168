@@ -1,0 +1,110 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { SUMMARY_NOTIFICATION_AUTO_HIDE_MS } from "../summarySubmitConstants.js";
+
+const EMPTY_NOTIFICATION = {
+  open: false,
+  title: "Notification",
+  message: "",
+  type: "success",
+};
+
+export function useSummaryOverlays() {
+  const [notification, setNotification] = useState(EMPTY_NOTIFICATION);
+  const [notificationShown, setNotificationShown] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const confirmCallbackRef = useRef(null);
+  const hideTimerRef = useRef(null);
+  const fadeTimerRef = useRef(null);
+
+  const hideNotification = useCallback(() => {
+    if (hideTimerRef.current) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+    setNotificationShown(false);
+    if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+    fadeTimerRef.current = window.setTimeout(() => {
+      setNotification(EMPTY_NOTIFICATION);
+    }, 300);
+  }, []);
+
+  const showNotification = useCallback(
+    (title, message, type = "success") => {
+      if (hideTimerRef.current) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+      if (fadeTimerRef.current) {
+        window.clearTimeout(fadeTimerRef.current);
+        fadeTimerRef.current = null;
+      }
+      setNotification({
+        open: true,
+        title: title || "Notification",
+        message: message || "",
+        type: type || "success",
+      });
+      window.setTimeout(() => setNotificationShown(true), 100);
+      hideTimerRef.current = window.setTimeout(() => {
+        hideNotification();
+      }, SUMMARY_NOTIFICATION_AUTO_HIDE_MS);
+    },
+    [hideNotification]
+  );
+
+  const closeConfirmDelete = useCallback(() => {
+    setConfirmOpen(false);
+    setConfirmMessage("");
+    confirmCallbackRef.current = null;
+    document.body.style.overflow = "";
+  }, []);
+
+  const showConfirmDelete = useCallback((message, callback) => {
+    confirmCallbackRef.current = typeof callback === "function" ? callback : null;
+    setConfirmMessage(message || "This action cannot be undone.");
+    setConfirmOpen(true);
+    document.body.style.overflow = "hidden";
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    const cb = confirmCallbackRef.current;
+    closeConfirmDelete();
+    cb?.();
+  }, [closeConfirmDelete]);
+
+  useLayoutEffect(() => {
+    window.__SUMMARY_REACT_SHOW_NOTIFICATION__ = showNotification;
+    window.__SUMMARY_REACT_HIDE_NOTIFICATION__ = hideNotification;
+    window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ = showConfirmDelete;
+    window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__ = closeConfirmDelete;
+    window.__SUMMARY_REACT_CONFIRM_DELETE__ = confirmDelete;
+
+    return () => {
+      delete window.__SUMMARY_REACT_SHOW_NOTIFICATION__;
+      delete window.__SUMMARY_REACT_HIDE_NOTIFICATION__;
+      delete window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__;
+      delete window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__;
+      delete window.__SUMMARY_REACT_CONFIRM_DELETE__;
+    };
+  }, [showNotification, hideNotification, showConfirmDelete, closeConfirmDelete, confirmDelete]);
+
+  useEffect(
+    () => () => {
+      if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+      if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+      document.body.style.overflow = "";
+    },
+    []
+  );
+
+  return {
+    notification,
+    notificationShown,
+    confirmOpen,
+    confirmMessage,
+    hideNotification,
+    closeConfirmDelete,
+    confirmDelete,
+  };
+}

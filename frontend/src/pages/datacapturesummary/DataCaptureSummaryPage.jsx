@@ -7,10 +7,13 @@ import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
 import EditFormulaModalHost from "./components/EditFormulaModalHost.jsx";
 import SummaryActionBar from "./components/SummaryActionBar.jsx";
 import SummarySubmitBar from "./components/SummarySubmitBar.jsx";
+import SummaryNotification from "./components/SummaryNotification.jsx";
+import SummaryConfirmDeleteModal from "./components/SummaryConfirmDeleteModal.jsx";
 import { useSummaryBoot } from "./hooks/useSummaryBoot.js";
 import { useSummaryCaptureBootstrap } from "./hooks/useSummaryCaptureBootstrap.js";
 import { useSummaryRows } from "./hooks/useSummaryRows.js";
 import { useSummaryPageActions } from "./hooks/useSummaryPageActions.js";
+import { useSummaryOverlays } from "./hooks/useSummaryOverlays.js";
 import {
   useSummaryTableBridge,
   showSummarySuccessNotificationIfNeededFromReact,
@@ -95,6 +98,7 @@ export default function DataCaptureSummaryPage() {
   });
 
   const pageActions = useSummaryPageActions({ companyId, scriptsReady });
+  const overlays = useSummaryOverlays();
 
   const showEmptyState =
     sessionReady &&
@@ -271,46 +275,18 @@ export default function DataCaptureSummaryPage() {
         onRefresh={pageActions.handleRefresh}
       />
 
-      <div id="notificationPopup" className="notification-popup" style={{ display: "none" }}>
-        <div className="notification-header">
-          <span className="notification-title" id="notificationTitle">
-            Notification
-          </span>
-          <button type="button" className="notification-close" onClick={pageActions.hideNotification}>
-            &times;
-          </button>
-        </div>
-        <div className="notification-message" id="notificationMessage">
-          Message
-        </div>
-      </div>
+      <SummaryNotification
+        notification={overlays.notification}
+        shown={overlays.notificationShown}
+        onClose={overlays.hideNotification}
+      />
 
-      <div id="confirmDeleteModal" className="summary-modal" style={{ display: "none" }}>
-        <div className="summary-confirm-modal-content">
-          <div className="summary-confirm-icon-container">
-            <svg className="summary-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-          <h2 className="summary-confirm-title">Confirm Delete</h2>
-          <p id="confirmDeleteMessage" className="summary-confirm-message">
-            This action cannot be undone.
-          </p>
-          <div className="summary-confirm-actions">
-            <button type="button" className="summary-btn summary-btn-cancel confirm-cancel" onClick={() => window.closeConfirmDeleteModal?.()}>
-              Cancel
-            </button>
-            <button type="button" className="summary-btn summary-btn-delete confirm-delete" onClick={() => window.confirmDelete?.()}>
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
+      <SummaryConfirmDeleteModal
+        open={overlays.confirmOpen}
+        message={overlays.confirmMessage}
+        onCancel={overlays.closeConfirmDelete}
+        onConfirm={overlays.confirmDelete}
+      />
 
       <div id="addModal" className="account-modal" style={{ display: "none" }}>
         <div className="account-modal-content">

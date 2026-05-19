@@ -9,6 +9,10 @@ function buildApiUrl(pathAndQuery) {
 
 // Notification functions
 function showNotification(title, message, type = 'success') {
+    if (typeof window.__SUMMARY_REACT_SHOW_NOTIFICATION__ === 'function') {
+        window.__SUMMARY_REACT_SHOW_NOTIFICATION__(title, message, type);
+        return;
+    }
     const popup = document.getElementById('notificationPopup');
     const titleEl = document.getElementById('notificationTitle');
     const messageEl = document.getElementById('notificationMessage');
@@ -79,6 +83,10 @@ function findColumnIndexByValue(processValue, numericValue) {
 }
 
 function hideNotification() {
+    if (typeof window.__SUMMARY_REACT_HIDE_NOTIFICATION__ === 'function') {
+        window.__SUMMARY_REACT_HIDE_NOTIFICATION__();
+        return;
+    }
     const popup = document.getElementById('notificationPopup');
     popup.classList.remove('show');
     setTimeout(() => {
@@ -19584,6 +19592,10 @@ function deleteSelectedRows() {
 let deleteCallback = null;
 
 function showConfirmDelete(message, callback) {
+    if (typeof window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ === 'function') {
+        window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__(message, callback);
+        return;
+    }
     const modal = document.getElementById('confirmDeleteModal');
     const messageEl = document.getElementById('confirmDeleteMessage');
 
@@ -19595,6 +19607,10 @@ function showConfirmDelete(message, callback) {
 }
 
 function closeConfirmDeleteModal() {
+    if (typeof window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__ === 'function') {
+        window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__();
+        return;
+    }
     const modal = document.getElementById('confirmDeleteModal');
     modal.style.display = 'none';
     document.body.style.overflow = '';
@@ -19602,6 +19618,10 @@ function closeConfirmDeleteModal() {
 }
 
 function confirmDelete() {
+    if (typeof window.__SUMMARY_REACT_CONFIRM_DELETE__ === 'function') {
+        window.__SUMMARY_REACT_CONFIRM_DELETE__();
+        return;
+    }
     if (deleteCallback) {
         deleteCallback();
     }
@@ -19910,6 +19930,44 @@ function setSummarySubmitUiActive(active) {
     submitBtn.textContent = active ? '提交中...' : 'Submit';
 }
 
+/** Used by React summarySubmitValidation.js before full payload migration. */
+function validateSummarySubmitTotal() {
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) {
+        return { ok: true };
+    }
+    let totalAmount = MoneyDecimal.toDecimal('0', 0);
+    let hasValue = false;
+    summaryTableBody.querySelectorAll('tr').forEach(row => {
+        const selectCheckbox = row.querySelector('.summary-select-checkbox');
+        if (selectCheckbox && selectCheckbox.checked) {
+            return;
+        }
+        const cells = row.querySelectorAll('td');
+        const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+        const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
+            ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
+            : String(rowFinalAmount);
+        try {
+            totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
+            hasValue = true;
+        } catch (_) { /* ignore invalid amount */ }
+    });
+    const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
+    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
+    if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
+        return {
+            ok: false,
+            total: finalTotal,
+            message: `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`
+        };
+    }
+    return { ok: true, total: finalTotal };
+}
+
+window.validateSummarySubmitTotal = validateSummarySubmitTotal;
+window.__SUMMARY_VALIDATE_SUBMIT_TOTAL__ = validateSummarySubmitTotal;
+
 async function submitSummaryData() {
     // Prevent duplicate submissions
     if (isSubmitting) {
@@ -19922,50 +19980,11 @@ async function submitSummaryData() {
     setSummarySubmitUiActive(true);
     const submitBtn = document.getElementById('summarySubmitBtn');
 
-    // Validate total is within -0.05 to 0.05 range
-    const summaryTableBody = document.getElementById('summaryTableBody');
-    const totalCell = document.getElementById('summaryTotalAmount');
-    if (summaryTableBody && totalCell) {
-        let totalAmount = MoneyDecimal.toDecimal('0', 0);
-        let hasValue = false;
-        const totalDebugRows = [];
-
-        summaryTableBody.querySelectorAll('tr').forEach(row => {
-            // 如果 Select 被勾选，则这行不参与合计/校验
-            const selectCheckbox = row.querySelector('.summary-select-checkbox');
-            if (selectCheckbox && selectCheckbox.checked) {
-                return;
-            }
-
-            const cells = row.querySelectorAll('td');
-            const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
-            const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
-                ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
-                : String(rowFinalAmount);
-            totalDebugRows.push({
-                process: (cells[0] && cells[0].textContent ? String(cells[0].textContent).trim() : ''),
-                raw: String(rowFinalAmount),
-                quant6: String(rowForTotal)
-            });
-            try {
-                totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
-                hasValue = true;
-            } catch (_) { /* ignore invalid amount */ }
-        });
-
-        const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
-        const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
-        console.log('Processed Amount total (submit validation):', {
-            rows: totalDebugRows,
-            sumQuant6Raw: finalTotalRaw,
-            sumDisplay2: finalTotal
-        });
-        if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
-            // Re-enable button on validation error
-            setSummarySubmitUiActive(false);
-            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`, 'error');
-            return;
-        }
+    const totalValidation = validateSummarySubmitTotal();
+    if (!totalValidation.ok) {
+        setSummarySubmitUiActive(false);
+        showNotification('Error', totalValidation.message || 'Total validation failed.', 'error');
+        return;
     }
 
     try {

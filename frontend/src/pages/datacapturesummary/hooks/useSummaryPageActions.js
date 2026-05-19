@@ -5,7 +5,6 @@ import {
   buildSummarySubmittedCapturePath,
   clearSummarySessionAfterSubmit,
   runLegacyDeleteSelectedRows,
-  runLegacyHideNotification,
   runLegacyRateBatchSubmit,
   runLegacyRateSelectAll,
   runLegacySubmitSummary,
@@ -112,6 +111,5 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
     handleToggleRateSelectAll,
     handleDeleteSelected,
     handleSubmitSummary,
-    hideNotification: runLegacyHideNotification,
   };
 }
