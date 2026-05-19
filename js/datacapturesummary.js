@@ -19670,8 +19670,10 @@ function deleteSelectedRows() {
                     // 清空 Currency (TD 3)
                     if (cells[3]) cells[3].textContent = '';
 
-                    // 清空 Formula (TD 4)
-                    if (cells[4]) cells[4].textContent = '';
+                    // 清空 Formula (TD 4) — reset shell so React reconciliation stays stable
+                    if (cells[4]) {
+                        cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+                    }
 
                     // 清空 Source (TD 5)
                     if (cells[5]) cells[5].textContent = '';
@@ -19719,16 +19721,31 @@ function deleteSelectedRows() {
                     }
                 }
             });
-            if (reactKeysToRemove.length > 0 && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function') {
-                window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
+            const finishDeleteUi = function () {
+                rebuildUsedAccountIds();
+                updateDeleteButton();
+                updateProcessedAmountTotal();
+                showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
+            };
+
+            const reactTableMode = !!(window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function');
+            if (reactKeysToRemove.length > 0 && reactTableMode) {
+                try {
+                    window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
+                } catch (reactRemoveErr) {
+                    console.error('React remove summary rows failed:', reactRemoveErr);
+                }
+                finishDeleteUi();
+            } else {
+                if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+                    try {
+                        window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
+                    } catch (syncErr) {
+                        console.error('syncFromDom after delete failed:', syncErr);
+                    }
+                }
+                finishDeleteUi();
             }
-            if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
-                window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
-            }
-            rebuildUsedAccountIds();
-            updateDeleteButton();
-            updateProcessedAmountTotal();
-            showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
             // 后台删除模板，不阻塞界面
             if (templatesToDelete.length > 0) {
                 const deletePromises = templatesToDelete.map(t =>

@@ -24,23 +24,41 @@ export function useSummaryRows(tableData, enabled) {
     }
   }, [enabled, initialRows]);
 
-  const syncFromDom = useCallback(() => {
-    flushSync(() => {
-      setRows((prev) => {
-        const synced = readSummaryRowsFromDom(prev);
-        if (synced.length === 0 && prev.length > 0) return prev;
-        return synced;
-      });
+  const applyRowsFromDom = useCallback((prev) => {
+    const synced = readSummaryRowsFromDom(prev);
+    if (synced.length === 0 && prev.length > 0) return prev;
+    const seen = new Set();
+    return synced.filter((row) => {
+      if (!row?.key || seen.has(row.key)) return false;
+      seen.add(row.key);
+      return true;
     });
   }, []);
+
+  const syncFromDom = useCallback(() => {
+    try {
+      flushSync(() => {
+        setRows((prev) => applyRowsFromDom(prev));
+      });
+    } catch (err) {
+      console.warn("syncFromDom flushSync failed, falling back to async update:", err);
+      setRows((prev) => applyRowsFromDom(prev));
+    }
+  }, [applyRowsFromDom]);
 
   const removeRowsByKeys = useCallback((keys) => {
     if (!Array.isArray(keys) || keys.length === 0) return;
     const keySet = new Set(keys.filter(Boolean));
     if (keySet.size === 0) return;
-    flushSync(() => {
-      setRows((prev) => prev.filter((row) => !keySet.has(row.key)));
-    });
+    const nextRows = (prev) => prev.filter((row) => !keySet.has(row.key));
+    try {
+      flushSync(() => {
+        setRows(nextRows);
+      });
+    } catch (err) {
+      console.warn("removeRowsByKeys flushSync failed, falling back to async update:", err);
+      setRows(nextRows);
+    }
   }, []);
 
   const resetToInitialRows = useCallback(() => {
