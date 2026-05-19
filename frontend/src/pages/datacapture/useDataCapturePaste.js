@@ -13,8 +13,8 @@ import {
 } from "./paste/dataCaptureWbetHtmlPaste.js";
 
 /**
- * Phase 4: Paste orchestration in React — clipboard, type detect, 1.Text tab, CITIBET,
- * and Phase 4d special formats (4.RETURN, VPOWER, WBET, …).
+ * Phase 4: Paste orchestration in React — migrated formats (1.Text, CITIBET, 2.Format,
+ * 4.RETURN / VPOWER / WBET, …); legacy handles unmigrated formats + fallback only.
  */
 export function useDataCapturePaste() {
   const handlerRef = useRef(handleCellPasteEvent);

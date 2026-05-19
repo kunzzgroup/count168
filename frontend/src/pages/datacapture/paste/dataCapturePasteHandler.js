@@ -15,6 +15,11 @@ import {
   handleSpecialFormatPaste,
   SPECIAL_CAPTURE_TYPES,
 } from "./dataCaptureSpecialPasteHandler.js";
+import { handleFormatCellPaste } from "./dataCaptureFormatPasteHandler.js";
+import {
+  clearLegacyPasteContext,
+  setLegacyPasteContext,
+} from "./dataCaptureLegacyPasteBridge.js";
 
 function getCaptureType() {
   if (typeof window.__DC_GET_CAPTURE_TYPE__ === "function") {
@@ -32,9 +37,19 @@ function applyCaptureType(nextType) {
 }
 
 /**
- * Phase 4 paste orchestrator — React owns detection + 1.Text/CITIBET paths;
- * all other formats fall through to legacy `handleCellPaste` body.
+ * Phase 4 paste orchestrator — React owns migrated format paths;
+ * legacy `legacyHandleCellPasteInternal` handles unmigrated formats + fallback.
  */
+function invokeLegacyPaste(e, captureType, legacyFallback) {
+  if (typeof legacyFallback !== "function") return;
+  setLegacyPasteContext(captureType, "fallback");
+  try {
+    legacyFallback(e);
+  } finally {
+    clearLegacyPasteContext();
+  }
+}
+
 export function handleCellPasteEvent(e, legacyFallback) {
   const cell = resolvePasteCell(e.target);
 
@@ -57,13 +72,14 @@ export function handleCellPasteEvent(e, legacyFallback) {
   const captureType = getCaptureType();
 
   if (captureType === "2.Format") {
-    if (typeof legacyFallback === "function") legacyFallback(e);
+    if (handleFormatCellPaste(e, pastedData)) return;
+    invokeLegacyPaste(e, captureType, legacyFallback);
     return;
   }
 
   if (SPECIAL_CAPTURE_TYPES.has(captureType)) {
     if (handleSpecialFormatPaste(e, pastedData, captureType)) return;
-    if (typeof legacyFallback === "function") legacyFallback(e);
+    invokeLegacyPaste(e, captureType, legacyFallback);
     return;
   }
 
@@ -76,7 +92,5 @@ export function handleCellPasteEvent(e, legacyFallback) {
     if (handleCitibetPaste(e, pastedData, cell, captureType, citibetParsed)) return;
   }
 
-  if (typeof legacyFallback === "function") {
-    legacyFallback(e);
-  }
+  invokeLegacyPaste(e, captureType, legacyFallback);
 }

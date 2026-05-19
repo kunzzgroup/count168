@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa19';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa20';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -10284,6 +10284,14 @@ function parseAgentLinkTableFormat(pastedData) {
     }
 }
 
+// Phase 4e: SPA paste bridge — skip blocks React already owns when falling back to legacy.
+function dcLegacyPasteShouldSkipDetect() {
+    return window.__DATA_CAPTURE_REACT_FORM__ && window.__DC_LEGACY_PASTE_CTX__?.skipAutoDetect;
+}
+function dcLegacyPasteShouldSkipPrimaryBlocks() {
+    return window.__DATA_CAPTURE_REACT_FORM__ && window.__DC_LEGACY_PASTE_CTX__?.skipPrimaryBlocks;
+}
+
 // 处理单元格粘贴事件（legacy body — Phase 4: SPA delegates to React via handleCellPaste wrapper）
 function legacyHandleCellPasteInternal(e) {
     // 获取单元格元素（支持文本节点和元素节点）
@@ -10320,21 +10328,23 @@ function legacyHandleCellPasteInternal(e) {
         '';
 
     // 隱藏式格式偵測：Citibet 報表自動切換模式，避免仍停留在 1.Text 時被一般貼上邏輯搶先處理
-    const detectedCaptureType = autoDetectDataCaptureTypeFromPastePlainText(pastedData);
-    if (detectedCaptureType) {
-        applyDataCaptureType(detectedCaptureType);
-    } else if (isCitibetCaptureType(currentDataCaptureType)) {
-        const stillCitibetShape =
-            parseCitibetMajorPaymentReport(pastedData) ||
-            parseCitibetPaymentReport(pastedData) ||
-            (pastedPlainTextLooksCitibetReport(pastedData) && parseCitibetFormatBasedPaste(pastedData));
-        if (!stillCitibetShape) {
-            applyDataCaptureType('1.Text');
+    if (!dcLegacyPasteShouldSkipDetect()) {
+        const detectedCaptureType = autoDetectDataCaptureTypeFromPastePlainText(pastedData);
+        if (detectedCaptureType) {
+            applyDataCaptureType(detectedCaptureType);
+        } else if (isCitibetCaptureType(currentDataCaptureType)) {
+            const stillCitibetShape =
+                parseCitibetMajorPaymentReport(pastedData) ||
+                parseCitibetPaymentReport(pastedData) ||
+                (pastedPlainTextLooksCitibetReport(pastedData) && parseCitibetFormatBasedPaste(pastedData));
+            if (!stillCitibetShape) {
+                applyDataCaptureType('1.Text');
+            }
         }
     }
 
-    // 1.Text 专用解析：完全保持Excel原始格式，不做任何转换
-    if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.Text') {
+    // 1.Text 专用解析：完全保持Excel原始格式，不做任何转换（Phase 4e: React owns in SPA）
+    if (!dcLegacyPasteShouldSkipPrimaryBlocks() && typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.Text') {
         console.log('1.Text mode detected, preserving Excel format...');
 
         // 优先尝试获取HTML格式的数据（Excel粘贴通常包含HTML格式）
@@ -16716,11 +16726,10 @@ function legacyHandleCellPasteInternal(e) {
         }
     }
 
-    // Citibet 专用解析（先于通用 Payment 逻辑）
-    // 优先用结构化解析（得到第二张图那样的 OVERALL / Upline Major / My Earnings / 多行 Downline Major）；
-    // parseCitibetFormatBasedPaste 極鬆，僅在內容具 Citibet 報表特徵時才後備，避免一般 Tab Excel 被整表重排導致 Submit 錯亂。
+    // Citibet 专用解析（先于通用 Payment 逻辑）（Phase 4e: React owns in SPA）
     let citibetParsed = null;
     let citibetUsedMajorParser = false;
+    if (!dcLegacyPasteShouldSkipPrimaryBlocks()) {
     if (typeof currentDataCaptureType !== 'undefined' && isCitibetCaptureType(currentDataCaptureType)) {
         const majorParsed = parseCitibetMajorPaymentReport(pastedData);
         citibetUsedMajorParser = !!majorParsed;
@@ -16808,6 +16817,7 @@ function legacyHandleCellPasteInternal(e) {
         }
 
         return;
+    }
     }
 
     // PS3838 专用解析（仅在 AGENT_LINK 类型时启用）

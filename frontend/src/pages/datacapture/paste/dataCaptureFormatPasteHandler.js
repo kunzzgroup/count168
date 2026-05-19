@@ -180,3 +180,32 @@ export function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
 
   return false;
 }
+
+/**
+ * Phase 4e: 2.Format grid cell paste — route table HTML/TSV through format pipeline
+ * instead of the full legacy paste body.
+ */
+export function handleFormatCellPaste(e, pastedData) {
+  const clipboard = e.clipboardData || window.clipboardData;
+  if (clipboard && handleFormatPasteFromClipboard(clipboard)) {
+    return true;
+  }
+
+  const html = (() => {
+    try {
+      return clipboard?.getData?.("text/html") || "";
+    } catch {
+      return "";
+    }
+  })();
+
+  if (html && /<table\b/i.test(html)) {
+    return processFormatTableHtml(html);
+  }
+
+  if (pastedData && pastedData.includes("\t")) {
+    return processFormatTsv(pastedData);
+  }
+
+  return false;
+}
