@@ -27,6 +27,7 @@ import ProcessNotificationContainer from "./ProcessNotificationContainer.jsx";
 import { useDataCaptureCategoryPermissions } from "./useDataCaptureCategoryPermissions.js";
 import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
 import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
+import { useDataCaptureSubmitReset } from "./useDataCaptureSubmitReset.js";
 import { useDataCaptureSubmittedList } from "./useDataCaptureSubmittedList.js";
 
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
@@ -158,6 +159,8 @@ export default function DataCapturePage() {
     handleConfirmDelete,
     closeDeleteDialog,
   } = useDataCaptureLegacyChrome();
+
+  const submitReset = useDataCaptureSubmitReset({ companyId, form, captureType });
 
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
 
@@ -347,7 +350,7 @@ export default function DataCapturePage() {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
         await loadScriptOnce(
-          buildApiUrl("js/datacapture.js?v=20260519-spa7"),
+          buildApiUrl("js/datacapture.js?v=20260519-spa8"),
           () => typeof window.initDataCapturePage === "function"
         );
         if (!alive) return;
@@ -740,7 +743,13 @@ export default function DataCapturePage() {
         </div>
       </div>
 
-      <DataCaptureTableSection captureType={captureType} onCaptureTypeChange={handleCaptureTypeChange} />
+      <DataCaptureTableSection
+        captureType={captureType}
+        onCaptureTypeChange={handleCaptureTypeChange}
+        submitDisabled={submitReset.submitDisabled}
+        onSubmit={() => void submitReset.submit()}
+        onReset={submitReset.reset}
+      />
 
       <DescriptionSelectionModal
         open={descriptionModalOpen}

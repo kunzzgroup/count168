@@ -1133,7 +1133,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa7';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa8';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -22754,8 +22754,187 @@ function initFormatPasteArea() {
     });
 }
 
+/** Clears legacy grid + 2.Format UI (phase 1 React reset helper). */
+function clearCaptureTableForReset() {
+    const tableBody = document.getElementById('tableBody');
+    if (tableBody) {
+        const editableCells = tableBody.querySelectorAll('td[contenteditable="true"]');
+        editableCells.forEach(cell => {
+            cell.textContent = '';
+            cell.innerHTML = '';
+            cell.removeAttribute('style');
+            cell.className = '';
+        });
+    }
+
+    const tableHeader = document.getElementById('tableHeader');
+    if (tableHeader) {
+        const headerRow = tableHeader.querySelector('tr');
+        if (headerRow) {
+            const headerCells = headerRow.querySelectorAll('th');
+            const currentCols = headerCells.length - 1;
+
+            headerCells.forEach((cell, index) => {
+                if (index === 0) return;
+                cell.removeAttribute('style');
+                const essentialClasses = ['column-selected', 'column-active'];
+                Array.from(cell.classList).forEach(cls => {
+                    if (!essentialClasses.includes(cls)) {
+                        cell.classList.remove(cls);
+                    }
+                });
+                const columnNumber = index;
+                cell.textContent = columnNumber;
+                cell.innerHTML = columnNumber.toString();
+            });
+
+            if (currentCols === 0) {
+                const defaultCols = 20;
+                headerRow.innerHTML = '<th></th>';
+                for (let j = 0; j < defaultCols; j++) {
+                    const header = document.createElement('th');
+                    header.textContent = j + 1;
+                    header.addEventListener('mousedown', (e) => {
+                        if (e.button === 0) {
+                            handleColumnHeaderClick(e, -1);
+                        }
+                    });
+                    header.addEventListener('contextmenu', (e) => {
+                        showColumnContextMenu(e, -1);
+                    });
+                    header.addEventListener('mouseover', (e) => {
+                        if (!e.ctrlKey && !e.metaKey) {
+                            handleColumnHeaderMouseOver(e, -1);
+                        }
+                    });
+                    header.style.cursor = 'pointer';
+                    headerRow.appendChild(header);
+                }
+            }
+        }
+    }
+
+    clearFormatStyles();
+
+    const pasteAreaFormat = document.getElementById('pasteAreaFormat');
+    if (pasteAreaFormat) {
+        pasteAreaFormat.innerHTML = '';
+    }
+    const tablePreviewFormat = document.getElementById('tablePreviewFormat');
+    if (tablePreviewFormat) {
+        tablePreviewFormat.innerHTML = '';
+        tablePreviewFormat.style.display = 'none';
+    }
+    renderFormatPreview('');
+
+    if (currentDataCaptureType === '2.Format') {
+        try {
+            localStorage.removeItem('capturedFormatPreviewHtml');
+        } catch (_) { }
+    }
+
+    isFormatGridReady = false;
+    clearAllSelections();
+}
+
+/** Restores legacy grid from localStorage snapshot (phase 1 React restore helper). */
+async function restoreCaptureTableFromData(tableData, savedType) {
+    const type = normalizeCaptureTypeValue(savedType || '1.Text');
+
+    if (!tableData || !tableData.rows || tableData.rows.length === 0) {
+        if (type) applyDataCaptureType(type);
+        return;
+    }
+
+    const requiredRows = tableData.rowCount || tableData.rows.length;
+    const requiredCols = Math.max(tableData.colCount || (tableData.headers ? tableData.headers.length - 1 : 15), 15);
+
+    initializeTable(requiredRows, requiredCols);
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const tableBody = document.getElementById('tableBody');
+    if (tableBody) {
+        tableData.rows.forEach((rowData, rowIndex) => {
+            const tableRow = tableBody.children[rowIndex];
+            if (!tableRow) return;
+
+            rowData.forEach((cellData, colIndex) => {
+                if (cellData.type === 'data' && colIndex > 0) {
+                    const cell = tableRow.children[colIndex];
+                    if (cell && cell.contentEditable === 'true') {
+                        cell.removeAttribute('colspan');
+                        cell.style.display = '';
+                        if (cellData.colspan && cellData.colspan > 1) {
+                            cell.setAttribute('colspan', cellData.colspan.toString());
+                            for (let i = 1; i < cellData.colspan; i++) {
+                                const hiddenCellIndex = colIndex + i;
+                                if (tableRow.children[hiddenCellIndex]) {
+                                    tableRow.children[hiddenCellIndex].style.display = 'none';
+                                }
+                            }
+                        }
+                        cell.textContent = cellData.value || '';
+                    }
+                }
+            });
+        });
+
+        if (type === '2.Format') {
+            let hasData = false;
+            tableData.rows.forEach(rowData => {
+                if (hasData) return;
+                rowData.forEach(cellData => {
+                    if (cellData.type === 'data' && cellData.value && cellData.value.trim() !== '') {
+                        hasData = true;
+                    }
+                });
+            });
+
+            if (hasData) {
+                isFormatGridReady = true;
+                try {
+                    let html = '<table border="1" cellspacing="0" cellpadding="2"><tbody>';
+                    tableData.rows.forEach(rowData => {
+                        html += '<tr>';
+                        rowData.forEach(cell => {
+                            const v = cell && typeof cell.value !== 'undefined' ? cell.value : '';
+                            html += `<td>${escapeHtml(v)}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                    localStorage.setItem('capturedFormatPreviewHtml', html);
+                    renderFormatPreview(html);
+                } catch (_) { }
+            } else {
+                isFormatGridReady = false;
+                try {
+                    localStorage.removeItem('capturedFormatPreviewHtml');
+                } catch (_) { }
+            }
+        }
+
+        setTimeout(() => {
+            fixCitibetAmountColumns();
+        }, 200);
+    }
+
+    if (type) {
+        applyDataCaptureType(type);
+    }
+    if (currentDataCaptureType === '2.Format') {
+        setTimeout(() => {
+            toggleTableDisplayForFormat();
+        }, 100);
+    }
+}
+
 // Reset form
 function resetForm() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_RESET__ === 'function') {
+        window.__DC_RESET__();
+        return;
+    }
     if (window.__DATA_CAPTURE_REACT_FORM__) {
         if (typeof window.__DC_REACT_FORM_RESET__ === 'function') {
             window.__DC_REACT_FORM_RESET__();
@@ -22820,111 +22999,8 @@ function resetForm() {
         clearProcessData();
     }
 
-    // Clear all table data (including styles and HTML)
-    const tableBody = document.getElementById('tableBody');
-    if (tableBody) {
-        const editableCells = tableBody.querySelectorAll('td[contenteditable="true"]');
-        editableCells.forEach(cell => {
-            // Clear content
-            cell.textContent = '';
-            cell.innerHTML = '';
-            // Clear all inline styles (background color, color, etc.)
-            cell.removeAttribute('style');
-            // Remove any classes that might affect styling
-            cell.className = '';
-        });
-    }
-
-    // Clear table header styles but preserve column numbers (1, 2, 3, ...)
-    const tableHeader = document.getElementById('tableHeader');
-    if (tableHeader) {
-        const headerRow = tableHeader.querySelector('tr');
-        if (headerRow) {
-            const headerCells = headerRow.querySelectorAll('th');
-            const currentCols = headerCells.length - 1; // Exclude first empty header
-
-            headerCells.forEach((cell, index) => {
-                // Skip the first cell (row number header)
-                if (index === 0) return;
-
-                // Clear all inline styles (background color, color, etc.)
-                cell.removeAttribute('style');
-                // Remove any classes that might affect styling (but preserve essential ones)
-                const essentialClasses = ['column-selected', 'column-active'];
-                const currentClasses = Array.from(cell.classList);
-                currentClasses.forEach(cls => {
-                    if (!essentialClasses.includes(cls)) {
-                        cell.classList.remove(cls);
-                    }
-                });
-
-                // Restore column number (1, 2, 3, ...) - this is the default header content
-                // index is 0-based, so column number is index (since index 0 is the empty header)
-                const columnNumber = index; // 1, 2, 3, ...
-                cell.textContent = columnNumber;
-                cell.innerHTML = columnNumber.toString();
-            });
-
-            // If header was completely cleared (no columns), reinitialize with default columns
-            if (currentCols === 0) {
-                // Reinitialize table header with default 20 columns
-                const defaultCols = 20;
-                headerRow.innerHTML = '<th></th>'; // Keep first empty header
-                for (let j = 0; j < defaultCols; j++) {
-                    const header = document.createElement('th');
-                    header.textContent = j + 1; // 1, 2, 3, ...
-                    // Reattach event listeners
-                    header.addEventListener('mousedown', (e) => {
-                        if (e.button === 0) {
-                            handleColumnHeaderClick(e, -1);
-                        }
-                    });
-                    header.addEventListener('contextmenu', (e) => {
-                        showColumnContextMenu(e, -1);
-                    });
-                    header.addEventListener('mouseover', (e) => {
-                        if (!e.ctrlKey && !e.metaKey) {
-                            handleColumnHeaderMouseOver(e, -1);
-                        }
-                    });
-                    header.style.cursor = 'pointer';
-                    headerRow.appendChild(header);
-                }
-            }
-        }
-    }
-
-    // Also clear 2.Format styles explicitly
-    clearFormatStyles();
-
-    // Clear 2.Format paste area if exists
-    const pasteAreaFormat = document.getElementById('pasteAreaFormat');
-    if (pasteAreaFormat) {
-        pasteAreaFormat.innerHTML = '';
-    }
-    const tablePreviewFormat = document.getElementById('tablePreviewFormat');
-    if (tablePreviewFormat) {
-        tablePreviewFormat.innerHTML = '';
-        tablePreviewFormat.style.display = 'none';
-    }
-    renderFormatPreview('');
-
-    // IMPORTANT: For 2.Format mode, clear localStorage preview HTML to ensure reset shows paste area (original 2.Format style)
-    // 重要：对于 2.Format 模式，清除 localStorage 中的预览 HTML，确保 Reset 后显示粘贴区（原始 2.Format 样式）
-    if (currentDataCaptureType === '2.Format') {
-        try {
-            localStorage.removeItem('capturedFormatPreviewHtml');
-        } catch (_) { }
-    }
-
-    // Reset 2.Format grid state (show paste area again)
-    isFormatGridReady = false;
+    clearCaptureTableForReset();
     applyDataCaptureType('1.Text');
-
-    // Clear all selections
-    clearAllSelections();
-
-    // Update submit button state after reset
     updateSubmitButtonState();
 }
 
@@ -23571,6 +23647,9 @@ function adjustIdProductColumnForGeneral() {
 
 // Handle form submission
 async function submitDataCaptureForm() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_SUBMIT__ === 'function') {
+        return window.__DC_SUBMIT__();
+    }
     // Validate form before proceeding
     if (!validateForm()) {
         return;
@@ -24493,6 +24572,9 @@ let isRestoringData = false;
 
 // Restore form and table data from localStorage
 async function restoreFromLocalStorage() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_RESTORE_FROM_STORAGE__ === 'function') {
+        return window.__DC_RESTORE_FROM_STORAGE__();
+    }
     try {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('restore') !== '1') {
@@ -25178,6 +25260,9 @@ window.closeDeleteDialog = closeDeleteDialog;
 window.resetForm = resetForm;
 window.initializeTable = initializeTable;
 window.submitDataCaptureForm = submitDataCaptureForm;
+window.__DC_CLEAR_CAPTURE_TABLE__ = clearCaptureTableForReset;
+window.__DC_RESTORE_CAPTURE_TABLE__ = restoreCaptureTableFromData;
+window.__DC_CONVERT_TABLE_ON_SUBMIT__ = convertTableFormatOnSubmit;
 
 window.initDataCapturePage = initDataCapturePage;
 (function __dcScheduleClassicAutoInit() {

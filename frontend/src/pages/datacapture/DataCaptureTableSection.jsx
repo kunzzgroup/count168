@@ -32,7 +32,13 @@ const LegacyDataCaptureGrid = memo(function LegacyDataCaptureGrid() {
  * Bottom section: capture type, reset, legacy grid, submit.
  * API / behavior unchanged — still driven by `datacapture.js` after `initDataCapturePage`.
  */
-export default function DataCaptureTableSection({ captureType, onCaptureTypeChange }) {
+export default function DataCaptureTableSection({
+  captureType,
+  onCaptureTypeChange,
+  submitDisabled = true,
+  onSubmit,
+  onReset,
+}) {
   return (
     <div className="bottom-section">
       <div className="excel-table-container">
@@ -50,7 +56,7 @@ export default function DataCaptureTableSection({ captureType, onCaptureTypeChan
             <option value="CITIBET">3.CITIBET</option>
             <option value="4.RETURN">4.RETURN</option>
           </select>
-          <button type="button" className="btn btn-cancel" onClick={() => window.resetForm?.()}>
+          <button type="button" className="btn btn-cancel" onClick={() => (onReset ? onReset() : window.resetForm?.())}>
             Reset
           </button>
         </div>
@@ -58,7 +64,17 @@ export default function DataCaptureTableSection({ captureType, onCaptureTypeChan
       </div>
 
       <div className="form-actions">
-        <button id="dataCaptureSubmitBtn" type="submit" className="btn btn-save" onClick={() => window.submitDataCaptureForm?.()}>
+        <button
+          id="dataCaptureSubmitBtn"
+          type="submit"
+          className="btn btn-save"
+          disabled={submitDisabled}
+          style={{
+            opacity: submitDisabled ? 0.6 : 1,
+            cursor: submitDisabled ? "not-allowed" : "pointer",
+          }}
+          onClick={() => (onSubmit ? onSubmit() : window.submitDataCaptureForm?.())}
+        >
           Submit
         </button>
       </div>
