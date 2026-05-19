@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa10';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa11';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -3520,8 +3520,8 @@ function getColumnLabel(index) {
     return result;
 }
 
-// Generate table rows
-function initializeTable(rows = 26, cols = 20) {
+// Generate table rows (legacy DOM builder — Phase 3: SPA init orchestrated by React)
+function buildDataCaptureTable(rows = 26, cols = 20) {
     console.log('Initializing table with', rows, 'rows and', cols, 'columns');
 
     const tableBody = document.getElementById('tableBody');
@@ -3671,6 +3671,13 @@ function initializeTable(rows = 26, cols = 20) {
         document.addEventListener('mouseup', handleMouseUp);
         mouseUpBound = true;
     }
+}
+
+function initializeTable(rows = 26, cols = 20) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_INITIALIZE_TABLE__ === 'function') {
+        return window.__DC_INITIALIZE_TABLE__(rows, cols);
+    }
+    return buildDataCaptureTable(rows, cols);
 }
 
 // Add global click listener to deactivate table when clicking outside
@@ -22764,15 +22771,19 @@ function initFormatPasteArea() {
 
 /** Clears legacy grid + 2.Format UI (phase 1 React reset helper). */
 function clearCaptureTableForReset() {
-    const tableBody = document.getElementById('tableBody');
-    if (tableBody) {
-        const editableCells = tableBody.querySelectorAll('td[contenteditable="true"]');
-        editableCells.forEach(cell => {
-            cell.textContent = '';
-            cell.innerHTML = '';
-            cell.removeAttribute('style');
-            cell.className = '';
-        });
+    if (typeof window.__DC_CLEAR_GRID_CELLS__ === 'function') {
+        window.__DC_CLEAR_GRID_CELLS__();
+    } else {
+        const tableBody = document.getElementById('tableBody');
+        if (tableBody) {
+            const editableCells = tableBody.querySelectorAll('td[contenteditable="true"]');
+            editableCells.forEach(cell => {
+                cell.textContent = '';
+                cell.innerHTML = '';
+                cell.removeAttribute('style');
+                cell.className = '';
+            });
+        }
     }
 
     const tableHeader = document.getElementById('tableHeader');
@@ -22860,8 +22871,12 @@ async function restoreCaptureTableFromData(tableData, savedType) {
     initializeTable(requiredRows, requiredCols);
     await new Promise(resolve => setTimeout(resolve, 100));
 
+    const populated =
+        typeof window.__DC_POPULATE_GRID_FROM_SNAPSHOT__ === 'function' &&
+        window.__DC_POPULATE_GRID_FROM_SNAPSHOT__(tableData);
+
     const tableBody = document.getElementById('tableBody');
-    if (tableBody) {
+    if (!populated && tableBody) {
         tableData.rows.forEach((rowData, rowIndex) => {
             const tableRow = tableBody.children[rowIndex];
             if (!tableRow) return;
@@ -22886,8 +22901,9 @@ async function restoreCaptureTableFromData(tableData, savedType) {
                 }
             });
         });
+    }
 
-        if (type === '2.Format') {
+    if (tableBody) {
             let hasData = false;
             tableData.rows.forEach(rowData => {
                 if (hasData) return;
@@ -25014,8 +25030,10 @@ async function initDataCapturePage() {
     if (!shouldRestore) {
         // Submitted Processes：按左侧 Date（capture_date）加载
         loadSubmittedProcesses();
-        // Initialize table with default 26 rows (A-Z) and 20 columns
-        initializeTable(26, 20);
+        // Phase 3: React SPA owns default grid init via useDataCaptureGrid
+        if (!window.__DATA_CAPTURE_REACT_FORM__) {
+            initializeTable(26, 20);
+        }
     }
 
     // Test table functionality after a short delay
@@ -25270,6 +25288,7 @@ window.applyDataCaptureType = applyDataCaptureType;
 window.confirmDelete = confirmDelete;
 window.closeDeleteDialog = closeDeleteDialog;
 window.resetForm = resetForm;
+window.__DC_LEGACY_BUILD_TABLE__ = buildDataCaptureTable;
 window.initializeTable = initializeTable;
 window.submitDataCaptureForm = submitDataCaptureForm;
 window.__DC_CLEAR_CAPTURE_TABLE__ = clearCaptureTableForReset;

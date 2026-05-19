@@ -1,39 +1,10 @@
-import { memo, useLayoutEffect, useRef } from "react";
-
-/** Injected once per mount so React does not own `<tr>` nodes legacy adds under `#tableBody` (avoids removeChild crashes on unmount). */
-const LEGACY_GRID_HTML = `
-<table class="excel-table" id="dataTable">
-  <thead id="tableHeader"><tr><th></th></tr></thead>
-  <tbody id="tableBody"></tbody>
-</table>
-<div id="tablePreviewFormat" class="table-preview-format" style="display:none">
-  <iframe id="tablePreviewFrameFormat" class="table-preview-frame-format" title="Format Table Preview"></iframe>
-</div>
-<div id="pasteAreaFormat" class="paste-area-format" style="display:none" contenteditable="true" data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."></div>
-`.trim();
-
-/**
- * Table grid, format preview iframe, and format paste area are fully owned by `js/datacapture.js`
- * (`initializeTable`, `toggleTableDisplayForFormat`, etc.). This shell never re-renders after mount.
- */
-const LegacyDataCaptureGrid = memo(function LegacyDataCaptureGrid() {
-  const hostRef = useRef(null);
-  useLayoutEffect(() => {
-    const el = hostRef.current;
-    if (!el || el.dataset.dcLegacyInjected === "1") return;
-    el.innerHTML = LEGACY_GRID_HTML;
-    el.dataset.dcLegacyInjected = "1";
-  }, []);
-
-  return <div ref={hostRef} className="legacy-data-capture-grid-host" style={{ display: "contents" }} />;
-}, () => true);
-
-/**
- * Bottom section: capture type, reset, legacy grid, submit.
- * API / behavior unchanged — still driven by `datacapture.js` after `initDataCapturePage`.
- */
+import DataCaptureGrid from "./DataCaptureGrid.jsx";
 import { CAPTURE_TYPE_OPTIONS } from "./dataCaptureTypeConstants.js";
 
+/**
+ * Bottom section: capture type, grid, submit.
+ * Phase 3: grid shell is React; cell handlers remain in legacy until phase 4.
+ */
 export default function DataCaptureTableSection({
   captureType,
   citibetMode = false,
@@ -78,7 +49,7 @@ export default function DataCaptureTableSection({
             Reset
           </button>
         </div>
-        <LegacyDataCaptureGrid />
+        <DataCaptureGrid />
       </div>
 
       <div className="form-actions">

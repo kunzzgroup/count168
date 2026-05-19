@@ -26,6 +26,7 @@ import DescriptionSelectionModal from "./DescriptionSelectionModal.jsx";
 import ProcessNotificationContainer from "./ProcessNotificationContainer.jsx";
 import { useDataCaptureCategoryPermissions } from "./useDataCaptureCategoryPermissions.js";
 import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
+import { useDataCaptureGrid } from "./useDataCaptureGrid.js";
 import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
 import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./useDataCaptureSubmitReset.js";
@@ -105,6 +106,7 @@ export default function DataCapturePage() {
 
   const [bootLoading, setBootLoading] = useState(true);
   const [engineError, setEngineError] = useState("");
+  const [scriptsReady, setScriptsReady] = useState(false);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
@@ -167,6 +169,8 @@ export default function DataCapturePage() {
   } = useDataCaptureLegacyChrome();
 
   const submitReset = useDataCaptureSubmitReset({ companyId, form, captureType });
+
+  useDataCaptureGrid(scriptsReady);
 
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
 
@@ -350,13 +354,14 @@ export default function DataCapturePage() {
 
     let alive = true;
     setEngineError("");
+    setScriptsReady(false);
 
     (async () => {
       try {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
         await loadScriptOnce(
-          buildApiUrl("js/datacapture.js?v=20260519-spa10"),
+          buildApiUrl("js/datacapture.js?v=20260519-spa11"),
           () => typeof window.initDataCapturePage === "function"
         );
         if (!alive) return;
@@ -369,15 +374,18 @@ export default function DataCapturePage() {
         if (typeof window.__DC_RECOMPUTE_SUBMIT_STATE__ === "function") {
           window.__DC_RECOMPUTE_SUBMIT_STATE__();
         }
+        if (alive) setScriptsReady(true);
       } catch (e) {
         if (!alive) return;
         console.error(e);
         setEngineError("Failed to load Data Capture scripts.");
+        setScriptsReady(false);
       }
     })();
 
     return () => {
       alive = false;
+      setScriptsReady(false);
       try {
         delete window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__;
       } catch {
