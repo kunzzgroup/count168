@@ -1,14 +1,8 @@
-import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { buildColumnAEntries } from "../summaryColumnAData.js";
 import CapturedReferenceTable from "./CapturedReferenceTable.jsx";
 import SummaryTableRow from "./SummaryTableRow.jsx";
 
-export default function SummaryTable({ tableData, visible = false }) {
-  const { entries } = useMemo(() => buildColumnAEntries(tableData), [tableData]);
-
-  const nonEmptyEntries = entries.filter((e) => e.idProduct?.trim());
-
+export default function SummaryTable({ tableData, rows = [], visible = false }) {
   if (!visible || !tableData) return null;
 
   return (
@@ -31,11 +25,15 @@ export default function SummaryTable({ tableData, visible = false }) {
             </tr>
           </thead>
           <tbody id="summaryTableBody">
-            {nonEmptyEntries.map((entry, index) => (
+            {rows.map((row) => (
               <SummaryTableRow
-                key={`${entry.rowIndex}-${entry.idProduct}-${index}`}
-                idProduct={entry.idProduct}
-                rowIndex={entry.rowIndex}
+                key={row.key}
+                rowKey={row.key}
+                idProduct={row.idProduct}
+                rowIndex={row.rowIndex}
+                productType={row.productType}
+                parentIdProduct={row.parentIdProduct}
+                parentRowIndex={row.parentRowIndex}
               />
             ))}
           </tbody>

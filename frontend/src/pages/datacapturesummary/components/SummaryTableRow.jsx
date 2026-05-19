@@ -1,18 +1,48 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useLayoutEffect, useRef } from "react";
 import { bindSummaryRowLegacyHandlers } from "../summaryTablePostPopulate.js";
 
-export default function SummaryTableRow({ idProduct, rowIndex }) {
+function SummaryTableRowInner({
+  rowKey,
+  idProduct,
+  rowIndex,
+  productType = "main",
+  parentIdProduct = null,
+  parentRowIndex = null,
+}) {
   const rowRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = rowRef.current;
+    if (el && rowKey) {
+      el.setAttribute("data-react-row-key", rowKey);
+    }
+  }, [rowKey]);
 
   useEffect(() => {
     bindSummaryRowLegacyHandlers(rowRef.current, idProduct);
-  }, [idProduct]);
+  }, [idProduct, rowKey]);
 
   if (!idProduct?.trim()) return null;
 
+  const isSub = productType === "sub";
+  const idCellClass = isSub ? "id-product sub-id-product" : "id-product";
+
   return (
-    <tr ref={rowRef} data-row-index={String(rowIndex)} data-product-type="main">
-      <td className="id-product" data-main-product={idProduct} data-sub-product="" title={idProduct}>
+    <tr
+      ref={rowRef}
+      data-row-index={String(rowIndex)}
+      data-product-type={productType}
+      data-parent-id-product={isSub ? parentIdProduct || idProduct : undefined}
+      data-parent-row-index={
+        isSub && parentRowIndex != null ? String(parentRowIndex) : undefined
+      }
+    >
+      <td
+        className={idCellClass}
+        data-main-product={idProduct}
+        data-sub-product=""
+        title={idProduct}
+      >
         {idProduct}
       </td>
       <td />
@@ -33,8 +63,27 @@ export default function SummaryTableRow({ idProduct, rowIndex }) {
         <input type="checkbox" className="summary-select-checkbox" />
       </td>
       <td style={{ textAlign: "center" }}>
-        <input type="checkbox" className="summary-row-checkbox" data-value={idProduct} />
+        <input
+          type="checkbox"
+          className="summary-row-checkbox"
+          data-value={idProduct}
+          disabled={isSub}
+          title={isSub ? "Empty sub rows cannot be deleted" : undefined}
+        />
       </td>
     </tr>
   );
 }
+
+const SummaryTableRow = memo(
+  SummaryTableRowInner,
+  (prev, next) =>
+    prev.rowKey === next.rowKey &&
+    prev.idProduct === next.idProduct &&
+    prev.rowIndex === next.rowIndex &&
+    prev.productType === next.productType &&
+    prev.parentIdProduct === next.parentIdProduct &&
+    prev.parentRowIndex === next.parentRowIndex
+);
+
+export default SummaryTableRow;

@@ -9,7 +9,7 @@ import {
  * Registers legacy SPA bridges so initDataCaptureSummaryPage skips DOM table build
  * and delegates post-populate to React-rendered rows.
  */
-export function useSummaryTableBridge({ tableData, hasCaptureData, processData }) {
+export function useSummaryTableBridge({ tableData, hasCaptureData, processData, syncFromDom }) {
   useLayoutEffect(() => {
     window.__SUMMARY_REACT_TABLE__ = true;
 
@@ -18,6 +18,7 @@ export function useSummaryTableBridge({ tableData, hasCaptureData, processData }
       const { idProducts } = buildColumnAEntries(tableData);
       window.rebuildUsedAccountIds?.();
       await runSummaryTablePostPopulate(idProducts);
+      syncFromDom?.();
       window.updateHeaderCurrencyFromSummaryTable?.();
     };
 
@@ -25,7 +26,7 @@ export function useSummaryTableBridge({ tableData, hasCaptureData, processData }
       delete window.__SUMMARY_REACT_TABLE__;
       delete window.__SUMMARY_REACT_ON_TABLE_READY__;
     };
-  }, [tableData, hasCaptureData]);
+  }, [tableData, hasCaptureData, syncFromDom]);
 
   useLayoutEffect(() => {
     if (processData) {

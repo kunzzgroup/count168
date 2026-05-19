@@ -2509,10 +2509,10 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
     if (!prePopulatedData || !prePopulatedData.accountDbId) {
         window._editFormulaRowCurrency = null;
     }
-    // Ensure modal container exists
+    // Ensure modal container exists (React SPA renders #editFormulaModal in page shell)
     let modal = document.getElementById('editFormulaModal');
     let modalContent = document.getElementById('editFormulaModalContent');
-    if (!modal) {
+    if (!modal && !window.__SUMMARY_REACT_TABLE__) {
         modal = document.createElement('div');
         modal.id = 'editFormulaModal';
         modal.className = 'summary-modal';
@@ -14166,6 +14166,15 @@ function recalculateRowFormula(row, newSourcePercent) {
 // Optional rowIndex: when provided, use this as the row_index instead of calculating
 function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex = null) {
     const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) {
+        return null;
+    }
+
+    let reactProvidedRow = null;
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ADD_SUB_ROW__ === 'function') {
+        reactProvidedRow = window.__SUMMARY_REACT_ADD_SUB_ROW__(parentProcessValue, insertAfterRow, rowIndex);
+    }
+
     const rows = summaryTableBody.querySelectorAll('tr');
 
     let insertAfterIndex = -1;
@@ -14276,7 +14285,11 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
     }
 
     // Create new row（Sub 要在 Main 底下，并缩进显示）
-    const row = document.createElement('tr');
+    let row;
+    if (reactProvidedRow) {
+        row = reactProvidedRow;
+    } else {
+    row = document.createElement('tr');
     row.setAttribute('data-product-type', 'sub');
     row.setAttribute('data-parent-id-product', (parentProcessValue || '').trim());
     if (parentRowIndex !== null && !Number.isNaN(Number(parentRowIndex))) {
@@ -14389,6 +14402,7 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
     checkbox.addEventListener('change', updateDeleteButton);
     checkboxCell.appendChild(checkbox);
     row.appendChild(checkboxCell);
+    }
 
     // Insert the new row first, then set creation order based on position
     // This ensures creation_order reflects the insertion position
@@ -14512,7 +14526,9 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
         }
 
         // Insert after the row
-        insertAfterRow.insertAdjacentElement('afterend', row);
+        if (!reactProvidedRow) {
+            insertAfterRow.insertAdjacentElement('afterend', row);
+        }
 
         // Set row_index on the new row
         if (newRowIndex !== null) {
@@ -14551,7 +14567,7 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
             }
         }
         row.setAttribute('data-creation-order', String(creationOrder));
-    } else {
+    } else if (!reactProvidedRow) {
         // Fallback: append to the end
         summaryTableBody.appendChild(row);
         // Set row_index: use provided rowIndex if available, otherwise try to get from last row
@@ -14587,6 +14603,22 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
         // For appended rows, set sub_order to 1 (first sub row for this parent)
         row.setAttribute('data-sub-order', '1');
         console.log('Set sub_order: 1 for appended sub row');
+    } else if (reactProvidedRow) {
+        // React already placed the row; apply fallback metadata when insertAfterIndex was not resolved
+        if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
+            row.setAttribute('data-row-index', String(Number(rowIndex)));
+        }
+        if (!row.getAttribute('data-sub-order')) {
+            row.setAttribute('data-sub-order', '1');
+        }
+        if (!row.getAttribute('data-creation-order')) {
+            row.setAttribute('data-creation-order', String(Date.now()));
+        }
+        const deleteCb = row.querySelector('.summary-row-checkbox');
+        if (deleteCb) {
+            deleteCb.disabled = true;
+            deleteCb.title = 'Empty sub rows cannot be deleted';
+        }
     }
 
     return row;
@@ -15971,6 +16003,9 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         // 因此无论 skipRowIndexReorder 当前是否为 true，这里始终执行一次基于 row_index 的全局重排。
         if (typeof reorderSummaryRowsByRowIndex === 'function') {
             reorderSummaryRowsByRowIndex();
+        }
+        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+            window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (error) {
         console.error('Error auto-populating summary rows:', error);
@@ -17901,6 +17936,9 @@ function reorderSummaryRowsByRowIndex() {
         if (typeof updateProcessedAmountTotal === 'function') {
             updateProcessedAmountTotal();
         }
+        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+            window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
+        }
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
@@ -19507,6 +19545,9 @@ function deleteSelectedRows() {
             rebuildUsedAccountIds();
             updateDeleteButton();
             updateProcessedAmountTotal();
+            if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+                window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
+            }
             showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
             // 后台删除模板，不阻塞界面
             if (templatesToDelete.length > 0) {

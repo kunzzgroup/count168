@@ -4,8 +4,10 @@ import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
 import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
+import EditFormulaModalHost from "./components/EditFormulaModalHost.jsx";
 import { useSummaryBoot } from "./hooks/useSummaryBoot.js";
 import { useSummaryCaptureBootstrap } from "./hooks/useSummaryCaptureBootstrap.js";
+import { useSummaryRows } from "./hooks/useSummaryRows.js";
 import {
   useSummaryTableBridge,
   showSummarySuccessNotificationIfNeededFromReact,
@@ -77,10 +79,16 @@ export default function DataCaptureSummaryPage() {
     enabled: sessionReady,
   });
 
+  const { rows: summaryRows, syncFromDom } = useSummaryRows(
+    capture.transformedTableData,
+    capture.hasCaptureData
+  );
+
   useSummaryTableBridge({
     tableData: capture.transformedTableData,
     hasCaptureData: capture.hasCaptureData,
     processData: capture.processData,
+    syncFromDom,
   });
 
   const showEmptyState =
@@ -255,10 +263,16 @@ export default function DataCaptureSummaryPage() {
 
       <div className="summary-table-container" id="summaryTableContainer" style={{ display: "none" }}>
         <SummaryProcessInfo processData={capture.processData} visible={capture.hasCaptureData} />
-        <SummaryTable tableData={capture.transformedTableData} visible={capture.hasCaptureData} />
+        <SummaryTable
+          tableData={capture.transformedTableData}
+          rows={summaryRows}
+          visible={capture.hasCaptureData}
+        />
       </div>
 
       {showEmptyState ? <SummaryEmptyState /> : null}
+
+      <EditFormulaModalHost />
 
       <div className="summary-submit-container" id="summarySubmitContainer" style={{ display: "none" }}>
         <button type="button" className="btn btn-submit" id="summarySubmitBtn" onClick={() => window.submitSummaryData?.()}>
