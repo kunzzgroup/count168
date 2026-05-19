@@ -158,8 +158,61 @@ export function summaryRowHasAssignedAccount(row) {
   return text !== "" && text !== "+";
 }
 
+function normalizeIdProductKey(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/** Remove React sub-rows that duplicate a main row's account under the same id_product. */
+function removeDuplicateSubRowsForMainAccount(keepRow, accountId) {
+  if (!keepRow || !accountId) return;
+  if ((keepRow.getAttribute("data-product-type") || "main") !== "main") return;
+
+  const keepIdProduct =
+    keepRow.querySelector("td:first-child")?.getAttribute("data-main-product")?.trim() ||
+    keepRow.querySelector("td:first-child")?.textContent?.trim() ||
+    "";
+  const keepNorm = normalizeIdProductKey(keepIdProduct);
+  if (!keepNorm) return;
+
+  const tbody = document.getElementById("summaryTableBody");
+  if (!tbody) return;
+
+  const keysToRemove = [];
+  tbody.querySelectorAll("tr").forEach((row) => {
+    if (row === keepRow) return;
+    if ((row.getAttribute("data-product-type") || "main") !== "sub") return;
+
+    const subAccountId = row.querySelector("td:nth-child(2)")?.getAttribute("data-account-id")?.trim();
+    if (subAccountId !== accountId) return;
+
+    const parentId =
+      row.getAttribute("data-parent-id-product")?.trim() ||
+      row.querySelector("td:first-child")?.getAttribute("data-main-product")?.trim() ||
+      "";
+    if (normalizeIdProductKey(parentId) !== keepNorm) return;
+
+    const reactKey = row.getAttribute("data-react-row-key");
+    if (reactKey) {
+      keysToRemove.push(reactKey);
+    } else {
+      clearSummaryRowAccountAndFormula(row);
+    }
+  });
+
+  if (keysToRemove.length > 0 && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === "function") {
+    try {
+      window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(keysToRemove);
+    } catch (err) {
+      console.warn("removeDuplicateSubRowsForMainAccount failed:", err);
+    }
+  }
+}
+
 /**
- * After Save Formula — keep one main row per (id_product, account_id); clear duplicates elsewhere.
+ * After Save Formula / template populate — keep one row per (id_product, account_id).
+ * Clears duplicate main rows and removes duplicate sub rows that mirror a main account.
  * @param {HTMLElement|null} keepRow - row that was just saved/updated
  */
 export function dedupeSummaryAccountsAfterSave(keepRow) {
@@ -177,14 +230,14 @@ export function dedupeSummaryAccountsAfterSave(keepRow) {
   if (!keepIdProduct) return;
 
   const keepRowIndex = keepRow.getAttribute("data-row-index")?.trim() ?? "";
-  const groupKey = `${keepIdProduct.replace(/\s+/g, " ").trim()}::${keepAccountId}`;
+  const groupKey = `${normalizeIdProductKey(keepIdProduct)}::${keepAccountId}`;
   const tbody = document.getElementById("summaryTableBody");
   if (!tbody) return;
 
   tbody.querySelectorAll("tr").forEach((row) => {
     if (row === keepRow) return;
-    if ((row.getAttribute("data-product-type") || "main") !== "main") return;
 
+    const productType = row.getAttribute("data-product-type") || "main";
     const accountCell = row.querySelector("td:nth-child(2)");
     const accountId = accountCell?.getAttribute("data-account-id")?.trim();
     const accountText = accountCell?.textContent?.trim();
@@ -193,13 +246,57 @@ export function dedupeSummaryAccountsAfterSave(keepRow) {
     const idCell = row.querySelector("td:first-child");
     const idProduct =
       idCell?.getAttribute("data-main-product")?.trim() || idCell?.textContent?.trim() || "";
-    const rowGroupKey = `${idProduct.replace(/\s+/g, " ").trim()}::${accountId}`;
+    const rowGroupKey = `${normalizeIdProductKey(idProduct)}::${accountId}`;
     if (rowGroupKey !== groupKey) return;
 
-    const rowIndex = row.getAttribute("data-row-index")?.trim() ?? "";
-    if (keepRowIndex && rowIndex === keepRowIndex) return;
+    if (productType === "main") {
+      const rowIndex = row.getAttribute("data-row-index")?.trim() ?? "";
+      if (keepRowIndex && rowIndex === keepRowIndex) return;
+      clearSummaryRowAccountAndFormula(row);
+    }
+  });
 
-    clearSummaryRowAccountAndFormula(row);
+  removeDuplicateSubRowsForMainAccount(keepRow, keepAccountId);
+
+  window.rebuildUsedAccountIds?.();
+  window.updateProcessedAmountTotal?.();
+}
+
+/** Global dedupe after template populate — prefer saved row_index per account when available. */
+export function dedupeAllSummaryDuplicateAccounts(savedSnapshot = null) {
+  const preferred = savedSnapshot ? buildPreferredAccountRowIndexMap(savedSnapshot) : new Map();
+  const tbody = document.getElementById("summaryTableBody");
+  if (!tbody) return;
+
+  const groups = new Map();
+  tbody.querySelectorAll("tr").forEach((row) => {
+    if ((row.getAttribute("data-product-type") || "main") !== "main") return;
+    const accountCell = row.querySelector("td:nth-child(2)");
+    const accountId = accountCell?.getAttribute("data-account-id")?.trim();
+    const accountText = accountCell?.textContent?.trim();
+    if (!accountId || !accountText || accountText === "+") return;
+
+    const idCell = row.querySelector("td:first-child");
+    const idProduct =
+      idCell?.getAttribute("data-main-product")?.trim() || idCell?.textContent?.trim() || "";
+    const groupKey = `${normalizeIdProductKey(idProduct)}::${accountId}`;
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    groups.get(groupKey).push(row);
+  });
+
+  groups.forEach((rows) => {
+    if (rows.length <= 1) return;
+    const accountId = rows[0].querySelector("td:nth-child(2)")?.getAttribute("data-account-id")?.trim();
+    const preferredRowIndex = accountId ? preferred.get(accountId) : null;
+    let keepRow = rows.find(
+      (row) => String(row.getAttribute("data-row-index") || "") === String(preferredRowIndex || "")
+    );
+    if (!keepRow) keepRow = rows[0];
+    rows.forEach((row) => {
+      if (row === keepRow) return;
+      clearSummaryRowAccountAndFormula(row);
+    });
+    if (accountId) removeDuplicateSubRowsForMainAccount(keepRow, accountId);
   });
 
   window.rebuildUsedAccountIds?.();
@@ -361,6 +458,10 @@ function runSummaryTablePostPopulateFinally() {
     if (isFreshFromCapture && typeof window.recalculateSummaryProcessedAmountsFromDisplayedFormula === "function") {
       window.recalculateSummaryProcessedAmountsFromDisplayedFormula();
     }
+
+    dedupeAllSummaryDuplicateAccounts(
+      isFreshFromCapture ? null : readSummaryRefreshStateFromLocalStorage()
+    );
   } catch (e) {
     console.warn("Summary init (restore / clear formulas) failed:", e);
   }

@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { unsetWindowProperty } from "../../../utils/unsetWindowProperty.js";
 import {
   buildInitialSummaryRows,
   insertSubRowInModel,
@@ -50,15 +51,7 @@ export function useSummaryRows(tableData, enabled) {
     if (!Array.isArray(keys) || keys.length === 0) return;
     const keySet = new Set(keys.filter(Boolean));
     if (keySet.size === 0) return;
-    const nextRows = (prev) => prev.filter((row) => !keySet.has(row.key));
-    try {
-      flushSync(() => {
-        setRows(nextRows);
-      });
-    } catch (err) {
-      console.warn("removeRowsByKeys flushSync failed, falling back to async update:", err);
-      setRows(nextRows);
-    }
+    setRows((prev) => prev.filter((row) => !keySet.has(row.key)));
   }, []);
 
   const resetToInitialRows = useCallback(() => {
@@ -91,9 +84,9 @@ export function useSummaryRows(tableData, enabled) {
 
   useLayoutEffect(() => {
     if (!enabled) {
-      delete window.__SUMMARY_REACT_ADD_SUB_ROW__;
-      delete window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__;
-      delete window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__;
+      unsetWindowProperty("__SUMMARY_REACT_ADD_SUB_ROW__");
+      unsetWindowProperty("__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__");
+      unsetWindowProperty("__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__");
       return undefined;
     }
 
@@ -102,9 +95,9 @@ export function useSummaryRows(tableData, enabled) {
     window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ = removeRowsByKeys;
 
     return () => {
-      delete window.__SUMMARY_REACT_ADD_SUB_ROW__;
-      delete window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__;
-      delete window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__;
+      unsetWindowProperty("__SUMMARY_REACT_ADD_SUB_ROW__", addSubRow);
+      unsetWindowProperty("__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__", syncFromDom);
+      unsetWindowProperty("__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__", removeRowsByKeys);
     };
   }, [enabled, addSubRow, syncFromDom, removeRowsByKeys]);
 

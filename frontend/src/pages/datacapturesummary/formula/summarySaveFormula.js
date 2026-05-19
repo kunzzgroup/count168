@@ -460,6 +460,12 @@ export function saveFormula() {
 
     let descriptionTargetRow = null
 
+    const clickedRow = currentButton ? currentButton.closest('tr') : null;
+    const clickedIsEmptyMain =
+        clickedRow &&
+        (clickedRow.getAttribute('data-product-type') || 'main') === 'main' &&
+        !summaryRowHasAssignedAccount(clickedRow);
+
     // Check if we're in edit mode
     if (isEditMode && window.currentEditRow) {
         const editingRow = window.currentEditRow;
@@ -527,6 +533,34 @@ export function saveFormula() {
                 templateId: existingTemplateId || null
             }, editingRow);
         }
+    } else if (clickedIsEmptyMain) {
+        // + on empty main row: always fill this row in place (never add a stray sub row elsewhere)
+        descriptionTargetRow = clickedRow;
+        const targetRowSourceCols = clickedRow.getAttribute('data-source-columns') || '';
+        const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
+        updateSummaryTableRow(processValue, {
+            idProduct: processValue,
+            description: descriptionValue,
+            originalDescription: descriptionValue,
+            account: accountId || 'Account',
+            accountDbId: accountValue,
+            currency: currencyName || 'Currency',
+            currencyDbId: currencyValue,
+            columns: columnsDisplay,
+            clickedColumns: clickedCellRefsForPayload,
+            sourceColumns: finalSourceColumnsForMain,
+            batchSelection: batchSelectionChecked,
+            source: formulaValue || 'Source',
+            sourcePercent: sourcePercentValue || '1',
+            formula: formulaDisplay,
+            formulaDisplay: formulaDisplay,
+            formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '',
+            processedAmount: processedAmount,
+            inputMethod: inputMethodValue,
+            enableInputMethod: enableValue,
+            enableSourcePercent: sourcePercentEnableValue,
+            productType: 'main'
+        }, clickedRow);
     } else if (isSubIdProduct) {
         // 点击的是某个 sub row 的 +：在该 Id Product 下"当前行之后"新增一条 sub 行
         const baseRow = currentButton ? currentButton.closest('tr') : null;
@@ -672,6 +706,10 @@ export function saveFormula() {
     // Prevent duplicate main rows with the same account (e.g. template race or misplaced sub insert)
     if (descriptionTargetRow) {
         dedupeSummaryAccountsAfterSave(descriptionTargetRow);
+        const keepRowForDedupe = descriptionTargetRow;
+        window.setTimeout(() => {
+            dedupeSummaryAccountsAfterSave(keepRowForDedupe);
+        }, 400);
     }
 
     // Auto-save template after saving formula

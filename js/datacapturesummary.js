@@ -19733,15 +19733,14 @@ function deleteSelectedRows() {
             };
 
             const reactTableMode = !!(window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function');
-            if (reactKeysToRemove.length > 0 && reactTableMode) {
-                try {
-                    window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
-                } catch (reactRemoveErr) {
-                    console.error('React remove summary rows failed:', reactRemoveErr);
-                }
-                finishDeleteUi();
-            } else {
-                if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+            const runReactRemoveAndFinish = function () {
+                if (reactKeysToRemove.length > 0 && reactTableMode) {
+                    try {
+                        window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
+                    } catch (reactRemoveErr) {
+                        console.error('React remove summary rows failed:', reactRemoveErr);
+                    }
+                } else if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
                     try {
                         window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
                     } catch (syncErr) {
@@ -19749,6 +19748,12 @@ function deleteSelectedRows() {
                     }
                 }
                 finishDeleteUi();
+            };
+
+            if (reactTableMode && reactKeysToRemove.length > 0) {
+                window.setTimeout(runReactRemoveAndFinish, 0);
+            } else {
+                runReactRemoveAndFinish();
             }
             // 后台删除模板，不阻塞界面
             if (templatesToDelete.length > 0) {

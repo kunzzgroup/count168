@@ -74,14 +74,14 @@ export function useSummaryOverlays() {
     confirmCallbackRef.current = null;
     closeConfirmDelete();
     if (!cb) return;
-    // Defer legacy delete + flushSync until after the confirm modal unmounts (avoids React crash).
-    queueMicrotask(() => {
+    // Defer legacy delete until confirm modal has fully unmounted (flushSync during unmount crashes React).
+    window.setTimeout(() => {
       try {
         cb();
       } catch (err) {
         console.error("Summary delete callback failed:", err);
       }
-    });
+    }, 0);
   }, [closeConfirmDelete]);
 
   const showNotificationRef = useRef(showNotification);

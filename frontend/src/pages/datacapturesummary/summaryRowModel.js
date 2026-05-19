@@ -43,8 +43,9 @@ function resolveInsertAfterIndex(rows, insertAfterKey, insertAfterDomRow) {
     if (tbody) {
       const domRows = Array.from(tbody.querySelectorAll("tr"));
       const domIdx = domRows.indexOf(insertAfterDomRow);
-      if (domIdx >= 0 && domIdx < rows.length) {
-        return domIdx;
+      if (domIdx >= 0) {
+        if (rows.length === 0) return -1;
+        return Math.min(domIdx, rows.length - 1);
       }
     }
   }
