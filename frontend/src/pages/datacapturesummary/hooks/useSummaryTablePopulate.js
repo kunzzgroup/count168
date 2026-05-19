@@ -63,6 +63,7 @@ export function useSummaryTablePopulate({
   scriptsReady,
   legacyInitDone,
   syncFromDom,
+  resetToInitialRows,
   onPopulatingChange,
 }) {
   const populateStartedRef = useRef(false);
@@ -73,9 +74,16 @@ export function useSummaryTablePopulate({
     onPopulatingChange?.(false);
   }, [onPopulatingChange]);
 
-  const runPopulate = useCallback(async () => {
+  const runPopulate = useCallback(async (options = {}) => {
+    const shouldReset = options?.reset === true;
     onPopulatingChange?.(true);
     try {
+      if (shouldReset) {
+        resetToInitialRows?.();
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+      }
       const populated = await runPopulateAttempts({ tableData, syncFromDom });
       if (!populated) {
         console.warn("Summary template populate incomplete after retries");
@@ -87,7 +95,7 @@ export function useSummaryTablePopulate({
     } finally {
       finishPopulate();
     }
-  }, [tableData, syncFromDom, onPopulatingChange, finishPopulate]);
+  }, [tableData, syncFromDom, resetToInitialRows, onPopulatingChange, finishPopulate]);
 
   useEffect(() => {
     window.__SUMMARY_REACT_ON_TABLE_READY__ = runPopulate;

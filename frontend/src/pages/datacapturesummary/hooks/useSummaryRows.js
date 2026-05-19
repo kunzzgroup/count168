@@ -32,6 +32,12 @@ export function useSummaryRows(tableData, enabled) {
     });
   }, []);
 
+  const resetToInitialRows = useCallback(() => {
+    flushSync(() => {
+      setRows(initialRows);
+    });
+  }, [initialRows]);
+
   const addSubRow = useCallback((parentProcessValue, insertAfterRow, rowIndex) => {
     const insertAfterKey = insertAfterRow?.getAttribute?.("data-react-row-key") || null;
     let newKey = "";
@@ -69,5 +75,5 @@ export function useSummaryRows(tableData, enabled) {
     };
   }, [enabled, addSubRow, syncFromDom]);
 
-  return { rows, syncFromDom };
+  return { rows, syncFromDom, resetToInitialRows };
 }

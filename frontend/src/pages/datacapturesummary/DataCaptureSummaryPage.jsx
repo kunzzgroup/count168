@@ -153,7 +153,7 @@ function DataCaptureSummaryPageInner() {
     enabled: sessionReady,
   });
 
-  const { rows: summaryRows, syncFromDom } = useSummaryRows(
+  const { rows: summaryRows, syncFromDom, resetToInitialRows } = useSummaryRows(
     capture.transformedTableData,
     capture.hasCaptureData
   );
@@ -169,6 +169,7 @@ function DataCaptureSummaryPageInner() {
     scriptsReady,
     legacyInitDone,
     syncFromDom,
+    resetToInitialRows,
     onPopulatingChange: setDataPopulating,
   });
 

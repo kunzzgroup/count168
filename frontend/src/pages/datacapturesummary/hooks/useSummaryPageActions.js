@@ -17,6 +17,7 @@ import { useSummarySubmit } from "./useSummarySubmit.js";
 export function useSummaryPageActions({ companyId, scriptsReady }) {
   const navigate = useNavigate();
   const rateSelectAllRef = useRef(null);
+  const handleRefreshRef = useRef(async () => {});
 
   const [rateInput, setRateInput] = useState("");
   const [rateSelectAllLabel, setRateSelectAllLabel] = useState("Select All");
@@ -44,8 +45,7 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
 
     window.__SUMMARY_REACT_NAV_BACK__ = navigateBack;
     window.__SUMMARY_REACT_REFRESH__ = () => {
-      saveSummaryRefreshState();
-      window.location.reload();
+      handleRefreshRef.current?.();
     };
     window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ = (count) => {
       setDeleteCount(Number(count) || 0);
@@ -78,7 +78,7 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
     ) {
       try {
         window.__SUMMARY_REACT_SET_POPULATING__?.(true);
-        await window.__SUMMARY_REACT_ON_TABLE_READY__();
+        await window.__SUMMARY_REACT_ON_TABLE_READY__({ reset: true });
         return;
       } catch (error) {
         console.warn("Soft summary refresh failed, falling back to reload:", error);
@@ -86,6 +86,8 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
     }
     window.location.reload();
   }, []);
+
+  handleRefreshRef.current = handleRefresh;
 
   const handleRateBatchSubmit = useCallback(() => {
     runLegacyRateBatchSubmit();
