@@ -74,6 +74,33 @@ export const USER_LIST_I18N = {
     cancel: "Cancel",
     confirmDelete: "Confirm Delete",
     delete: "Delete",
+    apiUserCreated: "User created successfully",
+    apiOwnerUpdated: "Owner updated successfully",
+    apiUserUpdated: "User updated successfully",
+    apiUserUpdatedCompanyNote:
+      "User updated successfully. Note: After removal, this user no longer belongs to the current company. Switch to another company they belong to if you need to continue.",
+    apiUserDeleted: "User deleted successfully",
+    apiUnauthorized: "Unauthorized access",
+    apiInvalidRequest: "Invalid request",
+    apiLoginIdExists: "Login ID already exists in the current company",
+    apiEmailExists: "Email already exists in the current company",
+    apiInvalidEmail: "Invalid email format",
+    apiInvalidRole: "Invalid role",
+    apiInvalidStatus: "Invalid status",
+    apiCreateUserFailed: "Failed to create user",
+    apiUpdateUserFailed: "Failed to update user",
+    apiUserNotFound: "User not found",
+    apiLoadUserFailed: "Failed to load user",
+    apiCannotDeleteSelf: "You cannot delete your own account",
+    apiOwnerCannotDelete: "Owner record cannot be deleted",
+    apiOnlyOwnerCanDeleteOwner: "Only the owner can delete owner records",
+    apiCannotDeleteSameRole: "You cannot delete accounts with the same role level",
+    apiCannotDeleteHigherRole: "You cannot delete accounts with higher role level",
+    apiDeleteUserFailed: "Failed to delete user",
+    apiCompanyUpdated: "Company updated",
+    apiNoPermissionAccessCompany: "No permission to access this company",
+    apiCompanyExpired: "Company has expired",
+    apiMissingCompanyId: "Missing company_id parameter",
   },
   zh: {
     failedToLoadUsers: "加载用户失败",
@@ -150,8 +177,134 @@ export const USER_LIST_I18N = {
     cancel: "取消",
     confirmDelete: "确认删除",
     delete: "删除",
+    apiUserCreated: "用户创建成功",
+    apiOwnerUpdated: "Owner 更新成功",
+    apiUserUpdated: "用户更新成功",
+    apiUserUpdatedCompanyNote:
+      "用户更新成功。注意：移除后用户将不再属于当前公司，如需继续操作请切换到用户所属的其他公司",
+    apiUserDeleted: "用户删除成功",
+    apiUnauthorized: "未授权访问",
+    apiInvalidRequest: "无效请求",
+    apiLoginIdExists: "当前公司中登录 ID 已存在",
+    apiEmailExists: "当前公司中邮箱已存在",
+    apiInvalidEmail: "邮箱格式无效",
+    apiInvalidRole: "角色无效",
+    apiInvalidStatus: "状态无效",
+    apiCreateUserFailed: "创建用户失败",
+    apiUpdateUserFailed: "更新用户失败",
+    apiUserNotFound: "未找到用户",
+    apiLoadUserFailed: "加载用户失败",
+    apiCannotDeleteSelf: "不能删除自己的账号",
+    apiOwnerCannotDelete: "Owner 记录不能删除，因为它是公司的所有者",
+    apiOnlyOwnerCanDeleteOwner: "只有 owner 本人可以删除 owner 记录",
+    apiCannotDeleteSameRole: "不能删除同级角色的账号",
+    apiCannotDeleteHigherRole: "不能删除更高角色级别的账号",
+    apiDeleteUserFailed: "删除用户失败",
+    apiCompanyUpdated: "公司已更新",
+    apiNoPermissionAccessCompany: "无权限访问该公司",
+    apiCompanyExpired: "公司已过期",
+    apiMissingCompanyId: "缺少 company_id 参数",
   },
 };
+
+function normApiMessage(message) {
+  return String(message || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.!?！。]+$/g, "");
+}
+
+const USER_LIST_API_MESSAGE_KEYS = {
+  [normApiMessage("User created successfully")]: "apiUserCreated",
+  [normApiMessage("Owner updated successfully")]: "apiOwnerUpdated",
+  [normApiMessage("User updated successfully")]: "apiUserUpdated",
+  [normApiMessage("User deleted successfully")]: "apiUserDeleted",
+  [normApiMessage("Users retrieved successfully")]: "saved",
+  [normApiMessage("Unauthorized access")]: "apiUnauthorized",
+  [normApiMessage("Invalid request")]: "apiInvalidRequest",
+  [normApiMessage("You do not have permission to create new accounts")]: "noPermissionCreateAccounts",
+  [normApiMessage("只读账号无法执行此操作")]: "readOnlyActionBlocked",
+  [normApiMessage("Read-only account: this action is not allowed.")]: "readOnlyActionBlocked",
+  [normApiMessage("只有owner本人可以编辑owner记录")]: "onlyOwnerCanEditOwner",
+  [normApiMessage("Only the owner can edit owner records")]: "onlyOwnerCanEditOwner",
+  [normApiMessage("Login ID already exists in current company")]: "apiLoginIdExists",
+  [normApiMessage("Login ID already exists in one of the selected companies")]: "apiLoginIdExists",
+  [normApiMessage("Email already exists in current company")]: "apiEmailExists",
+  [normApiMessage("Email already exists in one of the selected companies")]: "apiEmailExists",
+  [normApiMessage("Invalid email format")]: "apiInvalidEmail",
+  [normApiMessage("Invalid role")]: "apiInvalidRole",
+  [normApiMessage("Invalid status")]: "apiInvalidStatus",
+  [normApiMessage("Failed to create user")]: "apiCreateUserFailed",
+  [normApiMessage("Failed to update user")]: "apiUpdateUserFailed",
+  [normApiMessage("Failed to update owner")]: "apiUpdateUserFailed",
+  [normApiMessage("User not found")]: "apiUserNotFound",
+  [normApiMessage("User not found or access denied")]: "apiUserNotFound",
+  [normApiMessage("Owner not found or access denied")]: "apiUserNotFound",
+  [normApiMessage("Load user failed")]: "apiLoadUserFailed",
+  [normApiMessage("You cannot delete your own account")]: "apiCannotDeleteSelf",
+  [normApiMessage("Owner记录不能删除，因为它是公司的所有者")]: "apiOwnerCannotDelete",
+  [normApiMessage("只有owner本人可以删除owner记录")]: "apiOnlyOwnerCanDeleteOwner",
+  [normApiMessage("You cannot delete accounts with the same role level")]: "apiCannotDeleteSameRole",
+  [normApiMessage("You cannot delete accounts with higher role level")]: "apiCannotDeleteHigherRole",
+  [normApiMessage("状态更新成功")]: "statusUpdated",
+  [normApiMessage("Status updated")]: "statusUpdated",
+  [normApiMessage("Toggle failed")]: "toggleFailed",
+  [normApiMessage("切换状态失败")]: "toggleFailed",
+  [normApiMessage("Company updated")]: "apiCompanyUpdated",
+  [normApiMessage("Company 已更新")]: "apiCompanyUpdated",
+  [normApiMessage("No permission to access this company")]: "apiNoPermissionAccessCompany",
+  [normApiMessage("无权限访问该公司")]: "apiNoPermissionAccessCompany",
+  [normApiMessage("Company has expired")]: "apiCompanyExpired",
+  [normApiMessage("Missing company_id parameter")]: "apiMissingCompanyId",
+  [normApiMessage("缺少 company_id 参数")]: "apiMissingCompanyId",
+  [normApiMessage("Save failed")]: "saveFailed",
+  [normApiMessage("保存失败")]: "saveFailed",
+  [normApiMessage("Saved")]: "saved",
+  [normApiMessage("保存成功")]: "saved",
+};
+
+function userListMessageLanguageHint(message) {
+  const text = String(message || "");
+  const hasCjk = /[\u4e00-\u9fff]/.test(text);
+  const hasLatin = /[a-zA-Z]/.test(text);
+  if (hasCjk && !hasLatin) return "zh";
+  if (hasLatin && !hasCjk) return "en";
+  return "mixed";
+}
+
+function translateUserListDynamicApiMessage(lang, message) {
+  const raw = String(message || "").trim();
+  if (!raw) return null;
+  if (raw.includes("User updated successfully") && raw.includes("不再属于当前公司")) {
+    return getUserListText(lang, "apiUserUpdatedCompanyNote");
+  }
+  if (raw.includes("User updated successfully") && raw.includes("no longer belongs to the current company")) {
+    return getUserListText(lang, "apiUserUpdatedCompanyNote");
+  }
+  const fieldMatch = raw.match(/^Field '([^']+)' is required$/i);
+  if (fieldMatch) return getUserListText(lang, "passwordRequired");
+  return null;
+}
+
+/** Map backend API message to user-list i18n for toasts. */
+export function translateUserListApiMessage(lang, apiMessage, fallbackKey = "", params = {}) {
+  const message = String(apiMessage ?? "").trim();
+  const locale = lang === "zh" ? "zh" : "en";
+
+  const dynamic = translateUserListDynamicApiMessage(locale, message);
+  if (dynamic) return dynamic;
+
+  const key = USER_LIST_API_MESSAGE_KEYS[normApiMessage(message)];
+  if (key) return getUserListText(locale, key, params);
+
+  const hint = userListMessageLanguageHint(message);
+  if (message && hint !== "mixed" && hint !== locale && fallbackKey) {
+    return getUserListText(locale, fallbackKey, params);
+  }
+
+  return message || (fallbackKey ? getUserListText(locale, fallbackKey, params) : "");
+}
 
 export function getUserListText(lang, key, params = {}) {
   const locale = lang === "zh" ? "zh" : "en";

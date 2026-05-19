@@ -21,7 +21,7 @@ import AccountModal from "../../components/AccountModal.jsx";
 import AccountConfirmModal from "./components/AccountConfirmModal.jsx";
 import CurrencySettingModal from "./components/CurrencySettingModal.jsx";
 import LinkAccountModal from "./components/LinkAccountModal.jsx";
-import { getAccountText } from "../../translateFile/accountTranslate.js";
+import { getAccountText, translateAccountApiMessage } from "../../translateFile/accountTranslate.js";
 
 function normalizeCompanyRow(row) {
   if (!row || typeof row !== "object") return row;
@@ -127,6 +127,13 @@ export default function AccountListPage() {
     toastTimerRef.current = setTimeout(() => setToast(null), 1800);
   }, []);
 
+  const notifyApi = useCallback(
+    (apiMessage, fallbackKey, type = "success", params = {}) => {
+      notify(translateAccountApiMessage(lang, apiMessage, fallbackKey, params), type);
+    },
+    [lang, notify],
+  );
+
   // -- CSS Loading (FOUC Fix) —
   useEffect(() => {
     const onStorage = (e) => {
@@ -181,12 +188,12 @@ export default function AccountListPage() {
       const url = buildAccountsUrl(companyId, searchTerm, showInactive, showAll);
       const res = await fetch(url.toString(), { credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notify(json.message || getAccountText(langRef.current, "failedToLoadAccounts"), "danger");
+      if (!json.success) return notifyApi(json.message, "failedToLoadAccounts", "danger");
       setAccounts(Array.isArray(json?.data?.accounts) ? json.data.accounts : []);
       setSelectedDeleteIds(new Set());
       setCurrentPage(1);
       syncUrl();
-    } catch { notify(getAccountText(langRef.current, "networkError"), "danger"); }
+    } catch { notifyApi(null, "networkError", "danger"); }
     finally { setTableLoading(false); }
   }, [companyId, searchTerm, showInactive, showAll, syncUrl, notify]);
 
@@ -361,7 +368,7 @@ export default function AccountListPage() {
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), { credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notify(json.message || t("failedToSwitchCompany"), "danger");
+      if (!json.success) return notifyApi(json.message, "failedToSwitchCompany", "danger");
       setCompanyId(nextCompanyId);
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }));
@@ -505,7 +512,7 @@ export default function AccountListPage() {
       } catch {
         return notify(t("errorLoadingAccount"), "danger");
       }
-      if (!json.success) return notify(json.message || json.error || t("failedToLoadAccount"), "danger");
+      if (!json.success) return notifyApi(json.message || json.error, "failedToLoadAccount", "danger");
       const d = json.data;
       setIsEditMode(true);
       setHiddenCurrencyIds([]);
@@ -526,10 +533,10 @@ export default function AccountListPage() {
       if (companyId) fd.append("company_id", String(companyId));
       const res = await fetch(buildApiUrl("api/accounts/delete_accounts_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notify(json.message || t("deleteFailed"), "danger");
+      if (!json.success) return notifyApi(json.message, "deleteFailed", "danger");
       setConfirmDeleteOpen(false);
       setSelectedDeleteIds(new Set());
-      notify(json.message || t("accountsDeletedSuccessfully"));
+      notifyApi(json.message, "accountsDeletedSuccessfully");
       fetchAccounts();
     } catch { notify(t("deleteFailed"), "danger"); }
   };
@@ -556,7 +563,7 @@ export default function AccountListPage() {
       const ep = isEditMode ? "api/accounts/update_api.php" : "api/accounts/addaccountapi.php";
       const res = await fetch(buildApiUrl(ep), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notify(json.message || t("saveFailed"), "danger");
+      if (!json.success) return notifyApi(json.message, "saveFailed", "danger");
       if (isEditMode && form.id) {
         const before = new Set(initialEditCurrencyIds.map(Number));
         const after = new Set(selectedCurrencyIds.map(Number));
@@ -570,7 +577,7 @@ export default function AccountListPage() {
             credentials: "include",
           });
           const currencyJson = await currencyRes.json();
-          if (!currencyRes.ok || !currencyJson.success) return notify(currencyJson.message || t("saveFailed"), "danger");
+          if (!currencyRes.ok || !currencyJson.success) return notifyApi(currencyJson.message, "saveFailed", "danger");
         }
         for (const cid of toRemove) {
           const currencyRes = await fetch(accountCurrencyApiUrl("remove_currency"), {
@@ -580,7 +587,7 @@ export default function AccountListPage() {
             credentials: "include",
           });
           const currencyJson = await currencyRes.json();
-          if (!currencyRes.ok || !currencyJson.success) return notify(currencyJson.message || t("saveFailed"), "danger");
+          if (!currencyRes.ok || !currencyJson.success) return notifyApi(currencyJson.message, "saveFailed", "danger");
         }
         setInitialEditCurrencyIds([...after]);
         if (settingCurrencyId) void loadCurrencyLinks(settingCurrencyId);
@@ -615,7 +622,7 @@ export default function AccountListPage() {
         setSelectedCurrencyIds((prev) => (prev.map(Number).includes(newId) ? prev : [...prev, newId]));
         setCurrencyInput("");
       } else {
-        notify(json.message || t("createFailed"), "danger");
+        notifyApi(json.message, "createFailed", "danger");
       }
     } catch { notify(t("createFailed"), "danger"); }
   };
@@ -660,7 +667,7 @@ export default function AccountListPage() {
         if (!res.ok || !json.success) {
           setHiddenCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
           setSelectedCurrencyIds((prev) => (prev.map(Number).includes(id) ? prev : [...prev, id]));
-          notify(json.message || json.error || t("saveFailed"), "danger");
+          notifyApi(json.message || json.error, "saveFailed", "danger");
           return;
         }
         setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
@@ -689,7 +696,7 @@ export default function AccountListPage() {
         hideFromModal();
         return;
       }
-      notify(msg || t("failedDeleteCurrency"), "danger");
+      notifyApi(msg, "failedDeleteCurrency", "danger");
     } catch {
       notify(t("failedDeleteCurrency"), "danger");
     }
@@ -721,7 +728,7 @@ export default function AccountListPage() {
       if (companyId) params.set("company_id", String(companyId));
       const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || t("saveFailed"), "danger");
+      if (!res.ok || !json.success) return notifyApi(json.message, "saveFailed", "danger");
       setSettingInitial(new Set(settingLinked));
       setCurrencySettingOpen(false);
       notify(t("currencySettingsSaved"));

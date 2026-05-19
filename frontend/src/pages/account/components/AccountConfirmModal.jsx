@@ -3,7 +3,7 @@ import React from "react";
 export default function AccountConfirmModal({ open, message, onConfirm, onClose, t }) {
   if (!open) return null;
   return (
-    <div id="confirmDeleteModal" className="account-modal">
+    <div id="confirmDeleteModal" className="account-modal" role="dialog" aria-modal="true">
       <div className="account-confirm-modal-content">
         <div className="account-confirm-icon-container">
           <svg className="account-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -15,10 +15,10 @@ export default function AccountConfirmModal({ open, message, onConfirm, onClose,
           {message || t("actionCannotUndone")}
         </p>
         <div className="account-confirm-actions">
-          <button type="button" className="account-btn account-btn-cancel confirm-cancel" onClick={onClose}>
+          <button type="button" className="btn btn-cancel confirm-cancel" onClick={onClose}>
             {t("cancel")}
           </button>
-          <button type="button" className="account-btn account-btn-delete confirm-delete" onClick={onConfirm}>
+          <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
             {t("delete")}
           </button>
         </div>

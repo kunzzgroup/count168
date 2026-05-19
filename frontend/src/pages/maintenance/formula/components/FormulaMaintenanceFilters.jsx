@@ -22,7 +22,7 @@ export default function FormulaMaintenanceFilters({
 }) {
   const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
   const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-  const showClear = Boolean(searchFilter || selectedProcess);
+  const showClear = Boolean(searchFilter || selectedProcess !== null);
 
   const visibleCompanies = useMemo(() => {
     return snapCompanies.filter((comp) => {
@@ -46,6 +46,7 @@ export default function FormulaMaintenanceFilters({
                 selectedValue={selectedProcess}
                 onSelect={setSelectedProcess}
                 placeholder={m.selectAllProcesses}
+                unsetPlaceholder={m.selectProcessPrompt}
                 searchPlaceholder={m.searchProcessPlaceholder}
                 noResultsText={m.noResultsFound}
                 ariaLabelledBy="formula-maint-process-legend"

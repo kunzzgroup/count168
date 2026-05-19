@@ -30,6 +30,7 @@ export const MAINTENANCE_I18N = {
     noBankProcessAdjustSearch:
       "No bank process transactions found. Please adjust your search criteria and try again.",
     selectAllProcesses: "Select All",
+    selectProcessPrompt: "Select process",
     searchProcessPlaceholder: "Search process...",
     noResultsFound: "No results found",
     switchedTo: "Switched to {company}",
@@ -143,6 +144,7 @@ export const MAINTENANCE_I18N = {
     noDataAdjustSearch: "暂无数据。请调整筛选条件后重试。",
     noBankProcessAdjustSearch: "未找到银行流程交易记录。请调整筛选条件后重试。",
     selectAllProcesses: "全部",
+    selectProcessPrompt: "请选择流程",
     searchProcessPlaceholder: "搜索流程...",
     noResultsFound: "无匹配结果",
     switchedTo: "已切换到 {company}",

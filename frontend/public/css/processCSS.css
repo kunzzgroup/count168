@@ -3221,7 +3221,7 @@ body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .proce
 .process-confirm-title {
     text-align: center;
     color: #1e293b;
-    font-size: var(--text-h1);
+    font-size: var(--text-h2);
     font-weight: 700;
     margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
     font-family: var(--font-heading-page), -apple-system, sans-serif;
@@ -3230,7 +3230,7 @@ body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .proce
 
 .process-confirm-message {
     text-align: center;
-    font-size: var(--text-h2);
+    font-size: var(--text-h3);
     color: #475569;
     line-height: 1.7;
     margin: 0;
@@ -3276,7 +3276,7 @@ body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .proce
     font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
-    font-size: var(--text-base);
+    font-size: var(--text-h3);
     border: none;
     border-radius: 0.375rem;
     box-shadow: 0 0.125rem 0.25rem rgba(88, 88, 88, 0.3);
@@ -3320,7 +3320,7 @@ body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .proce
     font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
-    font-size: var(--text-base);
+    font-size: var(--text-h3);
     border: none;
     border-radius: 0.375rem;
     box-shadow: 0 0.125rem 0.25rem rgba(220, 53, 69, 0.3);
