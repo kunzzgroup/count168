@@ -1,14 +1,10 @@
 import { buildSummarySubmitPayload } from "./summarySubmitPayload.js";
+import { prepareSummarySubmitCollection } from "./summarySubmitRowCollection.js";
 
 /**
- * Prepare submit rows + payload via legacy collector (async).
- * @returns {Promise<{ ok: boolean, warning?: boolean, message?: string, payload?: object, rows?: object[] }>}
+ * Prepare submit rows + payload (React-owned collection).
  */
 export async function prepareSummarySubmitPayload() {
-  if (typeof window.__SUMMARY_PREPARE_SUBMIT_COLLECTION__ !== "function") {
-    return { ok: false, message: "Summary submit engine not ready." };
-  }
-
   let processData = null;
   try {
     const raw = localStorage.getItem("capturedProcessData");
@@ -21,7 +17,7 @@ export async function prepareSummarySubmitPayload() {
     return { ok: false, message: "No process data found. Please return to Data Capture page." };
   }
 
-  const prep = await window.__SUMMARY_PREPARE_SUBMIT_COLLECTION__(processData);
+  const prep = await prepareSummarySubmitCollection(processData);
   if (!prep?.ok) {
     return {
       ok: false,

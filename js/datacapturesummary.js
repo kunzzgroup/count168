@@ -19972,92 +19972,36 @@ function validateSummaryRowsCurrencyFormula(rows) {
     return { ok: true };
 }
 
-function validateSummarySubmitTotal() {
+
+async function prepareSummarySubmitCollection(parsedProcessData) {
+    if (typeof window.__SUMMARY_REACT_PREPARE_SUBMIT_COLLECTION__ === 'function') {
+        return window.__SUMMARY_REACT_PREPARE_SUBMIT_COLLECTION__(parsedProcessData);
+    }
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) {
-        return { ok: true };
+        return { ok: false, message: 'Summary table not found.', rows: [] };
     }
-    let totalAmount = MoneyDecimal.toDecimal('0', 0);
-    let hasValue = false;
-    summaryTableBody.querySelectorAll('tr').forEach(row => {
-        const selectCheckbox = row.querySelector('.summary-select-checkbox');
-        if (selectCheckbox && selectCheckbox.checked) {
-            return;
-        }
-        const cells = row.querySelectorAll('td');
-        const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
-        const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
-            ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
-            : String(rowFinalAmount);
-        try {
-            totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
-            hasValue = true;
-        } catch (_) { /* ignore invalid amount */ }
-    });
-    const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
-    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
-    if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
+    const rows = summaryTableBody.querySelectorAll('tr');
+    window.__summaryAccountListCache = await fetchSummaryAccountList();
+    const rowValidation = validateSummaryRowsCurrencyFormula(rows);
+    if (!rowValidation.ok) {
+        return { ok: false, message: rowValidation.message, rows: [] };
+    }
+    const summaryRows = collectSummarySubmitRowsFromTable(rows, parsedProcessData);
+    if (summaryRows.length === 0) {
         return {
             ok: false,
-            total: finalTotal,
-            message: `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`
+            warning: true,
+            message: 'No data to submit. Please add at least one row with data.',
+            rows: []
         };
     }
-    return { ok: true, total: finalTotal };
+    return { ok: true, rows: summaryRows };
 }
 
-window.validateSummarySubmitTotal = validateSummarySubmitTotal;
-window.__SUMMARY_VALIDATE_SUBMIT_TOTAL__ = validateSummarySubmitTotal;
-window.validateSummaryRowsCurrencyFormula = validateSummaryRowsCurrencyFormula;
-
-async function submitSummaryData() {
-    // Prevent duplicate submissions
-    if (isSubmitting) {
-        console.log('Submission already in progress, ignoring duplicate request');
-        return;
-    }
-
-    console.log('Submit summary data');
-
-    setSummarySubmitUiActive(true);
-    const submitBtn = document.getElementById('summarySubmitBtn');
-
-    const totalValidation = validateSummarySubmitTotal();
-    if (!totalValidation.ok) {
-        setSummarySubmitUiActive(false);
-        showNotification('Error', totalValidation.message || 'Total validation failed.', 'error');
-        return;
-    }
-
-    try {
-        // Get process data from localStorage
-        const processData = localStorage.getItem('capturedProcessData');
-        if (!processData) {
-            // Re-enable button on error
-            setSummarySubmitUiActive(false);
-            showNotification('Error', 'No process data found. Please return to Data Capture page.', 'error');
-            return;
-        }
-
-        const parsedProcessData = JSON.parse(processData);
-        console.log('Process data:', parsedProcessData);
-
-        // Collect all rows with data from summary table
-        const summaryTableBody = document.getElementById('summaryTableBody');
-        const rows = summaryTableBody.querySelectorAll('tr');
-        const summaryRows = [];
-
-        // Pre-load account list so rows without data-account-id can resolve accountId (e.g. when Submit without opening edit form)
-        window.__summaryAccountListCache = await fetchSummaryAccountList();
-
-        const rowFieldValidation = validateSummaryRowsCurrencyFormula(rows);
-        if (!rowFieldValidation.ok) {
-            setSummarySubmitUiActive(false);
-            showNotification('Error', rowFieldValidation.message || 'Currency and Formula are required.', 'error');
-            return;
-        }
-
-        rows.forEach(row => {
+function collectSummarySubmitRowsFromTable(rows, parsedProcessData) {
+    const summaryRows = [];
+    rows.forEach(row => {
             const cells = row.querySelectorAll('td');
 
             // 如果 Select 列被勾选，则整行不提交到数据库
@@ -20381,9 +20325,102 @@ async function submitSummaryData() {
                 rateValue: rateValue, // Rate Value column value (priority) or global rateInput value (if checkbox checked)
                 displayOrder: displayOrder // Preserve row order from Data Capture Table
             });
-        });
+    });
+    return summaryRows;
+}
 
-        if (summaryRows.length === 0) {
+window.__SUMMARY_PREPARE_SUBMIT_COLLECTION__ = prepareSummarySubmitCollection;
+window.__SUMMARY_COLLECT_SUBMIT_ROWS__ = async function () {
+    const raw = localStorage.getItem('capturedProcessData');
+    if (!raw) return [];
+    const parsedProcessData = JSON.parse(raw);
+    const prep = await prepareSummarySubmitCollection(parsedProcessData);
+    return prep.ok ? prep.rows : [];
+};
+
+function validateSummarySubmitTotal() {
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) {
+        return { ok: true };
+    }
+    let totalAmount = MoneyDecimal.toDecimal('0', 0);
+    let hasValue = false;
+    summaryTableBody.querySelectorAll('tr').forEach(row => {
+        const selectCheckbox = row.querySelector('.summary-select-checkbox');
+        if (selectCheckbox && selectCheckbox.checked) {
+            return;
+        }
+        const cells = row.querySelectorAll('td');
+        const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+        const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
+            ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
+            : String(rowFinalAmount);
+        try {
+            totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
+            hasValue = true;
+        } catch (_) { /* ignore invalid amount */ }
+    });
+    const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
+    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
+    if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
+        return {
+            ok: false,
+            total: finalTotal,
+            message: `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`
+        };
+    }
+    return { ok: true, total: finalTotal };
+}
+
+window.validateSummarySubmitTotal = validateSummarySubmitTotal;
+window.__SUMMARY_VALIDATE_SUBMIT_TOTAL__ = validateSummarySubmitTotal;
+window.validateSummaryRowsCurrencyFormula = validateSummaryRowsCurrencyFormula;
+
+async function submitSummaryData() {
+    if (typeof window.__SUMMARY_REACT_EXECUTE_SUBMIT__ === 'function') {
+        return window.__SUMMARY_REACT_EXECUTE_SUBMIT__();
+    }
+
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+        console.log('Submission already in progress, ignoring duplicate request');
+        return;
+    }
+
+    console.log('Submit summary data');
+
+    setSummarySubmitUiActive(true);
+    const submitBtn = document.getElementById('summarySubmitBtn');
+
+    const totalValidation = validateSummarySubmitTotal();
+    if (!totalValidation.ok) {
+        setSummarySubmitUiActive(false);
+        showNotification('Error', totalValidation.message || 'Total validation failed.', 'error');
+        return;
+    }
+
+    try {
+        // Get process data from localStorage
+        const processData = localStorage.getItem('capturedProcessData');
+        if (!processData) {
+            // Re-enable button on error
+            setSummarySubmitUiActive(false);
+            showNotification('Error', 'No process data found. Please return to Data Capture page.', 'error');
+            return;
+        }
+
+        const parsedProcessData = JSON.parse(processData);
+        console.log('Process data:', parsedProcessData);
+
+        const prep = await prepareSummarySubmitCollection(parsedProcessData);
+        if (!prep.ok) {
+            setSummarySubmitUiActive(false);
+            showNotification(prep.warning ? 'Warning' : 'Error', prep.message || 'Failed to prepare summary rows.', 'error');
+            return;
+        }
+        const summaryRows = prep.rows;
+
+                if (summaryRows.length === 0) {
             // Re-enable button on error
             setSummarySubmitUiActive(false);
             showNotification('Warning', 'No data to submit. Please add at least one row with data.', 'error');

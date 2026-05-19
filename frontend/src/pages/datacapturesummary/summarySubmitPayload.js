@@ -1,12 +1,17 @@
-/**
- * Future home for DOM → API submit payload. Phase 5: bridge to legacy collector.
- */
+import { prepareSummarySubmitCollection } from "./summarySubmitRowCollection.js";
+
+/** Collect submit rows from the current summary table DOM. */
 export async function collectSummarySubmitRows() {
-  if (typeof window.__SUMMARY_COLLECT_SUBMIT_ROWS__ === "function") {
-    const rows = await window.__SUMMARY_COLLECT_SUBMIT_ROWS__();
-    return Array.isArray(rows) ? rows : [];
+  let processData = null;
+  try {
+    const raw = localStorage.getItem("capturedProcessData");
+    processData = raw ? JSON.parse(raw) : null;
+  } catch {
+    return [];
   }
-  return [];
+  if (!processData) return [];
+  const prep = await prepareSummarySubmitCollection(processData);
+  return prep.ok ? prep.rows : [];
 }
 
 export function buildSummarySubmitPayload(processData, summaryRows) {

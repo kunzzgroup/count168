@@ -7,13 +7,12 @@ import {
   runLegacyDeleteSelectedRows,
   runLegacyRateBatchSubmit,
   runLegacyRateSelectAll,
-  runLegacySubmitSummary,
   saveSummaryRefreshState,
 } from "../summaryPageActions.js";
+import { useSummarySubmit } from "./useSummarySubmit.js";
 
 /**
- * Phase 4: React owns page chrome actions (Rate batch, Delete, Submit, Back, Refresh).
- * Payload building / formula recalc remain in legacy datacapturesummary.js.
+ * Phase 4/7: React owns page chrome actions; Submit orchestration in useSummarySubmit.
  */
 export function useSummaryPageActions({ companyId, scriptsReady }) {
   const navigate = useNavigate();
@@ -22,7 +21,6 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
   const [rateInput, setRateInput] = useState("");
   const [rateSelectAllLabel, setRateSelectAllLabel] = useState("Select All");
   const [deleteCount, setDeleteCount] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
 
   const navigateBack = useCallback(() => {
     saveSummaryRefreshState();
@@ -35,6 +33,12 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
     navigate(buildSummarySubmittedCapturePath(companyId), { replace: true });
   }, [navigate, companyId]);
 
+  const { submitSummary, isSubmitting } = useSummarySubmit({
+    companyId,
+    scriptsReady,
+    onSuccess: navigateAfterSubmitSuccess,
+  });
+
   useLayoutEffect(() => {
     if (!scriptsReady) return undefined;
 
@@ -45,9 +49,6 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
     };
     window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ = (count) => {
       setDeleteCount(Number(count) || 0);
-    };
-    window.__SUMMARY_REACT_ON_SUBMITTING_CHANGE__ = (value) => {
-      setSubmitting(!!value);
     };
     window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ = (label) => {
       if (typeof label === "string" && label.trim()) {
@@ -60,7 +61,6 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
       delete window.__SUMMARY_REACT_NAV_BACK__;
       delete window.__SUMMARY_REACT_REFRESH__;
       delete window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__;
-      delete window.__SUMMARY_REACT_ON_SUBMITTING_CHANGE__;
       delete window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__;
       delete window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__;
     };
@@ -106,8 +106,8 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
   }, []);
 
   const handleSubmitSummary = useCallback(() => {
-    runLegacySubmitSummary();
-  }, []);
+    submitSummary();
+  }, [submitSummary]);
 
   return {
     rateInput,
@@ -116,7 +116,7 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
     rateSelectAllRef,
     deleteCount,
     deleteDisabled: deleteCount <= 0,
-    submitting,
+    submitting: isSubmitting,
     handleBack,
     handleRefresh,
     handleRateBatchSubmit,

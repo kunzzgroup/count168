@@ -72,7 +72,7 @@ export async function saveSummaryServerState(companyId, payload) {
   return response.json();
 }
 
-/** POST ?action=submit */
+/** POST ?action=submit — returns parsed JSON or throws with { status, message, isSizeError }. */
 export async function submitSummaryPayload(companyId, payload) {
   const url = withCompany(
     buildApiUrl("api/datacapture_summary/summary_api.php?action=submit"),
@@ -84,5 +84,43 @@ export async function submitSummaryPayload(companyId, payload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return parseJsonResponse(response);
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    const lowerText = (responseText || "").toLowerCase();
+    const isSizeError =
+      response.status === 413 ||
+      lowerText.includes("post_max_size") ||
+      lowerText.includes("payload too large") ||
+      lowerText.includes("request entity too large") ||
+      lowerText.includes("数据太大") ||
+      lowerText.includes("exceeds");
+    throw {
+      status: response.status,
+      message: responseText || `HTTP ${response.status}`,
+      isSizeError,
+    };
+  }
+
+  let json;
+  try {
+    json = JSON.parse(responseText);
+  } catch {
+    throw {
+      status: response.status,
+      message: `Invalid JSON response: ${responseText}`,
+      isSizeError: false,
+    };
+  }
+
+  if (!json.success) {
+    const message = json.message || json.error || "Unknown error";
+    throw {
+      status: response.status,
+      message,
+      isSizeError: /太大|post_max_size/i.test(message),
+    };
+  }
+
+  return json;
 }
