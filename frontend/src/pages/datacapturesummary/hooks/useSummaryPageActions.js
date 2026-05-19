@@ -77,6 +77,7 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
       typeof window.__SUMMARY_REACT_ON_TABLE_READY__ === "function"
     ) {
       try {
+        window.__SUMMARY_REACT_SET_POPULATING__?.(true);
         await window.__SUMMARY_REACT_ON_TABLE_READY__();
         return;
       } catch (error) {

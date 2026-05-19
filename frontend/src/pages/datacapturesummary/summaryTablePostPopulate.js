@@ -1,7 +1,7 @@
 import { pushSummaryNotification } from "./summaryNotify.js";
 import { stripSummarySuccessParamFromUrl } from "./summaryStorage.js";
 
-const PREPOPULATE_READY_TIMEOUT_MS = 4000;
+const PREPOPULATE_READY_TIMEOUT_MS = 8000;
 const PREPOPULATE_POLL_MS = 40;
 
 function resolveSummaryProcessId() {
@@ -16,7 +16,7 @@ function resolveSummaryProcessId() {
 }
 
 /** Wait until React rows, captured reference table, process id, and company id are ready. */
-async function waitForSummaryPrePopulateReady() {
+export async function waitForSummaryPrePopulateReady() {
   const deadline = Date.now() + PREPOPULATE_READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const summaryBody = document.getElementById("summaryTableBody");
@@ -155,7 +155,9 @@ function runSummaryTablePostPopulateFinally() {
   }, 120);
 
   rebindAllSummaryTableRows();
-  showSummarySuccessNotificationIfNeeded();
+  if (!window.__SUMMARY_REACT_TABLE__) {
+    showSummarySuccessNotificationIfNeeded();
+  }
 }
 
 /** True when summary rows exist but template populate has not filled account/formula yet. */

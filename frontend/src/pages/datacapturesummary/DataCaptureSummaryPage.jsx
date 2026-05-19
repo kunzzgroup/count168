@@ -21,7 +21,7 @@ import {
   showSummaryTableChrome,
   removeLegacySummaryEmptyStateDom,
 } from "./hooks/useSummaryTableBridge.js";
-import { summaryTableNeedsTemplatePopulate, waitForSummaryPopulateIdle } from "./summaryTablePostPopulate.js";
+import { useSummaryTablePopulate } from "./hooks/useSummaryTablePopulate.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
 import "../../../public/css/accountCSS.css";
@@ -138,6 +138,8 @@ function DataCaptureSummaryPageInner() {
 
   const [scriptsReady, setScriptsReady] = useState(() => areSummaryLegacyScriptsLoaded());
   const [engineError, setEngineError] = useState("");
+  const [legacyInitDone, setLegacyInitDone] = useState(false);
+  const [dataPopulating, setDataPopulating] = useState(false);
 
   const sessionReady = !sessionBootLoading && !bootError && companyId != null;
 
@@ -153,11 +155,26 @@ function DataCaptureSummaryPageInner() {
   );
 
   useSummaryTableBridge({
-    tableData: capture.transformedTableData,
     hasCaptureData: capture.hasCaptureData,
     processData: capture.processData,
-    syncFromDom,
   });
+
+  useSummaryTablePopulate({
+    tableData: capture.transformedTableData,
+    hasCaptureData: capture.hasCaptureData,
+    scriptsReady,
+    legacyInitDone,
+    syncFromDom,
+    onPopulatingChange: setDataPopulating,
+  });
+
+  useEffect(() => {
+    if (capture.hasCaptureData && scriptsReady) {
+      setDataPopulating(true);
+    } else if (!capture.hasCaptureData) {
+      setDataPopulating(false);
+    }
+  }, [capture.hasCaptureData, scriptsReady]);
 
   const pageActions = useSummaryPageActions({ companyId, scriptsReady });
   const overlays = useSummaryOverlays();
@@ -259,6 +276,7 @@ function DataCaptureSummaryPageInner() {
       if (capture.hasCaptureData) {
         removeLegacySummaryEmptyStateDom();
       }
+      setLegacyInitDone(true);
     };
 
     const id = requestAnimationFrame(() => {
@@ -276,33 +294,11 @@ function DataCaptureSummaryPageInner() {
     capture.hasCaptureData,
   ]);
 
-  /** Safety net: if template populate was skipped/interrupted, retry once after init settles. */
-  useEffect(() => {
-    if (!sessionReady || !scriptsReady || !capture.hasCaptureData) return;
-
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      if (cancelled) return;
-      await waitForSummaryPopulateIdle();
-      if (cancelled) return;
-      if (!summaryTableNeedsTemplatePopulate()) return;
-      if (typeof window.__SUMMARY_REACT_ON_TABLE_READY__ !== "function") return;
-      try {
-        await window.__SUMMARY_REACT_ON_TABLE_READY__();
-      } catch (error) {
-        console.warn("Summary template populate retry failed:", error);
-      }
-    }, 1500);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [sessionReady, scriptsReady, capture.hasCaptureData]);
-
   useEffect(() => {
     return () => {
       legacyInitDoneRef.current = false;
+      setLegacyInitDone(false);
+      setDataPopulating(false);
       const shell = document.querySelector(".container");
       if (shell) delete shell.dataset.summaryPageInit;
     };
@@ -343,14 +339,6 @@ function DataCaptureSummaryPageInner() {
     capture.hasCaptureData,
   ]);
 
-  useEffect(() => {
-    if (!sessionReady || !scriptsReady) return;
-    const timer = window.setTimeout(() => {
-      hideSummaryLoadingChrome();
-    }, 8000);
-    return () => window.clearTimeout(timer);
-  }, [sessionReady, scriptsReady]);
-
   /** Sidebar Data Capture → fresh capture round (SPA navigate). */
   useEffect(() => {
     function navigateToDataCaptureFresh() {
@@ -387,6 +375,8 @@ function DataCaptureSummaryPageInner() {
   const pageBootLoading = sessionBootLoading || (sessionReady && !scriptsReady && !engineError);
 
   const showPageBootOverlay = pageBootLoading;
+  const showDataLoading =
+    !showPageBootOverlay && capture.hasCaptureData && dataPopulating && !engineError;
 
   return (
     <div className="container">
@@ -412,7 +402,7 @@ function DataCaptureSummaryPageInner() {
       <div
         id="loadingState"
         className="loading-container"
-        style={{ display: showPageBootOverlay ? "none" : undefined }}
+        style={{ display: showDataLoading ? undefined : "none" }}
       >
         <div className="loading-spinner" />
         <p>Loading data...</p>

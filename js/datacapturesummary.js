@@ -175,14 +175,18 @@ function initDataCaptureSummaryPage() {
 
         loadAndRenderCapturedTable().catch(function (e) {
             console.warn('loadAndRenderCapturedTable error:', e);
-            hideLoadingState();
+            if (!window.__SUMMARY_REACT_TABLE__) {
+                hideLoadingState();
+            }
             if (!window.__SUMMARY_REACT_TABLE__ && !window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
                 showEmptyState();
             }
         });
     } catch (error) {
         console.error('Error in initDataCaptureSummaryPage:', error);
-        hideLoadingState();
+        if (!window.__SUMMARY_REACT_TABLE__) {
+            hideLoadingState();
+        }
         if (!window.__SUMMARY_REACT_TABLE__ && !window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
             showEmptyState();
         }
@@ -1362,14 +1366,11 @@ async function loadAndRenderCapturedTable() {
             const reactTableData = window.transformedTableData;
             const reactProcessData = window.capturedProcessData;
             if (reactTableData && reactProcessData) {
-                hideLoadingState();
                 displayProcessInfo(reactProcessData);
-                if (typeof window.__SUMMARY_REACT_ON_TABLE_READY__ === 'function') {
-                    await window.__SUMMARY_REACT_ON_TABLE_READY__();
-                }
+                // React owns loading chrome + template populate (__SUMMARY_REACT_ON_TABLE_READY__).
                 return;
             }
-            hideLoadingState();
+            // React data not hydrated yet — keep loading visible; React init will retry populate.
             return;
         }
 
@@ -1532,6 +1533,9 @@ function updateHeaderCurrencyFromSummaryTable() {
 
 // Hide loading state and show content
 function hideLoadingState() {
+    if (window.__SUMMARY_REACT_TABLE__) {
+        return;
+    }
     const loadingState = document.getElementById('loadingState');
     const actionButtons = document.getElementById('actionButtons');
     const summaryTableContainer = document.getElementById('summaryTableContainer');
