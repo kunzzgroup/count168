@@ -576,6 +576,18 @@ function resequenceSubOrdersForGroup(idProduct, rowIndex) {
     return groupRows;
 }
 
+function applySummaryRowOrderToReact(orderedRows) {
+    if (!window.__SUMMARY_REACT_TABLE__ || !Array.isArray(orderedRows)) return false;
+    const keys = orderedRows
+        .map(function (row) { return row && row.getAttribute ? row.getAttribute('data-react-row-key') : ''; })
+        .filter(function (key) { return key && String(key).trim() !== ''; });
+    if (keys.length && typeof window.__SUMMARY_REACT_SET_ROW_ORDER__ === 'function') {
+        window.__SUMMARY_REACT_SET_ROW_ORDER__(keys);
+        return true;
+    }
+    return false;
+}
+
 // 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
@@ -635,6 +647,9 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         appendedRows.add(row);
     });
 
+    if (applySummaryRowOrderToReact(finalRows)) {
+        return;
+    }
     finalRows.forEach(row => summaryTableBody.appendChild(row));
 }
 
@@ -14588,8 +14603,8 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
             subOrder = 1;
         }
 
-        // Insert after the row
-        if (!reactProvidedRow) {
+        // Insert after the row (React SPA: row is already mounted by __SUMMARY_REACT_ADD_SUB_ROW__)
+        if (!reactProvidedRow && !window.__SUMMARY_REACT_TABLE__) {
             insertAfterRow.insertAdjacentElement('afterend', row);
         }
 
@@ -14630,7 +14645,7 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
             }
         }
         row.setAttribute('data-creation-order', String(creationOrder));
-    } else if (!reactProvidedRow) {
+    } else if (!reactProvidedRow && !window.__SUMMARY_REACT_TABLE__) {
         // Fallback: append to the end
         summaryTableBody.appendChild(row);
         // Set row_index: use provided rowIndex if available, otherwise try to get from last row
@@ -15987,7 +16002,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         if (typeof reorderSummaryRowsByRowIndex === 'function') {
             reorderSummaryRowsByRowIndex();
         }
-        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+        if (!window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
             window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (error) {
@@ -17946,8 +17961,9 @@ function reorderSummaryRowsByRowIndex() {
             })
             .map(data => data.row);
 
-        // 按新顺序重新挂载行
-        orderedRows.forEach(row => summaryTableBody.appendChild(row));
+        if (!applySummaryRowOrderToReact(orderedRows)) {
+            orderedRows.forEach(row => summaryTableBody.appendChild(row));
+        }
 
         console.log(
             'Reordered rows by Data Capture Table order.',
@@ -17956,9 +17972,6 @@ function reorderSummaryRowsByRowIndex() {
 
         if (typeof updateProcessedAmountTotal === 'function') {
             updateProcessedAmountTotal();
-        }
-        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
-            window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
@@ -19567,6 +19580,11 @@ function applySummaryRateColumnsFromData(row, cells, data) {
 }
 
 function deleteSelectedRows() {
+    if (typeof window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ !== 'function') {
+        console.error('Summary delete UI bridge not ready');
+        showNotification('Error', 'Page is still loading. Please wait and try again.', 'error');
+        return;
+    }
     const checkboxes = document.querySelectorAll('.summary-row-checkbox:checked');
     const rowsToDelete = Array.from(checkboxes).map(cb => ({
         checkbox: cb,

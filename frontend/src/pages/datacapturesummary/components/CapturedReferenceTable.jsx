@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { bindCapturedCellClick } from "../summaryTablePostPopulate.js";
 
 /**
  * Hidden reference table — used when building formulas (cell click → insert into formula).
@@ -75,9 +74,6 @@ export default function CapturedReferenceTable({ tableData }) {
                         data-cell-position={cellPosition}
                         data-id-product={idProduct || undefined}
                         title={colIndex === 1 && idProduct ? idProduct : undefined}
-                        ref={(el) => {
-                          if (el) bindCapturedCellClick(el);
-                        }}
                       >
                         {cellData.value}
                       </td>
