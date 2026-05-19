@@ -1507,32 +1507,53 @@ function inheritFormulasToSubAccounts(PDO $pdo, int $companyId, array $templates
             }
         }
 
-        // 遍历当前的模板，如果有 Main Acc 的模板，复制并塞入 Sub Acc
+        // 把 Main Acc 公式派生到 Sub Acc：写入 subs（勿写入 allMains，否则前端会按 main 套用并可能与已有 sub 模板重复）
         foreach ($templates as $mainKey => $templateGroup) {
             $allMains = $templateGroup['allMains'] ?? [];
-            $newMains = $allMains;
+            if (!isset($templates[$mainKey]['subs']) || !is_array($templates[$mainKey]['subs'])) {
+                $templates[$mainKey]['subs'] = [];
+            }
             $addedForSubAcc = [];
 
             foreach ($allMains as $t) {
                 $accId = (int)$t['account_id'];
-                if (isset($inheritanceMap[$accId])) {
-                    foreach ($inheritanceMap[$accId] as $subAccId) {
-                        $subT = $t;
-                        $subT['account_id'] = $subAccId;
-                        $subT['account_display'] = $subAccountDisplayMap[$subAccId] ?? $t['account_display'];
-                        // 为了避免前端 JS 防止重复 ID，这里打个标记
-                        $subT['id'] = $t['id'] . '_' . $subAccId; 
-                        
-                        // 防止同一个模板被插入多次
-                        $dedupKey = $subAccId . '_' . ($t['process_id'] ?? 0) . '_' . ($t['id_product'] ?? '') . '_' . ($t['row_index'] ?? '') . '_' . ($t['formula_variant'] ?? 0);
-                        if (!isset($addedForSubAcc[$dedupKey])) {
-                            $newMains[] = $subT;
-                            $addedForSubAcc[$dedupKey] = true;
+                if (!isset($inheritanceMap[$accId])) {
+                    continue;
+                }
+                $parentIdProduct = trim((string)($t['id_product'] ?? $mainKey));
+                foreach ($inheritanceMap[$accId] as $subAccId) {
+                    $dedupKey = $subAccId . '_' . ($t['process_id'] ?? 0) . '_' . $parentIdProduct . '_' . ($t['row_index'] ?? '') . '_' . ($t['formula_variant'] ?? 0);
+                    if (isset($addedForSubAcc[$dedupKey])) {
+                        continue;
+                    }
+
+                    // 若 Maintenance 已保存同 parent + account 的 sub 模板，不再注入继承副本
+                    $alreadyInSubs = false;
+                    foreach ($templates[$mainKey]['subs'] as $existingSub) {
+                        if ((int)($existingSub['account_id'] ?? 0) === (int)$subAccId
+                            && trim((string)($existingSub['parent_id_product'] ?? '')) === $parentIdProduct) {
+                            $alreadyInSubs = true;
+                            break;
                         }
                     }
+                    if ($alreadyInSubs) {
+                        $addedForSubAcc[$dedupKey] = true;
+                        continue;
+                    }
+
+                    $subT = $t;
+                    $subT['product_type'] = 'sub';
+                    $subT['account_id'] = $subAccId;
+                    $subT['account_display'] = $subAccountDisplayMap[$subAccId] ?? $t['account_display'];
+                    $subT['parent_id_product'] = $parentIdProduct;
+                    $subT['inherited_from_account_link'] = true;
+                    // 合成 id 仅供去重；前端按 subs 路径套用，不以 allMains 处理
+                    $subT['id'] = 'inherit_' . (int)($t['id'] ?? 0) . '_' . (int)$subAccId;
+
+                    $templates[$mainKey]['subs'][] = $subT;
+                    $addedForSubAcc[$dedupKey] = true;
                 }
             }
-            $templates[$mainKey]['allMains'] = $newMains;
         }
     } catch (Exception $e) {
         error_log('inheritFormulasToSubAccounts Error: ' . $e->getMessage());

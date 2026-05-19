@@ -36,33 +36,32 @@ export function collectMainRowsForIdProduct(idProduct) {
   return mains;
 }
 
-/** Pick the main row a sub template should attach under (row_index alignment). */
+/** Pick the main row a sub template should attach under (row_index range between consecutive mains). */
 export function findMainRowForSubTemplate(idProduct, subTemplate) {
   const mains = collectMainRowsForIdProduct(idProduct);
   if (mains.length === 0) return null;
   if (mains.length === 1) return mains[0].row;
 
-  const desiredIndex =
+  const sortedMains = [...mains].sort((a, b) => a.rowIndex - b.rowIndex);
+  const subRowIndex =
     subTemplate && subTemplate.row_index !== undefined && subTemplate.row_index !== null
       ? Number(subTemplate.row_index)
       : null;
 
-  if (desiredIndex !== null && !Number.isNaN(desiredIndex)) {
-    const exactMain = mains.find((info) => info.rowIndex === desiredIndex);
-    if (exactMain) return exactMain.row;
-
-    let best = null;
-    for (const info of mains) {
-      if (info.rowIndex <= desiredIndex) {
-        if (!best || info.rowIndex > best.rowIndex) {
-          best = info;
-        }
+  if (subRowIndex !== null && !Number.isNaN(subRowIndex)) {
+    for (let i = 0; i < sortedMains.length; i += 1) {
+      const mainRowIndex = sortedMains[i].rowIndex;
+      const nextMainRowIndex =
+        i < sortedMains.length - 1 ? sortedMains[i + 1].rowIndex : Number.POSITIVE_INFINITY;
+      if (subRowIndex >= mainRowIndex && subRowIndex < nextMainRowIndex) {
+        return sortedMains[i].row;
       }
     }
-    if (best) return best.row;
+    const exactMain = sortedMains.find((info) => info.rowIndex === subRowIndex);
+    if (exactMain) return exactMain.row;
   }
 
-  return mains[0].row;
+  return sortedMains[0].row;
 }
 
 export function filterSubsForParentIdProduct(subs, originalIdProduct, normalizedIdProduct) {

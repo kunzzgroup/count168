@@ -16005,37 +16005,43 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         // 不再因「多账号单行」而跳过：始终套用模板，单行由 applyMainTemplateToRow 按 account_id/row_index 匹配其中一个模板，确保有储存的 formula 能套上且不丢失。
                     }
                     // Sort templates by row_index to apply them in the correct order
-                    const sortedTemplates = [...template.allMains].sort((a, b) => {
+                    // 排除旧版 API 误写入 allMains 的 account_link 继承项（id 形如 123_456），避免与 subs 重复套用
+                    const sortedTemplates = [...template.allMains]
+                        .filter((m) => !isInheritedAccountLinkMainTemplate(m))
+                        .sort((a, b) => {
                         const aIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
                         const bIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
                         return aIndex - bIndex;
                     });
 
                     // Apply each main template to its corresponding row based on account_id and row_index
-                    // Use mainTemplate.id_product so we find the correct row when multiple mains (e.g. "ABC (AAA)", "ABC (TTT)")
-                    let anySubsApplied = false;
+                    const mainRowByTemplate = new Map();
                     sortedTemplates.forEach((mainTemplate, accountOrderIndex) => {
                         const mainIdProduct = mainTemplate.id_product || originalIdProduct;
                         const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate, accountOrderIndex);
-                        // Apply subs whose parent matches this main row. Exact match (after stripping leading "N " from DB) or when only one main, allow normalized match.
-                        if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                            const mainTrimmed = (mainIdProduct || '').trim();
-                            const mainNorm = normalizeIdProductText(mainTrimmed);
-                            const onlyOneMain = sortedTemplates.length === 1;
-                            const subsForThisMain = template.subs.filter(sub => {
-                                const subParentRaw = (sub.parent_id_product || '').trim();
-                                const subParentNorm = subParentRaw.replace(/^\d+\s+/, '').trim(); // strip leading "1 " from DB
-                                const subParentBare = normalizeIdProductText(subParentNorm);
-                                const exactMatch = (subParentRaw === mainTrimmed) || (subParentNorm === mainTrimmed);
-                                const normalizedMatch = onlyOneMain && mainNorm && subParentBare === mainNorm;
-                                return exactMatch || normalizedMatch;
-                            });
-                            if (subsForThisMain.length > 0) {
-                                applySubTemplatesToSummaryRow(mainIdProduct, mainRow, subsForThisMain);
-                                anySubsApplied = true;
-                            }
+                        if (mainRow) {
+                            mainRowByTemplate.set(mainTemplate, { mainRow, mainIdProduct });
                         }
                     });
+
+                    // Sub 只套用一次：按 row_index 归属到对应 main，勿对每个 main 套用全部 subs（假设 B/C）
+                    let anySubsApplied = false;
+                    const allSubs = template.subs && Array.isArray(template.subs) ? template.subs : [];
+                    if (allSubs.length > 0) {
+                        if (typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
+                            anySubsApplied = window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(originalIdProduct, allSubs);
+                        } else {
+                            sortedTemplates.forEach((mainTemplate) => {
+                                const ctx = mainRowByTemplate.get(mainTemplate);
+                                if (!ctx) return;
+                                const subsForThisMain = filterSubTemplatesForMainTemplate(allSubs, mainTemplate, sortedTemplates, ctx.mainIdProduct);
+                                if (subsForThisMain.length > 0) {
+                                    applySubTemplatesToSummaryRow(ctx.mainIdProduct, ctx.mainRow, subsForThisMain);
+                                    anySubsApplied = true;
+                                }
+                            });
+                        }
+                    }
                     // Fallback: when we have subs but none were applied (e.g. main row was deleted), only apply subs to a row whose main id_product **exactly** matches the sub's parent (e.g. GAMS(SV)HKD), never to another id_product (e.g. GAMS(SV)MYR), otherwise sub 会跑去和别的 id_product mix
                     if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
                         const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
@@ -18147,6 +18153,53 @@ function findFirstSubPlaceholderRow(idProduct) {
     return null;
 }
 
+/** 旧版 inheritFormulasToSubAccounts 误写入 allMains 的项（id 为 mainId_subAccId） */
+function isInheritedAccountLinkMainTemplate(mainTemplate) {
+    if (!mainTemplate) return false;
+    if (mainTemplate.inherited_from_account_link === true) return true;
+    const tid = mainTemplate.id;
+    if (tid == null || tid === '') return false;
+    const s = String(tid);
+    return /^inherit_\d+_\d+$/i.test(s) || /^\d+_\d+$/.test(s);
+}
+
+/**
+ * 同一 id_product 多 main 时，仅将 sub 分给 row_index 落在该 main 区间的模板。
+ */
+function filterSubTemplatesForMainTemplate(subs, mainTemplate, sortedMainTemplates, mainIdProduct) {
+    if (!Array.isArray(subs) || subs.length === 0) return [];
+    const mainTrimmed = (mainIdProduct || (mainTemplate && mainTemplate.id_product) || '').trim();
+    const mainNorm = normalizeIdProductText(mainTrimmed);
+    const onlyOneMain = !Array.isArray(sortedMainTemplates) || sortedMainTemplates.length <= 1;
+    const mainTemplateRowIndex = (mainTemplate && mainTemplate.row_index !== undefined && mainTemplate.row_index !== null && !Number.isNaN(Number(mainTemplate.row_index)))
+        ? Number(mainTemplate.row_index)
+        : null;
+    const mainRowIndexes = (sortedMainTemplates || [])
+        .map((m) => (m.row_index !== undefined && m.row_index !== null && !Number.isNaN(Number(m.row_index))) ? Number(m.row_index) : null)
+        .filter((v) => v !== null)
+        .sort((a, b) => a - b);
+    const isFirstMainByRowIndex = mainTemplateRowIndex !== null && mainRowIndexes.length > 0 && mainTemplateRowIndex === mainRowIndexes[0];
+
+    return subs.filter((sub) => {
+        const subParentRaw = (sub.parent_id_product || '').trim();
+        const subParentNorm = subParentRaw.replace(/^\d+\s+/, '').trim();
+        const subParentBare = normalizeIdProductText(subParentNorm);
+        const exactMatch = (subParentRaw === mainTrimmed) || (subParentNorm === mainTrimmed);
+        const normalizedMatch = onlyOneMain && mainNorm && subParentBare === mainNorm;
+        if (!exactMatch && !normalizedMatch) return false;
+        if (onlyOneMain || mainRowIndexes.length <= 1) return true;
+        if (mainTemplateRowIndex === null) return isFirstMainByRowIndex;
+        const subRowIndex = (sub.row_index !== undefined && sub.row_index !== null && !Number.isNaN(Number(sub.row_index)))
+            ? Number(sub.row_index)
+            : null;
+        if (subRowIndex === null) return isFirstMainByRowIndex;
+        const mainPos = mainRowIndexes.indexOf(mainTemplateRowIndex);
+        if (mainPos < 0) return isFirstMainByRowIndex;
+        const nextMainRowIndex = mainPos < mainRowIndexes.length - 1 ? mainRowIndexes[mainPos + 1] : Number.POSITIVE_INFINITY;
+        return subRowIndex >= mainTemplateRowIndex && subRowIndex < nextMainRowIndex;
+    });
+}
+
 function getOrCreateSubPlaceholderRow(idProduct) {
     // 现在不再依赖“空占位行”，直接创建一个新的 sub 行并返回其按钮引用
     const row = addSubIdProductRow(idProduct);
@@ -18361,6 +18414,28 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                         }
                     }
                 }
+            }
+        }
+
+        // 同一 id_product + account 的 sub 已存在时复用（勿因 parent-row-index 不同再建一行，假设 C）
+        if (!targetRow && template.account_id) {
+            const templateAccountId = String(template.account_id);
+            const templateSubOrder = (template.sub_order !== undefined && template.sub_order !== null) ? Number(template.sub_order) : null;
+            for (const row of Array.from(summaryTableBody.querySelectorAll('tr'))) {
+                if ((row.getAttribute('data-product-type') || 'main') !== 'sub') continue;
+                const accountCell = row.querySelector('td:nth-child(2)');
+                const rowAccountDbId = accountCell?.getAttribute('data-account-id');
+                if (!rowAccountDbId || rowAccountDbId !== templateAccountId) continue;
+                const rowIdProduct = getProcessValueFromRow(row);
+                if (!rowIdProduct || normalizeIdProductText(rowIdProduct) !== normalizedTargetId) continue;
+                const rowSubOrderRaw = row.getAttribute('data-sub-order');
+                const rowSubOrder = (rowSubOrderRaw !== null && rowSubOrderRaw !== '') ? Number(rowSubOrderRaw) : null;
+                const subOrderMatch = (templateSubOrder === null && rowSubOrder === null)
+                    || (templateSubOrder !== null && rowSubOrder !== null && templateSubOrder === rowSubOrder);
+                if (!subOrderMatch) continue;
+                targetRow = row;
+                console.log('Found existing sub row by account_id (+ sub_order) for id_product:', idProduct, templateAccountId);
+                break;
             }
         }
 
