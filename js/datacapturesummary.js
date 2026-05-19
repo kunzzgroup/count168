@@ -122,35 +122,37 @@ function initDataCaptureSummaryPage() {
             });
         }
 
-        document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
-            radio.addEventListener('change', function () {
-                toggleAlertFields('add');
+        if (!window.__SUMMARY_REACT_TABLE__) {
+            document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
+                radio.addEventListener('change', function () {
+                    toggleAlertFields('add');
+                });
             });
-        });
 
-        ['add_account_id', 'add_name', 'add_remark', 'addCurrencyInput'].forEach(inputId => {
-            const input = document.getElementById(inputId);
-            if (input) {
-                input.addEventListener('input', function () {
-                    forceUppercase(this);
-                });
-                input.addEventListener('paste', function () {
-                    setTimeout(() => forceUppercase(this), 0);
-                });
-            }
-        });
-
-        const addCurrencyInputEl = document.getElementById('addCurrencyInput');
-        if (addCurrencyInputEl) {
-            addCurrencyInputEl.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addCurrencyFromInput('add');
+            ['add_account_id', 'add_name', 'add_remark', 'addCurrencyInput'].forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('input', function () {
+                        forceUppercase(this);
+                    });
+                    input.addEventListener('paste', function () {
+                        setTimeout(() => forceUppercase(this), 0);
+                    });
                 }
             });
-        }
 
-        bindSummaryAddAccountFormSubmitOnce();
+            const addCurrencyInputEl = document.getElementById('addCurrencyInput');
+            if (addCurrencyInputEl) {
+                addCurrencyInputEl.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCurrencyFromInput('add');
+                    }
+                });
+            }
+
+            bindSummaryAddAccountFormSubmitOnce();
+        }
 
         if (typeof fetchSummaryAccountList === 'function') {
             fetchSummaryAccountList().then(function (accounts) {
@@ -3748,27 +3750,76 @@ async function loadAddAccountData() {
     await loadEditData();
 }
 
-async function addAccount() {
-    // Show add account modal
-    document.getElementById('addModal').style.display = 'block';
-    // 先加载 roles 和 currencies 数据
+async function loadAddAccountModalData() {
     await loadEditData();
-    // 加载所有货币为开关式
     await loadAccountCurrencies(null, 'add');
-    // 加载所有公司为开关式
     await loadAccountCompanies(null, 'add');
 }
 
-function closeAddModal() {
-    document.getElementById('addModal').style.display = 'none';
-    document.getElementById('addAccountForm').reset();
-    // 重置选中的货币列表
+/** Shared post-render init for Add Account modal (legacy page + React SPA). */
+function initAddAccountModalAfterMount() {
+    document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
+        if (radio.dataset.summaryAlertBound === '1') return;
+        radio.dataset.summaryAlertBound = '1';
+        radio.addEventListener('change', function () {
+            toggleAlertFields('add');
+        });
+    });
+
+    ['add_account_id', 'add_name', 'add_remark', 'addCurrencyInput'].forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (!input || input.dataset.summaryUpperBound === '1') return;
+        input.dataset.summaryUpperBound = '1';
+        input.addEventListener('input', function () {
+            forceUppercase(this);
+        });
+        input.addEventListener('paste', function () {
+            setTimeout(() => forceUppercase(this), 0);
+        });
+    });
+
+    const addCurrencyInputEl = document.getElementById('addCurrencyInput');
+    if (addCurrencyInputEl && addCurrencyInputEl.dataset.summaryEnterBound !== '1') {
+        addCurrencyInputEl.dataset.summaryEnterBound = '1';
+        addCurrencyInputEl.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addCurrencyFromInput('add');
+            }
+        });
+    }
+
+    bindSummaryAddAccountFormSubmitOnce();
+}
+
+function resetAddAccountModalDom() {
+    const form = document.getElementById('addAccountForm');
+    if (form) form.reset();
     selectedCurrencyIdsForAdd = [];
-    // 重置已删除的货币列表
     deletedCurrencyIds = [];
-    // 重置选中的公司列表，保留当前公司
     const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
     selectedCompanyIdsForAdd = currentCompanyId ? [currentCompanyId] : [];
+}
+
+window.initAddAccountModalAfterMount = initAddAccountModalAfterMount;
+window.loadAddAccountModalData = loadAddAccountModalData;
+window.__SUMMARY_RESET_ADD_ACCOUNT_MODAL__ = resetAddAccountModalDom;
+
+async function addAccount() {
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
+        return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+    }
+    // Show add account modal
+    document.getElementById('addModal').style.display = 'block';
+    await loadAddAccountModalData();
+}
+
+function closeAddModal() {
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__ === 'function') {
+        return window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__();
+    }
+    document.getElementById('addModal').style.display = 'none';
+    resetAddAccountModalDom();
 }
 
 function forceUppercase(input) {
