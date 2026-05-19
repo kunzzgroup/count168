@@ -1834,14 +1834,88 @@ function deleteEntireColumns(cellsToDelete, tableBody, tableHeader) {
     });
 }
 
+function refreshColumnHeaderNumbers(headerRow) {
+    Array.from(headerRow.querySelectorAll('th')).forEach((header, index) => {
+        if (index > 0) header.textContent = index;
+    });
+}
+
+function attachColumnHeaderListeners(header) {
+    if (__dcIsDataCaptureSpa()) {
+        header.style.cursor = 'pointer';
+        return;
+    }
+    header.addEventListener('mousedown', (e) => {
+        if (e.button === 0) handleColumnHeaderClick(e, -1);
+    });
+    header.addEventListener('contextmenu', (e) => {
+        showColumnContextMenu(e, -1);
+    });
+    header.addEventListener('mouseover', (e) => {
+        if (!e.ctrlKey && !e.metaKey) handleColumnHeaderMouseOver(e, -1);
+    });
+    header.style.cursor = 'pointer';
+}
+
+function rebindColumnHeadersAfterMutation(headerRow) {
+    if (__dcIsDataCaptureSpa()) {
+        refreshColumnHeaderNumbers(headerRow);
+        return;
+    }
+    const headers = Array.from(headerRow.querySelectorAll('th'));
+    headers.forEach((header, index) => {
+        if (index > 0) {
+            header.textContent = index;
+            const newHeader = header.cloneNode(true);
+            header.parentNode.replaceChild(newHeader, header);
+            attachColumnHeaderListeners(newHeader);
+        }
+    });
+}
+
+function attachRowHeaderListeners(rowHeader) {
+    if (__dcIsDataCaptureSpa()) {
+        rowHeader.style.cursor = 'pointer';
+        return;
+    }
+    rowHeader.addEventListener('mousedown', (e) => {
+        if (e.button === 0) handleRowHeaderClick(e, -1);
+    });
+    rowHeader.addEventListener('contextmenu', (e) => {
+        showRowContextMenu(e, -1);
+    });
+    rowHeader.addEventListener('mouseover', (e) => {
+        if (!e.ctrlKey && !e.metaKey) handleRowHeaderMouseOver(e, -1);
+    });
+    rowHeader.style.cursor = 'pointer';
+}
+
+function rebindRowHeadersAfterMutation(tableBody) {
+    Array.from(tableBody.children).forEach((row, index) => {
+        const rh = row.querySelector('.row-header');
+        if (!rh) return;
+        rh.textContent = getColumnLabel(index);
+        if (__dcIsDataCaptureSpa()) return;
+        const newRowHeader = rh.cloneNode(true);
+        row.replaceChild(newRowHeader, rh);
+        attachRowHeaderListeners(newRowHeader);
+    });
+}
+
 // Column context menu functions
 function insertColumnLeft() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_INSERT_COLUMN_LEFT__ === 'function') {
+        return window.__DC_INSERT_COLUMN_LEFT__();
+    }
     if (currentColumnIndex === null) return;
     insertColumnAt(currentColumnIndex);
     hideContextMenu();
 }
 
 function insertColumnRight() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_INSERT_COLUMN_RIGHT__ === 'function') {
+        return window.__DC_INSERT_COLUMN_RIGHT__();
+    }
     if (currentColumnIndex === null) return;
     insertColumnAt(currentColumnIndex + 1);
     hideContextMenu();
@@ -1857,22 +1931,7 @@ function insertColumnAt(colIndex) {
 
     // Create new column header
     const newHeader = document.createElement('th');
-    // Handle left click - use dynamic index calculation
-    newHeader.addEventListener('mousedown', (e) => {
-        if (e.button === 0) {
-            handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
-        }
-    });
-    // Handle right click - show context menu
-    newHeader.addEventListener('contextmenu', (e) => {
-        showColumnContextMenu(e, -1); // -1 means calculate from DOM
-    });
-    newHeader.addEventListener('mouseover', (e) => {
-        if (!e.ctrlKey && !e.metaKey) {
-            handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
-        }
-    });
-    newHeader.style.cursor = 'pointer';
+    attachColumnHeaderListeners(newHeader);
 
     // Insert header
     if (colIndex >= currentCols) {
@@ -1909,35 +1968,13 @@ function insertColumnAt(colIndex) {
         }
     });
 
-    // Update header numbers and rebind event handlers
-    const headers = Array.from(headerRow.querySelectorAll('th'));
-    headers.forEach((header, index) => {
-        if (index > 0) {
-            header.textContent = index;
-            // Remove old event listeners by cloning
-            const newHeader = header.cloneNode(true);
-            header.parentNode.replaceChild(newHeader, header);
-
-            // Rebind event handlers with dynamic index calculation
-            newHeader.addEventListener('mousedown', (e) => {
-                if (e.button === 0) {
-                    handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
-                }
-            });
-            newHeader.addEventListener('contextmenu', (e) => {
-                showColumnContextMenu(e, -1); // -1 means calculate from DOM
-            });
-            newHeader.addEventListener('mouseover', (e) => {
-                if (!e.ctrlKey && !e.metaKey) {
-                    handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
-                }
-            });
-            newHeader.style.cursor = 'pointer';
-        }
-    });
+    rebindColumnHeadersAfterMutation(headerRow);
 }
 
 function deleteColumn() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_DELETE_COLUMN__ === 'function') {
+        return window.__DC_DELETE_COLUMN__();
+    }
     const tableHeader = document.getElementById('tableHeader');
     const tableBody = document.getElementById('tableBody');
     if (!tableHeader || !tableBody) return;
@@ -2002,38 +2039,16 @@ function deleteColumn() {
         }
     });
 
-    // Update header numbers and rebind event handlers
-    const headers = Array.from(headerRow.querySelectorAll('th'));
-    headers.forEach((header, index) => {
-        if (index > 0) {
-            header.textContent = index;
-            // Remove old event listeners by cloning
-            const newHeader = header.cloneNode(true);
-            header.parentNode.replaceChild(newHeader, header);
-
-            // Rebind event handlers with dynamic index calculation
-            newHeader.addEventListener('mousedown', (e) => {
-                if (e.button === 0) {
-                    handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
-                }
-            });
-            newHeader.addEventListener('contextmenu', (e) => {
-                showColumnContextMenu(e, -1); // -1 means calculate from DOM
-            });
-            newHeader.addEventListener('mouseover', (e) => {
-                if (!e.ctrlKey && !e.metaKey) {
-                    handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
-                }
-            });
-            newHeader.style.cursor = 'pointer';
-        }
-    });
+    rebindColumnHeadersAfterMutation(headerRow);
 
     clearAllSelections();
     hideContextMenu();
 }
 
 function clearColumn() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_CLEAR_COLUMN__ === 'function') {
+        return window.__DC_CLEAR_COLUMN__();
+    }
     const tableHeader = document.getElementById('tableHeader');
     const tableBody = document.getElementById('tableBody');
     if (!tableHeader || !tableBody) return;
@@ -2072,12 +2087,18 @@ function clearColumn() {
 
 // Row context menu functions
 function insertRowAbove() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_INSERT_ROW_ABOVE__ === 'function') {
+        return window.__DC_INSERT_ROW_ABOVE__();
+    }
     if (currentRowIndex === null) return;
     insertRowAt(currentRowIndex);
     hideContextMenu();
 }
 
 function insertRowBelow() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_INSERT_ROW_BELOW__ === 'function') {
+        return window.__DC_INSERT_ROW_BELOW__();
+    }
     if (currentRowIndex === null) return;
     insertRowAt(currentRowIndex + 1);
     hideContextMenu();
@@ -2098,22 +2119,7 @@ function insertRowAt(rowIndex) {
     const rowHeader = document.createElement('td');
     rowHeader.className = 'row-header';
     rowHeader.textContent = getColumnLabel(rowIndex);
-    // Handle left click - use dynamic index calculation
-    rowHeader.addEventListener('mousedown', (e) => {
-        if (e.button === 0) {
-            handleRowHeaderClick(e, -1); // -1 means calculate from DOM
-        }
-    });
-    // Handle right click - show context menu
-    rowHeader.addEventListener('contextmenu', (e) => {
-        showRowContextMenu(e, -1); // -1 means calculate from DOM
-    });
-    rowHeader.addEventListener('mouseover', (e) => {
-        if (!e.ctrlKey && !e.metaKey) {
-            handleRowHeaderMouseOver(e, -1); // -1 means calculate from DOM
-        }
-    });
-    rowHeader.style.cursor = 'pointer';
+    attachRowHeaderListeners(rowHeader);
     row.appendChild(rowHeader);
 
     // Data cells
@@ -2121,44 +2127,7 @@ function insertRowAt(rowIndex) {
         const cell = document.createElement('td');
         cell.contentEditable = true;
         cell.dataset.col = j;
-        cell.addEventListener('mousedown', handleCellMouseDown);
-        cell.addEventListener('mouseover', handleCellMouseOver);
-        cell.addEventListener('focus', function () {
-            this.classList.add('selected');
-        });
-        cell.addEventListener('blur', function () {
-            this.classList.remove('selected');
-        });
-        cell.addEventListener('keydown', handleCellKeydown);
-        cell.addEventListener('paste', handleCellPaste);
-        cell.addEventListener('click', function (e) {
-            tableActive = true;
-
-            // If Ctrl/Cmd is pressed, don't change focus or clear selections (multi-select mode)
-            const isCtrlPressed = e.ctrlKey || e.metaKey;
-            if (isCtrlPressed) {
-                // Just ensure the cell is in the selection (already handled in mousedown)
-                // Don't change focus or clear other selections
-                return;
-            }
-
-            const hasFocus = document.activeElement === this;
-            if (hasFocus) {
-                moveCaretToClickPosition(this, e);
-            } else if (!this.classList.contains('selected')) {
-                setActiveCellWithoutFocus(this);
-            } else {
-                setActiveCellCore(this);
-                this.focus();
-                setTimeout(() => {
-                    moveCaretToClickPosition(this, e);
-                }, 0);
-            }
-        });
-        cell.addEventListener('contextmenu', function (e) {
-            e.preventDefault();
-            showContextMenu(e, this);
-        });
+        bindDataCaptureCellEvents(cell);
         row.appendChild(cell);
     }
 
@@ -2169,35 +2138,13 @@ function insertRowAt(rowIndex) {
         tableBody.insertBefore(row, tableBody.children[rowIndex]);
     }
 
-    // Update row header labels and rebind event handlers
-    Array.from(tableBody.children).forEach((r, index) => {
-        const rh = r.querySelector('.row-header');
-        if (rh) {
-            rh.textContent = getColumnLabel(index);
-            // Remove old event listeners by cloning
-            const newRowHeader = rh.cloneNode(true);
-            r.replaceChild(newRowHeader, rh);
-
-            // Rebind event handlers with dynamic index calculation
-            newRowHeader.addEventListener('mousedown', (e) => {
-                if (e.button === 0) {
-                    handleRowHeaderClick(e, -1); // -1 means calculate from DOM
-                }
-            });
-            newRowHeader.addEventListener('contextmenu', (e) => {
-                showRowContextMenu(e, -1); // -1 means calculate from DOM
-            });
-            newRowHeader.addEventListener('mouseover', (e) => {
-                if (!e.ctrlKey && !e.metaKey) {
-                    handleRowHeaderMouseOver(e, -1); // -1 means calculate from DOM
-                }
-            });
-            newRowHeader.style.cursor = 'pointer';
-        }
-    });
+    rebindRowHeadersAfterMutation(tableBody);
 }
 
 function deleteRow() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_DELETE_ROW__ === 'function') {
+        return window.__DC_DELETE_ROW__();
+    }
     const tableBody = document.getElementById('tableBody');
     if (!tableBody) return;
 
@@ -2236,38 +2183,16 @@ function deleteRow() {
         }
     });
 
-    // Update row header labels and rebind event handlers
-    Array.from(tableBody.children).forEach((row, index) => {
-        const rowHeader = row.querySelector('.row-header');
-        if (rowHeader) {
-            rowHeader.textContent = getColumnLabel(index);
-            // Remove old event listeners by cloning
-            const newRowHeader = rowHeader.cloneNode(true);
-            row.replaceChild(newRowHeader, rowHeader);
-
-            // Rebind event handlers with dynamic index calculation
-            newRowHeader.addEventListener('mousedown', (e) => {
-                if (e.button === 0) {
-                    handleRowHeaderClick(e, -1); // -1 means calculate from DOM
-                }
-            });
-            newRowHeader.addEventListener('contextmenu', (e) => {
-                showRowContextMenu(e, -1); // -1 means calculate from DOM
-            });
-            newRowHeader.addEventListener('mouseover', (e) => {
-                if (!e.ctrlKey && !e.metaKey) {
-                    handleRowHeaderMouseOver(e, -1); // -1 means calculate from DOM
-                }
-            });
-            newRowHeader.style.cursor = 'pointer';
-        }
-    });
+    rebindRowHeadersAfterMutation(tableBody);
 
     clearAllSelections();
     hideContextMenu();
 }
 
 function clearRow() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_CLEAR_ROW__ === 'function') {
+        return window.__DC_CLEAR_ROW__();
+    }
     const tableBody = document.getElementById('tableBody');
     if (!tableBody) return;
 
@@ -25372,6 +25297,16 @@ window.__DC_SET_CONTEXT_MENU_COLUMN__ = function (index) {
 window.__DC_SET_CONTEXT_MENU_ROW__ = function (index) {
     currentRowIndex = index;
 };
+window.__DC_GET_CONTEXT_MENU_COLUMN__ = function () {
+    return currentColumnIndex;
+};
+window.__DC_GET_CONTEXT_MENU_ROW__ = function () {
+    return currentRowIndex;
+};
+window.__DC_GRID_ATTACH_COLUMN_HEADER__ = attachColumnHeaderListeners;
+window.__DC_GRID_ATTACH_ROW_HEADER__ = attachRowHeaderListeners;
+window.__DC_GRID_REBIND_COLUMN_HEADERS__ = rebindColumnHeadersAfterMutation;
+window.__DC_GRID_REBIND_ROW_HEADERS__ = rebindRowHeadersAfterMutation;
 window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS__ = setActiveCellWithoutFocus;
 window.__DC_SET_ACTIVE_CELL__ = setActiveCell;
 window.__DC_MOVE_CARET_TO_END__ = moveCaretToEnd;

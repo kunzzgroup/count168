@@ -19,6 +19,16 @@ import {
   showRowContextMenu,
   updateActiveContextMenuPosition,
 } from "./dataCaptureContextMenu.js";
+import {
+  clearColumn,
+  clearRow,
+  deleteColumn,
+  deleteRow,
+  insertColumnLeft,
+  insertColumnRight,
+  insertRowAbove,
+  insertRowBelow,
+} from "./dataCaptureGridRowColumnCrud.js";
 
 /**
  * Phase 5a/5b: SPA-owned grid interaction + context menus.
@@ -43,6 +53,23 @@ export function useDataCaptureGridInteraction(scriptsReady) {
     window.__DC_UPDATE_CONTEXT_MENU_POSITION__ = updateActiveContextMenuPosition;
     window.updateActiveContextMenuPosition = updateActiveContextMenuPosition;
 
+    window.__DC_INSERT_COLUMN_LEFT__ = insertColumnLeft;
+    window.__DC_INSERT_COLUMN_RIGHT__ = insertColumnRight;
+    window.__DC_DELETE_COLUMN__ = deleteColumn;
+    window.__DC_CLEAR_COLUMN__ = clearColumn;
+    window.__DC_INSERT_ROW_ABOVE__ = insertRowAbove;
+    window.__DC_INSERT_ROW_BELOW__ = insertRowBelow;
+    window.__DC_DELETE_ROW__ = deleteRow;
+    window.__DC_CLEAR_ROW__ = clearRow;
+    window.insertColumnLeft = insertColumnLeft;
+    window.insertColumnRight = insertColumnRight;
+    window.deleteColumn = deleteColumn;
+    window.clearColumn = clearColumn;
+    window.insertRowAbove = insertRowAbove;
+    window.insertRowBelow = insertRowBelow;
+    window.deleteRow = deleteRow;
+    window.clearRow = clearRow;
+
     return () => {
       delete window.__DC_SET_ACTIVE_CELL_CORE_REACT__;
       delete window.__DC_SET_ACTIVE_CELL_REACT__;
@@ -59,6 +86,22 @@ export function useDataCaptureGridInteraction(scriptsReady) {
       if (window.updateActiveContextMenuPosition === updateActiveContextMenuPosition) {
         delete window.updateActiveContextMenuPosition;
       }
+      delete window.__DC_INSERT_COLUMN_LEFT__;
+      delete window.__DC_INSERT_COLUMN_RIGHT__;
+      delete window.__DC_DELETE_COLUMN__;
+      delete window.__DC_CLEAR_COLUMN__;
+      delete window.__DC_INSERT_ROW_ABOVE__;
+      delete window.__DC_INSERT_ROW_BELOW__;
+      delete window.__DC_DELETE_ROW__;
+      delete window.__DC_CLEAR_ROW__;
+      if (window.insertColumnLeft === insertColumnLeft) delete window.insertColumnLeft;
+      if (window.insertColumnRight === insertColumnRight) delete window.insertColumnRight;
+      if (window.deleteColumn === deleteColumn) delete window.deleteColumn;
+      if (window.clearColumn === clearColumn) delete window.clearColumn;
+      if (window.insertRowAbove === insertRowAbove) delete window.insertRowAbove;
+      if (window.insertRowBelow === insertRowBelow) delete window.insertRowBelow;
+      if (window.deleteRow === deleteRow) delete window.deleteRow;
+      if (window.clearRow === clearRow) delete window.clearRow;
     };
   }, []);
 
