@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Component, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
@@ -28,14 +28,29 @@ import "../../../public/css/accountCSS.css";
 import "../../../public/css/datacapturesummary.css";
 import "../../../public/css/global-13inch.css";
 
+/** Legacy engine present (SPA revisit or full page load after prior visit). */
+function areSummaryLegacyScriptsLoaded() {
+  return (
+    typeof window.Decimal !== "undefined" &&
+    typeof window.MoneyDecimal !== "undefined" &&
+    typeof window.initDataCaptureSummaryPage === "function"
+  );
+}
+
 /** Avoid hanging when `load` already fired before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
   return new Promise((resolve, reject) => {
     const clean = src.split(/[?#]/)[0];
     const finish = (node) => {
-      node.dataset.loaded = "1";
+      if (node) node.dataset.loaded = "1";
       resolve();
     };
+
+    if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
+      resolve();
+      return;
+    }
+
     const nodes = document.querySelectorAll("script[src]");
     for (let i = 0; i < nodes.length; i += 1) {
       const n = nodes[i];
@@ -49,10 +64,28 @@ function loadScriptOnce(src, isAlreadyLoaded) {
         finish(n);
         return;
       }
-      n.addEventListener("load", () => finish(n), { once: true });
+      const onLoad = () => finish(n);
+      const timeoutId = window.setTimeout(() => {
+        n.removeEventListener("load", onLoad);
+        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
+          finish(n);
+          return;
+        }
+        n.remove();
+        loadScriptOnce(src, isAlreadyLoaded).then(resolve).catch(reject);
+      }, 10000);
+      n.addEventListener(
+        "load",
+        () => {
+          window.clearTimeout(timeoutId);
+          onLoad();
+        },
+        { once: true }
+      );
       n.addEventListener(
         "error",
         () => {
+          window.clearTimeout(timeoutId);
           n.remove();
           loadScriptOnce(src, isAlreadyLoaded).then(resolve).catch(reject);
         },
@@ -73,12 +106,37 @@ function loadScriptOnce(src, isAlreadyLoaded) {
   });
 }
 
-export default function DataCaptureSummaryPage() {
+class SummaryPageErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="container">
+          <h1>Data Capture Summary</h1>
+          <p role="alert" style={{ color: "#b91c1c", padding: "12px 0" }}>
+            Failed to load Data Capture Summary. Please refresh the page or return to Data Capture.
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function DataCaptureSummaryPageInner() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { companyId, bootLoading: sessionBootLoading, bootError } = useSummaryBoot();
 
-  const [scriptsReady, setScriptsReady] = useState(false);
+  const [scriptsReady, setScriptsReady] = useState(() => areSummaryLegacyScriptsLoaded());
   const [engineError, setEngineError] = useState("");
 
   const sessionReady = !sessionBootLoading && !bootError && companyId != null;
@@ -135,10 +193,17 @@ export default function DataCaptureSummaryPage() {
   useEffect(() => {
     if (!sessionReady) return;
 
-    let alive = true;
     window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
     setEngineError("");
-    setScriptsReady(false);
+
+    if (areSummaryLegacyScriptsLoaded()) {
+      setScriptsReady(true);
+      return () => {
+        window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
+      };
+    }
+
+    let alive = true;
 
     (async () => {
       try {
@@ -156,6 +221,10 @@ export default function DataCaptureSummaryPage() {
         if (alive) setScriptsReady(true);
       } catch (e) {
         if (!alive) return;
+        if (areSummaryLegacyScriptsLoaded()) {
+          setScriptsReady(true);
+          return;
+        }
         console.error(e);
         setEngineError("Failed to load Data Capture Summary scripts.");
       }
@@ -163,7 +232,6 @@ export default function DataCaptureSummaryPage() {
 
     return () => {
       alive = false;
-      setScriptsReady(false);
       window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
     };
   }, [sessionReady]);
@@ -514,5 +582,13 @@ export default function DataCaptureSummaryPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DataCaptureSummaryPage() {
+  return (
+    <SummaryPageErrorBoundary>
+      <DataCaptureSummaryPageInner />
+    </SummaryPageErrorBoundary>
   );
 }

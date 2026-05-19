@@ -35,6 +35,11 @@ export function useSummaryBoot() {
   useEffect(() => {
     if (!me || companyId == null) return;
 
+    if (window.isNavigatingAwayByBackOrSubmit) {
+      window.isNavigatingAwayByBackOrSubmit = false;
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       const companyCode =

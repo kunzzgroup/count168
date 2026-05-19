@@ -5,6 +5,14 @@ export function buildApiUrl(pathAndQuery) {
   return new URL(pathAndQuery, base).href;
 }
 
+/** In-app route path (respects subdirectory deploy). */
+export function buildSpaPath(pathAndQuery) {
+  const pathname = window.location.pathname || "/";
+  const basePath = pathname.replace(/[^/]*$/, "") || "/";
+  const url = new URL(String(pathAndQuery || "").replace(/^\//, ""), window.location.origin + basePath);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 /** Static assets (css/js) under Vite base URL / asset folder — stable across SPA routes. */
 export function assetUrl(path) {
   const clean = String(path || "").replace(/^\//, "");

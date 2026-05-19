@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   loadCaptureSession,
   saveCaptureSession,
@@ -11,6 +10,7 @@ import { isSubmitReady, validateDataCaptureForm } from "./dataCaptureValidation.
 import { fetchProcessDetail } from "./dataCaptureApi.js";
 import { getActiveDescriptions } from "./dataCaptureFormHelpers.js";
 import { convertTableFormatOnSubmit } from "./dataCaptureConvertTableOnSubmit.js";
+import { buildSpaPath } from "../../utils/apiUrl.js";
 import { pushDataCaptureNotification } from "./dataCaptureNotify.js";
 
 function buildProcessCapturePayload(form, captureType, currencies) {
@@ -36,7 +36,6 @@ function buildProcessCapturePayload(form, captureType, currencies) {
  * Submit-time table transform lives in dataCaptureConvertTableOnSubmit.js (Phase 5b).
  */
 export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
-  const navigate = useNavigate();
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreStartedRef = useRef(false);
   const captureTypeRef = useRef(captureType);
@@ -117,12 +116,13 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
       saveCaptureSession(finalTableData, processData, captureType);
 
       window.isNavigatingAwayByBackOrSubmit = true;
-      navigate("/datacapturesummary?success=1", { replace: true });
+      // Full navigation avoids SPA script/DOM race that caused blank Summary after submit.
+      window.location.assign(buildSpaPath("datacapturesummary?success=1"));
     } catch (error) {
       console.error("Error submitting data:", error);
       pushDataCaptureNotification("Failed to capture data", "danger");
     }
-  }, [form, captureType, navigate]);
+  }, [form, captureType]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {
