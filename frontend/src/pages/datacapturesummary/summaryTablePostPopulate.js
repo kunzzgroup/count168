@@ -230,6 +230,8 @@ function removeDuplicateSubRowsForMainAccount(keepRow, accountId) {
 export function dedupeSummaryAccountsAfterSave(keepRow) {
   if (!keepRow) return;
 
+  keepRow.setAttribute("data-preferred-account-save", "1");
+
   const keepAccountCell = keepRow.querySelector("td:nth-child(2)");
   const keepAccountId = keepAccountCell?.getAttribute("data-account-id")?.trim();
   if (!keepAccountId) return;
@@ -300,9 +302,11 @@ export function dedupeAllSummaryDuplicateAccounts(savedSnapshot = null) {
     if (rows.length <= 1) return;
     const accountId = rows[0].querySelector("td:nth-child(2)")?.getAttribute("data-account-id")?.trim();
     const preferredRowIndex = accountId ? preferred.get(accountId) : null;
-    let keepRow = rows.find(
-      (row) => String(row.getAttribute("data-row-index") || "") === String(preferredRowIndex || "")
-    );
+    let keepRow =
+      rows.find((row) => row.getAttribute("data-preferred-account-save") === "1") ||
+      rows.find(
+        (row) => String(row.getAttribute("data-row-index") || "") === String(preferredRowIndex || "")
+      );
     if (!keepRow) keepRow = rows[0];
     rows.forEach((row) => {
       if (row === keepRow) return;
@@ -342,9 +346,11 @@ export function dedupeSummaryAccountsAfterRestore(saved) {
     if (rows.length <= 1) return;
     const accountId = rows[0].querySelector("td:nth-child(2)")?.getAttribute("data-account-id")?.trim();
     const preferredRowIndex = accountId ? preferred.get(accountId) : null;
-    let keepRow = rows.find(
-      (row) => String(row.getAttribute("data-row-index") || "") === String(preferredRowIndex || "")
-    );
+    let keepRow =
+      rows.find((row) => row.getAttribute("data-preferred-account-save") === "1") ||
+      rows.find(
+        (row) => String(row.getAttribute("data-row-index") || "") === String(preferredRowIndex || "")
+      );
     if (!keepRow) keepRow = rows[rows.length - 1];
     rows.forEach((row) => {
       if (row === keepRow) return;

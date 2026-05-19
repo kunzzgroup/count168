@@ -16739,6 +16739,30 @@ function applyTemplateToSummaryRow(idProduct, template) {
 // 3. account_id only
 // 4. row_index only (fallback when account_id not available)
 // This ensures templates are matched to the correct id_product + account combination regardless of row position changes
+function findSummaryMainRowWithAccount(idProductNorm, accountId, excludeRow) {
+    if (!accountId || !idProductNorm) return null;
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) return null;
+
+    const rows = summaryTableBody.querySelectorAll('tr');
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (excludeRow && row === excludeRow) continue;
+        if ((row.getAttribute('data-product-type') || 'main') !== 'main') continue;
+
+        const idProductCell = row.querySelector('td:first-child');
+        const productValues = getProductValuesFromCell(idProductCell);
+        const mainNorm = normalizeIdProductText(productValues.main || '');
+        if (mainNorm !== idProductNorm) continue;
+
+        const rowAccountId = row.querySelector('td:nth-child(2)')?.getAttribute('data-account-id');
+        if (rowAccountId && String(rowAccountId).trim() === String(accountId).trim()) {
+            return row;
+        }
+    }
+    return null;
+}
+
 function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -17052,10 +17076,23 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
         const addCell = targetRow.querySelector('td:nth-child(3)');
         const hadAddButton = addCell ? !!addCell.querySelector('.add-account-btn') : false;
         const accountText = accountCell ? accountCell.textContent.trim() : '';
-        const hasExistingData = accountText !== '' && !hadAddButton;
+        const rowAccountId = accountCell?.getAttribute('data-account-id');
+        const reactTableMode = !!window.__SUMMARY_REACT_TABLE__;
+        // React SPA: every row keeps the + button — use data-account-id, not button presence
+        const hasExistingData = reactTableMode
+            ? !!(rowAccountId && String(rowAccountId).trim() !== '')
+            : (accountText !== '' && !hadAddButton);
+
+        // Same account must not appear on two main rows (e.g. M99M06 + 1SLOT on row 2 and row 6)
+        if (templateAccountId) {
+            const existingMainRow = findSummaryMainRowWithAccount(normalizedTargetId, templateAccountId, targetRow);
+            if (existingMainRow && existingMainRow !== targetRow) {
+                console.log('applyMainTemplateToRow: account already on another main row, skip duplicate apply for account_id =', templateAccountId, 'idProduct =', idProduct);
+                return existingMainRow;
+            }
+        }
 
         // Only apply template if row doesn't have existing data, or if account matches
-        const rowAccountId = accountCell?.getAttribute('data-account-id');
         const shouldApply = !hasExistingData || (templateAccountId && rowAccountId && rowAccountId === templateAccountId);
 
         if (!shouldApply && hasExistingData) {
