@@ -174,7 +174,7 @@ export const ACCOUNT_I18N = {
     nameRequired: "姓名 *",
     roleRequired: "角色 *",
     selectRole: "选择角色",
-    supplier: "供应商",
+    supplier: "SUPPLIER",
     passwordRequired: "密码 *",
     payment: "支付",
     paymentAlert: "支付提醒",

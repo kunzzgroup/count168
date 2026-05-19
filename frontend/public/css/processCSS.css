@@ -910,7 +910,23 @@ body.process-page {
 }
 
 body.process-page .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
-    text-align: right;
+    text-align: left;
+    justify-self: start;
+}
+
+/* Bank Process List：GroupID / Company / Currency 标签与分段按钮左对齐，各行胶囊起始列一致 */
+body.process-page.process-page--bank .action-buttons-container .user-gc-inline-panel {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+}
+
+body.process-page.process-page--bank .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
+    width: auto;
+    min-width: 5.5rem;
+}
+
+body.lang-zh.process-page.process-page--bank .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
+    min-width: 4.25rem;
 }
 
 .process-page .action-buttons-container .user-gc-inline-pills--segment-scroll {
@@ -3168,7 +3184,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-confirm-title {
     text-align: center;
     color: #1e293b;
-    font-size: clamp(20px, 1.67vw, 32px);
+    font-size: var(--text-h1);
     font-weight: 700;
     margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
     font-family: var(--font-heading-page), -apple-system, sans-serif;
@@ -3177,7 +3193,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 .process-confirm-message {
     text-align: center;
-    font-size: clamp(13px, 0.94vw, 18px);
+    font-size: var(--text-h2);
     color: #475569;
     line-height: 1.7;
     margin: 0;
@@ -3223,7 +3239,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
-    font-size: clamp(0.625rem, 0.83vw, 1rem);
+    font-size: var(--text-base);
     border: none;
     border-radius: 0.375rem;
     box-shadow: 0 0.125rem 0.25rem rgba(88, 88, 88, 0.3);
@@ -3267,7 +3283,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
-    font-size: clamp(0.625rem, 0.83vw, 1rem);
+    font-size: var(--text-base);
     border: none;
     border-radius: 0.375rem;
     box-shadow: 0 0.125rem 0.25rem rgba(220, 53, 69, 0.3);

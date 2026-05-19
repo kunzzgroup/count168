@@ -5,8 +5,12 @@ export const BANK_PROCESS_I18N = {
     addProcess: "Add Process",
     addAccount: "Add Account",
     selectDateRange: "Select date range",
+    pickDate: "DD/MM/YYYY",
     selectEndDate: "Select end date",
+    clearDate: "Clear",
     clearDateRange: "Clear date range",
+    monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    weekdaysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     search: "Search",
     showAll: "Show All",
     showInactive: "Show Inactive",
@@ -55,6 +59,7 @@ export const BANK_PROCESS_I18N = {
     processDeletedMany: "{count} processes deleted successfully",
     accountAddedSuccessfully: "Account added successfully",
     pleaseSelectCompanyFirst: "Please select a company first",
+    pleaseSelectCountryFirst: "Please select Country first",
     failedCreateCurrency: "Failed to create currency",
     currencyCreated: "Currency {code} created",
     failedDeleteCurrency: "Failed to delete currency",
@@ -153,6 +158,7 @@ export const BANK_PROCESS_I18N = {
 
     selectAccount: "Select Account",
     searchAccount: "Search account...",
+    noAccountsFound: "No accounts found",
 
     resendToDueTitle: "Resend to Accounting Due",
     processLabel: "Process",
@@ -169,6 +175,44 @@ export const BANK_PROCESS_I18N = {
     loading: "Loading...",
     noDueToday: "No process due for accounting today.",
     transaction: "Transaction",
+
+    errCannotDeleteWithDayStart: "Cannot delete bank process with day start set",
+    errNoInactiveToDelete: "No inactive processes to delete",
+    errProcessHasTransactions: "Cannot delete: process has transactions",
+    errProcessLinkedToFormula: "Cannot delete: process is linked to a formula",
+    errNoProcessIds: "No process IDs provided",
+    errReadOnlyAccount: "Read-only account cannot perform this action",
+    errNotLoggedIn: "Please log in first",
+    errMissingCompany: "Company context is missing",
+    errNoPermission: "No permission to operate on this process",
+    errManagerRequiredForActive: "Only manager or above can change Bank Process from INACTIVE to ACTIVE",
+    errInvalidProcessId: "Invalid process ID",
+    errDeleteFailedGeneric: "Delete failed",
+    errInvalidDateFormat: "Invalid date format (YYYY-MM-DD required)",
+    errResendDuplicateToday: "This process has already been resent for this day start today. Duplicate resends are not allowed.",
+    errResendUnrecognizedDayStart: "Cannot recognize day start. Resend only supports reopening the month of day start.",
+    errResendProcessNotFound: "Bank process not found or no permission",
+    errResendOnlyActive: "Only Active processes can use Resend",
+    errResendBlockedStatus: "Processes with Official, E-Invoice, or Block status cannot use Resend",
+    errResendSuccessDone: "Done: this process can appear in Accounting Due again.",
+    errPostLoginRequired: "Please log in first",
+    errPostSelectProcess: "Please select at least one process",
+    errPostNoProcessesFound: "No process found to post (only active or Accounting Due items in current company)",
+    errPostNotYetDue: "Not yet due; no transaction created (except Resend).",
+    errPostCreatedCount: "Posted {count} transaction record(s).",
+    errMethodNotAllowed: "Method not allowed",
+    errInvalidRequest: "Invalid request",
+    errUserNotLoggedIn: "User not logged in or company not selected",
+    errStatusColumnMissing: "Status option column is missing. Please run the latest SQL update first.",
+    errProcessNotFound: "Process not found or no permission",
+    errDayStartCannotBeToday: "Day start cannot be the same as today",
+    errDayStartSameAsContract: "Resend day start cannot use the same calendar date as the current contract day start",
+    statusActive: "ACTIVE",
+    statusInactive: "INACTIVE",
+    statusOfficial: "OFFICIAL",
+    statusEInvoice: "E-INVOICE",
+    statusBlock: "BLOCK",
+    removeBankChipAria: "Remove {bank}",
   },
   zh: {
     bankProcessList: "银行流程列表",
@@ -176,8 +220,12 @@ export const BANK_PROCESS_I18N = {
     addProcess: "新增流程",
     addAccount: "新增账号",
     selectDateRange: "选择日期范围",
+    pickDate: "日/月/年",
     selectEndDate: "选择结束日期",
+    clearDate: "清除",
     clearDateRange: "清除日期范围",
+    monthsShort: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+    weekdaysShort: ["日", "一", "二", "三", "四", "五", "六"],
     search: "搜索",
     showAll: "显示全部",
     showInactive: "显示停用",
@@ -226,6 +274,7 @@ export const BANK_PROCESS_I18N = {
     processDeletedMany: "已成功删除 {count} 条流程",
     accountAddedSuccessfully: "账号新增成功",
     pleaseSelectCompanyFirst: "请先选择公司",
+    pleaseSelectCountryFirst: "请先选择国家",
     failedCreateCurrency: "创建货币失败",
     currencyCreated: "货币 {code} 已创建",
     failedDeleteCurrency: "删除货币失败",
@@ -324,6 +373,7 @@ export const BANK_PROCESS_I18N = {
 
     selectAccount: "选择账号",
     searchAccount: "搜索账号...",
+    noAccountsFound: "未找到账号",
 
     resendToDueTitle: "重发到待入账",
     processLabel: "流程",
@@ -340,11 +390,183 @@ export const BANK_PROCESS_I18N = {
     loading: "加载中...",
     noDueToday: "今天没有待入账流程。",
     transaction: "入账",
+
+    errCannotDeleteWithDayStart: "已设置起始日的银行流程无法删除",
+    errNoInactiveToDelete: "没有可删除的停用流程",
+    errProcessHasTransactions: "无法删除：该流程已有交易记录",
+    errProcessLinkedToFormula: "无法删除：该流程已关联公式",
+    errNoProcessIds: "未提供流程 ID",
+    errReadOnlyAccount: "只读账号无法执行此操作",
+    errNotLoggedIn: "请先登录",
+    errMissingCompany: "缺少公司信息",
+    errNoPermission: "无权限操作此流程",
+    errManagerRequiredForActive: "仅经理及以上可将银行流程从停用改为启用",
+    errInvalidProcessId: "无效的流程 ID",
+    errDeleteFailedGeneric: "删除失败",
+    errInvalidDateFormat: "日期格式无效（需 YYYY-MM-DD）",
+    errResendDuplicateToday: "该流程今日已对此起始日重发，不允许重复重发。",
+    errResendUnrecognizedDayStart: "无法识别起始日，重发仅支持按起始日当月补单月记录。",
+    errResendProcessNotFound: "未找到该银行流程或无权操作",
+    errResendOnlyActive: "仅状态为启用的流程可使用重发",
+    errResendBlockedStatus: "官方、电子发票、封锁状态的流程不可使用重发",
+    errResendSuccessDone: "完成：该流程可再次出现在待入账中。",
+    errPostLoginRequired: "请先登录",
+    errPostSelectProcess: "请至少选择一个流程",
+    errPostNoProcessesFound: "未找到可入账的流程（仅处理当前公司下启用或待入账中的流程）",
+    errPostNotYetDue: "未到应付日，暂不生成交易记录（重发除外）。",
+    errPostCreatedCount: "已入账，共生成 {count} 条交易记录。",
+    errMethodNotAllowed: "不允许的请求方法",
+    errInvalidRequest: "无效的请求",
+    errUserNotLoggedIn: "用户未登录或未选择公司",
+    errStatusColumnMissing: "缺少状态选项字段，请先执行最新 SQL 更新。",
+    errProcessNotFound: "未找到流程或无权限",
+    errDayStartCannotBeToday: "起始日不可与今天相同",
+    errDayStartSameAsContract: "重填的起始日不可与当前合同起始日为同一日历日",
+    statusActive: "ACTIVE",
+    statusInactive: "INACTIVE",
+    statusOfficial: "OFFICIAL",
+    statusEInvoice: "E-INVOICE",
+    statusBlock: "BLOCK",
+    removeBankChipAria: "移除 {bank}",
   },
 };
+
+const API_ERROR_CODE_KEYS = {
+  bank_has_day_start: "errCannotDeleteWithDayStart",
+  no_inactive_processes: "errNoInactiveToDelete",
+  process_has_transactions: "errProcessHasTransactions",
+  process_linked_to_formula: "errProcessLinkedToFormula",
+};
+
+function normApiMessage(s) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.!?]+$/g, "");
+}
+
+const API_MESSAGE_KEYS = {
+  [normApiMessage("Cannot delete bank process with day_start set")]: "errCannotDeleteWithDayStart",
+  [normApiMessage("Cannot delete bank process with day start set")]: "errCannotDeleteWithDayStart",
+  [normApiMessage("No inactive processes to delete")]: "errNoInactiveToDelete",
+  [normApiMessage("Process has transactions")]: "errProcessHasTransactions",
+  [normApiMessage("Process linked to formula")]: "errProcessLinkedToFormula",
+  [normApiMessage("No process IDs provided")]: "errNoProcessIds",
+  [normApiMessage("Read-only account cannot perform this action")]: "errReadOnlyAccount",
+  [normApiMessage("只读账号无法执行此操作")]: "errReadOnlyAccount",
+  [normApiMessage("User not logged in or company not selected")]: "errUserNotLoggedIn",
+  [normApiMessage("Please log in first")]: "errNotLoggedIn",
+  [normApiMessage("请先登录")]: "errNotLoggedIn",
+  [normApiMessage("Company not found in session")]: "errMissingCompany",
+  [normApiMessage("缺少公司信息")]: "errMissingCompany",
+  [normApiMessage("Missing company context")]: "errMissingCompany",
+  [normApiMessage("无权限操作此流程")]: "errNoPermission",
+  [normApiMessage("No permission to operate on this process")]: "errNoPermission",
+  [normApiMessage("Process not found or no permission")]: "errProcessNotFound",
+  [normApiMessage("Only manager or above can change Bank Process from INACTIVE to ACTIVE")]: "errManagerRequiredForActive",
+  [normApiMessage("Invalid process ID")]: "errInvalidProcessId",
+  [normApiMessage("无效的流程ID")]: "errInvalidProcessId",
+  [normApiMessage("无效的 Process ID")]: "errInvalidProcessId",
+  [normApiMessage("Delete failed")]: "errDeleteFailedGeneric",
+  [normApiMessage("Method not allowed")]: "errMethodNotAllowed",
+  [normApiMessage("Invalid request method")]: "errMethodNotAllowed",
+  [normApiMessage("只支持 POST 请求")]: "errMethodNotAllowed",
+  [normApiMessage("无效的请求数据")]: "errInvalidRequest",
+  [normApiMessage("日期格式无效（需 YYYY-MM-DD）")]: "errInvalidDateFormat",
+  [normApiMessage("Day end 不能早于 Day start")]: "dayEndEarlierThanStart",
+  [normApiMessage("Day end cannot be earlier than Day start")]: "dayEndEarlierThanStart",
+  [normApiMessage("无法识别 Day start，Resend 仅支持按 Day start 当月补单月记录。")]: "errResendUnrecognizedDayStart",
+  [normApiMessage("This process has already been resent for this Day start today. Duplicate resends are not allowed.")]: "errResendDuplicateToday",
+  [normApiMessage("未找到该 Bank Process 或无权操作")]: "errResendProcessNotFound",
+  [normApiMessage("仅状态为 Active 的 Process 可使用 Resend")]: "errResendOnlyActive",
+  [normApiMessage("Official、E-INVOICE、Block 状态的 Process 不可使用 Resend")]: "errResendBlockedStatus",
+  [normApiMessage("Done: This process can appear in Accounting Due again.")]: "errResendSuccessDone",
+  [normApiMessage("请至少选择一个 Process")]: "errPostSelectProcess",
+  [normApiMessage("未找到可入账的 Process（仅处理当前公司下 active 或 Accounting Due 中的 Process）")]: "errPostNoProcessesFound",
+  [normApiMessage("未到应付日，暂不生成交易记录（Resend 除外）。")]: "errPostNotYetDue",
+  [normApiMessage("Posted to transaction")]: "postedToTransaction",
+  [normApiMessage("Removed from Accounting Due")]: "removedFromDue",
+  [normApiMessage("1 process deleted")]: "processDeletedOne",
+  [normApiMessage("Resend successful")]: "resendSuccessful",
+  [normApiMessage("Resend failed")]: "resendFailed",
+  [normApiMessage("Status updated")]: "statusUpdated",
+  [normApiMessage("Status update failed")]: "statusUpdateFailed",
+  [normApiMessage("Failed to update status option")]: "statusUpdateFailed",
+};
+
+function messageLanguageHint(s) {
+  const text = String(s || "");
+  const hasCjk = /[\u4e00-\u9fff]/.test(text);
+  const hasLatin = /[a-zA-Z]/.test(text);
+  if (hasCjk && !hasLatin) return "zh";
+  if (hasLatin && !hasCjk) return "en";
+  return "mixed";
+}
+
+function translateDynamicApiMessage(lang, message) {
+  const raw = String(message || "").trim();
+  if (!raw) return null;
+
+  let m = raw.match(/^(\d+)\s+process(?:es)?\s+deleted$/i);
+  if (m) {
+    const count = Number(m[1]);
+    return getBankProcessText(lang, count === 1 ? "processDeletedOne" : "processDeletedMany", { count });
+  }
+
+  m = raw.match(/已入账，共生成\s*(\d+)\s*条交易记录/);
+  if (m) return getBankProcessText(lang, "errPostCreatedCount", { count: m[1] });
+
+  m = raw.match(/posted\s+(\d+)\s+transaction/i);
+  if (m) return getBankProcessText(lang, "errPostCreatedCount", { count: m[1] });
+
+  if (/day\s*start\s+cannot\s+be\s+today/i.test(raw) || raw.includes("不可与今天相同")) {
+    return getBankProcessText(lang, "errDayStartCannotBeToday");
+  }
+  if (/same\s+calendar\s+date\s+as\s+the\s+current\s+contract\s+day\s+start/i.test(raw) || raw.includes("Resend 所填 Day start")) {
+    return getBankProcessText(lang, "errDayStartSameAsContract");
+  }
+  if (/bank_process\.flag|issue_flag\s+column\s+is\s+missing/i.test(raw)) {
+    return getBankProcessText(lang, "errStatusColumnMissing");
+  }
+  if (/failed\s+to\s+update\s+status\s+option/i.test(raw)) {
+    return getBankProcessText(lang, "statusUpdateFailed");
+  }
+
+  return null;
+}
+
+/**
+ * Map backend API message / error code to bank-process i18n for toasts and inline errors.
+ */
+export function translateBankProcessApiMessage(lang, payload, fallback = "") {
+  const message = String(payload?.message ?? payload ?? "").trim();
+  const errorCode = payload?.errorCode ?? payload?.error_code;
+  const locale = lang === "zh" ? "zh" : "en";
+
+  if (errorCode && API_ERROR_CODE_KEYS[errorCode]) {
+    return getBankProcessText(locale, API_ERROR_CODE_KEYS[errorCode]);
+  }
+
+  const dynamic = translateDynamicApiMessage(locale, message);
+  if (dynamic) return dynamic;
+
+  const key = API_MESSAGE_KEYS[normApiMessage(message)];
+  if (key) return getBankProcessText(locale, key);
+
+  const hint = messageLanguageHint(message);
+  if (message && hint !== "mixed" && hint !== locale && fallback) return fallback;
+
+  return message || fallback;
+}
+
+export function getBankProcessLocale(lang) {
+  return BANK_PROCESS_I18N[lang === "zh" ? "zh" : "en"] ?? BANK_PROCESS_I18N.en;
+}
 
 export function getBankProcessText(lang, key, params = {}) {
   const locale = lang === "zh" ? "zh" : "en";
   const template = BANK_PROCESS_I18N[locale][key] ?? BANK_PROCESS_I18N.en[key] ?? key;
+  if (typeof template !== "string") return template;
   return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
 }

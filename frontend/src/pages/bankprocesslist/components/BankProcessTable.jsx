@@ -1,6 +1,14 @@
 import React, { useLayoutEffect, useRef } from "react";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
-import { BANK_GRID_TEMPLATE_COLUMNS, BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT, canShowBankResend, normalizeBankProcessStatus, notifyTransactionDataChanged } from "../bankProcessHelpers.js";
+import {
+  BANK_GRID_TEMPLATE_COLUMNS,
+  BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT,
+  canShowBankResend,
+  normalizeBankProcessStatus,
+  notifyTransactionDataChanged,
+  formatBankProcessContractLabel,
+  bankProcessContractBadgeKey,
+} from "../bankProcessHelpers.js";
 import BankProcessStatusControl from "./BankProcessStatusControl.jsx";
 
 function getContractStateClass(dayStart, dayEnd) {
@@ -17,22 +25,23 @@ function getContractStateClass(dayStart, dayEnd) {
   return 'contract-expired';
 }
 
-function renderBankContract(value, dayStart, dayEnd) {
+function renderBankContract(value, dayStart, dayEnd, lang) {
   const text = String(value || "").trim();
   if (!text) return "-";
-  
-  const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' };
-  const contractRaw = contractMap[text] || text;
-  
+
+  const contractBadgeKey = bankProcessContractBadgeKey(text);
+  const displayLabel = formatBankProcessContractLabel(lang, text);
+
   const baseContractClass = getContractStateClass(dayStart || null, dayEnd || null);
-  const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
-  const contractClass = (grayContracts.indexOf(contractRaw) !== -1 && baseContractClass === 'contract-active')
-      ? 'contract-1month-active'
+  const grayContracts = ["1 MONTH", "1+1 MONTH", "1+2 MONTHS", "1+3 MONTHS"];
+  const contractClass =
+    grayContracts.indexOf(contractBadgeKey) !== -1 && baseContractClass === "contract-active"
+      ? "contract-1month-active"
       : baseContractClass;
 
   return (
     <span className={`contract-badge ${contractClass} bank-contract-pill`}>
-      {contractRaw}
+      {displayLabel}
     </span>
   );
 }
@@ -54,6 +63,7 @@ export default function BankProcessTable({
   supplierSortDir,
   setSupplierSortDir,
   showHeaderSelectAll,
+  lang,
   t,
 }) {
   const deletableRows = pageRows.filter(
@@ -205,7 +215,7 @@ export default function BankProcessTable({
             <div className="card-item">{r.bank || "-"}</div>
             <div className="card-item">{r.type || "-"}</div>
             <div className="card-item">{r.supplier || "-"}</div>
-            <div className="card-item bank-contract-cell">{renderBankContract(r.contract, r.day_start || r.date, r.day_end)}</div>
+            <div className="card-item bank-contract-cell">{renderBankContract(r.contract, r.day_start || r.date, r.day_end, lang)}</div>
             <div className="card-item">{r.insurance || "-"}</div>
             <div className="card-item">{r.customer || "-"}</div>
             <div className="card-item">{r.cost || "-"}</div>
@@ -214,6 +224,7 @@ export default function BankProcessTable({
             <div className="card-item bank-status-cell">
               <BankProcessStatusControl
                 row={r}
+                lang={lang}
                 notify={notify}
                 buildApiUrl={buildApiUrl}
                 t={t}

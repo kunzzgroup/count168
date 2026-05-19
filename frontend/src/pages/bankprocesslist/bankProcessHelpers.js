@@ -1,5 +1,18 @@
 export const PAGE_SIZE = 20;
 
+/** Matches legacy bank_process_list.js formatBankAccountDisplay */
+export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
+  const code = String(codeRaw || "").trim();
+  const name = String(nameRaw || "").trim();
+  const fallback = String(fallbackRaw || "").trim();
+  if (code) {
+    const safeName = name || code;
+    return `${code} [${safeName}]`;
+  }
+  if (name) return name;
+  return fallback;
+}
+
 /** 与旧版 bank_process_list.js BANK_GRID_TEMPLATE_COLUMNS 一致，保证列宽对齐 */
 export const BANK_GRID_TEMPLATE_COLUMNS =
   "0.2fr 0.64fr 0.48fr 0.62fr 0.44fr 0.78fr 0.56fr 0.44fr 0.48fr 0.28fr 0.28fr 0.28fr 0.42fr 0.4fr 0.34fr";
@@ -248,6 +261,81 @@ export function bankProcessFrequencyNormalized(v) {
   if (v === "monthly") return "monthly";
   if (v === "once") return "once";
   return "1st_of_every_month";
+}
+
+/** Contract dropdown values (stored/sent to API unchanged). */
+export const BANK_PROCESS_CONTRACT_OPTIONS = [
+  { value: "1 MONTH" },
+  { value: "2 MONTHS" },
+  { value: "3 MONTHS" },
+  { value: "6 MONTHS" },
+  { value: "1+1" },
+  { value: "1+2" },
+  { value: "1+3" },
+];
+
+const BANK_PROCESS_CONTRACT_CANONICAL = {
+  "1": "1 MONTH",
+  "1 month": "1 MONTH",
+  "2": "2 MONTHS",
+  "2 months": "2 MONTHS",
+  "3": "3 MONTHS",
+  "3 months": "3 MONTHS",
+  "6": "6 MONTHS",
+  "6 months": "6 MONTHS",
+  "1+1": "1+1",
+  "1+1 month": "1+1",
+  "1+2": "1+2",
+  "1+2 months": "1+2",
+  "1+3": "1+3",
+  "1+3 months": "1+3",
+};
+
+const BANK_PROCESS_CONTRACT_LABEL_EN = {
+  "1 MONTH": "1 MONTH",
+  "2 MONTHS": "2 MONTHS",
+  "3 MONTHS": "3 MONTHS",
+  "6 MONTHS": "6 MONTHS",
+  "1+1": "1+1 MONTH",
+  "1+2": "1+2 MONTHS",
+  "1+3": "1+3 MONTHS",
+};
+
+const BANK_PROCESS_CONTRACT_LABEL_ZH = {
+  "1 MONTH": "1个月",
+  "2 MONTHS": "2个月",
+  "3 MONTHS": "3个月",
+  "6 MONTHS": "6个月",
+  "1+1": "1+1个月",
+  "1+2": "1+2个月",
+  "1+3": "1+3个月",
+};
+
+export function normalizeBankProcessContractKey(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const mapped = BANK_PROCESS_CONTRACT_CANONICAL[text.toLowerCase()];
+  if (mapped) return mapped;
+  const plusMonth = text.match(/^1\+(\d+)\s+MONTHS?$/i);
+  if (plusMonth) return `1+${plusMonth[1]}`;
+  if (/^1\+\d+$/i.test(text)) return text.toUpperCase();
+  return text;
+}
+
+/** UI label for contract pill / select (zh: MONTH → 个月). */
+export function formatBankProcessContractLabel(lang, raw) {
+  const key = normalizeBankProcessContractKey(raw);
+  if (!key) return "";
+  if (lang === "zh") {
+    return BANK_PROCESS_CONTRACT_LABEL_ZH[key] || String(raw).trim().replace(/\s*MONTHS?\b/gi, "个月");
+  }
+  return BANK_PROCESS_CONTRACT_LABEL_EN[key] || key;
+}
+
+/** English display key for contract badge CSS (gray 1-month variants). */
+export function bankProcessContractBadgeKey(raw) {
+  const key = normalizeBankProcessContractKey(raw);
+  return BANK_PROCESS_CONTRACT_LABEL_EN[key] || key;
 }
 
 export const parseBankContractTermMonths = (contract) => {
