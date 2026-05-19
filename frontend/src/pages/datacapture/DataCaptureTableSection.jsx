@@ -32,18 +32,29 @@ const LegacyDataCaptureGrid = memo(function LegacyDataCaptureGrid() {
  * Bottom section: capture type, reset, legacy grid, submit.
  * API / behavior unchanged — still driven by `datacapture.js` after `initDataCapturePage`.
  */
+import { CAPTURE_TYPE_OPTIONS } from "./dataCaptureTypeConstants.js";
+
 export default function DataCaptureTableSection({
   captureType,
+  citibetMode = false,
+  formatGridReady = false,
   onCaptureTypeChange,
   submitDisabled = true,
   onSubmit,
   onReset,
 }) {
+  const showFormatPasteHint = captureType === "2.Format" && !formatGridReady;
+
   return (
     <div className="bottom-section">
-      <div className="excel-table-container">
+      <div className={`excel-table-container${citibetMode ? " citibet-mode" : ""}`}>
         <div className="excel-table-header">
           <span>Data Capture Table</span>
+          {showFormatPasteHint ? (
+            <span className="dc-format-paste-hint" style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>
+              Paste a formatted table below
+            </span>
+          ) : null}
           <select
             id="dataCaptureTypeSelector"
             className="data-capture-type-selector"
@@ -51,10 +62,17 @@ export default function DataCaptureTableSection({
             onChange={onCaptureTypeChange}
             aria-label="Data capture format"
           >
-            <option value="1.Text">1.TEXT</option>
-            <option value="2.Format">2.FORMAT</option>
-            <option value="CITIBET">3.CITIBET</option>
-            <option value="4.RETURN">4.RETURN</option>
+            {CAPTURE_TYPE_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt === "1.Text"
+                  ? "1.TEXT"
+                  : opt === "2.Format"
+                    ? "2.FORMAT"
+                    : opt === "CITIBET"
+                      ? "3.CITIBET"
+                      : "4.RETURN"}
+              </option>
+            ))}
           </select>
           <button type="button" className="btn btn-cancel" onClick={() => (onReset ? onReset() : window.resetForm?.())}>
             Reset

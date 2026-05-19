@@ -1,46 +1,11 @@
 import { useCallback, useLayoutEffect, useState } from "react";
 
-const CAPTURE_OPTIONS = ["1.Text", "2.Format", "CITIBET", "4.RETURN"];
-
-function normalizeCaptureType(raw) {
-  let s = String(raw || "").trim();
-  if (!s) return "";
-  if (s === "1.GENERAL") s = "1.Text";
-  if (s === "655") s = "2.Format";
-  if (s === "CITIBET_MAJOR") s = "CITIBET";
-  return CAPTURE_OPTIONS.includes(s) ? s : "";
-}
-
-function readInitialCaptureType() {
-  const url = new URLSearchParams(window.location.search);
-  if (url.get("restore") === "1") {
-    try {
-      const pd = JSON.parse(localStorage.getItem("capturedProcessData") || "null");
-      const fromStore =
-        pd?.dataCaptureType || pd?.captureType || localStorage.getItem("capturedDataCaptureType") || "";
-      const normalized = normalizeCaptureType(fromStore);
-      if (normalized) return normalized;
-    } catch {
-      /* ignore */
-    }
-  }
-  const v = String(url.get("captureType") || url.get("dataCaptureType") || "").trim();
-  return normalizeCaptureType(v) || "1.Text";
-}
-
-/**
- * Syncs visible Capture type & delete dialog with legacy `js/datacapture.js`.
- */
+/** Delete row/column dialog — still driven by legacy context menu actions. */
 export function useDataCaptureLegacyChrome() {
-  const [captureType, setCaptureType] = useState(readInitialCaptureType);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteOption, setDeleteOption] = useState("shiftLeft");
 
   useLayoutEffect(() => {
-    window.__DC_ON_CAPTURE_TYPE_APPLIED__ = (t) => {
-      const s = String(t || "1.Text").trim() || "1.Text";
-      setCaptureType(CAPTURE_OPTIONS.includes(s) ? s : "1.Text");
-    };
     window.__DC_OPEN_DELETE_DIALOG__ = () => {
       setDeleteOption("shiftLeft");
       setDeleteOpen(true);
@@ -48,27 +13,18 @@ export function useDataCaptureLegacyChrome() {
     window.__DC_CLOSE_DELETE_DIALOG__ = () => setDeleteOpen(false);
     return () => {
       try {
-        delete window.__DC_ON_CAPTURE_TYPE_APPLIED__;
         delete window.__DC_OPEN_DELETE_DIALOG__;
         delete window.__DC_CLOSE_DELETE_DIALOG__;
       } catch {
-        window.__DC_ON_CAPTURE_TYPE_APPLIED__ = undefined;
         window.__DC_OPEN_DELETE_DIALOG__ = undefined;
         window.__DC_CLOSE_DELETE_DIALOG__ = undefined;
       }
     };
   }, []);
 
-  const handleCaptureTypeChange = useCallback((e) => {
-    const v = e.target.value;
-    setCaptureType(v);
-    if (typeof window.applyDataCaptureType === "function") {
-      window.applyDataCaptureType(v);
-    }
-  }, []);
-
   const handleConfirmDelete = useCallback(() => {
-    window.__DC_DELETE_DIALOG_OPTION__ = deleteOption;    try {
+    window.__DC_DELETE_DIALOG_OPTION__ = deleteOption;
+    try {
       if (typeof window.confirmDelete === "function") {
         window.confirmDelete();
       }
@@ -84,8 +40,6 @@ export function useDataCaptureLegacyChrome() {
   const closeDeleteDialog = useCallback(() => setDeleteOpen(false), []);
 
   return {
-    captureType,
-    handleCaptureTypeChange,
     deleteOpen,
     deleteOption,
     setDeleteOption,

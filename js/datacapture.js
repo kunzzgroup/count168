@@ -106,6 +106,10 @@ function isCitibetCaptureType(t) {
  * @param {string} nextType
  */
 function applyDataCaptureType(nextType) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_APPLY_CAPTURE_TYPE__ === 'function') {
+        window.__DC_APPLY_CAPTURE_TYPE__(nextType);
+        return;
+    }
     const previousType = currentDataCaptureType;
     const t = normalizeCaptureTypeValue(nextType);
     currentDataCaptureType = t;
@@ -1133,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa9';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa10';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -22565,6 +22569,10 @@ function toggleTableDisplayForFormat() {
             tablePreviewFormat.style.display = 'none';
         }
     }
+
+    if (typeof window.__DC_ON_FORMAT_GRID_READY__ === 'function') {
+        window.__DC_ON_FORMAT_GRID_READY__(isFormatGridReady);
+    }
 }
 
 function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
@@ -25267,6 +25275,22 @@ window.submitDataCaptureForm = submitDataCaptureForm;
 window.__DC_CLEAR_CAPTURE_TABLE__ = clearCaptureTableForReset;
 window.__DC_RESTORE_CAPTURE_TABLE__ = restoreCaptureTableFromData;
 window.__DC_CONVERT_TABLE_ON_SUBMIT__ = convertTableFormatOnSubmit;
+window.__DC_LEGACY_SYNC_CAPTURE_TYPE__ = function (t) {
+    currentDataCaptureType = normalizeCaptureTypeValue(t);
+};
+window.__DC_TOGGLE_FORMAT_DISPLAY__ = toggleTableDisplayForFormat;
+window.__DC_RENDER_FORMAT_PREVIEW__ = renderFormatPreview;
+window.__DC_INIT_FORMAT_PASTE__ = initFormatPasteArea;
+window.__DC_CLEAR_FORMAT_STYLES__ = clearFormatStyles;
+window.__DC_SET_FORMAT_GRID_READY__ = function (v) {
+    isFormatGridReady = !!v;
+    if (typeof window.__DC_ON_FORMAT_GRID_READY__ === 'function') {
+        window.__DC_ON_FORMAT_GRID_READY__(isFormatGridReady);
+    }
+};
+window.__DC_GET_FORMAT_GRID_READY__ = function () {
+    return isFormatGridReady;
+};
 
 window.initDataCapturePage = initDataCapturePage;
 (function __dcScheduleClassicAutoInit() {

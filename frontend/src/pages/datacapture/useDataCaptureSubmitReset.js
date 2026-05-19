@@ -135,7 +135,9 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
       window.__DC_CLEAR_CAPTURE_TABLE__();
     }
 
-    if (typeof window.applyDataCaptureType === "function") {
+    if (typeof window.__DC_APPLY_CAPTURE_TYPE__ === "function") {
+      window.__DC_APPLY_CAPTURE_TYPE__("1.Text");
+    } else if (typeof window.applyDataCaptureType === "function") {
       window.applyDataCaptureType("1.Text");
     }
 

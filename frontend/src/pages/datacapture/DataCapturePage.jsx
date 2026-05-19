@@ -26,6 +26,7 @@ import DescriptionSelectionModal from "./DescriptionSelectionModal.jsx";
 import ProcessNotificationContainer from "./ProcessNotificationContainer.jsx";
 import { useDataCaptureCategoryPermissions } from "./useDataCaptureCategoryPermissions.js";
 import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
+import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
 import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./useDataCaptureSubmitReset.js";
 import { useDataCaptureSubmittedList } from "./useDataCaptureSubmittedList.js";
@@ -152,7 +153,12 @@ export default function DataCapturePage() {
 
   const {
     captureType,
+    citibetMode,
+    formatGridReady,
     handleCaptureTypeChange,
+  } = useDataCaptureCaptureType();
+
+  const {
     deleteOpen,
     deleteOption,
     setDeleteOption,
@@ -350,12 +356,15 @@ export default function DataCapturePage() {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
         await loadScriptOnce(
-          buildApiUrl("js/datacapture.js?v=20260519-spa9"),
+          buildApiUrl("js/datacapture.js?v=20260519-spa10"),
           () => typeof window.initDataCapturePage === "function"
         );
         if (!alive) return;
         if (typeof window.initDataCapturePage === "function") {
           await window.initDataCapturePage();
+        }
+        if (typeof window.__DC_INIT_FORMAT_PASTE__ === "function") {
+          window.__DC_INIT_FORMAT_PASTE__();
         }
         if (typeof window.__DC_RECOMPUTE_SUBMIT_STATE__ === "function") {
           window.__DC_RECOMPUTE_SUBMIT_STATE__();
@@ -748,6 +757,8 @@ export default function DataCapturePage() {
 
       <DataCaptureTableSection
         captureType={captureType}
+        citibetMode={citibetMode}
+        formatGridReady={formatGridReady}
         onCaptureTypeChange={handleCaptureTypeChange}
         submitDisabled={submitReset.submitDisabled}
         onSubmit={() => void submitReset.submit()}

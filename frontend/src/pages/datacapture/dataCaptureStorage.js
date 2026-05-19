@@ -1,22 +1,17 @@
+import { normalizeCaptureType as normalizeStoredCaptureType } from "./dataCaptureTypeConstants.js";
+
 export const CAPTURE_TABLE_STORAGE_KEY = "capturedTableData";
 export const CAPTURE_PROCESS_STORAGE_KEY = "capturedProcessData";
 export const CAPTURE_TYPE_STORAGE_KEY = "capturedDataCaptureType";
 
-export function normalizeStoredCaptureType(raw) {
-  let s = String(raw || "").trim();
-  if (!s) return "1.Text";
-  if (s === "1.GENERAL") s = "1.Text";
-  if (s === "655") s = "2.Format";
-  if (s === "CITIBET_MAJOR") s = "CITIBET";
-  return s;
-}
+export { normalizeStoredCaptureType };
 
 export function isCitibetCaptureType(captureType) {
   return normalizeStoredCaptureType(captureType) === "CITIBET";
 }
 
 export function saveCaptureSession(tableData, processData, captureType) {
-  const type = normalizeStoredCaptureType(captureType || processData?.dataCaptureType);
+  const type = normalizeStoredCaptureType(captureType || processData?.dataCaptureType) || "1.Text";
   localStorage.setItem(CAPTURE_TABLE_STORAGE_KEY, JSON.stringify(tableData));
   localStorage.setItem(CAPTURE_PROCESS_STORAGE_KEY, JSON.stringify({ ...processData, dataCaptureType: type }));
   localStorage.setItem(CAPTURE_TYPE_STORAGE_KEY, type);
@@ -37,7 +32,7 @@ export function loadCaptureSession() {
     return {
       tableData,
       processData,
-      captureType: normalizeStoredCaptureType(savedTypeRaw),
+      captureType: normalizeStoredCaptureType(savedTypeRaw) || "1.Text",
     };
   } catch {
     return null;
