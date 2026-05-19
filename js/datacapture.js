@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa17';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa18';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -22673,8 +22673,7 @@ function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
 
 // 为2.Format模式的粘贴区域添加paste事件监听（支持直接粘贴整张表格）
 function initFormatPasteArea() {
-    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_INIT_FORMAT_PASTE__ === 'function') {
-        window.__DC_INIT_FORMAT_PASTE__();
+    if (window.__DATA_CAPTURE_REACT_FORM__) {
         return;
     }
     const pasteAreaFormat = document.getElementById('pasteAreaFormat');
@@ -25352,7 +25351,6 @@ window.__DC_LEGACY_SYNC_CAPTURE_TYPE__ = function (t) {
 };
 window.__DC_TOGGLE_FORMAT_DISPLAY__ = toggleTableDisplayForFormat;
 window.__DC_RENDER_FORMAT_PREVIEW__ = renderFormatPreview;
-window.__DC_INIT_FORMAT_PASTE__ = initFormatPasteArea;
 window.__DC_CLEAR_FORMAT_STYLES__ = clearFormatStyles;
 window.__DC_SET_FORMAT_GRID_READY__ = function (v) {
     isFormatGridReady = !!v;
