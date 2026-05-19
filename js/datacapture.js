@@ -85,8 +85,21 @@ let currentRowIndex = null;
 let pasteHistory = [];
 let maxHistorySize = 50;
 
-// Current data capture type (1.Text / 2.Format / CITIBET / CITIBET_MAJOR)
+// Current data capture type (1.Text / 2.Format / CITIBET / 4.RETURN)
 let currentDataCaptureType = '1.Text';
+
+function normalizeCaptureTypeValue(t) {
+    const s = String(t || '1.Text').trim() || '1.Text';
+    if (s === '1.GENERAL') return '1.Text';
+    if (s === '655') return '2.Format';
+    if (s === 'CITIBET_MAJOR') return 'CITIBET';
+    return s;
+}
+
+function isCitibetCaptureType(t) {
+    const n = normalizeCaptureTypeValue(t);
+    return n === 'CITIBET';
+}
 
 /**
  * 隱藏式模式切換：同步 currentDataCaptureType、DOM 選單值與 CITIBET 表格樣式（取代可見下拉）。
@@ -94,7 +107,7 @@ let currentDataCaptureType = '1.Text';
  */
 function applyDataCaptureType(nextType) {
     const previousType = currentDataCaptureType;
-    const t = String(nextType || '1.Text').trim() || '1.Text';
+    const t = normalizeCaptureTypeValue(nextType);
     currentDataCaptureType = t;
     const typeSelect = document.getElementById('dataCaptureTypeSelector');
     if (typeSelect) {
@@ -103,7 +116,7 @@ function applyDataCaptureType(nextType) {
     }
     const excelTableContainer = document.querySelector('.excel-table-container');
     if (excelTableContainer) {
-        if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
+        if (isCitibetCaptureType(currentDataCaptureType)) excelTableContainer.classList.add('citibet-mode');
         else excelTableContainer.classList.remove('citibet-mode');
     }
     if (currentDataCaptureType === '2.Format') {
@@ -154,11 +167,11 @@ function pastedPlainTextLooksCitibetReport(pastedData) {
 /**
  * 依純文字剪貼簿判斷是否為 Citibet 報表（偏嚴格，避免一般 Excel Submit 後 summary 錯位）。
  * @param {string} pastedData
- * @returns {string|null} CITIBET_MAJOR、CITIBET 或 null
+ * @returns {string|null} CITIBET 或 null
  */
 function autoDetectDataCaptureTypeFromPastePlainText(pastedData) {
     if (!pastedData || typeof pastedData !== 'string') return null;
-    if (parseCitibetMajorPaymentReport(pastedData)) return 'CITIBET_MAJOR';
+    if (parseCitibetMajorPaymentReport(pastedData)) return 'CITIBET';
     // 舊版 Citibet：須像報表（Tab + Upline/Downline），避免僅「overall + my earnings」誤判
     if (pastedPlainTextLooksCitibetReport(pastedData) && parseCitibetPaymentReport(pastedData)) {
         return 'CITIBET';
@@ -1120,7 +1133,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa6';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa7';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -10266,7 +10279,7 @@ function handleCellPaste(e) {
     const detectedCaptureType = autoDetectDataCaptureTypeFromPastePlainText(pastedData);
     if (detectedCaptureType) {
         applyDataCaptureType(detectedCaptureType);
-    } else if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
+    } else if (isCitibetCaptureType(currentDataCaptureType)) {
         const stillCitibetShape =
             parseCitibetMajorPaymentReport(pastedData) ||
             parseCitibetPaymentReport(pastedData) ||
@@ -16663,8 +16676,11 @@ function handleCellPaste(e) {
     // 优先用结构化解析（得到第二张图那样的 OVERALL / Upline Major / My Earnings / 多行 Downline Major）；
     // parseCitibetFormatBasedPaste 極鬆，僅在內容具 Citibet 報表特徵時才後備，避免一般 Tab Excel 被整表重排導致 Submit 錯亂。
     let citibetParsed = null;
-    if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
-        citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+    let citibetUsedMajorParser = false;
+    if (typeof currentDataCaptureType !== 'undefined' && isCitibetCaptureType(currentDataCaptureType)) {
+        const majorParsed = parseCitibetMajorPaymentReport(pastedData);
+        citibetUsedMajorParser = !!majorParsed;
+        citibetParsed = majorParsed || parseCitibetPaymentReport(pastedData);
         if (!citibetParsed && pastedPlainTextLooksCitibetReport(pastedData)) {
             citibetParsed = parseCitibetFormatBasedPaste(pastedData);
         }
@@ -16734,14 +16750,13 @@ function handleCellPaste(e) {
         if (successCount > 0) {
             setTimeout(() => {
                 // 根据当前类型决定是否进行后续格式转换
-                if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR') {
-                    // CITIBET MAJOR：已经在解析阶段生成最终 6 行 / 12 列结构，这里不再做结构重排
+                if (citibetUsedMajorParser) {
+                    // Major 報表已在解析階段生成最終結構，不再做列重排
                     updateSubmitButtonState();
                 } else {
-                    // 其他类型沿用原有逻辑
+                    // 其他 Citibet 報表沿用原有邏輯
                     convertTableFormatOnSubmit();
-                    // 只有在 CITIBET 模式下，才需要把 MY EARNINGS / TOTAL 金额强制移到第 11 列
-                    if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET') {
+                    if (isCitibetCaptureType(currentDataCaptureType)) {
                         fixCitibetAmountColumns();
                     }
                 }
@@ -22940,7 +22955,7 @@ function validateForm() {
 
     // Check if table has data
     // 目前的表格判定格式仅在选择 CITIBET / CITIBET MAJOR 时强制生效
-    if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
+    if (isCitibetCaptureType(currentDataCaptureType)) {
         const tableData = captureTableData();
         const hasTableData = tableData.rows.some(row => {
             return row.some(cell => {
@@ -22969,7 +22984,7 @@ function updateSubmitButtonState() {
     // Check if table has data - more thorough check
     // 目前的表格判定格式仅在选择 CITIBET / CITIBET MAJOR 时强制生效
     let hasTableData = false;
-    if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
+    if (isCitibetCaptureType(currentDataCaptureType)) {
         const tableData = captureTableData();
         if (tableData.rows && tableData.rows.length > 0) {
             hasTableData = tableData.rows.some(row => {
@@ -24510,6 +24525,7 @@ async function restoreFromLocalStorage() {
         let savedType = String(savedTypeRaw || '').trim();
         if (savedType === '1.GENERAL') savedType = '1.Text';
         if (savedType === '655') savedType = '2.Format';
+        if (savedType === 'CITIBET_MAJOR') savedType = 'CITIBET';
 
         // Restore date first so process reload uses the correct day
         const dateInput = document.getElementById('capture_date');

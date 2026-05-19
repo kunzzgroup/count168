@@ -245,8 +245,7 @@ if ($current_user_id && count($user_companies_all) > 0) {
                         <select id="dataCaptureTypeSelector" class="data-capture-type-selector data-capture-type-selector--sr-only" aria-hidden="true" tabindex="-1">
                             <option value="1.Text">1.TEXT</option>
                             <option value="2.Format">2.FORMAT</option>
-                            <option value="CITIBET">CITIBET</option>
-                            <option value="CITIBET_MAJOR">3.CITIBET</option>
+                            <option value="CITIBET">3.CITIBET</option>
                             <option value="4.RETURN">4.RETURN</option>
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>

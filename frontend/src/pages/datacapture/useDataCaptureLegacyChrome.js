@@ -1,12 +1,13 @@
 import { useCallback, useLayoutEffect, useState } from "react";
 
-const CAPTURE_OPTIONS = ["1.Text", "2.Format", "CITIBET", "CITIBET_MAJOR", "4.RETURN"];
+const CAPTURE_OPTIONS = ["1.Text", "2.Format", "CITIBET", "4.RETURN"];
 
 function normalizeCaptureType(raw) {
   let s = String(raw || "").trim();
   if (!s) return "";
   if (s === "1.GENERAL") s = "1.Text";
   if (s === "655") s = "2.Format";
+  if (s === "CITIBET_MAJOR") s = "CITIBET";
   return CAPTURE_OPTIONS.includes(s) ? s : "";
 }
 
