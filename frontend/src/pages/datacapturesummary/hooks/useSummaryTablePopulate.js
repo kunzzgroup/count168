@@ -76,9 +76,6 @@ export function useSummaryTablePopulate({
 
   const runPopulate = useCallback(async (options = {}) => {
     const shouldReset = options?.reset === true;
-    if (shouldReset) {
-      window.__SUMMARY_SOFT_REFRESH__ = true;
-    }
     onPopulatingChange?.(true);
     try {
       if (shouldReset) {
@@ -96,11 +93,6 @@ export function useSummaryTablePopulate({
       console.error("Summary template populate failed:", error);
       return false;
     } finally {
-      try {
-        delete window.__SUMMARY_SOFT_REFRESH__;
-      } catch {
-        window.__SUMMARY_SOFT_REFRESH__ = undefined;
-      }
       finishPopulate();
     }
   }, [tableData, syncFromDom, resetToInitialRows, onPopulatingChange, finishPopulate]);
