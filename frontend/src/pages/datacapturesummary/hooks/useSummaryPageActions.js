@@ -70,8 +70,19 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
     navigateBack();
   }, [navigateBack]);
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     saveSummaryRefreshState();
+    if (
+      window.__SUMMARY_REACT_TABLE__ &&
+      typeof window.__SUMMARY_REACT_ON_TABLE_READY__ === "function"
+    ) {
+      try {
+        await window.__SUMMARY_REACT_ON_TABLE_READY__();
+        return;
+      } catch (error) {
+        console.warn("Soft summary refresh failed, falling back to reload:", error);
+      }
+    }
     window.location.reload();
   }, []);
 

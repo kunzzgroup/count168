@@ -190,7 +190,9 @@ export default function DataCaptureSummaryPage() {
       showSummarySuccessNotificationIfNeededFromReact();
     };
 
-    const id = requestAnimationFrame(runInit);
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(runInit);
+    });
     return () => {
       cancelled = true;
       cancelAnimationFrame(id);
@@ -289,17 +291,22 @@ export default function DataCaptureSummaryPage() {
   const alertDayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
   const pageBootLoading = sessionBootLoading || (sessionReady && !scriptsReady && !engineError);
 
-  if (pageBootLoading) {
-    return (
-      <div className="container">
-        <p style={{ padding: "24px", margin: 0 }}>Loading…</p>
-      </div>
-    );
-  }
+  const showPageBootOverlay = pageBootLoading;
 
   return (
     <div className="container">
       <h1>Data Capture Summary</h1>
+
+      {showPageBootOverlay ? (
+        <div
+          className="loading-container"
+          style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 24px" }}
+          aria-busy="true"
+        >
+          <div className="loading-spinner" />
+          <p style={{ margin: "12px 0 0" }}>Loading…</p>
+        </div>
+      ) : null}
 
       {engineError ? (
         <div style={{ marginBottom: 12, color: "#b91c1c" }} role="alert">
@@ -307,7 +314,11 @@ export default function DataCaptureSummaryPage() {
         </div>
       ) : null}
 
-      <div id="loadingState" className="loading-container">
+      <div
+        id="loadingState"
+        className="loading-container"
+        style={{ display: showPageBootOverlay ? "none" : undefined }}
+      >
         <div className="loading-spinner" />
         <p>Loading data...</p>
       </div>

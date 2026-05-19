@@ -20855,6 +20855,8 @@ async function fetchSummaryAccountList() {
         return [];
     }
 }
+window.fetchSummaryAccountList = fetchSummaryAccountList;
+window.getCurrentProcessId = getCurrentProcessId;
 
 // Helper function to get currency ID by currency code
 function getCurrencyIdByCode(currencyCode) {

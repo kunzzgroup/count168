@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DATA_CAPTURE_HOME_PATH,
@@ -57,7 +57,7 @@ export function useSummaryBoot() {
     };
   }, [me, companyId, navigate]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
     return () => {
       window.DATACAPTURESUMMARY_COMPANY_ID = null;

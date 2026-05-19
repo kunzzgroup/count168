@@ -1,11 +1,67 @@
 import { pushSummaryNotification } from "./summaryNotify.js";
 import { stripSummarySuccessParamFromUrl } from "./summaryStorage.js";
 
+const PREPOPULATE_READY_TIMEOUT_MS = 4000;
+const PREPOPULATE_POLL_MS = 40;
+
+function resolveSummaryProcessId() {
+  if (typeof window.getCurrentProcessId === "function") {
+    const id = window.getCurrentProcessId();
+    if (id != null) return id;
+  }
+  if (typeof window.currentProcessId === "number" && Number.isFinite(window.currentProcessId)) {
+    return window.currentProcessId;
+  }
+  return null;
+}
+
+/** Wait until React rows, captured reference table, process id, and company id are ready. */
+async function waitForSummaryPrePopulateReady() {
+  const deadline = Date.now() + PREPOPULATE_READY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const summaryBody = document.getElementById("summaryTableBody");
+    const capturedBody = document.getElementById("capturedTableBody");
+    const hasRows = !!summaryBody?.querySelector("tr");
+    const hasCaptured = !!capturedBody?.querySelector("tr");
+    const processId = resolveSummaryProcessId();
+    const companyId = window.DATACAPTURESUMMARY_COMPANY_ID;
+
+    if (hasRows && hasCaptured && processId != null && companyId != null) {
+      return true;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, PREPOPULATE_POLL_MS));
+  }
+  console.warn("Summary pre-populate readiness timeout", {
+    rows: document.getElementById("summaryTableBody")?.querySelectorAll("tr").length ?? 0,
+    captured: document.getElementById("capturedTableBody")?.querySelectorAll("tr").length ?? 0,
+    processId: resolveSummaryProcessId(),
+    companyId: window.DATACAPTURESUMMARY_COMPANY_ID ?? null,
+  });
+  return false;
+}
+
+async function preloadSummaryAccountCatalog() {
+  if (typeof window.fetchSummaryAccountList !== "function") return;
+  try {
+    const accounts = await window.fetchSummaryAccountList();
+    if (Array.isArray(accounts) && accounts.length) {
+      window.__summaryAccountListCache = accounts;
+      window.__accountListWithRoles = accounts;
+      window.applyAccountDisplayByRoleToAllRows?.();
+    }
+  } catch (error) {
+    console.warn("preloadSummaryAccountCatalog failed:", error);
+  }
+}
+
 /**
  * Runs template auto-populate + formula/rate restore after React renders summary rows.
  * Mirrors the .finally() block in populateOriginalTableWithColumnAData.
  */
 export async function runSummaryTablePostPopulate(idProducts) {
+  await waitForSummaryPrePopulateReady();
+  await preloadSummaryAccountCatalog();
+
   if (typeof window.autoPopulateSummaryRowsFromTemplates !== "function") {
     runSummaryTablePostPopulateFinally();
     return;
@@ -13,8 +69,18 @@ export async function runSummaryTablePostPopulate(idProducts) {
 
   try {
     await window.autoPopulateSummaryRowsFromTemplates(idProducts);
+    if (window.currentProcessHadTemplates !== true) {
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+      await window.autoPopulateSummaryRowsFromTemplates(idProducts);
+    }
   } catch (error) {
     console.error("Auto-populate templates error:", error);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+      await window.autoPopulateSummaryRowsFromTemplates(idProducts);
+    } catch (retryError) {
+      console.error("Auto-populate templates retry error:", retryError);
+    }
   } finally {
     runSummaryTablePostPopulateFinally();
   }
@@ -48,7 +114,11 @@ function runSummaryTablePostPopulateFinally() {
       }
     }
 
-    if (window.currentProcessHadTemplates !== true && window._summaryHasRefreshStateToPreserve !== true) {
+    if (
+      !isFreshFromCapture &&
+      window.currentProcessHadTemplates !== true &&
+      window._summaryHasRefreshStateToPreserve !== true
+    ) {
       const summaryTableBody = document.getElementById("summaryTableBody");
       if (summaryTableBody) {
         summaryTableBody.querySelectorAll("tr").forEach((row) => {

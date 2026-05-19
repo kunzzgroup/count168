@@ -62,6 +62,10 @@ export function useSummaryCaptureBootstrap({ companyId, searchParams, enabled })
 
     window.__summaryFreshFromCapture = freshFromCapture;
 
+    if (companyId != null) {
+      window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
+    }
+
     if (!hasCaptureData) {
       window.capturedProcessData = null;
       window.transformedTableData = null;
