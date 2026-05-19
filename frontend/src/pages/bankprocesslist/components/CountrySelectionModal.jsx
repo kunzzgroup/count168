@@ -1,4 +1,5 @@
 import React from "react";
+import { sanitizeCapitalLettersOnly } from "../../../utils/sanitizeCapitalLettersOnly.js";
 
 function TrashRemoveIcon() {
   return (
@@ -49,7 +50,7 @@ export default function CountrySelectionModal({
                       id="new_country_name"
                       placeholder={t("newCountryNamePlaceholder")}
                       value={newCountryName}
-                      onChange={(e) => setNewCountryName(e.target.value.toUpperCase())}
+                      onChange={(e) => setNewCountryName(sanitizeCapitalLettersOnly(e.target.value))}
                     />
                     <button type="submit" className="btn btn-save country-selection-add-btn">{t("add")}</button>
                   </div>

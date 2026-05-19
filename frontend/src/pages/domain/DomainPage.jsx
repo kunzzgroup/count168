@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/domain.css";
 import "../../../public/css/accountCSS.css";
+import "../../../public/css/userlist.css";
 import {
   ROWS_PER_PAGE,
   MAX_VISIBLE_CHIPS,
@@ -369,21 +370,15 @@ export default function DomainPage() {
                           );
                         })}
                         {hidden.length > 0 && (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className="domain-company-more"
-                            title={hidden.join(", ")}
+                          <button
+                            type="button"
+                            className="domain-company-more chip-more"
+                            title={t("viewMoreCompaniesHint")}
+                            aria-label={t("viewMoreCompaniesHint")}
                             onClick={(e) => handleCompanyBadgeClick(e, companiesFull)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                handleCompanyBadgeClick(e, companiesFull);
-                              }
-                            }}
                           >
                             +{hidden.length}
-                          </span>
+                          </button>
                         )}
                       </div>
                     )}

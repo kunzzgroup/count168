@@ -50,7 +50,7 @@ export default function FormulaMaintenancePage() {
   const [companyId, setCompanyId] = useState(null);
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [selectedProcess, setSelectedProcess] = useState("");
+  const [selectedProcess, setSelectedProcess] = useState(null);
   const [searchFilter, setSearchFilter] = useState("");
   const [activePermission, setActivePermission] = useState("");
   const [processes, setProcesses] = useState([]);
@@ -179,6 +179,19 @@ export default function FormulaMaintenancePage() {
     setDeselectedIds(new Set());
     setSelectedIds([]);
   }, []);
+
+  const clearFormulaList = useCallback(() => {
+    if (progressiveRafRef.current) {
+      cancelAnimationFrame(progressiveRafRef.current);
+      progressiveRafRef.current = null;
+    }
+    formulaDataFullRef.current = [];
+    setTotalRowCount(0);
+    setFormulaData([]);
+    setListHydrating(false);
+    setListSyncing(false);
+    resetSelection();
+  }, [resetSelection]);
 
   /** 先展示前 N 行，其余用 rAF 分批追加，避免一次性渲染卡住 UI */
   const hydrateFormulaList = useCallback(
@@ -365,7 +378,7 @@ export default function FormulaMaintenancePage() {
   const performSearch = useCallback(async (overrides = {}) => {
     const { companyId: overrideCompanyId, scrollRestoreRowId: restoreRowId = null } = overrides;
     const effectiveCompanyId = overrideCompanyId ?? companyId;
-    if (!effectiveCompanyId) return;
+    if (!effectiveCompanyId || selectedProcess === null) return;
 
     const searchCompanyId = Number(effectiveCompanyId);
     const quietRefresh = initialFormulaSearchDoneRef.current;
@@ -434,9 +447,9 @@ export default function FormulaMaintenancePage() {
     companyIdRef.current = companyId;
   }, [companyId]);
 
-  // Debounced search for searchFilter
+  // Debounced search — only after user picks a process or Select All
   useEffect(() => {
-    if (!bootLoading && companyId) {
+    if (!bootLoading && companyId && selectedProcess !== null) {
       if (suppressNextSearchEffectRef.current) {
         suppressNextSearchEffectRef.current = false;
         return;
@@ -471,10 +484,8 @@ export default function FormulaMaintenancePage() {
       else sessionStorage.removeItem("dashboard_group_filter");
 
       setSearchFilter("");
-      setSelectedProcess("");
-      resetSelection();
-
-      void performSearch({ companyId: nextId });
+      setSelectedProcess(null);
+      clearFormulaList();
 
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }), "success");
@@ -500,8 +511,8 @@ export default function FormulaMaintenancePage() {
     });
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
     setSearchFilter("");
-    setSelectedProcess("");
-    resetSelection();
+    setSelectedProcess(null);
+    clearFormulaList();
     setConfirmDelete(false);
   };
 
@@ -513,7 +524,8 @@ export default function FormulaMaintenancePage() {
 
   const handleClearFilters = () => {
     setSearchFilter("");
-    setSelectedProcess("");
+    setSelectedProcess(null);
+    clearFormulaList();
   };
 
   const isRowSelected = useCallback(
@@ -702,6 +714,7 @@ export default function FormulaMaintenancePage() {
         accounts={accounts}
         m={m}
         inputMethodOptions={inputMethodOptions}
+        awaitingProcessSelection={selectedProcess === null}
       />
       </div>
 

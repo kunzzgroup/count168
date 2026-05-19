@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { formatBankAccountDisplay } from "../bankProcessHelpers.js";
+import { filterBankPickAccounts, formatBankAccountDisplay } from "../bankProcessHelpers.js";
 
 const PORTAL_MIN_WIDTH = 220;
 
@@ -79,17 +79,19 @@ export default function BankSearchableAccountPick({ value, onChange, accounts, d
     return () => window.clearTimeout(id);
   }, [open]);
 
+  const pickableAccounts = useMemo(() => filterBankPickAccounts(accounts), [accounts]);
+
   const filtered = useMemo(() => {
-    const list = Array.isArray(accounts) ? accounts : [];
+    const list = pickableAccounts;
     const qq = q.trim().toLowerCase();
     let rows = list;
     if (qq) {
       rows = list.filter((a) => accountLabel(a).toLowerCase().includes(qq));
     }
     return rows.slice().sort((a, b) => accountLabel(a).localeCompare(accountLabel(b), undefined, { sensitivity: "base" }));
-  }, [accounts, q]);
+  }, [pickableAccounts, q]);
 
-  const selected = (accounts || []).find((a) => String(a.id) === String(value));
+  const selected = pickableAccounts.find((a) => String(a.id) === String(value));
   const placeholder = t("selectAccount");
 
   const openDropdown = () => {

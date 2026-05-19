@@ -469,8 +469,9 @@ body.process-page {
     width: 100%;
 }
 
+/* 横向滚动仅由 .process-table-wrapper 承担，避免表头与数据行错位 */
 .process-page .process-table-wrapper .process-cards.bank-mode {
-    overflow-x: auto;
+    overflow-x: visible;
     overflow-y: auto;
 }
 
@@ -1088,22 +1089,28 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
 }
 
 .process-page .table-header .header-item.header-item--with-sort-icon {
-    display: flex;
+    display: inline-flex;
+    flex-direction: row;
     align-items: center;
     gap: 6px;
     min-width: 0;
     overflow: hidden;
+    line-height: 1.2;
 }
 
 .process-page .table-header .header-item.header-item--with-sort-icon .header-item__label {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
 }
 
 .process-page .table-header .header-item.header-item--with-sort-icon .account-sort-icon {
-    flex-shrink: 0;
+    flex: 0 0 auto;
+    align-self: center;
+    line-height: 0;
 }
 
 /* Bank Action 列固定宽度，避免 inactive 时多出 checkbox 导致表头与数据错位 */
@@ -1177,21 +1184,215 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     transition: all 0.2s ease;
 }
 
-/* Bank：数据列宽度与 th 一致，仅调整数据行 */
-.process-page .process-cards.bank-mode .process-card {
+/* Bank：数据列宽度与表头一致；水平 padding 与 .table-header 对齐（22px） */
+.process-page.process-page--bank .process-cards.bank-mode .process-card {
     width: var(--table-header-width, 100%);
     min-width: var(--table-header-width, 100%);
     box-sizing: border-box;
+    padding: 0 22px;
+    gap: 2px;
+    column-gap: 2px;
 }
 
-.process-page .process-cards.bank-mode .process-card .card-item {
+.process-page.process-page--bank .process-table-wrapper .table-header {
+    gap: 2px;
+    column-gap: 2px;
+    width: 100%;
+    min-width: min-content;
+}
+
+/* Bank 列表：表头/数据格统一 flex，justify-content 才能同时生效 */
+body.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header,
+body.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item.bank-col {
+    display: flex !important;
+    align-items: center;
     padding: 2px 4px;
     box-sizing: border-box;
+    min-width: 0;
 }
 
-/* Bank：表头列间距与 Process List 一致（行已在 .process-cards.bank-mode 用 8px） */
-.process-page.process-page--bank .table-header {
-    gap: 8px;
+/* 表头：完整展示文案 + 排序图标，不省略 */
+body.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header,
+body.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header.header-item--with-sort-icon {
+    overflow: visible;
+    min-width: min-content;
+}
+
+body.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header .header-item__label,
+body.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header.header-item--with-sort-icon .header-item__label {
+    min-width: auto;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* 居中列：Contract / Status / 金额 / 序号 等 */
+body.process-page.process-page--bank .bank-col-no,
+body.process-page.process-page--bank .bank-col-contract,
+body.process-page.process-page--bank .bank-col-cost,
+body.process-page.process-page--bank .bank-col-price,
+body.process-page.process-page--bank .bank-col-profit,
+body.process-page.process-page--bank .bank-col-status,
+body.process-page.process-page--bank .bank-col-date,
+body.process-page.process-page--bank .bank-col-action {
+    justify-content: center;
+}
+
+/* 左对齐文本列 */
+body.process-page.process-page--bank .bank-col-supplier,
+body.process-page.process-page--bank .bank-col-ccy,
+body.process-page.process-page--bank .bank-col-bank,
+body.process-page.process-page--bank .bank-col-types,
+body.process-page.process-page--bank .bank-col-owner,
+body.process-page.process-page--bank .bank-col-insurance,
+body.process-page.process-page--bank .bank-col-customer {
+    justify-content: flex-start;
+}
+
+/* Bank 表头排序：图标紧贴文字、垂直居中（全列与 Supplier 一致） */
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon {
+    gap: 4px;
+    line-height: 1.2;
+}
+
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-no,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-contract,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-cost,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-price,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-profit,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-status,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-date {
+    justify-content: center;
+}
+
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-supplier,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-ccy,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-bank,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-types,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-owner,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-insurance,
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon.bank-col-customer {
+    justify-content: flex-start;
+}
+
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon .header-item__label {
+    flex: 0 0 auto;
+    display: inline-block;
+    line-height: 1.2;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+body.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon .account-sort-icon {
+    flex: 0 0 auto;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 12px;
+    line-height: 0;
+    margin: 0;
+}
+
+/* Contract 徽章、Status 下拉在列内居中 */
+body.process-page.process-page--bank .bank-col-contract {
+    overflow: visible;
+}
+
+body.process-page.process-page--bank .bank-col-contract .contract-badge {
+    flex-shrink: 0;
+    max-width: 100%;
+    white-space: nowrap;
+}
+
+body.process-page.process-page--bank .bank-col-status {
+    overflow: visible !important;
+}
+
+body.process-page.process-page--bank .bank-col-status .bank-status-dropdown {
+    flex-shrink: 0;
+    max-width: 100%;
+}
+
+body.process-page.process-page--bank .bank-col-status .bank-status-button {
+    width: auto;
+    max-width: 100%;
+    min-width: 5.35rem;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .bank-col-contract,
+body.ec-auth-shell.process-page.process-page--bank .bank-col-status {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+}
+
+/* Bank 列表：收紧列间距（须覆盖 global-13inch 的 padding: 0 10px !important） */
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header,
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card {
+    column-gap: 2px !important;
+    gap: 2px !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card {
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header,
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    box-sizing: border-box !important;
+}
+
+/* 表头列：对称内边距，保证 No / Country 等 + 排序图标完整显示 */
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+}
+
+/* Supplier ↔ Country（数据行再收紧） */
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(1) {
+    padding-right: 2px !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(2) {
+    padding-left: 2px !important;
+    padding-right: 0 !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(2).header-item--with-sort-icon {
+    gap: 4px !important;
+    align-items: center !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon .header-item__label {
+    flex: 0 0 auto !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon .account-sort-icon {
+    flex: 0 0 auto !important;
+    align-self: center !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(3) {
+    padding-left: 0 !important;
+    padding-right: 2px !important;
+}
+
+/* Bank ↔ Types */
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(4) {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(5) {
+    padding-left: 2px !important;
+    padding-right: 6px !important;
 }
 
 .process-page .process-card:hover {
@@ -3184,7 +3385,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-confirm-title {
     text-align: center;
     color: #1e293b;
-    font-size: var(--text-h1);
+    font-size: var(--text-h2);
     font-weight: 700;
     margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
     font-family: var(--font-heading-page), -apple-system, sans-serif;
@@ -3193,7 +3394,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 .process-confirm-message {
     text-align: center;
-    font-size: var(--text-h2);
+    font-size: var(--text-h3);
     color: #475569;
     line-height: 1.7;
     margin: 0;
@@ -3239,7 +3440,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
-    font-size: var(--text-base);
+    font-size: var(--text-h3);
     border: none;
     border-radius: 0.375rem;
     box-shadow: 0 0.125rem 0.25rem rgba(88, 88, 88, 0.3);
@@ -3283,7 +3484,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     font-family: var(--font-heading-page);
     width: clamp(5rem, 6.25vw, 7.5rem);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
-    font-size: var(--text-base);
+    font-size: var(--text-h3);
     border: none;
     border-radius: 0.375rem;
     box-shadow: 0 0.125rem 0.25rem rgba(220, 53, 69, 0.3);
@@ -4345,9 +4546,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     overflow: visible !important;
 }
 
-.process-page .process-cards.bank-mode .card-item.bank-status-cell {
+.process-page .process-cards.bank-mode .card-item.bank-status-cell.bank-col-status {
     overflow: visible !important;
-    justify-content: center;
 }
 
 /* Final restore: Edit Process should match reference (long rectangle + horizontal Day Use) */

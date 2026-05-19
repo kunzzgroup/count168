@@ -190,7 +190,7 @@ export default function BankProcessTable({
     >
       <span className="header-item__label">{h.labelText}</span>
       <BankSortIcon column={h.key} sortColumn={sortColumn} sortDirection={sortDirection} />
-    </div>
+    </motion.div>
   );
 
   return (
@@ -201,7 +201,7 @@ export default function BankProcessTable({
             return (
               <div key={h.key} className={`header-item bank-header header-item--select ${bankColClass("bulk")}`}>
                 {h.label}
-              </div>
+              </motion.div>
             );
           }
           if (h.sortable) {
@@ -213,37 +213,37 @@ export default function BankProcessTable({
               className={`header-item bank-header ${bankColClass(h.key)}${h.key === "action" ? " bank-action-header" : ""}`}
             >
               <span className="header-item__label">{h.labelText}</span>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
       <div ref={cardsRef} className="process-cards bank-mode">
         {tableLoading && (
           <div className="process-card">
-            <div className="card-item" style={{ gridColumn: "1 / -1" }}>{t("loadData")}</div>
-          </div>
+            <div className="card-item" style={{ gridColumn: "1 / -1" }}>{t("loadData")}</motion.div>
+          </motion.div>
         )}
         {!tableLoading && pageRows.length === 0 && (
           <div className="process-card">
             <div className="card-item" style={{ textAlign: "left", padding: 20, gridColumn: "1 / -1" }}>
               {t("noProcessDataFound")}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
         {!tableLoading && pageRows.map((r, i) => (
           <div key={r.id} className="process-card" style={{ gridTemplateColumns: gridCols }}>
-            <div className={`card-item ${bankColClass("no")}`}>{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</div>
-            <div className={`card-item ${bankColClass("supplier")}`}>{r.card_lower || "-"}</div>
-            <div className={`card-item ${bankColClass("ccy")}`}>{r.country || "-"}</div>
-            <div className={`card-item ${bankColClass("bank")}`}>{r.bank || "-"}</div>
-            <div className={`card-item ${bankColClass("types")}`}>{r.type || "-"}</div>
-            <div className={`card-item ${bankColClass("owner")}`}>{r.supplier || "-"}</div>
-            <div className={`card-item bank-contract-cell ${bankColClass("contract")}`}>{renderBankContract(r.contract, r.day_start || r.date, r.day_end, lang)}</div>
-            <div className={`card-item ${bankColClass("insurance")}`}>{r.insurance || "-"}</div>
-            <div className={`card-item ${bankColClass("customer")}`}>{r.customer || "-"}</div>
-            <div className={`card-item ${bankColClass("cost")}`}>{formatBankMoneyCell(r.cost)}</div>
-            <div className={`card-item ${bankColClass("price")}`}>{formatBankMoneyCell(r.price)}</div>
-            <div className={`card-item ${bankColClass("profit")}`}>{formatBankMoneyCell(r.profit)}</div>
+            <div className={`card-item ${bankColClass("no")}`}>{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</motion.div>
+            <div className={`card-item ${bankColClass("supplier")}`}>{r.card_lower || "-"}</motion.div>
+            <div className={`card-item ${bankColClass("ccy")}`}>{r.country || "-"}</motion.div>
+            <div className={`card-item ${bankColClass("bank")}`}>{r.bank || "-"}</motion.div>
+            <div className={`card-item ${bankColClass("types")}`}>{r.type || "-"}</motion.div>
+            <div className={`card-item ${bankColClass("owner")}`}>{r.supplier || "-"}</motion.div>
+            <div className={`card-item bank-contract-cell ${bankColClass("contract")}`}>{renderBankContract(r.contract, r.day_start || r.date, r.day_end, lang)}</motion.div>
+            <div className={`card-item ${bankColClass("insurance")}`}>{r.insurance || "-"}</motion.div>
+            <div className={`card-item ${bankColClass("customer")}`}>{r.customer || "-"}</motion.div>
+            <div className={`card-item ${bankColClass("cost")}`}>{formatBankMoneyCell(r.cost)}</motion.div>
+            <div className={`card-item ${bankColClass("price")}`}>{formatBankMoneyCell(r.price)}</motion.div>
+            <div className={`card-item ${bankColClass("profit")}`}>{formatBankMoneyCell(r.profit)}</motion.div>
             <div className={`card-item bank-status-cell ${bankColClass("status")}`}>
               <BankProcessStatusControl
                 row={r}
@@ -256,8 +256,8 @@ export default function BankProcessTable({
                   void fetchRows();
                 }}
               />
-            </div>
-            <div className={`card-item ${bankColClass("date")}`}>{r.date || "-"}</div>
+            </motion.div>
+            <div className={`card-item ${bankColClass("date")}`}>{r.date || "-"}</motion.div>
             {showSelectColumn ? (
               <>
                 <div className={`card-item bank-action-cell card-item--action ${bankColClass("action")}`}>
@@ -277,7 +277,7 @@ export default function BankProcessTable({
                       </button>
                     ) : null}
                   </span>
-                </div>
+                </motion.div>
                 <div className="card-item card-item--select bank-row-select-cell">
                   {normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions ? (
                     <input
@@ -298,7 +298,7 @@ export default function BankProcessTable({
                   ) : (
                     <span className="user-row-select-placeholder" aria-hidden="true" />
                   )}
-                </div>
+                </motion.div>
               </>
             ) : (
               <div className={`card-item ${bankColClass("action")}`}>
@@ -321,11 +321,11 @@ export default function BankProcessTable({
                 {normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions ? (
                   <input type="checkbox" className="row-checkbox bank-checkbox" style={{ marginLeft: 10 }} checked={selectedIds.has(r.id)} title={t("selectForDeletion")} onChange={() => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />
                 ) : null}
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

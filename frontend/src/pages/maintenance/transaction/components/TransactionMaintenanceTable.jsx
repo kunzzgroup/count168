@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
+import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
 
 const ROW_HEIGHT = 52;
 
@@ -48,17 +49,11 @@ function TopLoadingBar({ label }) {
   );
 }
 
-function WrapCell({ children, align = "left", className = "", title }) {
-  const alignClass =
-    align === "center"
-      ? "maintenance-virtual-cell--center"
-      : align === "right"
-        ? "maintenance-virtual-cell--right"
-        : "maintenance-virtual-cell--left";
+function WrapCell({ children, className = "", title }) {
   return (
     <div
       role="cell"
-      className={`maintenance-virtual-cell ${alignClass} transaction-virtual-cell--wrap ${className}`}
+      className={`maintenance-virtual-cell maintenance-virtual-cell--left transaction-virtual-cell--wrap ${className}`}
       title={title}
     >
       <span className="transaction-cell-clamp-2">{children}</span>
@@ -76,41 +71,33 @@ function VirtualDataRow({ row, index }) {
         isDeleted ? " maintenance-row-deleted" : ""
       }`}
     >
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center transaction-virtual-cell--no">
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left transaction-virtual-cell--no">
         {row.no || index + 1}
       </div>
-      <WrapCell className="maintenance-virtual-cell--mono" align="center">
-        {row.dts_created ? (
-          <span className="transaction-created-at-display">
-            <span className="transaction-created-at-date">{row.dts_created.split(" ")[0]}</span>
-            <br />
-            <span className="transaction-created-at-time">({row.dts_created.split(" ").slice(1).join(" ")})</span>
-          </span>
-        ) : (
-          "-"
-        )}
+      <WrapCell className="maintenance-virtual-cell--mono maintenance-virtual-cell--created-at">
+        <MaintenanceCreatedAtDisplay value={row.dts_created} />
       </WrapCell>
-      <WrapCell align="center" title={row.process || "-"}>{row.process || "-"}</WrapCell>
-      <WrapCell align="center" title={row.id_product || "-"}>{row.id_product || "-"}</WrapCell>
-      <WrapCell align="center" title={row.account || "-"}>{row.account || "-"}</WrapCell>
-      <WrapCell align="center" title={row.description || "-"}>{row.description || "-"}</WrapCell>
-      <WrapCell align="center" title={row.remark || "-"}>{row.remark || "-"}</WrapCell>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center" title={row.percent || "-"}>
+      <WrapCell title={row.process || "-"}>{row.process || "-"}</WrapCell>
+      <WrapCell title={row.id_product || "-"}>{row.id_product || "-"}</WrapCell>
+      <WrapCell title={row.account || "-"}>{row.account || "-"}</WrapCell>
+      <WrapCell title={row.description || "-"}>{row.description || "-"}</WrapCell>
+      <WrapCell title={row.remark || "-"}>{row.remark || "-"}</WrapCell>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left" title={row.percent || "-"}>
         {row.percent || "-"}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-cell-currency" title={row.currency || "-"}>
+      <div role="cell" className="maintenance-virtual-cell maintenance-cell-currency maintenance-virtual-cell--left" title={row.currency || "-"}>
         {row.currency || "-"}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right" title={row.rate || "-"}>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left" title={row.rate || "-"}>
         {row.rate || "-"}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right" title={formatAmount(row.cr)}>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left" title={formatAmount(row.cr)}>
         {formatAmount(row.cr)}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right" title={formatAmount(row.dr)}>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left" title={formatAmount(row.dr)}>
         {formatAmount(row.dr)}
       </div>
-      <WrapCell align="center" title={row.created_by || "-"}>{row.created_by || "-"}</WrapCell>
+      <WrapCell title={row.created_by || "-"}>{row.created_by || "-"}</WrapCell>
     </div>
   );
 }

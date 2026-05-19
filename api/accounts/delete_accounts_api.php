@@ -10,7 +10,6 @@ require_once __DIR__ . '/../../includes/deleted_log.php';
 require_once __DIR__ . '/../api_response.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

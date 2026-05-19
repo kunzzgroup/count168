@@ -24,6 +24,7 @@ export default function FormulaMaintenanceTable({
   accounts,
   m,
   inputMethodOptions,
+  awaitingProcessSelection = false,
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -95,7 +96,7 @@ export default function FormulaMaintenanceTable({
     return (
       <div className="empty-state-container" style={{ display: "block" }}>
         <div className="empty-state">
-          <p>{m.noDataAdjustSearch}</p>
+          <p>{awaitingProcessSelection ? m.selectProcessPrompt : m.noDataAdjustSearch}</p>
         </div>
       </div>
     );

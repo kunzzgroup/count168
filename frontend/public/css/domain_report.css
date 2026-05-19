@@ -5,6 +5,15 @@ body {
     min-height: 100vh;
 }
 
+html,
+body.dashboard-page.report-page {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
 .container {
     overflow-y: visible !important;
     overflow-x: hidden !important;

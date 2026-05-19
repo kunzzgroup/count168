@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Delete confirmation modal for maintenance pages.
  * Resolves copy via `t()` on each render so language toggles update while open.
  */
@@ -13,7 +13,7 @@ export default function MaintenanceDeleteConfirmModal({
   if (!isOpen || typeof t !== "function") return null;
 
   return (
-    <div id="confirmDeleteModal" className="maintenance-modal" style={{ display: "flex" }} role="dialog" aria-modal="true">
+    <div id="confirmDeleteModal" className="maintenance-modal" role="dialog" aria-modal="true">
       <div className="maintenance-confirm-modal-content">
         <div className="maintenance-confirm-icon-container">
           <svg className="maintenance-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -25,15 +25,15 @@ export default function MaintenanceDeleteConfirmModal({
             />
           </svg>
         </div>
-        <h2 className="maintenance-confirm-title">{t("confirmDeleteTitle")}</h2>
+        <h2 className="maintenance-confirm-title">{t("confirmDelete")}</h2>
         <p id="confirmDeleteMessage" className="maintenance-confirm-message">
           {t(messageKey, { count })}
         </p>
         <div className="maintenance-confirm-actions">
-          <button type="button" className="maintenance-btn maintenance-btn-cancel confirm-cancel" onClick={onClose}>
+          <button type="button" className="btn btn-cancel confirm-cancel" onClick={onClose}>
             {t("cancel")}
           </button>
-          <button type="button" className="maintenance-btn maintenance-btn-delete confirm-delete" onClick={onConfirm}>
+          <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
             {t("delete")}
           </button>
         </div>

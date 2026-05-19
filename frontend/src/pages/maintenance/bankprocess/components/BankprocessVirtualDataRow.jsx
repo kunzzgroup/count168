@@ -1,5 +1,6 @@
 ﻿import { memo } from "react";
 import { formatAmount, toUpperDisplay } from "../bankprocessMaintenanceLogic.js";
+import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
 
 const BankprocessVirtualDataRow = memo(function BankprocessVirtualDataRow({
   row,
@@ -24,11 +25,15 @@ const BankprocessVirtualDataRow = memo(function BankprocessVirtualDataRow({
         isDeleted ? " maintenance-row-deleted" : ""
       }`}
     >
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center bankprocess-virtual-cell--no">
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left bankprocess-virtual-cell--no">
         {index + 1}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left bankprocess-virtual-cell--wrap maintenance-virtual-cell--mono">
-        <span className="bankprocess-cell-clamp-2">{row.dts_created || "-"}</span>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left maintenance-virtual-cell--mono maintenance-virtual-cell--created-at bankprocess-virtual-cell--created-at"
+        title={row.dts_created || "-"}
+      >
+        <MaintenanceCreatedAtDisplay value={row.dts_created} />
       </div>
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left bankprocess-virtual-cell--wrap">
         <span className="bankprocess-cell-clamp-2">{row.account || "-"}</span>
@@ -38,7 +43,7 @@ const BankprocessVirtualDataRow = memo(function BankprocessVirtualDataRow({
       </div>
       <div
         role="cell"
-        className="maintenance-virtual-cell maintenance-virtual-cell--center maintenance-cell-currency-amount"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left maintenance-cell-currency-amount"
       >
         {amountDisplay}
       </div>
@@ -51,7 +56,7 @@ const BankprocessVirtualDataRow = memo(function BankprocessVirtualDataRow({
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left bankprocess-virtual-cell--wrap">
         <span className="bankprocess-cell-clamp-2">{row.created_by || "-"}</span>
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center bankprocess-virtual-cell-checkbox">
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left bankprocess-virtual-cell-checkbox">
         <input
           type="checkbox"
           className="maintenance-row-checkbox"

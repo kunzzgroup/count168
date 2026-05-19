@@ -1,4 +1,5 @@
 import { memo } from "react";
+import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
 
 function WrapCell({ children, align = "left", className = "", title }) {
   const alignClass =
@@ -44,19 +45,23 @@ const CaptureVirtualDataRow = memo(function CaptureVirtualDataRow({
 
   return (
     <div role="row" className={rowClass}>
-      <WrapCell align="center" className="capture-virtual-cell--no" title={String(row.no || index + 1)}>
+      <WrapCell align="left" className="capture-virtual-cell--no" title={String(row.no || index + 1)}>
         {row.no || index + 1}
       </WrapCell>
-      <WrapCell align="center" className="maintenance-virtual-cell--mono" title={row.dts_created || "-"}>
-        {row.dts_created || "-"}
-      </WrapCell>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left maintenance-virtual-cell--mono maintenance-virtual-cell--created-at"
+        title={row.dts_created || "-"}
+      >
+        <MaintenanceCreatedAtDisplay value={row.dts_created} />
+      </div>
       <WrapCell align="left" title={row.product || "-"}>
         {row.product || "-"}
       </WrapCell>
       <WrapCell align="left" title={row.process || "-"}>
         {row.process || "-"}
       </WrapCell>
-      <WrapCell align="center" className="maintenance-cell-currency" title={row.currency || "-"}>
+      <WrapCell align="left" className="maintenance-cell-currency" title={row.currency || "-"}>
         {row.currency || "-"}
       </WrapCell>
       <WrapCell align="left" title={row.wl_group || "-"}>

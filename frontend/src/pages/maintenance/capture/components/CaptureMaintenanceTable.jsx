@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import CaptureVirtualRows from "./CaptureVirtualRows.jsx";
 
-const ROW_HEIGHT = 44;
+const ROW_HEIGHT = 52;
 
 function isRowDeleted(row) {
   return row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;

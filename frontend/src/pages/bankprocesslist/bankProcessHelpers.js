@@ -1,4 +1,99 @@
+import { MoneyDecimal } from "../../utils/moneyDecimal.js";
+
 export const PAGE_SIZE = 20;
+
+/** Bank Process 金额：固定两位小数（如 300.00） */
+export function isValidBankMoneyInput(value) {
+  try {
+    MoneyDecimal.toDecimal(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function sanitizeBankMoneyTyping(value) {
+  return String(value ?? "").replace(/,/g, "");
+}
+
+export function formatBankMoneyFixed2(value, { emptyAsZero = true } = {}) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return emptyAsZero ? "0.00" : "";
+  if (!isValidBankMoneyInput(raw)) return emptyAsZero ? "0.00" : "";
+  return MoneyDecimal.formatFixedHalfUp(raw, 2);
+}
+
+/** Profit = max(0, sell - buy - sum(profit sharing))，展示两位小数；全无输入时为空 */
+export function calcBankNetProfitDisplay(cost, price, profitSharingStr) {
+  const costStr = String(cost ?? "").trim();
+  const priceStr = String(price ?? "").trim();
+  const psStr = String(profitSharingStr ?? "").trim();
+  if (!costStr && !priceStr && !psStr) return "";
+
+  const costDec = isValidBankMoneyInput(cost) ? MoneyDecimal.toDecimal(cost, 0) : MoneyDecimal.toDecimal("0", 0);
+  const priceDec = isValidBankMoneyInput(price) ? MoneyDecimal.toDecimal(price, 0) : MoneyDecimal.toDecimal("0", 0);
+  let shareDec = MoneyDecimal.toDecimal("0", 0);
+  const str = String(profitSharingStr || "").trim();
+  if (str) {
+    for (const part of str.split(",")) {
+      const t = part.trim();
+      const dash = t.lastIndexOf(" - ");
+      if (dash === -1) continue;
+      const amt = t.slice(dash + 3).trim();
+      if (isValidBankMoneyInput(amt)) {
+        shareDec = shareDec.plus(MoneyDecimal.toDecimal(amt, 0));
+      }
+    }
+  }
+  const net = MoneyDecimal.max(MoneyDecimal.sub(priceDec, costDec).minus(shareDec), "0");
+  return formatBankMoneyFixed2(net.toString());
+}
+
+export function formatProfitSharingStringFixed2(s) {
+  const str = String(s || "").trim();
+  if (!str) return "";
+  return str
+    .split(",")
+    .map((part) => {
+      const t = part.trim();
+      const dash = t.lastIndexOf(" - ");
+      if (dash === -1) return t;
+      const label = t.slice(0, dash).trim();
+      const amt = formatBankMoneyFixed2(t.slice(dash + 3).trim());
+      return label ? `${label} - ${amt}` : null;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Bank Process 账户下拉（Supplier / Customer / Company / Profit sharing）允许的 role。
+ * 与 js/bank_process_list.js BANK_ALLOWED_ACCOUNT_ROLES 一致。
+ *
+ * 会出现在 option 中：PARTNER, SUPPLIER, UPLINE（供应商）, STAFF, AGENT, MEMBER, PROFIT
+ * 不会出现在 option 中（被 role 筛掉）：CAPITAL, BANK, CASH, EXPENSES, COMPANY, DEBTOR 等未列出的 role
+ *
+ * 另需 status === active；inactive 账户不会出现在 option 中。
+ */
+export const BANK_PICK_ACCOUNT_ROLES = ["PARTNER", "SUPPLIER", "UPLINE", "STAFF", "AGENT", "MEMBER", "PROFIT"];
+
+export function normalizeBankPickAccountRole(role) {
+  return String(role || "").trim().toUpperCase();
+}
+
+export function isAllowedBankPickAccountRole(role) {
+  return BANK_PICK_ACCOUNT_ROLES.includes(normalizeBankPickAccountRole(role));
+}
+
+export function isActiveBankPickAccount(account) {
+  return String(account?.status || "").trim().toLowerCase() === "active";
+}
+
+/** Supplier / Customer / Company / Profit sharing 下拉仅展示 active 且 role 在允许列表内的账户 */
+export function filterBankPickAccounts(accounts) {
+  if (!Array.isArray(accounts)) return [];
+  return accounts.filter((a) => isActiveBankPickAccount(a) && isAllowedBankPickAccountRole(a.role));
+}
 
 /** Matches legacy bank_process_list.js formatBankAccountDisplay */
 export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
@@ -13,13 +108,13 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
   return fallback;
 }
 
-/** 与旧版 bank_process_list.js BANK_GRID_TEMPLATE_COLUMNS 一致，保证列宽对齐 */
+/** Bank 列表列宽：每列 min 容纳「表头文案 + 排序图标」，避免 No / Country 等被截断 */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "0.2fr 0.64fr 0.48fr 0.62fr 0.44fr 0.78fr 0.56fr 0.44fr 0.48fr 0.28fr 0.28fr 0.28fr 0.42fr 0.4fr 0.34fr";
+  "minmax(52px,0.1fr) minmax(96px,0.34fr) minmax(80px,0.2fr) minmax(68px,0.3fr) minmax(64px,0.24fr) minmax(100px,0.72fr) minmax(96px,0.5fr) minmax(76px,0.4fr) minmax(80px,0.42fr) minmax(64px,0.22fr) minmax(64px,0.22fr) minmax(68px,0.22fr) minmax(108px,0.44fr) minmax(76px,0.36fr) minmax(88px,0.3fr)";
 
 /** Action 与批量勾选分两列（与 User List / Games Process 一致） */
 export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT =
-  "0.2fr 0.64fr 0.48fr 0.62fr 0.44fr 0.78fr 0.56fr 0.44fr 0.48fr 0.28fr 0.28fr 0.28fr 0.42fr 0.4fr minmax(0, 0.3fr) 48px";
+  "minmax(52px,0.1fr) minmax(96px,0.34fr) minmax(80px,0.2fr) minmax(68px,0.3fr) minmax(64px,0.24fr) minmax(100px,0.72fr) minmax(96px,0.5fr) minmax(76px,0.4fr) minmax(80px,0.42fr) minmax(64px,0.22fr) minmax(64px,0.22fr) minmax(68px,0.22fr) minmax(108px,0.44fr) minmax(76px,0.36fr) minmax(88px,0.28fr) 48px";
 
 export function normalizeRows(data) {
   if (!Array.isArray(data)) return [];
@@ -127,6 +222,92 @@ export function parseRowDateMs(raw) {
   return null;
 }
 
+function bankSortTiebreak(a, b) {
+  return Number(a.id || 0) - Number(b.id || 0);
+}
+
+function bankSortCompareText(a, b) {
+  return String(a ?? "").localeCompare(String(b ?? ""), undefined, { sensitivity: "base", numeric: true });
+}
+
+function bankSortMoneyValue(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw || !isValidBankMoneyInput(raw)) return 0;
+  return Number(MoneyDecimal.toDecimal(raw).toString());
+}
+
+/** Bank Process 列表客户端排序（列 key 与 BankProcessTable 表头一致） */
+export function sortBankProcessTableRows(rows, sortColumn, sortDirection) {
+  const dir = sortDirection === "desc" ? -1 : 1;
+  const copy = [...rows];
+  const sortPrimary = (primary) => {
+    copy.sort((a, b) => {
+      let c = primary(a, b);
+      if (c === 0) c = bankSortTiebreak(a, b);
+      return c * dir;
+    });
+  };
+
+  switch (sortColumn) {
+    case "no":
+      sortPrimary((a, b) => Number(a.id || 0) - Number(b.id || 0));
+      break;
+    case "supplier":
+      sortPrimary((a, b) => bankSortCompareText(a.card_lower || a.supplier, b.card_lower || b.supplier));
+      break;
+    case "ccy":
+      sortPrimary((a, b) => bankSortCompareText(a.country, b.country));
+      break;
+    case "bank":
+      sortPrimary((a, b) => bankSortCompareText(a.bank, b.bank));
+      break;
+    case "types":
+      sortPrimary((a, b) => bankSortCompareText(a.type, b.type));
+      break;
+    case "owner":
+      sortPrimary((a, b) => bankSortCompareText(a.supplier, b.supplier));
+      break;
+    case "contract":
+      sortPrimary((a, b) => bankSortCompareText(a.contract, b.contract));
+      break;
+    case "insurance":
+      sortPrimary((a, b) => bankSortCompareText(a.insurance, b.insurance));
+      break;
+    case "customer":
+      sortPrimary((a, b) => bankSortCompareText(a.customer, b.customer));
+      break;
+    case "cost":
+      sortPrimary((a, b) => bankSortMoneyValue(a.cost) - bankSortMoneyValue(b.cost));
+      break;
+    case "price":
+      sortPrimary((a, b) => bankSortMoneyValue(a.price) - bankSortMoneyValue(b.price));
+      break;
+    case "profit":
+      sortPrimary((a, b) => bankSortMoneyValue(a.profit) - bankSortMoneyValue(b.profit));
+      break;
+    case "status":
+      sortPrimary((a, b) => {
+        const key = (r) =>
+          `${normalizeBankProcessStatus(r.status)}:${normalizeBankIssueFlag(r.issue_flag)}`;
+        return bankSortCompareText(key(a), key(b));
+      });
+      break;
+    case "date":
+      sortPrimary((a, b) => {
+        const am = parseRowDateMs(a.date || a.day_start);
+        const bm = parseRowDateMs(b.date || b.day_start);
+        if (am == null && bm == null) return 0;
+        if (am == null) return 1;
+        if (bm == null) return -1;
+        return am - bm;
+      });
+      break;
+    default:
+      sortPrimary((a, b) => bankSortCompareText(a.card_lower || a.supplier, b.card_lower || b.supplier));
+  }
+  return copy;
+}
+
 export function isBankResendDayStartBackendErrorMessage(text) {
   const s = String(text || "");
   return (
@@ -203,7 +384,11 @@ export function parseProfitSharingToRows(s, accounts) {
     const acc = (accounts || []).find(
       (a) => String(a.account_id || "").toLowerCase() === label.toLowerCase() || String(a.name || "").toLowerCase() === label.toLowerCase()
     );
-    out.push({ accountId: acc ? String(acc.id) : "", accountLabel: label, amount: String(amount) });
+    out.push({
+      accountId: acc ? String(acc.id) : "",
+      accountLabel: label,
+      amount: formatBankMoneyFixed2(String(amount)),
+    });
   }
   return out;
 }
@@ -213,8 +398,10 @@ export function serializeProfitSharingRows(rows, accounts) {
     .map((r) => {
       const acc = (accounts || []).find((a) => String(a.id) === String(r.accountId));
       const label = (acc?.account_id || String(r.accountLabel || "").trim()).trim();
-      const amt = parseFloat(String(r.amount));
-      if (!label || Number.isNaN(amt) || amt <= 0) return null;
+      const rawAmt = String(r.amount ?? "").trim();
+      if (!label || !rawAmt || !isValidBankMoneyInput(rawAmt)) return null;
+      const amt = formatBankMoneyFixed2(rawAmt);
+      if (MoneyDecimal.cmp(amt, "0") <= 0) return null;
       return `${label} - ${amt}`;
     })
     .filter(Boolean)

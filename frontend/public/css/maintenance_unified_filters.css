@@ -317,3 +317,158 @@ body.dashboard-page.maintenance-page .maintenance-virtual-thead {
 body.dashboard-page.maintenance-page .maintenance-virtual-spacer {
     margin-top: 0 !important;
 }
+
+/* Created At — date left, time centered in column (all maintenance pages) */
+body.maintenance-page .maintenance-created-at-display {
+    display: block;
+    width: 100%;
+    text-align: left;
+    line-height: 1.35;
+    white-space: normal;
+}
+
+body.maintenance-page .maintenance-created-at-date {
+    display: block;
+    font-size: 0.95em;
+    text-align: left;
+}
+
+body.maintenance-page .maintenance-created-at-time {
+    display: block;
+    width: 100%;
+    font-size: 0.95em;
+    margin-top: 1px;
+    text-align: left;
+}
+
+body.maintenance-page .maintenance-virtual-cell--created-at {
+    justify-content: flex-start;
+    text-align: left;
+    white-space: normal;
+}
+
+/* All maintenance virtual lists: left-align every header and cell */
+body.maintenance-page .maintenance-virtual-th,
+body.maintenance-page .maintenance-virtual-cell,
+body.maintenance-page .maintenance-virtual-cell--left,
+body.maintenance-page .maintenance-virtual-cell--center,
+body.maintenance-page .maintenance-virtual-cell--right {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+body.maintenance-page .payment-cell-text,
+body.maintenance-page .capture-cell-text,
+body.maintenance-page .transaction-cell-clamp-2,
+body.maintenance-page .bankprocess-cell-clamp-2,
+body.maintenance-page .formula-cell-clamp-2 {
+    text-align: left !important;
+}
+
+body.maintenance-page .maintenance-cell-currency,
+body.maintenance-page .maintenance-cell-currency-amount,
+body.maintenance-page .maintenance-cell-amount,
+body.maintenance-page .maintenance-header-amount {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+body.maintenance-page .maintenance-virtual-th-checkbox,
+body.maintenance-page .maintenance-virtual-cell-checkbox,
+body.maintenance-page .capture-virtual-cell-checkbox,
+body.maintenance-page .payment-virtual-cell-checkbox,
+body.maintenance-page .bankprocess-virtual-cell-checkbox,
+body.maintenance-page .formula-virtual-th-actions,
+body.maintenance-page .formula-virtual-cell-actions,
+body.maintenance-page .maintenance-select-all-header {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+body.maintenance-page .maintenance-checkbox-cell-inner,
+body.maintenance-page .maintenance-formula-actions-inner {
+    justify-content: flex-start;
+}
+
+/* Legacy loading tables */
+body.maintenance-page .maintenance-table th,
+body.maintenance-page .maintenance-table td,
+body.maintenance-page .maintenance-table td.maintenance-table-cell {
+    text-align: left !important;
+}
+
+/* Dashboard scrollbars — report + maintenance (contrast vs pale background) */
+body.dashboard-page.report-page,
+body.dashboard-page.maintenance-page {
+    scrollbar-width: thin;
+    scrollbar-color: #2563eb #bfdbfe;
+}
+
+body.dashboard-page.report-page::-webkit-scrollbar,
+body.dashboard-page.maintenance-page::-webkit-scrollbar {
+    width: 10px;
+}
+
+body.dashboard-page.report-page::-webkit-scrollbar-track,
+body.dashboard-page.maintenance-page::-webkit-scrollbar-track {
+    background: #bfdbfe;
+    border-radius: 10px;
+}
+
+body.dashboard-page.report-page::-webkit-scrollbar-thumb,
+body.dashboard-page.maintenance-page::-webkit-scrollbar-thumb {
+    background: #2563eb;
+    border-radius: 10px;
+    border: 2px solid #bfdbfe;
+}
+
+body.dashboard-page.report-page::-webkit-scrollbar-thumb:hover,
+body.dashboard-page.maintenance-page::-webkit-scrollbar-thumb:hover {
+    background: #1d4ed8;
+}
+
+/* Maintenance virtual list — slim scrollbar (no OS arrow buttons) */
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll {
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: #2563eb #eef4ff;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-button,
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-button:single-button,
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-button:vertical:decrement,
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-button:vertical:increment {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-track {
+    background: #eef4ff;
+    border-radius: 8px;
+    margin: 6px 0;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 55%, #1d4ed8 100%);
+    border-radius: 8px;
+    border: 2px solid #eef4ff;
+    min-height: 48px;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 55%, #1e40af 100%);
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-thumb:active {
+    background: #1e40af;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-corner {
+    background: transparent;
+}

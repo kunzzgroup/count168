@@ -1,5 +1,8 @@
 import { useEffect, useMemo } from "react";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
+import {
+  bindMaintenanceCalendarDismissListeners,
+  ensureMaintenanceDateRangePicker,
+} from "../../../utils/maintenanceDateRangePicker.js";
 import { formatDmy, parseYmd } from "../../../utils/dateUtils.js";
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -59,6 +62,10 @@ export default function ReportDatePicker({
       monthLabels,
     });
   }, [placeholder, selectEndDateHint, monthLabels]);
+
+  useEffect(() => {
+    bindMaintenanceCalendarDismissListeners();
+  }, []);
 
   useEffect(() => {
     let disposed = false;
