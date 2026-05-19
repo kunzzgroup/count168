@@ -29,6 +29,7 @@ import { useDataCaptureCategoryPermissions } from "./useDataCaptureCategoryPermi
 import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
 import { useDataCaptureGrid } from "./useDataCaptureGrid.js";
 import { useDataCaptureGridChrome } from "./useDataCaptureGridChrome.js";
+import { useDataCaptureGridInteraction } from "./useDataCaptureGridInteraction.js";
 import { useDataCapturePaste } from "./useDataCapturePaste.js";
 import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
 import { useDataCaptureFormatPaste } from "./useDataCaptureFormatPaste.js";
@@ -176,6 +177,7 @@ export default function DataCapturePage() {
 
   useDataCaptureGrid(scriptsReady);
   useDataCaptureGridChrome(scriptsReady);
+  useDataCaptureGridInteraction(scriptsReady);
   useDataCapturePaste();
   useDataCaptureFormatPaste();
 

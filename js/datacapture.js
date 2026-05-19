@@ -816,8 +816,8 @@ function selectAllCells(e) {
     hideContextMenu();
 }
 
-// Add keyboard shortcut support
-document.addEventListener('keydown', function (e) {
+// Add keyboard shortcut support (classic pages; SPA registers via React)
+function __dcHandleDocumentGridKeydown(e) {
     const key = (e.key || '').toLowerCase();
     // Check if cell is being edited (cell has focus)
     const activeElement = document.activeElement;
@@ -1098,7 +1098,7 @@ document.addEventListener('keydown', function (e) {
             }
         }
     }
-});
+}
 
 // Store submitted processes
 let submittedProcesses = [];
@@ -1863,35 +1863,7 @@ function insertColumnAt(colIndex) {
         }
 
         // Add event listeners to new cell
-        newCell.addEventListener('mousedown', handleCellMouseDown);
-        newCell.addEventListener('mouseover', handleCellMouseOver);
-        newCell.addEventListener('focus', function () {
-            this.classList.add('selected');
-        });
-        newCell.addEventListener('blur', function () {
-            this.classList.remove('selected');
-        });
-        newCell.addEventListener('keydown', handleCellKeydown);
-        newCell.addEventListener('paste', handleCellPaste);
-        newCell.addEventListener('click', function (e) {
-            tableActive = true;
-            const hasFocus = document.activeElement === this;
-            if (hasFocus) {
-                moveCaretToClickPosition(this, e);
-            } else if (!this.classList.contains('selected')) {
-                setActiveCellWithoutFocus(this);
-            } else {
-                setActiveCellCore(this);
-                this.focus();
-                setTimeout(() => {
-                    moveCaretToClickPosition(this, e);
-                }, 0);
-            }
-        });
-        newCell.addEventListener('contextmenu', function (e) {
-            e.preventDefault();
-            showContextMenu(e, this);
-        });
+        bindDataCaptureCellEvents(newCell);
 
         // Insert cell
         if (colIndex >= row.children.length - 1) {
@@ -3692,9 +3664,8 @@ function ensureDataCaptureGridReady(rows, cols) {
     return initializeTable(rows, cols);
 }
 
-// Add global click listener to deactivate table when clicking outside
-// This is set up once when the page loads
-document.addEventListener('click', function (e) {
+// Add global click listener to deactivate table when clicking outside (classic pages; SPA via React)
+function __dcHandleDocumentGridOutsideClick(e) {
     const dataTable = document.getElementById('dataTable');
     const clickedElement = e.target;
 
@@ -3716,7 +3687,7 @@ document.addEventListener('click', function (e) {
             }
         }
     }
-});
+}
 
 // Add a new row to the table without clearing existing data
 function addNewRow() {
@@ -25319,6 +25290,23 @@ window.__DC_SELECT_COLUMN__ = selectColumn;
 window.__DC_SET_TABLE_ACTIVE__ = function (v) {
     tableActive = !!v;
 };
+window.__DC_GET_TABLE_ACTIVE__ = function () {
+    return tableActive;
+};
+window.__DC_CLEAR_ALL_SELECTIONS__ = clearAllSelections;
+window.__DC_GET_SELECTED_CELLS__ = function () {
+    return Array.from(selectedCells);
+};
+window.__DC_GET_SELECTED_CELL_COUNT__ = function () {
+    return selectedCells.size;
+};
+window.__DC_HAS_PASTE_HISTORY__ = function () {
+    return pasteHistory.length > 0;
+};
+window.__DC_UNDO_LAST_PASTE__ = undoLastPaste;
+window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS__ = setActiveCellWithoutFocus;
+window.__DC_SET_ACTIVE_CELL__ = setActiveCell;
+window.__DC_MOVE_CARET_TO_END__ = moveCaretToEnd;
 window.initializeTable = initializeTable;
 window.submitDataCaptureForm = submitDataCaptureForm;
 window.__DC_CLEAR_CAPTURE_TABLE__ = clearCaptureTableForReset;
@@ -25349,6 +25337,13 @@ window.__DC_SET_FORMAT_GRID_READY__ = function (v) {
 window.__DC_GET_FORMAT_GRID_READY__ = function () {
     return isFormatGridReady;
 };
+
+function __dcRegisterGlobalGridListeners() {
+    if (__dcIsDataCaptureSpa()) return;
+    document.addEventListener('keydown', __dcHandleDocumentGridKeydown);
+    document.addEventListener('click', __dcHandleDocumentGridOutsideClick);
+}
+__dcRegisterGlobalGridListeners();
 
 window.initDataCapturePage = initDataCapturePage;
 (function __dcScheduleClassicAutoInit() {
