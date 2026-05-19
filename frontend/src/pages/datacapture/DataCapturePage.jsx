@@ -19,6 +19,11 @@ import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
 
 import { formatSubmittedProcessDateTime } from "./dataCaptureApi.js";
+import {
+  DATA_CAPTURE_HOME_PATH,
+  resolveCompanyGamesAccess,
+  syncDataCaptureCompanySession,
+} from "./dataCaptureCompanyAccess.js";
 import DataCaptureContextMenus from "./DataCaptureContextMenus.jsx";
 import DataCaptureDeleteDialog from "./DataCaptureDeleteDialog.jsx";
 import DataCaptureTableSection from "./DataCaptureTableSection.jsx";
@@ -292,6 +297,24 @@ export default function DataCapturePage() {
         }
 
         const rowForPick = raw.find((c) => Number(c.id) === Number(effectiveCompany)) || null;
+        const pickCode =
+          rowForPick?.company_id != null && String(rowForPick.company_id).trim() !== ""
+            ? String(rowForPick.company_id).trim()
+            : effectiveCompany
+              ? String(effectiveCompany)
+              : "";
+
+        const hasGamesAccess = await resolveCompanyGamesAccess({
+          companyId: effectiveCompany,
+          companyCode: pickCode,
+          sessionUser: u,
+        });
+        if (!alive) return;
+        if (!hasGamesAccess) {
+          navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+          return;
+        }
+
         const initialGroup = resolveInitialSelectedGroupFromSession(raw, rowForPick);
 
         setMe(u);
@@ -320,11 +343,12 @@ export default function DataCapturePage() {
     let cancelled = false;
     (async () => {
       try {
-        const syncRes = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`), {
-          credentials: "include",
-        });
-        const syncJson = await syncRes.json();
+        const syncJson = await syncDataCaptureCompanySession(id);
         if (!syncJson.success) return;
+        if (syncJson.data?.has_gambling === false) {
+          navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+          return;
+        }
       } catch {
         return;
       }
@@ -342,14 +366,22 @@ export default function DataCapturePage() {
   const switchCompanySessionAndNavigate = useCallback(async (nextCompanyId) => {
     const id = Number(nextCompanyId);
     if (!id) return;
+
     try {
-      await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`), {
-        credentials: "include",
-      });
+      const syncJson = await syncDataCaptureCompanySession(id);
+      if (!syncJson.success) return;
+
       notifyCompanySessionUpdated();
+
+      if (syncJson.data?.has_gambling === false) {
+        navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+        return;
+      }
     } catch {
-      /* continue navigation — backend may still accept */
+      navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+      return;
     }
+
     navigate(`/datacapture?company_id=${encodeURIComponent(id)}`, { replace: true });
   }, [navigate]);
 
