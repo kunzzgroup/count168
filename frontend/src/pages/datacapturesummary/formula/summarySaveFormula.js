@@ -7,10 +7,6 @@ import {
   calculateFormulaResultFromExpression,
   evaluateFormulaExpression,
 } from "./summaryFormulaReference.js";
-import {
-  dedupeSummaryAccountsAfterSave,
-  summaryRowHasAssignedAccount,
-} from "../summaryTablePostPopulate.js";
 
 function call(name, ...args) {
   const fn = window[name];
@@ -460,12 +456,6 @@ export function saveFormula() {
 
     let descriptionTargetRow = null
 
-    const clickedRow = currentButton ? currentButton.closest('tr') : null;
-    const clickedIsEmptyMain =
-        clickedRow &&
-        (clickedRow.getAttribute('data-product-type') || 'main') === 'main' &&
-        !summaryRowHasAssignedAccount(clickedRow);
-
     // Check if we're in edit mode
     if (isEditMode && window.currentEditRow) {
         const editingRow = window.currentEditRow;
@@ -533,34 +523,6 @@ export function saveFormula() {
                 templateId: existingTemplateId || null
             }, editingRow);
         }
-    } else if (clickedIsEmptyMain) {
-        // + on empty main row: always fill this row in place (never add a stray sub row elsewhere)
-        descriptionTargetRow = clickedRow;
-        const targetRowSourceCols = clickedRow.getAttribute('data-source-columns') || '';
-        const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
-        updateSummaryTableRow(processValue, {
-            idProduct: processValue,
-            description: descriptionValue,
-            originalDescription: descriptionValue,
-            account: accountId || 'Account',
-            accountDbId: accountValue,
-            currency: currencyName || 'Currency',
-            currencyDbId: currencyValue,
-            columns: columnsDisplay,
-            clickedColumns: clickedCellRefsForPayload,
-            sourceColumns: finalSourceColumnsForMain,
-            batchSelection: batchSelectionChecked,
-            source: formulaValue || 'Source',
-            sourcePercent: sourcePercentValue || '1',
-            formula: formulaDisplay,
-            formulaDisplay: formulaDisplay,
-            formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '',
-            processedAmount: processedAmount,
-            inputMethod: inputMethodValue,
-            enableInputMethod: enableValue,
-            enableSourcePercent: sourcePercentEnableValue,
-            productType: 'main'
-        }, clickedRow);
     } else if (isSubIdProduct) {
         // 点击的是某个 sub row 的 +：在该 Id Product 下"当前行之后"新增一条 sub 行
         const baseRow = currentButton ? currentButton.closest('tr') : null;
@@ -612,7 +574,9 @@ export function saveFormula() {
     } else {
         // main 行点击 +：如果主行还没有账号，就更新主行；否则为该 Id Product 新增一条 sub 行
         const targetRow = currentButton ? currentButton.closest('tr') : null;
-        const mainHasData = summaryRowHasAssignedAccount(targetRow);
+        const accountCell = targetRow ? targetRow.querySelector('td:nth-child(2)') : null;
+        const accountText = accountCell ? accountCell.textContent.trim() : '';
+        const mainHasData = !!accountText;
 
         if (!mainHasData) {
             // main 无数据：直接填充该 main 行（不新增行）
@@ -702,15 +666,6 @@ export function saveFormula() {
 
     // Rebuild used accounts after updates
     rebuildUsedAccountIds();
-
-    // Prevent duplicate main rows with the same account (e.g. template race or misplaced sub insert)
-    if (descriptionTargetRow) {
-        dedupeSummaryAccountsAfterSave(descriptionTargetRow);
-        const keepRowForDedupe = descriptionTargetRow;
-        window.setTimeout(() => {
-            dedupeSummaryAccountsAfterSave(keepRowForDedupe);
-        }, 400);
-    }
 
     // Auto-save template after saving formula
     // Try multiple methods to find the correct row:

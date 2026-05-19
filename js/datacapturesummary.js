@@ -8669,13 +8669,9 @@ function saveFormula() {
     } else {
         // main 行点击 +：如果主行还没有账号，就更新主行；否则为该 Id Product 新增一条 sub 行
         const targetRow = currentButton ? currentButton.closest('tr') : null;
-        const mainHasData = (() => {
-            const accountCell = targetRow ? targetRow.querySelector('td:nth-child(2)') : null;
-            const accountId = accountCell?.getAttribute('data-account-id')?.trim();
-            if (accountId) return true;
-            const accountText = accountCell ? accountCell.textContent.trim() : '';
-            return !!accountText && accountText !== '+';
-        })();
+        const accountCell = targetRow ? targetRow.querySelector('td:nth-child(2)') : null;
+        const accountText = accountCell ? accountCell.textContent.trim() : '';
+        const mainHasData = !!accountText;
 
         if (!mainHasData) {
             // main 无数据：直接填充该 main 行（不新增行）
@@ -19577,17 +19573,6 @@ function updateDeleteButton() {
 }
 
 // Delete selected rows
-function clearSummaryFormulaCellDom(cell) {
-    if (!cell) return;
-    if (window.__SUMMARY_REACT_TABLE__) {
-        while (cell.firstChild) {
-            cell.removeChild(cell.firstChild);
-        }
-        return;
-    }
-    cell.innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
-}
-
 function deleteSelectedRows() {
     const checkboxes = document.querySelectorAll('.summary-row-checkbox:checked');
     const rowsToDelete = Array.from(checkboxes).map(cb => ({
@@ -19685,10 +19670,8 @@ function deleteSelectedRows() {
                     // 清空 Currency (TD 3)
                     if (cells[3]) cells[3].textContent = '';
 
-                    // 清空 Formula (TD 4) — React 模式只清空子节点，禁止 innerHTML（否则会 removeChild 崩溃）
-                    if (cells[4]) {
-                        clearSummaryFormulaCellDom(cells[4]);
-                    }
+                    // 清空 Formula (TD 4)
+                    if (cells[4]) cells[4].textContent = '';
 
                     // 清空 Source (TD 5)
                     if (cells[5]) cells[5].textContent = '';
@@ -19736,42 +19719,16 @@ function deleteSelectedRows() {
                     }
                 }
             });
-            const finishDeleteUi = function () {
-                rebuildUsedAccountIds();
-                updateDeleteButton();
-                updateProcessedAmountTotal();
-                showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
-            };
-
-            const scheduleFinishDeleteUi = function () {
-                window.requestAnimationFrame(function () {
-                    window.requestAnimationFrame(finishDeleteUi);
-                });
-            };
-
-            const reactTableMode = !!(window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function');
-            const runReactRemoveAndFinish = function () {
-                if (reactKeysToRemove.length > 0 && reactTableMode) {
-                    try {
-                        window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
-                    } catch (reactRemoveErr) {
-                        console.error('React remove summary rows failed:', reactRemoveErr);
-                    }
-                } else if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
-                    try {
-                        window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
-                    } catch (syncErr) {
-                        console.error('syncFromDom after delete failed:', syncErr);
-                    }
-                }
-                scheduleFinishDeleteUi();
-            };
-
-            if (reactTableMode) {
-                window.setTimeout(runReactRemoveAndFinish, 0);
-            } else {
-                runReactRemoveAndFinish();
+            if (reactKeysToRemove.length > 0 && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function') {
+                window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
             }
+            if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+                window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
+            }
+            rebuildUsedAccountIds();
+            updateDeleteButton();
+            updateProcessedAmountTotal();
+            showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
             // 后台删除模板，不阻塞界面
             if (templatesToDelete.length > 0) {
                 const deletePromises = templatesToDelete.map(t =>
