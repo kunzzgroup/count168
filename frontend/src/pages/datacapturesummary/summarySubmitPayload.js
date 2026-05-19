@@ -1,9 +1,10 @@
 /**
  * Future home for DOM → API submit payload. Phase 5: bridge to legacy collector.
  */
-export function collectSummarySubmitRows() {
+export async function collectSummarySubmitRows() {
   if (typeof window.__SUMMARY_COLLECT_SUBMIT_ROWS__ === "function") {
-    return window.__SUMMARY_COLLECT_SUBMIT_ROWS__();
+    const rows = await window.__SUMMARY_COLLECT_SUBMIT_ROWS__();
+    return Array.isArray(rows) ? rows : [];
   }
   return [];
 }

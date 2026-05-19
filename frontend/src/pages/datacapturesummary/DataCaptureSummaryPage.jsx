@@ -14,6 +14,7 @@ import { useSummaryCaptureBootstrap } from "./hooks/useSummaryCaptureBootstrap.j
 import { useSummaryRows } from "./hooks/useSummaryRows.js";
 import { useSummaryPageActions } from "./hooks/useSummaryPageActions.js";
 import { useSummaryOverlays } from "./hooks/useSummaryOverlays.js";
+import { useSummaryLegacyChrome } from "./hooks/useSummaryLegacyChrome.js";
 import {
   useSummaryTableBridge,
   showSummarySuccessNotificationIfNeededFromReact,
@@ -99,6 +100,7 @@ export default function DataCaptureSummaryPage() {
 
   const pageActions = useSummaryPageActions({ companyId, scriptsReady });
   const overlays = useSummaryOverlays();
+  useSummaryLegacyChrome(scriptsReady);
 
   const showEmptyState =
     sessionReady &&

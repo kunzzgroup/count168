@@ -82,6 +82,8 @@ function runSummaryTablePostPopulateFinally() {
   setTimeout(() => {
     window.updateProcessedAmountTotal?.();
   }, 120);
+
+  rebindAllSummaryTableRows();
 }
 
 export function showSummarySuccessNotificationIfNeeded() {
@@ -93,6 +95,22 @@ export function showSummarySuccessNotificationIfNeeded() {
     window.showNotification?.("Error", "Failed to generate summary. Please try again.", "error");
     stripSummarySuccessParamFromUrl();
   }
+}
+
+export function rebindAllSummaryTableRows() {
+  const tbody = document.getElementById("summaryTableBody");
+  if (!tbody) return;
+
+  tbody.querySelectorAll("tr").forEach((row) => {
+    const idCell = row.querySelector("td.id-product");
+    const idProduct =
+      idCell?.getAttribute("data-main-product")?.trim() ||
+      idCell?.textContent?.trim() ||
+      "";
+    bindSummaryRowLegacyHandlers(row, idProduct);
+  });
+
+  window.updateDeleteButton?.();
 }
 
 export function bindSummaryRowLegacyHandlers(rowEl, idProduct) {

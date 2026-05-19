@@ -110,7 +110,8 @@ function initDataCaptureSummaryPage() {
         }
 
         const rateInput = document.getElementById('rateInput');
-        if (rateInput) {
+        if (rateInput && rateInput.dataset.summaryRateBound !== '1') {
+            rateInput.dataset.summaryRateBound = '1';
             rateInput.addEventListener('input', function () {
                 recalculateAllRowsWithRate();
             });
@@ -19931,6 +19932,33 @@ function setSummarySubmitUiActive(active) {
 }
 
 /** Used by React summarySubmitValidation.js before full payload migration. */
+function validateSummaryRowsCurrencyFormula(rows) {
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.querySelectorAll('td');
+        const selectCheckbox = row.querySelector('.summary-select-checkbox');
+        if (selectCheckbox && selectCheckbox.checked) continue;
+        const accountCell = cells[1];
+        if (!accountCell) continue;
+        const accountText = accountCell.textContent.trim();
+        const hasButton = accountCell.querySelector('.add-account-btn');
+        if (!accountText || accountText === '+' || hasButton) continue;
+        const currencyCell = cells[3];
+        const currencyText = (currencyCell && currencyCell.textContent) ? String(currencyCell.textContent).trim().replace(/[()]/g, '') : '';
+        const formulaCell = cells[4];
+        const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim() || '') : '';
+        const currencyEmpty = !currencyText || /^select\s*curren/i.test(currencyText);
+        const formulaEmpty = !formulaText || !String(formulaText).trim();
+        if (currencyEmpty || formulaEmpty) {
+            const msg = currencyEmpty && formulaEmpty
+                ? '请先填写 Currency 和 Formula 后再提交。Cannot save: Currency and Formula are required.'
+                : (currencyEmpty ? '请先选择 Currency 后再提交。Cannot save: Currency is required.' : '请先填写 Formula 后再提交。Cannot save: Formula is required.');
+            return { ok: false, message: msg };
+        }
+    }
+    return { ok: true };
+}
+
 function validateSummarySubmitTotal() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) {
@@ -19967,6 +19995,7 @@ function validateSummarySubmitTotal() {
 
 window.validateSummarySubmitTotal = validateSummarySubmitTotal;
 window.__SUMMARY_VALIDATE_SUBMIT_TOTAL__ = validateSummarySubmitTotal;
+window.validateSummaryRowsCurrencyFormula = validateSummaryRowsCurrencyFormula;
 
 async function submitSummaryData() {
     // Prevent duplicate submissions
@@ -20008,32 +20037,11 @@ async function submitSummaryData() {
         // Pre-load account list so rows without data-account-id can resolve accountId (e.g. when Submit without opening edit form)
         window.__summaryAccountListCache = await fetchSummaryAccountList();
 
-        // 先校验：有 Account 的行必须同时填写 Currency 和 Formula，任一项空则不允许 Submit
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const cells = row.querySelectorAll('td');
-            const selectCheckbox = row.querySelector('.summary-select-checkbox');
-            if (selectCheckbox && selectCheckbox.checked) continue;
-            const accountCell = cells[1];
-            if (!accountCell) continue;
-            const accountText = accountCell.textContent.trim();
-            const hasButton = accountCell.querySelector('.add-account-btn');
-            if (!accountText || accountText === '+' || hasButton) continue;
-            // 该行有 Account，必须填写 Currency 和 Formula；任一项空则不能 Save，并弹出通知
-            const currencyCell = cells[3];
-            const currencyText = (currencyCell && currencyCell.textContent) ? String(currencyCell.textContent).trim().replace(/[()]/g, '') : '';
-            const formulaCell = cells[4];
-            const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim() || '') : '';
-            const currencyEmpty = !currencyText || /^select\s*curren/i.test(currencyText);
-            const formulaEmpty = !formulaText || !String(formulaText).trim();
-            if (currencyEmpty || formulaEmpty) {
-                setSummarySubmitUiActive(false);
-                const msg = currencyEmpty && formulaEmpty
-                    ? '请先填写 Currency 和 Formula 后再提交。Cannot save: Currency and Formula are required.'
-                    : (currencyEmpty ? '请先选择 Currency 后再提交。Cannot save: Currency is required.' : '请先填写 Formula 后再提交。Cannot save: Formula is required.');
-                showNotification('Error', msg, 'error');
-                return;
-            }
+        const rowFieldValidation = validateSummaryRowsCurrencyFormula(rows);
+        if (!rowFieldValidation.ok) {
+            setSummarySubmitUiActive(false);
+            showNotification('Error', rowFieldValidation.message || 'Currency and Formula are required.', 'error');
+            return;
         }
 
         rows.forEach(row => {
