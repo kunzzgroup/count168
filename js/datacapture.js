@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa14';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa15';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -10264,8 +10264,8 @@ function parseAgentLinkTableFormat(pastedData) {
     }
 }
 
-// 处理单元格粘贴事件
-function handleCellPaste(e) {
+// 处理单元格粘贴事件（legacy body — Phase 4: SPA delegates to React via handleCellPaste wrapper）
+function legacyHandleCellPasteInternal(e) {
     // 获取单元格元素（支持文本节点和元素节点）
     const cell = e.target.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
 
@@ -22595,6 +22595,13 @@ function toggleTableDisplayForFormat() {
     }
 }
 
+function handleCellPaste(e) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_CELL_PASTE__ === 'function') {
+        return window.__DC_HANDLE_CELL_PASTE__(e);
+    }
+    return legacyHandleCellPasteInternal(e);
+}
+
 function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
     if (currentDataCaptureType !== '2.Format') return false;
 
@@ -25309,6 +25316,15 @@ window.submitDataCaptureForm = submitDataCaptureForm;
 window.__DC_CLEAR_CAPTURE_TABLE__ = clearCaptureTableForReset;
 window.__DC_RESTORE_CAPTURE_TABLE__ = restoreCaptureTableFromData;
 window.__DC_CONVERT_TABLE_ON_SUBMIT__ = convertTableFormatOnSubmit;
+window.__DC_LEGACY_HANDLE_CELL_PASTE_INTERNAL__ = legacyHandleCellPasteInternal;
+window.__DC_PUSH_PASTE_HISTORY__ = function (changes) {
+    if (!Array.isArray(changes) || changes.length === 0) return;
+    pasteHistory.push(changes);
+    if (pasteHistory.length > maxHistorySize) pasteHistory.shift();
+};
+window.__DC_FIX_CITIBET_AMOUNTS__ = fixCitibetAmountColumns;
+window.__DC_LEGACY_PARSE_HTML_TEXT__ = parseAndFillHTMLTableForText;
+window.__DC_LEGACY_DETECT_HTML__ = detectAndParseHTML;
 window.__DC_LEGACY_SYNC_CAPTURE_TYPE__ = function (t) {
     currentDataCaptureType = normalizeCaptureTypeValue(t);
 };

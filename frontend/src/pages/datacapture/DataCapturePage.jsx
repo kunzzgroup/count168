@@ -27,6 +27,7 @@ import ProcessNotificationContainer from "./ProcessNotificationContainer.jsx";
 import { useDataCaptureCategoryPermissions } from "./useDataCaptureCategoryPermissions.js";
 import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
 import { useDataCaptureGrid } from "./useDataCaptureGrid.js";
+import { useDataCapturePaste } from "./useDataCapturePaste.js";
 import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
 import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./useDataCaptureSubmitReset.js";
@@ -171,6 +172,7 @@ export default function DataCapturePage() {
   const submitReset = useDataCaptureSubmitReset({ companyId, form, captureType });
 
   useDataCaptureGrid(scriptsReady);
+  useDataCapturePaste();
 
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
 
@@ -361,7 +363,7 @@ export default function DataCapturePage() {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
         await loadScriptOnce(
-          buildApiUrl("js/datacapture.js?v=20260519-spa14"),
+          buildApiUrl("js/datacapture.js?v=20260519-spa15"),
           () => typeof window.initDataCapturePage === "function"
         );
         if (!alive) return;
