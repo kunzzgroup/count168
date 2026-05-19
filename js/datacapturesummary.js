@@ -15831,6 +15831,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 });
             });
         }
+        window.__SUMMARY_APPLIED_SUB_GROUPS__ = new Set();
 
         // 用完整 id_product 列表请求，不按「括号前」合并，保证 GAMS(SV)HKD 与 GAMS(SV)MYR 分开
         const uniqueIds = [...new Set(idProducts.map(v => (v || '').trim()).filter(Boolean))];
@@ -16697,7 +16698,12 @@ function applyTemplateToSummaryRow(idProduct, template) {
             ensureSubRowPlaceholderExists(idProduct, targetRow);
         }
 
-        if (Array.isArray(subTemplates) && subTemplates.length > 0) {
+        // Subs for structured templates are applied once in autoPopulate (allMains path) — do not apply again here
+        const subsAlreadyAppliedGlobally = (function () {
+            const k = normalizeIdProductText(idProduct);
+            return k && window.__SUMMARY_APPLIED_SUB_GROUPS__ && window.__SUMMARY_APPLIED_SUB_GROUPS__.has(k);
+        })();
+        if (Array.isArray(subTemplates) && subTemplates.length > 0 && !subsAlreadyAppliedGlobally) {
             applySubsForIdProductGroup(idProduct, subTemplates);
         }
 
@@ -18208,20 +18214,49 @@ function findMainRowForSubTemplateLegacy(idProduct, subTemplate) {
  * Apply sub templates once per template id, grouped under the correct parent main row.
  * Prevents duplicate 1SLOT rows when the same id_product has multiple main accounts (e.g. NO + CITIBET).
  */
+function dedupeSubTemplatesByAccountLegacy(subTemplates) {
+    if (!Array.isArray(subTemplates) || subTemplates.length === 0) return [];
+    const byAccount = new Map();
+    subTemplates.forEach((sub) => {
+        if (!sub) return;
+        const accountId = sub.account_id != null ? String(sub.account_id).trim() : '';
+        const key = accountId || (sub.template_key != null ? String(sub.template_key) : '') || (sub.id != null ? 'id:' + sub.id : '');
+        if (!key) return;
+        const existing = byAccount.get(key);
+        if (!existing) {
+            byAccount.set(key, sub);
+            return;
+        }
+        const existingTs = existing.updated_at || '';
+        const currentTs = sub.updated_at || '';
+        if (currentTs > existingTs || (currentTs === existingTs && sub.id != null && existing.id != null && Number(sub.id) > Number(existing.id))) {
+            byAccount.set(key, sub);
+        }
+    });
+    return Array.from(byAccount.values());
+}
+
 function applySubsForIdProductGroupLegacy(idProduct, subTemplates) {
     if (!Array.isArray(subTemplates) || subTemplates.length === 0) {
         return false;
     }
 
-    const appliedTemplateIds = new Set();
+    const groupKey = normalizeIdProductText(idProduct);
+    if (groupKey) {
+        if (!window.__SUMMARY_APPLIED_SUB_GROUPS__) {
+            window.__SUMMARY_APPLIED_SUB_GROUPS__ = new Set();
+        }
+        if (window.__SUMMARY_APPLIED_SUB_GROUPS__.has(groupKey)) {
+            return true;
+        }
+        window.__SUMMARY_APPLIED_SUB_GROUPS__.add(groupKey);
+    }
+
+    const uniqueSubs = dedupeSubTemplatesByAccountLegacy(subTemplates);
     const subsByMainRow = new Map();
 
-    subTemplates.forEach((sub) => {
+    uniqueSubs.forEach((sub) => {
         if (!sub) return;
-        const templateId = sub.id != null ? String(sub.id) : null;
-        if (templateId && appliedTemplateIds.has(templateId)) {
-            return;
-        }
 
         const mainRow = findMainRowForSubTemplateLegacy(idProduct, sub);
         if (!mainRow) return;
@@ -18230,9 +18265,6 @@ function applySubsForIdProductGroupLegacy(idProduct, subTemplates) {
             subsByMainRow.set(mainRow, []);
         }
         subsByMainRow.get(mainRow).push(sub);
-        if (templateId) {
-            appliedTemplateIds.add(templateId);
-        }
     });
 
     if (subsByMainRow.size === 0) {
@@ -18260,7 +18292,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         : null;
 
     // Filter out empty sub templates (those with no meaningful data)
-    const validSubTemplates = subTemplates.filter(template => {
+    let validSubTemplates = subTemplates.filter(template => {
         const sourceColumns = template.source_columns || '';
         const formulaOperators = template.formula_operators || '';
         const formulaDisplay = template.formula_display || '';
@@ -18287,6 +18319,15 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
     if (validSubTemplates.length === 0) {
         console.log('No valid sub templates after filtering for', idProduct);
+        return;
+    }
+
+    if (typeof window.__SUMMARY_DEDUPE_SUB_TEMPLATES_BY_ACCOUNT__ === 'function') {
+        validSubTemplates = window.__SUMMARY_DEDUPE_SUB_TEMPLATES_BY_ACCOUNT__(validSubTemplates);
+    } else {
+        validSubTemplates = dedupeSubTemplatesByAccountLegacy(validSubTemplates);
+    }
+    if (validSubTemplates.length === 0) {
         return;
     }
 

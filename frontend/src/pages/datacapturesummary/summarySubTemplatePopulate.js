@@ -67,7 +67,7 @@ export function findMainRowForSubTemplate(idProduct, subTemplate) {
 
 export function filterSubsForParentIdProduct(subs, originalIdProduct, normalizedIdProduct) {
   if (!Array.isArray(subs) || subs.length === 0) return [];
-  return subs.filter((sub) => {
+  const matched = subs.filter((sub) => {
     const subParentNorm = (sub.parent_id_product || "").trim().replace(/^\d+\s+/, "").trim();
     const subParentBare = normalizeSummaryIdProductText(subParentNorm);
     return (
@@ -75,6 +75,37 @@ export function filterSubsForParentIdProduct(subs, originalIdProduct, normalized
       subParentNorm === (originalIdProduct || "").trim()
     );
   });
+  return dedupeSubTemplatesByAccount(matched);
+}
+
+/** One sub row per account_id — keep newest template when DB has duplicates (different sub_order/variant). */
+export function dedupeSubTemplatesByAccount(subTemplates) {
+  if (!Array.isArray(subTemplates) || subTemplates.length === 0) return [];
+
+  const byAccount = new Map();
+  subTemplates.forEach((sub) => {
+    if (!sub) return;
+    const accountId = sub.account_id != null ? String(sub.account_id).trim() : "";
+    const key = accountId || (sub.template_key != null ? String(sub.template_key) : "") || (sub.id != null ? `id:${sub.id}` : "");
+    if (!key) return;
+
+    const existing = byAccount.get(key);
+    if (!existing) {
+      byAccount.set(key, sub);
+      return;
+    }
+    const existingTs = existing.updated_at || "";
+    const currentTs = sub.updated_at || "";
+    if (currentTs > existingTs) {
+      byAccount.set(key, sub);
+      return;
+    }
+    if (currentTs === existingTs && sub.id != null && existing.id != null && Number(sub.id) > Number(existing.id)) {
+      byAccount.set(key, sub);
+    }
+  });
+
+  return Array.from(byAccount.values());
 }
 
 /**
@@ -82,6 +113,23 @@ export function filterSubsForParentIdProduct(subs, originalIdProduct, normalized
  */
 export function applySubsForIdProductGroup(idProduct, subTemplates) {
   if (!Array.isArray(subTemplates) || subTemplates.length === 0) {
+    return false;
+  }
+
+  const groupKey = normalizeSummaryIdProductText(idProduct);
+  if (groupKey) {
+    if (!window.__SUMMARY_APPLIED_SUB_GROUPS__) {
+      window.__SUMMARY_APPLIED_SUB_GROUPS__ = new Set();
+    }
+    if (window.__SUMMARY_APPLIED_SUB_GROUPS__.has(groupKey)) {
+      console.log("applySubsForIdProductGroup: skip duplicate group apply for", groupKey);
+      return true;
+    }
+    window.__SUMMARY_APPLIED_SUB_GROUPS__.add(groupKey);
+  }
+
+  const uniqueSubs = dedupeSubTemplatesByAccount(subTemplates);
+  if (uniqueSubs.length === 0) {
     return false;
   }
 
@@ -94,22 +142,10 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
     return false;
   }
 
-  const appliedTemplateIds = new Set();
   const subsByMainRow = new Map();
 
-  subTemplates.forEach((sub) => {
+  uniqueSubs.forEach((sub) => {
     if (!sub) return;
-    const templateId = sub.id != null ? String(sub.id) : null;
-    const accountKey =
-      sub.account_id != null
-        ? `${String(sub.account_id)}:${sub.sub_order != null ? Number(sub.sub_order) : ""}:${sub.formula_variant != null ? sub.formula_variant : ""}`
-        : null;
-    if (templateId && appliedTemplateIds.has(templateId)) {
-      return;
-    }
-    if (accountKey && appliedTemplateIds.has(`acc:${accountKey}`)) {
-      return;
-    }
 
     const mainRow = findMainRowForSubTemplate(idProduct, sub);
     if (!mainRow) return;
@@ -118,12 +154,6 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
       subsByMainRow.set(mainRow, []);
     }
     subsByMainRow.get(mainRow).push(sub);
-    if (templateId) {
-      appliedTemplateIds.add(templateId);
-    }
-    if (accountKey) {
-      appliedTemplateIds.add(`acc:${accountKey}`);
-    }
   });
 
   if (subsByMainRow.size === 0) {
@@ -139,9 +169,11 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
 export function registerSummarySubTemplatePopulate() {
   window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ = applySubsForIdProductGroup;
   window.__SUMMARY_FILTER_SUBS_FOR_PARENT__ = filterSubsForParentIdProduct;
+  window.__SUMMARY_DEDUPE_SUB_TEMPLATES_BY_ACCOUNT__ = dedupeSubTemplatesByAccount;
 }
 
 export function unregisterSummarySubTemplatePopulate() {
   delete window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__;
   delete window.__SUMMARY_FILTER_SUBS_FOR_PARENT__;
+  delete window.__SUMMARY_DEDUPE_SUB_TEMPLATES_BY_ACCOUNT__;
 }
