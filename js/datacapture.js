@@ -1120,7 +1120,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa5';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa6';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -24867,6 +24867,7 @@ async function initDataCapturePage() {
     window.addEventListener('resize', updateActiveContextMenuPosition);
 
     const urlParamsForCaptureType = new URLSearchParams(window.location.search);
+    const shouldRestore = urlParamsForCaptureType.get('restore') === '1';
     const captureTypeFromUrl = String(urlParamsForCaptureType.get('captureType') || urlParamsForCaptureType.get('dataCaptureType') || '').trim();
 
     if (typeSelect) {
@@ -24898,8 +24899,7 @@ async function initDataCapturePage() {
     await loadFormData();
 
     // Check for URL parameters first
-    const urlParams = new URLSearchParams(window.location.search);
-    const shouldRestore = urlParams.get('restore') === '1';
+    const urlParams = urlParamsForCaptureType;
 
     if (!shouldRestore) {
         // Submitted Processes：按左侧 Date（capture_date）加载
