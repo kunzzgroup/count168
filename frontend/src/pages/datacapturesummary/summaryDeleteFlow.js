@@ -57,19 +57,6 @@ function collectValidDeleteRowTargetsFromDom() {
     });
 }
 
-function runLegacyDeleteSelectedRowsDirect() {
-  if (typeof window.deleteSelectedRows !== "function") {
-    return false;
-  }
-  window.__SUMMARY_DELETE_DIRECT_LEGACY__ = true;
-  try {
-    window.deleteSelectedRows();
-    return true;
-  } finally {
-    window.__SUMMARY_DELETE_DIRECT_LEGACY__ = false;
-  }
-}
-
 export function requestSummaryDeleteConfirmation({ showConfirmDelete, showNotification }) {
   const collect =
     typeof window.collectValidDeleteRowTargets === "function"
@@ -79,9 +66,6 @@ export function requestSummaryDeleteConfirmation({ showConfirmDelete, showNotifi
   const execute = window.executeDeleteSelectedRows;
 
   if (typeof execute !== "function") {
-    if (runLegacyDeleteSelectedRowsDirect()) {
-      return;
-    }
     notifyError(
       "Error",
       "Delete is not ready yet. Please wait for the page to finish loading.",

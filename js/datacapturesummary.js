@@ -19831,13 +19831,6 @@ function deleteSelectedRows() {
     const confirmMessage = 'Are you sure you want to delete ' + validRowsToDelete.length +
         ' selected row(s)? This action cannot be undone.';
 
-    if (typeof window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ === 'function') {
-        window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__(confirmMessage, function () {
-            executeDeleteSelectedRows(validRowsToDelete);
-        });
-        return;
-    }
-
     showConfirmDelete(confirmMessage, function () {
         executeDeleteSelectedRows(validRowsToDelete);
     });
@@ -19862,12 +19855,18 @@ function showConfirmDelete(message, callback) {
     }
     const modal = document.getElementById('confirmDeleteModal');
     const messageEl = document.getElementById('confirmDeleteMessage');
-
-    messageEl.textContent = message;
-    deleteCallback = callback;
-
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+    if (modal && messageEl) {
+        messageEl.textContent = message;
+        deleteCallback = callback;
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        return;
+    }
+    if (window.confirm(message)) {
+        if (typeof callback === 'function') {
+            callback();
+        }
+    }
 }
 
 function closeConfirmDeleteModal() {
@@ -19876,7 +19875,9 @@ function closeConfirmDeleteModal() {
         return;
     }
     const modal = document.getElementById('confirmDeleteModal');
-    modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+    }
     document.body.style.overflow = '';
     deleteCallback = null;
 }

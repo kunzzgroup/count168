@@ -11,6 +11,13 @@ if (typeof window !== "undefined") {
   window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
   registerSummaryFormulaEngineShims();
   registerSummaryTableDomBridge();
+  if (typeof window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ !== "function") {
+    window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ = (message, callback) => {
+      if (window.confirm(message)) {
+        callback?.();
+      }
+    };
+  }
 }
 
 /** Legacy showEmptyState() inserts HTML after the submit bar — remove stale copies when React owns the table. */

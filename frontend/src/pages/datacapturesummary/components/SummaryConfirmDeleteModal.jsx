@@ -4,10 +4,15 @@ export default function SummaryConfirmDeleteModal({
   onCancel,
   onConfirm,
 }) {
-  if (!open) return null;
-
   return (
-    <div id="confirmDeleteModal" className="summary-modal" style={{ display: "flex" }} role="dialog" aria-modal="true">
+    <div
+      id="confirmDeleteModal"
+      className="summary-modal"
+      style={{ display: open ? "flex" : "none" }}
+      role="dialog"
+      aria-modal={open}
+      aria-hidden={!open}
+    >
       <div className="summary-confirm-modal-content">
         <div className="summary-confirm-icon-container">
           <svg className="summary-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
