@@ -1,7 +1,11 @@
-import { useEffect, useLayoutEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
+import { useSummaryBoot } from "./hooks/useSummaryBoot.js";
+import { useSummaryCaptureBootstrap } from "./hooks/useSummaryCaptureBootstrap.js";
+import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/datacapturesummary.css";
@@ -52,23 +56,24 @@ function loadScriptOnce(src, isAlreadyLoaded) {
   });
 }
 
-const CAPTURE_STORAGE_KEYS = [
-  "capturedTableData",
-  "capturedProcessData",
-  "capturedDataCaptureType",
-  "capturedFormatPreviewHtml",
-  "captured655PreviewHtml",
-  "capturedTableRateValues",
-  "capturedTableFormulaSourceForRefresh",
-  "capturedCaptureId",
-];
-
 export default function DataCaptureSummaryPage() {
   const navigate = useNavigate();
-  const [bootLoading, setBootLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const { companyId, bootLoading: sessionBootLoading, bootError } = useSummaryBoot();
+
   const [scriptsReady, setScriptsReady] = useState(false);
   const [engineError, setEngineError] = useState("");
-  const [companyId, setCompanyId] = useState(null);
+
+  const sessionReady = !sessionBootLoading && !bootError && companyId != null;
+
+  const capture = useSummaryCaptureBootstrap({
+    companyId,
+    searchParams,
+    enabled: sessionReady,
+  });
+
+  const hydrateRef = useRef(capture.hydrateLegacyGlobals);
+  hydrateRef.current = capture.hydrateLegacyGlobals;
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page");
@@ -79,9 +84,12 @@ export default function DataCaptureSummaryPage() {
   }, []);
 
   useEffect(() => {
+    if (!sessionReady) return;
+
     let alive = true;
     window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
     setEngineError("");
+    setScriptsReady(false);
 
     (async () => {
       try {
@@ -91,33 +99,16 @@ export default function DataCaptureSummaryPage() {
       }
 
       try {
-        const mePromise = fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const scriptsPromise = Promise.all([
+        await Promise.all([
           loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined"),
           loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined"),
           loadScriptOnce(buildApiUrl("js/datacapturesummary.js"), () => typeof window.initDataCaptureSummaryPage === "function"),
         ]);
-
-        const [meRes] = await Promise.all([mePromise, scriptsPromise]);
-        const meJson = await meRes.json();
-        if (!alive) return;
-
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        const id = meJson.data.company_id != null ? Number(meJson.data.company_id) : null;
-        const numericId = Number.isFinite(id) ? id : null;
-        window.DATACAPTURESUMMARY_COMPANY_ID = numericId;
-        setCompanyId(numericId);
         if (alive) setScriptsReady(true);
       } catch (e) {
         if (!alive) return;
         console.error(e);
         setEngineError("Failed to load Data Capture Summary scripts.");
-      } finally {
-        if (alive) setBootLoading(false);
       }
     })();
 
@@ -126,15 +117,17 @@ export default function DataCaptureSummaryPage() {
       setScriptsReady(false);
       window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
     };
-  }, [navigate]);
+  }, [sessionReady]);
 
-  /** Run legacy init only after the full summary shell is mounted (not the boot Loading placeholder). */
+  /** Hydrate React-loaded capture state, then run legacy table init after full shell mounts. */
   useEffect(() => {
-    if (bootLoading || !scriptsReady || engineError) return;
+    if (!sessionReady || !scriptsReady || engineError) return;
+    if (capture.hasCaptureData && capture.serverStateLoading) return;
 
     let cancelled = false;
     const runInit = () => {
       if (cancelled) return;
+      hydrateRef.current();
       const shell = document.querySelector(".container");
       if (shell) delete shell.dataset.summaryPageInit;
       if (typeof window.initDataCaptureSummaryPage === "function") {
@@ -147,18 +140,21 @@ export default function DataCaptureSummaryPage() {
       cancelled = true;
       cancelAnimationFrame(id);
     };
-  }, [bootLoading, scriptsReady, engineError]);
+  }, [
+    sessionReady,
+    scriptsReady,
+    engineError,
+    capture.hasCaptureData,
+    capture.serverStateLoading,
+    capture.serverState,
+  ]);
 
-  /** Match legacy PHP: sidebar Data Capture title starts a fresh capture round */
+  /** Sidebar Data Capture → fresh capture round (SPA navigate). */
   useEffect(() => {
     function navigateToDataCaptureFresh() {
       window.isNavigatingAwayByBackOrSubmit = true;
-      try {
-        for (const k of CAPTURE_STORAGE_KEYS) localStorage.removeItem(k);
-      } catch {
-        /* ignore */
-      }
-      window.location.assign(buildApiUrl("datacapture"));
+      clearSummaryCaptureRoundStorage();
+      navigate("/datacapture", { replace: true });
     }
 
     let tries = 0;
@@ -183,11 +179,12 @@ export default function DataCaptureSummaryPage() {
     }, 100);
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [navigate]);
 
   const alertDayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
+  const pageBootLoading = sessionBootLoading || (sessionReady && !scriptsReady && !engineError);
 
-  if (bootLoading) {
+  if (pageBootLoading) {
     return (
       <div className="container">
         <p style={{ padding: "24px", margin: 0 }}>Loading…</p>
@@ -238,40 +235,7 @@ export default function DataCaptureSummaryPage() {
       </div>
 
       <div className="summary-table-container" id="summaryTableContainer" style={{ display: "none" }}>
-        <div className="process-info-container" id="processInfoContainer" style={{ display: "none" }}>
-          <div className="process-info-row">
-            <div className="process-info-item">
-              <span className="process-info-label">Date:</span>
-              <span className="process-info-value" id="processInfoDate">
-                -
-              </span>
-            </div>
-            <div className="process-info-item">
-              <span className="process-info-label">Process:</span>
-              <span className="process-info-value" id="processInfoProcess">
-                -
-              </span>
-            </div>
-            <div className="process-info-item">
-              <span className="process-info-label">Description:</span>
-              <span className="process-info-value" id="processInfoDescription">
-                -
-              </span>
-            </div>
-            <div className="process-info-item">
-              <span className="process-info-label">Currency:</span>
-              <span className="process-info-value" id="processInfoCurrency">
-                -
-              </span>
-            </div>
-            <div className="process-info-item">
-              <span className="process-info-label">Remark:</span>
-              <span className="process-info-value" id="processInfoRemark">
-                -
-              </span>
-            </div>
-          </div>
-        </div>
+        <SummaryProcessInfo processData={capture.processData} visible={capture.hasCaptureData} />
         <div className="table-wrapper">
           <table className="summary-table" id="summaryTable">
             <thead>
