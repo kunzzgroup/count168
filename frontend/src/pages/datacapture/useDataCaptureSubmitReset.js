@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { buildApiUrl } from "../../utils/apiUrl.js";
-import { pushDataCaptureNotification } from "./dataCaptureNotify.js";
+import { useNavigate } from "react-router-dom";
 import {
   loadCaptureSession,
   saveCaptureSession,
@@ -12,6 +11,7 @@ import { isSubmitReady, validateDataCaptureForm } from "./dataCaptureValidation.
 import { fetchProcessDetail } from "./dataCaptureApi.js";
 import { getActiveDescriptions } from "./dataCaptureFormHelpers.js";
 import { convertTableFormatOnSubmit } from "./dataCaptureConvertTableOnSubmit.js";
+import { pushDataCaptureNotification } from "./dataCaptureNotify.js";
 
 function buildProcessCapturePayload(form, captureType, currencies) {
   const currencyOpt = (currencies || []).find((c) => String(c.id) === String(form.currencyId));
@@ -36,6 +36,7 @@ function buildProcessCapturePayload(form, captureType, currencies) {
  * Submit-time table transform lives in dataCaptureConvertTableOnSubmit.js (Phase 5b).
  */
 export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
+  const navigate = useNavigate();
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreStartedRef = useRef(false);
   const captureTypeRef = useRef(captureType);
@@ -115,16 +116,13 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
       const finalTableData = captureTableDataFromDom(captureType);
       saveCaptureSession(finalTableData, processData, captureType);
 
-      pushDataCaptureNotification("Data captured successfully! Redirecting to summary...", "success");
       window.isNavigatingAwayByBackOrSubmit = true;
-      setTimeout(() => {
-        window.location.assign(buildApiUrl("datacapturesummary?success=1"));
-      }, 1500);
+      navigate("/datacapturesummary?success=1", { replace: true });
     } catch (error) {
       console.error("Error submitting data:", error);
       pushDataCaptureNotification("Failed to capture data", "danger");
     }
-  }, [form, captureType]);
+  }, [form, captureType, navigate]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {

@@ -68,31 +68,53 @@ export default function DataCaptureSummaryPage() {
 
   useEffect(() => {
     let alive = true;
+    window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
+    setEngineError("");
+
     (async () => {
       try {
         await injectStylesheet("https://fonts.googleapis.com/css?family=Amaranth");
       } catch {
         /* ignore */
       }
+
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const mePromise = fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const scriptsPromise = Promise.all([
+          loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined"),
+          loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined"),
+          loadScriptOnce(buildApiUrl("js/datacapturesummary.js"), () => typeof window.initDataCaptureSummaryPage === "function"),
+        ]);
+
+        const [meRes] = await Promise.all([mePromise, scriptsPromise]);
         const meJson = await meRes.json();
         if (!alive) return;
+
         if (!meRes.ok || !meJson.success || !meJson.data) {
           navigate("/login", { replace: true });
           return;
         }
+
         const id = meJson.data.company_id != null ? Number(meJson.data.company_id) : null;
-        setCompanyId(Number.isFinite(id) ? id : null);
-      } catch {
+        const numericId = Number.isFinite(id) ? id : null;
+        window.DATACAPTURESUMMARY_COMPANY_ID = numericId;
+        setCompanyId(numericId);
+
+        if (typeof window.initDataCaptureSummaryPage === "function") {
+          window.initDataCaptureSummaryPage();
+        }
+      } catch (e) {
         if (!alive) return;
-        navigate("/login", { replace: true });
+        console.error(e);
+        setEngineError("Failed to load Data Capture Summary scripts.");
       } finally {
         if (alive) setBootLoading(false);
       }
     })();
+
     return () => {
       alive = false;
+      window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
     };
   }, [navigate]);
 
@@ -131,37 +153,6 @@ export default function DataCaptureSummaryPage() {
 
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (bootLoading) return;
-
-    let alive = true;
-    window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
-    window.DATACAPTURESUMMARY_COMPANY_ID = companyId != null ? companyId : null;
-
-    setEngineError("");
-
-    (async () => {
-      try {
-        await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
-        await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
-        await loadScriptOnce(buildApiUrl("js/datacapturesummary.js"), () => typeof window.initDataCaptureSummaryPage === "function");
-        if (!alive) return;
-        if (typeof window.initDataCaptureSummaryPage === "function") {
-          window.initDataCaptureSummaryPage();
-        }
-      } catch (e) {
-        if (!alive) return;
-        console.error(e);
-        setEngineError("Failed to load Data Capture Summary scripts.");
-      }
-    })();
-
-    return () => {
-      alive = false;
-      window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
-    };
-  }, [bootLoading, companyId]);
 
   const alertDayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
 

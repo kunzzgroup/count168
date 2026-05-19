@@ -419,6 +419,10 @@ export default function DataCapturePage() {
           window.__DC_RECOMPUTE_SUBMIT_STATE__();
         }
         if (alive) setScriptsReady(true);
+        void loadScriptOnce(
+          buildApiUrl("js/datacapturesummary.js"),
+          () => typeof window.initDataCaptureSummaryPage === "function"
+        ).catch(() => {});
       } catch (e) {
         if (!alive) return;
         console.error(e);
