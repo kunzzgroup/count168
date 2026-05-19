@@ -130,20 +130,8 @@ class SummaryPageErrorBoundary extends Component {
         <div className="container">
           <h1>Data Capture Summary</h1>
           <p role="alert" style={{ color: "#b91c1c", padding: "12px 0" }}>
-            Failed to load Data Capture Summary. This usually means the table crashed after Delete
-            or Save (React vs legacy DOM conflict). Hard-refresh (Ctrl+F5) or go back to Data Capture.
+            Failed to load Data Capture Summary. Please refresh the page or return to Data Capture.
           </p>
-          <p style={{ fontSize: "0.9rem", color: "#444" }}>
-            {this.state.error?.message || String(this.state.error)}
-          </p>
-          <button
-            type="button"
-            className="btn btn-save"
-            style={{ marginTop: 12 }}
-            onClick={() => this.setState({ error: null })}
-          >
-            Try again on this page
-          </button>
         </div>
       );
     }

@@ -12311,9 +12311,15 @@ function restoreOriginalRowValues(row) {
     if (cells[4] && originalFormula !== null) {
         const imTooltip = (row.getAttribute('data-input-method') || '').trim();
         const imTitle = imTooltip ? ` title="${String(imTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
-        setSummaryFormulaCellDisplay(cells[4], row, originalFormula === '' ? '' : originalFormula, imTitle);
-        if (!isSummaryReactTableMode()) {
-            attachInlineEditListeners(row);
+        if (originalFormula === '') {
+            cells[4].innerHTML = '';
+        } else {
+            cells[4].innerHTML = `
+                <div class="formula-cell-content"${imTitle}>
+                    <span class="formula-text"${imTitle}>${originalFormula}</span>
+                    <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                </div>
+            `;
         }
     }
 
@@ -12629,10 +12635,333 @@ function updateRowFormulaFromColumns(row) {
         // Get input method from row for tooltip (escape for HTML attribute)
         const inputMethod = row.getAttribute('data-input-method') || '';
         const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
-        setSummaryFormulaCellDisplay(cells[4], row, formulaText, inputMethodTooltip);
-        if (!isSummaryReactTableMode()) {
-            attachInlineEditListeners(row);
+        cells[4].innerHTML = `
+            <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+                ${getFormulaEditButtonHtml(formulaText)}
+            </div>
+        `;
+        // Attach double-click event listener
+        attachInlineEditListeners(row);
+    }
+
+    recalculateAndRenderProcessedAmount(row, {
+        formulaOperators: resolvedSourceExpression,
+        sourcePercent: sourcePercentText,
+        inputMethod,
+        enableInputMethod,
+        enableSourcePercent,
+        updateTotal: false
+    });
+
+    // Store updated data in row attributes
+    row.setAttribute('data-source-columns', columnNumbers.join(' '));
+    row.setAttribute('data-formula-operators', formulaOperators);
+
+    updateProcessedAmountTotal();
+}
+
+// Toggle all Rate checkboxes
+function toggleAllRate(button) {
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) return;
+
+    const rows = summaryTableBody.querySelectorAll('tr');
+    const isSelectAll = button.textContent.trim() === 'Select All';
+    let updatedCount = 0;
+
+    rows.forEach(row => {
+        // Get the process value for this row (check if row has Id Product)
+        const processValue = getProcessValueFromRow(row);
+        if (!processValue) return; // Skip rows without Id Product
+
+        const cells = row.querySelectorAll('td');
+        // Rate 列目前在第 7 列（索引 6），这里要用 cells[6]
+        const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
+
+        if (rateCheckbox) {
+            if (isSelectAll && !rateCheckbox.checked) {
+                // Check the checkbox and trigger the change event
+                rateCheckbox.checked = true;
+                rateCheckbox.dispatchEvent(new Event('change'));
+                updatedCount++;
+            } else if (!isSelectAll && rateCheckbox.checked) {
+                // Uncheck the checkbox and trigger the change event
+                rateCheckbox.checked = false;
+                rateCheckbox.dispatchEvent(new Event('change'));
+                updatedCount++;
+            }
         }
+    });
+
+    // Update button text
+    const nextLabel = isSelectAll ? 'Clear All' : 'Select All';
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ === 'function') {
+        window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__(nextLabel);
+    } else if (button) {
+        button.textContent = nextLabel;
+    }
+    if (isSelectAll) {
+        if (updatedCount > 0) {
+            showNotification('Success', `Selected ${updatedCount} row(s) with Rate`, 'success');
+        }
+    } else if (updatedCount > 0) {
+        showNotification('Success', `Cleared ${updatedCount} row(s) from Rate`, 'success');
+    }
+}
+
+function getPreferredFormulaDisplay(data, row) {
+    const fromData = (
+        (data && data.formulaDisplay !== undefined && data.formulaDisplay !== null ? data.formulaDisplay : '') ||
+        (data && data.formula_display !== undefined && data.formula_display !== null ? data.formula_display : '')
+    );
+    const fromRow = row ? (row.getAttribute('data-formula-display') || '') : '';
+    return String(fromData || fromRow || '').trim();
+}
+
+// Update formula and processed amount when batch selection is checked
+function updateFormulaAndProcessedAmount(row, data) {
+    const cells = row.querySelectorAll('td');
+    const rowRefCtxDisplay = typeof getSummaryRowFormulaRefContext === 'function'
+        ? getSummaryRowFormulaRefContext(row)
+        : { clickedCellRefs: '', rowIndexOverride: null }
+    const clickedCellRefsForDisplay = rowRefCtxDisplay.clickedCellRefs
+    const rowIndexOverrideForDisplay = rowRefCtxDisplay.rowIndexOverride
+
+    // Update Formula column (now index 4)
+    if (cells[4]) {
+        // Get the formula to display - always prioritize saved formula_display so
+        // Summary table stays identical to the Edit Formula read-only display.
+        let formulaText = '';
+        let rawFormula = '';
+        const preferredFormulaDisplay = getPreferredFormulaDisplay(data, row);
+        const formulaOperatorsForDisplay = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
+        const shouldRecalculateFromFormulaOperators = !!(formulaOperatorsForDisplay && formulaOperatorsForDisplay.trim() !== '' && formulaOperatorsForDisplay !== 'Formula');
+        if (!shouldRecalculateFromFormulaOperators && preferredFormulaDisplay && preferredFormulaDisplay !== 'Formula') {
+            rawFormula = preferredFormulaDisplay;
+            formulaText = formatNegativeNumbersInFormula(preferredFormulaDisplay);
+        } else if (!shouldRecalculateFromFormulaOperators && data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+            rawFormula = data.formula;
+            formulaText = formatNegativeNumbersInFormula(data.formula);
+        }
+
+        // If formula is empty, try to get from formulaOperators
+        if (!formulaText || formulaText.trim() === '') {
+            const formulaOperators = formulaOperatorsForDisplay;
+            if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
+                // Check if formulaOperators contains column references (like $3)
+                const hasColumnRefs = /\$(\d+)/.test(formulaOperators);
+                if (hasColumnRefs) {
+                    // Parse column references to actual values for display
+                    const processValue = getProcessValueFromRow(row);
+                    if (processValue) {
+                        const rowIndexFromRow = parseInt(row.getAttribute('data-row-index') || '', 10)
+                        const rowLabel = getRowLabelFromProcessValue(processValue, rowIndexOverrideForDisplay);
+                        if (rowLabel) {
+                            let displayFormula = formulaOperators;
+
+                            // Replace $number references with actual column values
+                            const dollarPattern = /\$(\d+)(?!\d)/g;
+                            const allMatches = [];
+                            let match;
+                            dollarPattern.lastIndex = 0;
+
+                            while ((match = dollarPattern.exec(formulaOperators)) !== null) {
+                                const fullMatch = match[0];
+                                const columnNumber = parseInt(match[1]);
+                                const matchIndex = match.index;
+
+                                if (!isNaN(columnNumber) && columnNumber > 0) {
+                                    allMatches.push({
+                                        fullMatch: fullMatch,
+                                        columnNumber: columnNumber,
+                                        index: matchIndex
+                                    });
+                                }
+                            }
+
+                            // IMPORTANT: Use data-source-columns to get the correct id_product for each column
+                            // Instead of using processValue (current row's id_product), use the id_product from sourceColumns
+                            const sourceColumnsValue = row.getAttribute('data-source-columns') || '';
+                            const isNewFormat = sourceColumnsValue && isNewIdProductColumnFormat(sourceColumnsValue);
+
+                            // Build a map of $columnNumber -> {idProduct, rowLabel, dataColumnIndex} from sourceColumns
+                            // NOTE: sourceColumns 保存的是 dataColumnIndex（0-based），而公式里的 $数字 是 displayColumnIndex（1-based）。
+                            const columnRefMap = new Map();
+                            if (isNewFormat) {
+                                const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+                                parts.forEach(part => {
+                                    const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(part) : null;
+                                    if (!parsed) return;
+                                    const displayColumnIndex = parsed.dataColumnIndex + 1;
+                                    columnRefMap.set(displayColumnIndex, {
+                                        idProduct: parsed.idProduct,
+                                        rowLabel: parsed.rowLabel || null,
+                                        dataColumnIndex: parsed.dataColumnIndex,
+                                        captureRowIndex: parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null
+                                    });
+                                });
+                            }
+
+                            // Replace from back to front to preserve indices
+                            allMatches.sort((a, b) => b.index - a.index);
+
+                            // 无 [id,n] 括号引用时，$n 表示「当前 Summary 行」对应 Data Capture 列，与 Edit Formula 一致。
+                            // 若仍用 data-source-columns 里历史错误的 id（如 MARI）会显示 2800 而实际 GXS 为 3200。
+                            const formulaHasBracketRefs = formulaOperators.includes('[');
+
+                            for (let i = 0; i < allMatches.length; i++) {
+                                const match = allMatches[i];
+                                let columnValue = null;
+
+                                // 仅当公式含 [id,n] 跨行引用时，才用 sourceColumns 里存的 id 解析 $n；否则只用当前行 + row_index
+                                if (formulaHasBracketRefs && columnRefMap.has(match.columnNumber)) {
+                                    const ref = columnRefMap.get(match.columnNumber);
+                                    columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel, ref.captureRowIndex);
+                                    console.log('Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
+                                }
+
+                                // Fallback to current row id_product if not found in columnRefMap
+                                if (columnValue === null) {
+                                    const columnReference = rowLabel + match.columnNumber;
+                                    columnValue = getColumnValueFromCellReference(
+                                        columnReference,
+                                        processValue,
+                                        rowIndexOverrideForDisplay
+                                    );
+                                    console.log('Fallback to current row id_product:', processValue, 'for column:', match.columnNumber, 'value:', columnValue);
+                                }
+
+                                // CRITICAL: If column value is still null (missing data), default to "0"
+                                // This satisfies the requirement that missing data should be treated as 0 instead of using old values
+                                if (columnValue === null) {
+                                    columnValue = "0";
+                                    console.warn(`updateFormulaAndProcessedAmount: column $${match.columnNumber} not found for ${processValue}, defaulting to 0`);
+                                }
+
+                                displayFormula = displayFormula.substring(0, match.index) +
+                                    columnValue +
+                                    displayFormula.substring(match.index + match.fullMatch.length);
+                            }
+
+                            // Always use the resolved displayFormula for display and calculation
+                            // No more fallback to stale preferredFormulaDisplay/formulaOperators
+                            {
+                                // Also parse other reference formats (A4, [id_product:column])
+                                const parsedFormula = parseReferenceFormula(displayFormula, processValue, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
+                                if (parsedFormula) {
+                                    displayFormula = parsedFormula;
+                                }
+
+                                // Apply source percent if needed
+                                const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+                                    ? data.sourcePercent.toString().trim()
+                                    : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                                const enableSourcePercent = data.enableSourcePercent !== undefined
+                                    ? data.enableSourcePercent
+                                    : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+
+                                formulaText = createFormulaDisplayFromExpression(displayFormula, sourcePercentText, enableSourcePercent, processValue, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
+                                rawFormula = formulaText;
+                                console.log('updateFormulaAndProcessedAmount: Parsed column references for display:', formulaOperators, '->', formulaText);
+                            }
+                        } else {
+                            // No row label, use formulaOperators as-is
+                            const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+                                ? data.sourcePercent.toString().trim()
+                                : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                            const enableSourcePercent = data.enableSourcePercent !== undefined
+                                ? data.enableSourcePercent
+                                : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                            formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, processValue, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
+                            rawFormula = formulaText;
+                        }
+                    } else {
+                        // No process value, use formulaOperators as-is
+                        const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+                            ? data.sourcePercent.toString().trim()
+                            : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                        const enableSourcePercent = data.enableSourcePercent !== undefined
+                            ? data.enableSourcePercent
+                            : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                        formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, null, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
+                        rawFormula = formulaText;
+                    }
+                } else {
+                    // No column references, use formulaOperators directly with source percent
+                    const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+                        ? data.sourcePercent.toString().trim()
+                        : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                    const enableSourcePercent = data.enableSourcePercent !== undefined
+                        ? data.enableSourcePercent
+                        : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                    formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, null, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
+                    rawFormula = formulaText;
+                }
+            }
+        }
+
+        // If formula is still empty, don't display "Formula" text, just leave it empty
+        if (!formulaText || formulaText.trim() === '' || formulaText === 'Formula') {
+            formulaText = '';
+        }
+
+        // Special handling: for MG95-96 + KL-ELSON, display processed amount as formula
+        if (isMg95ElsonSpecialRow(data, row)) {
+            let specialAmount = null;
+            if (data.processedAmount !== undefined && data.processedAmount !== null) {
+                try { specialAmount = MoneyDecimal.toDecimal(data.processedAmount, 0).toString(); } catch (_) { specialAmount = null; }
+            }
+            if (specialAmount === null) {
+                const baseAttr = row.getAttribute('data-base-processed-amount');
+                if (baseAttr !== null && baseAttr !== undefined && baseAttr !== '') {
+                    try { specialAmount = MoneyDecimal.toDecimal(baseAttr, 0).toString(); } catch (_) { specialAmount = null; }
+                }
+            }
+            if (specialAmount === null && cells[8]) {
+                const text = (cells[8].textContent || '').replace(/,/g, '');
+                try { specialAmount = MoneyDecimal.toDecimal(text, 0).toString(); } catch (_) { specialAmount = null; }
+            }
+            if (specialAmount !== null) {
+                const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
+                    ? roundProcessedAmountTo2Decimals(specialAmount)
+                    : specialAmount;
+                const displayVal = typeof formatNumberWithThousands === 'function'
+                    ? formatNumberWithThousands(rounded)
+                    : String(rounded);
+                formulaText = displayVal;
+                rawFormula = displayVal;
+            }
+        }
+
+        if (!rawFormula) rawFormula = formulaText;
+        row.setAttribute('data-formula-raw', rawFormula || '');
+        // 勿用「展示用数值公式」覆盖含 $ 的原始公式，否则 Edit Formula 输入框会变成纯数字串
+        const tplKeep = (row.getAttribute('data-template-formula-operators') || '').trim();
+        const opsKeep = (row.getAttribute('data-formula-operators') || '').trim();
+        if (/\$[0-9]+/.test(tplKeep)) {
+            row.setAttribute('data-formula-operators', tplKeep);
+        } else if (/\$[0-9]+/.test(opsKeep)) {
+            row.setAttribute('data-formula-operators', opsKeep);
+        } else {
+            row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
+        }
+        const displayText = formulaText;
+        if (displayText) row.setAttribute('data-formula-display', displayText);
+        else row.removeAttribute('data-formula-display');
+
+        // Get input method from row or data for tooltip (escape for HTML attribute)
+        const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
+        const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
+        cells[4].innerHTML = `
+            <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${displayText}</span>
+                ${getFormulaEditButtonHtml(displayText)}
+            </div>
+        `;
+        // Attach double-click event listener
+        attachInlineEditListeners(row);
+        // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
     }
 
     const restoredInputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
@@ -12662,8 +12991,87 @@ function updateRowFormulaFromColumns(row) {
         updateTotal: false
     };
 
-    syncSummaryRateAndValueColumns(row, cells, data);
-    if (cells[7] && !isSummaryReactTableMode() && typeof attachRateValueEditListener === 'function') {
+    // Update Rate column (index 6)
+    if (cells[6]) {
+        // Clear the cell first
+        cells[6].innerHTML = '';
+        cells[6].style.textAlign = 'center';
+
+        // Create checkbox
+        const rateCheckbox = document.createElement('input');
+        rateCheckbox.type = 'checkbox';
+        rateCheckbox.className = 'rate-checkbox';
+        rateCheckbox.addEventListener('change', function () {
+            if (typeof handleRateCheckboxChange === 'function') {
+                handleRateCheckboxChange(this);
+            }
+        });
+
+        // Set checkbox state based on data.rate (from database) or rateInput
+        const rateInput = document.getElementById('rateInput');
+        // Check if rate value exists in data (from database)
+        const hasRateValue = data.rate !== null && data.rate !== undefined && data.rate !== '';
+        // If rate exists in data, use it; otherwise check rateInput
+        const rateValue = hasRateValue ? data.rate : (rateInput ? rateInput.value : '');
+        // Checkbox is checked if rate value exists (either from data or rateInput) AND Rate Value column is empty
+        const rateValueCell = cells[7];
+        const hasRateValueInput = rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '';
+        rateCheckbox.checked = !hasRateValueInput && (hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1);
+
+        // If rate value exists in data, update rateInput to show it
+        if (hasRateValue && rateInput && !hasRateValueInput) {
+            rateInput.value = data.rate;
+        }
+
+        // If checkbox is checked, display rateInput value in Rate Value cell
+        if (rateCheckbox.checked && rateValueCell && !hasRateValueInput) {
+            const currentRateInput = document.getElementById('rateInput');
+            if (currentRateInput && currentRateInput.value.trim() !== '') {
+                rateValueCell.textContent = currentRateInput.value.trim();
+            }
+        }
+
+        // Add event listener to recalculate when checkbox state changes
+        rateCheckbox.addEventListener('change', function () {
+            const cells = row.querySelectorAll('td');
+            const rateValueCell = cells[7];
+
+            // When checkbox is checked, display rateInput value in Rate Value cell
+            if (this.checked && rateValueCell) {
+                const rateInput = document.getElementById('rateInput');
+                if (rateInput && rateInput.value.trim() !== '') {
+                    rateValueCell.textContent = rateInput.value.trim();
+                } else {
+                    rateValueCell.textContent = '';
+                }
+            } else if (!this.checked && rateValueCell) {
+                // When checkbox is unchecked, clear Rate Value cell
+                rateValueCell.textContent = '';
+            }
+
+            // Recalculate processed amount when rate checkbox is toggled
+            recalculateAndRenderProcessedAmount(row);
+        });
+
+        cells[6].appendChild(rateCheckbox);
+    }
+
+    // Update Rate Value column (index 7 - new column)
+    if (cells[7]) {
+        // Clear the cell first
+        cells[7].innerHTML = '';
+        cells[7].style.textAlign = 'center';
+        cells[7].classList.add('editable-cell');
+        cells[7].style.cursor = 'text';
+
+        // Load Rate Value from data if available (from database)
+        let rateValueText = '';
+        if (data.rateValue !== null && data.rateValue !== undefined && data.rateValue !== '') {
+            rateValueText = String(data.rateValue);
+        }
+        cells[7].textContent = rateValueText;
+
+        // Attach edit listener to Rate Value cell
         attachRateValueEditListener(cells[7], row);
     }
 
@@ -13882,10 +14290,16 @@ function recalculateRowFormula(row, newSourcePercent) {
             // Get input method from row for tooltip (escape for HTML attribute)
             const inputMethod = row.getAttribute('data-input-method') || '';
             const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
-            setSummaryFormulaCellDisplay(cells[4], row, formulaDisplay, inputMethodTooltip);
-            if (!isSummaryReactTableMode()) {
-                attachInlineEditListeners(row);
-            }
+            cells[4].innerHTML = `
+                <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                    <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${formulaDisplay}</span>
+                    ${getFormulaEditButtonHtml(formulaDisplay)}
+                </div>
+            `;
+            // Attach double-click event listener
+            attachInlineEditListeners(row);
+            // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
+        }
 
         // Rate column already exists, no need to recreate
 
@@ -14522,7 +14936,75 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         attachInlineEditListeners(row);
     }
 
-    syncSummaryRateAndValueColumns(row, cells, data);
+    // Update Rate column (now index 6)
+    if (cells[6]) {
+        // Clear the cell first
+        cells[6].innerHTML = '';
+        cells[6].style.textAlign = 'center';
+
+        // Create checkbox
+        const rateCheckbox = document.createElement('input');
+        rateCheckbox.type = 'checkbox';
+        rateCheckbox.className = 'rate-checkbox';
+        rateCheckbox.addEventListener('change', function () {
+            if (typeof handleRateCheckboxChange === 'function') {
+                handleRateCheckboxChange(this);
+            }
+        });
+
+        // Set checkbox state based on data.rate (from database) or rateInput
+        const rateInput = document.getElementById('rateInput');
+        // Check if rate value exists in data (from database)
+        const hasRateValue = data.rate !== null && data.rate !== undefined && data.rate !== '';
+        // If rate exists in data, use it; otherwise check rateInput
+        const rateValue = hasRateValue ? data.rate : (rateInput ? rateInput.value : '');
+        // Checkbox is checked if rate value exists (either from data or rateInput)
+        rateCheckbox.checked = hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1;
+
+        // If rate value exists in data, update rateInput to show it
+        if (hasRateValue && rateInput) {
+            rateInput.value = data.rate;
+        }
+
+        // If checkbox is checked, display rateInput value in Rate Value cell (from template/API or global rateInput)
+        const rateValueCell = cells[7];
+        if (rateCheckbox.checked && rateValueCell) {
+            const hasRateValueInput = rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '';
+            if (!hasRateValueInput) {
+                const valueToShow = (hasRateValue && data.rate != null && String(data.rate).trim() !== '')
+                    ? String(data.rate).trim()
+                    : (document.getElementById('rateInput') && document.getElementById('rateInput').value.trim() !== ''
+                        ? document.getElementById('rateInput').value.trim() : '');
+                if (valueToShow !== '') {
+                    rateValueCell.textContent = valueToShow;
+                }
+            }
+        }
+
+        // Add event listener to recalculate when checkbox state changes
+        rateCheckbox.addEventListener('change', function () {
+            // Recalculate processed amount when rate checkbox is toggled
+            const cells = row.querySelectorAll('td');
+            const rateValueCell = cells[7];
+
+            // When checkbox is checked, display rateInput value in Rate Value cell
+            if (this.checked && rateValueCell) {
+                const rateInput = document.getElementById('rateInput');
+                if (rateInput && rateInput.value.trim() !== '') {
+                    rateValueCell.textContent = rateInput.value.trim();
+                } else {
+                    rateValueCell.textContent = '';
+                }
+            } else if (!this.checked && rateValueCell) {
+                // When checkbox is unchecked, clear Rate Value cell
+                rateValueCell.textContent = '';
+            }
+
+            recalculateAndRenderProcessedAmount(row);
+        });
+
+        cells[6].appendChild(rateCheckbox);
+    }
 
     if (data.inputMethod !== undefined) {
         row.setAttribute('data-input-method', data.inputMethod);
@@ -19111,15 +19593,13 @@ function updateDeleteButton() {
     }
 }
 
-function isSummaryReactTableMode() {
-    return !!window.__SUMMARY_REACT_TABLE__;
-}
-
 // Delete selected rows
 function clearSummaryFormulaCellDom(cell) {
     if (!cell) return;
-    if (isSummaryReactTableMode()) {
-        cell.textContent = '';
+    if (window.__SUMMARY_REACT_TABLE__) {
+        while (cell.firstChild) {
+            cell.removeChild(cell.firstChild);
+        }
         return;
     }
     cell.innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
@@ -19297,7 +19777,8 @@ function deleteSelectedRows() {
                     const deleteCb = row.querySelector('.summary-row-checkbox');
                     if (deleteCb) deleteCb.checked = false;
 
-                    if (!isSummaryReactTableMode() && typeof refreshIdProductCellDisplay === 'function') {
+                    // 刷新 Id Product 单元格显示（以清掉 description 渲染）
+                    if (typeof refreshIdProductCellDisplay === 'function') {
                         refreshIdProductCellDisplay(row);
                     }
                 }
