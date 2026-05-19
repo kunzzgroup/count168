@@ -1307,7 +1307,10 @@ function goBackToDataCapture() {
     if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
     if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
-    window.location.href = buildApiUrl('datacapture?restore=1');
+    let backUrl = 'datacapture?restore=1';
+    const cid = typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null;
+    if (cid) backUrl += '&company_id=' + encodeURIComponent(cid);
+    window.location.href = buildApiUrl(backUrl);
 }
 
 // Refresh page function: save rate values and formula/source so they are restored after reload

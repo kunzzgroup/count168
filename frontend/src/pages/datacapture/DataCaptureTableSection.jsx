@@ -47,8 +47,8 @@ export default function DataCaptureTableSection({ captureType, onCaptureTypeChan
           >
             <option value="1.Text">1.TEXT</option>
             <option value="2.Format">2.FORMAT</option>
-            <option value="CITIBET">CITIBET</option>
-            <option value="CITIBET_MAJOR">3.CITIBET</option>
+            <option value="CITIBET">CITIBET (Standard)</option>
+            <option value="CITIBET_MAJOR">CITIBET (Major)</option>
             <option value="4.RETURN">4.RETURN</option>
           </select>
           <button type="button" className="btn btn-cancel" onClick={() => window.resetForm?.()}>

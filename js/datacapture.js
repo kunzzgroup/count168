@@ -1120,7 +1120,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa4';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa5';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -24503,59 +24503,26 @@ async function restoreFromLocalStorage() {
 
         console.log('Restoring data from localStorage:', { tableData, processData });
 
-        // Restore Data Capture Type selector
-        const typeSelect = document.getElementById('dataCaptureTypeSelector');
         const savedTypeRaw =
             (processData && (processData.dataCaptureType || processData.captureType)) ||
             localStorage.getItem('capturedDataCaptureType') ||
             '';
         let savedType = String(savedTypeRaw || '').trim();
-        // 兼容旧名称：1.GENERAL→1.Text，655→2.Format
         if (savedType === '1.GENERAL') savedType = '1.Text';
         if (savedType === '655') savedType = '2.Format';
-        if (typeSelect && savedType) {
-            const hasOption = Array.from(typeSelect.options || []).some(opt => opt && opt.value === savedType);
-            if (hasOption) {
-                typeSelect.value = savedType;
-                currentDataCaptureType = savedType;
-                const container = document.querySelector('.excel-table-container');
-                if (container) {
-                    if (currentDataCaptureType === 'CITIBET_MAJOR') container.classList.add('citibet-mode');
-                    else container.classList.remove('citibet-mode');
-                }
-                // 2.Format：恢复时暂时不设置 isFormatGridReady，等恢复表格数据后再统一设置
-                // 这样可以避免状态不一致的问题
-                // 2.Format: Temporarily don't set isFormatGridReady, wait until table data is restored to set it uniformly
-                // This avoids state inconsistency issues
-                if (currentDataCaptureType === '2.Format') {
-                    // Check if there's preview HTML in localStorage
-                    let previewHtml = '';
-                    try {
-                        previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
-                    } catch (_) { }
 
-                    // If preview HTML exists, render it but don't set isFormatGridReady yet
-                    // Wait until table data is restored to set isFormatGridReady based on actual data
-                    if (previewHtml) {
-                        renderFormatPreview(previewHtml);
-                    }
-
-                    // Don't set isFormatGridReady here - wait until table data is restored
-                    // This ensures consistency between isFormatGridReady and actual table data
-                }
-
-                // Don't call toggleTableDisplayForFormat() here - wait until table data is restored
-                // This ensures the correct display state based on actual restored data
-                updateSubmitButtonState();
-            } else {
-                console.warn('Saved data capture type not found in selector options:', savedType);
-            }
-        }
-
-        // Restore date
+        // Restore date first so process reload uses the correct day
         const dateInput = document.getElementById('capture_date');
         if (dateInput && processData.date) {
             dateInput.value = processData.date;
+        }
+
+        if (typeof window.__DC_POST_LEGACY_RESTORE_SYNC__ === 'function') {
+            try {
+                await window.__DC_POST_LEGACY_RESTORE_SYNC__(processData);
+            } catch (syncErr) {
+                console.warn('__DC_POST_LEGACY_RESTORE_SYNC__ (early)', syncErr);
+            }
         }
 
         // Reload processes for the selected date
@@ -24565,7 +24532,7 @@ async function restoreFromLocalStorage() {
         await loadSubmittedProcesses();
 
         // Wait a bit for process dropdown to populate, then restore process selection
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         // Restore process selection with improved matching logic
         const processInput = document.getElementById('capture_process');
@@ -24603,7 +24570,9 @@ async function restoreFromLocalStorage() {
                 }
                 // 更新选中状态
                 const processDropdown = document.getElementById('capture_process_dropdown');
-                const optionsContainer = processDropdown?.querySelector('.custom-select-options');
+                const optionsContainer =
+                    processDropdown?.querySelector('.dc-react-process-options') ||
+                    processDropdown?.querySelector('.custom-select-options:not(.dc-legacy-process-options-host)');
                 if (optionsContainer) {
                     optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
                         opt.classList.remove('selected');
@@ -24775,6 +24744,9 @@ async function restoreFromLocalStorage() {
         // This must be called after table data is restored and isFormatGridReady is set
         // 重要：对于 2.Format 模式，确保在恢复表格数据后显示正确
         // 必须在恢复表格数据并设置 isFormatGridReady 后调用
+        if (savedType) {
+            applyDataCaptureType(savedType);
+        }
         if (currentDataCaptureType === '2.Format') {
             // Use setTimeout to ensure table is fully populated before toggling display
             setTimeout(() => {
@@ -24898,22 +24870,26 @@ async function initDataCapturePage() {
     const captureTypeFromUrl = String(urlParamsForCaptureType.get('captureType') || urlParamsForCaptureType.get('dataCaptureType') || '').trim();
 
     if (typeSelect) {
-        let initialType = typeSelect.value || '1.Text';
-        if (captureTypeFromUrl && Array.from(typeSelect.options || []).some(opt => opt && opt.value === captureTypeFromUrl)) {
-            initialType = captureTypeFromUrl;
-        }
-        applyDataCaptureType(initialType);
-
         initFormatPasteArea();
 
-        if (!window.__DATA_CAPTURE_REACT_FORM__) {
-            typeSelect.addEventListener('change', () => {
-                applyDataCaptureType(typeSelect.value || '1.Text');
-            });
+        if (!shouldRestore) {
+            let initialType = typeSelect.value || '1.Text';
+            if (captureTypeFromUrl && Array.from(typeSelect.options || []).some(opt => opt && opt.value === captureTypeFromUrl)) {
+                initialType = captureTypeFromUrl;
+            }
+            applyDataCaptureType(initialType);
+
+            if (!window.__DATA_CAPTURE_REACT_FORM__) {
+                typeSelect.addEventListener('change', () => {
+                    applyDataCaptureType(typeSelect.value || '1.Text');
+                });
+            }
         }
     } else {
-        applyDataCaptureType(captureTypeFromUrl || '1.Text');
         initFormatPasteArea();
+        if (!shouldRestore) {
+            applyDataCaptureType(captureTypeFromUrl || '1.Text');
+        }
     }
 
     // 初始化 Process 输入框事件

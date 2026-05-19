@@ -2,10 +2,29 @@ import { useCallback, useLayoutEffect, useState } from "react";
 
 const CAPTURE_OPTIONS = ["1.Text", "2.Format", "CITIBET", "CITIBET_MAJOR", "4.RETURN"];
 
+function normalizeCaptureType(raw) {
+  let s = String(raw || "").trim();
+  if (!s) return "";
+  if (s === "1.GENERAL") s = "1.Text";
+  if (s === "655") s = "2.Format";
+  return CAPTURE_OPTIONS.includes(s) ? s : "";
+}
+
 function readInitialCaptureType() {
   const url = new URLSearchParams(window.location.search);
+  if (url.get("restore") === "1") {
+    try {
+      const pd = JSON.parse(localStorage.getItem("capturedProcessData") || "null");
+      const fromStore =
+        pd?.dataCaptureType || pd?.captureType || localStorage.getItem("capturedDataCaptureType") || "";
+      const normalized = normalizeCaptureType(fromStore);
+      if (normalized) return normalized;
+    } catch {
+      /* ignore */
+    }
+  }
   const v = String(url.get("captureType") || url.get("dataCaptureType") || "").trim();
-  return CAPTURE_OPTIONS.includes(v) ? v : "1.Text";
+  return normalizeCaptureType(v) || "1.Text";
 }
 
 /**

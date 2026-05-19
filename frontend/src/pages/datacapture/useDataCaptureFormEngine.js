@@ -12,6 +12,31 @@ const PROCESS_PLACEHOLDER = "Select Process";
 /** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
 const PROCESS_OPTIONS_RENDER_CAP = 80;
 
+function readRestoredProcessData() {
+  try {
+    const url = new URLSearchParams(window.location.search);
+    if (url.get("restore") !== "1") return null;
+    const raw = localStorage.getItem("capturedProcessData");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function readRestoredSelectedProcess(restoredProcessData) {
+  if (!restoredProcessData?.process) return null;
+  const pid = String(restoredProcessData.process);
+  const pcode = String(restoredProcessData.processCode || restoredProcessData.process_code || "").trim();
+  const pname = String(restoredProcessData.processName || restoredProcessData.process_name || "").trim();
+  return {
+    id: pid,
+    displayText: pname || pcode || pid,
+    process_id: pcode,
+    description_name: null,
+  };
+}
+
 function applyProcessDetailToFields(data, setters, currenciesSnapshot) {
   const {
     setCurrencyId,
@@ -54,26 +79,51 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot) {
 export function useDataCaptureFormEngine(companyId) {
   const dateOptions = useMemo(() => buildDateOptions(), []);
   const defaultDate = useMemo(() => getLocalDateString(), []);
+  const restoredProcessData = useMemo(() => readRestoredProcessData(), []);
 
-  const [captureDate, setCaptureDate] = useState(defaultDate);
+  const [captureDate, setCaptureDate] = useState(() => restoredProcessData?.date || defaultDate);
   const [currencies, setCurrencies] = useState([]);
   const currenciesRef = useRef([]);
   currenciesRef.current = currencies;
 
   const [processRows, setProcessRows] = useState([]);
-  const [currencyId, setCurrencyId] = useState("");
-  const [replaceFrom, setReplaceFrom] = useState("");
-  const [replaceTo, setReplaceTo] = useState("");
-  const [removeWord, setRemoveWord] = useState("");
-  const [remark, setRemark] = useState("");
-  const [descriptionDisplay, setDescriptionDisplay] = useState("");
+  const processRowsRef = useRef([]);
+  processRowsRef.current = processRows;
+  const [currencyId, setCurrencyId] = useState(() =>
+    restoredProcessData?.currency ? String(restoredProcessData.currency) : "",
+  );
+  const [replaceFrom, setReplaceFrom] = useState(() =>
+    restoredProcessData?.replaceWordFrom ? String(restoredProcessData.replaceWordFrom).toUpperCase() : "",
+  );
+  const [replaceTo, setReplaceTo] = useState(() =>
+    restoredProcessData?.replaceWordTo ? String(restoredProcessData.replaceWordTo).toUpperCase() : "",
+  );
+  const [removeWord, setRemoveWord] = useState(() =>
+    restoredProcessData?.removeWord ? String(restoredProcessData.removeWord).toUpperCase() : "",
+  );
+  const [remark, setRemark] = useState(() =>
+    restoredProcessData?.remark ? String(restoredProcessData.remark).toUpperCase() : "",
+  );
+  const [descriptionDisplay, setDescriptionDisplay] = useState(() =>
+    Array.isArray(restoredProcessData?.descriptions) ? restoredProcessData.descriptions.join(", ") : "",
+  );
 
   const [processOpen, setProcessOpen] = useState(false);
   const [processFilter, setProcessFilter] = useState("");
-  const [selectedProcess, setSelectedProcess] = useState(null);
+  const [selectedProcess, setSelectedProcess] = useState(() => readRestoredSelectedProcess(restoredProcessData));
 
   const companyIdRef = useRef(companyId);
   companyIdRef.current = companyId;
+
+  useLayoutEffect(() => {
+    const url = new URLSearchParams(window.location.search);
+    if (url.get("restore") === "1") {
+      window.__DC_IS_RESTORING__ = true;
+      if (Array.isArray(restoredProcessData?.descriptions)) {
+        window.selectedDescriptions = [...restoredProcessData.descriptions];
+      }
+    }
+  }, [restoredProcessData]);
 
   const reloadProcessesForDate = useCallback(async (dateStr, options = {}) => {
     const { preserveSelection = false } = options;
@@ -119,6 +169,9 @@ export function useDataCaptureFormEngine(companyId) {
 
   useEffect(() => {
     if (!companyId) return;
+    if (window.__DC_IS_RESTORING__) return;
+    const url = new URLSearchParams(window.location.search);
+    if (url.get("restore") === "1") return;
     void reloadProcessesForDate(captureDate, { preserveSelection: false });
   }, [companyId, captureDate, reloadProcessesForDate]);
 
@@ -236,20 +289,33 @@ export function useDataCaptureFormEngine(companyId) {
         window.selectedDescriptions = [...processData.descriptions];
         setDescriptionDisplay(processData.descriptions.join(", "));
       }
-      const btn = document.getElementById("capture_process");
-      const dataVal = btn?.getAttribute?.("data-value");
-      const text = (btn?.textContent || "").trim();
-      const pcode = btn?.getAttribute?.("data-process-code");
-      const dname = btn?.getAttribute?.("data-description-name");
-      const pid = processData.process;
-      if (dataVal || pid) {
+
+      const pid = processData.process != null ? String(processData.process) : "";
+      const pcode = String(processData.processCode || processData.process_code || "").trim();
+      const pname = String(processData.processName || processData.process_name || "").trim();
+      const rows = processRowsRef.current || [];
+
+      let row = null;
+      if (pid) row = rows.find((r) => String(r.id) === pid);
+      if (!row && pcode) row = rows.find((r) => String(r.process_id || "").trim() === pcode);
+      if (!row && pname) row = rows.find((r) => displayTextFromProcessRow(r) === pname);
+
+      if (row) {
         setSelectedProcess({
-          id: String(dataVal || pid),
-          displayText: text && text !== PROCESS_PLACEHOLDER ? text : String(pid || ""),
-          process_id: pcode || processData.processCode || "",
-          description_name: dname || null,
+          id: String(row.id),
+          displayText: displayTextFromProcessRow(row),
+          process_id: row.process_id,
+          description_name: row.description_name || null,
+        });
+      } else if (pid || pcode || pname) {
+        setSelectedProcess({
+          id: pid || pcode,
+          displayText: pname || pcode || pid,
+          process_id: pcode,
+          description_name: null,
         });
       }
+
       setTimeout(() => {
         if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
       }, 0);
