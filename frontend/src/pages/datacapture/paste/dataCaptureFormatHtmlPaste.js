@@ -6,13 +6,8 @@ import {
   stripBackgroundFromStyle,
 } from './dataCaptureFormatStyleUtils.js';
 
-function ensureFormatGrid(rows, cols) {
-  if (typeof window.__DC_INITIALIZE_TABLE__ === 'function') {
-    window.__DC_INITIALIZE_TABLE__(rows, cols);
-  } else if (typeof window.__DC_LEGACY_BUILD_TABLE__ === 'function') {
-    window.__DC_LEGACY_BUILD_TABLE__(rows, cols);
-  }
-}
+
+import { ensurePasteGrid } from './dataCapturePasteGridUtils.js';
 
 export function parseAndFillHtmlTableForFormat(htmlString) {
     try {
@@ -117,7 +112,7 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
         if (requiredRows > currentRows || requiredCols > currentCols) {
             const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
             const targetCols = Math.max(currentCols, requiredCols);
-            ensureFormatGrid(targetRows, targetCols);
+            ensurePasteGrid(targetRows, targetCols);
         }
 
         // 重新获取表头和表体（因为可能被重新初始化）
@@ -370,7 +365,7 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
                 if (nextRowIndex >= tableBody.children.length) {
                     const currentRowsCount = tableBody.children.length;
                     console.log(`Format: Expanding table from ${currentRowsCount} rows to ${nextRowIndex + 1} rows`);
-                    ensureFormatGrid(Math.max(currentRowsCount, nextRowIndex + 1), actualCols);
+                    ensurePasteGrid(Math.max(currentRowsCount, nextRowIndex + 1), actualCols);
                     // 重新获取tableBody和tableRow
                     const updatedTableBody = document.getElementById('tableBody');
                     if (!updatedTableBody) {

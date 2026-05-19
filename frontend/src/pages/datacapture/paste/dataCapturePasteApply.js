@@ -1,3 +1,5 @@
+import { ensurePasteGrid } from "./dataCapturePasteGridUtils.js";
+
 const MAX_GRID_ROWS = 702;
 
 function getGridSize() {
@@ -24,11 +26,7 @@ export function ensureGridFits(startRow, startCol, matrixRows, matrixCols) {
 
   const targetRows = Math.max(currentRows, Math.min(requiredRows, MAX_GRID_ROWS));
   const targetCols = Math.max(currentCols, requiredCols);
-  if (typeof window.__DC_INITIALIZE_TABLE__ === "function") {
-    window.__DC_INITIALIZE_TABLE__(targetRows, targetCols);
-  } else if (typeof window.__DC_LEGACY_BUILD_TABLE__ === "function") {
-    window.__DC_LEGACY_BUILD_TABLE__(targetRows, targetCols);
-  }
+  ensurePasteGrid(targetRows, targetCols);
 }
 
 /**

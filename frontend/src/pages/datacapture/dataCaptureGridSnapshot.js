@@ -1,6 +1,5 @@
 /**
- * Read / write grid cell values from the legacy DOM table (#dataTable).
- * Event binding and paste parsing remain in `js/datacapture.js` until phase 4.
+ * Read / write grid cell values from the DOM table (#dataTable).
  */
 
 export function readGridDimensions() {

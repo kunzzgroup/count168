@@ -2,8 +2,7 @@ import { convertBracketedToNegative } from "./dataCaptureBracket.js";
 import { normalizeStoredCaptureType } from "./dataCaptureStorage.js";
 
 /**
- * Port of `captureTableData()` — reads the legacy Excel grid DOM.
- * Table rendering still lives in `js/datacapture.js` until phase 3.
+ * Reads the Excel grid DOM for submit / restore snapshots.
  */
 export function captureTableDataFromDom(captureType) {
   const currentDataCaptureType = normalizeStoredCaptureType(captureType);

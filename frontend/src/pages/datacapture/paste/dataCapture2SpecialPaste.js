@@ -9,21 +9,9 @@ import { parseAgentLinkTableFormat } from "./dataCaptureAgentLinkParser.js";
 import { parseAndFillHtmlTableForWbet, parseAndFillHtmlTableForWbetApi } from "./dataCaptureWbetHtmlPaste.js";
 import { formatNumberToTwoDecimals, formatMoneyDisplay } from "./dataCapturePasteMoneyUtils.js";
 
-function ensurePasteGrid(rows, cols) {
-  if (typeof window.__DC_INITIALIZE_TABLE__ === "function") {
-    window.__DC_INITIALIZE_TABLE__(rows, cols);
-  } else if (typeof window.__DC_LEGACY_BUILD_TABLE__ === "function") {
-    window.__DC_LEGACY_BUILD_TABLE__(rows, cols);
-  }
-}
 
-function parseGenericHtmlTable(htmlString, startCell) {
-  if (typeof window.__DC_LEGACY_PARSE_GENERIC_HTML__ === "function") {
-    return window.__DC_LEGACY_PARSE_GENERIC_HTML__(htmlString, startCell);
-  }
-  return false;
-}
 
+import { ensurePasteGrid, parseGenericHtmlTable } from "./dataCapturePasteGridUtils.js";
 
 /** @returns {boolean} */
 export function handle2SpecialPaste(e, pastedData) {

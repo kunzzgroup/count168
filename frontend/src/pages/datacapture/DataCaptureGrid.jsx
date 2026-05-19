@@ -2,7 +2,7 @@ import { memo, useLayoutEffect } from "react";
 import { DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS } from "./dataCaptureGridConstants.js";
 
 /**
- * Stable grid shell — React owns DOM structure; legacy `buildDataCaptureTable` fills rows/cells.
+ * Stable grid shell — React builds and manages #dataTable rows/cells.
  */
 function DataCaptureGrid() {
   useLayoutEffect(() => {

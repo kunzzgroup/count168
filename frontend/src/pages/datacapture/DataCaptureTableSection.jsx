@@ -3,7 +3,6 @@ import { CAPTURE_TYPE_OPTIONS } from "./dataCaptureTypeConstants.js";
 
 /**
  * Bottom section: capture type, grid, submit.
- * Phase 3: grid shell is React; cell handlers remain in legacy until phase 4.
  */
 export default function DataCaptureTableSection({
   captureType,
