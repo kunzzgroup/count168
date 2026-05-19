@@ -19617,6 +19617,7 @@ function collectValidDeleteRowTargets() {
         return idText !== '';
     });
 }
+window.collectValidDeleteRowTargets = collectValidDeleteRowTargets;
 
 function executeDeleteSelectedRows(validRowsToDelete) {
     if (!Array.isArray(validRowsToDelete) || validRowsToDelete.length === 0) {
@@ -19809,9 +19810,13 @@ function executeDeleteSelectedRows(validRowsToDelete) {
         showNotification('Error', 'Failed to delete rows. Please refresh the page and try again.', 'error');
     }
 }
+window.executeDeleteSelectedRows = executeDeleteSelectedRows;
 
 function deleteSelectedRows() {
-    if (typeof window.__SUMMARY_REACT_DELETE_SELECTED__ === 'function') {
+    if (
+        typeof window.__SUMMARY_REACT_DELETE_SELECTED__ === 'function' &&
+        !window.__SUMMARY_DELETE_DIRECT_LEGACY__
+    ) {
         window.__SUMMARY_REACT_DELETE_SELECTED__();
         return;
     }
@@ -19837,6 +19842,15 @@ function deleteSelectedRows() {
         executeDeleteSelectedRows(validRowsToDelete);
     });
 }
+
+/** Expose delete API as soon as functions exist (init is registered at ~L239; do not wait for EOF). */
+function registerSummaryDeleteWindowApi() {
+    window.collectValidDeleteRowTargets = collectValidDeleteRowTargets;
+    window.executeDeleteSelectedRows = executeDeleteSelectedRows;
+    window.deleteSelectedRows = deleteSelectedRows;
+    window.updateDeleteButton = updateDeleteButton;
+}
+registerSummaryDeleteWindowApi();
 
 // Confirm delete modal functions
 let deleteCallback = null;

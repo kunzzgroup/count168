@@ -23,11 +23,65 @@ function openConfirmDelete(message, onConfirm, showConfirmDelete) {
   showSummaryConfirmDelete(message, onConfirm);
 }
 
+/** DOM collect when legacy window API is not registered yet (mirrors datacapturesummary.js). */
+function collectValidDeleteRowTargetsFromDom() {
+  const checkboxes = document.querySelectorAll(".summary-row-checkbox:checked");
+  return Array.from(checkboxes)
+    .map((cb) => ({
+      checkbox: cb,
+      row: cb.closest("tr"),
+      value: cb.getAttribute("data-value"),
+    }))
+    .filter((item) => {
+      const row = item.row;
+      if (!row) return false;
+
+      const productType = (row.getAttribute("data-product-type") || "main").trim();
+      const accountCell = row.querySelector("td:nth-child(2)");
+      const accountText = accountCell ? accountCell.textContent.trim() : "";
+      const hasAccount = accountText !== "" && accountText !== "+";
+
+      if (productType === "sub" && !hasAccount) {
+        return false;
+      }
+
+      const idFromCheckbox =
+        item.value && String(item.value).trim() !== "" ? String(item.value).trim() : "";
+      if (idFromCheckbox) return true;
+
+      const idCell = row.querySelector("td:first-child");
+      const idText = idCell
+        ? (idCell.getAttribute("data-main-product") || idCell.textContent || "").trim()
+        : "";
+      return idText !== "";
+    });
+}
+
+function runLegacyDeleteSelectedRowsDirect() {
+  if (typeof window.deleteSelectedRows !== "function") {
+    return false;
+  }
+  window.__SUMMARY_DELETE_DIRECT_LEGACY__ = true;
+  try {
+    window.deleteSelectedRows();
+    return true;
+  } finally {
+    window.__SUMMARY_DELETE_DIRECT_LEGACY__ = false;
+  }
+}
+
 export function requestSummaryDeleteConfirmation({ showConfirmDelete, showNotification }) {
-  const collect = window.collectValidDeleteRowTargets;
+  const collect =
+    typeof window.collectValidDeleteRowTargets === "function"
+      ? window.collectValidDeleteRowTargets
+      : collectValidDeleteRowTargetsFromDom;
+
   const execute = window.executeDeleteSelectedRows;
 
-  if (typeof collect !== "function" || typeof execute !== "function") {
+  if (typeof execute !== "function") {
+    if (runLegacyDeleteSelectedRowsDirect()) {
+      return;
+    }
     notifyError(
       "Error",
       "Delete is not ready yet. Please wait for the page to finish loading.",
