@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa13';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa14';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -22918,38 +22918,37 @@ async function restoreCaptureTableFromData(tableData, savedType) {
     }
 
     if (tableBody) {
-            let hasData = false;
-            tableData.rows.forEach(rowData => {
-                if (hasData) return;
-                rowData.forEach(cellData => {
-                    if (cellData.type === 'data' && cellData.value && cellData.value.trim() !== '') {
-                        hasData = true;
-                    }
-                });
+        let hasData = false;
+        tableData.rows.forEach(rowData => {
+            if (hasData) return;
+            rowData.forEach(cellData => {
+                if (cellData.type === 'data' && cellData.value && cellData.value.trim() !== '') {
+                    hasData = true;
+                }
             });
+        });
 
-            if (hasData) {
-                isFormatGridReady = true;
-                try {
-                    let html = '<table border="1" cellspacing="0" cellpadding="2"><tbody>';
-                    tableData.rows.forEach(rowData => {
-                        html += '<tr>';
-                        rowData.forEach(cell => {
-                            const v = cell && typeof cell.value !== 'undefined' ? cell.value : '';
-                            html += `<td>${escapeHtml(v)}</td>`;
-                        });
-                        html += '</tr>';
+        if (hasData) {
+            isFormatGridReady = true;
+            try {
+                let html = '<table border="1" cellspacing="0" cellpadding="2"><tbody>';
+                tableData.rows.forEach(rowData => {
+                    html += '<tr>';
+                    rowData.forEach(cell => {
+                        const v = cell && typeof cell.value !== 'undefined' ? cell.value : '';
+                        html += `<td>${escapeHtml(v)}</td>`;
                     });
-                    html += '</tbody></table>';
-                    localStorage.setItem('capturedFormatPreviewHtml', html);
-                    renderFormatPreview(html);
-                } catch (_) { }
-            } else {
-                isFormatGridReady = false;
-                try {
-                    localStorage.removeItem('capturedFormatPreviewHtml');
-                } catch (_) { }
-            }
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                localStorage.setItem('capturedFormatPreviewHtml', html);
+                renderFormatPreview(html);
+            } catch (_) { }
+        } else {
+            isFormatGridReady = false;
+            try {
+                localStorage.removeItem('capturedFormatPreviewHtml');
+            } catch (_) { }
         }
 
         setTimeout(() => {
