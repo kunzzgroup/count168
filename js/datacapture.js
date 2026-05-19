@@ -239,6 +239,9 @@ function highlightHeadersForCell(cell) {
 
 // Internal: Set current active cell highlight and selectedCells, does not control focus
 function setActiveCellCore(cell) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_SET_ACTIVE_CELL_CORE_REACT__ === 'function') {
+        return window.__DC_SET_ACTIVE_CELL_CORE_REACT__(cell);
+    }
     if (!cell || cell.contentEditable !== 'true') return;
 
     // First let the previously editing cell lose focus, hide old cursor
@@ -268,6 +271,9 @@ function setActiveCellCore(cell) {
 
 // Keyboard navigation / used when direct editing is needed: highlight and focus, show cursor
 function setActiveCell(cell) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_SET_ACTIVE_CELL_REACT__ === 'function') {
+        return window.__DC_SET_ACTIVE_CELL_REACT__(cell);
+    }
     if (!cell || cell.contentEditable !== 'true') return;
     setActiveCellCore(cell);
     cell.focus();
@@ -275,6 +281,9 @@ function setActiveCell(cell) {
 
 // Set cursor to end of cell text
 function moveCaretToEnd(cell) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_MOVE_CARET_TO_END_REACT__ === 'function') {
+        return window.__DC_MOVE_CARET_TO_END_REACT__(cell);
+    }
     try {
         const selection = window.getSelection();
         if (!selection) return;
@@ -292,6 +301,9 @@ function moveCaretToEnd(cell) {
 
 // First mouse click only highlights, no cursor appears
 function setActiveCellWithoutFocus(cell) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS_REACT__ === 'function') {
+        return window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS_REACT__(cell);
+    }
     if (!cell || cell.contentEditable !== 'true') return;
     setActiveCellCore(cell);
 }
@@ -306,6 +318,9 @@ function setActiveCellForMouseEdit(cell) {
 
 // Move cursor to click position
 function moveCaretToClickPosition(cell, clickEvent) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_MOVE_CARET_TO_CLICK_REACT__ === 'function') {
+        return window.__DC_MOVE_CARET_TO_CLICK_REACT__(cell, clickEvent);
+    }
     try {
         // Ensure cell is focused
         if (document.activeElement !== cell) {
@@ -439,7 +454,8 @@ function handleCellMouseDown(e) {
     // Activate table when user clicks on it
     tableActive = true;
 
-    const cell = e.target;
+    const cell = (e.target && e.target.closest) ? e.target.closest('td[contenteditable="true"]') : e.target;
+    if (!cell || cell.contentEditable !== 'true') return;
     const isCtrlPressed = e.ctrlKey || e.metaKey;
 
     // If Ctrl/Cmd is pressed, toggle cell selection (multi-select mode)
@@ -474,8 +490,11 @@ function handleCellMouseDown(e) {
 
 // Handle mouse hover
 function handleCellMouseOver(e) {
-    if (isSelecting && startCell) {
-        if (!e.ctrlKey && !e.metaKey) {
+    if (!isSelecting || !startCell) return;
+    const hoverCell = (e.target && e.target.closest) ? e.target.closest('td[contenteditable="true"]') : e.target;
+    if (!hoverCell || hoverCell.contentEditable !== 'true') return;
+
+    if (!e.ctrlKey && !e.metaKey) {
             // Clear previous selections (except starting cell)
             selectedCells.forEach(cell => {
                 if (cell !== startCell) {
@@ -489,8 +508,8 @@ function handleCellMouseOver(e) {
         // Select all cells in range
         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
         const startCol = parseInt(startCell.dataset.col);
-        const endRow = Array.from(e.target.parentNode.parentNode.children).indexOf(e.target.parentNode);
-        const endCol = parseInt(e.target.dataset.col);
+        const endRow = Array.from(hoverCell.parentNode.parentNode.children).indexOf(hoverCell.parentNode);
+        const endCol = parseInt(hoverCell.dataset.col);
 
         const minRow = Math.min(startRow, endRow);
         const maxRow = Math.max(startRow, endRow);
@@ -511,7 +530,6 @@ function handleCellMouseOver(e) {
                 }
             }
         }
-    }
 }
 
 // Handle mouse release
@@ -3492,10 +3510,38 @@ function displaySelectedDescriptions(descriptions) {
     }
 }
 
+/** Cell click: highlight vs edit mode (classic + SPA via delegation). */
+function handleCellClick(e, cellEl) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_CELL_CLICK_REACT__ === 'function') {
+        return window.__DC_HANDLE_CELL_CLICK_REACT__(e, cellEl);
+    }
+    const cell = cellEl || e.currentTarget || e.target;
+    if (!cell || cell.contentEditable !== 'true') return;
+
+    tableActive = true;
+    const isCtrlPressed = e.ctrlKey || e.metaKey;
+    if (isCtrlPressed) return;
+    const hasFocus = document.activeElement === cell;
+    if (hasFocus) {
+        moveCaretToClickPosition(cell, e);
+    } else if (!cell.classList.contains('selected')) {
+        setActiveCellWithoutFocus(cell);
+    } else {
+        setActiveCellCore(cell);
+        cell.focus();
+        setTimeout(() => {
+            moveCaretToClickPosition(cell, e);
+        }, 0);
+    }
+}
+
 /** Shared per-cell listeners for grid cells (used by build + submit-time column expansion). */
 function bindDataCaptureCellEvents(cell) {
-    cell.addEventListener('mousedown', handleCellMouseDown);
-    cell.addEventListener('mouseover', handleCellMouseOver);
+    const spaGrid = __dcIsDataCaptureSpa();
+    if (!spaGrid) {
+        cell.addEventListener('mousedown', handleCellMouseDown);
+        cell.addEventListener('mouseover', handleCellMouseOver);
+    }
     cell.addEventListener('focus', function () {
         this.classList.add('selected');
     });
@@ -3510,25 +3556,15 @@ function bindDataCaptureCellEvents(cell) {
             if (displayed !== t) this.textContent = displayed;
         }
     });
-    cell.addEventListener('keydown', handleCellKeydown);
+    if (!spaGrid) {
+        cell.addEventListener('keydown', handleCellKeydown);
+    }
     cell.addEventListener('paste', handleCellPaste);
-    cell.addEventListener('click', function (e) {
-        tableActive = true;
-        const isCtrlPressed = e.ctrlKey || e.metaKey;
-        if (isCtrlPressed) return;
-        const hasFocus = document.activeElement === this;
-        if (hasFocus) {
-            moveCaretToClickPosition(this, e);
-        } else if (!this.classList.contains('selected')) {
-            setActiveCellWithoutFocus(this);
-        } else {
-            setActiveCellCore(this);
-            this.focus();
-            setTimeout(() => {
-                moveCaretToClickPosition(this, e);
-            }, 0);
-        }
-    });
+    if (!spaGrid) {
+        cell.addEventListener('click', function (e) {
+            handleCellClick(e, this);
+        });
+    }
     cell.addEventListener('contextmenu', function (e) {
         e.preventDefault();
         showContextMenu(e, this);
@@ -3573,25 +3609,26 @@ function buildDataCaptureTable(rows = 26, cols = 20) {
     }
     headerRow.innerHTML = '<th></th>'; // Keep first empty header
 
+    const spaGrid = __dcIsDataCaptureSpa();
+
     for (let j = 0; j < cols; j++) {
         const header = document.createElement('th');
         header.textContent = j + 1; // 1, 2, 3, ...
-        // Handle left click (mousedown) - use dynamic index calculation
-        header.addEventListener('mousedown', (e) => {
-            if (e.button === 0) { // Left button only
-                handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
-            }
-        });
-        // Handle right click (contextmenu) - show context menu
-        header.addEventListener('contextmenu', (e) => {
-            showColumnContextMenu(e, -1); // -1 means calculate from DOM
-        });
-        header.addEventListener('mouseover', (e) => {
-            // Only handle drag selection if not using Ctrl
-            if (!e.ctrlKey && !e.metaKey) {
-                handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
-            }
-        });
+        if (!spaGrid) {
+            header.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                    handleColumnHeaderClick(e, -1);
+                }
+            });
+            header.addEventListener('contextmenu', (e) => {
+                showColumnContextMenu(e, -1);
+            });
+            header.addEventListener('mouseover', (e) => {
+                if (!e.ctrlKey && !e.metaKey) {
+                    handleColumnHeaderMouseOver(e, -1);
+                }
+            });
+        }
         header.style.cursor = 'pointer';
         headerRow.appendChild(header);
     }
@@ -3604,22 +3641,21 @@ function buildDataCaptureTable(rows = 26, cols = 20) {
         const rowHeader = document.createElement('td');
         rowHeader.className = 'row-header';
         rowHeader.textContent = getColumnLabel(i - 1); // A, B, C, ..., Z, AA, AB, ...
-        // Handle left click (mousedown) - use dynamic index calculation
-        rowHeader.addEventListener('mousedown', (e) => {
-            if (e.button === 0) { // Left button only
-                handleRowHeaderClick(e, -1); // -1 means calculate from DOM
-            }
-        });
-        // Handle right click (contextmenu) - show context menu
-        rowHeader.addEventListener('contextmenu', (e) => {
-            showRowContextMenu(e, -1); // -1 means calculate from DOM
-        });
-        rowHeader.addEventListener('mouseover', (e) => {
-            // Only handle drag selection if not using Ctrl
-            if (!e.ctrlKey && !e.metaKey) {
-                handleRowHeaderMouseOver(e, -1); // -1 means calculate from DOM
-            }
-        });
+        if (!spaGrid) {
+            rowHeader.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                    handleRowHeaderClick(e, -1);
+                }
+            });
+            rowHeader.addEventListener('contextmenu', (e) => {
+                showRowContextMenu(e, -1);
+            });
+            rowHeader.addEventListener('mouseover', (e) => {
+                if (!e.ctrlKey && !e.metaKey) {
+                    handleRowHeaderMouseOver(e, -1);
+                }
+            });
+        }
         rowHeader.style.cursor = 'pointer';
         row.appendChild(rowHeader);
 
@@ -22277,6 +22313,9 @@ function legacyHandleCellPasteInternal(e) {
 
 // 处理单元格键盘事件
 function handleCellKeydown(e) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_HANDLE_CELL_KEYDOWN_REACT__ === 'function') {
+        return window.__DC_HANDLE_CELL_KEYDOWN_REACT__(e);
+    }
     // 允许 Ctrl+Z / Cmd+Z 执行撤销操作
     const key = (e.key || '').toLowerCase();
     if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
@@ -25304,9 +25343,36 @@ window.__DC_HAS_PASTE_HISTORY__ = function () {
     return pasteHistory.length > 0;
 };
 window.__DC_UNDO_LAST_PASTE__ = undoLastPaste;
+window.__DC_REGISTER_SELECTED_CELL__ = function (cell) {
+    if (cell) selectedCells.add(cell);
+};
 window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS__ = setActiveCellWithoutFocus;
 window.__DC_SET_ACTIVE_CELL__ = setActiveCell;
 window.__DC_MOVE_CARET_TO_END__ = moveCaretToEnd;
+window.__DC_HANDLE_CELL_MOUSEDOWN__ = handleCellMouseDown;
+window.__DC_HANDLE_CELL_MOUSEOVER__ = handleCellMouseOver;
+window.__DC_HANDLE_CELL_CLICK__ = handleCellClick;
+window.__DC_HANDLE_MOUSE_UP__ = handleMouseUp;
+window.__DC_ADD_NEW_ROW__ = addNewRow;
+window.__DC_ADD_NEW_COLUMN__ = addNewColumn;
+window.__DC_HANDLE_COLUMN_HEADER_MOUSEDOWN__ = function (e) {
+    if (e.button === 0) handleColumnHeaderClick(e, -1);
+};
+window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__ = function (e) {
+    if (!e.ctrlKey && !e.metaKey) handleColumnHeaderMouseOver(e, -1);
+};
+window.__DC_HANDLE_ROW_HEADER_MOUSEDOWN__ = function (e) {
+    if (e.button === 0) handleRowHeaderClick(e, -1);
+};
+window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__ = function (e) {
+    if (!e.ctrlKey && !e.metaKey) handleRowHeaderMouseOver(e, -1);
+};
+window.__DC_SHOW_COLUMN_CONTEXT_MENU__ = function (e) {
+    showColumnContextMenu(e, -1);
+};
+window.__DC_SHOW_ROW_CONTEXT_MENU__ = function (e) {
+    showRowContextMenu(e, -1);
+};
 window.initializeTable = initializeTable;
 window.submitDataCaptureForm = submitDataCaptureForm;
 window.__DC_CLEAR_CAPTURE_TABLE__ = clearCaptureTableForReset;
