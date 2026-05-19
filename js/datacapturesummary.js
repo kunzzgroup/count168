@@ -149,12 +149,14 @@ function initDataCaptureSummaryPage() {
 
         const urlParams = new URLSearchParams(window.location.search);
         window.__summaryFreshFromCapture = urlParams.get('success') === '1';
-        if (urlParams.get('success') === '1') {
-            showNotification('Success', 'Data captured and summary generated successfully!', 'success');
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (urlParams.get('error') === '1') {
-            showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
-            window.history.replaceState({}, document.title, window.location.pathname);
+        if (!window.__SUMMARY_REACT_TABLE__) {
+            if (urlParams.get('success') === '1') {
+                showNotification('Success', 'Data captured and summary generated successfully!', 'success');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (urlParams.get('error') === '1') {
+                showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
         }
 
         loadAndRenderCapturedTable().catch(function (e) {
@@ -1327,6 +1329,22 @@ async function loadAndRenderCapturedTable() {
         if (typeof window.__summaryFreshFromCapture === 'undefined') {
             const urlParams = new URLSearchParams(window.location.search);
             window.__summaryFreshFromCapture = urlParams.get('success') === '1';
+        }
+
+        // React SPA: table rows + captured reference table rendered by SummaryTable.jsx
+        if (window.__SUMMARY_REACT_TABLE__) {
+            const reactTableData = window.transformedTableData;
+            const reactProcessData = window.capturedProcessData;
+            if (reactTableData && reactProcessData) {
+                hideLoadingState();
+                displayProcessInfo(reactProcessData);
+                if (typeof window.__SUMMARY_REACT_ON_TABLE_READY__ === 'function') {
+                    await window.__SUMMARY_REACT_ON_TABLE_READY__();
+                }
+                return;
+            }
+            hideLoadingState();
+            return;
         }
 
         const tableData = localStorage.getItem('capturedTableData');
@@ -19314,6 +19332,7 @@ function updateIdProductWithDescription(processValue, descriptionValue, targetRo
 
 // Show empty state when no data is available
 function showEmptyState() {
+    if (window.__SUMMARY_REACT_TABLE__) return;
     const dcHref = buildApiUrl('datacapture');
     const emptyStateHTML = `
         <div class="summary-table-container empty-state-container">

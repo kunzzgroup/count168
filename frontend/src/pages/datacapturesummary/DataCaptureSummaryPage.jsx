@@ -3,8 +3,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
+import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
 import { useSummaryBoot } from "./hooks/useSummaryBoot.js";
 import { useSummaryCaptureBootstrap } from "./hooks/useSummaryCaptureBootstrap.js";
+import {
+  useSummaryTableBridge,
+  showSummarySuccessNotificationIfNeededFromReact,
+} from "./hooks/useSummaryTableBridge.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
 import "../../../public/css/accountCSS.css";
@@ -72,6 +77,19 @@ export default function DataCaptureSummaryPage() {
     enabled: sessionReady,
   });
 
+  useSummaryTableBridge({
+    tableData: capture.transformedTableData,
+    hasCaptureData: capture.hasCaptureData,
+    processData: capture.processData,
+  });
+
+  const showEmptyState =
+    sessionReady &&
+    scriptsReady &&
+    !engineError &&
+    !capture.hasCaptureData &&
+    !capture.serverStateLoading;
+
   const hydrateRef = useRef(capture.hydrateLegacyGlobals);
   hydrateRef.current = capture.hydrateLegacyGlobals;
 
@@ -128,6 +146,7 @@ export default function DataCaptureSummaryPage() {
     const runInit = () => {
       if (cancelled) return;
       hydrateRef.current();
+      showSummarySuccessNotificationIfNeededFromReact();
       const shell = document.querySelector(".container");
       if (shell) delete shell.dataset.summaryPageInit;
       if (typeof window.initDataCaptureSummaryPage === "function") {
@@ -236,35 +255,10 @@ export default function DataCaptureSummaryPage() {
 
       <div className="summary-table-container" id="summaryTableContainer" style={{ display: "none" }}>
         <SummaryProcessInfo processData={capture.processData} visible={capture.hasCaptureData} />
-        <div className="table-wrapper">
-          <table className="summary-table" id="summaryTable">
-            <thead>
-              <tr>
-                <th className="id-product-header">Id Product</th>
-                <th>Account</th>
-                <th />
-                <th>Currency</th>
-                <th>Formula</th>
-                <th>Source</th>
-                <th>Rate</th>
-                <th>Rate Value</th>
-                <th>Processed Amount</th>
-                <th>Skip</th>
-                <th>Delete</th>
-              </tr>
-            </thead>
-            <tbody id="summaryTableBody" />
-            <tfoot>
-              <tr id="summaryTotalRow">
-                <td colSpan={8} className="summary-total-label" />
-                <td id="summaryTotalAmount">0.00</td>
-                <td />
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <SummaryTable tableData={capture.transformedTableData} visible={capture.hasCaptureData} />
       </div>
+
+      {showEmptyState ? <SummaryEmptyState /> : null}
 
       <div className="summary-submit-container" id="summarySubmitContainer" style={{ display: "none" }}>
         <button type="button" className="btn btn-submit" id="summarySubmitBtn" onClick={() => window.submitSummaryData?.()}>
