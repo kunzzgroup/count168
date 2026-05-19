@@ -2533,6 +2533,98 @@ function handleAddAccount(button, productValue) {
     });
 }
 
+/** Shared post-render init for Edit Formula form (legacy DOM inject + React modal). */
+function initEditFormulaFormAfterMount(prePopulatedData) {
+    // Clear clicked columns when opening new form (unless editing)
+    setTimeout(() => {
+        const formulaInput = document.getElementById('formula');
+        if (formulaInput && !prePopulatedData) {
+            formulaInput.removeAttribute('data-clicked-columns');
+        }
+    }, 100);
+
+    // Load currency and account data
+    loadFormData().then(() => {
+        // Initialize account custom select after data is loaded
+        setTimeout(() => {
+            initAccountInput();
+        }, 50);
+
+        // Populate form with pre-populated data if provided (after data is loaded)
+        if (prePopulatedData) {
+            populateFormWithData(prePopulatedData);
+        } else {
+            // Even if no prePopulatedData, set default currency from capturedProcessData
+            populateFormWithData({});
+        }
+
+        // Account、Currency、Formula 必填：根据三者是否填写启用/禁用 Save 按钮，并监听字段变化
+        setTimeout(() => {
+            if (typeof updateEditFormulaSaveButtonState === 'function') {
+                updateEditFormulaSaveButtonState();
+            }
+            const currencySelect = document.getElementById('currency');
+            if (currencySelect) {
+                currencySelect.removeEventListener('change', _onCurrencySelectLog);
+                currencySelect.addEventListener('change', _onCurrencySelectLog);
+            }
+            const formulaInput = document.getElementById('formula');
+            if (formulaInput) {
+                formulaInput.addEventListener('input', function () {
+                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                        updateEditFormulaSaveButtonState();
+                    }
+                });
+                formulaInput.addEventListener('change', function () {
+                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                        updateEditFormulaSaveButtonState();
+                    }
+                });
+            }
+        }, 150);
+    });
+
+    // Load id product list into first select box
+    loadIdProductList();
+
+    // Update formula data grid for current editing id product
+    setTimeout(() => {
+        updateFormulaDataGrid();
+    }, 100);
+
+    // Add event listener for first select box change
+    setTimeout(() => {
+        const descriptionSelect1 = document.getElementById('descriptionSelect1');
+        if (descriptionSelect1) {
+            descriptionSelect1.addEventListener('change', function () {
+                updateIdProductRowData(this.value);
+                updateFormulaDataGrid();
+            });
+        }
+
+    }, 100);
+
+    // Add input validation for Source Percent
+    addSourcePercentValidation();
+
+    // Add input validation for Formula (allow numbers, operators, parentheses)
+    addFormulaValidation();
+
+    // Add uppercase conversion for Description field
+    addUppercaseConversion('description');
+
+    // Add event listeners for input method and enable checkbox changes
+    addInputMethodChangeListeners();
+
+    // Make Data Capture Table cells clickable
+    makeTableCellsClickable();
+
+    // Initialize calculator keypad
+    initializeCalculatorKeypad();
+}
+
+window.initEditFormulaFormAfterMount = initEditFormulaFormAfterMount;
+
 // Show Edit Formula Form as modal positioned slightly towards top
 function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
     // 规格：非编辑已有行时（新增）不沿用上次编辑的行货币
@@ -2571,6 +2663,15 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
                 }
             }
         }
+    }
+
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_SHOW_EDIT_FORMULA__ === 'function') {
+        window.__SUMMARY_REACT_SHOW_EDIT_FORMULA__({
+            productValue: productValue,
+            isSubIdProduct: isSubIdProduct,
+            prePopulatedData: prePopulatedData
+        });
+        return;
     }
 
     // Helper function to escape HTML for use in attribute values
@@ -2755,92 +2856,7 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
-    // Clear clicked columns when opening new form (unless editing)
-    setTimeout(() => {
-        const formulaInput = document.getElementById('formula');
-        if (formulaInput && !prePopulatedData) {
-            formulaInput.removeAttribute('data-clicked-columns');
-        }
-    }, 100);
-
-    // Load currency and account data
-    loadFormData().then(() => {
-        // Initialize account custom select after data is loaded
-        setTimeout(() => {
-            initAccountInput();
-        }, 50);
-
-        // Populate form with pre-populated data if provided (after data is loaded)
-        if (prePopulatedData) {
-            populateFormWithData(prePopulatedData);
-        } else {
-            // Even if no prePopulatedData, set default currency from capturedProcessData
-            populateFormWithData({});
-        }
-
-        // Account、Currency、Formula 必填：根据三者是否填写启用/禁用 Save 按钮，并监听字段变化
-        setTimeout(() => {
-            if (typeof updateEditFormulaSaveButtonState === 'function') {
-                updateEditFormulaSaveButtonState();
-            }
-            const currencySelect = document.getElementById('currency');
-            if (currencySelect) {
-                currencySelect.removeEventListener('change', _onCurrencySelectLog);
-                currencySelect.addEventListener('change', _onCurrencySelectLog);
-            }
-            const formulaInput = document.getElementById('formula');
-            if (formulaInput) {
-                formulaInput.addEventListener('input', function () {
-                    if (typeof updateEditFormulaSaveButtonState === 'function') {
-                        updateEditFormulaSaveButtonState();
-                    }
-                });
-                formulaInput.addEventListener('change', function () {
-                    if (typeof updateEditFormulaSaveButtonState === 'function') {
-                        updateEditFormulaSaveButtonState();
-                    }
-                });
-            }
-        }, 150);
-    });
-
-    // Load id product list into first select box
-    loadIdProductList();
-
-    // Update formula data grid for current editing id product
-    setTimeout(() => {
-        updateFormulaDataGrid();
-    }, 100);
-
-    // Add event listener for first select box change
-    setTimeout(() => {
-        const descriptionSelect1 = document.getElementById('descriptionSelect1');
-        if (descriptionSelect1) {
-            descriptionSelect1.addEventListener('change', function () {
-                updateIdProductRowData(this.value);
-                updateFormulaDataGrid();
-            });
-        }
-
-    }, 100);
-
-    // Add input validation for Source Percent
-    addSourcePercentValidation();
-
-    // Add input validation for Formula (allow numbers, operators, parentheses)
-    addFormulaValidation();
-
-    // Add uppercase conversion for Description field
-    addUppercaseConversion('description');
-
-    // Add event listeners for input method and enable checkbox changes
-    addInputMethodChangeListeners();
-
-    // Make Data Capture Table cells clickable
-    makeTableCellsClickable();
-
-    // Initialize calculator keypad
-    initializeCalculatorKeypad();
+    initEditFormulaFormAfterMount(prePopulatedData);
 }
 
 // Store the current selected row for calculator keypad
@@ -7469,14 +7485,18 @@ function populateFormWithData(data) {
 
 // Close Edit Formula Form (modal)
 function closeEditFormulaForm() {
-    const modal = document.getElementById('editFormulaModal');
-    const modalContent = document.getElementById('editFormulaModalContent');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = '';
-    }
-    if (modalContent) {
-        modalContent.innerHTML = '';
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_CLOSE_EDIT_FORMULA__ === 'function') {
+        window.__SUMMARY_REACT_CLOSE_EDIT_FORMULA__();
+    } else {
+        const modal = document.getElementById('editFormulaModal');
+        const modalContent = document.getElementById('editFormulaModalContent');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        if (modalContent) {
+            modalContent.innerHTML = '';
+        }
     }
     // Clean up the global references
     window.currentAddAccountButton = null;

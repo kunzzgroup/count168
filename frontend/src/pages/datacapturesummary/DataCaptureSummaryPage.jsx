@@ -4,7 +4,8 @@ import { buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
 import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
-import EditFormulaModalHost from "./components/EditFormulaModalHost.jsx";
+import EditFormulaModal from "./components/EditFormulaModal.jsx";
+import { useSummaryEditFormula } from "./hooks/useSummaryEditFormula.js";
 import SummaryActionBar from "./components/SummaryActionBar.jsx";
 import SummarySubmitBar from "./components/SummarySubmitBar.jsx";
 import SummaryNotification from "./components/SummaryNotification.jsx";
@@ -177,6 +178,7 @@ function DataCaptureSummaryPageInner() {
   }, [capture.hasCaptureData, scriptsReady]);
 
   const pageActions = useSummaryPageActions({ companyId, scriptsReady });
+  const editFormula = useSummaryEditFormula({ scriptsReady });
   const overlays = useSummaryOverlays();
   useSummaryLegacyChrome(scriptsReady);
 
@@ -431,7 +433,12 @@ function DataCaptureSummaryPageInner() {
 
       {showEmptyState ? <SummaryEmptyState /> : null}
 
-      <EditFormulaModalHost />
+      <EditFormulaModal
+        key={editFormula.sessionKey}
+        open={editFormula.open}
+        productValue={editFormula.productValue}
+        onClose={() => window.closeEditFormulaForm?.()}
+      />
 
       <SummarySubmitBar
         submitting={pageActions.submitting}
