@@ -24,8 +24,19 @@ function loadScriptOnce(src, isAlreadyLoaded) {
         resolve();
         return;
       }
+      if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
+        finish(n);
+        return;
+      }
       n.addEventListener("load", () => finish(n), { once: true });
-      n.addEventListener("error", () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
+      n.addEventListener(
+        "error",
+        () => {
+          n.remove();
+          loadScriptOnce(src, isAlreadyLoaded).then(resolve).catch(reject);
+        },
+        { once: true }
+      );
       queueMicrotask(() => {
         if (n.dataset.loaded === "1") return;
         if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) finish(n);
@@ -55,6 +66,7 @@ const CAPTURE_STORAGE_KEYS = [
 export default function DataCaptureSummaryPage() {
   const navigate = useNavigate();
   const [bootLoading, setBootLoading] = useState(true);
+  const [scriptsReady, setScriptsReady] = useState(false);
   const [engineError, setEngineError] = useState("");
   const [companyId, setCompanyId] = useState(null);
 
@@ -99,10 +111,7 @@ export default function DataCaptureSummaryPage() {
         const numericId = Number.isFinite(id) ? id : null;
         window.DATACAPTURESUMMARY_COMPANY_ID = numericId;
         setCompanyId(numericId);
-
-        if (typeof window.initDataCaptureSummaryPage === "function") {
-          window.initDataCaptureSummaryPage();
-        }
+        if (alive) setScriptsReady(true);
       } catch (e) {
         if (!alive) return;
         console.error(e);
@@ -114,9 +123,31 @@ export default function DataCaptureSummaryPage() {
 
     return () => {
       alive = false;
+      setScriptsReady(false);
       window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
     };
   }, [navigate]);
+
+  /** Run legacy init only after the full summary shell is mounted (not the boot Loading placeholder). */
+  useEffect(() => {
+    if (bootLoading || !scriptsReady || engineError) return;
+
+    let cancelled = false;
+    const runInit = () => {
+      if (cancelled) return;
+      const shell = document.querySelector(".container");
+      if (shell) delete shell.dataset.summaryPageInit;
+      if (typeof window.initDataCaptureSummaryPage === "function") {
+        window.initDataCaptureSummaryPage();
+      }
+    };
+
+    const id = requestAnimationFrame(runInit);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [bootLoading, scriptsReady, engineError]);
 
   /** Match legacy PHP: sidebar Data Capture title starts a fresh capture round */
   useEffect(() => {
