@@ -20,6 +20,7 @@ import {
   showSummarySuccessNotificationIfNeededFromReact,
   hideSummaryLoadingChrome,
   showSummaryTableChrome,
+  removeLegacySummaryEmptyStateDom,
 } from "./hooks/useSummaryTableBridge.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
@@ -182,6 +183,9 @@ export default function DataCaptureSummaryPage() {
       if (shell) delete shell.dataset.summaryPageInit;
       if (typeof window.initDataCaptureSummaryPage === "function") {
         window.initDataCaptureSummaryPage();
+      }
+      if (capture.hasCaptureData) {
+        removeLegacySummaryEmptyStateDom();
       }
       showSummarySuccessNotificationIfNeededFromReact();
     };

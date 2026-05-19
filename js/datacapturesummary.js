@@ -176,12 +176,16 @@ function initDataCaptureSummaryPage() {
         loadAndRenderCapturedTable().catch(function (e) {
             console.warn('loadAndRenderCapturedTable error:', e);
             hideLoadingState();
-            showEmptyState();
+            if (!window.__SUMMARY_REACT_TABLE__ && !window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
+                showEmptyState();
+            }
         });
     } catch (error) {
         console.error('Error in initDataCaptureSummaryPage:', error);
         hideLoadingState();
-        showEmptyState();
+        if (!window.__SUMMARY_REACT_TABLE__ && !window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
+            showEmptyState();
+        }
     }
 }
 
@@ -19394,7 +19398,7 @@ function updateIdProductWithDescription(processValue, descriptionValue, targetRo
 
 // Show empty state when no data is available
 function showEmptyState() {
-    if (window.__SUMMARY_REACT_TABLE__) return;
+    if (window.__SUMMARY_REACT_TABLE__ || window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) return;
     const dcHref = buildApiUrl('datacapture');
     const emptyStateHTML = `
         <div class="summary-table-container empty-state-container">
