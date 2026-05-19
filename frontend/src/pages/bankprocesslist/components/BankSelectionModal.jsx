@@ -1,4 +1,5 @@
 import React from "react";
+import { sanitizeCapitalLettersOnly } from "../../../utils/sanitizeCapitalLettersOnly.js";
 
 export default function BankSelectionModal({
   banksList,
@@ -40,7 +41,7 @@ export default function BankSelectionModal({
                       id="new_bank_name"
                       placeholder={t("addNewBank")}
                       value={newBankName}
-                      onChange={(e) => setNewBankName(e.target.value.toUpperCase())}
+                      onChange={(e) => setNewBankName(sanitizeCapitalLettersOnly(e.target.value))}
                     />
                     <button type="submit" className="btn btn-save bank-selection-add-btn">{t("add")}</button>
                   </div>
@@ -122,11 +123,11 @@ export default function BankSelectionModal({
             className="btn btn-save"
             id="confirmBanksBtn"
             onClick={() => {
-              if (selectedBankChips.length !== 1) {
-                notify(t("selectExactlyOneBank"), "warning");
+              if (selectedBankChips.length === 0) {
+                notify(t("selectAtLeastOneBank"), "warning");
                 return;
               }
-              onConfirm(selectedBankChips[0]);
+              onConfirm(selectedBankChips);
             }}
           >
             {t("confirm")}

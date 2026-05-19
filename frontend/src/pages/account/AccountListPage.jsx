@@ -489,9 +489,23 @@ export default function AccountListPage() {
       return;
     }
     try {
-      const res = await fetch(buildApiUrl(`getaccountapi.php?id=${id}`), { credentials: "include" });
-      const json = await res.json();
-      if (!json.success) return notify(json.message || t("failedToLoadAccount"), "danger");
+      const detailUrl = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
+      detailUrl.searchParams.set("id", String(id));
+      if (companyId) detailUrl.searchParams.set("company_id", String(companyId));
+      detailUrl.searchParams.set("_", String(Date.now()));
+      const res = await fetch(detailUrl.toString(), {
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
+      const text = await res.text();
+      let json;
+      try {
+        json = text.trim() ? JSON.parse(text) : { success: false };
+      } catch {
+        return notify(t("errorLoadingAccount"), "danger");
+      }
+      if (!json.success) return notify(json.message || json.error || t("failedToLoadAccount"), "danger");
       const d = json.data;
       setIsEditMode(true);
       setHiddenCurrencyIds([]);

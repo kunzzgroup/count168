@@ -1189,9 +1189,46 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     box-sizing: border-box;
 }
 
-/* Bank：表头列间距与 Process List 一致（行已在 .process-cards.bank-mode 用 8px） */
-.process-page.process-page--bank .table-header {
-    gap: 8px;
+/* Bank 列表：收紧列间距（须覆盖 global-13inch 的 padding: 0 10px !important） */
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header,
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card {
+    column-gap: 2px !important;
+    gap: 2px !important;
+}
+
+/* Supplier ↔ Country（Supplier 列再收紧） */
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(1),
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(1) {
+    padding-right: 2px !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(2),
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(2) {
+    padding-left: 2px !important;
+    padding-right: 0 !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(2).header-item--with-sort-icon {
+    gap: 4px !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(3),
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(3) {
+    padding-left: 0 !important;
+    padding-right: 2px !important;
+}
+
+/* Bank ↔ Types */
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(4),
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(4) {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(5),
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(5) {
+    padding-left: 2px !important;
+    padding-right: 6px !important;
 }
 
 .process-page .process-card:hover {

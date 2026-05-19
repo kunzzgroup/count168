@@ -8,7 +8,16 @@ import {
   notifyTransactionDataChanged,
   formatBankProcessContractLabel,
   bankProcessContractBadgeKey,
+  formatBankMoneyFixed2,
+  isValidBankMoneyInput,
 } from "../bankProcessHelpers.js";
+
+function formatBankMoneyCell(value) {
+  const raw = value != null ? String(value).trim() : "";
+  if (!raw) return "-";
+  if (!isValidBankMoneyInput(raw)) return raw;
+  return formatBankMoneyFixed2(raw);
+}
 import BankProcessStatusControl from "./BankProcessStatusControl.jsx";
 
 function getContractStateClass(dayStart, dayEnd) {
@@ -218,9 +227,9 @@ export default function BankProcessTable({
             <div className="card-item bank-contract-cell">{renderBankContract(r.contract, r.day_start || r.date, r.day_end, lang)}</div>
             <div className="card-item">{r.insurance || "-"}</div>
             <div className="card-item">{r.customer || "-"}</div>
-            <div className="card-item">{r.cost || "-"}</div>
-            <div className="card-item">{r.price || "-"}</div>
-            <div className="card-item">{r.profit || "-"}</div>
+            <div className="card-item">{formatBankMoneyCell(r.cost)}</div>
+            <div className="card-item">{formatBankMoneyCell(r.price)}</div>
+            <div className="card-item">{formatBankMoneyCell(r.profit)}</div>
             <div className="card-item bank-status-cell">
               <BankProcessStatusControl
                 row={r}

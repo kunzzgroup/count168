@@ -1,5 +1,6 @@
 import React from "react";
 import BankSearchableAccountPick from "./BankSearchableAccountPick.jsx";
+import { formatBankMoneyFixed2, sanitizeBankMoneyTyping } from "../bankProcessHelpers.js";
 
 export default function ProfitSharingModal({
   profitShareRows,
@@ -12,6 +13,16 @@ export default function ProfitSharingModal({
 }) {
   const addRow = () => {
     setProfitShareRows((prev) => [...prev, { accountId: "", accountLabel: "", amount: "" }]);
+  };
+
+  const blurAmount = (idx, raw) => {
+    const trimmed = String(raw ?? "").trim();
+    if (!trimmed) {
+      setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: "" } : r)));
+      return;
+    }
+    const formatted = formatBankMoneyFixed2(trimmed, { emptyAsZero: false });
+    setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: formatted } : r)));
   };
 
   const removeRow = (idx) => {
@@ -48,7 +59,19 @@ export default function ProfitSharingModal({
                   </div>
                   <div className="form-group">
                     <label>{t("amount")}</label>
-                    <input type="number" className="bank-input profit-sharing-amount" placeholder={t("amount")} step="0.01" min="0" value={row.amount} onChange={(e) => setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: e.target.value } : r)))} />
+                    <div className="profit-sharing-amount-field">
+                      <input
+                        type="text"
+                        className="bank-input profit-sharing-amount"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        placeholder="0.00"
+                        value={row.amount}
+                        onChange={(e) => setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: sanitizeBankMoneyTyping(e.target.value) } : r)))}
+                        onBlur={(e) => blurAmount(idx, e.target.value)}
+                      />
+                      <span className="profit-sharing-amount-spacer" aria-hidden="true" />
+                    </div>
                   </div>
                   <div className="form-group profit-sharing-delete-cell">
                     <button type="button" className="profit-sharing-delete-row-btn" onClick={() => removeRow(idx)} aria-label={t("removeRow")}>×</button>

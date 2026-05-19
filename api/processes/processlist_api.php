@@ -249,7 +249,7 @@ if ($req_company_id) {
     // Actions that are strictly for 'Bank' category
     $bankOnlyActions = [
         'get_banks_by_country', 'get_countries', 'add_country', 'remove_country',
-        'save_country_banks', 'get_selected_countries', 'save_selected_countries', 
+        'save_country_banks', 'remove_bank', 'get_selected_countries', 'save_selected_countries',
         'get_selected_banks', 'save_selected_banks', 'update_bank_process'
     ];
 
@@ -295,6 +295,9 @@ switch ($action) {
         break;
     case 'save_country_banks':
         saveCountryBanks();
+        break;
+    case 'remove_bank':
+        removeBank();
         break;
     case 'get_selected_countries':
         getSelectedCountries();
@@ -1286,6 +1289,40 @@ function removeCountry() {
         jsonResponse(true, 'Removed', ['deleted' => (int) $stmt->rowCount()]);
     } catch (Exception $e) {
         error_log("removeCountry: " . $e->getMessage());
+        jsonResponse(false, $e->getMessage(), null);
+    }
+}
+
+/**
+ * Remove a bank row from country_bank for the given company and country.
+ */
+function removeBank() {
+    global $pdo;
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        jsonResponse(false, 'Method not allowed', null);
+        return;
+    }
+    try {
+        $companyId = isset($_POST['company_id']) && $_POST['company_id'] !== '' ? (int)$_POST['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$companyId) {
+            jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
+            return;
+        }
+        $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
+        $bank = isset($_POST['bank']) ? trim((string)$_POST['bank']) : '';
+        if ($country === '' || $bank === '') {
+            jsonResponse(false, 'Country and bank are required', null);
+            return;
+        }
+        $stmt = $pdo->prepare("DELETE FROM country_bank WHERE company_id = ? AND country = ? AND bank = ?");
+        $stmt->execute([$companyId, $country, $bank]);
+        jsonResponse(true, 'Removed', ['deleted' => (int) $stmt->rowCount()]);
+    } catch (Exception $e) {
+        error_log("removeBank: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
     }
 }

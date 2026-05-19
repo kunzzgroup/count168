@@ -35,21 +35,30 @@ export default function AccountModal({
 }) {
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
+  /** Draft selection inside company picker; committed only on Done */
+  const [draftCompanyIds, setDraftCompanyIds] = useState([]);
+
+  const closeCompanyPicker = () => {
+    setCompanyPickerOpen(false);
+    setCompanySearchQuery("");
+  };
 
   useEffect(() => {
     if (!open) {
-      setCompanyPickerOpen(false);
-      setCompanySearchQuery("");
+      closeCompanyPicker();
     }
   }, [open]);
 
   useEffect(() => {
+    if (companyPickerOpen) {
+      setDraftCompanyIds([...selectedCompanyIds]);
+    }
+  }, [companyPickerOpen]);
+
+  useEffect(() => {
     if (!companyPickerOpen) return undefined;
     const onKey = (e) => {
-      if (e.key === "Escape") {
-        setCompanyPickerOpen(false);
-        setCompanySearchQuery("");
-      }
+      if (e.key === "Escape") closeCompanyPicker();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -330,6 +339,7 @@ export default function AccountModal({
                         type="button"
                         className="user-modal-company-open-btn"
                         onClick={() => {
+                          setDraftCompanyIds([...selectedCompanyIds]);
                           setCompanySearchQuery("");
                           setCompanyPickerOpen(true);
                         }}
@@ -363,15 +373,12 @@ export default function AccountModal({
     </div>
     {companyPickerOpen
       ? createPortal(
-          <div className="user-modal-company-picker-root">
+          <div className="user-modal-company-picker-root user-modal-company-picker-root--above-modals">
             <button
               type="button"
               className="user-modal-company-picker-backdrop"
               aria-label={text("cancel")}
-              onClick={() => {
-                setCompanyPickerOpen(false);
-                setCompanySearchQuery("");
-              }}
+              onClick={closeCompanyPicker}
             />
             <div
               className="user-modal-company-picker"
@@ -386,10 +393,7 @@ export default function AccountModal({
                   type="button"
                   className="user-modal-company-picker-close"
                   aria-label={text("cancel")}
-                  onClick={() => {
-                    setCompanyPickerOpen(false);
-                    setCompanySearchQuery("");
-                  }}
+                  onClick={closeCompanyPicker}
                 >
                   ×
                 </button>
@@ -408,7 +412,7 @@ export default function AccountModal({
                   className="user-modal-company-picker-select-all"
                   disabled={companyRows.length === 0}
                   onClick={() => {
-                    setSelectedCompanyIds(companyRows.map((c) => Number(c.id)));
+                    setDraftCompanyIds(companyRows.map((c) => Number(c.id)));
                   }}
                 >
                   {text("selectAll")}
@@ -417,7 +421,7 @@ export default function AccountModal({
               <ul className="user-modal-company-picker-list">
                 {companyPickerFiltered.map((c) => {
                   const id = Number(c.id);
-                  const checked = selectedCompanyIds.includes(id);
+                  const checked = draftCompanyIds.includes(id);
                   return (
                     <li key={c.id} className="user-modal-company-picker-row">
                       <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
@@ -425,7 +429,7 @@ export default function AccountModal({
                           type="checkbox"
                           checked={checked}
                           onChange={() =>
-                            setSelectedCompanyIds((prev) => {
+                            setDraftCompanyIds((prev) => {
                               if (prev.includes(id)) return prev.filter((x) => x !== id);
                               return [...prev, id];
                             })
@@ -442,8 +446,8 @@ export default function AccountModal({
                   type="button"
                   className="user-modal-company-picker-done"
                   onClick={() => {
-                    setCompanyPickerOpen(false);
-                    setCompanySearchQuery("");
+                    setSelectedCompanyIds(draftCompanyIds);
+                    closeCompanyPicker();
                   }}
                 >
                   {text("companyPickerDone")}

@@ -1,7 +1,32 @@
 <?php
 session_start();
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
 require_once 'config.php';
+
+function validateCompanyAccess(PDO $pdo, int $company_id): void {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    if (!$current_user_id) {
+        throw new Exception('用户未登录');
+    }
+    $current_user_role = $_SESSION['role'] ?? '';
+    if ($current_user_role === 'owner') {
+        $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
+        $stmt->execute([$company_id, $owner_id]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('无权限访问该公司');
+        }
+    } else {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
+        $stmt->execute([$current_user_id, $company_id]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('无权限访问该公司');
+        }
+    }
+}
 
 function formatAccountIdForDisplay(string $rawAccountId): string {
     $rawAccountId = trim($rawAccountId);
@@ -18,12 +43,19 @@ function formatAccountIdForDisplay(string $rawAccountId): string {
 }
 
 try {
-    // 检查用户是否登录并获取 company_id
-    if (!isset($_SESSION['company_id'])) {
+    if (!isset($_SESSION['user_id'])) {
         throw new Exception('用户未登录或缺少公司信息');
     }
-    $company_id = $_SESSION['company_id'];
-    
+
+    // 与 accountlistapi 一致：支持 ?company_id= 以匹配页面所选公司（如 Bank Process URL）
+    $company_id = isset($_GET['company_id']) && $_GET['company_id'] !== ''
+        ? (int)$_GET['company_id']
+        : (int)($_SESSION['company_id'] ?? 0);
+    if (!$company_id) {
+        throw new Exception('用户未登录或缺少公司信息');
+    }
+    validateCompanyAccess($pdo, $company_id);
+
     // 获取账户ID参数
     $account_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
     

@@ -1468,9 +1468,12 @@
     font-family: var(--font-ui);
 }
 
-#addBankModal .bank-profit-sharing-item {
-    font-size: var(--text-small);
-    font-family: var(--font-ui);
+#addBankModal .bank-profit-sharing-list .profit-sharing-item {
+    margin-bottom: 8px;
+}
+
+#addBankModal .bank-profit-sharing-list .profit-sharing-item:last-child {
+    margin-bottom: 0;
 }
 
 /* Bank modal footer: same cancel/save typography as .process-page .btn-* */
@@ -2035,15 +2038,26 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
     font-family: var(--font-ui);
 }
 
+/* Portal 挂在 body 上，不在 #addBankModal 内，需单独指定字号 */
+body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-select-search input,
 .custom-select-dropdown.custom-select-dropdown-portal .custom-select-search input {
-    font-size: var(--text-small);
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
 }
 
+body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-select-option,
 .custom-select-dropdown.custom-select-dropdown-portal .custom-select-option {
-    font-size: var(--text-small);
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-select-no-results,
+.custom-select-dropdown.custom-select-dropdown-portal .custom-select-no-results {
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
 }
 
 /* Card Merchant / Customer select bar: match Add Process / Account modal */
@@ -2171,7 +2185,8 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
     padding: 6px 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
     box-sizing: border-box;
 }
 
@@ -2183,7 +2198,8 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
 .custom-select-option {
     padding: 8px 12px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
     border-bottom: 1px solid #f5f5f5;
 }
 
@@ -2204,7 +2220,8 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
     padding: 12px;
     text-align: center;
     color: #999;
-    font-size: 14px;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
 }
 
 /* Add Process 内 Copy From 下拉：框高不变，选项更紧凑以同屏显示更多条，文字不裁切 */
@@ -2316,6 +2333,11 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
     z-index: 20000;
 }
 
+/* Add Account 内操作（创建币种等）的 toast：高于 account-modal(20000) 与公司选择器(25000)，位置仍在右上 */
+.process-notification-container.process-notification-container--above-account-modal {
+    z-index: 26000;
+}
+
 /* modal-content 覆盖全局 88% 宽度：固定宽度填满弹窗，随行数增加高度自然增长 */
 #profitSharingModal .modal-content {
     width: min(640px, 92vw) !important;
@@ -2382,6 +2404,61 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
     margin-bottom: 15px;
     width: 100%;
     box-sizing: border-box;
+}
+
+/* Amount 与 Account 下拉同高：覆盖 process-page .form-group input 的较大 padding/字号 */
+#profitSharingModal .profit-sharing-row .form-group .bank-input.profit-sharing-amount {
+    width: 100%;
+    padding: 0.625rem 0.875rem !important;
+    border: 1px solid #dbe3ee !important;
+    border-radius: 0.52rem !important;
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
+    min-height: 3.3rem !important;
+    height: 3.3rem !important;
+    line-height: 1.4;
+    box-sizing: border-box;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    transform: none;
+}
+
+#profitSharingModal .profit-sharing-row .form-group .bank-input.profit-sharing-amount:focus {
+    outline: none;
+    border-color: #0D60FF !important;
+    box-shadow: 0 0 0 4px rgba(13, 96, 255, 0.08) !important;
+    transform: none;
+}
+
+#profitSharingModal .profit-sharing-amount::-webkit-outer-spin-button,
+#profitSharingModal .profit-sharing-amount::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#profitSharingModal .profit-sharing-amount {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* Amount 列与 Account 列同宽：右侧留与 + 按钮等宽的占位 */
+#profitSharingModal .profit-sharing-amount-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+#profitSharingModal .profit-sharing-amount-field .bank-input.profit-sharing-amount {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+}
+
+#profitSharingModal .profit-sharing-amount-spacer {
+    flex-shrink: 0;
+    width: clamp(22px, 1.45vw, 26px);
+    height: clamp(22px, 1.45vw, 26px);
 }
 
 #profitSharingModal .profit-sharing-modal-btn {
@@ -2521,9 +2598,11 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
 
 .bank-profit-sharing-header h3 {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
     color: #1e293b;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.015em;
 }
 
 .bank-add-ps-btn {
@@ -2624,19 +2703,28 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
 }
 
 .ps-account-name {
+    flex: 1;
+    min-width: 0;
     font-weight: 600;
     color: #334155;
-    font-size: 0.9rem;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .ps-amount-value {
-    font-family: 'Monaco', 'Consolas', monospace;
-    font-weight: 700;
+    flex-shrink: 0;
+    font-family: var(--font-ui);
+    font-weight: var(--font-weight-semibold);
     color: #2563eb;
-    font-size: 0.95rem;
+    font-size: var(--text-small);
+    font-variant-numeric: tabular-nums;
     background: #eff6ff;
-    padding: 2px 8px;
-    border-radius: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #bfdbfe;
 }
 
 .remove-profit-sharing-item {
