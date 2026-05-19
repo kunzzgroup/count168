@@ -560,7 +560,7 @@ function getColumnValueFromCellReference(cellReference, processValue, rowIndexOv
 // Example: "[iphsp3 : 4] + [iphsp3 : 2]" -> "17 + 42"
 // Also supports cell references: "A4 + A3" -> "17 + 42"
 
-function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
+export function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return '';
@@ -891,7 +891,7 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
     }
 }
 
-function evaluateFormulaExpression(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
+export function evaluateFormulaExpression(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return 0;
@@ -1029,7 +1029,7 @@ function stripTrailingEmbeddedCommissionFactors(expr, sourceDecimal, options) {
     return s
 }
 
-function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true, processValueForRefs = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
+export function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true, processValueForRefs = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
     try {
         if (!formula) {
             return 0;

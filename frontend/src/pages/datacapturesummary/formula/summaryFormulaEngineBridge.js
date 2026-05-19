@@ -11,6 +11,10 @@ import {
   registerSummaryFormulaReferenceEngine,
   unregisterSummaryFormulaReferenceEngine,
 } from "./summaryFormulaReference.js";
+import {
+  registerSummarySaveFormula,
+  unregisterSummarySaveFormula,
+} from "./summarySaveFormula.js";
 
 /** Register React formula utilities for legacy datacapturesummary.js (Strangler). */
 export function registerSummaryFormulaEngineShims() {
@@ -28,9 +32,11 @@ export function registerSummaryFormulaEngineShims() {
   window.evaluateExpression = evaluateExpression;
 
   registerSummaryFormulaReferenceEngine();
+  registerSummarySaveFormula();
 }
 
 export function unregisterSummaryFormulaEngineShims() {
+  unregisterSummarySaveFormula();
   unregisterSummaryFormulaReferenceEngine();
   delete window.__SUMMARY_FORMULA_ENGINE__;
   delete window.__SUMMARY_REMOVE_THOUSANDS_SEPARATORS__;

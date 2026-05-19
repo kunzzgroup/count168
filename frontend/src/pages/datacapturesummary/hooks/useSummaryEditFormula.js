@@ -7,8 +7,8 @@ const EMPTY_FORM = {
 };
 
 /**
- * Phase 8: React owns Edit Formula modal visibility + form shell.
- * Legacy initEditFormulaFormAfterMount / saveFormula / closeEditFormulaForm handle behavior.
+ * Phase 8–9c: React owns Edit Formula modal visibility + form shell.
+ * React saveFormula (Phase 9c) handles Save; legacy initEditFormulaFormAfterMount handles form init.
  */
 export function useSummaryEditFormula({ scriptsReady }) {
   const [open, setOpen] = useState(false);

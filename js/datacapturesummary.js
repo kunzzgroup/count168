@@ -8077,6 +8077,9 @@ async function deleteTemplateAsync(templateKey, productType, templateId = null, 
 
 // Save Formula
 function saveFormula() {
+    if (typeof window.__SUMMARY_SAVE_FORMULA__ === 'function') {
+        return window.__SUMMARY_SAVE_FORMULA__();
+    }
     // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，先弹通知再 return
     const currencySelect = document.getElementById('currency');
     if (!currencySelect) {
