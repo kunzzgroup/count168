@@ -18,6 +18,8 @@ import { useSummaryLegacyChrome } from "./hooks/useSummaryLegacyChrome.js";
 import {
   useSummaryTableBridge,
   showSummarySuccessNotificationIfNeededFromReact,
+  hideSummaryLoadingChrome,
+  showSummaryTableChrome,
 } from "./hooks/useSummaryTableBridge.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
@@ -107,10 +109,18 @@ export default function DataCaptureSummaryPage() {
     scriptsReady &&
     !engineError &&
     !capture.hasCaptureData &&
-    !capture.serverStateLoading;
+    !(capture.serverStateQueryEnabled && capture.serverStateLoading);
+
+  /** Revisit only: wait for saved summary state. Fresh capture (?success=1) must not block init. */
+  const waitForServerStateBeforeInit =
+    capture.hasCaptureData &&
+    !capture.freshFromCapture &&
+    capture.serverStateQueryEnabled &&
+    capture.serverStateLoading;
 
   const hydrateRef = useRef(capture.hydrateLegacyGlobals);
   hydrateRef.current = capture.hydrateLegacyGlobals;
+  const initGenerationRef = useRef(0);
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page");
@@ -159,11 +169,14 @@ export default function DataCaptureSummaryPage() {
   /** Hydrate React-loaded capture state, then run legacy table init after full shell mounts. */
   useEffect(() => {
     if (!sessionReady || !scriptsReady || engineError) return;
-    if (capture.hasCaptureData && capture.serverStateLoading) return;
+    if (waitForServerStateBeforeInit) return;
 
+    const generation = initGenerationRef.current + 1;
+    initGenerationRef.current = generation;
     let cancelled = false;
+
     const runInit = () => {
-      if (cancelled) return;
+      if (cancelled || initGenerationRef.current !== generation) return;
       hydrateRef.current();
       showSummarySuccessNotificationIfNeededFromReact();
       const shell = document.querySelector(".container");
@@ -182,10 +195,60 @@ export default function DataCaptureSummaryPage() {
     sessionReady,
     scriptsReady,
     engineError,
+    waitForServerStateBeforeInit,
     capture.hasCaptureData,
-    capture.serverStateLoading,
-    capture.serverState,
+    capture.freshFromCapture,
   ]);
+
+  /** Apply server state when it arrives after init (revisit / refresh paths). */
+  useEffect(() => {
+    if (!sessionReady || !scriptsReady || capture.freshFromCapture) return;
+    if (capture.serverState == null) return;
+
+    window._summaryStateFromServer = capture.serverState;
+
+    const shell = document.querySelector(".container");
+    if (shell?.dataset.summaryPageInit !== "1") return;
+
+    try {
+      window.restoreFormulaSourceFromRefresh?.();
+      window.restoreRateValuesFromRefresh?.();
+    } catch (e) {
+      console.warn("Late summary server-state restore failed:", e);
+    }
+  }, [sessionReady, scriptsReady, capture.serverState, capture.freshFromCapture]);
+
+  /** React-owned loading fallback when legacy init is delayed or skipped. */
+  useLayoutEffect(() => {
+    if (!sessionReady || !scriptsReady || engineError) return;
+    if (waitForServerStateBeforeInit) return;
+
+    if (!capture.hasCaptureData) {
+      hideSummaryLoadingChrome();
+      showSummaryTableChrome();
+    }
+  }, [
+    sessionReady,
+    scriptsReady,
+    engineError,
+    waitForServerStateBeforeInit,
+    capture.hasCaptureData,
+  ]);
+
+  useEffect(() => {
+    if (!sessionReady || !scriptsReady) return;
+    const timer = window.setTimeout(() => {
+      hideSummaryLoadingChrome();
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [sessionReady, scriptsReady]);
+
+  useEffect(() => {
+    return () => {
+      const shell = document.querySelector(".container");
+      if (shell) delete shell.dataset.summaryPageInit;
+    };
+  }, []);
 
   /** Sidebar Data Capture → fresh capture round (SPA navigate). */
   useEffect(() => {

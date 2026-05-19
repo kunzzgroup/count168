@@ -15,11 +15,15 @@ export function useSummaryTableBridge({ tableData, hasCaptureData, processData, 
 
     window.__SUMMARY_REACT_ON_TABLE_READY__ = async () => {
       if (!hasCaptureData || !tableData) return;
-      const { idProducts } = buildColumnAEntries(tableData);
-      window.rebuildUsedAccountIds?.();
-      await runSummaryTablePostPopulate(idProducts);
-      syncFromDom?.();
-      window.updateHeaderCurrencyFromSummaryTable?.();
+      try {
+        const { idProducts } = buildColumnAEntries(tableData);
+        window.rebuildUsedAccountIds?.();
+        await runSummaryTablePostPopulate(idProducts);
+        syncFromDom?.();
+        window.updateHeaderCurrencyFromSummaryTable?.();
+      } finally {
+        showSummaryTableChrome();
+      }
     };
 
     return () => {
