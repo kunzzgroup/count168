@@ -106,7 +106,9 @@ function clearSummaryRowAccountAssignment(row) {
 function clearSummaryFormulaCellDom(cell) {
   if (!cell) return;
   if (window.__SUMMARY_REACT_TABLE__) {
-    cell.textContent = "";
+    while (cell.firstChild) {
+      cell.removeChild(cell.firstChild);
+    }
     return;
   }
   cell.innerHTML =

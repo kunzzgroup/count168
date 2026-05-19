@@ -16146,7 +16146,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         if (typeof reorderSummaryRowsByRowIndex === 'function') {
             reorderSummaryRowsByRowIndex();
         }
-        if (!window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
             window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (error) {
@@ -18115,7 +18115,7 @@ function reorderSummaryRowsByRowIndex() {
         if (typeof updateProcessedAmountTotal === 'function') {
             updateProcessedAmountTotal();
         }
-        if (!window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
             window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (e) {
@@ -19597,7 +19597,9 @@ function updateDeleteButton() {
 function clearSummaryFormulaCellDom(cell) {
     if (!cell) return;
     if (window.__SUMMARY_REACT_TABLE__) {
-        cell.textContent = '';
+        while (cell.firstChild) {
+            cell.removeChild(cell.firstChild);
+        }
         return;
     }
     cell.innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
@@ -19690,16 +19692,13 @@ function deleteSelectedRows() {
             // 1. 如果是 sub row（追加账号），则直接从 DOM 移除。
             // 2. 如果是 main row，则清空资料字段并保留 row（显示 0.00）。
             const reactKeysToRemove = [];
-            const reactKeysToRemount = [];
             validRowsToDelete.forEach(item => {
                 const row = item.row;
                 if (!row) return;
                 const productType = (row.getAttribute('data-product-type') || 'main').trim();
-                const reactKey = row.getAttribute('data-react-row-key');
                 if (productType === 'sub') {
+                    const reactKey = row.getAttribute('data-react-row-key');
                     if (reactKey) reactKeysToRemove.push(reactKey);
-                } else if (reactKey) {
-                    reactKeysToRemount.push(reactKey);
                 }
             });
 
@@ -19778,11 +19777,9 @@ function deleteSelectedRows() {
                     const deleteCb = row.querySelector('.summary-row-checkbox');
                     if (deleteCb) deleteCb.checked = false;
 
-                    // React 拥有 Id Product 单元格子节点；勿用 refreshIdProductCellDisplay（会触发 removeChild 崩溃）
-                    if (!window.__SUMMARY_REACT_TABLE__ && typeof refreshIdProductCellDisplay === 'function') {
+                    // 刷新 Id Product 单元格显示（以清掉 description 渲染）
+                    if (typeof refreshIdProductCellDisplay === 'function') {
                         refreshIdProductCellDisplay(row);
-                    } else if (window.__SUMMARY_REACT_TABLE__) {
-                        row.removeAttribute('data-original-description');
                     }
                 }
             });
@@ -19790,9 +19787,6 @@ function deleteSelectedRows() {
                 rebuildUsedAccountIds();
                 updateDeleteButton();
                 updateProcessedAmountTotal();
-                if (typeof saveFormulaSourceForRefresh === 'function') {
-                    saveFormulaSourceForRefresh({ includeRateValue: false });
-                }
                 showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
             };
 
@@ -19802,20 +19796,15 @@ function deleteSelectedRows() {
                 });
             };
 
-            const reactTableMode = !!window.__SUMMARY_REACT_TABLE__;
+            const reactTableMode = !!(window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function');
             const runReactRemoveAndFinish = function () {
-                if (reactTableMode) {
+                if (reactKeysToRemove.length > 0 && reactTableMode) {
                     try {
-                        if (reactKeysToRemount.length > 0 && typeof window.__SUMMARY_REACT_REMOUNT_ROWS_BY_KEYS__ === 'function') {
-                            window.__SUMMARY_REACT_REMOUNT_ROWS_BY_KEYS__(reactKeysToRemount);
-                        }
-                        if (reactKeysToRemove.length > 0 && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function') {
-                            window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
-                        }
+                        window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
                     } catch (reactRemoveErr) {
-                        console.error('React update summary rows after delete failed:', reactRemoveErr);
+                        console.error('React remove summary rows failed:', reactRemoveErr);
                     }
-                } else if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+                } else if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
                     try {
                         window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
                     } catch (syncErr) {

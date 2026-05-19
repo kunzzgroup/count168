@@ -81,7 +81,7 @@ export function useSummaryOverlays() {
       } catch (err) {
         console.error("Summary delete callback failed:", err);
       }
-    }, 50);
+    }, 0);
   }, [closeConfirmDelete]);
 
   const showNotificationRef = useRef(showNotification);
