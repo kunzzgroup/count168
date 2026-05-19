@@ -35,24 +35,19 @@ function applyCaptureType(nextType) {
   }
 }
 
-function invokeGenericPasteFallback(e, pastedData, captureType, legacyFallback) {
-  setLegacyPasteContext(captureType, "fallback");
+function invokeGenericPasteFallback(e, pastedData) {
+  setLegacyPasteContext(getCaptureType(), "fallback");
   try {
-    if (handleGenericPaste(e, pastedData)) return true;
-    if (typeof legacyFallback === "function" && !window.__DATA_CAPTURE_REACT_FORM__) {
-      legacyFallback(e);
-      return true;
-    }
-    return false;
+    return handleGenericPaste(e, pastedData);
   } finally {
     clearLegacyPasteContext();
   }
 }
 
 /**
- * Full paste orchestrator — all formats in React; legacy body is non-SPA only.
+ * Full paste orchestrator — all formats in React.
  */
-export function handleCellPasteEvent(e, legacyFallback) {
+export function handleCellPasteEvent(e) {
   const cell = resolvePasteCell(e.target);
 
   if (isTypingModeCell(cell)) {
@@ -75,13 +70,13 @@ export function handleCellPasteEvent(e, legacyFallback) {
 
   if (captureType === "2.Format") {
     if (handleFormatCellPaste(e, pastedData)) return;
-    invokeGenericPasteFallback(e, pastedData, captureType, legacyFallback);
+    invokeGenericPasteFallback(e, pastedData);
     return;
   }
 
   if (TYPED_CAPTURE_TYPES.has(captureType)) {
     if (handleTypedCapturePaste(e, pastedData, captureType)) return;
-    invokeGenericPasteFallback(e, pastedData, captureType, legacyFallback);
+    invokeGenericPasteFallback(e, pastedData);
     return;
   }
 
@@ -94,5 +89,5 @@ export function handleCellPasteEvent(e, legacyFallback) {
     if (handleCitibetPaste(e, pastedData, cell, captureType, citibetParsed)) return;
   }
 
-  invokeGenericPasteFallback(e, pastedData, captureType, legacyFallback);
+  invokeGenericPasteFallback(e, pastedData);
 }

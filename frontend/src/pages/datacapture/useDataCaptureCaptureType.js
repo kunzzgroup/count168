@@ -28,10 +28,6 @@ export function useDataCaptureCaptureType() {
 
     setCaptureType(t);
 
-    if (typeof window.__DC_LEGACY_SYNC_CAPTURE_TYPE__ === "function") {
-      window.__DC_LEGACY_SYNC_CAPTURE_TYPE__(t);
-    }
-
     const container = document.querySelector(".excel-table-container");
     if (container) {
       if (isCitibetCaptureType(t)) container.classList.add("citibet-mode");

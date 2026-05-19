@@ -51,8 +51,6 @@ export function useDataCaptureCategoryPermissions(companyCode) {
       }
       if (typeof window.__DC_RELOAD_PROCESSES__ === "function") {
         void window.__DC_RELOAD_PROCESSES__();
-      } else if (typeof window.loadProcessesByDate === "function") {
-        void window.loadProcessesByDate();
       }
     },
     [companyCode]

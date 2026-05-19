@@ -41,7 +41,6 @@ import {
   getSelectedCellCount,
   getSelectedCells,
   registerSelectedCell,
-  selectedCells,
 } from "./dataCaptureGridSelection.js";
 import {
   handleCellMouseDown,
@@ -59,7 +58,6 @@ import { setTableActive, isTableActive } from "./dataCaptureGridTableState.js";
 import {
   clearPasteHistory,
   hasPasteHistory,
-  pasteHistory,
   pushPasteHistory,
   undoLastPaste,
 } from "./dataCaptureGridPasteHistory.js";
@@ -112,6 +110,29 @@ export function useDataCaptureGridInteraction(scriptsReady) {
     window.__DC_BIND_GRID_CELL__ = bindDataCaptureCellEvents;
     window.__DC_LEGACY_BIND_CELL__ = bindDataCaptureCellEvents;
 
+    window.__DC_CLEAR_ALL_SELECTIONS__ = clearAllSelections;
+    window.__DC_GET_SELECTED_CELLS__ = getSelectedCells;
+    window.__DC_GET_SELECTED_CELL_COUNT__ = getSelectedCellCount;
+    window.__DC_REGISTER_SELECTED_CELL__ = registerSelectedCell;
+
+    window.__DC_SET_TABLE_ACTIVE__ = setTableActive;
+    window.__DC_GET_TABLE_ACTIVE__ = isTableActive;
+    window.__DC_PUSH_PASTE_HISTORY__ = pushPasteHistory;
+    window.__DC_CLEAR_PASTE_HISTORY__ = clearPasteHistory;
+    window.__DC_HAS_PASTE_HISTORY__ = hasPasteHistory;
+    window.__DC_UNDO_LAST_PASTE__ = undoLastPaste;
+
+    window.__DC_HANDLE_CELL_MOUSEDOWN__ = handleCellMouseDown;
+    window.__DC_HANDLE_CELL_MOUSEOVER__ = handleCellMouseOver;
+    window.__DC_HANDLE_MOUSE_UP__ = handleMouseUp;
+    window.__DC_HANDLE_COLUMN_HEADER_MOUSEDOWN__ = handleColumnHeaderMousedown;
+    window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__ = handleColumnHeaderMouseover;
+    window.__DC_HANDLE_COLUMN_HEADER_CLICK__ = handleColumnHeaderClick;
+    window.__DC_HANDLE_ROW_HEADER_MOUSEDOWN__ = handleRowHeaderMousedown;
+    window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__ = handleRowHeaderMouseover;
+    window.__DC_HANDLE_ROW_HEADER_CLICK__ = handleRowHeaderClick;
+    window.__DC_SELECT_COLUMN__ = selectColumn;
+
     return () => {
       delete window.__DC_SET_ACTIVE_CELL_CORE_REACT__;
       delete window.__DC_SET_ACTIVE_CELL_REACT__;
@@ -150,36 +171,41 @@ export function useDataCaptureGridInteraction(scriptsReady) {
       if (window.selectAllCells === selectAllCells) delete window.selectAllCells;
       if (window.__DC_BIND_GRID_CELL__ === bindDataCaptureCellEvents) delete window.__DC_BIND_GRID_CELL__;
       if (window.__DC_LEGACY_BIND_CELL__ === bindDataCaptureCellEvents) delete window.__DC_LEGACY_BIND_CELL__;
+      if (window.__DC_CLEAR_ALL_SELECTIONS__ === clearAllSelections) delete window.__DC_CLEAR_ALL_SELECTIONS__;
+      if (window.__DC_GET_SELECTED_CELLS__ === getSelectedCells) delete window.__DC_GET_SELECTED_CELLS__;
+      if (window.__DC_GET_SELECTED_CELL_COUNT__ === getSelectedCellCount) delete window.__DC_GET_SELECTED_CELL_COUNT__;
+      if (window.__DC_REGISTER_SELECTED_CELL__ === registerSelectedCell) delete window.__DC_REGISTER_SELECTED_CELL__;
+      if (window.__DC_SET_TABLE_ACTIVE__ === setTableActive) delete window.__DC_SET_TABLE_ACTIVE__;
+      if (window.__DC_GET_TABLE_ACTIVE__ === isTableActive) delete window.__DC_GET_TABLE_ACTIVE__;
+      if (window.__DC_PUSH_PASTE_HISTORY__ === pushPasteHistory) delete window.__DC_PUSH_PASTE_HISTORY__;
+      if (window.__DC_CLEAR_PASTE_HISTORY__ === clearPasteHistory) delete window.__DC_CLEAR_PASTE_HISTORY__;
+      if (window.__DC_HAS_PASTE_HISTORY__ === hasPasteHistory) delete window.__DC_HAS_PASTE_HISTORY__;
+      if (window.__DC_UNDO_LAST_PASTE__ === undoLastPaste) delete window.__DC_UNDO_LAST_PASTE__;
+      if (window.__DC_HANDLE_CELL_MOUSEDOWN__ === handleCellMouseDown) delete window.__DC_HANDLE_CELL_MOUSEDOWN__;
+      if (window.__DC_HANDLE_CELL_MOUSEOVER__ === handleCellMouseOver) delete window.__DC_HANDLE_CELL_MOUSEOVER__;
+      if (window.__DC_HANDLE_MOUSE_UP__ === handleMouseUp) delete window.__DC_HANDLE_MOUSE_UP__;
+      if (window.__DC_HANDLE_COLUMN_HEADER_MOUSEDOWN__ === handleColumnHeaderMousedown) {
+        delete window.__DC_HANDLE_COLUMN_HEADER_MOUSEDOWN__;
+      }
+      if (window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__ === handleColumnHeaderMouseover) {
+        delete window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__;
+      }
+      if (window.__DC_HANDLE_COLUMN_HEADER_CLICK__ === handleColumnHeaderClick) {
+        delete window.__DC_HANDLE_COLUMN_HEADER_CLICK__;
+      }
+      if (window.__DC_HANDLE_ROW_HEADER_MOUSEDOWN__ === handleRowHeaderMousedown) {
+        delete window.__DC_HANDLE_ROW_HEADER_MOUSEDOWN__;
+      }
+      if (window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__ === handleRowHeaderMouseover) {
+        delete window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__;
+      }
+      if (window.__DC_HANDLE_ROW_HEADER_CLICK__ === handleRowHeaderClick) delete window.__DC_HANDLE_ROW_HEADER_CLICK__;
+      if (window.__DC_SELECT_COLUMN__ === selectColumn) delete window.__DC_SELECT_COLUMN__;
     };
   }, []);
 
   useEffect(() => {
     if (!scriptsReady) return;
-
-    window.__DC_ADOPT_SELECTION_SET__?.(selectedCells);
-    window.__DC_ADOPT_PASTE_HISTORY__?.(pasteHistory);
-    window.__DC_CLEAR_ALL_SELECTIONS__ = clearAllSelections;
-    window.__DC_GET_SELECTED_CELLS__ = getSelectedCells;
-    window.__DC_GET_SELECTED_CELL_COUNT__ = getSelectedCellCount;
-    window.__DC_REGISTER_SELECTED_CELL__ = registerSelectedCell;
-
-    window.__DC_SET_TABLE_ACTIVE__ = setTableActive;
-    window.__DC_GET_TABLE_ACTIVE__ = isTableActive;
-    window.__DC_PUSH_PASTE_HISTORY__ = pushPasteHistory;
-    window.__DC_CLEAR_PASTE_HISTORY__ = clearPasteHistory;
-    window.__DC_HAS_PASTE_HISTORY__ = hasPasteHistory;
-    window.__DC_UNDO_LAST_PASTE__ = undoLastPaste;
-
-    window.__DC_HANDLE_CELL_MOUSEDOWN__ = handleCellMouseDown;
-    window.__DC_HANDLE_CELL_MOUSEOVER__ = handleCellMouseOver;
-    window.__DC_HANDLE_MOUSE_UP__ = handleMouseUp;
-    window.__DC_HANDLE_COLUMN_HEADER_MOUSEDOWN__ = handleColumnHeaderMousedown;
-    window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__ = handleColumnHeaderMouseover;
-    window.__DC_HANDLE_COLUMN_HEADER_CLICK__ = handleColumnHeaderClick;
-    window.__DC_HANDLE_ROW_HEADER_MOUSEDOWN__ = handleRowHeaderMousedown;
-    window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__ = handleRowHeaderMouseover;
-    window.__DC_HANDLE_ROW_HEADER_CLICK__ = handleRowHeaderClick;
-    window.__DC_SELECT_COLUMN__ = selectColumn;
 
     document.addEventListener("keydown", handleDocumentGridKeydown);
     document.addEventListener("click", handleDocumentGridOutsideClick);
@@ -205,50 +231,6 @@ export function useDataCaptureGridInteraction(scriptsReady) {
       detachMouse();
       document.removeEventListener("keydown", handleDocumentGridKeydown);
       document.removeEventListener("click", handleDocumentGridOutsideClick);
-      if (window.__DC_CLEAR_ALL_SELECTIONS__ === clearAllSelections) {
-        delete window.__DC_CLEAR_ALL_SELECTIONS__;
-      }
-      if (window.__DC_GET_SELECTED_CELLS__ === getSelectedCells) {
-        delete window.__DC_GET_SELECTED_CELLS__;
-      }
-      if (window.__DC_GET_SELECTED_CELL_COUNT__ === getSelectedCellCount) {
-        delete window.__DC_GET_SELECTED_CELL_COUNT__;
-      }
-      if (window.__DC_REGISTER_SELECTED_CELL__ === registerSelectedCell) {
-        delete window.__DC_REGISTER_SELECTED_CELL__;
-      }
-      if (window.__DC_SET_TABLE_ACTIVE__ === setTableActive) delete window.__DC_SET_TABLE_ACTIVE__;
-      if (window.__DC_GET_TABLE_ACTIVE__ === isTableActive) delete window.__DC_GET_TABLE_ACTIVE__;
-      if (window.__DC_PUSH_PASTE_HISTORY__ === pushPasteHistory) delete window.__DC_PUSH_PASTE_HISTORY__;
-      if (window.__DC_CLEAR_PASTE_HISTORY__ === clearPasteHistory) delete window.__DC_CLEAR_PASTE_HISTORY__;
-      if (window.__DC_HAS_PASTE_HISTORY__ === hasPasteHistory) delete window.__DC_HAS_PASTE_HISTORY__;
-      if (window.__DC_UNDO_LAST_PASTE__ === undoLastPaste) delete window.__DC_UNDO_LAST_PASTE__;
-      if (window.__DC_HANDLE_CELL_MOUSEDOWN__ === handleCellMouseDown) {
-        delete window.__DC_HANDLE_CELL_MOUSEDOWN__;
-      }
-      if (window.__DC_HANDLE_CELL_MOUSEOVER__ === handleCellMouseOver) {
-        delete window.__DC_HANDLE_CELL_MOUSEOVER__;
-      }
-      if (window.__DC_HANDLE_MOUSE_UP__ === handleMouseUp) delete window.__DC_HANDLE_MOUSE_UP__;
-      if (window.__DC_HANDLE_COLUMN_HEADER_MOUSEDOWN__ === handleColumnHeaderMousedown) {
-        delete window.__DC_HANDLE_COLUMN_HEADER_MOUSEDOWN__;
-      }
-      if (window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__ === handleColumnHeaderMouseover) {
-        delete window.__DC_HANDLE_COLUMN_HEADER_MOUSEOVER__;
-      }
-      if (window.__DC_HANDLE_COLUMN_HEADER_CLICK__ === handleColumnHeaderClick) {
-        delete window.__DC_HANDLE_COLUMN_HEADER_CLICK__;
-      }
-      if (window.__DC_HANDLE_ROW_HEADER_MOUSEDOWN__ === handleRowHeaderMousedown) {
-        delete window.__DC_HANDLE_ROW_HEADER_MOUSEDOWN__;
-      }
-      if (window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__ === handleRowHeaderMouseover) {
-        delete window.__DC_HANDLE_ROW_HEADER_MOUSEOVER__;
-      }
-      if (window.__DC_HANDLE_ROW_HEADER_CLICK__ === handleRowHeaderClick) {
-        delete window.__DC_HANDLE_ROW_HEADER_CLICK__;
-      }
-      if (window.__DC_SELECT_COLUMN__ === selectColumn) delete window.__DC_SELECT_COLUMN__;
     };
   }, [scriptsReady]);
 }

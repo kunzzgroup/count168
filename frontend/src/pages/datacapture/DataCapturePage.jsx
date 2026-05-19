@@ -1,7 +1,6 @@
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildApiUrl } from "../../utils/apiUrl.js";
-import { DATA_CAPTURE_LEGACY_SCRIPT_PATH } from "./dataCaptureLegacyScriptUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import {
@@ -35,6 +34,7 @@ import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
 import { useDataCaptureFormatPaste } from "./useDataCaptureFormatPaste.js";
 import { useDataCaptureFormatDisplay } from "./useDataCaptureFormatDisplay.js";
 import { useDataCaptureSpaInit } from "./useDataCaptureSpaInit.js";
+import { useDataCaptureGlobalShims } from "./useDataCaptureGlobalShims.js";
 import { useDataCaptureGridHeader } from "./useDataCaptureGridHeader.js";
 import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./useDataCaptureSubmitReset.js";
@@ -185,6 +185,7 @@ export default function DataCapturePage() {
   useDataCaptureFormatPaste();
   useDataCaptureFormatDisplay();
   useDataCaptureSpaInit();
+  useDataCaptureGlobalShims();
   useDataCaptureGridHeader();
 
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
@@ -375,13 +376,9 @@ export default function DataCapturePage() {
       try {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
-        await loadScriptOnce(
-          buildApiUrl(DATA_CAPTURE_LEGACY_SCRIPT_PATH),
-          () => typeof window.initDataCapturePage === "function"
-        );
         if (!alive) return;
-        if (typeof window.initDataCapturePage === "function") {
-          await window.initDataCapturePage();
+        if (typeof window.__DC_SPA_INIT_PAGE__ === "function") {
+          await window.__DC_SPA_INIT_PAGE__();
         }
         if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
           window.__DC_ENSURE_GRID_READY__(26, 20);

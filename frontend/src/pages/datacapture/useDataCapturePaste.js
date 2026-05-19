@@ -8,24 +8,20 @@ import { handleCellPasteEvent } from "./paste/dataCapturePasteHandler.js";
 import { handleGenericPaste } from "./paste/dataCaptureGenericPaste.js";
 import { parseAndFillHtmlTableForText } from "./paste/dataCaptureTextHtmlPaste.js";
 import { detectHtmlTableInClipboard } from "./paste/dataCaptureHtmlClipboard.js";
-import {
-  parseAndFillHtmlTableForWbet,
+import { parseAndFillHtmlTableForWbet,
   parseAndFillHtmlTableForWbetApi,
 } from "./paste/dataCaptureWbetHtmlPaste.js";
+import { parseAndFillHTMLTable } from "./paste/dataCaptureParseGenericHtml.js";
 
 /**
- * Phase 4: Paste orchestration in React — migrated formats (1.Text, CITIBET, 2.Format,
- * 4.RETURN / VPOWER / WBET, …); legacy handles unmigrated formats + fallback only.
+ * Phase 4+: Paste orchestration fully in React (no js/datacapture.js).
  */
 export function useDataCapturePaste() {
   const handlerRef = useRef(handleCellPasteEvent);
   handlerRef.current = handleCellPasteEvent;
 
   useLayoutEffect(() => {
-    window.__DC_HANDLE_CELL_PASTE__ = (e) => {
-      const legacy = window.__DC_LEGACY_HANDLE_CELL_PASTE_INTERNAL__;
-      return handlerRef.current(e, legacy);
-    };
+    window.__DC_HANDLE_CELL_PASTE__ = (e) => handlerRef.current(e);
 
     window.__DC_PARSE_CITIBET_MAJOR__ = parseCitibetMajorPaymentReport;
     window.__DC_PARSE_CITIBET_PAYMENT__ = parseCitibetPaymentReport;
@@ -35,6 +31,8 @@ export function useDataCapturePaste() {
     window.__DC_PARSE_HTML_WBET__ = parseAndFillHtmlTableForWbet;
     window.__DC_PARSE_HTML_WBET_API__ = parseAndFillHtmlTableForWbetApi;
     window.__DC_HANDLE_GENERIC_PASTE__ = handleGenericPaste;
+    window.__DC_PARSE_GENERIC_HTML__ = parseAndFillHTMLTable;
+    window.__DC_LEGACY_PARSE_GENERIC_HTML__ = parseAndFillHTMLTable;
 
     return () => {
       delete window.__DC_HANDLE_CELL_PASTE__;
@@ -46,6 +44,8 @@ export function useDataCapturePaste() {
       delete window.__DC_PARSE_HTML_WBET__;
       delete window.__DC_PARSE_HTML_WBET_API__;
       delete window.__DC_HANDLE_GENERIC_PASTE__;
+      delete window.__DC_PARSE_GENERIC_HTML__;
+      delete window.__DC_LEGACY_PARSE_GENERIC_HTML__;
     };
   }, []);
 }
