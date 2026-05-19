@@ -185,11 +185,16 @@ function DataCaptureSummaryPageInner() {
     }
   }, [capture.hasCaptureData, scriptsReady]);
 
-  const pageActions = useSummaryPageActions({ companyId, scriptsReady });
+  const overlays = useSummaryOverlays();
+  const pageActions = useSummaryPageActions({
+    companyId,
+    scriptsReady,
+    showConfirmDelete: overlays.showConfirmDelete,
+    showNotification: overlays.showNotification,
+  });
   const editFormula = useSummaryEditFormula({ scriptsReady });
   const addAccount = useSummaryAddAccount({ scriptsReady });
   useSummaryFormulaEngine();
-  const overlays = useSummaryOverlays();
   useSummaryLegacyChrome(scriptsReady);
 
   const showEmptyState =

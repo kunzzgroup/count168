@@ -19429,18 +19429,21 @@ function showEmptyState() {
     }
 }
 
-// Update delete button state
+// Update delete button state (count only deletable targets so label matches Delete action)
 function updateDeleteButton() {
     const selectedCheckboxes = document.querySelectorAll('.summary-row-checkbox:checked');
-    const count = selectedCheckboxes.length;
+    let validCount = selectedCheckboxes.length;
+    if (typeof collectValidDeleteRowTargets === 'function') {
+        validCount = collectValidDeleteRowTargets().length;
+    }
     if (typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function') {
-        window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__(count);
+        window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__(validCount);
     }
     const deleteBtn = document.getElementById('summaryDeleteSelectedBtn');
     if (!deleteBtn) return;
 
-    if (count > 0) {
-        deleteBtn.textContent = `Delete (${count})`;
+    if (validCount > 0) {
+        deleteBtn.textContent = `Delete (${validCount})`;
         deleteBtn.disabled = false;
     } else {
         deleteBtn.textContent = 'Delete';
@@ -19579,45 +19582,46 @@ function applySummaryRateColumnsFromData(row, cells, data) {
     }
 }
 
-function deleteSelectedRows() {
-    if (typeof window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ !== 'function') {
-        console.error('Summary delete UI bridge not ready');
-        showNotification('Error', 'Page is still loading. Please wait and try again.', 'error');
-        return;
-    }
+function collectValidDeleteRowTargets() {
     const checkboxes = document.querySelectorAll('.summary-row-checkbox:checked');
-    const rowsToDelete = Array.from(checkboxes).map(cb => ({
-        checkbox: cb,
-        row: cb.closest('tr'),
-        value: cb.getAttribute('data-value')
-    }));
+    const rowsToDelete = Array.from(checkboxes).map(function (cb) {
+        return {
+            checkbox: cb,
+            row: cb.closest('tr'),
+            value: cb.getAttribute('data-value')
+        };
+    });
 
-    // Filter out empty sub rows (rows with + button but no data)
-    const validRowsToDelete = rowsToDelete.filter(item => {
+    return rowsToDelete.filter(function (item) {
         const row = item.row;
-        const addCell = row.querySelector('td:nth-child(3)'); // Add column with + button
-        const hasAddButton = addCell && addCell.querySelector('.add-account-btn');
-        const accountCell = row.querySelector('td:nth-child(2)'); // Account text column
-        const accountText = accountCell ? accountCell.textContent.trim() : '';
-        const hasData = accountText !== '' && accountText !== '+';
+        if (!row) return false;
 
-        // Don't allow deletion of empty sub rows (has + button but no data)
-        if (hasAddButton && !hasData) {
+        const productType = (row.getAttribute('data-product-type') || 'main').trim();
+        const accountCell = row.querySelector('td:nth-child(2)');
+        const accountText = accountCell ? accountCell.textContent.trim() : '';
+        const hasAccount = accountText !== '' && accountText !== '+';
+
+        // Empty placeholder sub rows cannot be deleted
+        if (productType === 'sub' && !hasAccount) {
             return false;
         }
 
-        return item.value && item.value.trim() !== '';
+        // Main rows need Id Product (checkbox data-value or first column)
+        const idFromCheckbox = item.value && String(item.value).trim() !== '' ? String(item.value).trim() : '';
+        if (idFromCheckbox) return true;
+        const idCell = row.querySelector('td:first-child');
+        const idText = idCell
+            ? (idCell.getAttribute('data-main-product') || idCell.textContent || '').trim()
+            : '';
+        return idText !== '';
     });
+}
 
-    if (validRowsToDelete.length === 0) {
-        showNotification('Error', 'Please select valid rows to delete. Empty sub rows cannot be deleted.', 'error');
+function executeDeleteSelectedRows(validRowsToDelete) {
+    if (!Array.isArray(validRowsToDelete) || validRowsToDelete.length === 0) {
         return;
     }
-
-    showConfirmDelete(
-        `Are you sure you want to delete ${validRowsToDelete.length} selected row(s)? This action cannot be undone.`,
-        function () {
-            try {
+    try {
             // 先收集 template 信息再删 DOM，否则 row 引用会失效
             const templatesToDelete = [];
             validRowsToDelete.forEach(item => {
@@ -19772,13 +19776,7 @@ function deleteSelectedRows() {
                         console.error('React remove summary rows failed:', reactRemoveErr);
                     }
                 }
-                if (reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
-                    try {
-                        window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
-                    } catch (syncErr) {
-                        console.error('syncFromDom after delete failed:', syncErr);
-                    }
-                } else if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+                if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
                     try {
                         window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
                     } catch (syncErr) {
@@ -19805,12 +19803,33 @@ function deleteSelectedRows() {
                     showNotification('Warning', 'Row(s) removed from table; some template cleanup failed. You may refresh to sync.', 'warning');
                 });
             }
-            } catch (deleteError) {
-                console.error('deleteSelectedRows failed:', deleteError);
-                showNotification('Error', 'Failed to delete rows. Please refresh the page and try again.', 'error');
-            }
-        }
-    );
+    } catch (deleteError) {
+        console.error('executeDeleteSelectedRows failed:', deleteError);
+        showNotification('Error', 'Failed to delete rows. Please refresh the page and try again.', 'error');
+    }
+}
+
+function deleteSelectedRows() {
+    const validRowsToDelete = collectValidDeleteRowTargets();
+
+    if (validRowsToDelete.length === 0) {
+        showNotification('Error', 'Please select valid rows to delete. Empty sub rows cannot be deleted.', 'error');
+        return;
+    }
+
+    const confirmMessage = 'Are you sure you want to delete ' + validRowsToDelete.length +
+        ' selected row(s)? This action cannot be undone.';
+
+    if (typeof window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ === 'function') {
+        window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__(confirmMessage, function () {
+            executeDeleteSelectedRows(validRowsToDelete);
+        });
+        return;
+    }
+
+    showConfirmDelete(confirmMessage, function () {
+        executeDeleteSelectedRows(validRowsToDelete);
+    });
 }
 
 // Confirm delete modal functions
@@ -21154,6 +21173,8 @@ document.addEventListener('keydown', function (event) {
 });
 
 window.initDataCaptureSummaryPage = initDataCaptureSummaryPage;
+window.collectValidDeleteRowTargets = collectValidDeleteRowTargets;
+window.executeDeleteSelectedRows = executeDeleteSelectedRows;
 window.deleteSelectedRows = deleteSelectedRows;
 window.confirmDelete = confirmDelete;
 window.closeConfirmDeleteModal = closeConfirmDeleteModal;

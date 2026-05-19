@@ -135,6 +135,8 @@ export function useSummaryOverlays() {
     notificationShown,
     confirmOpen,
     confirmMessage,
+    showNotification,
+    showConfirmDelete,
     hideNotification,
     closeConfirmDelete,
     confirmDelete,
