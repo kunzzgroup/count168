@@ -1,13 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
 import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
 import EditFormulaModalHost from "./components/EditFormulaModalHost.jsx";
+import SummaryActionBar from "./components/SummaryActionBar.jsx";
+import SummarySubmitBar from "./components/SummarySubmitBar.jsx";
 import { useSummaryBoot } from "./hooks/useSummaryBoot.js";
 import { useSummaryCaptureBootstrap } from "./hooks/useSummaryCaptureBootstrap.js";
 import { useSummaryRows } from "./hooks/useSummaryRows.js";
+import { useSummaryPageActions } from "./hooks/useSummaryPageActions.js";
 import {
   useSummaryTableBridge,
   showSummarySuccessNotificationIfNeededFromReact,
@@ -90,6 +93,8 @@ export default function DataCaptureSummaryPage() {
     processData: capture.processData,
     syncFromDom,
   });
+
+  const pageActions = useSummaryPageActions({ companyId, scriptsReady });
 
   const showEmptyState =
     sessionReady &&
@@ -234,32 +239,17 @@ export default function DataCaptureSummaryPage() {
         <p>Loading data...</p>
       </div>
 
-      <div className="summary-action-buttons" id="actionButtons" style={{ display: "none" }}>
-        <div style={{ flex: 1 }} />
-        <div className="batch-controls-group">
-          <label htmlFor="rateInput" className="batch-label">
-            Rate
-          </label>
-          <input type="text" id="rateInput" className="batch-input" placeholder="e.g. *3 or /3" />
-          <button type="button" className="btn-update-all" id="rateSelectAllBtn" onClick={(e) => window.toggleAllRate?.(e.currentTarget)}>
-            Select All
-          </button>
-          <button type="button" className="btn-update-all" id="topSubmitBtn" onClick={() => window.submitRateValues?.()}>
-            Submit
-          </button>
-        </div>
-        <div style={{ flex: 1 }} />
-        <button
-          type="button"
-          className="summary-btn summary-btn-delete"
-          id="summaryDeleteSelectedBtn"
-          onClick={() => window.deleteSelectedRows?.()}
-          title="Delete selected rows"
-          disabled
-        >
-          Delete
-        </button>
-      </div>
+      <SummaryActionBar
+        rateInput={pageActions.rateInput}
+        onRateInputChange={pageActions.setRateInput}
+        rateSelectAllLabel={pageActions.rateSelectAllLabel}
+        rateSelectAllRef={pageActions.rateSelectAllRef}
+        onToggleRateSelectAll={pageActions.handleToggleRateSelectAll}
+        onRateBatchSubmit={pageActions.handleRateBatchSubmit}
+        deleteCount={pageActions.deleteCount}
+        deleteDisabled={pageActions.deleteDisabled}
+        onDeleteSelected={pageActions.handleDeleteSelected}
+      />
 
       <div className="summary-table-container" id="summaryTableContainer" style={{ display: "none" }}>
         <SummaryProcessInfo processData={capture.processData} visible={capture.hasCaptureData} />
@@ -274,24 +264,19 @@ export default function DataCaptureSummaryPage() {
 
       <EditFormulaModalHost />
 
-      <div className="summary-submit-container" id="summarySubmitContainer" style={{ display: "none" }}>
-        <button type="button" className="btn btn-submit" id="summarySubmitBtn" onClick={() => window.submitSummaryData?.()}>
-          Submit
-        </button>
-        <button type="button" className="btn btn-cancel" onClick={() => window.goBackToDataCapture?.()} style={{ marginLeft: 10 }}>
-          Back
-        </button>
-        <button type="button" className="btn btn-refresh" onClick={() => window.refreshPage?.()} title="Refresh page">
-          <img src={assetUrl("images/refresh.svg")} alt="Refresh" style={{ width: "clamp(23px, 1.8vw, 35px)", height: "clamp(23px, 1.8vw, 35px)" }} />
-        </button>
-      </div>
+      <SummarySubmitBar
+        submitting={pageActions.submitting}
+        onSubmit={pageActions.handleSubmitSummary}
+        onBack={pageActions.handleBack}
+        onRefresh={pageActions.handleRefresh}
+      />
 
       <div id="notificationPopup" className="notification-popup" style={{ display: "none" }}>
         <div className="notification-header">
           <span className="notification-title" id="notificationTitle">
             Notification
           </span>
-          <button type="button" className="notification-close" onClick={() => window.hideNotification?.()}>
+          <button type="button" className="notification-close" onClick={pageActions.hideNotification}>
             &times;
           </button>
         </div>

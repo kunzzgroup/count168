@@ -1309,6 +1309,10 @@ function goBackToDataCapture() {
     if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
     if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
+    if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_NAV_BACK__ === 'function') {
+        window.__SUMMARY_REACT_NAV_BACK__();
+        return;
+    }
     let backUrl = 'datacapture?restore=1';
     const cid = typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null;
     if (cid) backUrl += '&company_id=' + encodeURIComponent(cid);
@@ -1319,6 +1323,10 @@ function goBackToDataCapture() {
 function refreshPage() {
     saveRateValuesForRefresh();
     saveFormulaSourceForRefresh();
+    if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_REFRESH__ === 'function') {
+        window.__SUMMARY_REACT_REFRESH__();
+        return;
+    }
     window.location.reload();
 }
 
@@ -12545,16 +12553,18 @@ function toggleAllRate(button) {
     });
 
     // Update button text
+    const nextLabel = isSelectAll ? 'Clear All' : 'Select All';
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ === 'function') {
+        window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__(nextLabel);
+    } else if (button) {
+        button.textContent = nextLabel;
+    }
     if (isSelectAll) {
-        button.textContent = 'Clear All';
         if (updatedCount > 0) {
             showNotification('Success', `Selected ${updatedCount} row(s) with Rate`, 'success');
         }
-    } else {
-        button.textContent = 'Select All';
-        if (updatedCount > 0) {
-            showNotification('Success', `Cleared ${updatedCount} row(s) from Rate`, 'success');
-        }
+    } else if (updatedCount > 0) {
+        showNotification('Success', `Cleared ${updatedCount} row(s) from Rate`, 'success');
     }
 }
 
@@ -19398,10 +19408,15 @@ function showEmptyState() {
 // Update delete button state
 function updateDeleteButton() {
     const selectedCheckboxes = document.querySelectorAll('.summary-row-checkbox:checked');
+    const count = selectedCheckboxes.length;
+    if (typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function') {
+        window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__(count);
+    }
     const deleteBtn = document.getElementById('summaryDeleteSelectedBtn');
+    if (!deleteBtn) return;
 
-    if (selectedCheckboxes.length > 0) {
-        deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
+    if (count > 0) {
+        deleteBtn.textContent = `Delete (${count})`;
         deleteBtn.disabled = false;
     } else {
         deleteBtn.textContent = 'Delete';
@@ -19883,6 +19898,18 @@ function extractOperatorsSequence(expression) {
 // Submit summary data
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
+function setSummarySubmitUiActive(active) {
+    isSubmitting = !!active;
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ON_SUBMITTING_CHANGE__ === 'function') {
+        window.__SUMMARY_REACT_ON_SUBMITTING_CHANGE__(!!active);
+        return;
+    }
+    const submitBtn = document.getElementById('summarySubmitBtn');
+    if (!submitBtn) return;
+    submitBtn.disabled = !!active;
+    submitBtn.textContent = active ? '提交中...' : 'Submit';
+}
+
 async function submitSummaryData() {
     // Prevent duplicate submissions
     if (isSubmitting) {
@@ -19892,13 +19919,8 @@ async function submitSummaryData() {
 
     console.log('Submit summary data');
 
-    // Disable submit button and set submitting flag
+    setSummarySubmitUiActive(true);
     const submitBtn = document.getElementById('summarySubmitBtn');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = '提交中...';
-    }
-    isSubmitting = true;
 
     // Validate total is within -0.05 to 0.05 range
     const summaryTableBody = document.getElementById('summaryTableBody');
@@ -19940,11 +19962,7 @@ async function submitSummaryData() {
         });
         if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
             // Re-enable button on validation error
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
             showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`, 'error');
             return;
         }
@@ -19955,11 +19973,7 @@ async function submitSummaryData() {
         const processData = localStorage.getItem('capturedProcessData');
         if (!processData) {
             // Re-enable button on error
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
             showNotification('Error', 'No process data found. Please return to Data Capture page.', 'error');
             return;
         }
@@ -19994,11 +20008,7 @@ async function submitSummaryData() {
             const currencyEmpty = !currencyText || /^select\s*curren/i.test(currencyText);
             const formulaEmpty = !formulaText || !String(formulaText).trim();
             if (currencyEmpty || formulaEmpty) {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit';
-                }
-                isSubmitting = false;
+                setSummarySubmitUiActive(false);
                 const msg = currencyEmpty && formulaEmpty
                     ? '请先填写 Currency 和 Formula 后再提交。Cannot save: Currency and Formula are required.'
                     : (currencyEmpty ? '请先选择 Currency 后再提交。Cannot save: Currency is required.' : '请先填写 Formula 后再提交。Cannot save: Formula is required.');
@@ -20335,11 +20345,7 @@ async function submitSummaryData() {
 
         if (summaryRows.length === 0) {
             // Re-enable button on error
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
             showNotification('Warning', 'No data to submit. Please add at least one row with data.', 'error');
             return;
         }
@@ -20368,11 +20374,7 @@ async function submitSummaryData() {
             console.log('JSON stringify successful, length:', jsonData.length);
         } catch (error) {
             console.error('JSON stringify failed:', error);
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
             showNotification('Error', 'Data serialization failed: ' + error.message + '. The data may be too large or contain circular references.', 'error');
             return;
         }
@@ -20380,11 +20382,7 @@ async function submitSummaryData() {
         // Verify JSON is complete (check if it ends properly)
         if (!jsonData || jsonData.length === 0) {
             console.error('JSON data is empty!');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
             showNotification('Error', 'The data is empty after serialization. Please check whether the data is correct.', 'error');
             return;
         }
@@ -20395,11 +20393,7 @@ async function submitSummaryData() {
             console.log('JSON verification successful, rows in verified data:', verifyData.summaryRows ? verifyData.summaryRows.length : 0);
         } catch (error) {
             console.error('JSON verification failed:', error);
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
             showNotification('Error', 'Failed to verify data after serialization: ' + error.message, 'error');
             return;
         }
@@ -20636,11 +20630,7 @@ async function submitSummaryData() {
                     if (batchRows.length === 1) {
                         failedProblemRows.push(batchRows[0]);
                     }
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'Submit';
-                    }
-                    isSubmitting = false;
+                    setSummarySubmitUiActive(false);
 
                     let errorMessage = error.message || 'Unknown error';
                     if (error.status) {
@@ -20694,6 +20684,10 @@ async function submitSummaryData() {
             }
             // Clear localStorage after successful submission (redirect 前再清表数据，避免重复进入看到旧表)
             setTimeout(() => {
+                if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__ === 'function') {
+                    window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__();
+                    return;
+                }
                 window.isNavigatingAwayByBackOrSubmit = true;
                 try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
                 try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
@@ -20716,13 +20710,7 @@ async function submitSummaryData() {
             errorMessage = 'The server returned an invalid response. This may be due to the data size exceeding the server limit (PHP post_max_size). Please reduce the number of rows submitted or contact the administrator.';
         }
 
-        // Re-enable button on error
-        const submitBtn = document.getElementById('summarySubmitBtn');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit';
-        }
-        isSubmitting = false;
+        setSummarySubmitUiActive(false);
 
         showNotification('Error', `Submission failed: ${errorMessage}`, 'error');
     }
