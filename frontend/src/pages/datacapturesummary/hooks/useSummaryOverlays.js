@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SUMMARY_NOTIFICATION_AUTO_HIDE_MS } from "../summarySubmitConstants.js";
+import { normalizeSummaryNotificationArgs } from "../summaryNotificationNormalize.js";
 
 const EMPTY_NOTIFICATION = {
   open: false,
@@ -31,6 +32,7 @@ export function useSummaryOverlays() {
 
   const showNotification = useCallback(
     (title, message, type = "success") => {
+      const normalized = normalizeSummaryNotificationArgs(title, message, type);
       if (hideTimerRef.current) {
         window.clearTimeout(hideTimerRef.current);
         hideTimerRef.current = null;
@@ -41,9 +43,9 @@ export function useSummaryOverlays() {
       }
       setNotification({
         open: true,
-        title: title || "Notification",
-        message: message || "",
-        type: type || "success",
+        title: normalized.title,
+        message: normalized.message,
+        type: normalized.type,
       });
       window.setTimeout(() => setNotificationShown(true), 100);
       hideTimerRef.current = window.setTimeout(() => {

@@ -8,7 +8,28 @@ function buildApiUrl(pathAndQuery) {
 }
 
 // Notification functions
-function showNotification(title, message, type = 'success') {
+function showNotification(title, message, type) {
+    const normalized = (function normalizeSummaryNotificationArgs(t, m, ty) {
+        const KNOWN = { success: 1, error: 1, warning: 1, danger: 1, info: 1 };
+        const TITLES = { error: 'Error', danger: 'Error', warning: 'Warning', info: 'Info', success: 'Success' };
+        if (m != null && typeof m === 'string' && KNOWN[m.toLowerCase()] && (ty === undefined || ty === 'success' || ty === '')) {
+            ty = m.toLowerCase();
+            m = t;
+            t = TITLES[ty] || 'Notification';
+        }
+        ty = (ty != null && String(ty).trim() !== '') ? String(ty).toLowerCase() : 'success';
+        if (!KNOWN[ty]) ty = 'success';
+        return {
+            title: (t != null && String(t).trim() !== '') ? String(t) : 'Notification',
+            message: (m != null) ? String(m) : '',
+            type: ty
+        };
+    })(title, message, type);
+
+    title = normalized.title;
+    message = normalized.message;
+    type = normalized.type;
+
     if (typeof window.__SUMMARY_REACT_SHOW_NOTIFICATION__ === 'function') {
         window.__SUMMARY_REACT_SHOW_NOTIFICATION__(title, message, type);
         return;
@@ -25,9 +46,10 @@ function showNotification(title, message, type = 'success') {
     messageEl.textContent = message;
 
     // Remove existing type classes
-    popup.classList.remove('success', 'error', 'info');
-    // Add new type class
-    popup.classList.add(type);
+    popup.classList.remove('success', 'error', 'info', 'warning');
+    // Add new type class (danger → error styling)
+    const cssType = type === 'danger' ? 'error' : (type === 'warning' ? 'warning' : type);
+    popup.classList.add(cssType || 'success');
 
     // Show popup
     popup.style.display = 'block';

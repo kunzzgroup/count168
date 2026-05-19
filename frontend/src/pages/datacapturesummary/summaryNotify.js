@@ -1,12 +1,19 @@
+import { normalizeSummaryNotificationArgs } from "./summaryNotificationNormalize.js";
+
 /**
  * Push a summary toast — uses React overlay when registered.
  */
 export function pushSummaryNotification(title, message, type = "success") {
+  const normalized = normalizeSummaryNotificationArgs(title, message, type);
   if (typeof window.__SUMMARY_REACT_SHOW_NOTIFICATION__ === "function") {
-    window.__SUMMARY_REACT_SHOW_NOTIFICATION__(title, message, type);
+    window.__SUMMARY_REACT_SHOW_NOTIFICATION__(
+      normalized.title,
+      normalized.message,
+      normalized.type
+    );
     return;
   }
-  window.alert(message ? `${title}: ${message}` : title);
+  window.alert(normalized.message ? `${normalized.title}: ${normalized.message}` : normalized.title);
 }
 
 export function hideSummaryNotification() {

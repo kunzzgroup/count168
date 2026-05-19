@@ -1,6 +1,8 @@
+import { summaryNotificationCssType } from "../summaryNotificationNormalize.js";
+
 export default function SummaryNotification({ notification, shown, onClose }) {
   const { open, title, message, type } = notification;
-  const typeClass = type === "error" ? "error" : type === "info" ? "info" : "success";
+  const typeClass = summaryNotificationCssType(type);
 
   if (!open) return null;
 
