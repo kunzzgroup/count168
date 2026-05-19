@@ -77,7 +77,8 @@ export function useSummaryRows(tableData, enabled) {
           prev,
           parentProcessValue,
           insertAfterKey,
-          rowIndex
+          rowIndex,
+          insertAfterRow
         );
         newKey = key;
         return next;

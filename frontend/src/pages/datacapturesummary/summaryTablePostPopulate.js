@@ -147,6 +147,65 @@ export function clearMisplacedTemplateAccountsBeforeRestore(saved) {
   });
 }
 
+/** True when a summary row has a real account assignment (not empty / "+" placeholder). */
+export function summaryRowHasAssignedAccount(row) {
+  if (!row) return false;
+  const accountCell = row.querySelector("td:nth-child(2)");
+  if (!accountCell) return false;
+  const accountId = accountCell.getAttribute("data-account-id")?.trim();
+  if (accountId) return true;
+  const text = (accountCell.textContent || "").trim();
+  return text !== "" && text !== "+";
+}
+
+/**
+ * After Save Formula — keep one main row per (id_product, account_id); clear duplicates elsewhere.
+ * @param {HTMLElement|null} keepRow - row that was just saved/updated
+ */
+export function dedupeSummaryAccountsAfterSave(keepRow) {
+  if (!keepRow) return;
+
+  const keepAccountCell = keepRow.querySelector("td:nth-child(2)");
+  const keepAccountId = keepAccountCell?.getAttribute("data-account-id")?.trim();
+  if (!keepAccountId) return;
+
+  const keepIdCell = keepRow.querySelector("td:first-child");
+  const keepIdProduct =
+    keepIdCell?.getAttribute("data-main-product")?.trim() ||
+    keepIdCell?.textContent?.trim() ||
+    "";
+  if (!keepIdProduct) return;
+
+  const keepRowIndex = keepRow.getAttribute("data-row-index")?.trim() ?? "";
+  const groupKey = `${keepIdProduct.replace(/\s+/g, " ").trim()}::${keepAccountId}`;
+  const tbody = document.getElementById("summaryTableBody");
+  if (!tbody) return;
+
+  tbody.querySelectorAll("tr").forEach((row) => {
+    if (row === keepRow) return;
+    if ((row.getAttribute("data-product-type") || "main") !== "main") return;
+
+    const accountCell = row.querySelector("td:nth-child(2)");
+    const accountId = accountCell?.getAttribute("data-account-id")?.trim();
+    const accountText = accountCell?.textContent?.trim();
+    if (!accountId || !accountText || accountText === "+") return;
+
+    const idCell = row.querySelector("td:first-child");
+    const idProduct =
+      idCell?.getAttribute("data-main-product")?.trim() || idCell?.textContent?.trim() || "";
+    const rowGroupKey = `${idProduct.replace(/\s+/g, " ").trim()}::${accountId}`;
+    if (rowGroupKey !== groupKey) return;
+
+    const rowIndex = row.getAttribute("data-row-index")?.trim() ?? "";
+    if (keepRowIndex && rowIndex === keepRowIndex) return;
+
+    clearSummaryRowAccountAndFormula(row);
+  });
+
+  window.rebuildUsedAccountIds?.();
+  window.updateProcessedAmountTotal?.();
+}
+
 /** Safety net after restore — keep one row per (id_product, account_id). */
 export function dedupeSummaryAccountsAfterRestore(saved) {
   const preferred = buildPreferredAccountRowIndexMap(saved);

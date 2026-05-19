@@ -26,10 +26,42 @@ export function buildInitialSummaryRows(tableData) {
     }));
 }
 
+function resolveInsertAfterIndex(rows, insertAfterKey, insertAfterDomRow) {
+  if (insertAfterKey) {
+    const idx = rows.findIndex((r) => r.key === insertAfterKey);
+    if (idx >= 0) return idx;
+  }
+
+  if (insertAfterDomRow) {
+    const domKey = insertAfterDomRow.getAttribute?.("data-react-row-key");
+    if (domKey) {
+      const idx = rows.findIndex((r) => r.key === domKey);
+      if (idx >= 0) return idx;
+    }
+
+    const tbody = document.getElementById("summaryTableBody");
+    if (tbody) {
+      const domRows = Array.from(tbody.querySelectorAll("tr"));
+      const domIdx = domRows.indexOf(insertAfterDomRow);
+      if (domIdx >= 0 && domIdx < rows.length) {
+        return domIdx;
+      }
+    }
+  }
+
+  return -1;
+}
+
 /**
  * Insert a sub-row descriptor after the row matching insertAfterKey (or after parent main block).
  */
-export function insertSubRowInModel(rows, parentProcessValue, insertAfterKey, rowIndex) {
+export function insertSubRowInModel(
+  rows,
+  parentProcessValue,
+  insertAfterKey,
+  rowIndex,
+  insertAfterDomRow = null
+) {
   const parentTrimmed = String(parentProcessValue || "").trim();
   const parentNorm = normalizeIdProduct(parentTrimmed);
   const numericRowIndex =
@@ -44,33 +76,31 @@ export function insertSubRowInModel(rows, parentProcessValue, insertAfterKey, ro
     parentRowIndex: numericRowIndex,
   };
 
-  if (insertAfterKey) {
-    const idx = rows.findIndex((r) => r.key === insertAfterKey);
-    if (idx >= 0) {
-      const next = rows.slice();
-      next.splice(idx + 1, 0, newRow);
-      return { rows: next, newKey: newRow.key };
-    }
+  const insertIdx = resolveInsertAfterIndex(rows, insertAfterKey, insertAfterDomRow);
+  if (insertIdx >= 0) {
+    const next = rows.slice();
+    next.splice(insertIdx + 1, 0, newRow);
+    return { rows: next, newKey: newRow.key };
   }
 
-  let insertIdx = rows.length;
+  let fallbackInsertIdx = rows.length;
   for (let i = rows.length - 1; i >= 0; i -= 1) {
     const row = rows[i];
     if (row.productType !== "main") continue;
     if (normalizeIdProduct(row.idProduct) !== parentNorm) continue;
-    insertIdx = i + 1;
+    fallbackInsertIdx = i + 1;
     while (
-      insertIdx < rows.length &&
-      rows[insertIdx].productType === "sub" &&
-      normalizeIdProduct(rows[insertIdx].parentIdProduct) === parentNorm
+      fallbackInsertIdx < rows.length &&
+      rows[fallbackInsertIdx].productType === "sub" &&
+      normalizeIdProduct(rows[fallbackInsertIdx].parentIdProduct) === parentNorm
     ) {
-      insertIdx += 1;
+      fallbackInsertIdx += 1;
     }
     break;
   }
 
   const next = rows.slice();
-  next.splice(insertIdx, 0, newRow);
+  next.splice(fallbackInsertIdx, 0, newRow);
   return { rows: next, newKey: newRow.key };
 }
 

@@ -8669,9 +8669,13 @@ function saveFormula() {
     } else {
         // main 行点击 +：如果主行还没有账号，就更新主行；否则为该 Id Product 新增一条 sub 行
         const targetRow = currentButton ? currentButton.closest('tr') : null;
-        const accountCell = targetRow ? targetRow.querySelector('td:nth-child(2)') : null;
-        const accountText = accountCell ? accountCell.textContent.trim() : '';
-        const mainHasData = !!accountText;
+        const mainHasData = (() => {
+            const accountCell = targetRow ? targetRow.querySelector('td:nth-child(2)') : null;
+            const accountId = accountCell?.getAttribute('data-account-id')?.trim();
+            if (accountId) return true;
+            const accountText = accountCell ? accountCell.textContent.trim() : '';
+            return !!accountText && accountText !== '+';
+        })();
 
         if (!mainHasData) {
             // main 无数据：直接填充该 main 行（不新增行）
