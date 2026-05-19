@@ -19577,6 +19577,17 @@ function updateDeleteButton() {
 }
 
 // Delete selected rows
+function clearSummaryFormulaCellDom(cell) {
+    if (!cell) return;
+    if (window.__SUMMARY_REACT_TABLE__) {
+        while (cell.firstChild) {
+            cell.removeChild(cell.firstChild);
+        }
+        return;
+    }
+    cell.innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+}
+
 function deleteSelectedRows() {
     const checkboxes = document.querySelectorAll('.summary-row-checkbox:checked');
     const rowsToDelete = Array.from(checkboxes).map(cb => ({
@@ -19674,9 +19685,9 @@ function deleteSelectedRows() {
                     // 清空 Currency (TD 3)
                     if (cells[3]) cells[3].textContent = '';
 
-                    // 清空 Formula (TD 4) — reset shell so React reconciliation stays stable
+                    // 清空 Formula (TD 4) — React 模式只清空子节点，禁止 innerHTML（否则会 removeChild 崩溃）
                     if (cells[4]) {
-                        cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+                        clearSummaryFormulaCellDom(cells[4]);
                     }
 
                     // 清空 Source (TD 5)
@@ -19732,6 +19743,12 @@ function deleteSelectedRows() {
                 showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
             };
 
+            const scheduleFinishDeleteUi = function () {
+                window.requestAnimationFrame(function () {
+                    window.requestAnimationFrame(finishDeleteUi);
+                });
+            };
+
             const reactTableMode = !!(window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function');
             const runReactRemoveAndFinish = function () {
                 if (reactKeysToRemove.length > 0 && reactTableMode) {
@@ -19747,10 +19764,10 @@ function deleteSelectedRows() {
                         console.error('syncFromDom after delete failed:', syncErr);
                     }
                 }
-                finishDeleteUi();
+                scheduleFinishDeleteUi();
             };
 
-            if (reactTableMode && reactKeysToRemove.length > 0) {
+            if (reactTableMode) {
                 window.setTimeout(runReactRemoveAndFinish, 0);
             } else {
                 runReactRemoveAndFinish();

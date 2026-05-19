@@ -103,11 +103,23 @@ function clearSummaryRowAccountAssignment(row) {
   row.removeAttribute("data-account-order");
 }
 
+function clearSummaryFormulaCellDom(cell) {
+  if (!cell) return;
+  if (window.__SUMMARY_REACT_TABLE__) {
+    while (cell.firstChild) {
+      cell.removeChild(cell.firstChild);
+    }
+    return;
+  }
+  cell.innerHTML =
+    '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+}
+
 function clearSummaryRowAccountAndFormula(row) {
   clearSummaryRowAccountAssignment(row);
   const cells = row.querySelectorAll("td");
   if (cells[4]) {
-    cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+    clearSummaryFormulaCellDom(cells[4]);
   }
   if (cells[5]) cells[5].textContent = "";
   if (cells[8]) cells[8].textContent = "0.00";
