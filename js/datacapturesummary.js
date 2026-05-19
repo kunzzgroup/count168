@@ -687,6 +687,7 @@ function saveFormulaSourceForRefresh(opts) {
     const byRowUid = {};
     const rowOrder = [];
     rows.forEach(row => {
+        const userCleared = row.getAttribute('data-row-user-cleared') === '1';
         const key = getSummaryRowKey(row);
         const normKey = normalizeSummaryRowKey(key);
         // 为每一行分配稳定且唯一的 rowUid，用于在 refresh 前后精确识别同一行
@@ -715,6 +716,7 @@ function saveFormulaSourceForRefresh(opts) {
         const nextRateValue = rateValue || '';
         const nextDescription = originalDescription || '';
         const shouldPreferExisting =
+            !userCleared &&
             existing &&
             (existing.formula || existing.source || existing.rateValue) &&
             !nextFormula && !nextSource && !nextRateValue;
@@ -739,20 +741,21 @@ function saveFormulaSourceForRefresh(opts) {
             nextData.currencyText = currencyTextRaw || (nextData.currencyText != null ? String(nextData.currencyText).trim() : '');
         } else {
             nextData = {
-                formula: nextFormula,
-                source: nextSource,
-                sourceColumns: (row.getAttribute('data-source-columns') || ''),
-                formulaOperators: formulaOps,
-                templateFormulaOperators: templateFormulaOps || '',
-                sourcePercent: (row.getAttribute('data-source-percent') || ''),
-                rateValue: nextRateValue,
+                formula: userCleared ? '' : nextFormula,
+                source: userCleared ? '' : nextSource,
+                sourceColumns: userCleared ? '' : (row.getAttribute('data-source-columns') || ''),
+                formulaOperators: userCleared ? '' : formulaOps,
+                templateFormulaOperators: userCleared ? '' : (templateFormulaOps || ''),
+                sourcePercent: userCleared ? '' : (row.getAttribute('data-source-percent') || ''),
+                rateValue: userCleared ? '' : nextRateValue,
                 rowUid: rowUid,
-                originalDescription: nextDescription,
-                clickedCellRefs: (row.getAttribute('data-clicked-cell-refs') || ''),
-                accountDbId: accountDbIdRaw,
-                accountDisplay: accountDisplayRaw,
-                currencyDbId: currencyDbIdRaw,
-                currencyText: currencyTextRaw
+                originalDescription: userCleared ? '' : nextDescription,
+                clickedCellRefs: userCleared ? '' : (row.getAttribute('data-clicked-cell-refs') || ''),
+                accountDbId: userCleared ? '' : accountDbIdRaw,
+                accountDisplay: userCleared ? '' : accountDisplayRaw,
+                currencyDbId: userCleared ? '' : currencyDbIdRaw,
+                currencyText: userCleared ? '' : currencyTextRaw,
+                userCleared: userCleared
             };
         }
         byKey[normKey] = nextData;
@@ -1053,6 +1056,10 @@ function restoreFormulaSourceFromRefresh() {
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach((row) => {
         const data = getSavedSummaryRowData(row, byKey, byStableKey, byRowUid);
+        if (data && data.userCleared === true) {
+            row.setAttribute('data-row-user-cleared', '1');
+            return;
+        }
         const cells = row.querySelectorAll('td');
         const stableRate = typeof resolveSavedRateValueForRow === 'function' ? resolveSavedRateValueForRow(row, saved) : null;
         if (!data) {
@@ -12310,16 +12317,13 @@ function restoreOriginalRowValues(row) {
     // Restore Formula column (index 4) - restore even if empty string; preserve input method tooltip
     if (cells[4] && originalFormula !== null) {
         const imTooltip = (row.getAttribute('data-input-method') || '').trim();
-        const imTitle = imTooltip ? ` title="${String(imTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
         if (originalFormula === '') {
-            cells[4].innerHTML = '';
+            setSummaryFormulaCellDisplay(cells[4], row, '', imTooltip);
         } else {
-            cells[4].innerHTML = `
-                <div class="formula-cell-content"${imTitle}>
-                    <span class="formula-text"${imTitle}>${originalFormula}</span>
-                    <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
-                </div>
-            `;
+            setSummaryFormulaCellDisplay(cells[4], row, originalFormula, imTooltip);
+            if (!window.__SUMMARY_REACT_TABLE__ && typeof attachInlineEditListeners === 'function') {
+                attachInlineEditListeners(row);
+            }
         }
     }
 
@@ -15973,6 +15977,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         allRows.forEach((r) => {
                             const productType = r.getAttribute('data-product-type') || 'main';
                             if (productType !== 'main') return;
+                            if (r.getAttribute('data-row-user-cleared') === '1') return;
                             const idCell = r.querySelector('td:first-child');
                             const pv = idCell ? getProductValuesFromCell(idCell) : {};
                             const mainNorm = normalizeIdProductText(pv.main || '');
@@ -16774,6 +16779,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
         allRows.forEach((row, index) => {
             const productType = row.getAttribute('data-product-type') || 'main';
             if (productType !== 'main') return;
+            if (row.getAttribute('data-row-user-cleared') === '1') return;
 
             const idProductCell = row.querySelector('td:first-child');
             const productValues = getProductValuesFromCell(idProductCell);
@@ -19753,6 +19759,9 @@ function deleteSelectedRows() {
                         cells[8].style.color = '#000000';
                     }
 
+                    row.setAttribute('data-row-user-cleared', '1');
+                    row.removeAttribute('data-template-applied');
+
                     // 重置行属性 (Template IDs, Keys, etc.)
                     row.removeAttribute('data-template-id');
                     row.removeAttribute('data-template-key');
@@ -19787,6 +19796,8 @@ function deleteSelectedRows() {
                 rebuildUsedAccountIds();
                 updateDeleteButton();
                 updateProcessedAmountTotal();
+                if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+                if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
                 showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
             };
 
@@ -19803,6 +19814,13 @@ function deleteSelectedRows() {
                         window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
                     } catch (reactRemoveErr) {
                         console.error('React remove summary rows failed:', reactRemoveErr);
+                    }
+                }
+                if (reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+                    try {
+                        window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
+                    } catch (syncErr) {
+                        console.error('syncFromDom after delete failed:', syncErr);
                     }
                 } else if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
                     try {
@@ -21180,6 +21198,13 @@ document.addEventListener('keydown', function (event) {
 });
 
 window.initDataCaptureSummaryPage = initDataCaptureSummaryPage;
+window.deleteSelectedRows = deleteSelectedRows;
+window.confirmDelete = confirmDelete;
+window.closeConfirmDeleteModal = closeConfirmDeleteModal;
+window.updateDeleteButton = updateDeleteButton;
+window.submitRateValues = submitRateValues;
+window.toggleAllRate = toggleAllRate;
+window.submitSummaryData = submitSummaryData;
 if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => initDataCaptureSummaryPage());

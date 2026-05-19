@@ -453,12 +453,10 @@ function runSummaryTablePostPopulateFinally() {
       const summaryTableBody = document.getElementById("summaryTableBody");
       if (summaryTableBody) {
         summaryTableBody.querySelectorAll("tr").forEach((row) => {
+          if (row.getAttribute("data-row-user-cleared") === "1") return;
           const cells = row.querySelectorAll("td");
           if (cells[4]) {
-            cells[4].innerHTML =
-              '<div class="formula-cell-content"><span class="formula-text"></span></div>';
-            const span = cells[4].querySelector(".formula-text");
-            if (span) span.textContent = "";
+            clearSummaryFormulaCellDom(cells[4]);
           }
           if (cells[5]) cells[5].textContent = "";
           row.removeAttribute("data-formula-operators");
