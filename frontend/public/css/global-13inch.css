@@ -226,12 +226,15 @@
         gap: 2px !important;
     }
 
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(1),
+    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header {
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+    }
+
     body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(1) {
         padding-right: 2px !important;
     }
 
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(2),
     body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(2) {
         padding-left: 2px !important;
         padding-right: 0 !important;
@@ -239,21 +242,30 @@
 
     body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(2).header-item--with-sort-icon {
         gap: 4px !important;
+        align-items: center !important;
     }
 
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(3),
+    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon .header-item__label {
+        flex: 0 0 auto !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon .account-sort-icon {
+        flex: 0 0 auto !important;
+        align-self: center !important;
+    }
+
     body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(3) {
         padding-left: 0 !important;
         padding-right: 2px !important;
     }
 
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(4),
     body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(4) {
         padding-left: 2px !important;
         padding-right: 2px !important;
     }
 
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(5),
     body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(5) {
         padding-left: 2px !important;
         padding-right: 6px !important;

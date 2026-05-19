@@ -31,9 +31,7 @@ function CaptureVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, 
           <div
             key={label}
             role="columnheader"
-            className={`maintenance-virtual-th${
-              i === 2 || i === 3 || i === 5 || i === 6 || i === 7 ? " capture-virtual-th--left" : ""
-            }${i === 0 ? " capture-virtual-th--no" : ""}`}
+            className={`maintenance-virtual-th capture-virtual-th--left${i === 0 ? " capture-virtual-th--no" : ""}`}
           >
             {label}
           </div>

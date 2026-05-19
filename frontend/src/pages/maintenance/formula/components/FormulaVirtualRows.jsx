@@ -37,12 +37,8 @@ function FormulaVirtualTableHead({ selectAllRef, selectAllChecked, onToggleSelec
     <div className="maintenance-virtual-thead" role="rowgroup">
       <div className="maintenance-virtual-head-row formula-virtual-head-row" role="row">
         {headerLabels.map((label, i) => {
-          const alignClass =
-            i === 1 || i === 2 || i === 4 || i === 5 || i === 6 || i === 7 || i === 8
-              ? " formula-virtual-th--left"
-              : "";
           return (
-            <div key={label} role="columnheader" className={`maintenance-virtual-th${alignClass}`}>
+            <div key={label} role="columnheader" className="maintenance-virtual-th formula-virtual-th--left">
               {label}
             </div>
           );

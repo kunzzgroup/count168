@@ -4,6 +4,7 @@ import {
   stripBankProcessDescriptionPrefix,
   isPaymentMaintenanceRowSelectable,
 } from "../paymentMaintenanceLogic.js";
+import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
 
 const PaymentVirtualDataRow = memo(function PaymentVirtualDataRow({
   row,
@@ -36,17 +37,17 @@ const PaymentVirtualDataRow = memo(function PaymentVirtualDataRow({
     >
       <div
         role="cell"
-        className="maintenance-virtual-cell maintenance-virtual-cell--center payment-virtual-cell--no"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left payment-virtual-cell--no"
         title={String(index + 1)}
       >
         <span className="payment-cell-text">{index + 1}</span>
       </div>
       <div
         role="cell"
-        className="maintenance-virtual-cell maintenance-virtual-cell--center maintenance-virtual-cell--mono"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left maintenance-virtual-cell--mono maintenance-virtual-cell--created-at"
         title={row.dts_created || "-"}
       >
-        <span className="payment-cell-text">{row.dts_created || "-"}</span>
+        <MaintenanceCreatedAtDisplay value={row.dts_created} />
       </div>
       <div
         role="cell"
@@ -66,7 +67,7 @@ const PaymentVirtualDataRow = memo(function PaymentVirtualDataRow({
       </div>
       <div
         role="cell"
-        className="maintenance-virtual-cell maintenance-virtual-cell--right maintenance-cell-amount"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left maintenance-cell-amount"
         title={row.currency && row.amount ? `${row.currency} ${formatAmount(row.amount)}` : "-"}
       >
         <span className="payment-cell-text">
@@ -96,12 +97,12 @@ const PaymentVirtualDataRow = memo(function PaymentVirtualDataRow({
       </div>
       <div
         role="cell"
-        className="maintenance-virtual-cell maintenance-virtual-cell--center"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left"
         title={deletedDisplay || "-"}
       >
         <span className="payment-cell-text">{deletedDisplay}</span>
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center payment-virtual-cell-checkbox">
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left payment-virtual-cell-checkbox">
         <input
           type="checkbox"
           className="maintenance-row-checkbox"
@@ -115,6 +116,3 @@ const PaymentVirtualDataRow = memo(function PaymentVirtualDataRow({
 });
 
 export default PaymentVirtualDataRow;
-
-
-

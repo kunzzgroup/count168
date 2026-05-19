@@ -584,17 +584,17 @@ body.dashboard-page.maintenance-page .container {
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 11%;
+    width: 9%;
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 10%;
+    width: 7%;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 10%;
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(5),
@@ -1037,21 +1037,21 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
 
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(2),
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(2) {
-    width: 11%;
-    min-width: 10.5rem;
+    width: 9%;
+    min-width: 8.5rem;
     text-align: left;
 }
 
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(3),
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(3) {
-    width: 9%;
-    min-width: 7rem;
+    width: 7%;
+    min-width: 4.5rem;
     text-align: left;
 }
 
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(4),
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(4) {
-    width: 14%;
+    width: 15%;
     min-width: 6rem;
     text-align: left;
 }
@@ -1102,7 +1102,7 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
 .bankprocess-maintenance-page-root {
     --bankprocess-list-cell-padding-y: clamp(7px, 0.65vw, 11px);
     --bankprocess-list-cell-padding-x: clamp(8px, 0.8vw, 14px);
-    --bankprocess-list-cell-min-height: clamp(30px, 2vw, 38px);
+    --bankprocess-list-cell-min-height: clamp(36px, 2.6vw, 48px);
     --bankprocess-list-cell-line-height: 1.35;
     --bankprocess-list-cell-line-clamp: 2;
     --bankprocess-col-description-padding-x: clamp(10px, 1vw, 16px);
@@ -1144,10 +1144,37 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
 .bankprocess-maintenance-page-root .bankprocess-virtual-data-row {
     display: grid;
     grid-template-columns:
-        minmax(28px, 3.7fr) minmax(100px, 11fr) minmax(64px, 9fr) minmax(80px, 14fr) minmax(72px, 8.5fr) minmax(120px, 25fr) minmax(64px, 9fr) minmax(56px, 8fr) minmax(40px, 6fr);
+        minmax(28px, 3fr) minmax(88px, 8fr) minmax(52px, 6.5fr) minmax(72px, 13.5fr) minmax(72px, 8.5fr) minmax(120px, 26.5fr) minmax(64px, 9fr) minmax(56px, 8fr) minmax(40px, 6fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
+}
+
+/* Dts Created ↔ Account ↔ From: narrower columns, less gap between them */
+.bankprocess-maintenance-page-root .bankprocess-virtual-head-row .maintenance-virtual-th:nth-child(2),
+.bankprocess-maintenance-page-root .bankprocess-virtual-head-row .maintenance-virtual-th:nth-child(3),
+.bankprocess-maintenance-page-root .bankprocess-virtual-head-row .maintenance-virtual-th:nth-child(4),
+.bankprocess-maintenance-page-root .bankprocess-virtual-data-row .maintenance-virtual-cell:nth-child(2),
+.bankprocess-maintenance-page-root .bankprocess-virtual-data-row .maintenance-virtual-cell:nth-child(3),
+.bankprocess-maintenance-page-root .bankprocess-virtual-data-row .maintenance-virtual-cell:nth-child(4) {
+    padding-left: clamp(6px, 0.45vw, 10px);
+    padding-right: clamp(6px, 0.45vw, 10px);
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-head-row .maintenance-virtual-th:nth-child(2),
+.bankprocess-maintenance-page-root .bankprocess-virtual-data-row .maintenance-virtual-cell:nth-child(2) {
+    padding-right: clamp(2px, 0.2vw, 5px);
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-head-row .maintenance-virtual-th:nth-child(3),
+.bankprocess-maintenance-page-root .bankprocess-virtual-data-row .maintenance-virtual-cell:nth-child(3) {
+    padding-left: clamp(2px, 0.2vw, 5px);
+    padding-right: clamp(2px, 0.2vw, 5px);
+}
+
+.bankprocess-maintenance-page-root .bankprocess-virtual-head-row .maintenance-virtual-th:nth-child(4),
+.bankprocess-maintenance-page-root .bankprocess-virtual-data-row .maintenance-virtual-cell:nth-child(4) {
+    padding-left: clamp(2px, 0.2vw, 5px);
 }
 
 .bankprocess-maintenance-page-root .maintenance-virtual-th {

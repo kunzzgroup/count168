@@ -546,45 +546,55 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list--mc-mode {
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-stack {
     display: flex !important;
     flex-direction: column !important;
-    gap: 6px !important;
+    gap: 0 !important;
     width: 100% !important;
     min-height: 0 !important;
     flex: 1 1 auto !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all {
-    display: grid !important;
-    grid-template-columns: 16px minmax(0, 1fr) !important;
+/* 高于 .domain-form-modal-panel label { display:block }，避免全选勾选框与文字拆行错位 */
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label.dfm-assign-mc-select-all {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     align-items: center !important;
-    column-gap: 8px !important;
-    margin: 0 !important;
-    padding: 2px 0 !important;
-    min-height: 0 !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 0 10px 0 !important;
+    padding: 0 0 10px 0 !important;
+    border-bottom: 1px solid var(--color-border-slate) !important;
+    min-height: 28px !important;
     font-family: var(--font-ui) !important;
     font-size: var(--text-medium) !important;
     font-weight: var(--font-weight-semibold) !important;
     color: var(--color-page-fg) !important;
     cursor: pointer !important;
-    line-height: 1 !important;
+    line-height: 1.25 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all > span {
-    display: block !important;
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label.dfm-assign-mc-select-all > span {
+    display: inline !important;
     margin: 0 !important;
     padding: 0 !important;
     font-family: inherit !important;
     font-size: inherit !important;
     font-weight: inherit !important;
     color: inherit !important;
-    line-height: 1.25 !important;
+    line-height: inherit !important;
     letter-spacing: 0 !important;
+    white-space: nowrap !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-select-all .dfm-assign-select-all-checkbox {
-    cursor: pointer !important;
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label.dfm-assign-mc-select-all .dfm-assign-select-all-checkbox {
+    flex: 0 0 16px !important;
+    width: 16px !important;
+    height: 16px !important;
     margin: 0 !important;
-    justify-self: center !important;
-    align-self: center !important;
+    cursor: pointer !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list {
@@ -600,78 +610,75 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list {
     padding-top: 2px !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list>.company-item {
-    display: flex !important;
-    flex-wrap: wrap !important;
+/* 多选行：与常规 Selected Companies 行同列 — 勾选｜公司｜日期｜Set */
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list > .company-item.dfm-assign-mc-row {
+    display: grid !important;
+    grid-template-columns: 16px minmax(52px, auto) minmax(0, 1fr) auto !important;
     align-items: center !important;
-    align-content: center !important;
     box-sizing: border-box !important;
     width: 100% !important;
     min-height: 42px !important;
     margin: 0 !important;
     padding: 7px 10px !important;
-    gap: 6px 8px !important;
+    column-gap: 8px !important;
+    row-gap: 4px !important;
     border: 1px solid var(--color-border) !important;
     border-radius: 7px !important;
     background-color: var(--color-surface-muted) !important;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list > .company-item .company-item-right {
-    display: flex !important;
-    align-items: center !important;
-    gap: 5px !important;
-    flex: 0 0 auto !important;
-    margin-left: auto !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-row.company-item {
     cursor: default !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-row .company-item-left {
-    display: grid !important;
-    grid-template-columns: 16px minmax(0, 1fr) !important;
-    align-items: center !important;
-    column-gap: 8px !important;
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list > .company-item.dfm-assign-mc-row .company-item-left {
+    display: contents !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-row .dfm-assign-row-checkbox {
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list > .company-item.dfm-assign-mc-row .company-item-right {
+    display: contents !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list > .company-item.dfm-assign-mc-row .dfm-assign-row-checkbox {
+    grid-column: 1 !important;
     margin: 0 !important;
     justify-self: center !important;
     align-self: center !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .dfm-assign-mc-list > .company-item.dfm-assign-mc-row .exp-date-display {
-    grid-column: unset !important;
-    justify-self: unset !important;
-    font-size: var(--text-tiny, 11px) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .dfm-assign-mc-list > .company-item.dfm-assign-mc-row .company-reset-btn {
-    grid-column: unset !important;
-    justify-self: unset !important;
-    padding: 2px 8px !important;
-    min-width: 40px !important;
-    height: 24px !important;
-    min-height: 24px !important;
-    font-size: var(--text-tiny, 11px) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-name {
+body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label.dfm-assign-mc-name {
+    grid-column: 2 !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-width: 0 !important;
     font-family: var(--font-ui) !important;
     font-size: var(--text-medium) !important;
     font-weight: var(--font-weight-bold) !important;
     color: var(--color-page-fg) !important;
     cursor: pointer !important;
-    letter-spacing: 0 !important;
-    user-select: none !important;
     line-height: 1.25 !important;
-    display: block !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .dfm-assign-mc-list > .company-item.dfm-assign-mc-row .exp-date-display {
+    grid-column: 3 !important;
+    justify-self: center !important;
     margin: 0 !important;
-    padding: 0 !important;
+    font-size: var(--text-tiny, 11px) !important;
+    white-space: nowrap !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .dfm-assign-mc-list > .company-item.dfm-assign-mc-row .company-reset-btn {
+    grid-column: 4 !important;
+    justify-self: end !important;
+    padding: 2px 8px !important;
+    min-width: 40px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    font-size: var(--text-tiny, 11px) !important;
 }
 
 /* 多选区勾选：统一 16px 槽位，避免原生 checkbox 与文字基线不齐 */
@@ -1132,6 +1139,166 @@ body.domain-page .domain-fee-react-modal.modal-content {
     background: var(--gradient-domain-muted-action-hover) !important;
 }
 
+/* Company expiration status modal (read-only list from +N / company chips) */
+.company-expiration-react-modal {
+    position: relative;
+    margin: 2% auto;
+    width: min(600px, 92vw);
+    max-width: 600px;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 0;
+    background: var(--color-surface);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+body.domain-page .company-expiration-react-modal.modal-content,
+body.ec-auth-shell .company-expiration-react-modal.modal-content {
+    width: min(600px, 92vw) !important;
+    max-width: 600px !important;
+    box-sizing: border-box !important;
+}
+
+.company-expiration-react-modal > .close {
+    position: absolute;
+    right: 20px;
+    top: clamp(10px, 1.04vw, 20px);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(26px, 1.88vw, 36px);
+    height: clamp(26px, 1.88vw, 36px);
+    border-radius: 9999px;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-caption);
+    font-size: clamp(20px, 1.46vw, 28px);
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.company-expiration-react-modal > .close:hover,
+.company-expiration-react-modal > .close:focus {
+    background-color: var(--color-surface-slate-100);
+    color: var(--color-page-fg);
+    transform: scale(1.1);
+}
+
+.company-expiration-react-modal > h2 {
+    margin: 0;
+    width: 100%;
+    border-bottom: 1px solid var(--color-border-slate);
+    background: var(--color-surface-slate-50);
+    padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
+    font-size: clamp(14px, 1.25vw, 24px);
+    font-weight: 700;
+    color: var(--color-ink-muted);
+    box-sizing: border-box;
+}
+
+/* 覆盖通用 .modal-body { display:flex; min-height:300px }，避免列表只占左侧、右侧大片留白 */
+.company-expiration-react-modal.modal-content .modal-body.company-expiration-modal-body {
+    display: block !important;
+    flex-direction: unset !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px) !important;
+    box-sizing: border-box !important;
+}
+
+.company-expiration-react-modal .company-expiration-list {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 100px;
+    max-height: 400px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.company-expiration-react-modal .company-expiration-empty {
+    width: 100%;
+    padding: 20px;
+    text-align: center;
+    color: var(--color-text-placeholder);
+    font-size: var(--domain-text-14);
+    box-sizing: border-box;
+}
+
+/* 列表项铺满弹窗内容区（scoped，避免被其他页 .modal-body flex 影响） */
+.company-expiration-react-modal .company-exp-item {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: clamp(8px, 0.83vw, 12px) clamp(10px, 1.04vw, 16px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+.company-expiration-react-modal .company-exp-item:last-child {
+    margin-bottom: 0;
+}
+
+.company-expiration-react-modal .company-exp-item:hover {
+    background: var(--color-surface-gray-50);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.company-expiration-react-modal .company-exp-item-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.company-expiration-react-modal .company-exp-id {
+    font-weight: 700;
+    font-size: var(--domain-fluid-10-073-14);
+    color: var(--color-ink-muted);
+}
+
+.company-expiration-react-modal .company-exp-date {
+    font-size: var(--domain-fluid-8-0625-12);
+    font-weight: 700;
+    color: var(--color-text-caption);
+}
+
+.company-expiration-react-modal .company-exp-status {
+    flex: 0 0 auto;
+    margin-left: 12px;
+    padding: clamp(4px, 0.31vw, 6px) clamp(8px, 0.625vw, 12px);
+    border-radius: 12px;
+    font-size: var(--domain-fluid-8-0625-12);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.company-expiration-react-modal .company-exp-status.expired {
+    background: var(--color-surface-rose-tint);
+    color: var(--color-danger-text-dark);
+}
+
+.company-expiration-react-modal .company-exp-status.warning {
+    background: var(--color-surface-amber-tint);
+    color: var(--color-warning-text);
+}
+
+.company-expiration-react-modal .company-exp-status.normal {
+    background: var(--color-surface-emerald-tint);
+    color: var(--color-emerald-text-dark);
+}
+
 /* Domain Accounting Due (toolbar + modal) */
 .domain-accounting-due-wrap {
     display: flex;
@@ -1568,16 +1735,68 @@ body.domain-page .domain-fee-react-modal.modal-content {
 }
 
 .company-settings-react-modal .company-settings-date-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 16px;
+    row-gap: 0;
     margin-bottom: 4px;
+    align-items: start;
 }
 
 .company-settings-react-modal .company-settings-field-half {
-    flex: 1 1 140px;
-    min-width: 140px;
+    min-width: 0;
     margin-bottom: 0;
+}
+
+/* Start Date / Period：同宽同高对齐（date 与 select 浏览器默认高度不一致） */
+.company-settings-react-modal .company-settings-date-row .cs-company-field-label {
+    margin-bottom: 8px;
+}
+
+.company-settings-react-modal .company-settings-date-row input[type="date"],
+.company-settings-react-modal .company-settings-date-row select {
+    display: block;
+    width: 100%;
+    height: 2.55rem;
+    min-height: 2.55rem;
+    max-height: 2.55rem;
+    padding: 0 12px;
+    box-sizing: border-box;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 6px;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
+    line-height: 1.4;
+    color: var(--color-text-label);
+    background-color: var(--color-surface);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.company-settings-react-modal .company-settings-date-row input[type="date"]:focus,
+.company-settings-react-modal .company-settings-date-row select:focus {
+    outline: none;
+    border-color: var(--color-focus-ring);
+    box-shadow: var(--shadow-input-focus);
+}
+
+.company-settings-react-modal .company-settings-date-row input[type="date"]:disabled {
+    cursor: not-allowed;
+    background-color: var(--color-surface-slate-100);
+    color: var(--color-text-caption);
+}
+
+.company-settings-react-modal .company-settings-date-row input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.65;
+}
+
+/* Period 列占位 hint，与 Start Date 下方说明同高，保证两格输入框顶对齐 */
+.company-settings-react-modal .company-settings-start-hint--align-spacer {
+    visibility: hidden;
+    margin-top: 4px;
+    min-height: calc(var(--domain-text-10, 10px) * 1.35);
+    pointer-events: none;
+    user-select: none;
 }
 
 .company-settings-react-modal .company-settings-company-name-label {
@@ -2569,6 +2788,22 @@ body.domain-page .domain-react-page .btn-delete.active {
     /* 添加这行 */
 }
 
+/* Company expiration modal: must follow generic .modal-body (flex row + min-height 300px) */
+.company-expiration-react-modal.modal-content .modal-body.company-expiration-modal-body {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.company-expiration-react-modal .company-expiration-list,
+.company-expiration-react-modal .company-exp-item {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
 /* 确保信息面板高度一致 */
 .domain-info-panel {
     display: flex;
@@ -3086,10 +3321,11 @@ body.domain-page .domain-react-page .domain-company-chip {
     border-radius: 4px;
     background: var(--color-surface-gray-soft);
     color: var(--color-text-label);
-    font-size: var(--domain-text-12);
-    font-weight: 700;
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-semibold);
     line-height: 1;
     text-transform: uppercase;
+    cursor: pointer;
 }
 
 body.domain-page .domain-react-page .domain-company-chip.company-badge:hover {
@@ -3097,18 +3333,55 @@ body.domain-page .domain-react-page .domain-company-chip.company-badge:hover {
     text-decoration: none;
 }
 
+/* +N：可点击查看全部公司与到期（与 global .chip-more 语义一致，用 token 强化可点击感） */
 body.domain-page .domain-react-page .domain-company-more {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 2px;
     height: 22px;
+    min-width: 28px;
     padding: 2px 8px;
     border-radius: 4px;
-    background: var(--color-surface-indigo-tint);
-    color: var(--color-text-label);
-    font-size: var(--domain-text-12);
-    font-weight: 700;
+    background: var(--color-surface-info-soft);
+    border: 1px solid var(--color-border-blue-light);
+    color: var(--color-primary-strong);
+    font-size: var(--text-small);
+    font-weight: 600;
     line-height: 1;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.1s ease;
+}
+
+body.domain-page .domain-react-page .domain-company-more::after {
+    content: "›";
+    font-size: 1.05em;
+    line-height: 1;
+    opacity: 0.85;
+    transform: translateY(-0.5px);
+}
+
+body.domain-page .domain-react-page .domain-company-more:hover {
+    background: #dbeafe;
+    border-color: var(--color-primary);
+    color: var(--color-primary-deep-text);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.18);
+}
+
+body.domain-page .domain-react-page .domain-company-more:active {
+    transform: scale(0.96);
+}
+
+body.domain-page .domain-react-page .domain-company-more:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
 }
 
 /* Company Expiration Modal Styles */
@@ -3276,9 +3549,13 @@ body.domain-page .domain-react-page .table-header {
     margin-bottom: 0px;
     font-weight: bold;
     color: var(--color-text-label) !important;
-    font-size: var(--domain-text-14);
+    font-size: var(--text-base);
     min-width: 0;
     /* 允许内容收缩 */
+}
+
+body.domain-page .domain-react-page .table-header > div {
+    font-size: var(--text-base);
 }
 
 body.domain-page .domain-react-page .domain-cards {
@@ -3320,7 +3597,7 @@ body.domain-page .domain-react-page .domain-card:hover {
 }
 
 body.domain-page .domain-react-page .card-item {
-    font-size: var(--domain-fluid-9-078-15);
+    font-size: var(--text-medium);
     font-weight: bold;
     color: var(--color-text-label);
     display: flex;

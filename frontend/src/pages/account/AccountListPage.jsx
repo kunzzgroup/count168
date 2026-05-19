@@ -411,7 +411,10 @@ export default function AccountListPage() {
       const fd = new FormData(); fd.append("id", id);
       const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (json.success) setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, payment_alert: json.newPaymentAlert } : a));
+      if (json.success) {
+        const next = json.data?.newPaymentAlert ?? json.newPaymentAlert;
+        setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, payment_alert: next } : a));
+      }
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 

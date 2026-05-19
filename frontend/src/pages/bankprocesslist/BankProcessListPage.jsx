@@ -39,6 +39,7 @@ import {
   bankProcessFrequencyNormalized,
   BANK_PICK_ACCOUNT_ROLES,
   filterBankPickAccounts,
+  sortBankProcessTableRows,
 } from "./bankProcessHelpers.js";
 import { dedupeCompanyRowsForSwitcher } from "../processlist/processListHelpers.js";
 import { prefetchGamesProcessListPayload } from "../processlist/processRoutePrefetch.js";
@@ -161,7 +162,8 @@ export default function BankProcessListPage() {
   const [resendFrequency, setResendFrequency] = useState("1st_of_every_month");
   const [resendInlineError, setResendInlineError] = useState("");
 
-  const [supplierSortDir, setSupplierSortDir] = useState("asc");
+  const [sortColumn, setSortColumn] = useState("supplier");
+  const [sortDirection, setSortDirection] = useState("asc");
   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
   const [remarkDraft, setRemarkDraft] = useState("");
   const [remarkRow, setRemarkRow] = useState(null);
@@ -1481,16 +1483,19 @@ export default function BankProcessListPage() {
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
   }, [switchingCompany]);
 
-  const supplierSortedRows = useMemo(() => {
-    const arr = [...rows];
-    arr.sort((a, b) => {
-      const ak = String(a.card_lower || a.supplier || "").toLowerCase();
-      const bk = String(b.card_lower || b.supplier || "").toLowerCase();
-      const c = ak.localeCompare(bk);
-      return supplierSortDir === "asc" ? c : -c;
-    });
-    return arr;
-  }, [rows, supplierSortDir]);
+  const sortedRows = useMemo(
+    () => sortBankProcessTableRows(rows, sortColumn, sortDirection),
+    [rows, sortColumn, sortDirection]
+  );
+
+  const handleBankTableSort = useCallback(
+    (column) => {
+      setSortDirection((direction) => (sortColumn === column && direction === "asc" ? "desc" : "asc"));
+      setSortColumn(column);
+      setCurrentPage(1);
+    },
+    [sortColumn]
+  );
 
   const rowCountryCodes = useMemo(() => {
     const s = new Set();
@@ -1562,7 +1567,7 @@ export default function BankProcessListPage() {
 
   const visibleRows = useMemo(() => {
     const filterState = { showAll, showInactive, showOfficial, showEInvoice, showBlock };
-    let filtered = supplierSortedRows.filter((r) => matchesCurrentBankFilters(r, filterState));
+    let filtered = sortedRows.filter((r) => matchesCurrentBankFilters(r, filterState));
     if (dateFrom || dateTo) {
       const fromMs = dateFrom ? parseRowDateMs(dateFrom) : null;
       const toMs = dateTo ? parseRowDateMs(dateTo) : null;
@@ -1580,7 +1585,7 @@ export default function BankProcessListPage() {
     }
     return filtered;
   }, [
-    supplierSortedRows,
+    sortedRows,
     dateFrom,
     dateTo,
     showAll,
@@ -1878,7 +1883,9 @@ export default function BankProcessListPage() {
             setResendDayEnd(seedFq === "once" ? "" : String(row.day_end || "").slice(0, 10));
             setResendModalOpen(true);
           }}
-          supplierSortDir={supplierSortDir} setSupplierSortDir={setSupplierSortDir}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={handleBankTableSort}
           lang={lang}
           t={t}
         />

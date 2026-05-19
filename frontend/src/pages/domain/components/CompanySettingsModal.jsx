@@ -135,6 +135,28 @@ export default function CompanySettingsModal({
     }
   }
 
+  function handleReset() {
+    const today = new Date().toISOString().split("T")[0];
+    setStartDate(today);
+    setPeriod("");
+    setExpDisplay(t("notSet"));
+    setCompany((prev) => ({
+      ...prev,
+      expiration_date: null,
+      selectedPeriod: "",
+      isExtending: false,
+      originalExpirationDate: null,
+    }));
+    setFsa(defaultFeeShareAllocations());
+    setChargeOnSave(false);
+    setExpandedCards({});
+    if (SINGLE_CATEGORY_MODE) {
+      setPermissions(["Games"]);
+    } else {
+      setPermissions(["Games", "Bank", "Loan", "Rate", "Money"]);
+    }
+  }
+
   function handleSave() {
     // Validate permissions
     if (SINGLE_CATEGORY_MODE) {
@@ -198,6 +220,9 @@ export default function CompanySettingsModal({
           ...company,
           expiration_date: expDate,
           selectedPeriod: period || company.selectedPeriod,
+          startDate,
+          isExtending: company.isExtending,
+          originalExpirationDate: company.originalExpirationDate,
           permissions: [...permissions],
           fee_share_allocations: cleanFsa,
           apply_commission_payments_on_domain_save: chargeOnSave,
@@ -320,7 +345,7 @@ export default function CompanySettingsModal({
                     {company.isExtending ? t("cannotModifyStartDateWhenExtending") : t("selectStartDateHint")}
                   </small>
                 </div>
-                <div className="form-group company-settings-field-half">
+                <div className="form-group company-settings-field-half company-settings-field-half--period">
                   <label className="cs-company-field-label" htmlFor="expDatePeriod">{t("period")}</label>
                   <select
                     id="expDatePeriod"
@@ -334,6 +359,9 @@ export default function CompanySettingsModal({
                     <option value="6months">{t("sixMonths")}</option>
                     <option value="1year">{t("oneYear")}</option>
                   </select>
+                  <small className="company-settings-start-hint company-settings-start-hint--align-spacer" aria-hidden="true">
+                    &#8203;
+                  </small>
                 </div>
               </div>
               {/* Expiration Date display */}
@@ -549,20 +577,7 @@ export default function CompanySettingsModal({
           {/* Footer actions — 与量测图：Save 蓝 / Reset 红 / Cancel 灰 */}
           <div className="form-actions company-settings-form-actions">
             <button type="button" className="btn btn-save" onClick={handleSave}>{t("save")}</button>
-            <button type="button" className="btn btn-reset-company" onClick={() => {
-              const today = new Date().toISOString().split("T")[0];
-              setStartDate(today);
-              setPeriod("");
-              setExpDisplay(t("notSet"));
-              setFsa(defaultFeeShareAllocations());
-              setChargeOnSave(false);
-              setExpandedCards({});
-              if (SINGLE_CATEGORY_MODE) {
-                setPermissions(["Games"]);
-              } else {
-                setPermissions(["Games", "Bank", "Loan", "Rate", "Money"]);
-              }
-            }}>{t("reset")}</button>
+            <button type="button" className="btn btn-reset-company" onClick={handleReset}>{t("reset")}</button>
             <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
           </div>
         </div>

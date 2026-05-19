@@ -108,13 +108,13 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
   return fallback;
 }
 
-/** 与旧版 bank_process_list.js BANK_GRID_TEMPLATE_COLUMNS 一致，保证列宽对齐 */
+/** Bank 列表列宽：每列 min 容纳「表头文案 + 排序图标」，避免 No / Country 等被截断 */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "minmax(26px,0.12fr) minmax(46px,0.38fr) minmax(32px,0.20fr) minmax(42px,0.36fr) minmax(48px,0.28fr) minmax(0,0.78fr) minmax(0,0.56fr) minmax(0,0.44fr) minmax(0,0.48fr) minmax(52px,0.26fr) minmax(52px,0.26fr) minmax(52px,0.26fr) minmax(0,0.42fr) minmax(0,0.4fr) minmax(72px,0.34fr)";
+  "minmax(52px,0.1fr) minmax(96px,0.34fr) minmax(80px,0.2fr) minmax(68px,0.3fr) minmax(64px,0.24fr) minmax(100px,0.72fr) minmax(96px,0.5fr) minmax(76px,0.4fr) minmax(80px,0.42fr) minmax(64px,0.22fr) minmax(64px,0.22fr) minmax(68px,0.22fr) minmax(108px,0.44fr) minmax(76px,0.36fr) minmax(88px,0.3fr)";
 
 /** Action 与批量勾选分两列（与 User List / Games Process 一致） */
 export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT =
-  "minmax(26px,0.12fr) minmax(46px,0.38fr) minmax(32px,0.20fr) minmax(42px,0.36fr) minmax(48px,0.28fr) minmax(0,0.78fr) minmax(0,0.56fr) minmax(0,0.44fr) minmax(0,0.48fr) minmax(52px,0.26fr) minmax(52px,0.26fr) minmax(52px,0.26fr) minmax(0,0.42fr) minmax(0,0.4fr) minmax(0,0.3fr) 48px";
+  "minmax(52px,0.1fr) minmax(96px,0.34fr) minmax(80px,0.2fr) minmax(68px,0.3fr) minmax(64px,0.24fr) minmax(100px,0.72fr) minmax(96px,0.5fr) minmax(76px,0.4fr) minmax(80px,0.42fr) minmax(64px,0.22fr) minmax(64px,0.22fr) minmax(68px,0.22fr) minmax(108px,0.44fr) minmax(76px,0.36fr) minmax(88px,0.28fr) 48px";
 
 export function normalizeRows(data) {
   if (!Array.isArray(data)) return [];
@@ -220,6 +220,92 @@ export function parseRowDateMs(raw) {
     return Number.isNaN(t) ? null : t;
   }
   return null;
+}
+
+function bankSortTiebreak(a, b) {
+  return Number(a.id || 0) - Number(b.id || 0);
+}
+
+function bankSortCompareText(a, b) {
+  return String(a ?? "").localeCompare(String(b ?? ""), undefined, { sensitivity: "base", numeric: true });
+}
+
+function bankSortMoneyValue(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw || !isValidBankMoneyInput(raw)) return 0;
+  return Number(MoneyDecimal.toDecimal(raw).toString());
+}
+
+/** Bank Process 列表客户端排序（列 key 与 BankProcessTable 表头一致） */
+export function sortBankProcessTableRows(rows, sortColumn, sortDirection) {
+  const dir = sortDirection === "desc" ? -1 : 1;
+  const copy = [...rows];
+  const sortPrimary = (primary) => {
+    copy.sort((a, b) => {
+      let c = primary(a, b);
+      if (c === 0) c = bankSortTiebreak(a, b);
+      return c * dir;
+    });
+  };
+
+  switch (sortColumn) {
+    case "no":
+      sortPrimary((a, b) => Number(a.id || 0) - Number(b.id || 0));
+      break;
+    case "supplier":
+      sortPrimary((a, b) => bankSortCompareText(a.card_lower || a.supplier, b.card_lower || b.supplier));
+      break;
+    case "ccy":
+      sortPrimary((a, b) => bankSortCompareText(a.country, b.country));
+      break;
+    case "bank":
+      sortPrimary((a, b) => bankSortCompareText(a.bank, b.bank));
+      break;
+    case "types":
+      sortPrimary((a, b) => bankSortCompareText(a.type, b.type));
+      break;
+    case "owner":
+      sortPrimary((a, b) => bankSortCompareText(a.supplier, b.supplier));
+      break;
+    case "contract":
+      sortPrimary((a, b) => bankSortCompareText(a.contract, b.contract));
+      break;
+    case "insurance":
+      sortPrimary((a, b) => bankSortCompareText(a.insurance, b.insurance));
+      break;
+    case "customer":
+      sortPrimary((a, b) => bankSortCompareText(a.customer, b.customer));
+      break;
+    case "cost":
+      sortPrimary((a, b) => bankSortMoneyValue(a.cost) - bankSortMoneyValue(b.cost));
+      break;
+    case "price":
+      sortPrimary((a, b) => bankSortMoneyValue(a.price) - bankSortMoneyValue(b.price));
+      break;
+    case "profit":
+      sortPrimary((a, b) => bankSortMoneyValue(a.profit) - bankSortMoneyValue(b.profit));
+      break;
+    case "status":
+      sortPrimary((a, b) => {
+        const key = (r) =>
+          `${normalizeBankProcessStatus(r.status)}:${normalizeBankIssueFlag(r.issue_flag)}`;
+        return bankSortCompareText(key(a), key(b));
+      });
+      break;
+    case "date":
+      sortPrimary((a, b) => {
+        const am = parseRowDateMs(a.date || a.day_start);
+        const bm = parseRowDateMs(b.date || b.day_start);
+        if (am == null && bm == null) return 0;
+        if (am == null) return 1;
+        if (bm == null) return -1;
+        return am - bm;
+      });
+      break;
+    default:
+      sortPrimary((a, b) => bankSortCompareText(a.card_lower || a.supplier, b.card_lower || b.supplier));
+  }
+  return copy;
 }
 
 export function isBankResendDayStartBackendErrorMessage(text) {

@@ -25,23 +25,15 @@ function PaymentVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, 
   return (
     <div className="maintenance-virtual-thead" role="rowgroup">
       <div className="maintenance-virtual-head-row payment-virtual-head-row" role="row">
-        {labels.map((label, i) => {
-          const alignClass =
-            i === 2 || i === 3 || i === 5 || i === 6 || i === 7
-              ? " payment-virtual-th--left"
-              : i === 4
-                ? " payment-virtual-th--right"
-                : "";
-          return (
+        {labels.map((label, i) => (
             <div
               key={label}
               role="columnheader"
-              className={`maintenance-virtual-th${alignClass}${i === 4 ? " maintenance-header-amount" : ""}`}
+              className={`maintenance-virtual-th payment-virtual-th--left${i === 4 ? " maintenance-header-amount" : ""}`}
             >
               {label}
             </div>
-          );
-        })}
+          ))}
         <div
           role="columnheader"
           className="maintenance-virtual-th payment-virtual-th-checkbox maintenance-select-all-header"
