@@ -576,18 +576,6 @@ function resequenceSubOrdersForGroup(idProduct, rowIndex) {
     return groupRows;
 }
 
-function applySummaryRowOrderToReact(orderedRows) {
-    if (!window.__SUMMARY_REACT_TABLE__ || !Array.isArray(orderedRows)) return false;
-    const keys = orderedRows
-        .map(function (row) { return row && row.getAttribute ? row.getAttribute('data-react-row-key') : ''; })
-        .filter(function (key) { return key && String(key).trim() !== ''; });
-    if (keys.length && typeof window.__SUMMARY_REACT_SET_ROW_ORDER__ === 'function') {
-        window.__SUMMARY_REACT_SET_ROW_ORDER__(keys);
-        return true;
-    }
-    return false;
-}
-
 // 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
@@ -647,9 +635,6 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         appendedRows.add(row);
     });
 
-    if (applySummaryRowOrderToReact(finalRows)) {
-        return;
-    }
     finalRows.forEach(row => summaryTableBody.appendChild(row));
 }
 
@@ -702,7 +687,6 @@ function saveFormulaSourceForRefresh(opts) {
     const byRowUid = {};
     const rowOrder = [];
     rows.forEach(row => {
-        const userCleared = row.getAttribute('data-row-user-cleared') === '1';
         const key = getSummaryRowKey(row);
         const normKey = normalizeSummaryRowKey(key);
         // 为每一行分配稳定且唯一的 rowUid，用于在 refresh 前后精确识别同一行
@@ -731,7 +715,6 @@ function saveFormulaSourceForRefresh(opts) {
         const nextRateValue = rateValue || '';
         const nextDescription = originalDescription || '';
         const shouldPreferExisting =
-            !userCleared &&
             existing &&
             (existing.formula || existing.source || existing.rateValue) &&
             !nextFormula && !nextSource && !nextRateValue;
@@ -756,21 +739,20 @@ function saveFormulaSourceForRefresh(opts) {
             nextData.currencyText = currencyTextRaw || (nextData.currencyText != null ? String(nextData.currencyText).trim() : '');
         } else {
             nextData = {
-                formula: userCleared ? '' : nextFormula,
-                source: userCleared ? '' : nextSource,
-                sourceColumns: userCleared ? '' : (row.getAttribute('data-source-columns') || ''),
-                formulaOperators: userCleared ? '' : formulaOps,
-                templateFormulaOperators: userCleared ? '' : (templateFormulaOps || ''),
-                sourcePercent: userCleared ? '' : (row.getAttribute('data-source-percent') || ''),
-                rateValue: userCleared ? '' : nextRateValue,
+                formula: nextFormula,
+                source: nextSource,
+                sourceColumns: (row.getAttribute('data-source-columns') || ''),
+                formulaOperators: formulaOps,
+                templateFormulaOperators: templateFormulaOps || '',
+                sourcePercent: (row.getAttribute('data-source-percent') || ''),
+                rateValue: nextRateValue,
                 rowUid: rowUid,
-                originalDescription: userCleared ? '' : nextDescription,
-                clickedCellRefs: userCleared ? '' : (row.getAttribute('data-clicked-cell-refs') || ''),
-                accountDbId: userCleared ? '' : accountDbIdRaw,
-                accountDisplay: userCleared ? '' : accountDisplayRaw,
-                currencyDbId: userCleared ? '' : currencyDbIdRaw,
-                currencyText: userCleared ? '' : currencyTextRaw,
-                userCleared: userCleared
+                originalDescription: nextDescription,
+                clickedCellRefs: (row.getAttribute('data-clicked-cell-refs') || ''),
+                accountDbId: accountDbIdRaw,
+                accountDisplay: accountDisplayRaw,
+                currencyDbId: currencyDbIdRaw,
+                currencyText: currencyTextRaw
             };
         }
         byKey[normKey] = nextData;
@@ -1071,10 +1053,6 @@ function restoreFormulaSourceFromRefresh() {
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach((row) => {
         const data = getSavedSummaryRowData(row, byKey, byStableKey, byRowUid);
-        if (data && data.userCleared === true) {
-            row.setAttribute('data-row-user-cleared', '1');
-            return;
-        }
         const cells = row.querySelectorAll('td');
         const stableRate = typeof resolveSavedRateValueForRow === 'function' ? resolveSavedRateValueForRow(row, saved) : null;
         if (!data) {
@@ -1163,7 +1141,12 @@ function restoreFormulaSourceFromRefresh() {
             // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
             const finalFormula = existingFormulaText || savedFormulaDisplay || formula;
 
-            setSummaryFormulaCellDisplay(cells[4], row, finalFormula, imForTooltip);
+            cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span>${getFormulaEditButtonHtml(finalFormula)}</div>`;
+            const span = cells[4].querySelector('.formula-text');
+            if (span) span.textContent = finalFormula;
+            row.setAttribute('data-formula-raw', finalFormula || '');
+            if (finalFormula) row.setAttribute('data-formula-display', finalFormula);
+            else row.removeAttribute('data-formula-display');
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
         // Source 优先保留当前行（后端最新）值，避免被 refresh/localStorage 里的旧值覆盖
@@ -1980,7 +1963,9 @@ function populateOriginalTableWithColumnAData(tableData) {
                         summaryTableBody.querySelectorAll('tr').forEach((row) => {
                             const cells = row.querySelectorAll('td');
                             if (cells[4]) {
-                                clearSummaryFormulaCellDom(cells[4]);
+                                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+                                const span = cells[4].querySelector('.formula-text');
+                                if (span) span.textContent = '';
                             }
                             if (cells[5]) cells[5].textContent = '';
                             row.removeAttribute('data-formula-operators');
@@ -12332,13 +12317,16 @@ function restoreOriginalRowValues(row) {
     // Restore Formula column (index 4) - restore even if empty string; preserve input method tooltip
     if (cells[4] && originalFormula !== null) {
         const imTooltip = (row.getAttribute('data-input-method') || '').trim();
+        const imTitle = imTooltip ? ` title="${String(imTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
         if (originalFormula === '') {
-            setSummaryFormulaCellDisplay(cells[4], row, '', imTooltip);
+            cells[4].innerHTML = '';
         } else {
-            setSummaryFormulaCellDisplay(cells[4], row, originalFormula, imTooltip);
-            if (!window.__SUMMARY_REACT_TABLE__ && typeof attachInlineEditListeners === 'function') {
-                attachInlineEditListeners(row);
-            }
+            cells[4].innerHTML = `
+                <div class="formula-cell-content"${imTitle}>
+                    <span class="formula-text"${imTitle}>${originalFormula}</span>
+                    <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                </div>
+            `;
         }
     }
 
@@ -12653,11 +12641,15 @@ function updateRowFormulaFromColumns(row) {
         const formulaText = formulaDisplay;
         // Get input method from row for tooltip (escape for HTML attribute)
         const inputMethod = row.getAttribute('data-input-method') || '';
-        const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? inputMethod : '';
-        setSummaryFormulaCellDisplay(cells[4], row, formulaText, inputMethodTooltip);
-        if (!window.__SUMMARY_REACT_TABLE__ && typeof attachInlineEditListeners === 'function') {
-            attachInlineEditListeners(row);
-        }
+        const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
+        cells[4].innerHTML = `
+            <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+                ${getFormulaEditButtonHtml(formulaText)}
+            </div>
+        `;
+        // Attach double-click event listener
+        attachInlineEditListeners(row);
     }
 
     recalculateAndRenderProcessedAmount(row, {
@@ -12967,11 +12959,16 @@ function updateFormulaAndProcessedAmount(row, data) {
 
         // Get input method from row or data for tooltip (escape for HTML attribute)
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
-        const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? inputMethod : '';
-        setSummaryFormulaCellDisplay(cells[4], row, displayText, inputMethodTooltip);
-        if (!window.__SUMMARY_REACT_TABLE__ && typeof attachInlineEditListeners === 'function') {
-            attachInlineEditListeners(row);
-        }
+        const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
+        cells[4].innerHTML = `
+            <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${displayText}</span>
+                ${getFormulaEditButtonHtml(displayText)}
+            </div>
+        `;
+        // Attach double-click event listener
+        attachInlineEditListeners(row);
+        // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
     }
 
     const restoredInputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
@@ -13001,7 +12998,89 @@ function updateFormulaAndProcessedAmount(row, data) {
         updateTotal: false
     };
 
-    applySummaryRateColumnsFromData(row, cells, data);
+    // Update Rate column (index 6)
+    if (cells[6]) {
+        // Clear the cell first
+        cells[6].innerHTML = '';
+        cells[6].style.textAlign = 'center';
+
+        // Create checkbox
+        const rateCheckbox = document.createElement('input');
+        rateCheckbox.type = 'checkbox';
+        rateCheckbox.className = 'rate-checkbox';
+        rateCheckbox.addEventListener('change', function () {
+            if (typeof handleRateCheckboxChange === 'function') {
+                handleRateCheckboxChange(this);
+            }
+        });
+
+        // Set checkbox state based on data.rate (from database) or rateInput
+        const rateInput = document.getElementById('rateInput');
+        // Check if rate value exists in data (from database)
+        const hasRateValue = data.rate !== null && data.rate !== undefined && data.rate !== '';
+        // If rate exists in data, use it; otherwise check rateInput
+        const rateValue = hasRateValue ? data.rate : (rateInput ? rateInput.value : '');
+        // Checkbox is checked if rate value exists (either from data or rateInput) AND Rate Value column is empty
+        const rateValueCell = cells[7];
+        const hasRateValueInput = rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '';
+        rateCheckbox.checked = !hasRateValueInput && (hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1);
+
+        // If rate value exists in data, update rateInput to show it
+        if (hasRateValue && rateInput && !hasRateValueInput) {
+            rateInput.value = data.rate;
+        }
+
+        // If checkbox is checked, display rateInput value in Rate Value cell
+        if (rateCheckbox.checked && rateValueCell && !hasRateValueInput) {
+            const currentRateInput = document.getElementById('rateInput');
+            if (currentRateInput && currentRateInput.value.trim() !== '') {
+                rateValueCell.textContent = currentRateInput.value.trim();
+            }
+        }
+
+        // Add event listener to recalculate when checkbox state changes
+        rateCheckbox.addEventListener('change', function () {
+            const cells = row.querySelectorAll('td');
+            const rateValueCell = cells[7];
+
+            // When checkbox is checked, display rateInput value in Rate Value cell
+            if (this.checked && rateValueCell) {
+                const rateInput = document.getElementById('rateInput');
+                if (rateInput && rateInput.value.trim() !== '') {
+                    rateValueCell.textContent = rateInput.value.trim();
+                } else {
+                    rateValueCell.textContent = '';
+                }
+            } else if (!this.checked && rateValueCell) {
+                // When checkbox is unchecked, clear Rate Value cell
+                rateValueCell.textContent = '';
+            }
+
+            // Recalculate processed amount when rate checkbox is toggled
+            recalculateAndRenderProcessedAmount(row);
+        });
+
+        cells[6].appendChild(rateCheckbox);
+    }
+
+    // Update Rate Value column (index 7 - new column)
+    if (cells[7]) {
+        // Clear the cell first
+        cells[7].innerHTML = '';
+        cells[7].style.textAlign = 'center';
+        cells[7].classList.add('editable-cell');
+        cells[7].style.cursor = 'text';
+
+        // Load Rate Value from data if available (from database)
+        let rateValueText = '';
+        if (data.rateValue !== null && data.rateValue !== undefined && data.rateValue !== '') {
+            rateValueText = String(data.rateValue);
+        }
+        cells[7].textContent = rateValueText;
+
+        // Attach edit listener to Rate Value cell
+        attachRateValueEditListener(cells[7], row);
+    }
 
     // 最后统一现算一次，避免旧的 data.processedAmount 覆盖当前 formula/source/rate 的结果
     const canRecalculateProcessedAmount = !!(
@@ -14217,11 +14296,16 @@ function recalculateRowFormula(row, newSourcePercent) {
             }
             // Get input method from row for tooltip (escape for HTML attribute)
             const inputMethod = row.getAttribute('data-input-method') || '';
-            const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? inputMethod : '';
-            setSummaryFormulaCellDisplay(cells[4], row, formulaDisplay, inputMethodTooltip);
-            if (!window.__SUMMARY_REACT_TABLE__ && typeof attachInlineEditListeners === 'function') {
-                attachInlineEditListeners(row);
-            }
+            const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
+            cells[4].innerHTML = `
+                <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                    <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${formulaDisplay}</span>
+                    ${getFormulaEditButtonHtml(formulaDisplay)}
+                </div>
+            `;
+            // Attach double-click event listener
+            attachInlineEditListeners(row);
+            // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
         }
 
         // Rate column already exists, no need to recreate
@@ -14603,8 +14687,8 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
             subOrder = 1;
         }
 
-        // Insert after the row (React SPA: row is already mounted by __SUMMARY_REACT_ADD_SUB_ROW__)
-        if (!reactProvidedRow && !window.__SUMMARY_REACT_TABLE__) {
+        // Insert after the row
+        if (!reactProvidedRow) {
             insertAfterRow.insertAdjacentElement('afterend', row);
         }
 
@@ -14645,7 +14729,7 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
             }
         }
         row.setAttribute('data-creation-order', String(creationOrder));
-    } else if (!reactProvidedRow && !window.__SUMMARY_REACT_TABLE__) {
+    } else if (!reactProvidedRow) {
         // Fallback: append to the end
         summaryTableBody.appendChild(row);
         // Set row_index: use provided rowIndex if available, otherwise try to get from last row
@@ -14837,16 +14921,20 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         // Get input method from row or data for tooltip
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
         const inputMethodTooltip = inputMethod || '';
-        setSummaryFormulaCellDisplay(cells[4], row, formulaText, inputMethodTooltip);
-        if (!window.__SUMMARY_REACT_TABLE__) {
+        cells[4].innerHTML = `
+            <div class="formula-cell-content" ${inputMethodTooltip ? `title="${String(inputMethodTooltip).replace(/"/g, '&quot;')}"` : ''}>
+                <span class="formula-text editable-cell"></span>
+                ${getFormulaEditButtonHtml(formulaText)}
+            </div>
+        `;
         const formulaTextSpan = cells[4].querySelector('.formula-text');
         if (formulaTextSpan) {
+            formulaTextSpan.textContent = formulaText;
             if (inputMethodTooltip) formulaTextSpan.setAttribute('title', inputMethodTooltip);
             formulaTextSpan.addEventListener('dblclick', function (e) {
                 e.stopPropagation();
                 enableFormulaInlineEdit(this, row);
             });
-        }
         }
     }
 
@@ -14859,7 +14947,75 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         attachInlineEditListeners(row);
     }
 
-    applySummaryRateColumnsFromData(row, cells, data);
+    // Update Rate column (now index 6)
+    if (cells[6]) {
+        // Clear the cell first
+        cells[6].innerHTML = '';
+        cells[6].style.textAlign = 'center';
+
+        // Create checkbox
+        const rateCheckbox = document.createElement('input');
+        rateCheckbox.type = 'checkbox';
+        rateCheckbox.className = 'rate-checkbox';
+        rateCheckbox.addEventListener('change', function () {
+            if (typeof handleRateCheckboxChange === 'function') {
+                handleRateCheckboxChange(this);
+            }
+        });
+
+        // Set checkbox state based on data.rate (from database) or rateInput
+        const rateInput = document.getElementById('rateInput');
+        // Check if rate value exists in data (from database)
+        const hasRateValue = data.rate !== null && data.rate !== undefined && data.rate !== '';
+        // If rate exists in data, use it; otherwise check rateInput
+        const rateValue = hasRateValue ? data.rate : (rateInput ? rateInput.value : '');
+        // Checkbox is checked if rate value exists (either from data or rateInput)
+        rateCheckbox.checked = hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1;
+
+        // If rate value exists in data, update rateInput to show it
+        if (hasRateValue && rateInput) {
+            rateInput.value = data.rate;
+        }
+
+        // If checkbox is checked, display rateInput value in Rate Value cell (from template/API or global rateInput)
+        const rateValueCell = cells[7];
+        if (rateCheckbox.checked && rateValueCell) {
+            const hasRateValueInput = rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '';
+            if (!hasRateValueInput) {
+                const valueToShow = (hasRateValue && data.rate != null && String(data.rate).trim() !== '')
+                    ? String(data.rate).trim()
+                    : (document.getElementById('rateInput') && document.getElementById('rateInput').value.trim() !== ''
+                        ? document.getElementById('rateInput').value.trim() : '');
+                if (valueToShow !== '') {
+                    rateValueCell.textContent = valueToShow;
+                }
+            }
+        }
+
+        // Add event listener to recalculate when checkbox state changes
+        rateCheckbox.addEventListener('change', function () {
+            // Recalculate processed amount when rate checkbox is toggled
+            const cells = row.querySelectorAll('td');
+            const rateValueCell = cells[7];
+
+            // When checkbox is checked, display rateInput value in Rate Value cell
+            if (this.checked && rateValueCell) {
+                const rateInput = document.getElementById('rateInput');
+                if (rateInput && rateInput.value.trim() !== '') {
+                    rateValueCell.textContent = rateInput.value.trim();
+                } else {
+                    rateValueCell.textContent = '';
+                }
+            } else if (!this.checked && rateValueCell) {
+                // When checkbox is unchecked, clear Rate Value cell
+                rateValueCell.textContent = '';
+            }
+
+            recalculateAndRenderProcessedAmount(row);
+        });
+
+        cells[6].appendChild(rateCheckbox);
+    }
 
     if (data.inputMethod !== undefined) {
         row.setAttribute('data-input-method', data.inputMethod);
@@ -15476,7 +15632,14 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 
             const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
             const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
-            setSummaryFormulaCellDisplay(cells[4], row, displayText, inputMethodTooltip);
+            cells[4].innerHTML = `
+                <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                    <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${displayText}</span>
+                    ${getFormulaEditButtonHtml(displayText)}
+                </div>
+            `;
+            // Attach double-click event listener
+            attachInlineEditListeners(row);
         }
 
         // Source % column (index 5) - display as percentage
@@ -15828,7 +15991,6 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         allRows.forEach((r) => {
                             const productType = r.getAttribute('data-product-type') || 'main';
                             if (productType !== 'main') return;
-                            if (r.getAttribute('data-row-user-cleared') === '1') return;
                             const idCell = r.querySelector('td:first-child');
                             const pv = idCell ? getProductValuesFromCell(idCell) : {};
                             const mainNorm = normalizeIdProductText(pv.main || '');
@@ -15933,7 +16095,9 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 if (!hasTemplate) {
                     const cells = summaryRow.querySelectorAll('td');
                     if (cells[4]) {
-                        clearSummaryFormulaCellDom(cells[4]);
+                        cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+                        const span = cells[4].querySelector('.formula-text');
+                        if (span) span.textContent = '';
                     }
                     summaryRow.removeAttribute('data-formula-operators');
                     summaryRow.removeAttribute('data-template-formula-operators');
@@ -16002,7 +16166,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         if (typeof reorderSummaryRowsByRowIndex === 'function') {
             reorderSummaryRowsByRowIndex();
         }
-        if (!window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
             window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (error) {
@@ -16021,7 +16185,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
         }
         const targetRow = findSummaryRowByIdProduct(idProduct, targetCtx);
 
-        if (!targetRow || targetRow.getAttribute('data-row-user-cleared') === '1') {
+        if (!targetRow) {
             return;
         }
 
@@ -16247,7 +16411,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 (!formulaOperatorsValue || formulaOperatorsValue.trim() === '') &&
                 savedFormulaDisplay && savedFormulaDisplay.trim() !== '') {
                 const formulaCell = targetRow.querySelector('td:nth-child(5)');
-                if (formulaCell) setSummaryFormulaCellDisplay(formulaCell, targetRow, savedFormulaDisplay, '');
+                if (formulaCell) formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
                 const processedCell = targetRow.querySelector('td:nth-child(9)');
                 if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
                     const val = MoneyDecimal.toDecimal(mainTemplate.last_processed_amount, 0).toString();
@@ -16575,30 +16739,6 @@ function applyTemplateToSummaryRow(idProduct, template) {
 // 3. account_id only
 // 4. row_index only (fallback when account_id not available)
 // This ensures templates are matched to the correct id_product + account combination regardless of row position changes
-function findSummaryMainRowWithAccount(idProductNorm, accountId, excludeRow) {
-    if (!accountId || !idProductNorm) return null;
-    const summaryTableBody = document.getElementById('summaryTableBody');
-    if (!summaryTableBody) return null;
-
-    const rows = summaryTableBody.querySelectorAll('tr');
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        if (excludeRow && row === excludeRow) continue;
-        if ((row.getAttribute('data-product-type') || 'main') !== 'main') continue;
-
-        const idProductCell = row.querySelector('td:first-child');
-        const productValues = getProductValuesFromCell(idProductCell);
-        const mainNorm = normalizeIdProductText(productValues.main || '');
-        if (mainNorm !== idProductNorm) continue;
-
-        const rowAccountId = row.querySelector('td:nth-child(2)')?.getAttribute('data-account-id');
-        if (rowAccountId && String(rowAccountId).trim() === String(accountId).trim()) {
-            return row;
-        }
-    }
-    return null;
-}
-
 function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -16630,7 +16770,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
         allRows.forEach((row, index) => {
             const productType = row.getAttribute('data-product-type') || 'main';
             if (productType !== 'main') return;
-            if (row.getAttribute('data-row-user-cleared') === '1') return;
 
             const idProductCell = row.querySelector('td:first-child');
             const productValues = getProductValuesFromCell(idProductCell);
@@ -16913,23 +17052,10 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
         const addCell = targetRow.querySelector('td:nth-child(3)');
         const hadAddButton = addCell ? !!addCell.querySelector('.add-account-btn') : false;
         const accountText = accountCell ? accountCell.textContent.trim() : '';
-        const rowAccountId = accountCell?.getAttribute('data-account-id');
-        const reactTableMode = !!window.__SUMMARY_REACT_TABLE__;
-        // React SPA: every row keeps the + button — use data-account-id, not button presence
-        const hasExistingData = reactTableMode
-            ? !!(rowAccountId && String(rowAccountId).trim() !== '')
-            : (accountText !== '' && !hadAddButton);
-
-        // Same account must not appear on two main rows (e.g. M99M06 + 1SLOT on row 2 and row 6)
-        if (templateAccountId) {
-            const existingMainRow = findSummaryMainRowWithAccount(normalizedTargetId, templateAccountId, targetRow);
-            if (existingMainRow && existingMainRow !== targetRow) {
-                console.log('applyMainTemplateToRow: account already on another main row, skip duplicate apply for account_id =', templateAccountId, 'idProduct =', idProduct);
-                return existingMainRow;
-            }
-        }
+        const hasExistingData = accountText !== '' && !hadAddButton;
 
         // Only apply template if row doesn't have existing data, or if account matches
+        const rowAccountId = accountCell?.getAttribute('data-account-id');
         const shouldApply = !hasExistingData || (templateAccountId && rowAccountId && rowAccountId === templateAccountId);
 
         if (!shouldApply && hasExistingData) {
@@ -17129,7 +17255,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             }
             const formulaCell = targetRow.querySelector('td:nth-child(5)');
             if (formulaCell) {
-                setSummaryFormulaCellDisplay(formulaCell, targetRow, formulaDisplayForManual, '');
+                formulaCell.innerHTML = `<span class="formula-text">${formulaDisplayForManual}</span>`;
             }
             const processedCell = targetRow.querySelector('td:nth-child(9)');
             if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
@@ -17961,9 +18087,8 @@ function reorderSummaryRowsByRowIndex() {
             })
             .map(data => data.row);
 
-        if (!applySummaryRowOrderToReact(orderedRows)) {
-            orderedRows.forEach(row => summaryTableBody.appendChild(row));
-        }
+        // 按新顺序重新挂载行
+        orderedRows.forEach(row => summaryTableBody.appendChild(row));
 
         console.log(
             'Reordered rows by Data Capture Table order.',
@@ -17972,6 +18097,9 @@ function reorderSummaryRowsByRowIndex() {
 
         if (typeof updateProcessedAmountTotal === 'function') {
             updateProcessedAmountTotal();
+        }
+        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+            window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
@@ -19429,22 +19557,18 @@ function showEmptyState() {
     }
 }
 
-// Update delete button state (count only deletable targets so label matches Delete action)
+// Update delete button state
 function updateDeleteButton() {
     const selectedCheckboxes = document.querySelectorAll('.summary-row-checkbox:checked');
-    let validCount = selectedCheckboxes.length;
-    if (typeof collectValidDeleteRowTargets === 'function') {
-        validCount = collectValidDeleteRowTargets().length;
-    }
+    const count = selectedCheckboxes.length;
     if (typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function') {
-        window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__(validCount);
-        return;
+        window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__(count);
     }
     const deleteBtn = document.getElementById('summaryDeleteSelectedBtn');
     if (!deleteBtn) return;
 
-    if (validCount > 0) {
-        deleteBtn.textContent = `Delete (${validCount})`;
+    if (count > 0) {
+        deleteBtn.textContent = `Delete (${count})`;
         deleteBtn.disabled = false;
     } else {
         deleteBtn.textContent = 'Delete';
@@ -19454,176 +19578,50 @@ function updateDeleteButton() {
 
 // Delete selected rows
 function clearSummaryFormulaCellDom(cell) {
-    if (typeof window.__SUMMARY_CLEAR_FORMULA_CELL__ === 'function') {
-        window.__SUMMARY_CLEAR_FORMULA_CELL__(cell);
-        return;
-    }
     if (!cell) return;
     if (window.__SUMMARY_REACT_TABLE__) {
-        cell.textContent = '';
+        while (cell.firstChild) {
+            cell.removeChild(cell.firstChild);
+        }
         return;
     }
     cell.innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
 }
 
-/** React SPA: never replace formula td with innerHTML (causes removeChild crash on re-render). */
-function setSummaryFormulaCellDisplay(cell, row, displayText, inputMethodTooltip) {
-    if (typeof window.__SUMMARY_SET_FORMULA_CELL__ === 'function' && window.__SUMMARY_REACT_TABLE__) {
-        window.__SUMMARY_SET_FORMULA_CELL__(cell, row, displayText, inputMethodTooltip);
-        return;
-    }
-    if (!cell) return;
-    const text = displayText != null ? String(displayText) : '';
-    if (window.__SUMMARY_REACT_TABLE__) {
-        cell.textContent = text;
-        if (row) {
-            if (text) {
-                row.setAttribute('data-formula-display', text);
-                row.setAttribute('data-formula-raw', text);
-            } else {
-                row.removeAttribute('data-formula-display');
-                row.removeAttribute('data-formula-raw');
-            }
-        }
-        return;
-    }
-    const tooltip = inputMethodTooltip
-        ? ` title="${String(inputMethodTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`
-        : '';
-    cell.innerHTML = `
-        <div class="formula-cell-content"${tooltip}>
-            <span class="formula-text editable-cell"${tooltip}>${text}</span>
-            ${getFormulaEditButtonHtml(text)}
-        </div>
-    `;
-    if (row && typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
-}
-
-/**
- * Apply Rate checkbox + Rate Value from template/restore data without breaking React-owned cells.
- */
-function applySummaryRateColumnsFromData(row, cells, data) {
-    if (!cells[6]) return;
-
-    const rateInput = document.getElementById('rateInput');
-    const hasRateValue = data.rate !== null && data.rate !== undefined && data.rate !== '';
-    const rateValue = hasRateValue ? data.rate : (rateInput ? rateInput.value : '');
-    const rateValueCell = cells[7];
-
-    function bindRateCheckboxChange(rateCheckbox) {
-        if (!rateCheckbox || rateCheckbox.dataset.summaryRateBound === '1') return;
-        rateCheckbox.dataset.summaryRateBound = '1';
-        rateCheckbox.addEventListener('change', function () {
-            if (typeof handleRateCheckboxChange === 'function') {
-                handleRateCheckboxChange(this);
-            }
-            const rowCells = row.querySelectorAll('td');
-            const rvCell = rowCells[7];
-            if (this.checked && rvCell) {
-                const ri = document.getElementById('rateInput');
-                rvCell.textContent = ri && ri.value.trim() !== '' ? ri.value.trim() : '';
-            } else if (!this.checked && rvCell) {
-                rvCell.textContent = '';
-            }
-            recalculateAndRenderProcessedAmount(row);
-        });
-    }
-
-    if (window.__SUMMARY_REACT_TABLE__) {
-        const rateCheckbox = row.querySelector('.rate-checkbox');
-        if (!rateCheckbox) return;
-        bindRateCheckboxChange(rateCheckbox);
-        const hasRateValueInput = rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '';
-        rateCheckbox.checked = !hasRateValueInput && (hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1);
-        if (hasRateValue && rateInput && !hasRateValueInput) {
-            rateInput.value = data.rate;
-        }
-        if (rateCheckbox.checked && rateValueCell && !hasRateValueInput) {
-            const valueToShow = hasRateValue && data.rate != null && String(data.rate).trim() !== ''
-                ? String(data.rate).trim()
-                : (rateInput && rateInput.value.trim() !== '' ? rateInput.value.trim() : '');
-            if (valueToShow !== '') rateValueCell.textContent = valueToShow;
-        }
-    } else {
-        cells[6].innerHTML = '';
-        cells[6].style.textAlign = 'center';
-        const rateCheckbox = document.createElement('input');
-        rateCheckbox.type = 'checkbox';
-        rateCheckbox.className = 'rate-checkbox';
-        bindRateCheckboxChange(rateCheckbox);
-        const hasRateValueInput = rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '';
-        rateCheckbox.checked = !hasRateValueInput && (hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1);
-        if (hasRateValue && rateInput && !hasRateValueInput) {
-            rateInput.value = data.rate;
-        }
-        if (rateCheckbox.checked && rateValueCell && !hasRateValueInput) {
-            const valueToShow = hasRateValue && data.rate != null && String(data.rate).trim() !== ''
-                ? String(data.rate).trim()
-                : (rateInput && rateInput.value.trim() !== '' ? rateInput.value.trim() : '');
-            if (valueToShow !== '') rateValueCell.textContent = valueToShow;
-        }
-        cells[6].appendChild(rateCheckbox);
-    }
-
-    if (cells[7]) {
-        if (!window.__SUMMARY_REACT_TABLE__) {
-            cells[7].innerHTML = '';
-        }
-        cells[7].style.textAlign = 'center';
-        cells[7].classList.add('editable-cell');
-        cells[7].style.cursor = 'text';
-        let rateValueText = '';
-        if (data.rateValue !== null && data.rateValue !== undefined && data.rateValue !== '') {
-            rateValueText = String(data.rateValue);
-        }
-        if (rateValueText) cells[7].textContent = rateValueText;
-        if (typeof attachRateValueEditListener === 'function') {
-            attachRateValueEditListener(cells[7], row);
-        }
-    }
-}
-
-function collectValidDeleteRowTargets() {
+function deleteSelectedRows() {
     const checkboxes = document.querySelectorAll('.summary-row-checkbox:checked');
-    const rowsToDelete = Array.from(checkboxes).map(function (cb) {
-        return {
-            checkbox: cb,
-            row: cb.closest('tr'),
-            value: cb.getAttribute('data-value')
-        };
-    });
+    const rowsToDelete = Array.from(checkboxes).map(cb => ({
+        checkbox: cb,
+        row: cb.closest('tr'),
+        value: cb.getAttribute('data-value')
+    }));
 
-    return rowsToDelete.filter(function (item) {
+    // Filter out empty sub rows (rows with + button but no data)
+    const validRowsToDelete = rowsToDelete.filter(item => {
         const row = item.row;
-        if (!row) return false;
-
-        const productType = (row.getAttribute('data-product-type') || 'main').trim();
-        const accountCell = row.querySelector('td:nth-child(2)');
+        const addCell = row.querySelector('td:nth-child(3)'); // Add column with + button
+        const hasAddButton = addCell && addCell.querySelector('.add-account-btn');
+        const accountCell = row.querySelector('td:nth-child(2)'); // Account text column
         const accountText = accountCell ? accountCell.textContent.trim() : '';
-        const hasAccount = accountText !== '' && accountText !== '+';
+        const hasData = accountText !== '' && accountText !== '+';
 
-        // Empty placeholder sub rows cannot be deleted
-        if (productType === 'sub' && !hasAccount) {
+        // Don't allow deletion of empty sub rows (has + button but no data)
+        if (hasAddButton && !hasData) {
             return false;
         }
 
-        // Main rows need Id Product (checkbox data-value or first column)
-        const idFromCheckbox = item.value && String(item.value).trim() !== '' ? String(item.value).trim() : '';
-        if (idFromCheckbox) return true;
-        const idCell = row.querySelector('td:first-child');
-        const idText = idCell
-            ? (idCell.getAttribute('data-main-product') || idCell.textContent || '').trim()
-            : '';
-        return idText !== '';
+        return item.value && item.value.trim() !== '';
     });
-}
-window.collectValidDeleteRowTargets = collectValidDeleteRowTargets;
 
-function executeDeleteSelectedRows(validRowsToDelete) {
-    if (!Array.isArray(validRowsToDelete) || validRowsToDelete.length === 0) {
+    if (validRowsToDelete.length === 0) {
+        showNotification('Error', 'Please select valid rows to delete. Empty sub rows cannot be deleted.', 'error');
         return;
     }
-    try {
+
+    showConfirmDelete(
+        `Are you sure you want to delete ${validRowsToDelete.length} selected row(s)? This action cannot be undone.`,
+        function () {
+            try {
             // 先收集 template 信息再删 DOM，否则 row 引用会失效
             const templatesToDelete = [];
             validRowsToDelete.forEach(item => {
@@ -19647,28 +19645,15 @@ function executeDeleteSelectedRows(validRowsToDelete) {
             // 1. 如果是 sub row（追加账号），则直接从 DOM 移除。
             // 2. 如果是 main row，则清空资料字段并保留 row（显示 0.00）。
             const reactKeysToRemove = [];
-            const reactMainKeysToClear = [];
             validRowsToDelete.forEach(item => {
                 const row = item.row;
                 if (!row) return;
                 const productType = (row.getAttribute('data-product-type') || 'main').trim();
-                const reactKey = row.getAttribute('data-react-row-key');
-                if (!reactKey) return;
                 if (productType === 'sub') {
-                    reactKeysToRemove.push(reactKey);
-                } else {
-                    reactMainKeysToClear.push(reactKey);
+                    const reactKey = row.getAttribute('data-react-row-key');
+                    if (reactKey) reactKeysToRemove.push(reactKey);
                 }
             });
-
-            const reactTableModeEarly = !!(window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_MARK_MAIN_ROWS_CLEARED__ === 'function');
-            if (reactTableModeEarly && reactMainKeysToClear.length > 0) {
-                try {
-                    window.__SUMMARY_REACT_MARK_MAIN_ROWS_CLEARED__(reactMainKeysToClear);
-                } catch (clearMainErr) {
-                    console.error('React clear main summary rows failed:', clearMainErr);
-                }
-            }
 
             validRowsToDelete.forEach(item => {
                 const row = item.row;
@@ -19721,9 +19706,6 @@ function executeDeleteSelectedRows(validRowsToDelete) {
                         cells[8].style.color = '#000000';
                     }
 
-                    row.setAttribute('data-row-user-cleared', '1');
-                    row.removeAttribute('data-template-applied');
-
                     // 重置行属性 (Template IDs, Keys, etc.)
                     row.removeAttribute('data-template-id');
                     row.removeAttribute('data-template-key');
@@ -19758,8 +19740,6 @@ function executeDeleteSelectedRows(validRowsToDelete) {
                 rebuildUsedAccountIds();
                 updateDeleteButton();
                 updateProcessedAmountTotal();
-                if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
-                if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
                 showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
             };
 
@@ -19777,8 +19757,7 @@ function executeDeleteSelectedRows(validRowsToDelete) {
                     } catch (reactRemoveErr) {
                         console.error('React remove summary rows failed:', reactRemoveErr);
                     }
-                }
-                if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+                } else if (!reactTableMode && typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
                     try {
                         window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
                     } catch (syncErr) {
@@ -19805,45 +19784,13 @@ function executeDeleteSelectedRows(validRowsToDelete) {
                     showNotification('Warning', 'Row(s) removed from table; some template cleanup failed. You may refresh to sync.', 'warning');
                 });
             }
-    } catch (deleteError) {
-        console.error('executeDeleteSelectedRows failed:', deleteError);
-        showNotification('Error', 'Failed to delete rows. Please refresh the page and try again.', 'error');
-    }
+            } catch (deleteError) {
+                console.error('deleteSelectedRows failed:', deleteError);
+                showNotification('Error', 'Failed to delete rows. Please refresh the page and try again.', 'error');
+            }
+        }
+    );
 }
-window.executeDeleteSelectedRows = executeDeleteSelectedRows;
-
-function deleteSelectedRows() {
-    if (
-        typeof window.__SUMMARY_REACT_DELETE_SELECTED__ === 'function' &&
-        !window.__SUMMARY_DELETE_DIRECT_LEGACY__
-    ) {
-        window.__SUMMARY_REACT_DELETE_SELECTED__();
-        return;
-    }
-
-    const validRowsToDelete = collectValidDeleteRowTargets();
-
-    if (validRowsToDelete.length === 0) {
-        showNotification('Error', 'Please select valid rows to delete. Empty sub rows cannot be deleted.', 'error');
-        return;
-    }
-
-    const confirmMessage = 'Are you sure you want to delete ' + validRowsToDelete.length +
-        ' selected row(s)? This action cannot be undone.';
-
-    showConfirmDelete(confirmMessage, function () {
-        executeDeleteSelectedRows(validRowsToDelete);
-    });
-}
-
-/** Expose delete API as soon as functions exist (init is registered at ~L239; do not wait for EOF). */
-function registerSummaryDeleteWindowApi() {
-    window.collectValidDeleteRowTargets = collectValidDeleteRowTargets;
-    window.executeDeleteSelectedRows = executeDeleteSelectedRows;
-    window.deleteSelectedRows = deleteSelectedRows;
-    window.updateDeleteButton = updateDeleteButton;
-}
-registerSummaryDeleteWindowApi();
 
 // Confirm delete modal functions
 let deleteCallback = null;
@@ -19855,18 +19802,12 @@ function showConfirmDelete(message, callback) {
     }
     const modal = document.getElementById('confirmDeleteModal');
     const messageEl = document.getElementById('confirmDeleteMessage');
-    if (modal && messageEl) {
-        messageEl.textContent = message;
-        deleteCallback = callback;
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        return;
-    }
-    if (window.confirm(message)) {
-        if (typeof callback === 'function') {
-            callback();
-        }
-    }
+
+    messageEl.textContent = message;
+    deleteCallback = callback;
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 }
 
 function closeConfirmDeleteModal() {
@@ -19875,9 +19816,7 @@ function closeConfirmDeleteModal() {
         return;
     }
     const modal = document.getElementById('confirmDeleteModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
+    modal.style.display = 'none';
     document.body.style.overflow = '';
     deleteCallback = null;
 }
@@ -21194,15 +21133,6 @@ document.addEventListener('keydown', function (event) {
 });
 
 window.initDataCaptureSummaryPage = initDataCaptureSummaryPage;
-window.collectValidDeleteRowTargets = collectValidDeleteRowTargets;
-window.executeDeleteSelectedRows = executeDeleteSelectedRows;
-window.deleteSelectedRows = deleteSelectedRows;
-window.confirmDelete = confirmDelete;
-window.closeConfirmDeleteModal = closeConfirmDeleteModal;
-window.updateDeleteButton = updateDeleteButton;
-window.submitRateValues = submitRateValues;
-window.toggleAllRate = toggleAllRate;
-window.submitSummaryData = submitSummaryData;
 if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => initDataCaptureSummaryPage());

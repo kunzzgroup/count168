@@ -4,17 +4,17 @@ import {
   buildSummaryRestoreCapturePath,
   buildSummarySubmittedCapturePath,
   clearSummarySessionAfterSubmit,
+  runLegacyDeleteSelectedRows,
   runLegacyRateBatchSubmit,
   runLegacyRateSelectAll,
   saveSummaryRefreshState,
 } from "../summaryPageActions.js";
 import { useSummarySubmit } from "./useSummarySubmit.js";
-import { requestSummaryDeleteConfirmation } from "../summaryDeleteFlow.js";
 
 /**
  * Phase 4/7: React owns page chrome actions; Submit orchestration in useSummarySubmit.
  */
-export function useSummaryPageActions({ companyId, scriptsReady, showConfirmDelete, showNotification }) {
+export function useSummaryPageActions({ companyId, scriptsReady }) {
   const navigate = useNavigate();
   const rateSelectAllRef = useRef(null);
   const handleRefreshRef = useRef(async () => {});
@@ -104,23 +104,8 @@ export function useSummaryPageActions({ companyId, scriptsReady, showConfirmDele
   }, []);
 
   const handleDeleteSelected = useCallback(() => {
-    requestSummaryDeleteConfirmation({ showConfirmDelete, showNotification });
-  }, [showConfirmDelete, showNotification]);
-
-  const handleDeleteSelectedRef = useRef(handleDeleteSelected);
-  handleDeleteSelectedRef.current = handleDeleteSelected;
-
-  useLayoutEffect(() => {
-    if (!scriptsReady) return undefined;
-
-    window.__SUMMARY_REACT_DELETE_SELECTED__ = () => {
-      handleDeleteSelectedRef.current();
-    };
-
-    return () => {
-      delete window.__SUMMARY_REACT_DELETE_SELECTED__;
-    };
-  }, [scriptsReady]);
+    runLegacyDeleteSelectedRows();
+  }, []);
 
   const handleSubmitSummary = useCallback(() => {
     submitSummary();

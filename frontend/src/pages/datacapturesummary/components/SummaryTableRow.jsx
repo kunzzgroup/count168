@@ -8,25 +8,19 @@ function SummaryTableRowInner({
   productType = "main",
   parentIdProduct = null,
   parentRowIndex = null,
-  userCleared = false,
 }) {
   const rowRef = useRef(null);
 
   useLayoutEffect(() => {
     const el = rowRef.current;
-    if (!el || !rowKey) return;
-    el.setAttribute("data-react-row-key", rowKey);
-    if (userCleared) {
-      el.setAttribute("data-row-user-cleared", "1");
-    } else {
-      el.removeAttribute("data-row-user-cleared");
+    if (el && rowKey) {
+      el.setAttribute("data-react-row-key", rowKey);
     }
-  }, [rowKey, userCleared]);
+  }, [rowKey]);
 
   useEffect(() => {
-    if (userCleared) return;
     bindSummaryRowLegacyHandlers(rowRef.current, idProduct);
-  }, [idProduct, rowKey, userCleared]);
+  }, [idProduct, rowKey]);
 
   if (!idProduct?.trim()) return null;
 
@@ -75,7 +69,6 @@ function SummaryTableRowInner({
           data-value={idProduct}
           disabled={isSub}
           title={isSub ? "Empty sub rows cannot be deleted" : undefined}
-          onChange={() => window.updateDeleteButton?.()}
         />
       </td>
     </tr>
@@ -90,8 +83,7 @@ const SummaryTableRow = memo(
     prev.rowIndex === next.rowIndex &&
     prev.productType === next.productType &&
     prev.parentIdProduct === next.parentIdProduct &&
-    prev.parentRowIndex === next.parentRowIndex &&
-    prev.userCleared === next.userCleared
+    prev.parentRowIndex === next.parentRowIndex
 );
 
 export default SummaryTableRow;

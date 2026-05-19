@@ -115,11 +115,7 @@ export function useSummaryOverlays() {
     return () => {
       delete window.__SUMMARY_REACT_SHOW_NOTIFICATION__;
       delete window.__SUMMARY_REACT_HIDE_NOTIFICATION__;
-      window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ = (message, callback) => {
-        if (window.confirm(message)) {
-          callback?.();
-        }
-      };
+      delete window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__;
       delete window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__;
       delete window.__SUMMARY_REACT_CONFIRM_DELETE__;
     };
@@ -139,8 +135,6 @@ export function useSummaryOverlays() {
     notificationShown,
     confirmOpen,
     confirmMessage,
-    showNotification,
-    showConfirmDelete,
     hideNotification,
     closeConfirmDelete,
     confirmDelete,

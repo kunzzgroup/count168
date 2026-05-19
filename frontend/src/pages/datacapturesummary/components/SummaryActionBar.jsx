@@ -42,11 +42,11 @@ export default function SummaryActionBar({
       <div style={{ flex: 1 }} />
       <button
         type="button"
-        className={`summary-btn summary-btn-delete${deleteDisabled ? " summary-btn-delete--inactive" : ""}`}
+        className="summary-btn summary-btn-delete"
         id="summaryDeleteSelectedBtn"
         onClick={onDeleteSelected}
         title="Delete selected rows"
-        aria-disabled={deleteDisabled}
+        disabled={deleteDisabled}
       >
         {deleteLabel}
       </button>

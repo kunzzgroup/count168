@@ -33,9 +33,7 @@ async function executeSummaryPopulate({ tableData, syncFromDom }) {
     const { idProducts } = buildColumnAEntries(tableData);
     window.rebuildUsedAccountIds?.();
     await runSummaryTablePostPopulate(idProducts);
-    if (!window.__SUMMARY_REACT_TABLE__) {
-      syncFromDom?.();
-    }
+    syncFromDom?.();
     window.updateHeaderCurrencyFromSummaryTable?.();
     return !summaryTableNeedsTemplatePopulate();
   } finally {

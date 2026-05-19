@@ -703,23 +703,13 @@ export function saveFormula() {
     // Rebuild used accounts after updates
     rebuildUsedAccountIds();
 
-    // Persist row/account mapping before dedupe so template populate cannot win the race
-    saveFormulaSourceForRefresh({ includeRateValue: false });
-
-    const scheduleDedupeWhilePopulateIdle = function (keepRow, attempt) {
-        if (!keepRow || typeof dedupeSummaryAccountsAfterSave !== 'function') return;
-        dedupeSummaryAccountsAfterSave(keepRow);
-        if (window.__SUMMARY_POPULATE_IN_FLIGHT__ && attempt < 40) {
-            window.setTimeout(function () {
-                scheduleDedupeWhilePopulateIdle(keepRow, attempt + 1);
-            }, 200);
-        }
-    };
-
     // Prevent duplicate main rows with the same account (e.g. template race or misplaced sub insert)
     if (descriptionTargetRow) {
-        descriptionTargetRow.setAttribute('data-preferred-account-save', '1');
-        scheduleDedupeWhilePopulateIdle(descriptionTargetRow, 0);
+        dedupeSummaryAccountsAfterSave(descriptionTargetRow);
+        const keepRowForDedupe = descriptionTargetRow;
+        window.setTimeout(() => {
+            dedupeSummaryAccountsAfterSave(keepRowForDedupe);
+        }, 400);
     }
 
     // Auto-save template after saving formula
@@ -806,9 +796,6 @@ export function saveFormula() {
                     console.log('Updated data-template-key on row:', result.template_key);
                 }
             }
-            if (targetRow && typeof dedupeSummaryAccountsAfterSave === 'function') {
-                dedupeSummaryAccountsAfterSave(targetRow);
-            }
         }).catch(error => {
             console.error('Failed to auto-save template:', error);
             // Don't show error notification to avoid interrupting user workflow
@@ -828,6 +815,8 @@ export function saveFormula() {
 
     const actionText = wasEditMode ? 'updated' : 'saved';
     showNotification('Success', `Formula ${actionText} successfully! Processed Amount: ${formatNumberWithThousands(processedAmount)}`, 'success');
+    // 除 Rate 外：Formula/Source/排列 设置好即马上保存（Rate 仅随 Rate 的 Submit 持久化）
+    saveFormulaSourceForRefresh({ includeRateValue: false });
 }
 
 export function registerSummarySaveFormula() {

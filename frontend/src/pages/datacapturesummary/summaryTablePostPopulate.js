@@ -1,6 +1,5 @@
 import { pushSummaryNotification } from "./summaryNotify.js";
 import { stripSummarySuccessParamFromUrl } from "./summaryStorage.js";
-import { clearSummaryFormulaCell } from "./summaryTableDomBridge.js";
 
 const PREPOPULATE_READY_TIMEOUT_MS = 8000;
 const PREPOPULATE_POLL_MS = 40;
@@ -104,11 +103,23 @@ function clearSummaryRowAccountAssignment(row) {
   row.removeAttribute("data-account-order");
 }
 
+function clearSummaryFormulaCellDom(cell) {
+  if (!cell) return;
+  if (window.__SUMMARY_REACT_TABLE__) {
+    while (cell.firstChild) {
+      cell.removeChild(cell.firstChild);
+    }
+    return;
+  }
+  cell.innerHTML =
+    '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+}
+
 function clearSummaryRowAccountAndFormula(row) {
   clearSummaryRowAccountAssignment(row);
   const cells = row.querySelectorAll("td");
   if (cells[4]) {
-    clearSummaryFormulaCell(cells[4]);
+    clearSummaryFormulaCellDom(cells[4]);
   }
   if (cells[5]) cells[5].textContent = "";
   if (cells[8]) cells[8].textContent = "0.00";
@@ -219,8 +230,6 @@ function removeDuplicateSubRowsForMainAccount(keepRow, accountId) {
 export function dedupeSummaryAccountsAfterSave(keepRow) {
   if (!keepRow) return;
 
-  keepRow.setAttribute("data-preferred-account-save", "1");
-
   const keepAccountCell = keepRow.querySelector("td:nth-child(2)");
   const keepAccountId = keepAccountCell?.getAttribute("data-account-id")?.trim();
   if (!keepAccountId) return;
@@ -291,11 +300,9 @@ export function dedupeAllSummaryDuplicateAccounts(savedSnapshot = null) {
     if (rows.length <= 1) return;
     const accountId = rows[0].querySelector("td:nth-child(2)")?.getAttribute("data-account-id")?.trim();
     const preferredRowIndex = accountId ? preferred.get(accountId) : null;
-    let keepRow =
-      rows.find((row) => row.getAttribute("data-preferred-account-save") === "1") ||
-      rows.find(
-        (row) => String(row.getAttribute("data-row-index") || "") === String(preferredRowIndex || "")
-      );
+    let keepRow = rows.find(
+      (row) => String(row.getAttribute("data-row-index") || "") === String(preferredRowIndex || "")
+    );
     if (!keepRow) keepRow = rows[0];
     rows.forEach((row) => {
       if (row === keepRow) return;
@@ -335,11 +342,9 @@ export function dedupeSummaryAccountsAfterRestore(saved) {
     if (rows.length <= 1) return;
     const accountId = rows[0].querySelector("td:nth-child(2)")?.getAttribute("data-account-id")?.trim();
     const preferredRowIndex = accountId ? preferred.get(accountId) : null;
-    let keepRow =
-      rows.find((row) => row.getAttribute("data-preferred-account-save") === "1") ||
-      rows.find(
-        (row) => String(row.getAttribute("data-row-index") || "") === String(preferredRowIndex || "")
-      );
+    let keepRow = rows.find(
+      (row) => String(row.getAttribute("data-row-index") || "") === String(preferredRowIndex || "")
+    );
     if (!keepRow) keepRow = rows[rows.length - 1];
     rows.forEach((row) => {
       if (row === keepRow) return;
@@ -442,10 +447,12 @@ function runSummaryTablePostPopulateFinally() {
       const summaryTableBody = document.getElementById("summaryTableBody");
       if (summaryTableBody) {
         summaryTableBody.querySelectorAll("tr").forEach((row) => {
-          if (row.getAttribute("data-row-user-cleared") === "1") return;
           const cells = row.querySelectorAll("td");
           if (cells[4]) {
-            clearSummaryFormulaCell(cells[4]);
+            cells[4].innerHTML =
+              '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+            const span = cells[4].querySelector(".formula-text");
+            if (span) span.textContent = "";
           }
           if (cells[5]) cells[5].textContent = "";
           row.removeAttribute("data-formula-operators");

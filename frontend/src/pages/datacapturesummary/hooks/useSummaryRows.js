@@ -37,7 +37,14 @@ export function useSummaryRows(tableData, enabled) {
   }, []);
 
   const syncFromDom = useCallback(() => {
-    setRows((prev) => applyRowsFromDom(prev));
+    try {
+      flushSync(() => {
+        setRows((prev) => applyRowsFromDom(prev));
+      });
+    } catch (err) {
+      console.warn("syncFromDom flushSync failed, falling back to async update:", err);
+      setRows((prev) => applyRowsFromDom(prev));
+    }
   }, [applyRowsFromDom]);
 
   const removeRowsByKeys = useCallback((keys) => {
@@ -45,44 +52,6 @@ export function useSummaryRows(tableData, enabled) {
     const keySet = new Set(keys.filter(Boolean));
     if (keySet.size === 0) return;
     setRows((prev) => prev.filter((row) => !keySet.has(row.key)));
-  }, []);
-
-  const markMainRowsClearedByKeys = useCallback((keys) => {
-    if (!Array.isArray(keys) || keys.length === 0) return;
-    const keySet = new Set(keys.filter(Boolean));
-    if (keySet.size === 0) return;
-    flushSync(() => {
-      setRows((prev) =>
-        prev.map((row) =>
-          keySet.has(row.key) && row.productType === "main" ? { ...row, userCleared: true } : row
-        )
-      );
-    });
-  }, []);
-
-  /** Reorder React row model to match legacy-computed DOM order (no tbody.appendChild). */
-  const setRowOrderByKeys = useCallback((orderedKeys) => {
-    if (!Array.isArray(orderedKeys) || orderedKeys.length === 0) return;
-    setRows((prev) => {
-      const byKey = new Map(prev.map((r) => [r.key, r]));
-      const seen = new Set();
-      const next = [];
-      orderedKeys.forEach((key) => {
-        if (!key || seen.has(key)) return;
-        const row = byKey.get(key);
-        if (row) {
-          next.push(row);
-          seen.add(key);
-        }
-      });
-      prev.forEach((row) => {
-        if (!seen.has(row.key)) {
-          next.push(row);
-          seen.add(row.key);
-        }
-      });
-      return next.length ? next : prev;
-    });
   }, []);
 
   const resetToInitialRows = useCallback(() => {
@@ -118,32 +87,19 @@ export function useSummaryRows(tableData, enabled) {
       unsetWindowProperty("__SUMMARY_REACT_ADD_SUB_ROW__");
       unsetWindowProperty("__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__");
       unsetWindowProperty("__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__");
-      unsetWindowProperty("__SUMMARY_REACT_MARK_MAIN_ROWS_CLEARED__");
-      unsetWindowProperty("__SUMMARY_REACT_SET_ROW_ORDER__");
       return undefined;
     }
 
     window.__SUMMARY_REACT_ADD_SUB_ROW__ = addSubRow;
     window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ = syncFromDom;
     window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ = removeRowsByKeys;
-    window.__SUMMARY_REACT_MARK_MAIN_ROWS_CLEARED__ = markMainRowsClearedByKeys;
-    window.__SUMMARY_REACT_SET_ROW_ORDER__ = setRowOrderByKeys;
 
     return () => {
       unsetWindowProperty("__SUMMARY_REACT_ADD_SUB_ROW__", addSubRow);
       unsetWindowProperty("__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__", syncFromDom);
       unsetWindowProperty("__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__", removeRowsByKeys);
-      unsetWindowProperty("__SUMMARY_REACT_MARK_MAIN_ROWS_CLEARED__", markMainRowsClearedByKeys);
-      unsetWindowProperty("__SUMMARY_REACT_SET_ROW_ORDER__", setRowOrderByKeys);
     };
-  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys, markMainRowsClearedByKeys, setRowOrderByKeys]);
+  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys]);
 
-  return {
-    rows,
-    syncFromDom,
-    resetToInitialRows,
-    removeRowsByKeys,
-    markMainRowsClearedByKeys,
-    setRowOrderByKeys,
-  };
+  return { rows, syncFromDom, resetToInitialRows, removeRowsByKeys };
 }

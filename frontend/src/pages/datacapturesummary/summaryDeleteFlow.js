@@ -57,22 +57,40 @@ function collectValidDeleteRowTargetsFromDom() {
     });
 }
 
+function runDeleteAfterConfirm(valid, showNotification) {
+  const execute = window.executeDeleteSelectedRows;
+  if (typeof execute === "function") {
+    execute(valid);
+    return true;
+  }
+
+  if (typeof window.deleteSelectedRows === "function") {
+    window.__SUMMARY_DELETE_VALID_ROWS__ = valid;
+    window.__SUMMARY_DELETE_ALREADY_CONFIRMED__ = true;
+    window.__SUMMARY_DELETE_DIRECT_LEGACY__ = true;
+    try {
+      window.deleteSelectedRows();
+    } finally {
+      delete window.__SUMMARY_DELETE_VALID_ROWS__;
+      delete window.__SUMMARY_DELETE_ALREADY_CONFIRMED__;
+      delete window.__SUMMARY_DELETE_DIRECT_LEGACY__;
+    }
+    return true;
+  }
+
+  notifyError(
+    "Error",
+    "Delete is not ready yet. Please wait for the page to finish loading.",
+    showNotification
+  );
+  return false;
+}
+
 export function requestSummaryDeleteConfirmation({ showConfirmDelete, showNotification }) {
   const collect =
     typeof window.collectValidDeleteRowTargets === "function"
       ? window.collectValidDeleteRowTargets
       : collectValidDeleteRowTargetsFromDom;
-
-  const execute = window.executeDeleteSelectedRows;
-
-  if (typeof execute !== "function") {
-    notifyError(
-      "Error",
-      "Delete is not ready yet. Please wait for the page to finish loading.",
-      showNotification
-    );
-    return;
-  }
 
   const valid = collect();
   if (!valid.length) {
@@ -86,5 +104,9 @@ export function requestSummaryDeleteConfirmation({ showConfirmDelete, showNotifi
 
   const message = `Are you sure you want to delete ${valid.length} selected row(s)? This action cannot be undone.`;
 
-  openConfirmDelete(message, () => execute(valid), showConfirmDelete);
+  openConfirmDelete(
+    message,
+    () => runDeleteAfterConfirm(valid, showNotification),
+    showConfirmDelete
+  );
 }

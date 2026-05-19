@@ -45,11 +45,7 @@ export function runLegacyRateSelectAll(buttonEl) {
 }
 
 export function runLegacyDeleteSelectedRows() {
-  if (typeof window.deleteSelectedRows === "function") {
-    window.deleteSelectedRows();
-    return;
-  }
-  console.error("deleteSelectedRows is not available — summary scripts may still be loading.");
+  window.deleteSelectedRows?.();
 }
 
 export function runLegacySubmitSummary() {

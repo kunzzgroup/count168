@@ -37,9 +37,7 @@ function areSummaryLegacyScriptsLoaded() {
   return (
     typeof window.Decimal !== "undefined" &&
     typeof window.MoneyDecimal !== "undefined" &&
-    typeof window.initDataCaptureSummaryPage === "function" &&
-    typeof window.collectValidDeleteRowTargets === "function" &&
-    typeof window.executeDeleteSelectedRows === "function"
+    typeof window.initDataCaptureSummaryPage === "function"
   );
 }
 
@@ -122,10 +120,6 @@ class SummaryPageErrorBoundary extends Component {
     return { error };
   }
 
-  componentDidCatch(error, info) {
-    console.error("DataCaptureSummaryPage render error:", error, info);
-  }
-
   render() {
     if (this.state.error) {
       return (
@@ -187,16 +181,11 @@ function DataCaptureSummaryPageInner() {
     }
   }, [capture.hasCaptureData, scriptsReady]);
 
-  const overlays = useSummaryOverlays();
-  const pageActions = useSummaryPageActions({
-    companyId,
-    scriptsReady,
-    showConfirmDelete: overlays.showConfirmDelete,
-    showNotification: overlays.showNotification,
-  });
+  const pageActions = useSummaryPageActions({ companyId, scriptsReady });
   const editFormula = useSummaryEditFormula({ scriptsReady });
   const addAccount = useSummaryAddAccount({ scriptsReady });
   useSummaryFormulaEngine();
+  const overlays = useSummaryOverlays();
   useSummaryLegacyChrome(scriptsReady);
 
   const showEmptyState =
@@ -252,13 +241,7 @@ function DataCaptureSummaryPageInner() {
         await Promise.all([
           loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined"),
           loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined"),
-          loadScriptOnce(
-            buildApiUrl("js/datacapturesummary.js"),
-            () =>
-              typeof window.initDataCaptureSummaryPage === "function" &&
-              typeof window.collectValidDeleteRowTargets === "function" &&
-              typeof window.executeDeleteSelectedRows === "function"
-          ),
+          loadScriptOnce(buildApiUrl("js/datacapturesummary.js"), () => typeof window.initDataCaptureSummaryPage === "function"),
         ]);
         if (alive) setScriptsReady(true);
       } catch (e) {
