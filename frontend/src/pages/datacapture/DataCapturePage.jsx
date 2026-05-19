@@ -1,6 +1,7 @@
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildApiUrl } from "../../utils/apiUrl.js";
+import { DATA_CAPTURE_LEGACY_SCRIPT_PATH } from "./dataCaptureLegacyScriptUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import {
@@ -27,6 +28,7 @@ import ProcessNotificationContainer from "./ProcessNotificationContainer.jsx";
 import { useDataCaptureCategoryPermissions } from "./useDataCaptureCategoryPermissions.js";
 import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
 import { useDataCaptureGrid } from "./useDataCaptureGrid.js";
+import { useDataCaptureGridChrome } from "./useDataCaptureGridChrome.js";
 import { useDataCapturePaste } from "./useDataCapturePaste.js";
 import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
 import { useDataCaptureFormatPaste } from "./useDataCaptureFormatPaste.js";
@@ -173,6 +175,7 @@ export default function DataCapturePage() {
   const submitReset = useDataCaptureSubmitReset({ companyId, form, captureType });
 
   useDataCaptureGrid(scriptsReady);
+  useDataCaptureGridChrome(scriptsReady);
   useDataCapturePaste();
   useDataCaptureFormatPaste();
 
@@ -365,7 +368,7 @@ export default function DataCapturePage() {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
         await loadScriptOnce(
-          buildApiUrl("js/datacapture.js?v=20260519-spa21"),
+          buildApiUrl(DATA_CAPTURE_LEGACY_SCRIPT_PATH),
           () => typeof window.initDataCapturePage === "function"
         );
         if (!alive) return;

@@ -11,6 +11,7 @@ import { captureTableDataFromDom } from "./dataCaptureTableSnapshot.js";
 import { isSubmitReady, validateDataCaptureForm } from "./dataCaptureValidation.js";
 import { fetchProcessDetail } from "./dataCaptureApi.js";
 import { getActiveDescriptions } from "./dataCaptureFormHelpers.js";
+import { convertTableFormatOnSubmit } from "./dataCaptureConvertTableOnSubmit.js";
 
 function buildProcessCapturePayload(form, captureType, currencies) {
   const currencyOpt = (currencies || []).find((c) => String(c.id) === String(form.currencyId));
@@ -32,11 +33,13 @@ function buildProcessCapturePayload(form, captureType, currencies) {
 
 /**
  * Phase 1 migration: Submit, Reset, and Restore orchestration in React.
- * Table DOM mutations still delegate to legacy helpers until phase 3.
+ * Submit-time table transform lives in dataCaptureConvertTableOnSubmit.js (Phase 5b).
  */
 export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreStartedRef = useRef(false);
+  const captureTypeRef = useRef(captureType);
+  captureTypeRef.current = captureType;
 
   const recomputeSubmitState = useCallback(() => {
     const tableData = captureTableDataFromDom(captureType);
@@ -105,9 +108,7 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
       return;
     }
 
-    if (typeof window.__DC_CONVERT_TABLE_ON_SUBMIT__ === "function") {
-      window.__DC_CONVERT_TABLE_ON_SUBMIT__();
-    }
+    convertTableFormatOnSubmit(captureType);
 
     try {
       const processData = buildProcessCapturePayload(form, captureType, form.currencies);
@@ -211,6 +212,9 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
   handlersRef.current = { submit, reset, restoreFromStorage, recomputeSubmitState };
 
   useLayoutEffect(() => {
+    const runConvert = () => convertTableFormatOnSubmit(captureTypeRef.current);
+    window.__DC_CONVERT_TABLE_ON_SUBMIT__ = runConvert;
+    window.__DC_CONVERT_TABLE_ON_SUBMIT_REACT__ = runConvert;
     window.__DC_RECOMPUTE_SUBMIT_STATE__ = () => handlersRef.current.recomputeSubmitState();
     window.__DC_SUBMIT__ = () => handlersRef.current.submit();
     window.__DC_RESET__ = () => handlersRef.current.reset();
@@ -219,6 +223,8 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
 
     return () => {
       const recompute = window.__DC_RECOMPUTE_SUBMIT_STATE__;
+      delete window.__DC_CONVERT_TABLE_ON_SUBMIT__;
+      delete window.__DC_CONVERT_TABLE_ON_SUBMIT_REACT__;
       delete window.__DC_RECOMPUTE_SUBMIT_STATE__;
       delete window.__DC_SUBMIT__;
       delete window.__DC_RESET__;

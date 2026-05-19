@@ -1137,7 +1137,17 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa21';
+window.__DC_SCRIPT_VERSION__ = (function () {
+    try {
+        var nodes = document.querySelectorAll('script[src*="datacapture.js"]');
+        for (var i = 0; i < nodes.length; i++) {
+            var src = nodes[i].getAttribute('src') || '';
+            var m = src.match(/[?&]v=([^&]+)/);
+            if (m) return decodeURIComponent(m[1]);
+        }
+    } catch (e) { /* ignore */ }
+    return 'legacy';
+})();
 
 function __dcIsSpaRoutePath() {
     try {
@@ -3510,6 +3520,49 @@ function displaySelectedDescriptions(descriptions) {
     }
 }
 
+/** Shared per-cell listeners for grid cells (used by build + submit-time column expansion). */
+function bindDataCaptureCellEvents(cell) {
+    cell.addEventListener('mousedown', handleCellMouseDown);
+    cell.addEventListener('mouseover', handleCellMouseOver);
+    cell.addEventListener('focus', function () {
+        this.classList.add('selected');
+    });
+    cell.addEventListener('blur', function () {
+        this.classList.remove('selected');
+        if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === '1.Text' || currentDataCaptureType === '2.Format')) {
+            return;
+        }
+        var t = (this.textContent || '').trim();
+        if (t) {
+            var displayed = formatMoneyDisplay(t);
+            if (displayed !== t) this.textContent = displayed;
+        }
+    });
+    cell.addEventListener('keydown', handleCellKeydown);
+    cell.addEventListener('paste', handleCellPaste);
+    cell.addEventListener('click', function (e) {
+        tableActive = true;
+        const isCtrlPressed = e.ctrlKey || e.metaKey;
+        if (isCtrlPressed) return;
+        const hasFocus = document.activeElement === this;
+        if (hasFocus) {
+            moveCaretToClickPosition(this, e);
+        } else if (!this.classList.contains('selected')) {
+            setActiveCellWithoutFocus(this);
+        } else {
+            setActiveCellCore(this);
+            this.focus();
+            setTimeout(() => {
+                moveCaretToClickPosition(this, e);
+            }, 0);
+        }
+    });
+    cell.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        showContextMenu(e, this);
+    });
+}
+
 // Generate column labels (A, B, C, ..., Z, AA, AB, ...)
 function getColumnLabel(index) {
     let result = '';
@@ -3602,62 +3655,8 @@ function buildDataCaptureTable(rows = 26, cols = 20) {
         for (let j = 0; j < cols; j++) {
             const cell = document.createElement('td');
             cell.contentEditable = true;
-            cell.dataset.col = j; // Add column index
-            cell.addEventListener('mousedown', handleCellMouseDown);
-            cell.addEventListener('mouseover', handleCellMouseOver);
-            cell.addEventListener('focus', function () {
-                this.classList.add('selected');
-            });
-            cell.addEventListener('blur', function () {
-                this.classList.remove('selected');
-                // 1.Text 和 2.Format 模式：不自动格式化为金额显示，保持粘贴的 Excel 原始格式（避免 D/E 行等被改成 EXCEL FORMAT）
-                if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === '1.Text' || currentDataCaptureType === '2.Format')) {
-                    return;
-                }
-                var t = (this.textContent || '').trim();
-                if (t) {
-                    var displayed = formatMoneyDisplay(t);
-                    if (displayed !== t) this.textContent = displayed;
-                }
-            });
-            cell.addEventListener('keydown', handleCellKeydown);
-            cell.addEventListener('paste', handleCellPaste);
-            cell.addEventListener('click', function (e) {
-                console.log('Cell clicked:', this);
-                // Activate table when user clicks on it
-                tableActive = true;
-
-                // If Ctrl/Cmd is pressed, don't change focus or clear selections (multi-select mode)
-                const isCtrlPressed = e.ctrlKey || e.metaKey;
-                if (isCtrlPressed) {
-                    // Just ensure the cell is in the selection (already handled in mousedown)
-                    // Don't change focus or clear other selections
-                    return;
-                }
-
-                // Check if cell already has focus (being edited)
-                const hasFocus = document.activeElement === this;
-
-                if (hasFocus) {
-                    // If already in edit state, move cursor to click position
-                    moveCaretToClickPosition(this, e);
-                } else if (!this.classList.contains('selected')) {
-                    // First click: only highlight, do not enter edit
-                    setActiveCellWithoutFocus(this);
-                } else {
-                    // Second click: enter edit mode, cursor at click position
-                    setActiveCellCore(this);
-                    this.focus();
-                    // Use setTimeout to ensure focus is set before moving cursor
-                    setTimeout(() => {
-                        moveCaretToClickPosition(this, e);
-                    }, 0);
-                }
-            });
-            cell.addEventListener('contextmenu', function (e) {
-                e.preventDefault();
-                showContextMenu(e, this);
-            });
+            cell.dataset.col = j;
+            bindDataCaptureCellEvents(cell);
             row.appendChild(cell);
         }
 
@@ -23204,6 +23203,9 @@ function updateSubmitButtonState() {
 
 // 在提交时转换表格格式（处理 SUB TOTAL / GRAND TOTAL 等）
 function convertTableFormatOnSubmit() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_CONVERT_TABLE_ON_SUBMIT_REACT__ === 'function') {
+        return window.__DC_CONVERT_TABLE_ON_SUBMIT_REACT__();
+    }
     // WBET 和 WBET_API 格式：保持原始格式，不执行任何转换（特别是保持 Sub Total 和 Grand Total 分开成两行）
     if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'WBET' || currentDataCaptureType === 'WBET_API')) {
         console.log(`${currentDataCaptureType} format detected: Skipping format conversion to preserve Sub Total and Grand Total as separate rows`);
@@ -23379,33 +23381,7 @@ function convertTableFormatOnSubmit() {
                                 const newCell = document.createElement('td');
                                 newCell.contentEditable = true;
                                 newCell.dataset.col = newColIndex;
-                                // 添加必要的事件监听器
-                                newCell.addEventListener('mousedown', handleCellMouseDown);
-                                newCell.addEventListener('mouseover', handleCellMouseOver);
-                                newCell.addEventListener('focus', function () {
-                                    this.classList.add('selected');
-                                });
-                                newCell.addEventListener('blur', function () {
-                                    this.classList.remove('selected');
-                                });
-                                newCell.addEventListener('keydown', handleCellKeydown);
-                                newCell.addEventListener('paste', handleCellPaste);
-                                newCell.addEventListener('click', function (e) {
-                                    const hasFocus = document.activeElement === this;
-                                    if (hasFocus) {
-                                        moveCaretToClickPosition(this, e);
-                                    } else {
-                                        setActiveCellCore(this);
-                                        this.focus();
-                                        setTimeout(() => {
-                                            moveCaretToClickPosition(this, e);
-                                        }, 0);
-                                    }
-                                });
-                                newCell.addEventListener('contextmenu', function (e) {
-                                    e.preventDefault();
-                                    showContextMenu(e, this);
-                                });
+                                bindDataCaptureCellEvents(newCell);
                                 row.appendChild(newCell);
                             }
                         });
@@ -23431,33 +23407,7 @@ function convertTableFormatOnSubmit() {
                                 const newCell = document.createElement('td');
                                 newCell.contentEditable = true;
                                 newCell.dataset.col = newColIndex;
-                                // 添加必要的事件监听器
-                                newCell.addEventListener('mousedown', handleCellMouseDown);
-                                newCell.addEventListener('mouseover', handleCellMouseOver);
-                                newCell.addEventListener('focus', function () {
-                                    this.classList.add('selected');
-                                });
-                                newCell.addEventListener('blur', function () {
-                                    this.classList.remove('selected');
-                                });
-                                newCell.addEventListener('keydown', handleCellKeydown);
-                                newCell.addEventListener('paste', handleCellPaste);
-                                newCell.addEventListener('click', function (e) {
-                                    const hasFocus = document.activeElement === this;
-                                    if (hasFocus) {
-                                        moveCaretToClickPosition(this, e);
-                                    } else {
-                                        setActiveCellCore(this);
-                                        this.focus();
-                                        setTimeout(() => {
-                                            moveCaretToClickPosition(this, e);
-                                        }, 0);
-                                    }
-                                });
-                                newCell.addEventListener('contextmenu', function (e) {
-                                    e.preventDefault();
-                                    showContextMenu(e, this);
-                                });
+                                bindDataCaptureCellEvents(newCell);
                                 grandTotalRow.appendChild(newCell);
                             }
 
@@ -23504,33 +23454,7 @@ function convertTableFormatOnSubmit() {
                             const newCell = document.createElement('td');
                             newCell.contentEditable = true;
                             newCell.dataset.col = newColIndex;
-                            // 添加必要的事件监听器
-                            newCell.addEventListener('mousedown', handleCellMouseDown);
-                            newCell.addEventListener('mouseover', handleCellMouseOver);
-                            newCell.addEventListener('focus', function () {
-                                this.classList.add('selected');
-                            });
-                            newCell.addEventListener('blur', function () {
-                                this.classList.remove('selected');
-                            });
-                            newCell.addEventListener('keydown', handleCellKeydown);
-                            newCell.addEventListener('paste', handleCellPaste);
-                            newCell.addEventListener('click', function (e) {
-                                const hasFocus = document.activeElement === this;
-                                if (hasFocus) {
-                                    moveCaretToClickPosition(this, e);
-                                } else {
-                                    setActiveCellCore(this);
-                                    this.focus();
-                                    setTimeout(() => {
-                                        moveCaretToClickPosition(this, e);
-                                    }, 0);
-                                }
-                            });
-                            newCell.addEventListener('contextmenu', function (e) {
-                                e.preventDefault();
-                                showContextMenu(e, this);
-                            });
+                            bindDataCaptureCellEvents(newCell);
                             newRow.appendChild(newCell);
                         }
 
@@ -24994,7 +24918,7 @@ async function initDataCapturePage() {
     dcFormGate.dataset.dcPageInit = '1';
 
     const addDescriptionFormEl = document.getElementById('addDescriptionForm');
-    if (addDescriptionFormEl && !addDescriptionFormEl.dataset.dcSubmitBound) {
+    if (!window.__DATA_CAPTURE_REACT_FORM__ && addDescriptionFormEl && !addDescriptionFormEl.dataset.dcSubmitBound) {
         addDescriptionFormEl.dataset.dcSubmitBound = '1';
         addDescriptionFormEl.addEventListener('submit', async function (e) {
             e.preventDefault();
@@ -25059,17 +24983,21 @@ async function initDataCapturePage() {
     // 加载权限按钮
     await loadPermissionButtons();
     // Mark page as ready after a brief delay to ensure CSS is loaded
-    setTimeout(() => {
-        document.body.classList.add('page-ready');
-    }, 50);
+    if (!__dcIsDataCaptureSpa()) {
+        setTimeout(() => {
+            document.body.classList.add('page-ready');
+        }, 50);
+    }
 
     // 初始化 Data Capture Type（選單可隱藏，仍以 DOM 保留 option 供還原與除錯）
     const typeSelect = document.getElementById('dataCaptureTypeSelector');
-    const excelTableContainer = document.querySelector('.excel-table-container');
-    if (excelTableContainer) {
-        excelTableContainer.addEventListener('scroll', updateActiveContextMenuPosition, { passive: true });
+    if (!__dcIsDataCaptureSpa()) {
+        const excelTableContainer = document.querySelector('.excel-table-container');
+        if (excelTableContainer) {
+            excelTableContainer.addEventListener('scroll', updateActiveContextMenuPosition, { passive: true });
+        }
+        window.addEventListener('resize', updateActiveContextMenuPosition);
     }
-    window.addEventListener('resize', updateActiveContextMenuPosition);
 
     const urlParamsForCaptureType = new URLSearchParams(window.location.search);
     const shouldRestore = urlParamsForCaptureType.get('restore') === '1';
@@ -25117,7 +25045,9 @@ async function initDataCapturePage() {
     }
 
     // Test table functionality after a short delay
-    setTimeout(testTableFunctionality, 100);
+    if (!__dcIsDataCaptureSpa()) {
+        setTimeout(testTableFunctionality, 100);
+    }
 
     // Add event listeners for form validation
     setupFormValidationListeners();
@@ -25300,7 +25230,7 @@ function setupFormValidationListeners() {
 
     // Listen for table cell changes
     const tableBody = document.getElementById('tableBody');
-    if (tableBody) {
+    if (tableBody && !__dcIsDataCaptureSpa()) {
         // Listen for input changes
         tableBody.addEventListener('input', function (e) {
             if (e.target.contentEditable === 'true') {
@@ -25369,7 +25299,26 @@ window.applyDataCaptureType = applyDataCaptureType;
 window.confirmDelete = confirmDelete;
 window.closeDeleteDialog = closeDeleteDialog;
 window.resetForm = resetForm;
+window.copySelectedCells = copySelectedCells;
+window.pasteToSelectedCells = pasteToSelectedCells;
+window.clearSelectedCells = clearSelectedCells;
+window.showDeleteDialog = showDeleteDialog;
+window.selectAllCells = selectAllCells;
+window.insertColumnLeft = insertColumnLeft;
+window.insertColumnRight = insertColumnRight;
+window.deleteColumn = deleteColumn;
+window.clearColumn = clearColumn;
+window.insertRowAbove = insertRowAbove;
+window.insertRowBelow = insertRowBelow;
+window.deleteRow = deleteRow;
+window.clearRow = clearRow;
+window.updateActiveContextMenuPosition = updateActiveContextMenuPosition;
 window.__DC_LEGACY_BUILD_TABLE__ = buildDataCaptureTable;
+window.__DC_LEGACY_BIND_CELL__ = bindDataCaptureCellEvents;
+window.__DC_SELECT_COLUMN__ = selectColumn;
+window.__DC_SET_TABLE_ACTIVE__ = function (v) {
+    tableActive = !!v;
+};
 window.initializeTable = initializeTable;
 window.submitDataCaptureForm = submitDataCaptureForm;
 window.__DC_CLEAR_CAPTURE_TABLE__ = clearCaptureTableForReset;

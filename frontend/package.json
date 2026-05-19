@@ -4,14 +4,14 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "prebuild": "node ./scripts/warn-dist-css-edits.mjs",
+    "dev": "node ./scripts/sync-datacapture-legacy-version.mjs && vite",
+    "prebuild": "node ./scripts/warn-dist-css-edits.mjs && node ./scripts/sync-datacapture-legacy-version.mjs",
     "build": "vite build",
     "postbuild": "node ./scripts/cleanup-dist-css.mjs",
-    "prebuild:site": "node ./scripts/warn-dist-css-edits.mjs",
+    "prebuild:site": "node ./scripts/warn-dist-css-edits.mjs && node ./scripts/sync-datacapture-legacy-version.mjs",
     "build:site": "vite build",
     "postbuild:site": "node ./scripts/cleanup-dist-css.mjs",
-    "prebuild:watch": "node ./scripts/warn-dist-css-edits.mjs",
+    "prebuild:watch": "node ./scripts/warn-dist-css-edits.mjs && node ./scripts/sync-datacapture-legacy-version.mjs",
     "build:watch": "vite build --watch",
     "preview": "vite preview"
   },
