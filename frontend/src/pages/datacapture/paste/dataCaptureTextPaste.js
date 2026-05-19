@@ -1,5 +1,7 @@
 import { applyDataMatrixToGrid, notifyPasteSuccess } from "./dataCapturePasteApply.js";
 import { getClipboardHtml } from "./dataCaptureClipboard.js";
+import { detectHtmlTableInClipboard } from "./dataCaptureHtmlClipboard.js";
+import { parseAndFillHtmlTableForText } from "./dataCaptureTextHtmlPaste.js";
 
 /** 1.Text — tab-separated Excel paste (always from column 0). */
 export function handleTextTabPaste(e, pastedData, anchorCell) {
@@ -40,29 +42,17 @@ export function handleTextTabPaste(e, pastedData, anchorCell) {
   return false;
 }
 
-/** 1.Text — delegate HTML table paste to legacy until phase 4b. */
+/** 1.Text — HTML table paste (Phase 4b, React-owned). */
 export function handleTextHtmlPaste(html, anchorCell) {
   if (!html || !html.includes("<table")) return false;
-
-  if (typeof window.__DC_LEGACY_PARSE_HTML_TEXT__ === "function") {
-    return window.__DC_LEGACY_PARSE_HTML_TEXT__(html, anchorCell);
-  }
-  if (typeof window.parseAndFillHTMLTableForText === "function") {
-    return window.parseAndFillHTMLTableForText(html, anchorCell);
-  }
-  return false;
+  return parseAndFillHtmlTableForText(html, anchorCell);
 }
 
 export function handleTextModePaste(e, pastedData, anchorCell) {
   const html = getClipboardHtml(e);
   if (handleTextHtmlPaste(html, anchorCell)) return true;
 
-  const htmlFromDetect =
-    typeof window.__DC_LEGACY_DETECT_HTML__ === "function"
-      ? window.__DC_LEGACY_DETECT_HTML__(e)
-      : typeof window.detectAndParseHTML === "function"
-        ? window.detectAndParseHTML(e)
-        : null;
+  const htmlFromDetect = detectHtmlTableInClipboard(e);
   if (htmlFromDetect && handleTextHtmlPaste(htmlFromDetect, anchorCell)) return true;
 
   return handleTextTabPaste(e, pastedData, anchorCell);

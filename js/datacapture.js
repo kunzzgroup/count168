@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa15';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa16';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -4398,6 +4398,9 @@ function parseHTMLTable(htmlString) {
 
 // 检测并处理 HTML 格式的粘贴内容（简化版：直接解析并填充，不做复杂转换）
 function detectAndParseHTML(e) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_DETECT_HTML_TABLE__ === 'function') {
+        return window.__DC_DETECT_HTML_TABLE__(e);
+    }
     try {
         // 尝试获取 HTML 格式的数据
         const htmlData = e.clipboardData.getData('text/html');
@@ -5110,6 +5113,14 @@ function parseAndFillHTMLTableForFormat(htmlString) {
 
 // 1.Text 和 2.Format 专用解析：完全保持Excel原始格式，不做任何转换
 function parseAndFillHTMLTableForText(htmlString, startCell) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_PARSE_HTML_TEXT__ === 'function') {
+        const captureType = typeof window.__DC_GET_CAPTURE_TYPE__ === 'function'
+            ? window.__DC_GET_CAPTURE_TYPE__()
+            : currentDataCaptureType;
+        if (captureType !== '2.Format') {
+            return window.__DC_PARSE_HTML_TEXT__(htmlString, startCell);
+        }
+    }
     try {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = htmlString;

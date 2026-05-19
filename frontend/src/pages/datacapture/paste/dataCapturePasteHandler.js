@@ -1,6 +1,5 @@
 import { isCitibetCaptureType } from "../dataCaptureTypeConstants.js";
 import {
-  getClipboardHtml,
   getClipboardPlainText,
   isTypingModeCell,
   resolvePasteCell,
