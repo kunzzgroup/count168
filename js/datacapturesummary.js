@@ -19606,6 +19606,7 @@ function deleteSelectedRows() {
     showConfirmDelete(
         `Are you sure you want to delete ${validRowsToDelete.length} selected row(s)? This action cannot be undone.`,
         function () {
+            try {
             // 先收集 template 信息再删 DOM，否则 row 引用会失效
             const templatesToDelete = [];
             validRowsToDelete.forEach(item => {
@@ -19628,6 +19629,17 @@ function deleteSelectedRows() {
             // 修改删除逻辑：
             // 1. 如果是 sub row（追加账号），则直接从 DOM 移除。
             // 2. 如果是 main row，则清空资料字段并保留 row（显示 0.00）。
+            const reactKeysToRemove = [];
+            validRowsToDelete.forEach(item => {
+                const row = item.row;
+                if (!row) return;
+                const productType = (row.getAttribute('data-product-type') || 'main').trim();
+                if (productType === 'sub') {
+                    const reactKey = row.getAttribute('data-react-row-key');
+                    if (reactKey) reactKeysToRemove.push(reactKey);
+                }
+            });
+
             validRowsToDelete.forEach(item => {
                 const row = item.row;
                 if (!row) return;
@@ -19635,9 +19647,11 @@ function deleteSelectedRows() {
                 const productType = (row.getAttribute('data-product-type') || 'main').trim();
 
                 if (productType === 'sub') {
-                    // 对于 sub row，直接彻底移除（与之前行为一致，解决刷新才删掉的问题）
-                    if (row.parentNode) {
-                        row.remove();
+                    // React SPA: let React unmount rows; avoid row.remove() which breaks reconciliation.
+                    if (!(window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function')) {
+                        if (row.parentNode) {
+                            row.remove();
+                        }
                     }
                 } else {
                     // 对于 main row，执行清空资料逻辑（不删行，清空内容并设置 0.00）
@@ -19705,12 +19719,15 @@ function deleteSelectedRows() {
                     }
                 }
             });
-            rebuildUsedAccountIds();
-            updateDeleteButton();
-            updateProcessedAmountTotal();
+            if (reactKeysToRemove.length > 0 && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function') {
+                window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
+            }
             if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
                 window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
             }
+            rebuildUsedAccountIds();
+            updateDeleteButton();
+            updateProcessedAmountTotal();
             showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
             // 后台删除模板，不阻塞界面
             if (templatesToDelete.length > 0) {
@@ -19723,6 +19740,10 @@ function deleteSelectedRows() {
                     console.error('Error deleting templates:', err);
                     showNotification('Warning', 'Row(s) removed from table; some template cleanup failed. You may refresh to sync.', 'warning');
                 });
+            }
+            } catch (deleteError) {
+                console.error('deleteSelectedRows failed:', deleteError);
+                showNotification('Error', 'Failed to delete rows. Please refresh the page and try again.', 'error');
             }
         }
     );

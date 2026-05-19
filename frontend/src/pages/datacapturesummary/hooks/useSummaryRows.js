@@ -25,10 +25,21 @@ export function useSummaryRows(tableData, enabled) {
   }, [enabled, initialRows]);
 
   const syncFromDom = useCallback(() => {
-    setRows((prev) => {
-      const synced = readSummaryRowsFromDom(prev);
-      if (synced.length === 0 && prev.length > 0) return prev;
-      return synced;
+    flushSync(() => {
+      setRows((prev) => {
+        const synced = readSummaryRowsFromDom(prev);
+        if (synced.length === 0 && prev.length > 0) return prev;
+        return synced;
+      });
+    });
+  }, []);
+
+  const removeRowsByKeys = useCallback((keys) => {
+    if (!Array.isArray(keys) || keys.length === 0) return;
+    const keySet = new Set(keys.filter(Boolean));
+    if (keySet.size === 0) return;
+    flushSync(() => {
+      setRows((prev) => prev.filter((row) => !keySet.has(row.key)));
     });
   }, []);
 
@@ -63,17 +74,20 @@ export function useSummaryRows(tableData, enabled) {
     if (!enabled) {
       delete window.__SUMMARY_REACT_ADD_SUB_ROW__;
       delete window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__;
+      delete window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__;
       return undefined;
     }
 
     window.__SUMMARY_REACT_ADD_SUB_ROW__ = addSubRow;
     window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ = syncFromDom;
+    window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ = removeRowsByKeys;
 
     return () => {
       delete window.__SUMMARY_REACT_ADD_SUB_ROW__;
       delete window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__;
+      delete window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__;
     };
-  }, [enabled, addSubRow, syncFromDom]);
+  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys]);
 
-  return { rows, syncFromDom, resetToInitialRows };
+  return { rows, syncFromDom, resetToInitialRows, removeRowsByKeys };
 }

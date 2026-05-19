@@ -80,6 +80,7 @@ export function readSummaryRowsFromDom(fallbackRows = []) {
   if (!tbody) return fallbackRows;
 
   const fallbackByKey = new Map(fallbackRows.map((r) => [r.key, r]));
+  const seenKeys = new Set();
 
   return Array.from(tbody.querySelectorAll("tr")).map((tr, domIndex) => {
     const existingKey = tr.getAttribute("data-react-row-key");
@@ -103,17 +104,20 @@ export function readSummaryRowsFromDom(fallbackRows = []) {
         : null;
     const parentIdProduct = tr.getAttribute("data-parent-id-product")?.trim() || null;
 
-    const key =
+    let key =
       existingKey ||
-      fallbackRows[domIndex]?.key ||
       `${productType}-${rowIndex}-${domIndex}-${normalizeIdProduct(idProduct)}`;
+    if (seenKeys.has(key)) {
+      key = `${key}-${domIndex}`;
+    }
+    seenKeys.add(key);
 
-    const prior = fallbackByKey.get(key);
+    const prior = fallbackByKey.get(existingKey || "") || fallbackByKey.get(key);
     return {
       key,
       idProduct: idProduct || prior?.idProduct || "",
       rowIndex: prior?.rowIndex ?? rowIndex,
-      productType,
+      productType: prior?.productType || productType,
       parentIdProduct: parentIdProduct || prior?.parentIdProduct || null,
       parentRowIndex: parentRowIndex ?? prior?.parentRowIndex ?? null,
     };
