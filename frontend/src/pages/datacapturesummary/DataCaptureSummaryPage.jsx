@@ -17,11 +17,11 @@ import { useSummaryOverlays } from "./hooks/useSummaryOverlays.js";
 import { useSummaryLegacyChrome } from "./hooks/useSummaryLegacyChrome.js";
 import {
   useSummaryTableBridge,
-  showSummarySuccessNotificationIfNeededFromReact,
   hideSummaryLoadingChrome,
   showSummaryTableChrome,
   removeLegacySummaryEmptyStateDom,
 } from "./hooks/useSummaryTableBridge.js";
+import { summaryTableNeedsTemplatePopulate, waitForSummaryPopulateIdle } from "./summaryTablePostPopulate.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
 import "../../../public/css/accountCSS.css";
@@ -122,6 +122,7 @@ export default function DataCaptureSummaryPage() {
   const hydrateRef = useRef(capture.hydrateLegacyGlobals);
   hydrateRef.current = capture.hydrateLegacyGlobals;
   const initGenerationRef = useRef(0);
+  const legacyInitDoneRef = useRef(false);
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page");
@@ -178,6 +179,9 @@ export default function DataCaptureSummaryPage() {
 
     const runInit = () => {
       if (cancelled || initGenerationRef.current !== generation) return;
+      if (legacyInitDoneRef.current) return;
+      legacyInitDoneRef.current = true;
+
       hydrateRef.current();
       const shell = document.querySelector(".container");
       if (shell) delete shell.dataset.summaryPageInit;
@@ -187,7 +191,6 @@ export default function DataCaptureSummaryPage() {
       if (capture.hasCaptureData) {
         removeLegacySummaryEmptyStateDom();
       }
-      showSummarySuccessNotificationIfNeededFromReact();
     };
 
     const id = requestAnimationFrame(() => {
@@ -203,8 +206,39 @@ export default function DataCaptureSummaryPage() {
     engineError,
     waitForServerStateBeforeInit,
     capture.hasCaptureData,
-    capture.freshFromCapture,
   ]);
+
+  /** Safety net: if template populate was skipped/interrupted, retry once after init settles. */
+  useEffect(() => {
+    if (!sessionReady || !scriptsReady || !capture.hasCaptureData) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      if (cancelled) return;
+      await waitForSummaryPopulateIdle();
+      if (cancelled) return;
+      if (!summaryTableNeedsTemplatePopulate()) return;
+      if (typeof window.__SUMMARY_REACT_ON_TABLE_READY__ !== "function") return;
+      try {
+        await window.__SUMMARY_REACT_ON_TABLE_READY__();
+      } catch (error) {
+        console.warn("Summary template populate retry failed:", error);
+      }
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [sessionReady, scriptsReady, capture.hasCaptureData]);
+
+  useEffect(() => {
+    return () => {
+      legacyInitDoneRef.current = false;
+      const shell = document.querySelector(".container");
+      if (shell) delete shell.dataset.summaryPageInit;
+    };
+  }, []);
 
   /** Apply server state when it arrives after init (revisit / refresh paths). */
   useEffect(() => {
@@ -248,13 +282,6 @@ export default function DataCaptureSummaryPage() {
     }, 8000);
     return () => window.clearTimeout(timer);
   }, [sessionReady, scriptsReady]);
-
-  useEffect(() => {
-    return () => {
-      const shell = document.querySelector(".container");
-      if (shell) delete shell.dataset.summaryPageInit;
-    };
-  }, []);
 
   /** Sidebar Data Capture → fresh capture round (SPA navigate). */
   useEffect(() => {

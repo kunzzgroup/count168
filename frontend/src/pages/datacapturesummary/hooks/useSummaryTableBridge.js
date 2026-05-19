@@ -3,7 +3,15 @@ import { buildColumnAEntries } from "../summaryColumnAData.js";
 import {
   runSummaryTablePostPopulate,
   showSummarySuccessNotificationIfNeeded,
+  summaryTableNeedsTemplatePopulate,
 } from "../summaryTablePostPopulate.js";
+
+let summaryPopulateInFlight = false;
+
+function setSummaryPopulateInFlight(value) {
+  summaryPopulateInFlight = value;
+  window.__SUMMARY_POPULATE_IN_FLIGHT__ = value;
+}
 
 /** Set synchronously so legacy init never runs the DOM table/empty-state path before layout effects. */
 if (typeof window !== "undefined") {
@@ -40,6 +48,9 @@ export function useSummaryTableBridge({ tableData, hasCaptureData, processData, 
   useLayoutEffect(() => {
     window.__SUMMARY_REACT_ON_TABLE_READY__ = async () => {
       if (!hasCaptureData || !tableData) return;
+      if (summaryPopulateInFlight) return;
+
+      setSummaryPopulateInFlight(true);
       try {
         removeLegacySummaryEmptyStateDom();
         const { idProducts } = buildColumnAEntries(tableData);
@@ -48,6 +59,7 @@ export function useSummaryTableBridge({ tableData, hasCaptureData, processData, 
         syncFromDom?.();
         window.updateHeaderCurrencyFromSummaryTable?.();
       } finally {
+        setSummaryPopulateInFlight(false);
         removeLegacySummaryEmptyStateDom();
         showSummaryTableChrome();
       }

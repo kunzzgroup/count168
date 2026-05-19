@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchSummaryServerState } from "../summaryApi.js";
 import { summaryQueryKeys } from "../summaryQueryKeys.js";
@@ -18,11 +18,17 @@ import {
  */
 export function useSummaryCaptureBootstrap({ companyId, searchParams, enabled }) {
   const freshFromCapture = isSummaryFreshFromCapture(searchParams);
+  /** Sticky for this mount — URL ?success=1 is stripped after toast, must not flip hydrate mid-populate. */
+  const freshPinnedRef = useRef(false);
+  if (freshFromCapture) {
+    freshPinnedRef.current = true;
+  }
+  const isFreshCaptureRound = freshPinnedRef.current;
 
   const captureSession = useMemo(() => {
     if (!enabled) return null;
     return readCaptureSessionFromStorage();
-  }, [enabled, freshFromCapture]);
+  }, [enabled]);
 
   const transformed = useMemo(() => {
     if (!captureSession) return null;
@@ -55,12 +61,12 @@ export function useSummaryCaptureBootstrap({ companyId, searchParams, enabled })
 
   /** Call immediately before legacy initDataCaptureSummaryPage(). */
   function hydrateLegacyGlobals() {
-    if (freshFromCapture) {
+    if (isFreshCaptureRound) {
       clearStaleCaptureIdForFreshRound();
       window.DATACAPTURESUMMARY_CAPTURE_ID = null;
     }
 
-    window.__summaryFreshFromCapture = freshFromCapture;
+    window.__summaryFreshFromCapture = isFreshCaptureRound;
 
     if (companyId != null) {
       window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
@@ -83,7 +89,7 @@ export function useSummaryCaptureBootstrap({ companyId, searchParams, enabled })
   }
 
   return {
-    freshFromCapture,
+    freshFromCapture: isFreshCaptureRound,
     hasCaptureData,
     processData,
     transformedTableData: transformed,

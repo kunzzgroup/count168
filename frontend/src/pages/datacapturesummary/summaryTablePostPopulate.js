@@ -155,6 +155,44 @@ function runSummaryTablePostPopulateFinally() {
   }, 120);
 
   rebindAllSummaryTableRows();
+  showSummarySuccessNotificationIfNeeded();
+}
+
+/** True when summary rows exist but template populate has not filled account/formula yet. */
+export function summaryTableNeedsTemplatePopulate() {
+  const tbody = document.getElementById("summaryTableBody");
+  if (!tbody) return true;
+
+  const rows = tbody.querySelectorAll("tr");
+  if (!rows.length) return true;
+
+  let dataRows = 0;
+  let populatedRows = 0;
+
+  rows.forEach((row) => {
+    const idText = row.querySelector("td.id-product")?.textContent?.trim() || "";
+    if (!idText || /TOTAL/i.test(idText)) return;
+
+    dataRows += 1;
+    const cells = row.querySelectorAll("td");
+    const accountText = (cells[1]?.textContent || "").trim();
+    const formulaText = (cells[4]?.textContent || "").trim();
+    const hasAccount = accountText !== "" && accountText !== "+";
+    const hasFormula = formulaText !== "";
+    if (hasAccount || hasFormula) {
+      populatedRows += 1;
+    }
+  });
+
+  return dataRows > 0 && populatedRows === 0;
+}
+
+export async function waitForSummaryPopulateIdle(timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!window.__SUMMARY_POPULATE_IN_FLIGHT__) return;
+    await new Promise((resolve) => window.setTimeout(resolve, 60));
+  }
 }
 
 export function showSummarySuccessNotificationIfNeeded() {
