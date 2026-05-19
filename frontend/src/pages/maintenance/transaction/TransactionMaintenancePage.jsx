@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, keepPreviousData, isCancelledError } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
@@ -123,7 +123,7 @@ export default function TransactionMaintenancePage() {
     gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
     retry: (failureCount, error) =>
-      error?.name !== "AbortError" && failureCount < 1,
+      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 1,
   });
 
   const transactionData = transactionQuery.data ?? [];
@@ -421,7 +421,7 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (!transactionQuery.isError || !transactionQuery.error) return;
-    if (transactionQuery.error?.name === "AbortError") return;
+    if (transactionQuery.error?.name === "AbortError" || isCancelledError(transactionQuery.error)) return;
     const msg = transactionQuery.error.message || t("searchFailed");
     if (lastErrorMsgRef.current === msg) return;
     lastErrorMsgRef.current = msg;

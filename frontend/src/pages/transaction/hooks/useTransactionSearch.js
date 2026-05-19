@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
@@ -429,7 +429,7 @@ export function useTransactionSearch({
         if (latestRunTokenRef.current !== runToken) return;
         commitQuiet(currentData);
       } catch (e) {
-        if (e?.name === "AbortError" || e?.name === "CanceledError") return;
+        if (e?.name === "AbortError" || isCancelledError(e)) return;
         console.error(e);
         if (notifyErr) pushToast(t("searchFailedWithMessage", { message: e.message }), "error");
       } finally {
