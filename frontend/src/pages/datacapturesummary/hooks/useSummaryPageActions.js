@@ -107,6 +107,21 @@ export function useSummaryPageActions({ companyId, scriptsReady, showConfirmDele
     requestSummaryDeleteConfirmation({ showConfirmDelete, showNotification });
   }, [showConfirmDelete, showNotification]);
 
+  const handleDeleteSelectedRef = useRef(handleDeleteSelected);
+  handleDeleteSelectedRef.current = handleDeleteSelected;
+
+  useLayoutEffect(() => {
+    if (!scriptsReady) return undefined;
+
+    window.__SUMMARY_REACT_DELETE_SELECTED__ = () => {
+      handleDeleteSelectedRef.current();
+    };
+
+    return () => {
+      delete window.__SUMMARY_REACT_DELETE_SELECTED__;
+    };
+  }, [scriptsReady]);
+
   const handleSubmitSummary = useCallback(() => {
     submitSummary();
   }, [submitSummary]);

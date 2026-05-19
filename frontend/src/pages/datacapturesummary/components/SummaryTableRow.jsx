@@ -75,6 +75,7 @@ function SummaryTableRowInner({
           data-value={idProduct}
           disabled={isSub}
           title={isSub ? "Empty sub rows cannot be deleted" : undefined}
+          onChange={() => window.updateDeleteButton?.()}
         />
       </td>
     </tr>

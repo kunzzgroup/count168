@@ -19438,6 +19438,7 @@ function updateDeleteButton() {
     }
     if (typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function') {
         window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__(validCount);
+        return;
     }
     const deleteBtn = document.getElementById('summaryDeleteSelectedBtn');
     if (!deleteBtn) return;
@@ -19810,6 +19811,11 @@ function executeDeleteSelectedRows(validRowsToDelete) {
 }
 
 function deleteSelectedRows() {
+    if (typeof window.__SUMMARY_REACT_DELETE_SELECTED__ === 'function') {
+        window.__SUMMARY_REACT_DELETE_SELECTED__();
+        return;
+    }
+
     const validRowsToDelete = collectValidDeleteRowTargets();
 
     if (validRowsToDelete.length === 0) {

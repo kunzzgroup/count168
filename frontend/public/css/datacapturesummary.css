@@ -254,11 +254,20 @@ body {
             transform: translateY(-1px);
         }
 
-        .summary-btn-delete:disabled {
+        .summary-btn-delete:disabled,
+        .summary-btn-delete.summary-btn-delete--inactive,
+        .summary-btn-delete[aria-disabled="true"] {
             background: #6c757d;
             cursor: not-allowed;
             transform: none;
             box-shadow: none;
+        }
+
+        .summary-btn-delete.summary-btn-delete--inactive:hover,
+        .summary-btn-delete[aria-disabled="true"]:hover {
+            background: #6c757d;
+            box-shadow: none;
+            transform: none;
         }
 
         .summary-btn-cancel {
