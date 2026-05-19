@@ -4,6 +4,14 @@
  */
 import { getRowLabel } from "./dataCaptureGridLabels.js";
 import { hideContextMenu } from "./dataCaptureContextMenu.js";
+import { clearAllSelections } from "./dataCaptureGridSelection.js";
+import {
+  attachColumnHeaderListeners,
+  attachRowHeaderListeners,
+  rebindColumnHeadersAfterMutation,
+  rebindRowHeadersAfterMutation,
+} from "./dataCaptureGridHeaderBinding.js";
+import { bindDataCaptureCellEvents } from "./dataCaptureGridCellBinding.js";
 
 function getContextMenuColumn() {
   return window.__DC_GET_CONTEXT_MENU_COLUMN__?.() ?? null;
@@ -11,10 +19,6 @@ function getContextMenuColumn() {
 
 function getContextMenuRow() {
   return window.__DC_GET_CONTEXT_MENU_ROW__?.() ?? null;
-}
-
-function clearAllSelections() {
-  window.__DC_CLEAR_ALL_SELECTIONS__?.();
 }
 
 function recomputeSubmitState() {
@@ -38,26 +42,6 @@ function getRowIndexFromHeader(rowHeader) {
     if (rh === rowHeader) return i;
   }
   return -1;
-}
-
-function attachColumnHeaderListeners(header) {
-  window.__DC_GRID_ATTACH_COLUMN_HEADER__?.(header);
-}
-
-function attachRowHeaderListeners(rowHeader) {
-  window.__DC_GRID_ATTACH_ROW_HEADER__?.(rowHeader);
-}
-
-function rebindColumnHeadersAfterMutation(headerRow) {
-  window.__DC_GRID_REBIND_COLUMN_HEADERS__?.(headerRow);
-}
-
-function rebindRowHeadersAfterMutation(tableBody) {
-  window.__DC_GRID_REBIND_ROW_HEADERS__?.(tableBody);
-}
-
-function bindLegacyGridCell(cell) {
-  window.__DC_LEGACY_BIND_CELL__?.(cell);
 }
 
 function insertColumnAt(colIndex) {
@@ -97,7 +81,7 @@ function insertColumnAt(colIndex) {
         }
 
         // Add event listeners to new cell
-        bindLegacyGridCell(newCell);
+        bindDataCaptureCellEvents(newCell);
 
         // Insert cell
         if (colIndex >= row.children.length - 1) {
@@ -241,7 +225,7 @@ function insertRowAt(rowIndex) {
         const cell = document.createElement('td');
         cell.contentEditable = true;
         cell.dataset.col = j;
-        bindLegacyGridCell(cell);
+        bindDataCaptureCellEvents(cell);
         row.appendChild(cell);
     }
 

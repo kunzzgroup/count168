@@ -1871,6 +1871,9 @@ function refreshColumnHeaderNumbers(headerRow) {
 }
 
 function attachColumnHeaderListeners(header) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_GRID_ATTACH_COLUMN_HEADER__ === 'function' && window.__DC_GRID_ATTACH_COLUMN_HEADER__ !== attachColumnHeaderListeners) {
+        return window.__DC_GRID_ATTACH_COLUMN_HEADER__(header);
+    }
     if (__dcIsDataCaptureSpa()) {
         header.style.cursor = 'pointer';
         return;
@@ -1888,6 +1891,9 @@ function attachColumnHeaderListeners(header) {
 }
 
 function rebindColumnHeadersAfterMutation(headerRow) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_GRID_REBIND_COLUMN_HEADERS__ === 'function' && window.__DC_GRID_REBIND_COLUMN_HEADERS__ !== rebindColumnHeadersAfterMutation) {
+        return window.__DC_GRID_REBIND_COLUMN_HEADERS__(headerRow);
+    }
     if (__dcIsDataCaptureSpa()) {
         refreshColumnHeaderNumbers(headerRow);
         return;
@@ -1904,6 +1910,9 @@ function rebindColumnHeadersAfterMutation(headerRow) {
 }
 
 function attachRowHeaderListeners(rowHeader) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_GRID_ATTACH_ROW_HEADER__ === 'function' && window.__DC_GRID_ATTACH_ROW_HEADER__ !== attachRowHeaderListeners) {
+        return window.__DC_GRID_ATTACH_ROW_HEADER__(rowHeader);
+    }
     if (__dcIsDataCaptureSpa()) {
         rowHeader.style.cursor = 'pointer';
         return;
@@ -1921,6 +1930,9 @@ function attachRowHeaderListeners(rowHeader) {
 }
 
 function rebindRowHeadersAfterMutation(tableBody) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_GRID_REBIND_ROW_HEADERS__ === 'function' && window.__DC_GRID_REBIND_ROW_HEADERS__ !== rebindRowHeadersAfterMutation) {
+        return window.__DC_GRID_REBIND_ROW_HEADERS__(tableBody);
+    }
     Array.from(tableBody.children).forEach((row, index) => {
         const rh = row.querySelector('.row-header');
         if (!rh) return;
@@ -7480,6 +7492,9 @@ function parseSimplePaymentReport(pastedData) {
 
 // 把「MY EARNINGS / TOTAL」金额强制移到指定列（适配 Citibet / Citibet Major）
 function fixCitibetAmountColumns() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_FIX_CITIBET_AMOUNTS__ === 'function' && window.__DC_FIX_CITIBET_AMOUNTS__ !== fixCitibetAmountColumns) {
+        return window.__DC_FIX_CITIBET_AMOUNTS__();
+    }
     // 完全禁用自动格式调整，保持用户粘贴时的原始格式
     // 用户希望粘贴进去的格式长什么样子，submit的时候就是什么格式
     return;
@@ -24927,6 +24942,11 @@ async function initDataCapturePage() {
     const dcFormGate = document.getElementById('dataCaptureForm');
     if (!dcFormGate) return;
     if (dcFormGate.dataset.dcPageInit === '1') return;
+
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_SPA_INIT_PAGE__ === 'function') {
+        return window.__DC_SPA_INIT_PAGE__();
+    }
+
     dcFormGate.dataset.dcPageInit = '1';
 
     const addDescriptionFormEl = document.getElementById('addDescriptionForm');

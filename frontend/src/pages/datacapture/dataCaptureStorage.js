@@ -44,10 +44,16 @@ export function shouldRestoreFromUrl() {
 }
 
 export function stripRestoreParamFromUrl() {
+  stripSearchParamsFromUrl(["restore"]);
+}
+
+export function stripSearchParamsFromUrl(keys) {
+  if (!Array.isArray(keys) || keys.length === 0) return;
   try {
     const url = new URL(window.location.href);
-    url.searchParams.delete("restore");
-    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    keys.forEach((key) => url.searchParams.delete(key));
+    const qs = url.searchParams.toString();
+    window.history.replaceState({}, "", `${url.pathname}${qs ? `?${qs}` : ""}${url.hash}`);
   } catch {
     /* ignore */
   }

@@ -34,6 +34,8 @@ import { useDataCapturePaste } from "./useDataCapturePaste.js";
 import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
 import { useDataCaptureFormatPaste } from "./useDataCaptureFormatPaste.js";
 import { useDataCaptureFormatDisplay } from "./useDataCaptureFormatDisplay.js";
+import { useDataCaptureSpaInit } from "./useDataCaptureSpaInit.js";
+import { useDataCaptureGridHeader } from "./useDataCaptureGridHeader.js";
 import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./useDataCaptureSubmitReset.js";
 import { useDataCaptureSubmittedList } from "./useDataCaptureSubmittedList.js";
@@ -182,6 +184,8 @@ export default function DataCapturePage() {
   useDataCapturePaste();
   useDataCaptureFormatPaste();
   useDataCaptureFormatDisplay();
+  useDataCaptureSpaInit();
+  useDataCaptureGridHeader();
 
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
 
