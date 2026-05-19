@@ -234,6 +234,108 @@ function dashboardOutMap(array $daily): array
 }
 
 /**
+ * PROFIT role 补充：From 侧手动 WIN/LOSE 的 description 过滤（与 search_api 一致）
+ */
+function dashboardProfitRoleManualWinLoseDescriptionFilter(string $alias = 't'): string
+{
+    $d = $alias !== '' ? $alias . '.' : '';
+    return " AND (({$d}description NOT LIKE 'Process: %' AND {$d}description NOT LIKE 'Inactive Compensation %' AND {$d}description NOT LIKE 'Compensation %') OR {$d}description IS NULL)";
+}
+
+/**
+ * PROFIT role 补充：From 侧 WIN/LOSE（手动）+ transaction_type=PROFIT（To 负 / From 正）
+ * 不修改原有 Cr/Dr 查询，仅追加计入 B/F 与 daily_data。
+ */
+function dashboardApplyProfitRoleWinLoseAndTypeSupplements(
+    PDO $pdo,
+    array &$daily_data,
+    string &$total_bf,
+    int $company_id,
+    array $account_ids,
+    string $ids_placeholder,
+    string $date_from_db,
+    string $date_to_db,
+    string $currency_filter_to,
+    string $currency_filter_from,
+    array $currency_params_to,
+    array $currency_params_from,
+    string $clearFilter,
+    string $contraApproval
+): void {
+    if (empty($account_ids)) {
+        return;
+    }
+
+    $manualDescFilter = dashboardProfitRoleManualWinLoseDescriptionFilter('t');
+    $fromTypeWhere = " AND (
+        t.transaction_type = 'PROFIT'
+        OR (t.transaction_type IN ('WIN', 'LOSE')" . $manualDescFilter . ")
+    )";
+
+    // B/F：From 手动 WIN/LOSE + PROFIT type（From 正）
+    $bfFromSql = "SELECT COALESCE(SUM(CASE
+            WHEN t.transaction_type = 'PROFIT' THEN t.amount
+            WHEN t.transaction_type = 'WIN' THEN t.amount
+            WHEN t.transaction_type = 'LOSE' THEN -t.amount
+            ELSE 0
+        END), 0)
+        FROM transactions t
+        WHERE t.company_id = ?
+          AND t.from_account_id IN ($ids_placeholder)
+          AND t.transaction_date < ?" . $fromTypeWhere . $currency_filter_from . $clearFilter . $contraApproval;
+    $bfFromStmt = $pdo->prepare($bfFromSql);
+    $bfFromStmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_from));
+    $total_bf = dashboardMoneyAdd($total_bf, $bfFromStmt->fetchColumn());
+
+    // B/F：To 侧 transaction_type=PROFIT（与手动 PROFIT 一致，记负）
+    $bfToProfitSql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'PROFIT' THEN -t.amount ELSE 0 END), 0)
+        FROM transactions t
+        WHERE t.company_id = ?
+          AND t.account_id IN ($ids_placeholder)
+          AND t.transaction_date < ?
+          AND t.transaction_type = 'PROFIT'" . $currency_filter_to . $clearFilter . $contraApproval;
+    $bfToProfitStmt = $pdo->prepare($bfToProfitSql);
+    $bfToProfitStmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_to));
+    $total_bf = dashboardMoneyAdd($total_bf, $bfToProfitStmt->fetchColumn());
+
+    // Daily：From 手动 WIN/LOSE + PROFIT type
+    $dailyFromSql = "SELECT DATE(t.transaction_date) AS date,
+            COALESCE(SUM(CASE
+                WHEN t.transaction_type = 'PROFIT' THEN t.amount
+                WHEN t.transaction_type = 'WIN' THEN t.amount
+                WHEN t.transaction_type = 'LOSE' THEN -t.amount
+                ELSE 0
+            END), 0) AS delta
+        FROM transactions t
+        WHERE t.company_id = ?
+          AND t.from_account_id IN ($ids_placeholder)
+          AND t.transaction_date BETWEEN ? AND ?" . $fromTypeWhere . $currency_filter_from . $clearFilter . $contraApproval . "
+        GROUP BY DATE(t.transaction_date)
+        ORDER BY DATE(t.transaction_date)";
+    $dailyFromStmt = $pdo->prepare($dailyFromSql);
+    $dailyFromStmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_from));
+    foreach ($dailyFromStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        dashboardAddDailyAmount($daily_data, (string) $row['date'], $row['delta'] ?? '0');
+    }
+
+    // Daily：To 侧 transaction_type=PROFIT
+    $dailyToProfitSql = "SELECT DATE(t.transaction_date) AS date,
+            COALESCE(SUM(CASE WHEN t.transaction_type = 'PROFIT' THEN -t.amount ELSE 0 END), 0) AS delta
+        FROM transactions t
+        WHERE t.company_id = ?
+          AND t.account_id IN ($ids_placeholder)
+          AND t.transaction_date BETWEEN ? AND ?
+          AND t.transaction_type = 'PROFIT'" . $currency_filter_to . $clearFilter . $contraApproval . "
+        GROUP BY DATE(t.transaction_date)
+        ORDER BY DATE(t.transaction_date)";
+    $dailyToProfitStmt = $pdo->prepare($dailyToProfitSql);
+    $dailyToProfitStmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_to));
+    foreach ($dailyToProfitStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        dashboardAddDailyAmount($daily_data, (string) $row['date'], $row['delta'] ?? '0');
+    }
+}
+
+/**
  * Dashboard 交易币别过滤（与 search_api 对齐）：
  * - 优先使用 transactions.currency_id
  * - 若 currency_id 为空，则用 data_capture_details 的 account + currency 映射兜底
@@ -465,6 +567,26 @@ try {
             $bf_stmt = $pdo->prepare($sql);
             $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_t_from));
             $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
+
+            // PROFIT role 补充：From 手动 WIN/LOSE + transaction_type=PROFIT（不改上方原 SQL）
+            if ($role === 'PROFIT') {
+                dashboardApplyProfitRoleWinLoseAndTypeSupplements(
+                    $pdo,
+                    $daily_data,
+                    $total_bf,
+                    $company_id,
+                    $account_ids,
+                    $ids_placeholder,
+                    $date_from_db,
+                    $date_to_db,
+                    $currency_filter_t_to,
+                    $currency_filter_t_from,
+                    $currency_params_t_to,
+                    $currency_params_t_from,
+                    $clearFilter,
+                    $contraApproval
+                );
+            }
 
             // RATE B/F from transaction_entry
             try {
