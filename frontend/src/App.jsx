@@ -21,7 +21,7 @@ import BankprocessMaintenancePage from "./pages/maintenance/bankprocess/Bankproc
 import PaymentMaintenancePage from "./pages/maintenance/payment/PaymentMaintenancePage.jsx";
 import OwnerSecondaryPasswordPage from "./pages/login/OwnerSecondaryPasswordPage.jsx";
 import UserSecondaryPasswordPage from "./pages/login/UserSecondaryPasswordPage.jsx";
-import MemberPage from "./pages/member/MemberPage.jsx";
+import MemberPage from "./pages/login/MemberPage.jsx";
 import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
 import UserAccessPage from "./pages/useraccess/UserAccessPage.jsx";
 import DeletedLogPage from "./pages/deletedlog/DeletedLogPage.jsx";
