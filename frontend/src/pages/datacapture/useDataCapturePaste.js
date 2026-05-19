@@ -7,10 +7,14 @@ import {
 import { handleCellPasteEvent } from "./paste/dataCapturePasteHandler.js";
 import { parseAndFillHtmlTableForText } from "./paste/dataCaptureTextHtmlPaste.js";
 import { detectHtmlTableInClipboard } from "./paste/dataCaptureHtmlClipboard.js";
+import {
+  parseAndFillHtmlTableForWbet,
+  parseAndFillHtmlTableForWbetApi,
+} from "./paste/dataCaptureWbetHtmlPaste.js";
 
 /**
- * Phase 4: Paste orchestration in React — clipboard, type detect, 1.Text tab, CITIBET.
- * Remaining formats (2.Format, INVOICE, VPOWER, 4.RETURN, …) still fall through to legacy.
+ * Phase 4: Paste orchestration in React — clipboard, type detect, 1.Text tab, CITIBET,
+ * and Phase 4d special formats (4.RETURN, VPOWER, WBET, …).
  */
 export function useDataCapturePaste() {
   const handlerRef = useRef(handleCellPasteEvent);
@@ -27,6 +31,8 @@ export function useDataCapturePaste() {
     window.__DC_PARSE_CITIBET_FORMAT__ = parseCitibetFormatBasedPaste;
     window.__DC_PARSE_HTML_TEXT__ = parseAndFillHtmlTableForText;
     window.__DC_DETECT_HTML_TABLE__ = detectHtmlTableInClipboard;
+    window.__DC_PARSE_HTML_WBET__ = parseAndFillHtmlTableForWbet;
+    window.__DC_PARSE_HTML_WBET_API__ = parseAndFillHtmlTableForWbetApi;
 
     return () => {
       delete window.__DC_HANDLE_CELL_PASTE__;
@@ -35,6 +41,8 @@ export function useDataCapturePaste() {
       delete window.__DC_PARSE_CITIBET_FORMAT__;
       delete window.__DC_PARSE_HTML_TEXT__;
       delete window.__DC_DETECT_HTML_TABLE__;
+      delete window.__DC_PARSE_HTML_WBET__;
+      delete window.__DC_PARSE_HTML_WBET_API__;
     };
   }, []);
 }

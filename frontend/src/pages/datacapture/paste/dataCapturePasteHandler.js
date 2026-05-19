@@ -11,6 +11,10 @@ import {
 } from "./dataCapturePasteDetect.js";
 import { handleCitibetPaste } from "./dataCaptureCitibetPaste.js";
 import { handleTextModePaste } from "./dataCaptureTextPaste.js";
+import {
+  handleSpecialFormatPaste,
+  SPECIAL_CAPTURE_TYPES,
+} from "./dataCaptureSpecialPasteHandler.js";
 
 function getCaptureType() {
   if (typeof window.__DC_GET_CAPTURE_TYPE__ === "function") {
@@ -53,6 +57,12 @@ export function handleCellPasteEvent(e, legacyFallback) {
   const captureType = getCaptureType();
 
   if (captureType === "2.Format") {
+    if (typeof legacyFallback === "function") legacyFallback(e);
+    return;
+  }
+
+  if (SPECIAL_CAPTURE_TYPES.has(captureType)) {
+    if (handleSpecialFormatPaste(e, pastedData, captureType)) return;
     if (typeof legacyFallback === "function") legacyFallback(e);
     return;
   }

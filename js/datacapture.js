@@ -1137,7 +1137,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa18';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa19';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -5996,6 +5996,9 @@ function parseAndFillHTMLTableForAWC(htmlString, startCell) {
 
 // WBET 专用的 HTML 表格解析：保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
 function parseAndFillHTMLTableForWBET(htmlString, startCell) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_PARSE_HTML_WBET__ === 'function') {
+        return window.__DC_PARSE_HTML_WBET__(htmlString, startCell);
+    }
     try {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = htmlString;
@@ -6413,6 +6416,9 @@ function parseAndFillHTMLTableForWBET(htmlString, startCell) {
 
 // 2.11 WBET_API 专用的 HTML 表格解析：保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
 function parseAndFillHTMLTableForWBET_API(htmlString, startCell) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_PARSE_HTML_WBET_API__ === 'function') {
+        return window.__DC_PARSE_HTML_WBET_API__(htmlString, startCell);
+    }
     try {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = htmlString;
@@ -25346,6 +25352,7 @@ window.__DC_PUSH_PASTE_HISTORY__ = function (changes) {
 window.__DC_FIX_CITIBET_AMOUNTS__ = fixCitibetAmountColumns;
 window.__DC_LEGACY_PARSE_HTML_TEXT__ = parseAndFillHTMLTableForText;
 window.__DC_LEGACY_DETECT_HTML__ = detectAndParseHTML;
+window.__DC_LEGACY_PARSE_GENERIC_HTML__ = parseAndFillHTMLTable;
 window.__DC_LEGACY_SYNC_CAPTURE_TYPE__ = function (t) {
     currentDataCaptureType = normalizeCaptureTypeValue(t);
 };
