@@ -802,6 +802,9 @@ function clearAllSelections() {
 
 // Select all cells
 function selectAllCells(e) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.selectAllCells === 'function' && window.selectAllCells !== selectAllCells) {
+        return window.selectAllCells(e);
+    }
     // Prevent event propagation to avoid menu closing before selection completes
     if (e) {
         e.stopPropagation();
@@ -1439,6 +1442,9 @@ function showRowContextMenu(e, rowIndex) {
 
 // Clear selected cells
 function clearSelectedCells() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.clearSelectedCells === 'function' && window.clearSelectedCells !== clearSelectedCells) {
+        return window.clearSelectedCells();
+    }
     console.log('clearSelectedCells called, selectedCells.size:', selectedCells.size);
 
     // Create a copy of selectedCells to avoid issues if cells are removed during iteration
@@ -2232,6 +2238,9 @@ function clearRow() {
 
 // Copy selected cells
 function copySelectedCells() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.copySelectedCells === 'function' && window.copySelectedCells !== copySelectedCells) {
+        return window.copySelectedCells();
+    }
     if (selectedCells.size === 0) {
         console.log('No cells selected to copy');
         return;
@@ -2279,6 +2288,9 @@ function copySelectedCells() {
 
 // Paste to selected cells
 function pasteToSelectedCells() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.pasteToSelectedCells === 'function' && window.pasteToSelectedCells !== pasteToSelectedCells) {
+        return window.pasteToSelectedCells();
+    }
     // Get first selected cell as starting point
     const firstCell = Array.from(selectedCells)[0];
 
@@ -3528,6 +3540,9 @@ function getColumnLabel(index) {
 
 // Generate table rows (legacy DOM builder — Phase 3: SPA init orchestrated by React)
 function buildDataCaptureTable(rows = 26, cols = 20) {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_BUILD_GRID_REACT__ === 'function') {
+        return window.__DC_BUILD_GRID_REACT__(rows, cols);
+    }
     console.log('Initializing table with', rows, 'rows and', cols, 'columns');
 
     const tableBody = document.getElementById('tableBody');
@@ -25344,6 +25359,12 @@ window.__DC_PUSH_PASTE_HISTORY__ = function (changes) {
     if (!Array.isArray(changes) || changes.length === 0) return;
     pasteHistory.push(changes);
     if (pasteHistory.length > maxHistorySize) pasteHistory.shift();
+};
+window.__DC_CLEAR_PASTE_HISTORY__ = function () {
+    pasteHistory = [];
+};
+window.__DC_SET_COPIED_DATA__ = function (data) {
+    copiedData = data;
 };
 window.__DC_FIX_CITIBET_AMOUNTS__ = fixCitibetAmountColumns;
 window.__DC_LEGACY_PARSE_HTML_TEXT__ = parseAndFillHTMLTableForText;

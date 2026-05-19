@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { buildDataCaptureTable } from "./dataCaptureBuildGrid.js";
 import { DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS } from "./dataCaptureGridConstants.js";
 import {
   clearEditableGridCells,
@@ -12,8 +13,7 @@ function gridLooksInitialized(dims) {
 }
 
 /**
- * Phase 3: Grid lifecycle in React — init dimensions, clear, restore cell values.
- * Legacy still binds per-cell handlers (click, paste, selection) via `buildDataCaptureTable`.
+ * Phase 3+: Grid lifecycle in React — build, init dimensions, clear, restore cell values.
  */
 export function useDataCaptureGrid(scriptsReady) {
   const dimensionsRef = useRef({ rows: DEFAULT_GRID_ROWS, cols: DEFAULT_GRID_COLS });
@@ -23,9 +23,7 @@ export function useDataCaptureGrid(scriptsReady) {
     const c = Math.max(1, Number(cols) || DEFAULT_GRID_COLS);
     dimensionsRef.current = { rows: r, cols: c };
 
-    if (typeof window.__DC_LEGACY_BUILD_TABLE__ === "function") {
-      window.__DC_LEGACY_BUILD_TABLE__(r, c);
-    }
+    buildDataCaptureTable(r, c);
 
     const dataTable = document.getElementById("dataTable");
     if (dataTable && dataTable.style.display === "none") {
@@ -48,9 +46,8 @@ export function useDataCaptureGrid(scriptsReady) {
         dims = readGridDimensions();
       }
 
-      // Legacy script may load after first ensure — build directly if still empty.
-      if (!gridLooksInitialized(dims) && typeof window.__DC_LEGACY_BUILD_TABLE__ === "function") {
-        window.__DC_LEGACY_BUILD_TABLE__(r, c);
+      if (!gridLooksInitialized(dims)) {
+        buildDataCaptureTable(r, c);
         dims = readGridDimensions();
         dimensionsRef.current = dims;
       }
@@ -79,6 +76,8 @@ export function useDataCaptureGrid(scriptsReady) {
   handlersRef.current = { initializeGrid, ensureGridReady };
 
   useLayoutEffect(() => {
+    window.__DC_BUILD_GRID_REACT__ = buildDataCaptureTable;
+    window.__DC_LEGACY_BUILD_TABLE__ = buildDataCaptureTable;
     window.__DC_INITIALIZE_TABLE__ = (rows, cols) => handlersRef.current.initializeGrid(rows, cols);
     window.__DC_ENSURE_GRID_READY__ = (rows, cols) => handlersRef.current.ensureGridReady(rows, cols);
     window.__DC_POPULATE_GRID_FROM_SNAPSHOT__ = populateGridFromSnapshot;
@@ -86,6 +85,8 @@ export function useDataCaptureGrid(scriptsReady) {
     window.__DC_GET_GRID_DIMENSIONS__ = readGridDimensions;
 
     return () => {
+      delete window.__DC_BUILD_GRID_REACT__;
+      delete window.__DC_LEGACY_BUILD_TABLE__;
       delete window.__DC_INITIALIZE_TABLE__;
       delete window.__DC_ENSURE_GRID_READY__;
       delete window.__DC_POPULATE_GRID_FROM_SNAPSHOT__;

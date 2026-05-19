@@ -29,6 +29,12 @@ import {
   insertRowAbove,
   insertRowBelow,
 } from "./dataCaptureGridRowColumnCrud.js";
+import {
+  clearSelectedCells,
+  copySelectedCells,
+  pasteToSelectedCells,
+  selectAllCells,
+} from "./dataCaptureGridClipboard.js";
 
 /**
  * Phase 5a/5b: SPA-owned grid interaction + context menus.
@@ -70,6 +76,11 @@ export function useDataCaptureGridInteraction(scriptsReady) {
     window.deleteRow = deleteRow;
     window.clearRow = clearRow;
 
+    window.copySelectedCells = copySelectedCells;
+    window.pasteToSelectedCells = pasteToSelectedCells;
+    window.clearSelectedCells = clearSelectedCells;
+    window.selectAllCells = selectAllCells;
+
     return () => {
       delete window.__DC_SET_ACTIVE_CELL_CORE_REACT__;
       delete window.__DC_SET_ACTIVE_CELL_REACT__;
@@ -102,6 +113,10 @@ export function useDataCaptureGridInteraction(scriptsReady) {
       if (window.insertRowBelow === insertRowBelow) delete window.insertRowBelow;
       if (window.deleteRow === deleteRow) delete window.deleteRow;
       if (window.clearRow === clearRow) delete window.clearRow;
+      if (window.copySelectedCells === copySelectedCells) delete window.copySelectedCells;
+      if (window.pasteToSelectedCells === pasteToSelectedCells) delete window.pasteToSelectedCells;
+      if (window.clearSelectedCells === clearSelectedCells) delete window.clearSelectedCells;
+      if (window.selectAllCells === selectAllCells) delete window.selectAllCells;
     };
   }, []);
 
