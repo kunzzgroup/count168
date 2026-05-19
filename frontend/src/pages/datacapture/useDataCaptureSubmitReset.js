@@ -10,6 +10,7 @@ import {
 import { captureTableDataFromDom } from "./dataCaptureTableSnapshot.js";
 import { isSubmitReady, validateDataCaptureForm } from "./dataCaptureValidation.js";
 import { fetchProcessDetail } from "./dataCaptureApi.js";
+import { getActiveDescriptions } from "./dataCaptureFormHelpers.js";
 
 function buildProcessCapturePayload(form, captureType, currencies) {
   const currencyOpt = (currencies || []).find((c) => String(c.id) === String(form.currencyId));
@@ -19,7 +20,7 @@ function buildProcessCapturePayload(form, captureType, currencies) {
     processName: form.selectedProcess?.displayText || "",
     processCode: form.selectedProcess?.process_id || "",
     dataCaptureType: captureType,
-    descriptions: Array.isArray(window.selectedDescriptions) ? [...window.selectedDescriptions] : [],
+    descriptions: getActiveDescriptions(form.descriptionDisplay),
     currency: form.currencyId,
     currencyName: currencyOpt?.code || "",
     removeWord: form.removeWord || "",
@@ -42,6 +43,7 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
     const ready = isSubmitReady({
       selectedProcess: form.selectedProcess,
       descriptions: window.selectedDescriptions || [],
+      descriptionDisplay: form.descriptionDisplay,
       currencyId: form.currencyId,
       captureType,
       tableData,
@@ -53,11 +55,47 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
     recomputeSubmitState();
   }, [recomputeSubmitState]);
 
+  useEffect(() => {
+    let observer;
+    let pollId;
+    let debounceId;
+
+    const schedule = () => {
+      clearTimeout(debounceId);
+      debounceId = setTimeout(() => recomputeSubmitState(), 80);
+    };
+
+    const attach = () => {
+      const tableBody = document.getElementById("tableBody");
+      if (!tableBody) return false;
+      tableBody.addEventListener("input", schedule, true);
+      observer = new MutationObserver(schedule);
+      observer.observe(tableBody, { childList: true, subtree: true, characterData: true });
+      schedule();
+      return true;
+    };
+
+    if (!attach()) {
+      pollId = setInterval(() => {
+        if (attach()) clearInterval(pollId);
+      }, 250);
+    }
+
+    return () => {
+      clearInterval(pollId);
+      clearTimeout(debounceId);
+      const tableBody = document.getElementById("tableBody");
+      if (tableBody) tableBody.removeEventListener("input", schedule, true);
+      observer?.disconnect();
+    };
+  }, [recomputeSubmitState]);
+
   const submit = useCallback(async () => {
     const tableData = captureTableDataFromDom(captureType);
     const validation = validateDataCaptureForm({
       selectedProcess: form.selectedProcess,
       descriptions: window.selectedDescriptions || [],
+      descriptionDisplay: form.descriptionDisplay,
       currencyId: form.currencyId,
       captureType,
       tableData,
@@ -171,16 +209,19 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
   handlersRef.current = { submit, reset, restoreFromStorage, recomputeSubmitState };
 
   useLayoutEffect(() => {
+    window.__DC_RECOMPUTE_SUBMIT_STATE__ = () => handlersRef.current.recomputeSubmitState();
     window.__DC_SUBMIT__ = () => handlersRef.current.submit();
     window.__DC_RESET__ = () => handlersRef.current.reset();
     window.__DC_RESTORE_FROM_STORAGE__ = () => handlersRef.current.restoreFromStorage();
-    window.updateSubmitButtonState = () => handlersRef.current.recomputeSubmitState();
+    window.updateSubmitButtonState = window.__DC_RECOMPUTE_SUBMIT_STATE__;
 
     return () => {
+      const recompute = window.__DC_RECOMPUTE_SUBMIT_STATE__;
+      delete window.__DC_RECOMPUTE_SUBMIT_STATE__;
       delete window.__DC_SUBMIT__;
       delete window.__DC_RESET__;
       delete window.__DC_RESTORE_FROM_STORAGE__;
-      if (window.updateSubmitButtonState) {
+      if (window.updateSubmitButtonState === recompute) {
         delete window.updateSubmitButtonState;
       }
     };

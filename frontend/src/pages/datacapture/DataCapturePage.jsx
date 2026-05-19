@@ -350,12 +350,15 @@ export default function DataCapturePage() {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
         await loadScriptOnce(
-          buildApiUrl("js/datacapture.js?v=20260519-spa8"),
+          buildApiUrl("js/datacapture.js?v=20260519-spa9"),
           () => typeof window.initDataCapturePage === "function"
         );
         if (!alive) return;
         if (typeof window.initDataCapturePage === "function") {
           await window.initDataCapturePage();
+        }
+        if (typeof window.__DC_RECOMPUTE_SUBMIT_STATE__ === "function") {
+          window.__DC_RECOMPUTE_SUBMIT_STATE__();
         }
       } catch (e) {
         if (!alive) return;

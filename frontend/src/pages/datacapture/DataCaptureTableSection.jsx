@@ -66,14 +66,20 @@ export default function DataCaptureTableSection({
       <div className="form-actions">
         <button
           id="dataCaptureSubmitBtn"
-          type="submit"
+          type="button"
           className="btn btn-save"
           disabled={submitDisabled}
           style={{
             opacity: submitDisabled ? 0.6 : 1,
             cursor: submitDisabled ? "not-allowed" : "pointer",
           }}
-          onClick={() => (onSubmit ? onSubmit() : window.submitDataCaptureForm?.())}
+          onClick={() => {
+            if (onSubmit) {
+              void onSubmit();
+              return;
+            }
+            void window.submitDataCaptureForm?.();
+          }}
         >
           Submit
         </button>

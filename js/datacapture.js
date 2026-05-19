@@ -1133,7 +1133,7 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
-window.__DC_SCRIPT_VERSION__ = '20260519-spa8';
+window.__DC_SCRIPT_VERSION__ = '20260519-spa9';
 
 function __dcIsSpaRoutePath() {
     try {
@@ -23050,6 +23050,10 @@ function validateForm() {
 
 // Update submit button state based on validation
 function updateSubmitButtonState() {
+    if (window.__DATA_CAPTURE_REACT_FORM__ && typeof window.__DC_RECOMPUTE_SUBMIT_STATE__ === 'function') {
+        window.__DC_RECOMPUTE_SUBMIT_STATE__();
+        return;
+    }
     // 只控制主页面的 Submit 按钮，避免误操作弹窗里的 .btn-save
     const submitBtn = document.getElementById('dataCaptureSubmitBtn');
     if (!submitBtn) return;
