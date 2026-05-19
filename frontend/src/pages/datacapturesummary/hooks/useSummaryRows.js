@@ -47,6 +47,19 @@ export function useSummaryRows(tableData, enabled) {
     setRows((prev) => prev.filter((row) => !keySet.has(row.key)));
   }, []);
 
+  const markMainRowsClearedByKeys = useCallback((keys) => {
+    if (!Array.isArray(keys) || keys.length === 0) return;
+    const keySet = new Set(keys.filter(Boolean));
+    if (keySet.size === 0) return;
+    flushSync(() => {
+      setRows((prev) =>
+        prev.map((row) =>
+          keySet.has(row.key) && row.productType === "main" ? { ...row, userCleared: true } : row
+        )
+      );
+    });
+  }, []);
+
   const resetToInitialRows = useCallback(() => {
     flushSync(() => {
       setRows(initialRows);
@@ -80,19 +93,22 @@ export function useSummaryRows(tableData, enabled) {
       unsetWindowProperty("__SUMMARY_REACT_ADD_SUB_ROW__");
       unsetWindowProperty("__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__");
       unsetWindowProperty("__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__");
+      unsetWindowProperty("__SUMMARY_REACT_MARK_MAIN_ROWS_CLEARED__");
       return undefined;
     }
 
     window.__SUMMARY_REACT_ADD_SUB_ROW__ = addSubRow;
     window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ = syncFromDom;
     window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ = removeRowsByKeys;
+    window.__SUMMARY_REACT_MARK_MAIN_ROWS_CLEARED__ = markMainRowsClearedByKeys;
 
     return () => {
       unsetWindowProperty("__SUMMARY_REACT_ADD_SUB_ROW__", addSubRow);
       unsetWindowProperty("__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__", syncFromDom);
       unsetWindowProperty("__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__", removeRowsByKeys);
+      unsetWindowProperty("__SUMMARY_REACT_MARK_MAIN_ROWS_CLEARED__", markMainRowsClearedByKeys);
     };
-  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys]);
+  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys, markMainRowsClearedByKeys]);
 
-  return { rows, syncFromDom, resetToInitialRows, removeRowsByKeys };
+  return { rows, syncFromDom, resetToInitialRows, removeRowsByKeys, markMainRowsClearedByKeys };
 }

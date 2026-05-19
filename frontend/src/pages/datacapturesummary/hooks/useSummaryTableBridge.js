@@ -1,11 +1,16 @@
 import { useLayoutEffect } from "react";
 import { registerSummaryFormulaEngineShims } from "../formula/summaryFormulaEngineBridge.js";
+import {
+  registerSummaryTableDomBridge,
+  unregisterSummaryTableDomBridge,
+} from "../summaryTableDomBridge.js";
 
 /** Set synchronously so legacy init never runs the DOM table/empty-state path before layout effects. */
 if (typeof window !== "undefined") {
   window.__SUMMARY_REACT_TABLE__ = true;
   window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
   registerSummaryFormulaEngineShims();
+  registerSummaryTableDomBridge();
 }
 
 /** Legacy showEmptyState() inserts HTML after the submit bar — remove stale copies when React owns the table. */
@@ -30,7 +35,9 @@ export function removeLegacySummaryEmptyStateDom() {
 export function useSummaryTableBridge({ hasCaptureData, processData }) {
   useLayoutEffect(() => {
     window.__SUMMARY_REACT_TABLE__ = true;
+    registerSummaryTableDomBridge();
     return () => {
+      unregisterSummaryTableDomBridge();
       delete window.__SUMMARY_REACT_TABLE__;
     };
   }, []);

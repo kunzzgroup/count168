@@ -34,6 +34,7 @@ export default function SummaryTable({ tableData, rows = [], visible = false }) 
                 productType={row.productType}
                 parentIdProduct={row.parentIdProduct}
                 parentRowIndex={row.parentRowIndex}
+                userCleared={row.userCleared === true}
               />
             ))}
           </tbody>

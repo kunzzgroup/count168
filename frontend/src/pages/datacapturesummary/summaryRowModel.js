@@ -23,6 +23,7 @@ export function buildInitialSummaryRows(tableData) {
       productType: "main",
       parentIdProduct: null,
       parentRowIndex: null,
+      userCleared: false,
     }));
 }
 
@@ -75,6 +76,7 @@ export function insertSubRowInModel(
     productType: "sub",
     parentIdProduct: parentTrimmed,
     parentRowIndex: numericRowIndex,
+    userCleared: false,
   };
 
   const insertIdx = resolveInsertAfterIndex(rows, insertAfterKey, insertAfterDomRow);
@@ -144,6 +146,7 @@ export function readSummaryRowsFromDom(fallbackRows = []) {
     seenKeys.add(key);
 
     const prior = fallbackByKey.get(existingKey || "") || fallbackByKey.get(key);
+    const domCleared = tr.getAttribute("data-row-user-cleared") === "1";
     return {
       key,
       idProduct: idProduct || prior?.idProduct || "",
@@ -151,6 +154,7 @@ export function readSummaryRowsFromDom(fallbackRows = []) {
       productType: prior?.productType || productType,
       parentIdProduct: parentIdProduct || prior?.parentIdProduct || null,
       parentRowIndex: parentRowIndex ?? prior?.parentRowIndex ?? null,
+      userCleared: domCleared || prior?.userCleared === true,
     };
   });
 }

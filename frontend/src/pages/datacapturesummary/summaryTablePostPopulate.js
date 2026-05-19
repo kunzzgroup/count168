@@ -1,5 +1,6 @@
 import { pushSummaryNotification } from "./summaryNotify.js";
 import { stripSummarySuccessParamFromUrl } from "./summaryStorage.js";
+import { clearSummaryFormulaCell } from "./summaryTableDomBridge.js";
 
 const PREPOPULATE_READY_TIMEOUT_MS = 8000;
 const PREPOPULATE_POLL_MS = 40;
@@ -103,23 +104,11 @@ function clearSummaryRowAccountAssignment(row) {
   row.removeAttribute("data-account-order");
 }
 
-function clearSummaryFormulaCellDom(cell) {
-  if (!cell) return;
-  if (window.__SUMMARY_REACT_TABLE__) {
-    while (cell.firstChild) {
-      cell.removeChild(cell.firstChild);
-    }
-    return;
-  }
-  cell.innerHTML =
-    '<div class="formula-cell-content"><span class="formula-text"></span></div>';
-}
-
 function clearSummaryRowAccountAndFormula(row) {
   clearSummaryRowAccountAssignment(row);
   const cells = row.querySelectorAll("td");
   if (cells[4]) {
-    clearSummaryFormulaCellDom(cells[4]);
+    clearSummaryFormulaCell(cells[4]);
   }
   if (cells[5]) cells[5].textContent = "";
   if (cells[8]) cells[8].textContent = "0.00";
@@ -456,7 +445,7 @@ function runSummaryTablePostPopulateFinally() {
           if (row.getAttribute("data-row-user-cleared") === "1") return;
           const cells = row.querySelectorAll("td");
           if (cells[4]) {
-            clearSummaryFormulaCellDom(cells[4]);
+            clearSummaryFormulaCell(cells[4]);
           }
           if (cells[5]) cells[5].textContent = "";
           row.removeAttribute("data-formula-operators");
