@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   buildDateOptions,
   displayTextFromProcessRow,
@@ -9,6 +9,8 @@ import {
 } from "./dataCaptureApi.js";
 
 const PROCESS_PLACEHOLDER = "Select Process";
+/** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
+const PROCESS_OPTIONS_RENDER_CAP = 80;
 
 function applyProcessDetailToFields(data, setters, currenciesSnapshot) {
   const {
@@ -202,7 +204,9 @@ export function useDataCaptureFormEngine(companyId) {
     window.__DATA_CAPTURE_REACT_FORM__ = true;
 
     window.__DC_SET_PROCESS_LIST__ = (rows) => {
-      setProcessRows(Array.isArray(rows) ? rows : []);
+      startTransition(() => {
+        setProcessRows(Array.isArray(rows) ? rows : []);
+      });
     };
 
     window.__DC_RELOAD_PROCESSES__ = async () => {
@@ -267,6 +271,16 @@ export function useDataCaptureFormEngine(companyId) {
     return processRows.filter((r) => displayTextFromProcessRow(r).toLowerCase().includes(q));
   }, [processFilter, processRows]);
 
+  const processListTruncated = useMemo(
+    () => !processFilter.trim() && processRows.length > PROCESS_OPTIONS_RENDER_CAP,
+    [processFilter, processRows.length]
+  );
+
+  const visibleProcesses = useMemo(() => {
+    if (!processListTruncated) return filteredProcesses;
+    return filteredProcesses.slice(0, PROCESS_OPTIONS_RENDER_CAP);
+  }, [filteredProcesses, processListTruncated]);
+
   const processSearchInputRef = useRef(null);
   useEffect(() => {
     if (processOpen && processSearchInputRef.current) {
@@ -297,6 +311,9 @@ export function useDataCaptureFormEngine(companyId) {
     setProcessFilter,
     processSearchInputRef,
     filteredProcesses,
+    visibleProcesses,
+    processListTruncated,
+    processRowsCount: processRows.length,
     selectedProcess,
     selectProcessRow,
     clearProcessSelection,

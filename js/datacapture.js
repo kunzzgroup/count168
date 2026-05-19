@@ -1120,11 +1120,23 @@ function __dcIsSpaReactProcessUi() {
     return typeof window.__DC_SET_PROCESS_LIST__ === 'function';
 }
 
+window.__DC_SCRIPT_VERSION__ = '20260519-spa4';
+
+function __dcIsSpaRoutePath() {
+    try {
+        var p = window.location.pathname || '';
+        return /\/datacapture\/?$/i.test(p);
+    } catch (e) {
+        return false;
+    }
+}
+
 /**
  * SPA shell: prefer DOM marker on `#dataCaptureForm` so legacy skips React-owned nodes even if globals
  * are missing/out-of-order (CDN, double script, timing). PHP classic pages do not set `data-ezc-spa`.
  */
 function __dcIsDataCaptureSpa() {
+    if (__dcIsSpaRoutePath()) return true;
     try {
         var form = document.getElementById('dataCaptureForm');
         if (form && form.hasAttribute('data-ezc-spa')) return true;
@@ -2972,6 +2984,24 @@ async function loadProcessesByDate() {
     try {
         const dateInput = document.getElementById('capture_date');
         const selectedDate = (dateInput && dateInput.value) ? dateInput.value : getLocalDateString();
+
+        if (__dcIsDataCaptureSpa() || __dcSpaShellByDomMarker()) {
+            if (typeof window.__DC_RELOAD_PROCESSES__ === 'function') {
+                await window.__DC_RELOAD_PROCESSES__();
+            } else if (typeof window.__DC_SET_PROCESS_LIST__ === 'function') {
+                const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
+                const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_processes_by_day&date=${encodeURIComponent(selectedDate)}`);
+                const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
+                const response = await fetch(finalUrl, { credentials: 'include' });
+                const result = await response.json();
+                if (result.success) {
+                    syncProcessDataMapFromApiData(result.data || []);
+                    window.__DC_SET_PROCESS_LIST__(result.data || [], selectedDate);
+                }
+            }
+            updateSubmitButtonState();
+            return;
+        }
 
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);

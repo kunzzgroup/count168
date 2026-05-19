@@ -346,7 +346,10 @@ export default function DataCapturePage() {
       try {
         await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
         await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
-        await loadScriptOnce(buildApiUrl("js/datacapture.js"), () => typeof window.initDataCapturePage === "function");
+        await loadScriptOnce(
+          buildApiUrl("js/datacapture.js?v=20260519-spa4"),
+          () => typeof window.initDataCapturePage === "function"
+        );
         if (!alive) return;
         if (typeof window.initDataCapturePage === "function") {
           await window.initDataCapturePage();
@@ -570,8 +573,19 @@ export default function DataCapturePage() {
                           }}
                         />
                       </div>
-                      <div className="custom-select-options">
-                        {form.filteredProcesses.map((row) => (
+                      {/* Legacy `loadProcessesByDate` clears the first `.custom-select-options` — keep an empty decoy. */}
+                      <div
+                        className="custom-select-options dc-legacy-process-options-host"
+                        aria-hidden="true"
+                        style={{ display: "none" }}
+                      />
+                      <div className="custom-select-options dc-react-process-options">
+                        {form.processListTruncated ? (
+                          <div className="custom-select-option custom-select-option--hint" style={{ cursor: "default", opacity: 0.85 }}>
+                            Type to search ({form.processRowsCount} processes)
+                          </div>
+                        ) : null}
+                        {form.visibleProcesses.map((row) => (
                           <div
                             key={row.id}
                             role="presentation"
@@ -689,7 +703,10 @@ export default function DataCapturePage() {
         <div className="submitted-column">
           <div className="submitted-container">
             <h2 className="submitted-title">Submitted Processes</h2>
-            <div className="submitted-list" id="submittedProcessesList">
+            <div className="submitted-list">
+              {/* Legacy `renderSubmittedProcesses` sets innerHTML on `#submittedProcessesList` — decoy only. */}
+              <div id="submittedProcessesList" className="dc-legacy-submitted-host" aria-hidden="true" style={{ display: "none" }} />
+              <div className="dc-react-submitted-list">
               {submittedItems.length === 0 ? (
                 <div className="no-data">No processes submitted for this date</div>
               ) : (
@@ -717,6 +734,7 @@ export default function DataCapturePage() {
                   </div>
                 ))
               )}
+              </div>
             </div>
           </div>
         </div>
