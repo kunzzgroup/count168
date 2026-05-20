@@ -28,7 +28,9 @@ import { useSummaryTablePopulate } from "./hooks/useSummaryTablePopulate.js";
 import { useSummaryFormulaEngine } from "./hooks/useSummaryFormulaEngine.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
+import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
+import "../../../public/css/userlist.css";
 import "../../../public/css/datacapturesummary.css";
 import "../../../public/css/global-13inch.css";
 

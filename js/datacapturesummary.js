@@ -3859,8 +3859,12 @@ async function addAccount() {
     if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
         return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
     }
-    // Show add account modal
-    document.getElementById('addModal').style.display = 'block';
+    const modal = document.getElementById('addModal');
+    if (!modal) {
+        console.warn('[Summary] Add Account: legacy #addModal missing; use SPA AccountModal.');
+        return;
+    }
+    modal.style.display = 'block';
     await loadAddAccountModalData();
 }
 

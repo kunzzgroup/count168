@@ -165,10 +165,16 @@ export default function AccountModal({
 
   return (
     <>
-    <div id={modalId} className="account-modal" style={{
-        display: "block",
+    <div
+      id={modalId}
+      className="account-modal"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         ...(overlayZIndex != null ? { zIndex: overlayZIndex } : {}),
-      }}>
+      }}
+    >
       <div className="account-modal-content">
         <div className="account-modal-header">
           <h2>{title}</h2>
