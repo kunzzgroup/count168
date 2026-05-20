@@ -553,7 +553,7 @@ function configurePasswordFieldsForContext({ isOwnerShadow = false, isEdit = fal
         visible: showSecondaryPassword,
         required: false,
         disabled: false,
-        placeholder: isEdit ? 'Leave empty to keep current password' : 'Enter 6-digit password',
+        placeholder: isEdit ? 'Enter 6-digit password' : 'Enter 6-digit password',
         clear: true
     });
 }

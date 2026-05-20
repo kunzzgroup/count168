@@ -2362,7 +2362,7 @@ function editDomain(id) {
     if (hasC168Context && isOwnerOrAdmin) {
         secondaryPasswordInput.required = false;
         secondaryPasswordInput.disabled = false;
-        secondaryPasswordInput.placeholder = 'Leave empty to keep current password';
+        secondaryPasswordInput.placeholder = 'Enter 6-digit password';
         document.getElementById('secondaryPasswordGroup').style.display = 'block';
     } else {
         secondaryPasswordInput.required = false;
