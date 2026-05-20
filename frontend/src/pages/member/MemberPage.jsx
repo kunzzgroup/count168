@@ -562,7 +562,7 @@ export default function MemberPage() {
                               <td className="transaction-history-col-crdr">{formatPaymentHistoryMoney(row.cr_dr)}</td>
                               <td className="transaction-history-col-balance">{formatPaymentHistoryMoney(row.balance)}</td>
                               <td className="transaction-history-col-description">{formatMemberRowDescription(lang, row)}</td>
-                              <td className="transaction-history-col-remark text-uppercase">{(row.remark || row.sms || "-").toUpperCase()}</td>
+                              <td className="transaction-history-col-remark text-uppercase">{String(row.remark || row.sms || "-").toUpperCase()}</td>
                             </tr>
                           ))
                         )}
