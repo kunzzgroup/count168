@@ -5,6 +5,7 @@ import { isPartnershipAuditReadOnlyLocked } from "../../utils/partnershipAuditRe
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
+import "../../../public/css/admin-responsive.css";
 import {
   ALL_ROLE_OPTIONS,
   PAGE_SIZE,

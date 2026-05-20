@@ -53,6 +53,11 @@
   --sidebar-header-pad-x: clamp(0.8rem, 0.77rem + 0.05vw, 1rem);
   --sidebar-header-pad-b: clamp(0.6rem, 0.57rem + 0.05vw, 0.8rem);
 
+  /* 主内容区水平偏移（侧栏宽 + 间距；User List 等试点页 padding-left） */
+  --layout-sidebar-width: var(--sidebar-lock-width);
+  --layout-main-gap: var(--space-gap);
+  --layout-main-offset: calc(var(--layout-sidebar-width) + var(--layout-main-gap));
+
   /* --- 品牌 / 文本色（列表页与 dashboard 壳层对齐，供 var 消重）--- */
   --color-page-bg: #e9f1ff;
   --color-page-fg: #334155;
@@ -335,4 +340,12 @@
   /* 登录白卡最小高度：按中文版 Tab（--text-h2）+ 表单 + 语系条撑满；切 EN 时只换字、外框不降 */
   --login-card-min-height: 450px;
   --login-card-min-height-narrow: 528px;
+}
+
+/* 平板：与 sidebar.css 窄屏侧栏一致 */
+@media (max-width: 1024px) {
+  :root {
+    --layout-sidebar-width: 15rem;
+    --layout-main-gap: 1.2rem;
+  }
 }

@@ -1,0 +1,61 @@
+/* ==========================================================================
+   Admin (User List) responsive pilot — import from UserListPage.jsx only.
+   Desktop / laptop: design-tokens + global-13inch. Tablet: ≤1024. No phone UX.
+   ========================================================================== */
+
+/* --- Tablet (768–1024) --- */
+@media (max-width: 1024px) {
+  body.user-page .action-buttons {
+    flex-wrap: wrap;
+    gap: var(--space-gap);
+    align-items: flex-start;
+  }
+
+  body.user-page .action-buttons > div:first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: var(--space-gap);
+  }
+
+  body.user-page .user-toolbar-actions-right {
+    flex-wrap: wrap;
+    gap: var(--space-gap);
+  }
+
+  body.user-page .user-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.user-page .user-table-wrapper .table-header,
+  body.user-page .user-table-wrapper .user-card {
+    min-width: 68rem;
+  }
+}
+
+/* --- Laptop density (align with global-13inch, no grid override) --- */
+@media (max-width: 1280px) {
+  body.user-page .user-table-wrapper .table-header,
+  body.user-page .user-table-wrapper .user-card {
+    gap: 10px;
+  }
+}
+
+/* --- Below pilot minimum width: hint only, non-blocking --- */
+@media (max-width: 767.98px) {
+  body.user-page::before {
+    content: "建议屏幕宽度 ≥768px";
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8px 12px;
+    background: rgba(0, 45, 73, 0.92);
+    color: #fff;
+    text-align: center;
+    font-size: 1.2rem;
+    z-index: 9998;
+    pointer-events: none;
+  }
+}
