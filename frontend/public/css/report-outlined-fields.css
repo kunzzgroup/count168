@@ -25,6 +25,16 @@ body.maintenance-page .customer-report-filters .report-outlined-inner .transacti
 body.maintenance-page .customer-report-filters .report-outlined-inner .custom-select-button,
 body.maintenance-page .customer-report-filters .report-outlined-inner .maintenance-select {
     min-height: clamp(32px, 2.25vw, 36px);
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: 600;
+    font-family: var(--font-heading-page);
+    color: #000;
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .maintenance-select option {
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: 600;
+    font-family: var(--font-heading-page);
 }
 
 body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker {
@@ -32,6 +42,13 @@ body.maintenance-page .customer-report-filters .report-outlined-inner .transacti
     width: 100%;
     max-width: 100%;
     min-height: clamp(32px, 2.25vw, 36px) !important;
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .date-range-picker span {
+    font-size: var(--text-small);
+    font-weight: 500;
+    font-family: var(--font-heading-page);
+    color: #374151;
 }
 
 body.maintenance-page .report-outlined-shell,
@@ -152,7 +169,7 @@ body.transaction-page .transaction-category-date-row .report-outlined-inner .dat
     box-shadow: none !important;
 }
 
-/* Maintenance Payment: native select inside outlined shell (match Process / Date Range) */
+/* Maintenance: native select inside outlined shell (match Process custom-select) */
 body.maintenance-page .report-outlined-inner .maintenance-select {
     margin: 0;
     width: 100%;
@@ -163,10 +180,11 @@ body.maintenance-page .report-outlined-inner .maintenance-select {
     box-shadow: none !important;
     background-color: transparent;
     min-height: clamp(32px, 2.25vw, 36px);
-    padding: clamp(4px, 0.3vw, 6px) clamp(28px, 2vw, 35px) clamp(4px, 0.3vw, 6px) clamp(10px, 0.83vw, 14px);
-    font-size: clamp(11px, 0.85vw, 14px);
+    padding: clamp(4px, 0.3vw, 6px) clamp(26px, 2vw, 30px) clamp(4px, 0.3vw, 6px) clamp(6px, 0.4vw, 8px);
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: 600;
     font-family: var(--font-heading-page);
-    color: #374151;
+    color: #000;
 }
 
 body.maintenance-page .report-outlined-inner .maintenance-select:hover,
