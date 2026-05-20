@@ -68,9 +68,10 @@ function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
     const code = String(codeRaw || '').trim();
     const name = String(nameRaw || '').trim();
     const fallback = String(fallbackRaw || '').trim();
+    // Always show account_id [name] when account_id exists (space before bracket).
     if (code) {
         const safeName = name || code;
-        return code + '[' + safeName + ']';
+        return code + ' [' + safeName + ']';
     }
     if (name) return name;
     return fallback;
