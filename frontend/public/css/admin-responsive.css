@@ -68,6 +68,76 @@
   body.user-page .user-table-wrapper .table-header .header-item__label {
     white-space: nowrap;
   }
+
+  /* 1024×768：字号略小于 global-13inch，减少 Login ID / Status / Email 等被省略 */
+  body.user-page h1,
+  body.user-page .content > h1 {
+    font-size: clamp(1.35rem, 2vw, 1.55rem) !important;
+  }
+
+  body.user-page .informationmenu .informationmenu-section-title {
+    font-size: 1.15rem !important;
+    padding: 0.55rem 0.85rem !important;
+    line-height: 1.25;
+  }
+
+  body.user-page .informationmenu .informationmenu-section-title .section-icon {
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+    margin-right: 0.45rem !important;
+  }
+
+  body.user-page .search-container.userlist-search-bar .userlist-search-input,
+  body.ec-auth-shell.user-page .search-container.userlist-search-bar .userlist-search-input {
+    font-size: 10px !important;
+  }
+
+  body.user-page .user-filter-chip__label {
+    font-size: 10px !important;
+  }
+
+  body.user-page .action-buttons .btn-add,
+  body.user-page .action-buttons .btn-delete,
+  body.ec-auth-shell.user-page .btn-add,
+  body.ec-auth-shell.user-page .btn-delete {
+    font-size: 10px !important;
+    padding: 6px 10px !important;
+  }
+
+  body.user-page .user-gc-inline-label,
+  body.user-page .user-gc-segment {
+    font-size: 10px !important;
+  }
+
+  body.user-page .user-table-wrapper .table-header {
+    font-size: 11px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+
+  body.user-page .user-table-wrapper .table-header .header-item,
+  body.user-page .user-table-wrapper .user-card .card-item {
+    font-size: 10px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    line-height: 1.35;
+  }
+
+  body.user-page .user-card .role-badge,
+  body.user-page .role-badge {
+    font-size: 9px !important;
+    padding: 2px 6px !important;
+    line-height: 1.2;
+  }
+
+  body.user-page .user-table-wrapper .table-header,
+  body.user-page .user-table-wrapper .user-card {
+    gap: 6px;
+    padding-left: 10px;
+    padding-right: 10px;
+    min-width: 48rem;
+    width: max(100%, 48rem);
+  }
 }
 
 /* --- Laptop density (align with global-13inch, no grid override) --- */
