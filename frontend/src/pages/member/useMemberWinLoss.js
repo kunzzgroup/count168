@@ -266,7 +266,18 @@ export function useMemberWinLoss({ showNotification }) {
     [availableCurrencies, isAllSelected, selectedCurrencies],
   );
 
-  const showMiniRail = linkedAccounts.length > 0 && miniGridCurrencies.length > 0;
+  const showMiniRail = linkedAccounts.length > 0 || viewAccountId > 0;
+
+  const miniGridDisplayCurrencies = useMemo(() => {
+    if (miniGridShell) return MINI_GRID_SHELL_CCY;
+    if (miniGridCurrencies.length > 0) return miniGridCurrencies;
+    if (availableCurrencies.length > 0) {
+      return isAllSelected
+        ? availableCurrencies
+        : availableCurrencies.filter((c) => selectedCurrencies.includes(c));
+    }
+    return MINI_GRID_SHELL_CCY;
+  }, [miniGridShell, miniGridCurrencies, availableCurrencies, isAllSelected, selectedCurrencies]);
 
   const miniGridAccounts = useMemo(
     () =>
@@ -746,6 +757,7 @@ export function useMemberWinLoss({ showNotification }) {
     selectedCurrencies,
     availableCurrencies,
     miniGridCurrencies,
+    miniGridDisplayCurrencies,
     miniGridShell,
     miniGridBalances,
     miniGridTotals,

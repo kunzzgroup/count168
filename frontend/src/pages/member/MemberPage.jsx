@@ -14,7 +14,7 @@ import "../../../public/css/transaction.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 import MemberMiniGrid, { MemberMiniGridTotals } from "./MemberMiniGrid.jsx";
 import MemberLinkedFilterModal from "./MemberLinkedFilterModal.jsx";
-import { MINI_GRID_SHELL_CCY, computeTableTotals } from "./memberPageHelpers.js";
+import { computeTableTotals } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 
 const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
@@ -110,7 +110,7 @@ export default function MemberPage() {
     isAllSelected,
     selectedCurrencies,
     availableCurrencies,
-    miniGridCurrencies,
+    miniGridDisplayCurrencies,
     miniGridShell,
     miniGridBalances,
     miniGridTotals,
@@ -468,7 +468,7 @@ export default function MemberPage() {
                     <div className="member-dash-rail-matrix">
                       <MemberMiniGrid
                         shellMode={miniGridShell}
-                        currencies={miniGridShell ? MINI_GRID_SHELL_CCY : miniGridCurrencies}
+                        currencies={miniGridDisplayCurrencies}
                         accounts={miniGridAccounts}
                         balanceMap={miniGridBalances}
                         hint={miniGridHint}
@@ -483,7 +483,7 @@ export default function MemberPage() {
                       <div className="member-dash-total-matrix-body">
                         <div id="member_balance_total_value" className="member-dash-total-values" aria-live="polite">
                           <MemberMiniGridTotals
-                            currencyOrder={miniGridShell ? MINI_GRID_SHELL_CCY : miniGridCurrencies}
+                            currencyOrder={miniGridDisplayCurrencies}
                             totalsByCu={miniGridTotals}
                           />
                         </div>
