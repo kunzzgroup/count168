@@ -315,7 +315,7 @@
 }
 
 .informationmenu {
-    width: clamp(160px, 12.98vw, 235px);
+    width: var(--layout-sidebar-width);
     height: 100%;
     background: var(--sidebar-shell-bg, #002d49);
     backdrop-filter: blur(20px);
@@ -352,7 +352,7 @@
 
 @media (max-width: 1024px) {
     .informationmenu {
-        width: 150px;
+        width: var(--layout-sidebar-width);
         height: 100vh;
     }
     .informationmenu-footer {
@@ -1350,7 +1350,7 @@
 /* Final size lock: AuthenticatedLayout sets body.ec-auth-shell (stable across routes).
    Use clamp so small viewports match legacy .informationmenu + max-width:1024px (≈150px), not forced desktop width. */
 body.ec-auth-shell .informationmenu {
-    width: clamp(15rem, 12.98vw, var(--sidebar-lock-width, 23.5rem)) !important;
+    width: var(--layout-sidebar-width) !important;
 }
 
 body.ec-auth-shell .informationmenu-header {
@@ -1414,7 +1414,7 @@ body.ec-auth-shell .informationmenu .submenu-item {
 /* Narrow screens: keep shell visually aligned with base .informationmenu @media (max-width: 1024px) */
 @media (max-width: 1024px) {
     body.ec-auth-shell .informationmenu {
-        width: 15rem !important;
+        width: var(--layout-sidebar-width) !important;
     }
 
     body.ec-auth-shell .informationmenu-header {
