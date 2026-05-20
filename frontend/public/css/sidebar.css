@@ -1728,23 +1728,31 @@ body.ec-auth-shell .informationmenu .submenu-item {
         height: 20px;
     }
 
-    /* Main content: reclaim horizontal space when sidebar is icon-only */
-    body.ec-auth-shell.sidebar-collapsed .transaction-container,
-    body.ec-auth-shell.sidebar-collapsed .dashboard-container,
-    body.ec-auth-shell.sidebar-collapsed .datacapture-container,
-    body.ec-auth-shell.sidebar-collapsed .container.domain-react-page,
-    body.ec-auth-shell.sidebar-collapsed .announcement-page-container,
-    body.ec-auth-shell.sidebar-collapsed.user-page .container,
-    body.ec-auth-shell.sidebar-collapsed.account-page .container,
-    body.ec-auth-shell.sidebar-collapsed.process-page .container,
-    body.ec-auth-shell.sidebar-collapsed.transaction-page .transaction-container,
-    body.ec-auth-shell.sidebar-collapsed.dashboard-page .dashboard-container,
-    body.ec-auth-shell.sidebar-collapsed.datacapture-page .container,
-    body.ec-auth-shell.sidebar-collapsed.domain-page .container,
-    body.ec-auth-shell.sidebar-collapsed.maintenance-page .container,
-    body.ec-auth-shell.sidebar-collapsed.report-page .container,
-    body.ec-auth-shell.sidebar-collapsed.ownership-page .container {
+    /* 主内容区：随侧栏宽（展开 15rem / 收起 4.5rem）自动贴合 */
+    body.ec-auth-shell .informationmenu {
+        transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body.ec-auth-shell :is(
+        .user-page .container,
+        .account-page .container,
+        .process-page .container,
+        .transaction-page .transaction-container,
+        .dashboard-page .dashboard-container,
+        .dashboard-page .container,
+        .datacapture-page .container,
+        .datacapture-page .datacapture-container,
+        .domain-page .container,
+        .domain-page .container.domain-react-page,
+        .maintenance-page .container,
+        .report-page .container,
+        .ownership-page .container,
+        .announcement-page .container,
+        .announcement-page .announcement-page-container
+    ) {
         padding-left: var(--layout-main-offset) !important;
+        transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-sizing: border-box;
     }
 }
 
