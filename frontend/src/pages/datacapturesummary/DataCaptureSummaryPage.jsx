@@ -7,7 +7,7 @@ import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
 import EditFormulaModal from "./components/EditFormulaModal.jsx";
 import AccountModal from "../../components/AccountModal.jsx";
 import { useSummaryEditFormula } from "./hooks/useSummaryEditFormula.js";
-import { useSummaryAddAccount } from "./hooks/useSummaryAddAccount.js";
+import { useSummaryAddAccount, purgeLegacySummaryAddAccountModal } from "./hooks/useSummaryAddAccount.js";
 import SummaryActionBar from "./components/SummaryActionBar.jsx";
 import SummarySubmitBar from "./components/SummarySubmitBar.jsx";
 import SummaryNotification from "./components/SummaryNotification.jsx";
@@ -216,6 +216,7 @@ function DataCaptureSummaryPageInner() {
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page");
     document.body.classList.add("dashboard-page");
+    purgeLegacySummaryAddAccountModal();
     return () => {
       document.body.classList.remove("page-ready");
     };
@@ -229,9 +230,7 @@ function DataCaptureSummaryPageInner() {
 
     if (areSummaryLegacyScriptsLoaded()) {
       setScriptsReady(true);
-      return () => {
-        window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
-      };
+      return undefined;
     }
 
     let alive = true;
@@ -263,7 +262,6 @@ function DataCaptureSummaryPageInner() {
 
     return () => {
       alive = false;
-      window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
     };
   }, [sessionReady]);
 
