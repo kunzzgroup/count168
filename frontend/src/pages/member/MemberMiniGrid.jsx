@@ -5,14 +5,14 @@ function formatGridAmt(dec) {
   return MoneyDecimal.formatThousands(dec.toString(), 2);
 }
 
-export function MemberMiniGridTotals({ currencyOrder, totalsByCu }) {
+export function MemberMiniGridTotals({ currencyOrder, totalsByCu, t }) {
   const order = currencyOrder.map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
   if (!order.length) {
     return <span className="member-dash-total-amt">–</span>;
   }
   return (
     <div className="member-dash-total-values member-dash-total-values--grid">
-      <div className="member-dash-total-currency-grid" role="group" aria-label="Totals by currency">
+      <div className="member-dash-total-currency-grid" role="group" aria-label={t?.("totalsByCurrencyAria") || "Totals by currency"}>
         {order.map((cu) => {
           const dec = totalsByCu.get(cu) || MoneyDecimal.toDecimal("0", 0);
           const neg = dec.lt(0);
@@ -86,6 +86,7 @@ export default function MemberMiniGrid({
   hint,
   linkedCurrenciesLoaded,
   linkedAccountCurrenciesMap,
+  t,
 }) {
   const orderUpper = (currencies || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
   const ncu = orderUpper.length;
@@ -107,7 +108,7 @@ export default function MemberMiniGrid({
           id="member_balance_grid"
         className={`member-balance-mini-grid${ncu ? " member-balance-mini-matrix" : ""}${manyCcy ? " member-balance-mini-matrix--many-ccy" : ""}`}
         role={ncu ? "grid" : undefined}
-        aria-label={ncu ? "Balances by account and currency" : undefined}
+        aria-label={ncu ? t?.("balancesGridAria") || "Balances by account and currency" : undefined}
         style={ncu ? { gridTemplateColumns: miniMatrixGridTemplateColumns(ncu) } : undefined}
       >
         {ncu > 0 && (
