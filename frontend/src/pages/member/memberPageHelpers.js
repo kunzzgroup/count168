@@ -1,0 +1,246 @@
+import { MoneyDecimal } from "../../utils/moneyDecimal.js";
+
+export const MINI_GRID_SHELL_CCY = ["MYR", "SGD"];
+export const MINI_GRID_SHELL_ROWS = 5;
+
+export function normalizeNumber(value) {
+  try {
+    return MoneyDecimal.toDecimal(value || "0", 0);
+  } catch {
+    return MoneyDecimal.toDecimal("0", 0);
+  }
+}
+
+export function formatPaymentHistoryMoney(value) {
+  if (value === "-" || value === null || value === undefined) return "-";
+  const cleaned = String(value).replace(/,/g, "").trim();
+  if (cleaned === "" || cleaned === "-") return "0.00";
+  const exact2 = cleaned.match(/^(-?)(\d+)\.(\d{2})$/);
+  if (exact2) {
+    const neg = exact2[1] === "-" ? "-" : "";
+    const intWithSep = exact2[2].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return `${neg}${intWithSep}.${exact2[3]}`;
+  }
+  return MoneyDecimal.formatThousands(cleaned, 2);
+}
+
+export function memberHistoryClosingBalancesForAllCurrencies(rows, wantedUpperSet) {
+  const map = new Map();
+  wantedUpperSet.forEach((cu) => map.set(cu, normalizeNumber("0")));
+  (rows || []).forEach((row) => {
+    const rc = String(row.currency || "")
+      .trim()
+      .toUpperCase();
+    if (!wantedUpperSet.has(rc)) return;
+    if (row.balance !== "-" && row.balance !== null && row.balance !== undefined && String(row.balance).trim() !== "") {
+      map.set(rc, normalizeNumber(row.balance));
+    }
+  });
+  return map;
+}
+
+export function wlGridStorageKey(companyId, loginRootId) {
+  return `member_wl_grid:${companyId}:${loginRootId}`;
+}
+
+export function applyDefaultWLGridSelection(linkedIds, companyId, loginRootId) {
+  const ids = linkedIds.map((id) => Number(id)).filter((id) => id > 0);
+  if (!ids.length) return [];
+  try {
+    const raw = sessionStorage.getItem(wlGridStorageKey(companyId, loginRootId));
+    if (raw) {
+      const arr = JSON.parse(raw);
+      const selected = arr.map(Number).filter((id) => ids.includes(id));
+      if (selected.length) return selected;
+    }
+  } catch {
+    // ignore
+  }
+  return [...ids];
+}
+
+export function saveWLGridSelection(ids, companyId, loginRootId) {
+  try {
+    sessionStorage.setItem(wlGridStorageKey(companyId, loginRootId), JSON.stringify(ids));
+  } catch {
+    // ignore
+  }
+}
+
+export function getWlGridIncludedAccountIds(linkedAccounts, wlGridSelectedIds) {
+  const allow = new Set(linkedAccounts.map((a) => Number(a.id)).filter(Boolean));
+  let sel = wlGridSelectedIds.map(Number).filter((id) => allow.has(id));
+  if (!sel.length) sel = [...allow];
+  return sel;
+}
+
+export function collectLinkedUnionCurrencyCodes(linkedAccountCurrenciesMap, includedIds) {
+  const codes = new Set();
+  includedIds.forEach((id) => {
+    const set = linkedAccountCurrenciesMap.get(Number(id));
+    if (set?.size) {
+      set.forEach((c) => {
+        if (c) codes.add(String(c).trim().toUpperCase());
+      });
+    }
+  });
+  return [...codes];
+}
+
+export function accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedCurrenciesLoaded, accountId, currencyUpper) {
+  const cu = String(currencyUpper || "")
+    .trim()
+    .toUpperCase();
+  if (!cu) return true;
+  if (!linkedCurrenciesLoaded) return true;
+  const set = linkedAccountCurrenciesMap.get(Number(accountId));
+  if (!set || set.size === 0) return true;
+  return set.has(cu);
+}
+
+export function getOrderedMiniGridAccounts(linkedAccounts, wlGridSelectedIds, currenciesUpper, linkedAccountCurrenciesMap, linkedCurrenciesLoaded) {
+  const allowIds = new Set(linkedAccounts.map((a) => Number(a.id)));
+  const sel = new Set(wlGridSelectedIds.map(Number).filter((id) => allowIds.has(id)));
+  if (!sel.size) allowIds.forEach((id) => sel.add(id));
+  const uppers = (currenciesUpper || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
+  return linkedAccounts.filter((a) => {
+    if (!sel.has(Number(a.id))) return false;
+    return uppers.some((cu) => accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedCurrenciesLoaded, a.id, cu));
+  });
+}
+
+export function getAvailableCurrenciesFromSummaryOnly(currencySummary, currencySortOrder, currencyDisplayOrder) {
+  const codes = [];
+  currencySummary.forEach((row) => {
+    const code = String(row.currency || "").trim();
+    if (!code) return;
+    if (!currencySortOrder[code]) {
+      const sortValue =
+        typeof row.currency_id === "number" ? row.currency_id : parseInt(row.currency_id || "0", 10) || Number.MAX_SAFE_INTEGER;
+      currencySortOrder[code] = sortValue;
+    }
+    codes.push(code);
+  });
+  const unique = [...new Set(codes)];
+  return sortCurrencyList(unique, currencySortOrder, currencyDisplayOrder, false);
+}
+
+export function sortCurrencyList(baseOrder, currencySortOrder, currencyDisplayOrder, fromLinkedUnion) {
+  if (!baseOrder.length) return [];
+  if (currencyDisplayOrder?.length) {
+    const orderSet = new Set(currencyDisplayOrder);
+    const inOrder = [];
+    currencyDisplayOrder.forEach((c) => {
+      if (baseOrder.includes(c)) inOrder.push(c);
+    });
+    const notInOrder = baseOrder.filter((c) => !orderSet.has(c));
+    notInOrder.sort((a, b) => compareCurrencySort(a, b, currencySortOrder, fromLinkedUnion));
+    return [...inOrder, ...notInOrder];
+  }
+  return [...baseOrder].sort((a, b) => compareCurrencySort(a, b, currencySortOrder, fromLinkedUnion));
+}
+
+function compareCurrencySort(a, b, currencySortOrder, fromLinkedUnion) {
+  const orderA = currencySortOrder[a] ?? Number.MAX_SAFE_INTEGER;
+  const orderB = currencySortOrder[b] ?? Number.MAX_SAFE_INTEGER;
+  if (orderA !== orderB) return orderA - orderB;
+  if (!fromLinkedUnion) return a.localeCompare(b);
+  return a.localeCompare(b);
+}
+
+export function getAvailableCurrencies({
+  linkedCurrenciesLoaded,
+  linkedAccountCurrenciesMap,
+  wlGridSelectedIds,
+  linkedAccounts,
+  ownedCurrencies,
+  currencySummary,
+  currencySortOrder,
+  currencyDisplayOrder,
+}) {
+  let baseOrder = [];
+  let fromLinkedUnion = false;
+  if (linkedCurrenciesLoaded) {
+    const included = getWlGridIncludedAccountIds(linkedAccounts, wlGridSelectedIds);
+    const u = [...new Set(collectLinkedUnionCurrencyCodes(linkedAccountCurrenciesMap, included).map((x) => x.trim().toUpperCase()).filter(Boolean))];
+    if (u.length) {
+      baseOrder = u;
+      fromLinkedUnion = true;
+    }
+  }
+  if (!fromLinkedUnion) {
+    const seen = new Set();
+    ownedCurrencies.forEach((o) => {
+      const c = String(o.code || "")
+        .trim()
+        .toUpperCase();
+      if (!c || seen.has(c)) return;
+      seen.add(c);
+      baseOrder.push(c);
+    });
+  }
+  if (!baseOrder.length) {
+    return getAvailableCurrenciesFromSummaryOnly(currencySummary, currencySortOrder, currencyDisplayOrder);
+  }
+  return sortCurrencyList(baseOrder, currencySortOrder, currencyDisplayOrder, fromLinkedUnion);
+}
+
+export function getMemberMiniGridCurrencies(availableCurrencies, isAllSelected, selectedCurrencies) {
+  if (!availableCurrencies.length) return [];
+  if (isAllSelected) return [...availableCurrencies];
+  return availableCurrencies.filter((code) => selectedCurrencies.includes(code));
+}
+
+export function sanitizeCurrencySelection(available, isAllSelected, selectedCurrencies, linkedCurrenciesLoaded, linkedAccountCurrenciesMap, wlGridSelectedIds, linkedAccounts) {
+  const availSet = new Set(available);
+  const retained = selectedCurrencies.filter((c) => availSet.has(c));
+  if (!linkedCurrenciesLoaded) {
+    return { isAllSelected: retained.length === 0 ? true : isAllSelected, selectedCurrencies: retained.length === 0 && !isAllSelected ? [] : retained };
+  }
+  if (!available.length) {
+    return { isAllSelected: true, selectedCurrencies: [] };
+  }
+  if (retained.length === 0 && !isAllSelected) {
+    return { isAllSelected: false, selectedCurrencies: [] };
+  }
+  if (retained.length === 0) {
+    return { isAllSelected: true, selectedCurrencies: [] };
+  }
+  return { isAllSelected, selectedCurrencies: retained };
+}
+
+export function computeTableTotals(rows) {
+  let totalWinLoss = normalizeNumber("0");
+  let totalCrDr = normalizeNumber("0");
+  let closingBalance = normalizeNumber("0");
+  (rows || []).forEach((row) => {
+    totalWinLoss = totalWinLoss.plus(normalizeNumber(row.win_loss));
+    totalCrDr = totalCrDr.plus(normalizeNumber(row.cr_dr));
+    if (row.balance !== "-" && row.balance !== null && row.balance !== undefined && String(row.balance).trim() !== "") {
+      closingBalance = normalizeNumber(row.balance);
+    }
+  });
+  return { totalWinLoss, totalCrDr, closingBalance };
+}
+
+export function groupHistoryForDisplay(historyRows, isAllSelected, selectedCurrencies, availableCurrencies) {
+  const map = new Map();
+  for (const row of historyRows) {
+    const c = String(row.currency || "-").trim() || "-";
+    if (!map.has(c)) map.set(c, []);
+    map.get(c).push(row);
+  }
+  if (isAllSelected) {
+    const order = availableCurrencies.length > 0 ? availableCurrencies : Array.from(map.keys());
+    return order.map((c) => [c, map.get(c) || []]);
+  }
+  if (!selectedCurrencies.length) return [];
+  return selectedCurrencies.map((c) => [c, map.get(c) || []]);
+}
+
+export function miniMatrixGridTemplateColumns(ncu) {
+  const rowHead = "minmax(3.25rem, 6rem)";
+  const colMin = "3.25rem";
+  const ccyCols = `repeat(${ncu}, minmax(${colMin}, 1fr))`;
+  return `${rowHead} ${ccyCols}`;
+}

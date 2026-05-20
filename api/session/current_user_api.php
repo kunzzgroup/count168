@@ -94,12 +94,19 @@ if ($pdo instanceof PDO && isset($_SESSION['user_id']) && function_exists('get_p
 
 if ($companyId && $pdo instanceof PDO) {
     try {
-        $stmtPerm = $pdo->prepare("SELECT permissions FROM user WHERE id = ?");
-        $stmtPerm->execute([$_SESSION['user_id']]);
-        $userPermissions = $stmtPerm->fetchColumn();
-        $permissions = $userPermissions ? (json_decode((string) $userPermissions, true) ?: []) : [];
+        if ($userType !== 'member') {
+            $stmtPerm = $pdo->prepare("SELECT permissions FROM user WHERE id = ?");
+            $stmtPerm->execute([$_SESSION['user_id']]);
+            $userPermissions = $stmtPerm->fetchColumn();
+            $permissions = $userPermissions ? (json_decode((string) $userPermissions, true) ?: []) : [];
+        }
 
         $companyCode = strtoupper(trim((string) ($_SESSION['company_code'] ?? '')));
+        if ($companyCode === '') {
+            $stmtCode = $pdo->prepare('SELECT company_id FROM company WHERE id = ? LIMIT 1');
+            $stmtCode->execute([$companyId]);
+            $companyCode = strtoupper(trim((string) $stmtCode->fetchColumn()));
+        }
         if ($companyCode === 'C168') {
             $isCurrentCompanyC168 = true;
         } else {
