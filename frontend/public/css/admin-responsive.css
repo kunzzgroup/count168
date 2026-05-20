@@ -3,23 +3,29 @@
    Desktop / laptop: design-tokens + global-13inch. Tablet: ≤1024. No phone UX.
    ========================================================================== */
 
-/* --- Tablet (768–1024) --- */
+/* --- Tablet (768–1024)：表格贴合主区宽度，避免 68rem 撑破布局 --- */
 @media (max-width: 1024px) {
+  body.user-page .container {
+    padding-right: clamp(16px, 2vw, 32px);
+  }
+
   body.user-page .action-buttons {
     flex-wrap: wrap;
     gap: var(--space-gap);
-    align-items: flex-start;
+    align-items: center;
   }
 
   body.user-page .action-buttons > div:first-child {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     min-width: 0;
+    max-width: 100%;
     flex-wrap: wrap;
     gap: var(--space-gap);
   }
 
   body.user-page .user-toolbar-actions-right {
-    flex-wrap: wrap;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
     gap: var(--space-gap);
   }
 
@@ -30,7 +36,23 @@
 
   body.user-page .user-table-wrapper .table-header,
   body.user-page .user-table-wrapper .user-card {
-    min-width: 68rem;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    gap: 8px;
+    padding-left: clamp(10px, 1vw, 16px);
+    padding-right: clamp(10px, 1vw, 16px);
+    grid-template-columns:
+      minmax(0, 0.45fr) minmax(0, 1.15fr) minmax(0, 1.2fr) minmax(0, 1.85fr)
+      minmax(0, 1.35fr) minmax(0, 0.85fr) minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.7fr) !important;
+  }
+
+  body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .table-header,
+  body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .user-card {
+    grid-template-columns:
+      minmax(0, 0.45fr) minmax(0, 1.15fr) minmax(0, 1.2fr) minmax(0, 1.85fr)
+      minmax(0, 1.35fr) minmax(0, 0.85fr) minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.65fr) 40px !important;
   }
 }
 
@@ -175,7 +197,8 @@ body.user-page #userModal .user-modal-content .sidebar-permissions-section .perm
   }
 
   body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
-    min-height: clamp(160px, 26vh, 280px);
+    min-height: 0;
+    height: 0;
     padding-bottom: 8px;
   }
 
