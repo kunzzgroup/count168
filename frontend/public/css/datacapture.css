@@ -10,7 +10,7 @@ body .container {
 }
 
 /* ----- Main page styles ----- */
-/* Tokens: slightly softer blue than legacy #007bff; sidebar active uses --sidebar-active-bg */
+/* Sidebar active state uses global --sidebar-active-bg from sidebar.css (same as Process / other pages). */
 html:has(body.datacapture-page:not(.datacapture-short-viewport)) {
     height: 100%;
     overflow: hidden;
@@ -29,7 +29,6 @@ body.datacapture-page {
     --dc-accent-soft: #eff6ff;
     --dc-border: #e2e8f0;
     --dc-text-muted: #64748b;
-    --sidebar-active-bg: #1e40af;
 }
 
 /* Laptop / short height: allow page scroll so table + Submit are reachable (see .datacapture-short-viewport) */
