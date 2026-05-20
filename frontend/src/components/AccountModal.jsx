@@ -66,11 +66,15 @@ export default function AccountModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [companyPickerOpen]);
 
-  const companyRows = useMemo(
-    () =>
-      Array.isArray(companies) ? companies.filter((c) => c?.company_id && String(c.company_id).trim() !== "") : [],
-    [companies]
-  );
+  const companyRows = useMemo(() => {
+    if (!Array.isArray(companies)) return [];
+    return companies
+      .map((c) => ({
+        ...c,
+        company_id: c?.company_id ?? c?.company_code ?? c?.companyId ?? c?.code ?? "",
+      }))
+      .filter((c) => String(c.company_id || "").trim() !== "");
+  }, [companies]);
 
   const selectedCompanyLabels = useMemo(() => {
     const set = new Set(selectedCompanyIds.map(Number));

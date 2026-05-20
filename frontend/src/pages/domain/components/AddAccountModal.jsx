@@ -31,7 +31,13 @@ export default function AddAccountModal({ companyId, companyCode, preferredRole,
   }, [currencies, hiddenCurrencyIds]);
 
   const companiesForModal = useMemo(() => {
-    if (companies.length) return companies;
+    const rows = companies
+      .map((c) => ({
+        ...c,
+        company_id: c.company_id ?? c.company_code ?? c.companyId ?? c.code ?? "",
+      }))
+      .filter((c) => String(c.company_id || "").trim() !== "");
+    if (rows.length) return rows;
     if (numericCompanyId && companyCode) {
       return [{ id: numericCompanyId, company_id: companyCode }];
     }
@@ -82,7 +88,7 @@ export default function AddAccountModal({ companyId, companyCode, preferredRole,
           setCompanies(
             compJson.data.map((c) => ({
               id: c.id,
-              company_id: c.company_id ?? c.companyId ?? c.code ?? "",
+              company_id: c.company_id ?? c.company_code ?? c.companyId ?? c.code ?? "",
             }))
           );
         }
