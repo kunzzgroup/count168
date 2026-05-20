@@ -115,9 +115,11 @@ export default function UserSecondaryPasswordPage() {
     <div className="login-container">
       <div className="login-card login-card--solo">
         <div className="form-content form-content--secondary-verify">
-          <div className="secondary-verify-header">
+          <div className="relative flex items-center justify-center mb-6 min-h-[40px]">
             <SecondaryVerifyBackButton onClick={onBack} ariaLabel={i18n.backToLogin} />
-            <h2 className="secondary-verify-title">{i18n.title}</h2>
+            <h2 className="text-xl font-bold text-slate-800 text-center px-10 m-0 leading-tight">
+              {i18n.title}
+            </h2>
           </div>
           <p className="secondary-verify-lead">{i18n.lead}</p>
 

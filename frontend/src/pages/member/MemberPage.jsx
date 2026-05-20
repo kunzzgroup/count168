@@ -137,7 +137,7 @@ export default function MemberPage() {
     formatPaymentHistoryMoney,
   } = useMemberWinLoss({ showNotification, lang });
 
-  /** Currency 多段：每段最多 5 格（含 All），每满一行新开一条 segment 白底条，列仍按 5 列对齐 */
+  /** Currency 多段：每段最多 7 格（含 All），每满一行新开一条 segment 白底条，列仍按 7 列对齐 */
   const currencyFilterBands = useMemo(() => {
     const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
     const showAllBtn = codes.length === 0 || codes.length > 1;
@@ -480,6 +480,12 @@ export default function MemberPage() {
                       className="user-gc-segment-group member-winloss-account-segments"
                       role="group"
                       aria-label={t("ariaAccount")}
+                      style={{
+                        gridTemplateColumns:
+                          linkedAccounts.length > 7
+                            ? "repeat(7, minmax(0, 1fr))"
+                            : `repeat(${linkedAccounts.length}, minmax(0, 1fr))`,
+                      }}
                     >
                       {linkedAccounts.map((acc) => (
                         <button
@@ -506,7 +512,11 @@ export default function MemberPage() {
                   {currencyFilterBands.map((band, segIdx) => (
                     <div
                       key={`member-ccy-band-${segIdx}`}
-                      className="user-gc-segment-group member-winloss-currency-segments"
+                      className={`user-gc-segment-group member-winloss-currency-segments${
+                        band.length === WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS
+                          ? " member-winloss-currency-segments--full"
+                          : " member-winloss-currency-segments--partial"
+                      }`}
                     >
                       {band.map((cell) =>
                         cell.type === "all" ? (
