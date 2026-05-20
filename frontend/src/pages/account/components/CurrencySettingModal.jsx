@@ -78,7 +78,7 @@ export default function CurrencySettingModal({
           <div className="currency-left-panel">
             <div className="currency-setting-add-row-stacked">
               <label>{t("addCurrency")}</label>
-              <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+              <div className="currency-setting-add-actions">
                 <input
                   type="text"
                   className="currency-setting-input"
