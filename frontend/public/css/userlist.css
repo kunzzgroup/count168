@@ -1383,89 +1383,41 @@ label.user-modal-col-title.acc-proc-label {
     filter: brightness(1.02);
 }
 
-/* ── Permission picker (Account / Process / sidebar perms in modal) ── */
-#userModal .user-modal-permissions-compact .user-modal-permission-heading-row {
+/* ── Permission compact (≤1200px): same layout as Company field, borderless summary ── */
+#userModal .permission-field-group .permission-field-label {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 0 19.968px 9.984px;
-    border-bottom: 2px solid #cbd5e1;
-    margin: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
 }
 
-#userModal .user-modal-permissions-compact .user-modal-permission-summary {
-    margin: 10px 19.968px 0;
-}
-
-#userModal .user-modal-permission-heading-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-    width: 100%;
-    min-width: 0;
-}
-
-.user-modal-permission-heading-left {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    flex: 1;
-    min-width: 0;
-}
-
-#userModal .user-modal-permission-heading-row label {
-    display: block;
-    margin-bottom: 0;
-    padding: 0 4px;
-    font-weight: 600;
-    color: #334155;
-}
-
-#userModal .user-modal-permission-open-btn {
-    flex-shrink: 0;
-    padding: 8px 14px;
-    border-radius: 8px;
-    border: 1px solid #1a237e;
-    background: #ffffff;
-    color: #1a237e;
-    font-weight: 600;
-    font-size: clamp(11px, 0.75vw, 13px);
-    cursor: pointer;
-}
-
-#userModal .user-modal-permission-open-btn:hover:not(:disabled) {
-    background: #eef2ff;
-}
-
-#userModal .user-modal-permission-open-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.user-modal-permission-summary {
+#userModal .permission-field-group .user-modal-permission-summary {
     margin-top: 8px;
     min-width: 0;
-    padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background: #ffffff;
+    padding: 0 4px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
 }
 
-.user-modal-permission-summary-text {
-    font-weight: 700;
-    color: #1f2937;
-    font-size: clamp(11px, 0.75vw, 13px);
+@media (max-width: 1200px) {
+    #userModal .sidebar-permissions-section {
+        display: none;
+    }
+
+    #userModal .user-modal-permissions-compact {
+        display: block;
+        width: 100%;
+    }
 }
 
-.user-modal-permission-summary-empty {
-    color: #94a3b8;
-    font-size: clamp(11px, 0.75vw, 13px);
+@media (min-width: 1201px) {
+    #userModal .user-modal-permissions-compact {
+        display: none !important;
+    }
 }
 
-/* ≥1025px: inline permission list; ≤1024px: Choose permissions + modal */
+/* ≥1201px: inline permission list; ≤1200px: Choose permissions + modal */
 .user-modal-permissions-inline {
     display: none;
     flex: 1 1 0;
@@ -1475,19 +1427,12 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .user-modal-permissions-compact {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 0;
-    min-height: 0;
+    display: none;
 }
 
-@media (min-width: 1025px) {
+@media (min-width: 1201px) {
     .user-modal-permissions-inline {
         display: flex;
-    }
-
-    .user-modal-permissions-compact {
-        display: none !important;
     }
 
     #userModal .sidebar-permissions-section .user-modal-permissions-inline .sidebar-permissions-title.user-modal-permissions-title {
@@ -3359,53 +3304,6 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 
     #userModal .sidebar-permissions-section {
         flex: 0 0 auto;
-        margin-top: 10px;
-        padding-top: 10px;
-    }
-
-    #userModal .user-modal-permissions-compact .sidebar-permissions-title.user-modal-permission-heading-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-        padding: 0 6px 8px;
-        border-bottom: 2px solid #cbd5e1;
-    }
-
-    #userModal .sidebar-permissions-title.user-modal-permissions-title {
-        padding: 0;
-        font-size: 14px;
-        border-bottom: none;
-    }
-
-    #userModal .user-modal-permission-heading-left {
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        width: 100%;
-        gap: 6px 10px;
-    }
-
-    #userModal #user-modal-permission-trigger-label {
-        font-size: 14px;
-        font-weight: 700;
-        color: #1e293b;
-        white-space: nowrap;
-    }
-
-    #userModal .user-modal-permission-open-btn {
-        width: 100%;
-        text-align: center;
-        padding: 7px 10px;
-        font-size: 12px;
-        box-sizing: border-box;
-    }
-
-    #userModal .user-modal-permissions-compact .user-modal-permission-summary {
-        margin: 8px 6px 0;
-    }
-
-    #userModal .read-only-toggle-after-title {
-        margin-left: 0;
     }
 
     /* Tablet：Account / Process 两栏格，卡片更易读 */

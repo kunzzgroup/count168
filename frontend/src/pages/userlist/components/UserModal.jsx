@@ -290,7 +290,7 @@ export default function UserModal({
 
   useEffect(() => {
     if (!permissionPickerOpen) return undefined;
-    const mq = window.matchMedia("(min-width: 1025px)");
+    const mq = window.matchMedia("(min-width: 1201px)");
     const closeIfDesktop = () => {
       if (mq.matches) setPermissionPickerOpen(false);
     };
@@ -319,6 +319,11 @@ export default function UserModal({
     if (!q) return modalCompanies;
     return modalCompanies.filter((c) => String(c.company_id || "").toUpperCase().includes(q));
   }, [modalCompanies, companySearchQuery]);
+
+  const selectedPermissionLabels = useMemo(
+    () => PERMISSION_KEYS.filter((k) => permSelected.has(k)).map((k) => getPermissionLabel(k, t)),
+    [permSelected, t]
+  );
 
   const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
   const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
@@ -461,6 +466,38 @@ export default function UserModal({
                     </div>
                   </div>
                 )}
+                <div className="user-modal-permissions-compact">
+                  <div className="form-group user-info-field permission-field-group">
+                    <div className="user-modal-company-heading-row">
+                      <label id="user-modal-permission-trigger-label" htmlFor="user-modal-permission-open-btn" className="permission-field-label">
+                        <span>{t("permissions")}</span>
+                        {readOnlyToggleVisible ? (
+                          <ReadOnlyToggleInline
+                            readOnlyToggleCanInteract={readOnlyToggleCanInteract}
+                            pageReadOnlyLock={pageReadOnlyLock}
+                            form={form}
+                            setForm={setForm}
+                            t={t}
+                          />
+                        ) : null}
+                      </label>
+                      <button
+                        id="user-modal-permission-open-btn"
+                        type="button"
+                        className="user-modal-company-open-btn"
+                        disabled={permissionsLocked}
+                        onClick={() => setPermissionPickerOpen(true)}
+                      >
+                        {t("selectPermissions")}
+                      </button>
+                    </div>
+                    {selectedPermissionLabels.length > 0 ? (
+                      <div className="user-modal-permission-summary" aria-labelledby="user-modal-permission-trigger-label">
+                        <span className="user-modal-company-summary-text">{selectedPermissionLabels.join(", ")}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
               <div className="sidebar-permissions-section">
@@ -492,41 +529,6 @@ export default function UserModal({
                     setPermSelected={setPermSelected}
                     t={t}
                   />
-                </div>
-
-                <div className="user-modal-permissions-compact">
-                  <div className="sidebar-permissions-title user-modal-permissions-title user-modal-permission-heading-row">
-                    <div className="user-modal-permission-heading-left">
-                      <span id="user-modal-permission-trigger-label">{t("permissions")}</span>
-                      {readOnlyToggleVisible ? (
-                        <ReadOnlyToggleInline
-                          readOnlyToggleCanInteract={readOnlyToggleCanInteract}
-                          pageReadOnlyLock={pageReadOnlyLock}
-                          form={form}
-                          setForm={setForm}
-                          t={t}
-                        />
-                      ) : null}
-                    </div>
-                    <button
-                      id="user-modal-permission-open-btn"
-                      type="button"
-                      className="user-modal-permission-open-btn"
-                      disabled={permissionsLocked}
-                      onClick={() => setPermissionPickerOpen(true)}
-                    >
-                      {t("selectPermissions")}
-                    </button>
-                  </div>
-                  <div className="user-modal-permission-summary" aria-labelledby="user-modal-permission-trigger-label">
-                    {permSelected.size ? (
-                      <span className="user-modal-permission-summary-text">
-                        {t("permissionsSelectedCount", { count: permSelected.size })}
-                      </span>
-                    ) : (
-                      <span className="user-modal-permission-summary-empty">{t("permissionsNoneSelected")}</span>
-                    )}
-                  </div>
                 </div>
               </div>
               </form>
