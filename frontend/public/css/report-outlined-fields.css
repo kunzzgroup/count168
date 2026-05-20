@@ -8,6 +8,32 @@ body.transaction-page .transaction-category-date-row .report-outlined-anchor {
     gap: 0;
 }
 
+/* Maintenance filter row: Process / Transaction Type — same width as Date Range container */
+body.maintenance-page .customer-report-filters > .customer-report-filter-group.report-outlined-anchor,
+body.maintenance-page .customer-report-filters > .customer-report-filter-group.report-outlined-anchor .report-outlined-shell {
+    min-width: clamp(316px, 22vw, 336px) !important;
+    width: clamp(316px, 22vw, 336px) !important;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group {
+    min-width: 0 !important;
+    width: 100%;
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .custom-select-button,
+body.maintenance-page .customer-report-filters .report-outlined-inner .maintenance-select {
+    min-height: clamp(32px, 2.25vw, 36px);
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker {
+    min-width: 0 !important;
+    width: 100%;
+    max-width: 100%;
+    min-height: clamp(32px, 2.25vw, 36px) !important;
+}
+
 body.maintenance-page .report-outlined-shell,
 body.dashboard-page.report-page .report-outlined-shell,
 body.transaction-page .transaction-category-date-row .report-outlined-shell {
