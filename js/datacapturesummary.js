@@ -7728,9 +7728,15 @@ function extractRowDataForTemplate(row, formData) {
         ? (idProductSub || (formData.processValue && formData.processValue.trim()) || normalizeIdProductText(formData.processValue))
         : (idProductMain || (formData.processValue && formData.processValue.trim()) || normalizeIdProductText(formData.processValue) || '');
 
-    // Get parent_id_product
+    // Get parent_id_product — 必须用 DOM 上的完整 main id，不能只用 normalize 后的 processValue
     const parentIdProduct = productType === 'sub'
-        ? (idProductMain || row.getAttribute('data-parent-id-product') || formData.processValue)
+        ? (row.getAttribute('data-parent-id-product')?.trim()
+            || idProductMain?.trim()
+            || (() => {
+                const idCell = row.querySelector('td:first-child');
+                const pv = idCell ? getProductValuesFromCell(idCell) : {};
+                return (pv.main || '').trim() || null;
+            })())
         : null;
 
     // Get source columns and other data from row attributes
@@ -7886,7 +7892,39 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
             console.log('Template auto-saved successfully:', rowData.id_product);
             // Update the row's data-template-key, data-template-id, and data-formula-variant attributes
             // This ensures deletion can find the correct template info even if it was computed on the backend
-            const targetRow = rowElement || document.querySelector(`tr[data-product-type="${rowData.product_type}"]`);
+            let targetRow = rowElement;
+            if (!targetRow && rowData.product_type === 'sub' && rowData.parent_id_product) {
+                const parentTrimmed = String(rowData.parent_id_product).trim();
+                const parentRowIndex = rowData.row_index != null && !Number.isNaN(Number(rowData.row_index))
+                    ? Number(rowData.row_index)
+                    : null;
+                const candidates = Array.from(document.querySelectorAll('tr[data-product-type="sub"]'));
+                targetRow = candidates.find((tr) => {
+                    const rowParent = (tr.getAttribute('data-parent-id-product') || '').trim();
+                    if (rowParent !== parentTrimmed) return false;
+                    if (rowData.account_id) {
+                        const accCell = tr.querySelector('td:nth-child(2)');
+                        const rowAcc = accCell?.getAttribute('data-account-id');
+                        if (rowAcc && String(rowAcc) !== String(rowData.account_id)) return false;
+                    }
+                    if (rowData.sub_order != null && rowData.sub_order !== '') {
+                        const rowSubOrder = tr.getAttribute('data-sub-order');
+                        if (rowSubOrder && Number(rowSubOrder) !== Number(rowData.sub_order)) return false;
+                    }
+                    if (parentRowIndex !== null) {
+                        const rowParentIdx = tr.getAttribute('data-parent-row-index');
+                        if (rowParentIdx && Number(rowParentIdx) !== parentRowIndex) return false;
+                    }
+                    return true;
+                }) || null;
+            }
+            if (!targetRow && rowData.product_type === 'main' && rowData.id_product) {
+                targetRow = findSummaryRowByIdProduct(rowData.id_product, {
+                    productType: 'main',
+                    rowIndex: rowData.row_index,
+                    accountId: rowData.account_id
+                });
+            }
             if (targetRow) {
                 if (result.template_key) {
                     targetRow.setAttribute('data-template-key', result.template_key);
@@ -15128,15 +15166,34 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     }
 
     row.setAttribute('data-product-type', data.productType || 'sub');
-    row.setAttribute('data-parent-id-product', processValue);
+    const parentIdForAttr = (processValue || row.getAttribute('data-parent-id-product') || '').trim();
+    if (parentIdForAttr) {
+        row.setAttribute('data-parent-id-product', parentIdForAttr);
+    }
     if (data.parentRowIndex !== undefined && data.parentRowIndex !== null && !Number.isNaN(Number(data.parentRowIndex))) {
         row.setAttribute('data-parent-row-index', String(Number(data.parentRowIndex)));
     } else {
         const existingParentRowIndex = row.getAttribute('data-parent-row-index');
         if (!existingParentRowIndex || existingParentRowIndex === '' || existingParentRowIndex === '999999') {
-            const currentRowIndex = row.getAttribute('data-row-index');
-            if (currentRowIndex && currentRowIndex !== '' && currentRowIndex !== '999999' && !Number.isNaN(Number(currentRowIndex))) {
-                row.setAttribute('data-parent-row-index', String(Number(currentRowIndex)));
+            const parentTrimmed = parentIdForAttr;
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if (summaryTableBody && parentTrimmed) {
+                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                for (const otherRow of allRows) {
+                    if ((otherRow.getAttribute('data-product-type') || 'main') !== 'main') continue;
+                    const otherIdProductCell = otherRow.querySelector('td:first-child');
+                    if (!otherIdProductCell) continue;
+                    const otherProductValues = getProductValuesFromCell(otherIdProductCell);
+                    const otherMainRaw = (otherProductValues.main || '').trim();
+                    if (otherMainRaw !== parentTrimmed && normalizeIdProductText(otherMainRaw) !== normalizeIdProductText(parentTrimmed)) {
+                        continue;
+                    }
+                    const parentRowIndex = otherRow.getAttribute('data-row-index');
+                    if (parentRowIndex && parentRowIndex !== '' && parentRowIndex !== '999999' && !Number.isNaN(Number(parentRowIndex))) {
+                        row.setAttribute('data-parent-row-index', String(Number(parentRowIndex)));
+                        break;
+                    }
+                }
             }
         }
     }
@@ -15875,6 +15932,12 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         }
 
         const templates = result.templates || {};
+        // 跨 template key 全局去重，防止同一 sub 模板在多个分组下重复套用
+        if (typeof window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__ === 'function') {
+            window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__();
+        } else {
+            window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__ = new Set();
+        }
         // 仅当当前 process 在 Maintenance 有模板时才允许恢复刷新缓存，避免「全新 process」显示上次误恢复留下的 formula
         window.currentProcessHadTemplates = (typeof templates === 'object' && templates !== null && Object.keys(templates).length > 0);
 
@@ -16024,9 +16087,12 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         }
                     });
 
-                    // Sub 只套用一次：按 row_index 归属到对应 main，勿对每个 main 套用全部 subs（假设 B/C）
+                    // Sub 只套用一次：按 parent_id_product + row_index 归属到对应 main
                     let anySubsApplied = false;
-                    const allSubs = template.subs && Array.isArray(template.subs) ? template.subs : [];
+                    let allSubs = template.subs && Array.isArray(template.subs) ? template.subs : [];
+                    if (allSubs.length > 0 && typeof window.__SUMMARY_FILTER_SUBS_FOR_PARENT__ === 'function') {
+                        allSubs = window.__SUMMARY_FILTER_SUBS_FOR_PARENT__(allSubs, originalIdProduct, normalizedIdProduct);
+                    }
                     if (allSubs.length > 0) {
                         if (typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
                             anySubsApplied = window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(originalIdProduct, allSubs);
@@ -18185,8 +18251,7 @@ function filterSubTemplatesForMainTemplate(subs, mainTemplate, sortedMainTemplat
         const subParentNorm = subParentRaw.replace(/^\d+\s+/, '').trim();
         const subParentBare = normalizeIdProductText(subParentNorm);
         const exactMatch = (subParentRaw === mainTrimmed) || (subParentNorm === mainTrimmed);
-        const normalizedMatch = onlyOneMain && mainNorm && subParentBare === mainNorm;
-        if (!exactMatch && !normalizedMatch) return false;
+        if (!exactMatch) return false;
         if (onlyOneMain || mainRowIndexes.length <= 1) return true;
         if (mainTemplateRowIndex === null) return isFirstMainByRowIndex;
         const subRowIndex = (sub.row_index !== undefined && sub.row_index !== null && !Number.isNaN(Number(sub.row_index)))
@@ -18224,6 +18289,9 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     const mainRowIndex = (mainRowIndexAttr !== null && mainRowIndexAttr !== '' && !Number.isNaN(Number(mainRowIndexAttr)))
         ? Number(mainRowIndexAttr)
         : null;
+    const mainIdProductCell = mainRow.querySelector('td:first-child');
+    const mainProductValues = mainIdProductCell ? getProductValuesFromCell(mainIdProductCell) : {};
+    const mainParentIdExact = (mainProductValues.main || mainIdProductCell?.textContent || idProduct || '').trim();
 
     // Filter out empty sub templates (those with no meaningful data)
     const validSubTemplates = subTemplates.filter(template => {
@@ -18417,24 +18485,31 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             }
         }
 
-        // 同一 id_product + account 的 sub 已存在时复用（勿因 parent-row-index 不同再建一行，假设 C）
+        // 同一 parent main + account + sub_order 的 sub 已存在时复用（必须 parent 关系一致，不能跨 main 复用）
         if (!targetRow && template.account_id) {
             const templateAccountId = String(template.account_id);
             const templateSubOrder = (template.sub_order !== undefined && template.sub_order !== null) ? Number(template.sub_order) : null;
+            const templateParentRaw = (template.parent_id_product || mainParentIdExact || '').trim();
             for (const row of Array.from(summaryTableBody.querySelectorAll('tr'))) {
                 if ((row.getAttribute('data-product-type') || 'main') !== 'sub') continue;
+                const rowParentId = (row.getAttribute('data-parent-id-product') || '').trim();
+                if (templateParentRaw && rowParentId && rowParentId !== templateParentRaw) continue;
+                if (templateParentRaw && !rowParentId && mainParentIdExact && rowParentId !== mainParentIdExact) continue;
+                const rowParentRowIndexAttr = row.getAttribute('data-parent-row-index');
+                const rowParentRowIndex = (rowParentRowIndexAttr !== null && rowParentRowIndexAttr !== '' && !Number.isNaN(Number(rowParentRowIndexAttr)))
+                    ? Number(rowParentRowIndexAttr)
+                    : null;
+                if (mainRowIndex !== null && rowParentRowIndex !== null && rowParentRowIndex !== mainRowIndex) continue;
                 const accountCell = row.querySelector('td:nth-child(2)');
                 const rowAccountDbId = accountCell?.getAttribute('data-account-id');
                 if (!rowAccountDbId || rowAccountDbId !== templateAccountId) continue;
-                const rowIdProduct = getProcessValueFromRow(row);
-                if (!rowIdProduct || normalizeIdProductText(rowIdProduct) !== normalizedTargetId) continue;
                 const rowSubOrderRaw = row.getAttribute('data-sub-order');
                 const rowSubOrder = (rowSubOrderRaw !== null && rowSubOrderRaw !== '') ? Number(rowSubOrderRaw) : null;
                 const subOrderMatch = (templateSubOrder === null && rowSubOrder === null)
                     || (templateSubOrder !== null && rowSubOrder !== null && templateSubOrder === rowSubOrder);
                 if (!subOrderMatch) continue;
                 targetRow = row;
-                console.log('Found existing sub row by account_id (+ sub_order) for id_product:', idProduct, templateAccountId);
+                console.log('Found existing sub row by parent+account_id (+ sub_order):', mainParentIdExact, templateAccountId);
                 break;
             }
         }

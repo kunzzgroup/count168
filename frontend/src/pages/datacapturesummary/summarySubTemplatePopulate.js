@@ -7,14 +7,15 @@ import {
   normalizeSummaryIdProductText,
 } from "./summaryIdProductUtils.js";
 
-/** Collect main rows for an id_product (DOM order) with row_index for sub parent matching. */
-export function collectMainRowsForIdProduct(idProduct) {
+/** Collect main rows whose id_product matches parent (exact first). */
+export function collectMainRowsForParent(parentIdProduct, { matchMode = "exact" } = {}) {
   const summaryTableBody = document.getElementById("summaryTableBody");
   if (!summaryTableBody) return [];
 
-  const normalizedTargetId = normalizeSummaryIdProductText(idProduct);
-  if (!normalizedTargetId) return [];
+  const parentTrimmed = (parentIdProduct || "").trim();
+  if (!parentTrimmed) return [];
 
+  const parentNorm = normalizeSummaryIdProductText(parentTrimmed);
   const mains = [];
   const allRows = Array.from(summaryTableBody.querySelectorAll("tr"));
   allRows.forEach((row, domIndex) => {
@@ -23,22 +24,34 @@ export function collectMainRowsForIdProduct(idProduct) {
 
     const idProductCell = row.querySelector("td:first-child");
     const productValues = getSummaryProductValuesFromCell(idProductCell);
-    const mainText = normalizeSummaryIdProductText(productValues.main || "");
-    if (!mainText || mainText !== normalizedTargetId) return;
+    const mainRaw = (productValues.main || idProductCell?.textContent || "").trim();
+    const mainNorm = normalizeSummaryIdProductText(mainRaw);
+
+    let matches = false;
+    if (matchMode === "exact") {
+      matches = mainRaw === parentTrimmed;
+    } else if (matchMode === "normalized") {
+      matches = Boolean(parentNorm && mainNorm && mainNorm === parentNorm);
+    }
+
+    if (!matches) return;
 
     const rowIndexAttr = row.getAttribute("data-row-index");
     const rowIndex =
       rowIndexAttr != null && rowIndexAttr !== "" && !Number.isNaN(Number(rowIndexAttr))
         ? Number(rowIndexAttr)
         : domIndex;
-    mains.push({ row, rowIndex });
+    mains.push({ row, rowIndex, mainRaw });
   });
   return mains;
 }
 
-/** Pick the main row a sub template should attach under (row_index range between consecutive mains). */
-export function findMainRowForSubTemplate(idProduct, subTemplate) {
-  const mains = collectMainRowsForIdProduct(idProduct);
+/** @deprecated Use collectMainRowsForParent */
+export function collectMainRowsForIdProduct(idProduct) {
+  return collectMainRowsForParent(idProduct, { matchMode: "normalized" });
+}
+
+function pickMainByRowIndexRange(mains, subTemplate) {
   if (mains.length === 0) return null;
   if (mains.length === 1) return mains[0].row;
 
@@ -61,19 +74,62 @@ export function findMainRowForSubTemplate(idProduct, subTemplate) {
     if (exactMain) return exactMain.row;
   }
 
-  return sortedMains[0].row;
+  return null;
+}
+
+/** Pick the main row a sub template should attach under (parent_id_product + row_index). */
+export function findMainRowForSubTemplate(idProduct, subTemplate) {
+  const parentExact = (subTemplate?.parent_id_product || idProduct || "").trim();
+  if (!parentExact) return null;
+
+  let mains = collectMainRowsForParent(parentExact, { matchMode: "exact" });
+  if (mains.length === 0) {
+    const normalizedCandidates = collectMainRowsForParent(parentExact, { matchMode: "normalized" });
+    if (normalizedCandidates.length === 1) {
+      mains = normalizedCandidates;
+    } else {
+      return null;
+    }
+  }
+
+  const picked = pickMainByRowIndexRange(mains, subTemplate);
+  if (picked) return picked;
+
+  if (mains.length === 1) return mains[0].row;
+  return null;
 }
 
 export function filterSubsForParentIdProduct(subs, originalIdProduct, normalizedIdProduct) {
   if (!Array.isArray(subs) || subs.length === 0) return [];
+  const parentExact = (originalIdProduct || "").trim();
+  const parentNorm = (normalizedIdProduct || normalizeSummaryIdProductText(parentExact) || "").trim();
+
   return subs.filter((sub) => {
-    const subParentNorm = (sub.parent_id_product || "").trim().replace(/^\d+\s+/, "").trim();
-    const subParentBare = normalizeSummaryIdProductText(subParentNorm);
-    return (
-      subParentBare === normalizedIdProduct ||
-      subParentNorm === (originalIdProduct || "").trim()
-    );
+    const subParentRaw = (sub.parent_id_product || "").trim().replace(/^\d+\s+/, "").trim();
+    if (!subParentRaw) return false;
+    if (parentExact && subParentRaw === parentExact) return true;
+    if (parentNorm) {
+      const subParentBare = normalizeSummaryIdProductText(subParentRaw);
+      return subParentBare === parentNorm;
+    }
+    return false;
   });
+}
+
+function subBelongsToParentGroup(sub, parentExact) {
+  const subParentRaw = (sub?.parent_id_product || "").trim().replace(/^\d+\s+/, "").trim();
+  if (!subParentRaw || !parentExact) return false;
+  if (subParentRaw === parentExact) return true;
+  const subParentBare = normalizeSummaryIdProductText(subParentRaw);
+  const parentBare = normalizeSummaryIdProductText(parentExact);
+  return Boolean(parentBare && subParentBare === parentBare);
+}
+
+function getGlobalAppliedTemplateIds() {
+  if (!window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__) {
+    window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__ = new Set();
+  }
+  return window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__;
 }
 
 /**
@@ -93,35 +149,48 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
     return false;
   }
 
-  const appliedTemplateIds = new Set();
+  const parentExact = (idProduct || "").trim();
+  const scopedSubs = subTemplates.filter((sub) => subBelongsToParentGroup(sub, parentExact));
+  if (scopedSubs.length === 0) {
+    return false;
+  }
+
+  const appliedTemplateIds = getGlobalAppliedTemplateIds();
   const subsByMainRow = new Map();
 
-  subTemplates.forEach((sub) => {
+  scopedSubs.forEach((sub) => {
     if (!sub) return;
     const templateId = sub.id != null ? String(sub.id) : null;
+    if (templateId && appliedTemplateIds.has(`id:${templateId}`)) {
+      return;
+    }
+
+    const mainRow = findMainRowForSubTemplate(parentExact, sub);
+    if (!mainRow) return;
+
     const accountKey =
       sub.account_id != null
         ? `${String(sub.account_id)}:${sub.sub_order != null ? Number(sub.sub_order) : ""}:${sub.formula_variant != null ? sub.formula_variant : ""}`
         : null;
-    if (templateId && appliedTemplateIds.has(templateId)) {
+    const parentRowIndexAttr = mainRow.getAttribute("data-row-index");
+    const parentRowIndex =
+      parentRowIndexAttr != null && parentRowIndexAttr !== "" && !Number.isNaN(Number(parentRowIndexAttr))
+        ? Number(parentRowIndexAttr)
+        : "na";
+    const scopedKey = accountKey ? `acc:${parentRowIndex}:${accountKey}` : null;
+    if (scopedKey && appliedTemplateIds.has(scopedKey)) {
       return;
     }
-    if (accountKey && appliedTemplateIds.has(`acc:${accountKey}`)) {
-      return;
-    }
-
-    const mainRow = findMainRowForSubTemplate(idProduct, sub);
-    if (!mainRow) return;
 
     if (!subsByMainRow.has(mainRow)) {
       subsByMainRow.set(mainRow, []);
     }
     subsByMainRow.get(mainRow).push(sub);
     if (templateId) {
-      appliedTemplateIds.add(templateId);
+      appliedTemplateIds.add(`id:${templateId}`);
     }
-    if (accountKey) {
-      appliedTemplateIds.add(`acc:${accountKey}`);
+    if (scopedKey) {
+      appliedTemplateIds.add(scopedKey);
     }
   });
 
@@ -130,7 +199,10 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
   }
 
   subsByMainRow.forEach((subs, mainRow) => {
-    applyRow(idProduct, mainRow, subs);
+    const idCell = mainRow.querySelector("td:first-child");
+    const pv = getSummaryProductValuesFromCell(idCell);
+    const mainIdProduct = (pv.main || parentExact || idProduct || "").trim();
+    applyRow(mainIdProduct, mainRow, subs);
   });
   return true;
 }
@@ -138,9 +210,13 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
 export function registerSummarySubTemplatePopulate() {
   window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ = applySubsForIdProductGroup;
   window.__SUMMARY_FILTER_SUBS_FOR_PARENT__ = filterSubsForParentIdProduct;
+  window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__ = () => {
+    window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__ = new Set();
+  };
 }
 
 export function unregisterSummarySubTemplatePopulate() {
   delete window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__;
   delete window.__SUMMARY_FILTER_SUBS_FOR_PARENT__;
+  delete window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__;
 }

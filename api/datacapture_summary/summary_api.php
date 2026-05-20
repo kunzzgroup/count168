@@ -304,6 +304,9 @@ function computeTemplateKey(array $row): string {
         $accountId = trim((string)($row['account_id'] ?? ''));
         if ($baseKey !== '') {
             $key = $accountId !== '' ? $baseKey . '_' . $accountId : $baseKey;
+            if ($subOrder !== '') {
+                $key .= '_so' . $subOrder;
+            }
             return substr($key, 0, 250);
         }
 
@@ -1527,14 +1530,26 @@ function inheritFormulasToSubAccounts(PDO $pdo, int $companyId, array $templates
                         continue;
                     }
 
-                    // 若 Maintenance 已保存同 parent + account 的 sub 模板，不再注入继承副本
+                    // 若 Maintenance 已保存同 parent + account (+ row_index) 的 sub 模板，不再注入继承副本
                     $alreadyInSubs = false;
+                    $mainRowIndex = isset($t['row_index']) && $t['row_index'] !== null && $t['row_index'] !== ''
+                        ? (int)$t['row_index']
+                        : null;
                     foreach ($templates[$mainKey]['subs'] as $existingSub) {
-                        if ((int)($existingSub['account_id'] ?? 0) === (int)$subAccId
-                            && trim((string)($existingSub['parent_id_product'] ?? '')) === $parentIdProduct) {
-                            $alreadyInSubs = true;
-                            break;
+                        if ((int)($existingSub['account_id'] ?? 0) !== (int)$subAccId) {
+                            continue;
                         }
+                        if (trim((string)($existingSub['parent_id_product'] ?? '')) !== $parentIdProduct) {
+                            continue;
+                        }
+                        $existingRowIndex = isset($existingSub['row_index']) && $existingSub['row_index'] !== null && $existingSub['row_index'] !== ''
+                            ? (int)$existingSub['row_index']
+                            : null;
+                        if ($mainRowIndex !== null && $existingRowIndex !== null && $existingRowIndex !== $mainRowIndex) {
+                            continue;
+                        }
+                        $alreadyInSubs = true;
+                        break;
                     }
                     if ($alreadyInSubs) {
                         $addedForSubAcc[$dedupKey] = true;
