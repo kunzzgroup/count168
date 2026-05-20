@@ -14,7 +14,11 @@ export function MemberMiniGridTotals({ currencyOrder, totalsByCu, t }) {
     <div className="member-dash-total-values member-dash-total-values--grid">
       <div className="member-dash-total-currency-grid" role="group" aria-label={t?.("totalsByCurrencyAria") || "Totals by currency"}>
         {order.map((cu) => {
-          const dec = totalsByCu.get(cu) || MoneyDecimal.toDecimal("0", 0);
+          const raw = totalsByCu.get(cu);
+          const dec =
+            raw != null && typeof raw.lt === "function"
+              ? raw
+              : MoneyDecimal.toDecimal("0", 0);
           const neg = dec.lt(0);
           return (
             <div key={cu} className="member-dash-total-grid-cell">
@@ -55,9 +59,11 @@ function MiniGridRow({
             ? false
             : accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedCurrenciesLoaded, idNum, cu);
         const key = `${idNum}|${cu}`;
-        const balDec = !shellMode && holds && balanceMap?.has(key) ? balanceMap.get(key) : null;
-        const isNa = shellMode || !holds;
-        const neg = balDec && balDec.lt(0);
+        const balDec =
+          !shellMode && holds && balanceMap?.has(key) ? balanceMap.get(key) : null;
+        const hasBalance = balDec != null && typeof balDec.lt === "function";
+        const isNa = shellMode || !holds || !hasBalance;
+        const neg = hasBalance && balDec.lt(0);
         return (
           <div
             key={`${idNum}-${cu}`}

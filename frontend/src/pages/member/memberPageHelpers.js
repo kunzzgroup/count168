@@ -225,7 +225,8 @@ export function computeTableTotals(rows) {
 
 export function groupHistoryForDisplay(historyRows, isAllSelected, selectedCurrencies, availableCurrencies) {
   const map = new Map();
-  for (const row of historyRows) {
+  const rows = Array.isArray(historyRows) ? historyRows : [];
+  for (const row of rows) {
     const c = String(row.currency || "-").trim() || "-";
     if (!map.has(c)) map.set(c, []);
     map.get(c).push(row);

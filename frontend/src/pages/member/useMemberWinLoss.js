@@ -274,7 +274,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
     [availableCurrencies, isAllSelected, selectedCurrencies],
   );
 
-  const showMiniRail = linkedAccounts.length > 0 || viewAccountId > 0;
+  const showMiniRail = linkedAccounts.length > 0 && miniGridCurrencies.length > 0;
 
   const miniGridDisplayCurrencies = useMemo(() => {
     if (miniGridShell) return MINI_GRID_SHELL_CCY;
@@ -726,9 +726,21 @@ export function useMemberWinLoss({ showNotification, lang }) {
       wlGridSelectedIds,
       linkedAccounts,
     );
-    setIsAllSelected(sanitized.isAllSelected);
-    setSelectedCurrencies(sanitized.selectedCurrencies);
-  }, [availableCurrencies, linkedCurrenciesLoaded, wlGridSelectedIds, linkedAccounts]);
+    setIsAllSelected((prev) => (prev === sanitized.isAllSelected ? prev : sanitized.isAllSelected));
+    setSelectedCurrencies((prev) => {
+      const next = sanitized.selectedCurrencies;
+      if (prev.length === next.length && prev.every((c, i) => c === next[i])) return prev;
+      return next;
+    });
+  }, [
+    availableCurrencies,
+    linkedCurrenciesLoaded,
+    linkedAccountCurrenciesMap,
+    wlGridSelectedIds,
+    linkedAccounts,
+    isAllSelected,
+    selectedCurrencies,
+  ]);
 
   useEffect(() => {
     if (loginRootAccountId && companyId) {
