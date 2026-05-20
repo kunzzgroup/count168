@@ -655,6 +655,16 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         min-height: 0 !important;
     }
 
+    /* Account List：固定分页在右下时，底部留白（覆盖上方 .container 的 20px） */
+    body.account-page:not(.account-page--show-all) .container,
+    body.ec-auth-shell.account-page:not(.account-page--show-all) .container {
+        padding-bottom: clamp(64px, 10vh, 96px) !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .account-table-wrapper {
+        padding-bottom: clamp(52px, 6vh, 72px) !important;
+    }
+
     /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
     body.ec-auth-shell {
         background-attachment: fixed !important;

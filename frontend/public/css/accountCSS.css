@@ -50,6 +50,8 @@ body.account-page:not(.account-page--show-all) .container {
     height: auto !important;
     min-height: 100vh !important;
     overflow: visible !important;
+    /* 为固定右下角分页留白（global-13inch 会压成 20px，此处用 !important 保底） */
+    padding-bottom: clamp(64px, 10vh, 96px) !important;
 }
 
 .account-page .content {
@@ -109,7 +111,7 @@ body.account-page .account-table-wrapper {
     display: flex;
     flex-direction: column;
     overflow: visible;
-    padding-bottom: 0;
+    padding-bottom: clamp(52px, 6vh, 72px);
     box-sizing: border-box;
 }
 
@@ -129,6 +131,7 @@ body.account-page:not(.account-page--show-all) .account-cards {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+    padding-bottom: clamp(8px, 1.5vh, 16px);
 }
 
 /* 行高/左右内边距与 process-card 一致，不挤压 flex 高度 */
