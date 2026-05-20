@@ -160,8 +160,8 @@
         font-size: var(--text-base) !important;
     }
 
-    /* Process List（含 Bank）：与 User / Account 表头一致 — 字号 + padding token */
-    body.ec-auth-shell.process-page .table-header {
+    /* Process List（Games 等）：与 User / Account 表头一致 — 字号 + padding token */
+    body.ec-auth-shell.process-page .table-header:not(.bank-virtual-head-row) {
         font-size: var(--text-base) !important;
         padding: var(--table-header-height) !important;
     }
@@ -226,11 +226,14 @@
         line-height: 1.15 !important;
     }
 
-    /* Bank Process virtual table：列对齐由 --bank-virtual-grid-active 控制 */
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row,
+    /* Bank Process virtual table：15 列 grid，勿套用上方 User List 的 9 列 table-header */
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row.table-header,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row {
+        display: grid !important;
+        grid-template-columns: var(--bank-virtual-grid-active) !important;
         column-gap: 0 !important;
         gap: 0 !important;
+        padding: 0 !important;
     }
 
     /* Stop Bank badges from overflowing horizontally due to global constraints */
@@ -304,7 +307,7 @@
         grid-template-columns: 0.5fr 1.4fr 1.4fr 0.8fr 0.6fr 0.8fr 2fr 1.2fr 0.45fr !important;
     }
 
-    body.ec-auth-shell .table-header,
+    body.ec-auth-shell .table-header:not(.bank-virtual-head-row),
     body.ec-auth-shell .user-card {
         grid-template-columns: 0.5fr 1.6fr 1.8fr 2.5fr 1.8fr 1.2fr 1.8fr 1.5fr 0.8fr !important;
     }
