@@ -649,7 +649,8 @@ body {
         }
 
         /* Add Account modal overlay: on top and horizontally centered within right content area */
-        #addModal.account-modal {
+        #addModal.account-modal,
+        #account-addModal.account-modal {
             display: none;
             position: fixed;
             z-index: 10001; /* ensure Add Account is in front */
@@ -667,10 +668,10 @@ body {
         }
 
         /*
-         * Summary Add Account uses #addModal (not #account-addModal), so it only got generic
-         * .account-modal-content (~950px max) — feels cramped. Match reference: ~65–72vw wide, roomier padding.
+         * Summary Add Account: shared AccountModal (#account-addModal) + legacy #addModal.
          */
-        #addModal.account-modal .account-modal-content {
+        #addModal.account-modal .account-modal-content,
+        #account-addModal.account-modal .account-modal-content {
             width: clamp(1020px, 72vw, 1400px);
             max-width: calc(100vw - clamp(150px, 13.02vw, 250px) - 48px);
             margin-top: clamp(56px, 7vh, 100px);

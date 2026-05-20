@@ -3621,7 +3621,7 @@ async function loadCurrenciesForAccount(accountId, preferredCurrency) {
     }
 }
 
-// Refresh account list
+// Refresh account list (exposed for React shared AccountModal after add)
 async function refreshAccountList(selectAccountId = null) {
     try {
         const editFormulaModal = document.getElementById('editFormulaModal');
@@ -3657,6 +3657,7 @@ async function refreshAccountList(selectAccountId = null) {
         showNotification('Error', 'Failed to refresh account list: ' + error.message, 'error');
     }
 }
+window.refreshAccountList = refreshAccountList;
 
 // Global variables for add account modal
 let roles = [];

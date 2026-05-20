@@ -5,7 +5,7 @@ import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
 import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
 import EditFormulaModal from "./components/EditFormulaModal.jsx";
-import AddAccountModal from "./components/AddAccountModal.jsx";
+import AccountModal from "../../components/AccountModal.jsx";
 import { useSummaryEditFormula } from "./hooks/useSummaryEditFormula.js";
 import { useSummaryAddAccount } from "./hooks/useSummaryAddAccount.js";
 import SummaryActionBar from "./components/SummaryActionBar.jsx";
@@ -445,7 +445,7 @@ function DataCaptureSummaryPageInner() {
         onClose={() => window.closeEditFormulaForm?.()}
       />
 
-      <AddAccountModal open={addAccount.open} onClose={addAccount.closeAddAccount} />
+      <AccountModal {...addAccount.accountModalProps} />
 
       <SummarySubmitBar
         submitting={pageActions.submitting}
