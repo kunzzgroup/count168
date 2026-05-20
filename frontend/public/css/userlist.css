@@ -2921,9 +2921,10 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     #userModal .user-modal-content .sidebar-permissions-section .permissions-container,
     .modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
         flex: 1 1 0;
-        min-height: clamp(140px, 22vh, 260px);
-        max-height: none;
-        overflow-y: auto;
+        min-height: 0;
+        height: 0;
+        max-height: 100%;
+        overflow-y: auto !important;
         padding-bottom: 8px;
         /* 底部留空，最后一行不被裁切/遮挡 */
     }

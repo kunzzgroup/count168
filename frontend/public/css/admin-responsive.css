@@ -94,24 +94,36 @@ body.user-page #userModal .user-modal-content .user-info-grid {
   overflow: visible;
 }
 
+body.user-page #userModal .user-modal-col--info.user-info-panel {
+  min-height: 0 !important;
+  max-height: 100%;
+  overflow: hidden;
+}
+
 body.user-page #userModal .user-modal-content .sidebar-permissions-section {
   flex: 1 1 0;
   min-height: 0;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-body.user-page #userModal .user-modal-content .sidebar-permissions-title {
+body.user-page #userModal .user-modal-content .sidebar-permissions-title,
+body.user-page #userModal .user-modal-content .user-modal-permissions-title {
   flex-shrink: 0;
 }
 
+/* 红色框区域：仅勾选列表滚动（flex 子项 height:0 才能出现滚动条） */
 body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
   flex: 1 1 0;
-  min-height: clamp(150px, 22vh, 260px);
-  overflow-y: auto;
+  min-height: 0;
+  height: 0;
+  max-height: 100%;
+  overflow-y: auto !important;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-actions {
@@ -119,10 +131,10 @@ body.user-page #userModal .user-modal-content .sidebar-permissions-section .perm
   margin-top: auto;
 }
 
-/* 矮屏（如 1536×750）：只加高 Permissions 滚动区 */
+/* 矮屏（如 1536×750）：给 Permissions 列表明确上限，保证可滚 */
 @media (max-height: 850px) {
   body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
-    min-height: clamp(200px, 32vh, 340px);
+    max-height: min(280px, 36vh);
   }
 }
 
