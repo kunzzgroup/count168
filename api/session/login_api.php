@@ -90,16 +90,29 @@ try {
         $account = null;
         $has_expired = false;
         $password_match = false;
-        
+        $account_record_to_update = null;
+
         foreach ($matched_accounts as $row) {
-            if (!empty($row['password']) && $password === $row['password']) {
-                $password_match = true;
-                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
-                    $has_expired = true;
-                } else {
-                    $account = $row;
-                    break;
-                }
+            if (empty($row['password'])) {
+                continue;
+            }
+            $is_pwd_valid = false;
+            $stored = (string) $row['password'];
+            if (password_verify($password, $stored)) {
+                $is_pwd_valid = true;
+            } elseif ($password === $stored) {
+                $is_pwd_valid = true;
+                $account_record_to_update = $row;
+            }
+            if (!$is_pwd_valid) {
+                continue;
+            }
+            $password_match = true;
+            if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
+                $has_expired = true;
+            } else {
+                $account = $row;
+                break;
             }
         }
         
@@ -117,6 +130,13 @@ try {
             // 使用 match 到的第一家 company 的数字 ID
             $_SESSION['company_id'] = $account['company_numeric_id'];
             $_SESSION['last_activity'] = time();
+
+            // 明文密码登录成功时升级为哈希（与 owner 一致）
+            if ($account_record_to_update && (int) $account['id'] === (int) $account_record_to_update['id']) {
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                $update_stmt = $pdo->prepare('UPDATE account SET password = ? WHERE id = ?');
+                $update_stmt->execute([$hashed_password, $account['id']]);
+            }
 
             // 更新最后登录时间
             $stmt = $pdo->prepare("UPDATE account SET last_login = NOW() WHERE id = ?");
