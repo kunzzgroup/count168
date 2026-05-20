@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LOGIN_I18N } from "../../translateFile/loginTranslate.js";
+import { useAuthBackground } from "./useAuthBackground.js";
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -173,7 +174,6 @@ export default function LoginPage() {
   );
 
   useEffect(() => {
-    // Ensure login page always restores the base background layout.
     document.body.classList.remove(
       "transaction-page",
       "member-winloss-page",
@@ -190,11 +190,9 @@ export default function LoginPage() {
       "user-page--show-all",
       "page-ready",
     );
-    document.body.classList.add("bg");
-    return () => {
-      document.body.classList.remove("bg");
-    };
   }, []);
+
+  useAuthBackground();
 
   useEffect(() => {
     const ac = new AbortController();
@@ -272,19 +270,21 @@ export default function LoginPage() {
           return;
         }
 
-        // Keep secondary-password flow if backend explicitly asks for it.
-        if (/owner_secondary_password\.php/i.test(redirect)) {
-          window.location.assign(new URL("/owner-secondary-password", window.location.origin).toString());
-          return;
-        }
-        if (/user_secondary_password\.php/i.test(redirect)) {
-          window.location.assign(new URL("/user-secondary-password", window.location.origin).toString());
-          return;
-        }
+        const internalPath = (() => {
+          const r = redirect.trim();
+          if (/owner[-_]secondary[-_]password/i.test(r) || r === "/owner-secondary-password") {
+            return "/owner-secondary-password";
+          }
+          if (/user[-_]secondary[-_]password/i.test(r) || r === "/user-secondary-password") {
+            return "/user-secondary-password";
+          }
+          if (r === "/dashboard" || /dashboard/i.test(r)) return "/dashboard";
+          if (r.startsWith("/") && !r.startsWith("//")) return r;
+          return null;
+        })();
 
-        // Non-member users always enter dashboard directly.
-        if (loginRole !== "member") {
-          window.location.assign(new URL("/dashboard", window.location.origin).toString());
+        if (internalPath) {
+          navigate(internalPath, { replace: true });
           return;
         }
 

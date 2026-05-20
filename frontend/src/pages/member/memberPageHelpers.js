@@ -3,6 +3,12 @@ import { MoneyDecimal } from "../../utils/moneyDecimal.js";
 export const MINI_GRID_SHELL_CCY = ["MYR", "SGD"];
 export const MINI_GRID_SHELL_ROWS = 5;
 
+/** Win/Loss 迷你矩阵：账户行数大于此值时，矩阵区域纵向滚动，默认可见约 5 个账户行 + 表头 */
+export const WINLOSS_MINI_MATRIX_ACCOUNT_SCROLL_THRESHOLD = 5;
+
+/** Win/Loss Currency：每条 segment 白底带最多按钮数（含第一段的「All」占位），多出的自动再开新带 */
+export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS = 5;
+
 export function normalizeNumber(value) {
   try {
     return MoneyDecimal.toDecimal(value || "0", 0);
@@ -240,8 +246,7 @@ export function groupHistoryForDisplay(historyRows, isAllSelected, selectedCurre
 }
 
 export function miniMatrixGridTemplateColumns(ncu) {
-  const rowHead = "minmax(3.25rem, 6rem)";
-  const colMin = "3.25rem";
-  const ccyCols = `repeat(${ncu}, minmax(${colMin}, 1fr))`;
+  const rowHead = "minmax(5.75rem, max-content)";
+  const ccyCols = `repeat(${ncu}, minmax(0, 1fr))`;
   return `${rowHead} ${ccyCols}`;
 }

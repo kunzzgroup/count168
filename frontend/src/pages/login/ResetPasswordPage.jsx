@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RESET_PASSWORD_I18N } from "../../translateFile/resetPasswordTranslate.js";
+import { useAuthBackground } from "./useAuthBackground.js";
 import { sendResetTac, submitResetPassword } from "./resetPassword.js";
 
 function AlertModal({ open, title, message, confirmText, onClose }) {
@@ -76,12 +77,9 @@ export default function ResetPasswordPage() {
       "user-page--show-all",
       "page-ready"
     );
-    document.body.classList.add("bg");
-
-    return () => {
-      document.body.classList.remove("bg");
-    };
   }, []);
+
+  useAuthBackground();
 
   const showModal = useCallback(
     (title, message) => {

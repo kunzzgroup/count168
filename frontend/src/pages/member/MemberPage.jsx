@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
@@ -16,7 +16,7 @@ import "../../../public/css/transaction.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 import MemberMiniGrid, { MemberMiniGridTotals } from "./MemberMiniGrid.jsx";
 import MemberLinkedFilterModal from "./MemberLinkedFilterModal.jsx";
-import { computeTableTotals } from "./memberPageHelpers.js";
+import { computeTableTotals, WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 
 const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
@@ -86,6 +86,9 @@ export default function MemberPage() {
   const [notifications, setNotifications] = useState([]);
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const avatarContainerRef = useRef(null);
+  /** 宽屏三栏时：中/右栏 max-height = 左侧筛选（含 Currency）整块高度，底与 Currency 对齐 */
+  const wlFiltersColRef = useRef(null);
+  const [wlFiltersSyncPx, setWlFiltersSyncPx] = useState(null);
 
   const showNotification = useCallback((message, type = "info") => {
     if (!message) return;
@@ -134,6 +137,40 @@ export default function MemberPage() {
     formatPaymentHistoryMoney,
   } = useMemberWinLoss({ showNotification, lang });
 
+  /** Currency 多段：每段最多 5 格（含 All），每满一行新开一条 segment 白底条，列仍按 5 列对齐 */
+  const currencyFilterBands = useMemo(() => {
+    const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
+    const showAllBtn = codes.length === 0 || codes.length > 1;
+    const maxPerBand = WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS;
+
+    const cells = [];
+    if (showAllBtn) cells.push({ type: "all" });
+    codes.forEach((c) => cells.push({ type: "code", code: c }));
+
+    const bands = [];
+    for (let i = 0; i < cells.length; i += maxPerBand) {
+      bands.push(cells.slice(i, i + maxPerBand));
+    }
+    return bands;
+  }, [availableCurrencies]);
+
+  const handleWinLossCurrencyCodeDrop = useCallback(
+    (e) => {
+      e.preventDefault();
+      const dragged = e.dataTransfer.getData("text/plain");
+      const code = e.currentTarget?.dataset?.currency;
+      if (!dragged || !code || dragged === code) return;
+      const from = availableCurrencies.indexOf(dragged);
+      const to = availableCurrencies.indexOf(code);
+      if (from < 0 || to < 0) return;
+      const next = [...availableCurrencies];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      persistCurrencyOrder(next);
+    },
+    [availableCurrencies, persistCurrencyOrder],
+  );
+
   const periodPresets = useMemo(
     () => QUICK_RANGE_KEYS.map((key) => ({ key, label: t(key) })),
     [t],
@@ -171,6 +208,35 @@ export default function MemberPage() {
       document.body.classList.remove("lang-zh", "lang-en");
     };
   }, [lang]);
+
+  useLayoutEffect(() => {
+    if (!showMiniRail) {
+      setWlFiltersSyncPx(null);
+      return undefined;
+    }
+    const el = wlFiltersColRef.current;
+    const mq = window.matchMedia("(min-width: 1181px)");
+    const update = () => {
+      if (!showMiniRail || !mq.matches || !wlFiltersColRef.current) {
+        setWlFiltersSyncPx(null);
+        return;
+      }
+      setWlFiltersSyncPx(Math.ceil(wlFiltersColRef.current.getBoundingClientRect().height));
+    };
+    update();
+    let ro;
+    if (el) {
+      ro = new ResizeObserver(() => update());
+      ro.observe(el);
+    }
+    mq.addEventListener("change", update);
+    window.addEventListener("resize", update);
+    return () => {
+      mq.removeEventListener("change", update);
+      window.removeEventListener("resize", update);
+      ro?.disconnect();
+    };
+  }, [showMiniRail, lang, companies, linkedAccounts, currencyFilterBands, dateFrom, dateTo, companyId, viewAccountId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -364,8 +430,11 @@ export default function MemberPage() {
         <div className="transaction-separator-line" />
         <div className="transaction-main-content member-winloss-dash">
           <div className="transaction-search-section member-dash-unified-bar">
-            <div className={`member-dash-columns${showMiniRail ? "" : " member-dash-columns--no-mini-rail"}`}>
-              <div className="member-dash-col member-dash-col-filters">
+            <div
+              className={`member-dash-columns${showMiniRail ? " member-dash-columns--three-col" : " member-dash-columns--no-mini-rail"}${wlFiltersSyncPx != null ? " member-dash-columns--wl-sync-h" : ""}`}
+              style={wlFiltersSyncPx != null ? { ["--member-winloss-filters-h"]: `${wlFiltersSyncPx}px` } : undefined}
+            >
+              <div className="member-dash-col member-dash-col-filters" ref={wlFiltersColRef}>
             <div className="member-winloss-date-field">
               <ReportDatePicker
                 dateFrom={parseDmyToYmd(dateFrom || dmy(monday))}
@@ -406,8 +475,12 @@ export default function MemberPage() {
               {linkedAccounts.length > 1 && (
                 <div className="user-gc-inline-row" id="member_account_filter">
                   <span className="user-gc-inline-label">{t("account")}</span>
-                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="member_account_buttons">
-                    <div className="user-gc-segment-group" role="group" aria-label={t("ariaAccount")}>
+                  <div className="user-gc-inline-pills member-winloss-account-pills" id="member_account_buttons">
+                    <div
+                      className="user-gc-segment-group member-winloss-account-segments"
+                      role="group"
+                      aria-label={t("ariaAccount")}
+                    >
                       {linkedAccounts.map((acc) => (
                         <button
                           key={acc.id}
@@ -424,54 +497,55 @@ export default function MemberPage() {
               )}
               <div className="user-gc-inline-row" id="member_currency_filter">
                 <span className="user-gc-inline-label">{t("currency")}</span>
-                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="member_currency_buttons">
-                  <div className="user-gc-segment-group" role="group" aria-label={t("ariaCurrency")}>
-                    {(availableCurrencies.length === 0 || availableCurrencies.length > 1) && (
-                      <button
-                        type="button"
-                        className={`user-gc-segment${isAllSelected ? " is-on" : ""}`}
-                        onClick={onCurrencyAll}
-                      >
-                        {t("all")}
-                      </button>
-                    )}
-                    {availableCurrencies.map((code, index) => (
-                      <button
-                        key={code}
-                        type="button"
-                        draggable
-                        data-currency={code}
-                        className={`user-gc-segment user-gc-segment--draggable-pill${selectedCurrencies.includes(code) ? " is-on" : ""}`}
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData("text/plain", code);
-                          e.dataTransfer.effectAllowed = "move";
-                        }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          const dragged = e.dataTransfer.getData("text/plain");
-                          if (!dragged || dragged === code) return;
-                          const from = availableCurrencies.indexOf(dragged);
-                          const to = index;
-                          if (from < 0 || to < 0) return;
-                          const next = [...availableCurrencies];
-                          const [moved] = next.splice(from, 1);
-                          next.splice(to, 0, moved);
-                          persistCurrencyOrder(next);
-                        }}
-                        onClick={() => onCurrencyToggle(code)}
-                      >
-                        {code}
-                      </button>
-                    ))}
-                  </div>
+                <div
+                  className="user-gc-inline-pills member-winloss-currency-pills"
+                  id="member_currency_buttons"
+                  role="group"
+                  aria-label={t("ariaCurrency")}
+                >
+                  {currencyFilterBands.map((band, segIdx) => (
+                    <div
+                      key={`member-ccy-band-${segIdx}`}
+                      className="user-gc-segment-group member-winloss-currency-segments"
+                    >
+                      {band.map((cell) =>
+                        cell.type === "all" ? (
+                          <button
+                            key="member-ccy-all"
+                            type="button"
+                            className={`user-gc-segment${isAllSelected ? " is-on" : ""}`}
+                            onClick={onCurrencyAll}
+                          >
+                            {t("all")}
+                          </button>
+                        ) : (
+                          <button
+                            key={cell.code}
+                            type="button"
+                            draggable
+                            data-currency={cell.code}
+                            className={`user-gc-segment user-gc-segment--draggable-pill${selectedCurrencies.includes(cell.code) ? " is-on" : ""}`}
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", cell.code);
+                              e.dataTransfer.effectAllowed = "move";
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={handleWinLossCurrencyCodeDrop}
+                            onClick={() => onCurrencyToggle(cell.code)}
+                          >
+                            {cell.code}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
               </div>
               {showMiniRail && (
-                <div className="member-dash-right-rail" aria-hidden="false">
-                  <div className="member-dash-rail-stack">
+                <>
+                  <div className="member-dash-col member-dash-col-matrix" aria-hidden="false">
                     {linkedAccounts.length > 0 && (
                       <div className="member-dash-rail-toolbar">
                         <div className="member-dash-mini-toolbar">
@@ -489,34 +563,38 @@ export default function MemberPage() {
                         </div>
                       </div>
                     )}
-                    <div className="member-dash-rail-matrix">
-                      <MemberMiniGrid
-                        shellMode={miniGridShell}
-                        currencies={miniGridDisplayCurrencies}
-                        accounts={miniGridAccounts}
-                        balanceMap={miniGridBalances}
-                        hint={miniGridHint}
-                        linkedCurrenciesLoaded={linkedCurrenciesLoaded}
-                        linkedAccountCurrenciesMap={linkedAccountCurrenciesMap}
-                        t={t}
-                      />
+                    <div className="member-dash-matrix-center-wrap">
+                      <div className="member-dash-rail-matrix">
+                        <MemberMiniGrid
+                          shellMode={miniGridShell}
+                          currencies={miniGridDisplayCurrencies}
+                          accounts={miniGridAccounts}
+                          balanceMap={miniGridBalances}
+                          hint={miniGridHint}
+                          linkedCurrenciesLoaded={linkedCurrenciesLoaded}
+                          linkedAccountCurrenciesMap={linkedAccountCurrenciesMap}
+                          t={t}
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div className="member-dash-rail-total">
-                    <div className="member-dash-total-matrix" role="region" aria-label={t("balanceTotalsAria")}>
-                      <div className="member-dash-total-matrix-hd">{t("total")}</div>
-                      <div className="member-dash-total-matrix-body">
-                        <div id="member_balance_total_value" className="member-dash-total-values" aria-live="polite">
-                          <MemberMiniGridTotals
-                            currencyOrder={miniGridDisplayCurrencies}
-                            totalsByCu={miniGridTotals}
-                            t={t}
-                          />
+                  <div className="member-dash-col member-dash-col-total">
+                    <div className="member-dash-rail-total">
+                      <div className="member-dash-total-matrix" role="region" aria-label={t("balanceTotalsAria")}>
+                        <div className="member-dash-total-matrix-hd">{t("total")}</div>
+                        <div className="member-dash-total-matrix-body">
+                          <div id="member_balance_total_value" className="member-dash-total-values" aria-live="polite">
+                            <MemberMiniGridTotals
+                              currencyOrder={miniGridDisplayCurrencies}
+                              totalsByCu={miniGridTotals}
+                              t={t}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           </div>
