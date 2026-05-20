@@ -9007,6 +9007,16 @@ function parseApiReturnTableFormat(pastedData) {
     };
 }
 
+// Payment History 简单减法：11815.14-0.00 → ['11815.14', '-', '0.00']（减号单独一列）
+function extractSimpleSubtractionTokens(expression) {
+    if (!expression || typeof expression !== 'string') return null;
+    const compact = expression.replace(/\s/g, '').replace(/,/g, '');
+    if (/[()+*/]/.test(compact)) return null;
+    const m = compact.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/);
+    if (!m) return null;
+    return [m[1], '-', m[2]];
+}
+
 // 解析 Description 列内容
 // 输入：KING855 : (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)
 // 输出：['KING855:', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225']
@@ -9029,6 +9039,12 @@ function parseApiReturnDescription(description) {
 
     // 2. 提取表达式部分（冒号后的内容）
     const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
+
+    const simpleSubTokens = extractSimpleSubtractionTokens(expression);
+    if (simpleSubTokens) {
+        simpleSubTokens.forEach(t => result.push(t));
+        return result.length > 0 ? result : null;
+    }
 
     // 3. 按运算符分割提取数字（包括负数）
     // 先移除所有括号和空格
@@ -9185,12 +9201,22 @@ function parseApiReturnFormat(pastedData) {
             }
         }
     } else {
-        // 非公式格式：使用正则表达式提取所有数字（包括小数和负数）
-        // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
-        const numberPattern = /-?\d+\.\d+|-?\d+/g;
-        const matchedNumbers = expression.match(numberPattern);
-        if (matchedNumbers) {
-            numbers = matchedNumbers;
+        const simpleSubTokens = extractSimpleSubtractionTokens(expression);
+        if (simpleSubTokens) {
+            numbers = simpleSubTokens;
+        } else {
+            // 非括号格式：按运算符边界提取数字
+            let cleanFormula = expression.replace(/\s/g, '');
+            const numberPattern = /(?:^|[+\-*/])(-?\d+\.?\d*)/g;
+            let match;
+            while ((match = numberPattern.exec(cleanFormula)) !== null) {
+                const num = match[1];
+                if (num) numbers.push(num);
+            }
+            if (numbers.length === 0) {
+                const matchedNumbers = expression.match(/-?\d+\.\d+|-?\d+/g);
+                if (matchedNumbers) numbers = matchedNumbers;
+            }
         }
     }
 
@@ -17215,8 +17241,9 @@ function handleCellPaste(e) {
                             const hasParentheses = cell.includes('(') || cell.includes(')');
                             const hasColon = cell.includes(':');
                             const hasMathOperators = cell.includes('+') || cell.includes('*') || cell.includes('/');
+                            const hasSubtractionBetweenNumbers = /[\d,.]+\s*-\s*[\d,.]+/.test(cell);
                             // 只有包含括号，或者包含冒号和运算符的才认为是公式
-                            const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators);
+                            const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators || hasSubtractionBetweenNumbers);
 
                             const hasFormula = !isDatePattern &&
                                 cell.match(/\d/) && // 包含数字
@@ -17690,7 +17717,9 @@ function handleCellPaste(e) {
             const hasParentheses = s.includes('(') || s.includes(')');
             const hasColon = s.includes(':');
             const hasMathOperators = s.includes('+') || s.includes('*') || s.includes('/');
-            const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators);
+            // Payment History：MAXBET : 11815.14-0.00（冒号后两数用减号连接，无括号/乘号）
+            const hasSubtractionBetweenNumbers = /[\d,.]+\s*-\s*[\d,.]+/.test(s);
+            const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators || hasSubtractionBetweenNumbers);
 
             // Payment History Description：含字母但有「标签 : 公式」
             if (/[A-Za-z]/.test(s)) {
