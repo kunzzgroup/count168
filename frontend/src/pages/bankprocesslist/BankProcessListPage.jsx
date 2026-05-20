@@ -1628,30 +1628,32 @@ export default function BankProcessListPage() {
         </div>
         <div className="action-buttons-container">
           <div className="action-buttons">
-            <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div className="process-list-date-filter process-list-date-filter--pill" id="processListDateFilter" style={{ display: "inline-flex" }}>
-                <div className="date-range-picker" id="date-range-picker">
-                  <i className="fas fa-calendar-alt" aria-hidden="true" />
-                  {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
-                  <span id="date-range-display" aria-live="polite" />
-                  <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")} style={{ display: "none" }}>&times;</button>
+            <div className="bank-process-toolbar-main">
+              <div className="action-controls-row bank-process-toolbar-primary" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div className="process-list-date-filter process-list-date-filter--pill" id="processListDateFilter" style={{ display: "inline-flex" }}>
+                  <div className="date-range-picker" id="date-range-picker">
+                    <i className="fas fa-calendar-alt" aria-hidden="true" />
+                    {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
+                    <span id="date-range-display" aria-live="polite" />
+                    <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")} style={{ display: "none" }}>&times;</button>
+                  </div>
+                  <input type="hidden" id="date_from" defaultValue="" />
+                  <input type="hidden" id="date_to" defaultValue="" />
                 </div>
-                <input type="hidden" id="date_from" defaultValue="" />
-                <input type="hidden" id="date_to" defaultValue="" />
-              </div>
-              <div className="search-container userlist-search-bar">
-                <span className="userlist-search-bar__icon" aria-hidden="true">
-                  <svg fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                  </svg>
-                </span>
-                <input
-                  type="text"
-                  className="search-input userlist-search-input"
-                  placeholder={t("search")}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+                <div className="search-container userlist-search-bar">
+                  <span className="userlist-search-bar__icon" aria-hidden="true">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    className="search-input userlist-search-input"
+                    placeholder={t("search")}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="userlist-filter-chips userlist-filter-chips--bank-process" role="group">
                 <button

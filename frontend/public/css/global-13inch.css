@@ -364,7 +364,7 @@
         margin-top: var(--text-page-title-mt) !important;
     }
 
-    .process-page.process-page--bank .action-controls-row {
+    .process-page.process-page--bank .bank-process-toolbar-primary {
         flex-wrap: nowrap !important;
         gap: clamp(4px, 0.45vw, 8px) !important;
     }

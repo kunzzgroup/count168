@@ -942,9 +942,43 @@ body.lang-zh.process-page.process-page--bank .action-buttons-container .user-gc-
     z-index: 100 !important;
 }
 
+/* Bank Process List 顶栏：左侧筛选区 + 右侧 Delete/Add 分列，避免 5 颗 chip 挤掉右侧按钮 */
+body.process-page.process-page--bank .action-buttons {
+    align-items: flex-start;
+}
+
+body.process-page.process-page--bank .action-buttons .bank-process-toolbar-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+body.process-page.process-page--bank .action-buttons .user-toolbar-actions-right {
+    flex-shrink: 0;
+    align-self: center;
+}
+
+/* Bank 操作栏：日期 + Search 单行；filter chip 在下一行 */
+body.process-page.process-page--bank .bank-process-toolbar-primary {
+    flex-wrap: nowrap !important;
+    gap: clamp(4px, 0.5vw, 10px) !important;
+}
+
+.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
+    width: clamp(150px, 17vw, 240px);
+    max-width: clamp(150px, 17vw, 240px);
+}
+
+.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter--pill .date-range-picker {
+    min-width: clamp(150px, 17vw, 240px);
+    width: clamp(150px, 17vw, 240px);
+}
+
 /* Bank 操作栏：5 个 checkbox（比 Games 多 3 个）+ 日期选择器 + Search，laptop 下防止换行 */
 /* !important 必须：inline style="flex-wrap:wrap" 优先级高于 CSS，需强制覆盖 */
-.process-page.process-page--bank .action-controls-row {
+.process-page.process-page--bank .action-controls-row:not(.bank-process-toolbar-primary) {
     flex-wrap: nowrap !important;
     gap: clamp(4px, 0.5vw, 10px) !important;
 }
@@ -966,12 +1000,12 @@ body.lang-zh.process-page.process-page--bank .action-buttons-container .user-gc-
 }
 
 /* Bank：Search（userlist 药丸）与 Date range（药丸）同宽 */
-.process-page.process-page--bank .action-controls-row .search-container.userlist-search-bar {
+.process-page.process-page--bank .action-controls-row:not(.bank-process-toolbar-primary) .search-container.userlist-search-bar {
     width: clamp(150px, 17vw, 240px);
     max-width: clamp(150px, 17vw, 240px);
 }
 
-.process-page.process-page--bank .action-controls-row .process-list-date-filter--pill .date-range-picker {
+.process-page.process-page--bank .action-controls-row:not(.bank-process-toolbar-primary) .process-list-date-filter--pill .date-range-picker {
     min-width: clamp(150px, 17vw, 240px);
     width: clamp(150px, 17vw, 240px);
 }
