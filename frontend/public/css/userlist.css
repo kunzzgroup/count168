@@ -3276,6 +3276,96 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     .permissions-actions {
         padding-top: 12px;
     }
+
+    /* Tablet：左栏 Permissions 标题与按钮分行，避免 “Permissions” 被裁成 Permi */
+    #userModal .user-modal-col--info {
+        flex: 0 0 clamp(260px, 32vw, 340px) !important;
+        min-width: 0;
+    }
+
+    #userModal .user-modal-card .user-info-panel {
+        padding: 0 8px !important;
+    }
+
+    #userModal .sidebar-permissions-section {
+        flex: 0 0 auto;
+        margin-top: 10px;
+        padding-top: 10px;
+    }
+
+    #userModal .sidebar-permissions-section .sidebar-permissions-title.user-modal-permission-heading-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 0 6px 8px;
+        border-bottom: 2px solid #cbd5e1;
+    }
+
+    #userModal .sidebar-permissions-title.user-modal-permissions-title {
+        padding: 0;
+        font-size: 14px;
+        border-bottom: none;
+    }
+
+    #userModal .user-modal-permission-heading-left {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        width: 100%;
+        gap: 6px 10px;
+    }
+
+    #userModal #user-modal-permission-trigger-label {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e293b;
+        white-space: nowrap;
+    }
+
+    #userModal .user-modal-permission-open-btn {
+        width: 100%;
+        text-align: center;
+        padding: 7px 10px;
+        font-size: 12px;
+        box-sizing: border-box;
+    }
+
+    #userModal .sidebar-permissions-section .user-modal-permission-summary {
+        margin: 8px 6px 0;
+    }
+
+    #userModal .read-only-toggle-after-title {
+        margin-left: 0;
+    }
+
+    /* Tablet：Account / Process 两栏格，卡片更易读 */
+    #userModal .account-grid--four {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-auto-rows: minmax(46px, auto);
+        gap: 6px;
+        padding: 4px 0;
+    }
+
+    #userModal .user-modal-select-card {
+        min-height: 46px;
+        padding: 6px 8px;
+    }
+
+    #userModal .user-modal-col--account,
+    #userModal .user-modal-col--process {
+        padding: 8px 6px !important;
+    }
+
+    #userModal .acc-proc-label {
+        margin-bottom: 8px;
+        padding: 0 4px 6px;
+        font-size: 14px;
+    }
+
+    #userModal .user-info-panel form {
+        overflow-y: auto;
+        min-height: 0;
+    }
 }
 
 /* ── Read Only Toggle — absolute positioned in header ─── */
