@@ -988,7 +988,7 @@ body.ec-auth-shell.user-page #confirmModal .confirm-delete:disabled:hover {
     padding: clamp(8px, 0.83vw, 14px);
 }
 
-/* Three columns side-by-side: User info + Permissions | Account | Process (flex is more resilient than grid here with legacy flex rules on .user-info-panel) */
+/* User info column; Account / Process open in permission picker modal */
 .user-modal-card {
     flex: 1;
     min-height: 0;
@@ -1374,6 +1374,294 @@ label.user-modal-col-title.acc-proc-label {
 
 .user-modal-company-picker-done:hover {
     filter: brightness(1.02);
+}
+
+/* ── Permission picker (Account / Process / sidebar perms in modal) ── */
+.user-modal-permission-field-group {
+    margin-top: 12px;
+}
+
+#userModal .user-modal-permission-heading-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+}
+
+.user-modal-permission-heading-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+#userModal .user-modal-permission-heading-row label {
+    display: block;
+    margin-bottom: 0;
+    padding: 0 4px;
+    font-weight: 600;
+    color: #334155;
+}
+
+#userModal .user-modal-permission-open-btn {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #1a237e;
+    background: #ffffff;
+    color: #1a237e;
+    font-weight: 600;
+    font-size: clamp(11px, 0.75vw, 13px);
+    cursor: pointer;
+}
+
+#userModal .user-modal-permission-open-btn:hover:not(:disabled) {
+    background: #eef2ff;
+}
+
+#userModal .user-modal-permission-open-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.user-modal-permission-summary {
+    margin-top: 8px;
+    min-width: 0;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.user-modal-permission-summary-text {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: clamp(11px, 0.75vw, 13px);
+}
+
+.user-modal-permission-summary-empty {
+    color: #94a3b8;
+    font-size: clamp(11px, 0.75vw, 13px);
+}
+
+.user-modal-card--info-only {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    max-width: min(720px, 100%);
+    margin: 0 auto;
+    background: #ffffff;
+    border: none;
+    box-shadow: none;
+}
+
+.user-modal-card--info-only > .user-modal-col--info {
+    flex: 1 1 auto;
+    max-width: none;
+    width: 100%;
+    border-right: none;
+}
+
+.user-modal-permission-picker-root {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    pointer-events: none;
+}
+
+.user-modal-permission-picker-backdrop {
+    position: absolute;
+    inset: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(15, 23, 42, 0.45);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.user-modal-permission-picker {
+    position: relative;
+    z-index: 1;
+    width: min(1040px, 100%);
+    max-height: min(88vh, 720px);
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.user-modal-permission-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.user-modal-permission-picker-close {
+    border: none;
+    background: transparent;
+    font-size: 22px;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+.user-modal-permission-picker-close:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.user-modal-permission-picker-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.user-modal-permission-picker-sidebar {
+    flex-shrink: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 14px 14px;
+    background: #f8fafc;
+}
+
+.user-modal-permission-picker-sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.user-modal-permission-picker-section-label {
+    font-weight: 700;
+    color: #1a237e;
+    font-size: 14px;
+}
+
+.user-modal-permission-picker-sidebar-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.user-modal-permission-picker-perms.permissions-container {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px 10px;
+    max-height: none;
+    overflow: visible;
+}
+
+.user-modal-permission-picker-access-row {
+    display: flex;
+    flex: 1;
+    min-height: 200px;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.user-modal-permission-picker-access-col {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 10px 0;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.user-modal-permission-picker-access-col .acc-proc-label {
+    margin: 0 0 10px;
+    padding: 0 6px 8px;
+    border-bottom: 2px solid #1a237e;
+}
+
+.user-modal-permission-picker-access-col .account-grid {
+    flex: 1;
+    min-height: 120px;
+    max-height: min(42vh, 360px);
+    overflow-y: auto;
+    padding: 6px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.user-modal-permission-picker-access-col .account-control-buttons {
+    flex-shrink: 0;
+    margin-top: 8px;
+    padding: 10px 0 12px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.user-modal-permission-picker-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.user-modal-permission-picker-done {
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.user-modal-permission-picker-done:hover {
+    filter: brightness(1.02);
+}
+
+@media (max-width: 768px) {
+    .user-modal-permission-picker-perms.permissions-container {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .user-modal-permission-picker-access-row {
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .user-modal-permission-picker-access-col .account-grid {
+        max-height: min(28vh, 240px);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 900px) {
+    .user-modal-permission-picker-access-col .account-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
 }
 
 /* Account / Process：四欄格線（對齊原版） */

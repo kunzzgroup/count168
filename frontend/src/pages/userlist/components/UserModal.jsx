@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-/** Inline so first paint is 3-column even if extracted CSS applies one frame late */
+/** Inline layout hints so first paint matches extracted CSS */
 const modalBodyStyle = {
   display: "flex",
   flexDirection: "column",
@@ -13,7 +13,7 @@ const modalBodyStyle = {
 
 const userModalCardStyle = {
   display: "flex",
-  flexDirection: "row",
+  flexDirection: "column",
   flexWrap: "nowrap",
   alignItems: "stretch",
   flex: 1,
@@ -21,7 +21,22 @@ const userModalCardStyle = {
   minWidth: 0,
   overflow: "hidden",
   width: "100%",
+  maxWidth: "720px",
+  margin: "0 auto",
 };
+
+function getPermissionLabel(key, t) {
+  if (key === "home") return t("permHome");
+  if (key === "admin") return t("permAdmin");
+  if (key === "ownership") return t("permOwnership");
+  if (key === "datacapture") return t("dataCapture");
+  if (key === "payment") return t("transactionPayment");
+  if (key === "report") return t("permReport");
+  if (key === "maintenance") return t("permMaintenance");
+  if (key === "account") return t("account");
+  if (key === "process") return t("process");
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
 
 const userModalColStyle = {
   flex: "1 1 0%",
@@ -77,12 +92,13 @@ export default function UserModal({
   const accountGridRef = useRef(null);
   const processGridRef = useRef(null);
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
+  const [permissionPickerOpen, setPermissionPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
   const [bulkSelectionSettling, setBulkSelectionSettling] = useState(false);
   const bulkSelectionTimerRef = useRef(null);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || !permissionPickerOpen) return undefined;
 
     const clearMinHeights = (gridEl) => {
       if (!gridEl) return;
@@ -133,7 +149,7 @@ export default function UserModal({
       clearMinHeights(accountGridRef.current);
       clearMinHeights(processGridRef.current);
     };
-  }, [open, modalAccounts, modalProcesses]);
+  }, [permissionPickerOpen, modalAccounts, modalProcesses]);
 
   useEffect(() => {
     return () => {
@@ -162,6 +178,7 @@ export default function UserModal({
   useEffect(() => {
     if (!open) {
       setCompanyPickerOpen(false);
+      setPermissionPickerOpen(false);
       setCompanySearchQuery("");
     }
   }, [open]);
@@ -177,6 +194,15 @@ export default function UserModal({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [companyPickerOpen]);
+
+  useEffect(() => {
+    if (!permissionPickerOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setPermissionPickerOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [permissionPickerOpen]);
 
   const accountIdList = useMemo(() => modalAccounts.map((x) => Number(x.id)), [modalAccounts]);
   const processIdList = useMemo(() => modalProcesses.map((x) => Number(x.id)), [modalProcesses]);
@@ -206,8 +232,11 @@ export default function UserModal({
   useEffect(() => {
     if (!open || !pageReadOnlyLock) return;
     setCompanyPickerOpen(false);
+    setPermissionPickerOpen(false);
     setCompanySearchQuery("");
   }, [open, pageReadOnlyLock]);
+
+  const permissionsLocked = fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
 
   return (
     <>
@@ -223,7 +252,7 @@ export default function UserModal({
           </button>
         </div>
         <div ref={modalBodyRef} className="modal-body" style={modalBodyStyle}>
-          <div ref={cardRef} className="user-modal-card" style={userModalCardStyle}>
+          <div ref={cardRef} className="user-modal-card user-modal-card--info-only" style={userModalCardStyle}>
             <div className="user-modal-col user-modal-col--info user-info-panel" style={userModalColStyle}>
               <h3 className="user-modal-col-title">{t("userInformation")}</h3>
               <form id="userForm" onSubmit={onSave}>
@@ -338,160 +367,59 @@ export default function UserModal({
                 )}
               </div>
 
-              <div className="sidebar-permissions-section">
-                <h3 className="sidebar-permissions-title user-modal-permissions-title">
-                  {t("permissions")}
-                  {readOnlyToggleVisible ? (
-                    <span
-                      className="read-only-toggle-inline read-only-toggle-after-title"
-                      style={{
-                        opacity: readOnlyToggleCanInteract && !pageReadOnlyLock ? 1 : 0.6,
-                      }}
-                    >
-                      <span className="read-only-label">{t("readOnly")}</span>
-                      <label
-                        className="toggle-switch"
+              <div className="form-group user-info-field user-modal-permission-field-group">
+                <div className="user-modal-permission-heading-row">
+                  <div className="user-modal-permission-heading-left">
+                    <label id="user-modal-permission-trigger-label" htmlFor="user-modal-permission-open-btn">
+                      {t("permissions")}
+                    </label>
+                    {readOnlyToggleVisible ? (
+                      <span
+                        className="read-only-toggle-inline read-only-toggle-after-title"
                         style={{
-                          cursor: readOnlyToggleCanInteract && !pageReadOnlyLock ? "pointer" : "not-allowed",
+                          opacity: readOnlyToggleCanInteract && !pageReadOnlyLock ? 1 : 0.6,
                         }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={form.read_only}
-                          disabled={!readOnlyToggleCanInteract || pageReadOnlyLock}
-                          onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))}
-                        />
-                        <span className="toggle-slider" />
-                      </label>
-                    </span>
-                  ) : null}
-                </h3>
-                <div className="permissions-container">
-                  {PERMISSION_KEYS.map((key) => (
-                    <div key={key} className="permission-item" style={{ opacity: permDisabledMap[key] ? 0.6 : 1 }}>
-                      <label className="permission-label">
-                        <input
-                          type="checkbox"
-                          className="permission-checkbox"
-                          disabled={fieldLocks.sidebar || permDisabledMap[key] || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
-                          checked={permSelected.has(key)}
-                          onChange={(e) => {
-                            const on = e.target.checked;
-                            setPermSelected((prev) => {
-                              const n = new Set(prev);
-                              if (on) n.add(key); else n.delete(key);
-                              return n;
-                            });
+                        <span className="read-only-label">{t("readOnly")}</span>
+                        <label
+                          className="toggle-switch"
+                          style={{
+                            cursor: readOnlyToggleCanInteract && !pageReadOnlyLock ? "pointer" : "not-allowed",
                           }}
-                        />
-                        <span className="permission-name">
-                          <svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d={PERMISSION_ICONS[key]} /></svg>
-                          {key === "home"
-                            ? t("permHome")
-                            : key === "admin"
-                              ? t("permAdmin")
-                              : key === "ownership"
-                                ? t("permOwnership")
-                                : key === "datacapture"
-                                  ? t("dataCapture")
-                                  : key === "payment"
-                                    ? t("transactionPayment")
-                                    : key === "report"
-                                      ? t("permReport")
-                                      : key === "maintenance"
-                                        ? t("permMaintenance")
-                                        : key === "account"
-                                          ? t("account")
-                                          : key === "process"
-                                            ? t("process")
-                                            : key.charAt(0).toUpperCase() + key.slice(1)}
-                        </span>
-                      </label>
-                    </div>
-                  ))}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.read_only}
+                            disabled={!readOnlyToggleCanInteract || pageReadOnlyLock}
+                            onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))}
+                          />
+                          <span className="toggle-slider" />
+                        </label>
+                      </span>
+                    ) : null}
+                  </div>
+                  <button
+                    id="user-modal-permission-open-btn"
+                    type="button"
+                    className="user-modal-permission-open-btn"
+                    disabled={permissionsLocked}
+                    onClick={() => setPermissionPickerOpen(true)}
+                  >
+                    {t("selectPermissions")}
+                  </button>
                 </div>
-                <div className="permissions-actions user-modal-col-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary btn-select-all"
-                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
-                    onClick={() => {
-                      const n = new Set();
-                      PERMISSION_KEYS.forEach(k => { if (!permDisabledMap[k]) n.add(k); });
-                      setPermSelected(n);
-                    }}
-                  >{t("selectAll")}</button>
-                  <button
-                    type="button"
-                    className="btn-clearall"
-                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
-                    onClick={() => setPermSelected(new Set())}
-                  >{t("clearAll")}</button>
+                <div className="user-modal-permission-summary" aria-labelledby="user-modal-permission-trigger-label">
+                  {permSelected.size ? (
+                    <span className="user-modal-permission-summary-text">
+                      {t("permissionsSelectedCount", { count: permSelected.size })}
+                    </span>
+                  ) : (
+                    <span className="user-modal-permission-summary-empty">{t("permissionsNoneSelected")}</span>
+                  )}
                 </div>
               </div>
               </form>
             </div>
-
-            <div className="user-modal-col user-modal-col--account account-process-col" style={userModalColStyle}>
-                <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
-                <div ref={accountGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
-                  {modalAccounts.map((a) => (
-                    <label key={a.id} className="account-item-compact account-item-compact--process user-modal-select-card">
-                      <input
-                        type="checkbox"
-                        id={`acc-${a.id}`}
-                        checked={selectedAccountIds.has(Number(a.id))}
-                        disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
-                        onChange={(e) => {
-                          setSelectedAccountIds((prev) => {
-                            const n = new Set(prev);
-                            if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id));
-                            return n;
-                          });
-                        }}
-                      />
-                      <span className="account-label account-label--process">
-                        {a.account_id}
-                        {a.name ? <span className="account-label-desc">{a.name}</span> : null}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set(accountIdList)))}>{t("selectAll")}</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set()))}>{t("clearAll")}</button>
-                </div>
-              </div>
-
-            <div className="user-modal-col user-modal-col--process account-process-col" style={userModalColStyle}>
-                <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
-                <div ref={processGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
-                  {modalProcesses.map((p) => (
-                    <label key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
-                      <input
-                        type="checkbox"
-                        id={`proc-${p.id}`}
-                        checked={selectedProcessIds.has(Number(p.id))}
-                        disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
-                        onChange={(e) => {
-                          setSelectedProcessIds((prev) => {
-                            const n = new Set(prev);
-                            if (e.target.checked) n.add(Number(p.id)); else n.delete(Number(p.id));
-                            return n;
-                          });
-                        }}
-                      />
-                      <span className="account-label account-label--process">
-                        {p.process_id}{p.description ? <span className="account-label-desc">{p.description}</span> : null}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}>{t("selectAll")}</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set()))}>{t("clearAll")}</button>
-                </div>
-              </div>
           </div>
         </div>
         <div className="user-modal-footer">
@@ -589,6 +517,205 @@ export default function UserModal({
                   }}
                 >
                   {t("companyPickerDone")}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+    {permissionPickerOpen
+      ? createPortal(
+          <div className="user-modal-permission-picker-root">
+            <button
+              type="button"
+              className="user-modal-permission-picker-backdrop"
+              aria-label={t("cancel")}
+              onClick={() => setPermissionPickerOpen(false)}
+            />
+            <div
+              className="user-modal-permission-picker"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="user-modal-permission-picker-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="user-modal-permission-picker-header">
+                <span id="user-modal-permission-picker-title">{t("permissionPickerTitle")}</span>
+                <button
+                  type="button"
+                  className="user-modal-permission-picker-close"
+                  aria-label={t("cancel")}
+                  onClick={() => setPermissionPickerOpen(false)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="user-modal-permission-picker-body">
+                <section className="user-modal-permission-picker-sidebar">
+                  <div className="user-modal-permission-picker-sidebar-head">
+                    <span className="user-modal-permission-picker-section-label">{t("permissions")}</span>
+                    <div className="user-modal-permission-picker-sidebar-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary btn-select-all"
+                        disabled={permissionsLocked}
+                        onClick={() => {
+                          const n = new Set();
+                          PERMISSION_KEYS.forEach((k) => {
+                            if (!permDisabledMap[k]) n.add(k);
+                          });
+                          setPermSelected(n);
+                        }}
+                      >
+                        {t("selectAll")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-clearall"
+                        disabled={permissionsLocked}
+                        onClick={() => setPermSelected(new Set())}
+                      >
+                        {t("clearAll")}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="permissions-container user-modal-permission-picker-perms">
+                    {PERMISSION_KEYS.map((key) => (
+                      <div key={key} className="permission-item" style={{ opacity: permDisabledMap[key] ? 0.6 : 1 }}>
+                        <label className="permission-label">
+                          <input
+                            type="checkbox"
+                            className="permission-checkbox"
+                            disabled={permissionsLocked || permDisabledMap[key]}
+                            checked={permSelected.has(key)}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setPermSelected((prev) => {
+                                const n = new Set(prev);
+                                if (on) n.add(key);
+                                else n.delete(key);
+                                return n;
+                              });
+                            }}
+                          />
+                          <span className="permission-name">
+                            <svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24">
+                              <path d={PERMISSION_ICONS[key]} />
+                            </svg>
+                            {getPermissionLabel(key, t)}
+                          </span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+                <div className="user-modal-permission-picker-access-row">
+                  <div className="user-modal-permission-picker-access-col account-process-col">
+                    <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
+                    <div
+                      ref={accountGridRef}
+                      className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}
+                    >
+                      {modalAccounts.map((a) => (
+                        <label key={a.id} className="account-item-compact account-item-compact--process user-modal-select-card">
+                          <input
+                            type="checkbox"
+                            id={`acc-${a.id}`}
+                            checked={selectedAccountIds.has(Number(a.id))}
+                            disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                            onChange={(e) => {
+                              setSelectedAccountIds((prev) => {
+                                const n = new Set(prev);
+                                if (e.target.checked) n.add(Number(a.id));
+                                else n.delete(Number(a.id));
+                                return n;
+                              });
+                            }}
+                          />
+                          <span className="account-label account-label--process">
+                            {a.account_id}
+                            {a.name ? <span className="account-label-desc">{a.name}</span> : null}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="account-control-buttons user-modal-col-actions">
+                      <button
+                        type="button"
+                        className="btn-account-control"
+                        disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                        onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set(accountIdList)))}
+                      >
+                        {t("selectAll")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-clearall"
+                        disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                        onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set()))}
+                      >
+                        {t("clearAll")}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="user-modal-permission-picker-access-col account-process-col">
+                    <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
+                    <div
+                      ref={processGridRef}
+                      className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}
+                    >
+                      {modalProcesses.map((p) => (
+                        <label key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
+                          <input
+                            type="checkbox"
+                            id={`proc-${p.id}`}
+                            checked={selectedProcessIds.has(Number(p.id))}
+                            disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                            onChange={(e) => {
+                              setSelectedProcessIds((prev) => {
+                                const n = new Set(prev);
+                                if (e.target.checked) n.add(Number(p.id));
+                                else n.delete(Number(p.id));
+                                return n;
+                              });
+                            }}
+                          />
+                          <span className="account-label account-label--process">
+                            {p.process_id}
+                            {p.description ? <span className="account-label-desc">{p.description}</span> : null}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="account-control-buttons user-modal-col-actions">
+                      <button
+                        type="button"
+                        className="btn-account-control"
+                        disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                        onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}
+                      >
+                        {t("selectAll")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-clearall"
+                        disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                        onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set()))}
+                      >
+                        {t("clearAll")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="user-modal-permission-picker-footer">
+                <button
+                  type="button"
+                  className="user-modal-permission-picker-done"
+                  onClick={() => setPermissionPickerOpen(false)}
+                >
+                  {t("permissionPickerDone")}
                 </button>
               </div>
             </div>
