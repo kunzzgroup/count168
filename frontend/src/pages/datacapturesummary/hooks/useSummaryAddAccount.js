@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import {
   DEFAULT_FORM,
@@ -22,14 +22,36 @@ function isVirtualGroupLinkCompanyRow(c) {
   return ls != null && String(ls).trim() !== "";
 }
 
-function hideLegacySummaryAddAccountModal() {
+/** Remove legacy PHP/React-shell #addModal (company pill UI); SPA uses #account-addModal only. */
+function purgeLegacySummaryAddAccountModal() {
+  if (typeof window.purgeLegacySummaryAddAccountModalDom === "function") {
+    window.purgeLegacySummaryAddAccountModalDom();
+    return;
+  }
   const legacy = document.getElementById("addModal");
-  if (legacy) legacy.style.display = "none";
+  if (legacy?.classList?.contains("account-modal")) {
+    legacy.remove();
+  } else if (legacy) {
+    legacy.style.display = "none";
+  }
 }
 
 /**
  * Summary Add Account — same shared AccountModal as Account List / Bank Process.
  */
+function bindSummaryAddAccountWindowApi(showFn, closeFn) {
+  window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ = () => {
+    void showFn();
+  };
+  window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__ = () => {
+    closeFn();
+  };
+  // datacapturesummary.js loads async and replaces global showAddAccountModal — re-bind after each load.
+  window.showAddAccountModal = () => {
+    void showFn();
+  };
+}
+
 export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
   const [lang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getAccountText(lang, key, params), [lang]);
@@ -157,17 +179,26 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
   const closeAddAccountRef = useRef(closeAddAccount);
   closeAddAccountRef.current = closeAddAccount;
 
-  useEffect(() => {
-    window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ = () => {
-      void showAddAccountRef.current();
-    };
-    window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__ = () => {
-      closeAddAccountRef.current();
-    };
+  useLayoutEffect(() => {
+    purgeLegacySummaryAddAccountModal();
+    bindSummaryAddAccountWindowApi(
+      () => showAddAccountRef.current(),
+      () => closeAddAccountRef.current()
+    );
+  }, []);
 
+  useLayoutEffect(() => {
+    if (!scriptsReady) return undefined;
+    bindSummaryAddAccountWindowApi(
+      () => showAddAccountRef.current(),
+      () => closeAddAccountRef.current()
+    );
+    return undefined;
+  }, [scriptsReady]);
+
+  useLayoutEffect(() => {
     return () => {
-      delete window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__;
-      delete window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__;
+      purgeLegacySummaryAddAccountModal();
     };
   }, []);
 

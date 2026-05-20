@@ -1,4 +1,13 @@
 
+// SPA route: set flags before any auto-init so legacy #addModal never wins on first paint.
+(function ensureSummarySpaBootstrapFlags() {
+    if (typeof window === 'undefined') return;
+    var path = String(window.location.pathname || '');
+    if (!/\/datacapturesummary(?:\.php)?(?:\/|$|\?)/i.test(path)) return;
+    window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
+    window.__SUMMARY_REACT_TABLE__ = window.__SUMMARY_REACT_TABLE__ || true;
+})();
+
 // Resolve API URLs from site root (SPA-safe when pathname is /datacapturesummary)
 function buildApiUrl(pathAndQuery) {
     const pathname = window.location.pathname || '/';
@@ -2689,11 +2698,7 @@ function bindEditFormulaAddAccountButton() {
     addBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
-            window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
-            return;
-        }
-        showAddAccountModal();
+        void showAddAccountModal();
     });
 }
 
@@ -3873,19 +3878,39 @@ window.initAddAccountModalAfterMount = initAddAccountModalAfterMount;
 window.loadAddAccountModalData = loadAddAccountModalData;
 window.__SUMMARY_RESET_ADD_ACCOUNT_MODAL__ = resetAddAccountModalDom;
 
+function purgeLegacySummaryAddAccountModalDom() {
+    const legacy = document.getElementById('addModal');
+    if (legacy && legacy.classList && legacy.classList.contains('account-modal')) {
+        legacy.remove();
+    }
+}
+
+async function waitForReactSummaryAddAccountHandler(maxMs) {
+    const deadline = Date.now() + (maxMs || 2500);
+    while (Date.now() < deadline) {
+        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
+            return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__;
+        }
+        await new Promise(function (resolve) {
+            setTimeout(resolve, 50);
+        });
+    }
+    return null;
+}
+
 async function addAccount() {
     const isSpa = window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ || window.__SUMMARY_REACT_TABLE__;
     if (isSpa) {
-        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
-            return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+        purgeLegacySummaryAddAccountModalDom();
+        var handler =
+            typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function'
+                ? window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__
+                : await waitForReactSummaryAddAccountHandler(2500);
+        if (handler) {
+            return handler();
         }
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
-            return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
-        }
-        const legacy = document.getElementById('addModal');
-        if (legacy) legacy.style.display = 'none';
-        console.warn('[Summary] Add Account: React handler not ready; avoid legacy #addModal on SPA.');
+        purgeLegacySummaryAddAccountModalDom();
+        console.warn('[Summary] Add Account: React handler not ready; legacy #addModal suppressed on SPA.');
         return;
     }
     const modal = document.getElementById('addModal');
@@ -3896,6 +3921,8 @@ async function addAccount() {
     modal.style.display = 'block';
     await loadAddAccountModalData();
 }
+
+window.purgeLegacySummaryAddAccountModalDom = purgeLegacySummaryAddAccountModalDom;
 
 function closeAddModal() {
     if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__ === 'function') {
@@ -4941,6 +4968,7 @@ async function toggleAccountCurrency(accountId, currencyId, currencyCode, type, 
 
 // 加载公司列表并以按钮方式展示
 async function loadAccountCompanies(accountId, type) {
+    if (window.__SUMMARY_REACT_TABLE__) return;
     const listId = type === 'add' ? 'addCompanyList' : 'editCompanyList';
     const listElement = document.getElementById(listId);
     if (!listElement) return;
