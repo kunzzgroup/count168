@@ -72,15 +72,16 @@ export default function AuthenticatedLayout() {
   const sidebarIconOnly = isTabletViewport && sidebarCollapsed;
   const sidebarTabletExpanded = isTabletViewport && !sidebarCollapsed;
 
-  /* useLayoutEffect: before paint — body.bg uses display:flex and centers #root (login shell); leaving it for one frame breaks full-width hit targets on Domain, etc. */
+  /* Only switch off login shell after session is confirmed for dashboard — avoids bg/layout flash when redirecting to secondary password. */
   useLayoutEffect(() => {
+    if (loading || !me) return undefined;
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page", "ec-auth-shell");
     return () => {
       document.body.classList.remove("dashboard-page", "ec-auth-shell");
       document.body.classList.add("bg");
     };
-  }, []);
+  }, [loading, me]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -163,7 +164,11 @@ export default function AuthenticatedLayout() {
           return;
         }
         if (u.needs_owner_secondary) {
-          window.location.assign(new URL("/owner-secondary-password", window.location.origin).href);
+          navigate("/owner-secondary-password", { replace: true });
+          return;
+        }
+        if (u.needs_user_secondary) {
+          navigate("/user-secondary-password", { replace: true });
           return;
         }
         setMe(u);

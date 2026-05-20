@@ -23,6 +23,7 @@ body.bg {
     justify-content: center;
     padding: 20px;
     position: relative;
+    overflow-x: hidden;
 }
 
 body.bg::before {
@@ -122,9 +123,10 @@ body.bg::before {
     box-sizing: border-box;
 }
 
-/* 独立白卡（二次验证等，无顶部 gradient header） */
+/* 独立白卡（二次验证等，无顶部 gradient header）— 高度随内容，避免底部大块留白 */
 .login-card--solo {
     border-radius: var(--login-radius-xl);
+    box-sizing: border-box;
 }
 
 /* Tabs */
@@ -164,7 +166,6 @@ body.bg::before {
 }
 
 .form-content--secondary-verify {
-    min-height: 260px;
     box-sizing: border-box;
 }
 
@@ -507,20 +508,19 @@ body.bg::before {
     }
 }
 
-/* Animation */
+/* Animation — opacity only to avoid vertical jump when switching auth routes */
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(20px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
+/* SPA route changes (login → secondary password): skip motion to avoid perceived stutter */
 .login-container {
-    animation: fadeIn 0.6s ease-out;
+    animation: none;
 }
 
 /* Input focus effects */

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { SECONDARY_VERIFY_I18N } from "../../translateFile/secondaryPasswordVerifyTranslate.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import SecondaryVerifyBackButton from "./SecondaryVerifyBackButton.jsx";
+import { useAuthBackground } from "./useAuthBackground.js";
 
 export default function OwnerSecondaryPasswordPage() {
   const navigate = useNavigate();
@@ -22,10 +23,7 @@ export default function OwnerSecondaryPasswordPage() {
     setErrorMessage("");
   }, [lang]);
 
-  useEffect(() => {
-    document.body.classList.add("bg");
-    return () => document.body.classList.remove("bg");
-  }, []);
+  useAuthBackground();
 
   useEffect(() => {
     let cancelled = false;
