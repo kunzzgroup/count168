@@ -216,12 +216,6 @@ function DataCaptureSummaryPageInner() {
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page");
     document.body.classList.add("dashboard-page");
-    if (typeof window.purgeLegacySummaryAddAccountModalDom === "function") {
-      window.purgeLegacySummaryAddAccountModalDom();
-    } else {
-      const legacy = document.getElementById("addModal");
-      if (legacy?.classList?.contains("account-modal")) legacy.remove();
-    }
     return () => {
       document.body.classList.remove("page-ready");
     };
@@ -235,7 +229,9 @@ function DataCaptureSummaryPageInner() {
 
     if (areSummaryLegacyScriptsLoaded()) {
       setScriptsReady(true);
-      return undefined;
+      return () => {
+        window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
+      };
     }
 
     let alive = true;
@@ -267,6 +263,7 @@ function DataCaptureSummaryPageInner() {
 
     return () => {
       alive = false;
+      window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
     };
   }, [sessionReady]);
 
