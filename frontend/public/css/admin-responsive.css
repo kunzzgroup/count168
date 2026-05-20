@@ -167,16 +167,15 @@
 }
 
 /* ==========================================================================
-   Add / Edit User modal (#userModal) — 桌面三栏；平板上下分区（≤1024）
+   Add / Edit User modal (#userModal) — three columns always (match design)
    ========================================================================== */
 
 body.user-page #userModal .user-modal-card {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: stretch;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
 }
 
+/* 左栏：User Information + Select All/Clear All 固定，仅 Permissions 列表滚动 */
 body.user-page #userModal .user-modal-content .user-info-panel {
   display: flex;
   flex-direction: column;
@@ -196,145 +195,99 @@ body.user-page #userModal .user-modal-content .user-info-panel form {
   overflow: hidden;
 }
 
+body.user-page #userModal .user-modal-content .user-info-grid {
+  flex-shrink: 0;
+  overflow: visible;
+}
+
 body.user-page #userModal .user-modal-col--info.user-info-panel {
-  flex: 0 0 var(--user-modal-info-col-width) !important;
   min-height: 0 !important;
   max-height: 100%;
   overflow: hidden;
 }
 
 body.user-page #userModal .user-modal-content .sidebar-permissions-section {
-  flex-shrink: 0;
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-body.user-page #userModal .account-grid.account-grid--four {
-  grid-template-columns: repeat(var(--user-modal-account-grid-cols), minmax(0, 1fr)) !important;
+body.user-page #userModal .user-modal-content .sidebar-permissions-title,
+body.user-page #userModal .user-modal-content .user-modal-permissions-title {
+  flex-shrink: 0;
+}
+
+/* 红色框区域：仅勾选列表滚动（flex 子项 height:0 才能出现滚动条） */
+body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 0;
+  max-height: 100%;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-actions {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+/* 矮屏（如 1536×750）：给 Permissions 列表明确上限，保证可滚 */
+@media (max-height: 850px) {
+  body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
+    max-height: min(280px, 36vh);
+  }
 }
 
 @media (max-width: 1280px) {
+  body.user-page #userModal .user-modal-col--info {
+    flex: 0 0 clamp(280px, 28vw, 460px) !important;
+  }
+
+  body.user-page #userModal .account-grid.account-grid--four {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
   body.user-page #userModal .user-modal-col {
-    padding: var(--user-modal-col-pad-inline) clamp(0.8rem, 0.8vw, 1.6rem);
+    padding: clamp(10px, 0.8vw, 16px);
   }
 }
 
 @media (max-width: 1024px) {
-  /* 平板：单页表单（用户信息 + 权限/账号/流程弹窗入口），隐藏桌面三栏内嵌网格 */
-  body.user-page #userModal .user-modal-card {
-    display: flex !important;
-    flex-direction: column !important;
-    min-width: 0 !important;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
+  body.user-page #userModal .user-modal-col--info {
+    flex: 0 0 clamp(220px, 24vw, 320px) !important;
+  }
+
+  body.user-page #userModal .account-grid.account-grid--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   body.user-page #userModal .modal-body {
-    overflow: hidden;
-    padding: var(--space-gap);
-  }
-
-  body.user-page #userModal .user-modal-col--desktop-only {
-    display: none !important;
-  }
-
-  body.user-page #userModal .user-modal-tablet-pickers {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-gap);
-    margin-top: var(--space-gap);
-  }
-
-  body.user-page #userModal .user-modal-tablet-picker-block {
-    padding: var(--space-card);
-    border: 1px solid var(--color-border-slate);
-    border-radius: var(--radius-panel);
-    background: var(--color-surface-subtle);
-    box-shadow: var(--shadow-sm);
-    flex-shrink: 0;
-  }
-
-  body.user-page #userModal .user-modal-tablet-picker-block:first-child {
-    order: -1;
-  }
-
-  body.user-page #userModal .user-modal-col--info.user-info-panel {
-    flex: 1 1 auto !important;
-    width: 100% !important;
-    max-width: none !important;
-    max-height: none !important;
-    border-right: none !important;
-    border-bottom: none;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  body.user-page #userModal .user-modal-content .user-info-panel form {
-    flex: 0 0 auto;
-    min-height: auto;
-    overflow: visible;
+  body.user-page #userModal .user-modal-card {
+    min-width: 920px;
   }
 
-  body.user-page #userModal .user-modal-content .user-info-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--space-gap);
-    row-gap: 0;
-    flex: none;
-    overflow: visible;
+  body.user-page #userModal .user-modal-content .user-info-panel {
+    overflow: hidden;
   }
 
-  body.user-page #userModal .user-modal-content .user-info-field-row {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-gap);
-    width: 100%;
-    margin-bottom: 0;
+  body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
+    min-height: 0;
+    height: 0;
+    padding-bottom: 8px;
   }
 
-  body.user-page #userModal .user-modal-content .user-info-field-row:first-of-type {
-    grid-template-columns: minmax(0, 1fr);
+  body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-actions {
+    margin-top: auto;
+    background-color: #fff;
   }
-
-  body.user-page #userModal .user-modal-content .password-row-container,
-  body.user-page #userModal .user-modal-content .user-info-grid > .form-group.user-info-field,
-  body.user-page #userModal .user-modal-content .company-field-group {
-    grid-column: 1 / -1;
-  }
-
-  body.user-page #userModal .user-modal-content .sidebar-permissions-section {
-    margin-top: var(--space-gap);
-    padding: var(--space-card);
-    border: 1px solid var(--color-border-slate);
-    border-radius: var(--radius-panel);
-    background: var(--color-surface-subtle);
-    box-shadow: var(--shadow-sm);
-  }
-
-  body.user-page #userModal .user-modal-permissions-heading-row {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    padding-left: 0;
-    padding-right: 0;
-    border-bottom-color: var(--color-border-slate);
-  }
-
-  body.user-page #userModal .user-modal-permission-open-btn {
-    width: auto;
-    min-width: clamp(11rem, 32vw, 15rem);
-    white-space: nowrap;
-  }
-
-  body.user-page #userModal .user-modal-permission-summary {
-    margin: var(--space-gap) 0 0;
-    max-height: none;
-    border: none;
-    background: transparent;
-    padding: 0;
-  }
-
 }

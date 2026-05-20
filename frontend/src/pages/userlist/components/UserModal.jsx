@@ -11,8 +11,11 @@ const modalBodyStyle = {
   width: "100%",
 };
 
-/** 栏位排布由 .user-modal-card CSS 控制（平板为上下分区，桌面为三栏） */
 const userModalCardStyle = {
+  display: "flex",
+  flexDirection: "row",
+  flexWrap: "nowrap",
+  alignItems: "stretch",
   flex: 1,
   minHeight: 0,
   minWidth: 0,
@@ -39,8 +42,6 @@ import {
   canInteractWithReadOnlyToggle,
   isUserModalPageReadOnlyLock,
 } from "../userListLogic.js";
-
-const TABLET_CHIP_PREVIEW_MAX = 6;
 
 export default function UserModal({
   open,
@@ -77,11 +78,6 @@ export default function UserModal({
   const processGridRef = useRef(null);
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
-  const [permissionPickerOpen, setPermissionPickerOpen] = useState(false);
-  const [accountPickerOpen, setAccountPickerOpen] = useState(false);
-  const [processPickerOpen, setProcessPickerOpen] = useState(false);
-  const [accountSearchQuery, setAccountSearchQuery] = useState("");
-  const [processSearchQuery, setProcessSearchQuery] = useState("");
   const [bulkSelectionSettling, setBulkSelectionSettling] = useState(false);
   const bulkSelectionTimerRef = useRef(null);
 
@@ -167,11 +163,6 @@ export default function UserModal({
     if (!open) {
       setCompanyPickerOpen(false);
       setCompanySearchQuery("");
-      setPermissionPickerOpen(false);
-      setAccountPickerOpen(false);
-      setProcessPickerOpen(false);
-      setAccountSearchQuery("");
-      setProcessSearchQuery("");
     }
   }, [open]);
 
@@ -186,39 +177,6 @@ export default function UserModal({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [companyPickerOpen]);
-
-  useEffect(() => {
-    if (!permissionPickerOpen) return undefined;
-    const onKey = (e) => {
-      if (e.key === "Escape") setPermissionPickerOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [permissionPickerOpen]);
-
-  useEffect(() => {
-    if (!accountPickerOpen) return undefined;
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        setAccountPickerOpen(false);
-        setAccountSearchQuery("");
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [accountPickerOpen]);
-
-  useEffect(() => {
-    if (!processPickerOpen) return undefined;
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        setProcessPickerOpen(false);
-        setProcessSearchQuery("");
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [processPickerOpen]);
 
   const accountIdList = useMemo(() => modalAccounts.map((x) => Number(x.id)), [modalAccounts]);
   const processIdList = useMemo(() => modalProcesses.map((x) => Number(x.id)), [modalProcesses]);
@@ -241,36 +199,6 @@ export default function UserModal({
     return modalCompanies.filter((c) => String(c.company_id || "").toUpperCase().includes(q));
   }, [modalCompanies, companySearchQuery]);
 
-  const accountPickerFiltered = useMemo(() => {
-    const q = accountSearchQuery.trim().toUpperCase();
-    if (!q) return modalAccounts;
-    return modalAccounts.filter((a) => {
-      const id = String(a.account_id || "").toUpperCase();
-      const name = String(a.name || "").toUpperCase();
-      return id.includes(q) || name.includes(q);
-    });
-  }, [modalAccounts, accountSearchQuery]);
-
-  const processPickerFiltered = useMemo(() => {
-    const q = processSearchQuery.trim().toUpperCase();
-    if (!q) return modalProcesses;
-    return modalProcesses.filter((p) => {
-      const id = String(p.process_id || "").toUpperCase();
-      const desc = String(p.description || "").toUpperCase();
-      return id.includes(q) || desc.includes(q);
-    });
-  }, [modalProcesses, processSearchQuery]);
-
-  const selectedAccountsForSummary = useMemo(
-    () => modalAccounts.filter((a) => selectedAccountIds.has(Number(a.id))),
-    [modalAccounts, selectedAccountIds]
-  );
-
-  const selectedProcessesForSummary = useMemo(
-    () => modalProcesses.filter((p) => selectedProcessIds.has(Number(p.id))),
-    [modalProcesses, selectedProcessIds]
-  );
-
   const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
   const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
   const pageReadOnlyLock = Boolean(sessionMutationsBlocked) || isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only);
@@ -279,68 +207,7 @@ export default function UserModal({
     if (!open || !pageReadOnlyLock) return;
     setCompanyPickerOpen(false);
     setCompanySearchQuery("");
-    setPermissionPickerOpen(false);
-    setAccountPickerOpen(false);
-    setProcessPickerOpen(false);
-    setAccountSearchQuery("");
-    setProcessSearchQuery("");
   }, [open, pageReadOnlyLock]);
-
-  const getPermissionLabel = (key) => {
-    if (key === "home") return t("permHome");
-    if (key === "admin") return t("permAdmin");
-    if (key === "ownership") return t("permOwnership");
-    if (key === "datacapture") return t("dataCapture");
-    if (key === "payment") return t("transactionPayment");
-    if (key === "report") return t("permReport");
-    if (key === "maintenance") return t("permMaintenance");
-    if (key === "account") return t("account");
-    if (key === "process") return t("process");
-    return key.charAt(0).toUpperCase() + key.slice(1);
-  };
-
-  const selectedPermissionLabels = useMemo(
-    () => PERMISSION_KEYS.filter((k) => permSelected.has(k)).map(getPermissionLabel),
-    [permSelected, t]
-  );
-
-  const permissionPickerDisabled =
-    fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
-
-  const accProcPickerDisabled = !!editingRow?.is_owner_shadow || pageReadOnlyLock;
-
-  const formatAccountChip = (a) => {
-    const id = String(a.account_id || "");
-    return a.name ? `${id} · ${a.name}` : id;
-  };
-
-  const formatProcessChip = (p) => {
-    const id = String(p.process_id || "");
-    return p.description ? `${id} · ${p.description}` : id;
-  };
-
-  const renderTabletChipSummary = (items, countLabel, emptyLabel, chipClass, formatChip) => {
-    if (!items.length) {
-      return <span className="user-modal-permission-summary-empty">{emptyLabel}</span>;
-    }
-    const visible = items.slice(0, TABLET_CHIP_PREVIEW_MAX);
-    const rest = items.length - visible.length;
-    return (
-      <>
-        <p className="user-modal-permission-summary-count">{countLabel}</p>
-        <ul className="user-modal-permission-chip-list user-modal-permission-chip-list--scroll">
-          {visible.map((item) => (
-            <li key={item.id} className={`user-modal-permission-chip ${chipClass}`}>
-              {formatChip(item)}
-            </li>
-          ))}
-        </ul>
-        {rest > 0 ? (
-          <p className="user-modal-chip-more">{t("summaryAndMore", { count: rest })}</p>
-        ) : null}
-      </>
-    );
-  };
 
   return (
     <>
@@ -472,8 +339,7 @@ export default function UserModal({
               </div>
 
               <div className="sidebar-permissions-section">
-                <div className="user-modal-permissions-heading-row">
-                  <h3 className="sidebar-permissions-title user-modal-permissions-title">
+                <h3 className="sidebar-permissions-title user-modal-permissions-title">
                   {t("permissions")}
                   {readOnlyToggleVisible ? (
                     <span
@@ -499,91 +365,74 @@ export default function UserModal({
                       </label>
                     </span>
                   ) : null}
-                  </h3>
+                </h3>
+                <div className="permissions-container">
+                  {PERMISSION_KEYS.map((key) => (
+                    <div key={key} className="permission-item" style={{ opacity: permDisabledMap[key] ? 0.6 : 1 }}>
+                      <label className="permission-label">
+                        <input
+                          type="checkbox"
+                          className="permission-checkbox"
+                          disabled={fieldLocks.sidebar || permDisabledMap[key] || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                          checked={permSelected.has(key)}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setPermSelected((prev) => {
+                              const n = new Set(prev);
+                              if (on) n.add(key); else n.delete(key);
+                              return n;
+                            });
+                          }}
+                        />
+                        <span className="permission-name">
+                          <svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d={PERMISSION_ICONS[key]} /></svg>
+                          {key === "home"
+                            ? t("permHome")
+                            : key === "admin"
+                              ? t("permAdmin")
+                              : key === "ownership"
+                                ? t("permOwnership")
+                                : key === "datacapture"
+                                  ? t("dataCapture")
+                                  : key === "payment"
+                                    ? t("transactionPayment")
+                                    : key === "report"
+                                      ? t("permReport")
+                                      : key === "maintenance"
+                                        ? t("permMaintenance")
+                                        : key === "account"
+                                          ? t("account")
+                                          : key === "process"
+                                            ? t("process")
+                                            : key.charAt(0).toUpperCase() + key.slice(1)}
+                        </span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <div className="permissions-actions user-modal-col-actions">
                   <button
                     type="button"
-                    className="user-modal-permission-open-btn"
-                    disabled={permissionPickerDisabled}
-                    onClick={() => setPermissionPickerOpen(true)}
-                  >
-                    {t("selectPermissions")}
-                  </button>
-                </div>
-                <div className="user-modal-permission-summary" aria-label={t("permissions")}>
-                  {selectedPermissionLabels.length ? (
-                    <>
-                      <p className="user-modal-permission-summary-count">
-                        {t("permissionsSelectedCount", { count: selectedPermissionLabels.length })}
-                      </p>
-                      <ul className="user-modal-permission-chip-list">
-                        {PERMISSION_KEYS.filter((key) => permSelected.has(key)).map((key) => (
-                          <li key={key} className="user-modal-permission-chip">
-                            {getPermissionLabel(key)}
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  ) : (
-                    <span className="user-modal-permission-summary-empty">{t("permissionNoneSelected")}</span>
-                  )}
-                </div>
-              </div>
-              <div className="user-modal-tablet-pickers">
-                <div className="user-modal-tablet-picker-block">
-                  <div className="user-modal-permissions-heading-row user-modal-tablet-picker-heading">
-                    <h3 className="sidebar-permissions-title user-modal-permissions-title">{t("process")}</h3>
-                    <button
-                      type="button"
-                      className="user-modal-permission-open-btn"
-                      disabled={accProcPickerDisabled}
-                      onClick={() => {
-                        setProcessSearchQuery("");
-                        setProcessPickerOpen(true);
-                      }}
-                    >
-                      {t("selectProcesses")}
-                    </button>
-                  </div>
-                  <div className="user-modal-permission-summary" aria-label={t("process")}>
-                    {renderTabletChipSummary(
-                      selectedProcessesForSummary,
-                      t("processesSelectedCount", { count: selectedProcessesForSummary.length }),
-                      t("processesNoneSelected"),
-                      "user-modal-permission-chip--process",
-                      formatProcessChip
-                    )}
-                  </div>
-                </div>
-                <div className="user-modal-tablet-picker-block">
-                  <div className="user-modal-permissions-heading-row user-modal-tablet-picker-heading">
-                    <h3 className="sidebar-permissions-title user-modal-permissions-title">{t("account")}</h3>
-                    <button
-                      type="button"
-                      className="user-modal-permission-open-btn"
-                      disabled={accProcPickerDisabled}
-                      onClick={() => {
-                        setAccountSearchQuery("");
-                        setAccountPickerOpen(true);
-                      }}
-                    >
-                      {t("selectAccounts")}
-                    </button>
-                  </div>
-                  <div className="user-modal-permission-summary" aria-label={t("account")}>
-                    {renderTabletChipSummary(
-                      selectedAccountsForSummary,
-                      t("accountsSelectedCount", { count: selectedAccountsForSummary.length }),
-                      t("accountsNoneSelected"),
-                      "user-modal-permission-chip--account",
-                      formatAccountChip
-                    )}
-                  </div>
+                    className="btn-secondary btn-select-all"
+                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                    onClick={() => {
+                      const n = new Set();
+                      PERMISSION_KEYS.forEach(k => { if (!permDisabledMap[k]) n.add(k); });
+                      setPermSelected(n);
+                    }}
+                  >{t("selectAll")}</button>
+                  <button
+                    type="button"
+                    className="btn-clearall"
+                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                    onClick={() => setPermSelected(new Set())}
+                  >{t("clearAll")}</button>
                 </div>
               </div>
               </form>
             </div>
 
-            <div className="user-modal-col user-modal-col--desktop-only user-modal-col--account account-process-col" style={userModalColStyle}>
+            <div className="user-modal-col user-modal-col--account account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">{t("account")}</label>
                 <div ref={accountGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
                   {modalAccounts.map((a) => (
@@ -614,7 +463,7 @@ export default function UserModal({
                 </div>
               </div>
 
-            <div className="user-modal-col user-modal-col--desktop-only user-modal-col--process account-process-col" style={userModalColStyle}>
+            <div className="user-modal-col user-modal-col--process account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
                 <div ref={processGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
                   {modalProcesses.map((p) => (
@@ -737,312 +586,6 @@ export default function UserModal({
                   onClick={() => {
                     setCompanyPickerOpen(false);
                     setCompanySearchQuery("");
-                  }}
-                >
-                  {t("companyPickerDone")}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null}
-    {permissionPickerOpen
-      ? createPortal(
-          <div className="user-modal-permission-picker-root">
-            <button
-              type="button"
-              className="user-modal-permission-picker-backdrop"
-              aria-label={t("cancel")}
-              onClick={() => setPermissionPickerOpen(false)}
-            />
-            <div
-              className="user-modal-permission-picker"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="user-modal-permission-picker-title"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="user-modal-permission-picker-header">
-                <span id="user-modal-permission-picker-title">{t("permissionPickerTitle")}</span>
-                <button
-                  type="button"
-                  className="user-modal-permission-picker-close"
-                  aria-label={t("cancel")}
-                  onClick={() => setPermissionPickerOpen(false)}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="user-modal-permission-picker-actions">
-                <button
-                  type="button"
-                  className="user-modal-permission-picker-select-all"
-                  disabled={permissionPickerDisabled}
-                  onClick={() => {
-                    const n = new Set();
-                    PERMISSION_KEYS.forEach((k) => {
-                      if (!permDisabledMap[k]) n.add(k);
-                    });
-                    setPermSelected(n);
-                  }}
-                >
-                  {t("selectAll")}
-                </button>
-                <button
-                  type="button"
-                  className="user-modal-permission-picker-clear-all"
-                  disabled={permissionPickerDisabled}
-                  onClick={() => setPermSelected(new Set())}
-                >
-                  {t("clearAll")}
-                </button>
-              </div>
-              <ul className="user-modal-permission-picker-list">
-                {PERMISSION_KEYS.map((key) => {
-                  const checked = permSelected.has(key);
-                  const rowDisabled = permissionPickerDisabled || permDisabledMap[key];
-                  return (
-                    <li key={key} className="user-modal-permission-picker-row" style={{ opacity: permDisabledMap[key] ? 0.6 : 1 }}>
-                      <label className={checked ? "user-modal-permission-picker-label is-checked" : "user-modal-permission-picker-label"}>
-                        <input
-                          type="checkbox"
-                          className="permission-checkbox"
-                          checked={checked}
-                          disabled={rowDisabled}
-                          onChange={(e) => {
-                            const on = e.target.checked;
-                            setPermSelected((prev) => {
-                              const n = new Set(prev);
-                              if (on) n.add(key);
-                              else n.delete(key);
-                              return n;
-                            });
-                          }}
-                        />
-                        <span className="user-modal-permission-picker-label-text">
-                          <svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d={PERMISSION_ICONS[key]} />
-                          </svg>
-                          {getPermissionLabel(key)}
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="user-modal-permission-picker-footer">
-                <button
-                  type="button"
-                  className="user-modal-permission-picker-done"
-                  onClick={() => setPermissionPickerOpen(false)}
-                >
-                  {t("companyPickerDone")}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null}
-    {accountPickerOpen
-      ? createPortal(
-          <div className="user-modal-permission-picker-root user-modal-account-picker-root">
-            <button
-              type="button"
-              className="user-modal-permission-picker-backdrop"
-              aria-label={t("cancel")}
-              onClick={() => {
-                setAccountPickerOpen(false);
-                setAccountSearchQuery("");
-              }}
-            />
-            <div
-              className="user-modal-permission-picker user-modal-account-picker"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="user-modal-account-picker-title"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="user-modal-permission-picker-header">
-                <span id="user-modal-account-picker-title">{t("accountPickerTitle")}</span>
-                <button
-                  type="button"
-                  className="user-modal-permission-picker-close"
-                  aria-label={t("cancel")}
-                  onClick={() => {
-                    setAccountPickerOpen(false);
-                    setAccountSearchQuery("");
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="user-modal-company-picker-filter-row">
-                <input
-                  type="search"
-                  className="user-modal-company-picker-search"
-                  placeholder={t("accountSearchPlaceholder")}
-                  value={accountSearchQuery}
-                  disabled={accProcPickerDisabled}
-                  onChange={(e) => setAccountSearchQuery(e.target.value)}
-                  autoComplete="off"
-                />
-                <button
-                  type="button"
-                  className="user-modal-company-picker-select-all"
-                  disabled={accProcPickerDisabled || modalAccounts.length === 0}
-                  onClick={() => runBulkSelection(() => setSelectedAccountIds(new Set(accountIdList)))}
-                >
-                  {t("selectAll")}
-                </button>
-              </div>
-              <ul className="user-modal-account-picker-list">
-                {accountPickerFiltered.map((a) => {
-                  const id = Number(a.id);
-                  const checked = selectedAccountIds.has(id);
-                  return (
-                    <li key={a.id} className="user-modal-account-picker-row">
-                      <label
-                        className={
-                          checked
-                            ? "user-modal-account-picker-label user-modal-select-card is-checked"
-                            : "user-modal-account-picker-label user-modal-select-card"
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={accProcPickerDisabled}
-                          onChange={(e) => {
-                            setSelectedAccountIds((prev) => {
-                              const n = new Set(prev);
-                              if (e.target.checked) n.add(id);
-                              else n.delete(id);
-                              return n;
-                            });
-                          }}
-                        />
-                        <span className="account-label account-label--process">
-                          {a.account_id}
-                          {a.name ? <span className="account-label-desc">{a.name}</span> : null}
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="user-modal-permission-picker-footer">
-                <button
-                  type="button"
-                  className="user-modal-permission-picker-done"
-                  onClick={() => {
-                    setAccountPickerOpen(false);
-                    setAccountSearchQuery("");
-                  }}
-                >
-                  {t("companyPickerDone")}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null}
-    {processPickerOpen
-      ? createPortal(
-          <div className="user-modal-permission-picker-root user-modal-process-picker-root">
-            <button
-              type="button"
-              className="user-modal-permission-picker-backdrop"
-              aria-label={t("cancel")}
-              onClick={() => {
-                setProcessPickerOpen(false);
-                setProcessSearchQuery("");
-              }}
-            />
-            <div
-              className="user-modal-permission-picker user-modal-process-picker"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="user-modal-process-picker-title"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="user-modal-permission-picker-header">
-                <span id="user-modal-process-picker-title">{t("processPickerTitle")}</span>
-                <button
-                  type="button"
-                  className="user-modal-permission-picker-close"
-                  aria-label={t("cancel")}
-                  onClick={() => {
-                    setProcessPickerOpen(false);
-                    setProcessSearchQuery("");
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="user-modal-company-picker-filter-row">
-                <input
-                  type="search"
-                  className="user-modal-company-picker-search"
-                  placeholder={t("processSearchPlaceholder")}
-                  value={processSearchQuery}
-                  disabled={accProcPickerDisabled}
-                  onChange={(e) => setProcessSearchQuery(e.target.value)}
-                  autoComplete="off"
-                />
-                <button
-                  type="button"
-                  className="user-modal-company-picker-select-all"
-                  disabled={accProcPickerDisabled || modalProcesses.length === 0}
-                  onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}
-                >
-                  {t("selectAll")}
-                </button>
-              </div>
-              <ul className="user-modal-account-picker-list">
-                {processPickerFiltered.map((p) => {
-                  const id = Number(p.id);
-                  const checked = selectedProcessIds.has(id);
-                  return (
-                    <li key={p.id} className="user-modal-account-picker-row">
-                      <label
-                        className={
-                          checked
-                            ? "user-modal-account-picker-label user-modal-select-card is-checked"
-                            : "user-modal-account-picker-label user-modal-select-card"
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={accProcPickerDisabled}
-                          onChange={(e) => {
-                            setSelectedProcessIds((prev) => {
-                              const n = new Set(prev);
-                              if (e.target.checked) n.add(id);
-                              else n.delete(id);
-                              return n;
-                            });
-                          }}
-                        />
-                        <span className="account-label account-label--process">
-                          {p.process_id}
-                          {p.description ? <span className="account-label-desc">{p.description}</span> : null}
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="user-modal-permission-picker-footer">
-                <button
-                  type="button"
-                  className="user-modal-permission-picker-done"
-                  onClick={() => {
-                    setProcessPickerOpen(false);
-                    setProcessSearchQuery("");
                   }}
                 >
                   {t("companyPickerDone")}

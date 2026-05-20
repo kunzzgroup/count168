@@ -1004,7 +1004,7 @@ body.ec-auth-shell.user-page #confirmModal .confirm-delete:disabled:hover {
 
 /* Give more usable horizontal space to the form column */
 .user-modal-col--info {
-    flex: 0 0 var(--user-modal-info-col-width) !important;
+    flex: 0 0 clamp(320px, 31vw, 520px) !important;
 }
 
 .user-modal-col--account,
@@ -1048,16 +1048,16 @@ label.user-modal-col-title.acc-proc-label {
     color: #0f172a;
 }
 
-/* Permissions 子標題（在 heading-row 内由父级画底线） */
+/* Permissions 子標題：淺灰底線（與主欄海軍藍線區隔） */
 .sidebar-permissions-title.user-modal-permissions-title {
-    border-bottom: none;
-    color: var(--color-ink-muted);
+    border-bottom: 2px solid #cbd5e1;
+    color: #1e293b;
 }
 
 /* ── Left Panel: User Info + Permissions ───────────────────── */
 .user-info-panel {
-    flex: 0 0 var(--user-modal-info-col-width);
-    max-width: var(--user-modal-info-col-width);
+    flex: 0 0 clamp(320px, 31vw, 520px);
+    max-width: clamp(320px, 31vw, 520px);
     background: transparent;
     padding: 19.968px;
     display: flex;
@@ -1173,18 +1173,18 @@ label.user-modal-col-title.acc-proc-label {
 
 #userModal .user-modal-company-open-btn {
     flex-shrink: 0;
-    padding: clamp(0.6rem, 0.52vw, 0.8rem) clamp(1rem, 0.94vw, 1.4rem);
-    border-radius: var(--radius-panel);
-    border: 1px solid var(--color-indigo-deep);
-    background: var(--color-surface);
-    color: var(--color-indigo-deep);
-    font-weight: var(--font-weight-semibold);
-    font-size: var(--domain-fluid-11-083-14);
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #1a237e;
+    background: #ffffff;
+    color: #1a237e;
+    font-weight: 600;
+    font-size: clamp(11px, 0.75vw, 13px);
     cursor: pointer;
 }
 
 #userModal .user-modal-company-open-btn:hover:not(:disabled) {
-    background: var(--color-surface-info-soft);
+    background: #eef2ff;
 }
 
 #userModal .user-modal-company-open-btn:disabled {
@@ -1192,9 +1192,31 @@ label.user-modal-col-title.acc-proc-label {
     cursor: not-allowed;
 }
 
+.user-modal-company-picker-root {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    pointer-events: none;
+}
+
 /* Above Add Account on bank process (.process-page .account-modal z-index: 20000) */
 .user-modal-company-picker-root--above-modals {
     z-index: 25000;
+}
+
+.user-modal-company-picker-backdrop {
+    position: absolute;
+    inset: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(15, 23, 42, 0.45);
+    cursor: pointer;
+    pointer-events: auto;
 }
 
 .user-modal-company-picker {
@@ -1340,361 +1362,18 @@ label.user-modal-col-title.acc-proc-label {
 
 .user-modal-company-picker-done {
     width: 100%;
-    padding: clamp(0.8rem, 0.73vw, 1rem) var(--user-modal-perm-picker-pad);
+    padding: 10px 14px;
     border: none;
-    border-radius: var(--radius-panel);
-    background: var(--btn-add-gradient);
-    color: var(--color-text-inverse);
-    font-weight: var(--font-weight-bold);
-    font-size: var(--text-base);
+    border-radius: 8px;
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 14px;
     cursor: pointer;
 }
 
 .user-modal-company-picker-done:hover {
-    background: var(--btn-add-gradient-hover);
-}
-
-/* User modal — Permissions：标题行 + 摘要 + 弹窗选择（design-tokens） */
-#userModal .user-modal-permissions-heading-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-gap);
-    width: 100%;
-    min-width: 0;
-    padding: 0 var(--user-modal-perm-heading-pad-inline) var(--space-gap);
-    border-bottom: 2px solid var(--color-indigo-deep);
-}
-
-#userModal .user-modal-permissions-heading-row .sidebar-permissions-title {
-    flex: 1 1 12rem;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border-bottom: none;
-    font-size: var(--text-h3);
-    color: var(--color-ink-muted);
-}
-
-#userModal .user-modal-permission-open-btn {
-    flex: 0 0 auto;
-    padding: clamp(0.6rem, 0.52vw, 0.8rem) clamp(1rem, 0.94vw, 1.4rem);
-    border-radius: var(--radius-panel);
-    border: 1px solid var(--color-indigo-deep);
-    background: var(--color-surface);
-    color: var(--color-indigo-deep);
-    font-weight: var(--font-weight-semibold);
-    font-size: var(--domain-fluid-11-083-14);
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-#userModal .user-modal-permission-open-btn:hover:not(:disabled) {
-    background: var(--color-surface-info-soft);
-}
-
-#userModal .user-modal-permission-open-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.user-modal-permission-summary {
-    margin: var(--space-gap) var(--user-modal-perm-heading-pad-inline) 0;
-    min-width: 0;
-    padding: var(--space-gap);
-    border: 1px solid var(--color-border-slate);
-    border-radius: var(--radius-panel);
-    background: var(--color-surface);
-    max-height: var(--user-modal-perm-summary-max-h);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-.user-modal-permission-summary-text {
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-body-strong);
-    font-size: var(--domain-fluid-11-083-14);
-    line-height: 1.45;
-    word-break: break-word;
-}
-
-.user-modal-permission-summary-count {
-    margin: 0 0 0.6rem;
-    font-size: var(--text-small);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-caption);
-}
-
-.user-modal-permission-chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.user-modal-permission-chip-list--scroll {
-    max-height: min(8.8rem, 22vh);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-.user-modal-chip-more {
-    margin: 0.4rem 0 0;
-    font-size: var(--text-small);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-caption);
-}
-
-.user-modal-permission-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.35rem 0.75rem;
-    border-radius: 999px;
-    border: 1px solid var(--color-border-blue-light);
-    background: var(--color-surface-info-soft);
-    color: var(--color-primary-deep-text);
-    font-size: var(--text-small);
-    font-weight: var(--font-weight-semibold);
-    line-height: 1.25;
-    white-space: nowrap;
-}
-
-.user-modal-permission-summary-empty {
-    color: var(--color-text-placeholder);
-    font-size: var(--domain-fluid-11-083-14);
-}
-
-.user-modal-tablet-pickers {
-    display: none;
-}
-
-.user-modal-col--desktop-only {
-    display: flex;
-}
-
-.user-modal-account-picker {
-    width: var(--user-modal-perm-picker-width);
-    max-height: var(--user-modal-perm-picker-max-h);
-}
-
-.user-modal-account-picker-list {
-    list-style: none;
-    margin: var(--space-gap) 0 0;
-    padding: 0 var(--user-modal-perm-picker-pad) var(--space-gap);
-    overflow-y: auto;
-    flex: 1;
-    min-height: 12rem;
-    display: grid;
-    grid-template-columns: repeat(var(--user-modal-account-grid-cols), minmax(0, 1fr));
-    gap: var(--space-gap);
-    align-content: start;
-    -webkit-overflow-scrolling: touch;
-}
-
-.user-modal-account-picker-row {
-    margin: 0;
-    min-width: 0;
-}
-
-.user-modal-account-picker-label {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-gap);
-    width: 100%;
-    min-height: 3.6rem;
-    margin: 0;
-    cursor: pointer;
-}
-
-.user-modal-account-picker-label.is-checked {
-    border-color: var(--account-select-card-border-checked);
-    background: var(--account-select-card-bg-checked);
-}
-
-.user-modal-permission-picker-root,
-.user-modal-company-picker-root {
-    position: fixed;
-    inset: 0;
-    z-index: var(--user-modal-sub-picker-z);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--user-modal-perm-picker-pad);
-    pointer-events: none;
-}
-
-.user-modal-permission-picker-backdrop,
-.user-modal-company-picker-backdrop {
-    position: absolute;
-    inset: 0;
-    border: none;
-    padding: 0;
-    margin: 0;
-    background: var(--user-modal-sub-picker-backdrop);
-    cursor: pointer;
-    pointer-events: auto;
-}
-
-.user-modal-permission-picker {
-    position: relative;
-    z-index: 1;
-    width: var(--user-modal-perm-picker-width);
-    max-height: var(--user-modal-perm-picker-max-h);
-    display: flex;
-    flex-direction: column;
-    background: var(--color-surface);
-    border-radius: var(--radius-card);
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
-    pointer-events: auto;
-}
-
-.user-modal-permission-picker-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--user-modal-perm-picker-pad);
-    border-bottom: 1px solid var(--color-border-slate);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-ink);
-    font-size: var(--domain-text-15);
-}
-
-.user-modal-permission-picker-close {
-    border: none;
-    background: transparent;
-    font-size: 2.2rem;
-    line-height: 1;
-    color: var(--color-text-caption);
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 6px;
-}
-
-.user-modal-permission-picker-close:hover {
-    background: var(--color-surface-slate-100);
-    color: var(--color-ink);
-}
-
-.user-modal-permission-picker-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: var(--space-gap);
-    margin: var(--space-gap) var(--user-modal-perm-picker-pad) 0;
-}
-
-.user-modal-permission-picker-select-all,
-.user-modal-permission-picker-clear-all {
-    flex-shrink: 0;
-    padding: clamp(0.6rem, 0.52vw, 0.8rem) clamp(1rem, 0.83vw, 1.2rem);
-    border-radius: var(--radius-panel);
-    border: 1px solid var(--color-border-slate);
-    background: var(--color-surface);
-    color: var(--color-indigo-deep);
-    font-weight: var(--font-weight-semibold);
-    font-size: var(--text-small);
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.user-modal-permission-picker-select-all:hover:not(:disabled),
-.user-modal-permission-picker-clear-all:hover:not(:disabled) {
-    background: var(--color-surface-subtle);
-    border-color: var(--account-select-card-border);
-}
-
-.user-modal-permission-picker-select-all:disabled,
-.user-modal-permission-picker-clear-all:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.user-modal-permission-picker-list {
-    list-style: none;
-    margin: var(--space-gap) 0 0;
-    padding: 0 var(--user-modal-perm-picker-pad) var(--space-gap);
-    overflow-y: auto;
-    flex: 1;
-    min-height: 16rem;
-    display: grid;
-    grid-template-columns: repeat(var(--user-modal-perm-picker-grid-cols), minmax(0, 1fr));
-    gap: var(--space-gap);
-    align-content: start;
-    -webkit-overflow-scrolling: touch;
-}
-
-.user-modal-permission-picker-row {
-    margin: 0;
-    min-width: 0;
-}
-
-.user-modal-permission-picker-label {
-    display: flex;
-    align-items: center;
-    gap: var(--space-gap);
-    padding: clamp(0.8rem, 0.73vw, 1rem) var(--space-gap);
-    border-radius: var(--radius-panel);
-    border: 1px solid var(--color-border-slate);
-    cursor: pointer;
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-page-fg);
-    min-width: 0;
-    min-height: 4.4rem;
-    background: var(--account-select-card-bg);
-}
-
-.user-modal-permission-picker-label-text {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-    min-width: 0;
-    font-size: var(--domain-text-13);
-    line-height: 1.35;
-}
-
-.user-modal-permission-picker-label-text .permission-icon {
-    width: 1.8rem;
-    height: 1.8rem;
-    flex-shrink: 0;
-}
-
-.user-modal-permission-picker-label:hover {
-    background: var(--color-surface-slate-100);
-}
-
-.user-modal-permission-picker-label.is-checked {
-    background: var(--color-surface-info-soft);
-    border-color: var(--color-border-blue-light);
-}
-
-.user-modal-permission-picker-label input {
-    flex-shrink: 0;
-}
-
-.user-modal-permission-picker-footer {
-    padding: var(--user-modal-perm-picker-pad);
-    border-top: 1px solid var(--color-border-slate);
-}
-
-.user-modal-permission-picker-done {
-    width: 100%;
-    padding: clamp(0.8rem, 0.73vw, 1rem) var(--user-modal-perm-picker-pad);
-    border: none;
-    border-radius: var(--radius-panel);
-    background: var(--btn-add-gradient);
-    color: var(--color-text-inverse);
-    font-weight: var(--font-weight-bold);
-    font-size: var(--text-base);
-    cursor: pointer;
-}
-
-.user-modal-permission-picker-done:hover {
-    background: var(--btn-add-gradient-hover);
+    filter: brightness(1.02);
 }
 
 /* Account / Process：四欄格線（對齊原版） */
@@ -1703,8 +1382,8 @@ label.user-modal-col-title.acc-proc-label {
     min-height: 0;
     overflow-y: auto;
     display: grid !important;
-    /* Keep items readable inside modal columns; cols from design-tokens */
-    grid-template-columns: repeat(var(--user-modal-account-grid-cols), minmax(0, 1fr)) !important;
+    /* Keep items readable inside 1/3-width modal columns */
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 10px;
     align-content: start;
     padding: 10px 0;
@@ -1871,35 +1550,30 @@ label.user-modal-col-title.acc-proc-label {
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
-/* ── Sidebar Permissions Section (compact trigger + summary in left panel) ─── */
+/* ── Sidebar Permissions Section (always in left panel) ─── */
 .sidebar-permissions-section {
     display: flex;
     flex-direction: column;
-    flex-shrink: 0;
-    margin: var(--user-modal-perm-section-pad-block) 0 0 0;
-    border-top: 1px solid var(--color-border-slate);
-    padding: var(--user-modal-perm-section-pad-block) 0 var(--space-gap);
+    flex: 1;
+    min-height: 0;
+    margin: 15.936px 0 0 0;
+    border-top: 1px solid #e2e8f0;
+    padding: 14.9px 0 0 0;
 }
+
 
 /* Header: Permissions title — toggle sits inline via flex */
 .sidebar-permissions-title {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-gap);
     margin: 0;
-    padding: 0 var(--user-modal-perm-heading-pad-inline) var(--space-gap);
-    color: var(--color-ink-muted);
-    border-bottom: 2px solid var(--color-indigo-deep);
-    font-size: var(--text-h3);
-    font-weight: var(--font-weight-bold);
+    padding: 0 19.968px 9.984px;
+    color: #1e293b;
+    border-bottom: 2px solid #1a237e;
+    font-size: 18px;
+    font-weight: 700;
     flex-shrink: 0;
-}
-
-#userModal .sidebar-permissions-section .sidebar-permissions-title.user-modal-permissions-title {
-    padding: 0;
-    border-bottom: none;
 }
 
 /* Permissions list: scrollable — grows like Account/Process grids so footer buttons align on one row */
@@ -3217,76 +2891,75 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 @media (max-width: 1024px) {
     #userModal .user-modal-content .user-info-panel .form-group label,
     .modal-content.edit-mode .user-info-panel .form-group label {
-        font-size: var(--domain-fluid-9-085-15);
+        font-size: clamp(9px, 0.85vw, 15px);
     }
 
     #userModal .form-group input,
     #userModal .form-group select,
     .form-group input,
     .form-group select {
-        font-size: var(--domain-fluid-9-085-14);
+        font-size: clamp(9px, 0.85vw, 14px);
     }
 
     #userModal .permission-label,
     .permission-label {
-        font-size: var(--domain-fluid-9-085-14);
+        font-size: clamp(9px, 0.85vw, 14px);
     }
 
     #userModal .permission-icon,
     .permission-icon {
-        height: 1.6rem;
+        height: 16px;
     }
 
+    /* 1024px：左侧 Permissions + Select All/Clear All 稳定在底线上方 */
     #userModal .user-modal-content .modal-body,
     .modal-content.edit-mode .modal-body {
-        max-height: min(calc(100vh - 11rem), 88vh);
-        padding-bottom: clamp(4.8rem, 4.5vw, 6.4rem);
+        max-height: min(calc(100vh - 130px), 86vh);
+        padding-bottom: clamp(52px, 5vw, 72px);
     }
 
-    #userModal .user-modal-company-open-btn {
-        font-size: var(--domain-fluid-10-078-14);
-        padding: clamp(0.6rem, 0.52vw, 0.8rem) clamp(0.8rem, 0.73vw, 1rem);
-    }
-
-    #userModal .account-label,
-    .account-label {
-        font-size: var(--domain-fluid-8-073-12) !important;
-    }
-
-    #userModal .user-modal-col {
-        padding: var(--user-modal-col-pad-inline) clamp(0.6rem, 0.73vw, 1rem) !important;
-    }
-
-    .user-modal-permission-picker-list {
-        min-height: 20rem;
-    }
-}
-
-/* 笔记本：权限按钮可换行，摘要略增高 */
-@media (min-width: 1025px) and (max-width: 1366px) {
-    #userModal .user-modal-permissions-heading-row {
-        flex-wrap: wrap;
-    }
-
-    #userModal .user-modal-permission-open-btn {
-        max-width: 100%;
-    }
-
-    #userModal .user-info-panel form {
+    #userModal .user-modal-content .user-info-panel,
+    .modal-content.edit-mode .user-info-panel {
         min-height: 0;
         overflow: hidden;
+        max-height: 100%;
         display: flex;
         flex-direction: column;
     }
 
-    #userModal .user-info-grid {
-        flex: 1 1 auto;
+    .modal-content.edit-mode .edit-mode-permissions-container {
+        flex-shrink: 0;
         min-height: 0;
-        overflow-y: auto;
+        margin-top: -4px;
     }
 
-    #userModal .sidebar-permissions-section {
+    #userModal .user-modal-content .sidebar-permissions-section .permissions-container,
+    .modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
+        flex: 1 1 0;
+        min-height: 0;
+        height: 0;
+        max-height: 100%;
+        overflow-y: auto !important;
+        padding-bottom: 8px;
+        /* 底部留空，最后一行不被裁切/遮挡 */
+    }
+
+    #userModal .user-modal-content .sidebar-permissions-section .permissions-actions,
+    .modal-content.edit-mode .edit-mode-permissions-container .permissions-actions {
+        margin-top: clamp(2px, -2vw, 12px);
+        margin-bottom: 0;
         flex-shrink: 0;
+        background-color: #fff;
+    }
+
+    #userModal .account-label,
+    .account-label {
+        font-size: clamp(8px, 0.73vw, 12px) !important;
+    }
+
+    #userModal .permissions-actions,
+    .permissions-actions {
+        padding-top: 12px;
     }
 }
 
