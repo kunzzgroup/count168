@@ -196,15 +196,10 @@
         min-height: 20px !important;
     }
 
-    /* Account List：与 Process / User List 行高一致 */
+    /* Account List 行高：与 Process（.process-card）一致，不用 10px 纵向 padding */
     body.ec-auth-shell.account-page:not(.account-page--show-all) .account-card {
-        padding: clamp(1px, 0.21vw, 4px) 22px !important;
+        padding: 0 22px !important;
         min-height: 0 !important;
-    }
-
-    body.ec-auth-shell.account-page .account-card-item {
-        line-height: 1.15 !important;
-        font-size: 12px !important;
     }
 
     body.ec-auth-shell .card-item,
@@ -649,13 +644,19 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         /* This forces the data to completely render out, triggering the global browser scrollbar */
     }
 
-    body.account-page:not(.account-page--show-all) .account-cards,
     body.user-page:not(.user-page--show-all) .user-cards {
         overflow: hidden !important;
     }
 
-    /* 覆盖上文 body.ec-auth-shell .account-cards 的 min-height:0，保留列表体 responsive 最小高度 */
-    body.account-page:not(.account-page--show-all) .account-cards,
+    /* Account List：表体可纵向滚动（与 Process 使用体验一致） */
+    body.account-page:not(.account-page--show-all) .account-cards {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        min-height: 0 !important;
+    }
+
+    /* User List 保留列表体最小高度 */
     body.user-page:not(.user-page--show-all) .user-cards {
         min-height: var(--list-table-body-min-height) !important;
     }
