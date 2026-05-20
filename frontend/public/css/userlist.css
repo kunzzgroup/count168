@@ -988,7 +988,7 @@ body.ec-auth-shell.user-page #confirmModal .confirm-delete:disabled:hover {
     padding: clamp(8px, 0.83vw, 14px);
 }
 
-/* User info column; Account / Process open in permission picker modal */
+/* Three columns: User info + Permissions | Account | Process */
 .user-modal-card {
     flex: 1;
     min-height: 0;
@@ -1377,8 +1377,18 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 /* ── Permission picker (Account / Process / sidebar perms in modal) ── */
-.user-modal-permission-field-group {
-    margin-top: 12px;
+#userModal .sidebar-permissions-section .user-modal-permission-heading-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 19.968px 9.984px;
+    border-bottom: 2px solid #cbd5e1;
+    margin: 0;
+}
+
+#userModal .sidebar-permissions-section .user-modal-permission-summary {
+    margin: 10px 19.968px 0;
 }
 
 #userModal .user-modal-permission-heading-row {
@@ -1448,24 +1458,6 @@ label.user-modal-col-title.acc-proc-label {
     font-size: clamp(11px, 0.75vw, 13px);
 }
 
-.user-modal-card--info-only {
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-    max-width: min(720px, 100%);
-    margin: 0 auto;
-    background: #ffffff;
-    border: none;
-    box-shadow: none;
-}
-
-.user-modal-card--info-only > .user-modal-col--info {
-    flex: 1 1 auto;
-    max-width: none;
-    width: 100%;
-    border-right: none;
-}
-
 .user-modal-permission-picker-root {
     position: fixed;
     inset: 0;
@@ -1491,8 +1483,8 @@ label.user-modal-col-title.acc-proc-label {
 .user-modal-permission-picker {
     position: relative;
     z-index: 1;
-    width: min(1040px, 100%);
-    max-height: min(88vh, 720px);
+    width: min(560px, 100%);
+    max-height: min(80vh, 560px);
     display: flex;
     flex-direction: column;
     background: #ffffff;
