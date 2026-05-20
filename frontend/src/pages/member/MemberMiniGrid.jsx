@@ -1,5 +1,9 @@
 import { MoneyDecimal } from "../../utils/moneyDecimal.js";
-import { accountHoldsMiniGridCurrency, miniMatrixGridTemplateColumns, MINI_GRID_SHELL_ROWS } from "./memberPageHelpers.js";
+import {
+  accountHoldsMiniGridCurrency,
+  miniMatrixGridTemplateColumns,
+  MINI_GRID_SHELL_ROWS,
+} from "./memberPageHelpers.js";
 
 function formatGridAmt(dec) {
   return MoneyDecimal.formatThousands(dec.toString(), 2);
@@ -103,7 +107,7 @@ export default function MemberMiniGrid({
     listOrdered = Array.from({ length: rowCount }, () => ({ id: -1, account_id: "–", name: "" }));
   }
 
-  const manyCcy = ncu >= 8;
+  const manyCcy = ncu >= 12;
   const lastCi = ncu - 1;
   const lastRi = listOrdered.length - 1;
 
@@ -112,40 +116,40 @@ export default function MemberMiniGrid({
       <div className="member-dash-matrix-scroll">
         <div
           id="member_balance_grid"
-        className={`member-balance-mini-grid${ncu ? " member-balance-mini-matrix" : ""}${manyCcy ? " member-balance-mini-matrix--many-ccy" : ""}`}
-        role={ncu ? "grid" : undefined}
-        aria-label={ncu ? t?.("balancesGridAria") || "Balances by account and currency" : undefined}
-        style={ncu ? { gridTemplateColumns: miniMatrixGridTemplateColumns(ncu) } : undefined}
-      >
-        {ncu > 0 && (
-          <>
-            <div className="member-balance-matrix-corner" aria-hidden="true" />
-            {orderUpper.map((cu, ci) => (
-              <div
-                key={`th-${cu}`}
-                className={`member-balance-matrix-th${ci === lastCi ? " member-balance-matrix-th--edge" : ""}`}
-                role="columnheader"
-              >
-                {cu}
-              </div>
-            ))}
-            {listOrdered.map((acc, accIdx) => (
-              <MiniGridRow
-                key={`row-${acc.id}-${accIdx}`}
-                idNum={Number(acc.id)}
-                code={String(acc.account_id || acc.name || acc.id).trim() || String(acc.id)}
-                isLastRow={accIdx === lastRi}
-                accIdx={accIdx}
-                orderUpper={orderUpper}
-                lastCi={lastCi}
-                shellMode={shellMode}
-                balanceMap={balanceMap}
-                linkedCurrenciesLoaded={linkedCurrenciesLoaded}
-                linkedAccountCurrenciesMap={linkedAccountCurrenciesMap}
-              />
-            ))}
-          </>
-        )}
+          className={`member-balance-mini-grid${ncu ? " member-balance-mini-matrix" : ""}${manyCcy ? " member-balance-mini-matrix--many-ccy" : ""}`}
+          role={ncu ? "grid" : undefined}
+          aria-label={ncu ? t?.("balancesGridAria") || "Balances by account and currency" : undefined}
+          style={ncu ? { gridTemplateColumns: miniMatrixGridTemplateColumns(ncu) } : undefined}
+        >
+          {ncu > 0 && (
+            <>
+              <div className="member-balance-matrix-corner" aria-hidden="true" />
+              {orderUpper.map((cu, ci) => (
+                <div
+                  key={`th-${cu}`}
+                  className={`member-balance-matrix-th${ci === lastCi ? " member-balance-matrix-th--edge" : ""}`}
+                  role="columnheader"
+                >
+                  {cu}
+                </div>
+              ))}
+              {listOrdered.map((acc, accIdx) => (
+                <MiniGridRow
+                  key={`row-${acc.id}-${accIdx}`}
+                  idNum={Number(acc.id)}
+                  code={String(acc.account_id || acc.name || acc.id).trim() || String(acc.id)}
+                  isLastRow={accIdx === lastRi}
+                  accIdx={accIdx}
+                  orderUpper={orderUpper}
+                  lastCi={lastCi}
+                  shellMode={shellMode}
+                  balanceMap={balanceMap}
+                  linkedCurrenciesLoaded={linkedCurrenciesLoaded}
+                  linkedAccountCurrenciesMap={linkedAccountCurrenciesMap}
+                />
+              ))}
+            </>
+          )}
         </div>
       </div>
       <p id="member_balance_grid_hint" className="member-balance-mini-hint">
