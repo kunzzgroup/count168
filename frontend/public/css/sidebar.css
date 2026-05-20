@@ -1510,3 +1510,174 @@ body.ec-auth-shell .informationmenu .submenu-item {
     }
 }
 
+/* =============================================================================
+   Tablet sidebar: collapse to icon-only + fix long menu label truncation
+   ============================================================================= */
+
+.sidebar-collapse-toggle {
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar-collapse-toggle:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.sidebar-collapse-toggle svg {
+    width: 18px;
+    height: 18px;
+}
+
+@media (max-width: 1024px) {
+    .header-logo-section {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .sidebar-collapse-toggle {
+        display: inline-flex;
+    }
+
+    /* Expanded tablet: allow long labels (e.g. Transaction Payment) to wrap */
+    .informationmenu:not(.is-collapsed) .informationmenu-section-title {
+        white-space: normal;
+        text-overflow: clip;
+        overflow: visible;
+        line-height: 1.25;
+        font-size: 13px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    body.ec-auth-shell .informationmenu:not(.is-collapsed) .informationmenu-section-title {
+        font-size: 1.25rem !important;
+        padding: 0.85rem 1rem !important;
+    }
+
+    /* Icon-only collapsed sidebar */
+    .informationmenu.is-collapsed {
+        width: var(--layout-sidebar-width-icon, 4.5rem);
+        transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body.ec-auth-shell .informationmenu.is-collapsed {
+        width: var(--layout-sidebar-width-icon, 4.5rem) !important;
+    }
+
+    .informationmenu.is-collapsed .header-logo,
+    .informationmenu.is-collapsed .notification-bell,
+    .informationmenu.is-collapsed .user-info,
+    .informationmenu.is-collapsed .sidebar-lang-switch-wrap,
+    .informationmenu.is-collapsed .company-expiration-countdown,
+    .informationmenu.is-collapsed .content-separator {
+        display: none;
+    }
+
+    .informationmenu.is-collapsed .informationmenu-header {
+        padding: 10px 6px 8px;
+    }
+
+    .informationmenu.is-collapsed .header-logo-section {
+        margin-bottom: 4px;
+    }
+
+    .informationmenu.is-collapsed .user-info-container {
+        padding: 4px;
+        margin-right: 0;
+        min-height: auto;
+    }
+
+    .informationmenu.is-collapsed .avatar-selector-container {
+        min-width: 0;
+        margin: 0 auto;
+    }
+
+    .informationmenu.is-collapsed .current-avatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    .informationmenu.is-collapsed .informationmenu-section-title {
+        font-size: 0;
+        justify-content: center;
+        padding: 10px 6px;
+        border-radius: 12px;
+        margin: 0 4px;
+        white-space: nowrap;
+        text-overflow: clip;
+        overflow: visible;
+        transform: none;
+    }
+
+    .informationmenu.is-collapsed .informationmenu-section-title:hover {
+        transform: none;
+    }
+
+    .informationmenu.is-collapsed .section-icon {
+        width: 22px;
+        height: 22px;
+        margin-right: 0;
+    }
+
+    body.ec-auth-shell .informationmenu.is-collapsed .section-icon {
+        width: 1.6rem !important;
+        height: 1.6rem !important;
+        margin-right: 0 !important;
+    }
+
+    .informationmenu.is-collapsed .section-arrow {
+        display: none;
+    }
+
+    .informationmenu.is-collapsed .informationmenu-footer {
+        padding: 10px 6px 14px;
+    }
+
+    .informationmenu.is-collapsed .logout-btn {
+        width: 36px;
+        min-width: 36px;
+        height: 36px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+    }
+
+    .informationmenu.is-collapsed .logout-btn-icon {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Main content: reclaim horizontal space when sidebar is icon-only */
+    body.ec-auth-shell.sidebar-collapsed .transaction-container,
+    body.ec-auth-shell.sidebar-collapsed .dashboard-container,
+    body.ec-auth-shell.sidebar-collapsed .datacapture-container,
+    body.ec-auth-shell.sidebar-collapsed .container.domain-react-page,
+    body.ec-auth-shell.sidebar-collapsed .announcement-page-container,
+    body.ec-auth-shell.sidebar-collapsed.user-page .container,
+    body.ec-auth-shell.sidebar-collapsed.account-page .container,
+    body.ec-auth-shell.sidebar-collapsed.process-page .container,
+    body.ec-auth-shell.sidebar-collapsed.transaction-page .transaction-container,
+    body.ec-auth-shell.sidebar-collapsed.dashboard-page .dashboard-container,
+    body.ec-auth-shell.sidebar-collapsed.datacapture-page .container,
+    body.ec-auth-shell.sidebar-collapsed.domain-page .container,
+    body.ec-auth-shell.sidebar-collapsed.maintenance-page .container,
+    body.ec-auth-shell.sidebar-collapsed.report-page .container,
+    body.ec-auth-shell.sidebar-collapsed.ownership-page .container {
+        padding-left: var(--layout-main-offset) !important;
+    }
+}
+

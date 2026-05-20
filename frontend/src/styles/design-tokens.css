@@ -346,6 +346,11 @@
 @media (max-width: 1024px) {
   :root {
     --layout-sidebar-width: 15rem;
+    --layout-sidebar-width-icon: 4.5rem;
     --layout-main-gap: 1.2rem;
+  }
+
+  body.ec-auth-shell.sidebar-collapsed {
+    --layout-sidebar-width: var(--layout-sidebar-width-icon);
   }
 }

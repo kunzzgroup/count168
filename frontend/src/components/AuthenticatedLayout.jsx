@@ -12,6 +12,9 @@ function readCookie(name) {
   return m ? decodeURIComponent(m[1]) : "";
 }
 
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "ec_sidebar_collapsed";
+const TABLET_MEDIA_QUERY = "(max-width: 1024px)";
+
 const AVATAR_MAP = {
   male1: assetUrl("images/avatar1.png"),
   male2: assetUrl("images/avatar2.png"),
@@ -58,7 +61,14 @@ export default function AuthenticatedLayout() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const [isTabletViewport, setIsTabletViewport] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(TABLET_MEDIA_QUERY).matches : false
+  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1"
+  );
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
+  const sidebarIconOnly = isTabletViewport && sidebarCollapsed;
 
   /* useLayoutEffect: before paint — body.bg uses display:flex and centers #root (login shell); leaving it for one frame breaks full-width hit targets on Domain, etc. */
   useLayoutEffect(() => {
@@ -87,6 +97,29 @@ export default function AuthenticatedLayout() {
       document.body.classList.remove("lang-zh", "lang-en");
     };
   }, [lang]);
+
+  useEffect(() => {
+    const mq = window.matchMedia(TABLET_MEDIA_QUERY);
+    const onChange = () => setIsTabletViewport(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("sidebar-collapsed", sidebarIconOnly);
+    return () => document.body.classList.remove("sidebar-collapsed");
+  }, [sidebarIconOnly]);
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, next ? "1" : "0");
+      return next;
+    });
+  };
+
+  const sidebarMenuTitle = (label) => (sidebarIconOnly ? label : undefined);
 
   useEffect(() => {
     (async () => {
@@ -244,10 +277,28 @@ export default function AuthenticatedLayout() {
   return (
     <>
       <div className="informationmenu-overlay" style={{ display: "none" }} aria-hidden="true" />
-      <div className="informationmenu">
+      <div className={`informationmenu${sidebarIconOnly ? " is-collapsed" : ""}`}>
         <div className="informationmenu-header">
           <div className="header-logo-section">
             <img src={assetUrl("images/count_whitelogo.png")} alt="EAZYCOUNT" className="header-logo" />
+            {isTabletViewport && (
+              <button
+                type="button"
+                className="sidebar-collapse-toggle"
+                onClick={toggleSidebarCollapse}
+                aria-label={sidebarCollapsed ? i18n.sidebarExpand : i18n.sidebarCollapse}
+                aria-expanded={!sidebarCollapsed}
+                title={sidebarCollapsed ? i18n.sidebarExpand : i18n.sidebarCollapse}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  {sidebarCollapsed ? (
+                    <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                  ) : (
+                    <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                  )}
+                </svg>
+              </button>
+            )}
             <div className="notification-bell" title={i18n.notifications} onClick={toggleNotifications}>
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
@@ -296,7 +347,7 @@ export default function AuthenticatedLayout() {
           <div className="content-separator" />
           {canAccess("home") && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} onClick={() => navigate("/dashboard")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarHome)} onClick={() => navigate("/dashboard")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                 </svg>
@@ -306,7 +357,7 @@ export default function AuthenticatedLayout() {
           )}
           {me?.has_c168_domain_page_access && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} onClick={() => navigate("/domain")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarDomain)} onClick={() => navigate("/domain")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
                 </svg>
@@ -316,7 +367,7 @@ export default function AuthenticatedLayout() {
           )}
           {me?.has_c168_domain_page_access && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} onClick={() => navigate("/announcement")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarAnnouncement)} onClick={() => navigate("/announcement")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
                 </svg>
@@ -326,7 +377,7 @@ export default function AuthenticatedLayout() {
           )}
           {canAccess("admin") && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} onClick={() => navigate("/userlist")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarAdmin)} onClick={() => navigate("/userlist")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                 </svg>
@@ -339,6 +390,7 @@ export default function AuthenticatedLayout() {
               <div className="informationmenu-section">
                 <div
                   className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
+                  title={sidebarMenuTitle(i18n.sidebarAccount)}
                   onClick={() => navigate("/account-list")}
                   role="presentation"
                 >
@@ -351,6 +403,7 @@ export default function AuthenticatedLayout() {
               <div className="informationmenu-section">
                 <div
                   className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
+                  title={sidebarMenuTitle(i18n.sidebarOwnership)}
                   onClick={() => navigate("/ownership")}
                   role="presentation"
                 >
@@ -366,6 +419,7 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`}
+                title={sidebarMenuTitle(i18n.sidebarProcess)}
                 onClick={() => navigate(processSpaPath)}
                 role="presentation"
               >
@@ -380,6 +434,7 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`}
+                title={sidebarMenuTitle(i18n.sidebarDataCapture)}
                 onClick={() => {
                   if (path === "/datacapturesummary") {
                     clearDataCaptureRoundLocalStorage();
@@ -399,6 +454,7 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
+                title={sidebarMenuTitle(i18n.sidebarTransactionPayment)}
                 onClick={() => navigate("/transaction")}
                 role="presentation"
               >
@@ -416,6 +472,7 @@ export default function AuthenticatedLayout() {
                   ref={reportTitleRef}
                   className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain-report") ? "active" : ""}`}
                   data-section="report"
+                  title={sidebarMenuTitle(i18n.sidebarReport)}
                   onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
                   role="presentation"
                 >
@@ -474,6 +531,7 @@ export default function AuthenticatedLayout() {
                   ref={maintenanceTitleRef}
                   className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance", "/bankprocess-maintenance"].includes(path)) ? "active" : ""}`}
                   data-section="maintenance"
+                  title={sidebarMenuTitle(i18n.sidebarMaintenance)}
                   onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
                   role="presentation"
                 >
@@ -576,8 +634,21 @@ export default function AuthenticatedLayout() {
               <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>{me?.expiration_hint || "-"}</span>
             </div>
           </div>
-          <button type="button" className="btn logout-btn" onClick={() => setShowLogoutConfirm(true)}>
-            {i18n.logout}
+          <button
+            type="button"
+            className="btn logout-btn"
+            title={sidebarMenuTitle(i18n.logout)}
+            onClick={() => setShowLogoutConfirm(true)}
+          >
+            {sidebarIconOnly ? (
+              <svg className="logout-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points="16 17 21 12 16 7" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="21" y1="12" x2="9" y2="12" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              i18n.logout
+            )}
           </button>
         </div>
       </div>
