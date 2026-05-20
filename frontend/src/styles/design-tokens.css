@@ -108,6 +108,23 @@
   --userlist-btn-add-width: clamp(80px, 7.25vw, 120px);
   --userlist-btn-delete-width: clamp(90px, 7.25vw, 120px);
 
+  /*
+   * Add/Edit User 弹窗（#userModal）— 左栏宽、权限摘要/选择器、Account 网格列数
+   * userlist.css / admin-responsive 通过 var() 引用，避免平板/笔记本散落 clamp
+   */
+  --user-modal-info-col-width: clamp(32rem, 31vw, 52rem);
+  --user-modal-col-pad-inline: clamp(1rem, 0.94vw, 1.8rem);
+  --user-modal-perm-section-pad-block: clamp(1.2rem, 1.2vw, 1.6rem);
+  --user-modal-perm-heading-pad-inline: clamp(1rem, 1.25vw, 2rem);
+  --user-modal-perm-summary-max-h: clamp(5.6rem, 14vh, 10rem);
+  --user-modal-perm-picker-width: min(64rem, calc(100vw - 3.2rem));
+  --user-modal-perm-picker-max-h: min(80vh, 56rem);
+  --user-modal-perm-picker-pad: clamp(1rem, 1.2vw, 1.4rem);
+  --user-modal-perm-picker-grid-cols: 3;
+  --user-modal-account-grid-cols: 4;
+  --user-modal-sub-picker-z: var(--z-modal);
+  --user-modal-sub-picker-backdrop: rgba(15, 23, 42, 0.45);
+
   /* --- 列表页主标题（对应 clamp(26px, 2.08vw, 40px)）--- */
   --text-page-title: clamp(2.6rem, 2.08vw, 4rem);
   --text-page-title-mt: clamp(1.2rem, 1.04vw, 2rem);
@@ -347,5 +364,20 @@
   :root {
     --layout-sidebar-width: 15rem;
     --layout-main-gap: 1.2rem;
+    --user-modal-info-col-width: clamp(26rem, 38vw, 38rem);
+    --user-modal-perm-summary-max-h: clamp(6.4rem, 18vh, 11.2rem);
+    --user-modal-perm-picker-width: min(96vw, 100%);
+    --user-modal-perm-picker-max-h: min(88vh, 100%);
+    --user-modal-perm-picker-grid-cols: 2;
+    --user-modal-account-grid-cols: 3;
+  }
+}
+
+/* 笔记本（1025–1366）：略收窄 Account 网格，左栏略宽 */
+@media (min-width: 1025px) and (max-width: 1366px) {
+  :root {
+    --user-modal-info-col-width: clamp(30rem, 34vw, 42rem);
+    --user-modal-perm-picker-grid-cols: 2;
+    --user-modal-account-grid-cols: 3;
   }
 }
