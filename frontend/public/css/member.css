@@ -627,75 +627,7 @@ body.transaction-page {
     flex-direction: column;
     gap: 12px;
 }
-.member-company-filter,
-.member-currency-filter {
-    display: flex !important;
-    align-items: center;
-    gap: clamp(8px, 0.83vw, 16px);
-    flex-wrap: wrap;
-    margin-top: 12px;
-    min-height: 36px;
-}
-/* Account 区域由 JS 控制 display，不用 !important 以便可隐藏 */
-.member-account-filter {
-    display: none;
-    align-items: center;
-    gap: clamp(8px, 0.83vw, 16px);
-    flex-wrap: wrap;
-    margin-top: 12px;
-    min-height: 36px;
-}
-/* Member 页面 Company/Account/Currency 标签统一样式 */
-.member-company-filter .transaction-company-label,
-.member-account-filter .transaction-company-label,
-.member-currency-filter .transaction-company-label {
-    font-weight: bold;
-    color: #374151;
-    font-size: clamp(10px, 0.73vw, 14px);
-}
-/* Member 页面 Company 按钮加粗，和其它重要按钮风格一致 */
-.member-company-filter .transaction-company-btn {
-    font-weight: 700;
-}
-.member-currency-buttons {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-.member-currency-buttons .transaction-company-btn {
-    padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
-    border: 1px solid #d0d7de;
-    border-radius: 999px;
-    cursor: pointer;
-    font-size: clamp(10px, 0.73vw, 14px);
-    transition: all 0.2s ease;
-    background: #f1f5f9;
-    color: #1f2937;
-    font-weight: 600;
-}
-.member-currency-buttons .transaction-company-btn:hover {
-    background: #e2e8f0;
-    border-color: #a5b4fc;
-}
-.member-currency-buttons .transaction-company-btn[data-currency] {
-    cursor: grab;
-}
-.member-currency-buttons .transaction-company-btn[data-currency]:active {
-    cursor: grabbing;
-}
-.member-currency-buttons .transaction-company-btn.member-currency-dragging {
-    opacity: 0.6;
-}
-.member-currency-buttons .transaction-company-btn.member-currency-drag-over {
-    outline: 2px dashed #3b82f6;
-    outline-offset: 2px;
-}
-.member-currency-buttons .transaction-company-btn.active {
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-}
+/* Account / Company / Currency — Win/Loss 左栏见上方 .member-dash-col-filters 规则 */
 .member-currency-section {
     display: flex !important;
     flex-direction: column;
@@ -830,4 +762,973 @@ body.transaction-page {
 }
  .text-uppercase {
     text-transform: uppercase;
+}
+
+/* =============================================================================
+   Member Win/Loss dashboard — filters (left) + balance matrix rail (right)
+   See member-winloss-react-guidelines.md
+   ============================================================================= */
+.member-winloss-page .member-winloss-dash {
+    overflow-x: visible;
+    overflow-y: visible;
+}
+
+.member-winloss-page .member-dash-unified-bar {
+    overflow: visible;
+    padding: 8px 10px;
+    min-height: min(300px, 48vh);
+    background: linear-gradient(160deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+}
+
+.member-winloss-page .member-dash-unified-bar > .member-dash-columns {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Win/Loss 顶栏：左 40% 筛选 | 分割线 | 右 60% 矩阵+Total */
+.member-winloss-page .member-dash-columns {
+    --member-mini-ccy-min: 3rem;
+    --member-dash-total-width: 4.75rem;
+    --member-winloss-label-w: 5.75rem;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 0;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    min-height: 100%;
+}
+
+.member-winloss-page .member-dash-columns--no-mini-rail {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.member-winloss-page .member-dash-col-filters {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    min-width: 0;
+    min-height: 100%;
+    align-self: stretch;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0;
+    padding: 0 12px 0 0;
+    margin: 0;
+    border-right: 1px solid #d1dae6;
+    border-bottom: none;
+    box-sizing: border-box;
+}
+
+.member-winloss-page .member-dash-col-filters .member-winloss-date-field {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+}
+
+.member-winloss-page .member-dash-col-filters .member-winloss-gc-panel {
+    --user-gc-inline-label-w: var(--member-winloss-label-w, 6.5rem);
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    margin-top: 0;
+    padding: clamp(14px, 2vh, 24px) 0;
+    border-top: 1px solid rgba(15, 23, 42, 0.06);
+    overflow: visible;
+    align-content: center;
+}
+
+body.lang-zh.member-winloss-page .member-dash-col-filters .member-winloss-gc-panel {
+    --member-winloss-label-w: 4.75rem;
+    --user-gc-inline-label-w: var(--member-winloss-label-w, 4.75rem);
+}
+
+body.member-winloss-page .member-dash-col-filters .user-gc-inline-panel.member-winloss-gc-panel {
+    display: grid;
+    grid-template-columns: var(--member-winloss-label-w, 5.75rem) minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: 10px;
+    align-items: center;
+    padding: 0;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+}
+
+body.member-winloss-page .member-dash-col-filters .user-gc-inline-label {
+    min-width: var(--member-winloss-label-w, 6.5rem);
+    width: auto;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+    font-size: clamp(11px, 0.85vw, 13px);
+}
+
+.member-winloss-page .member-dash-filter-trigger {
+    padding: 4px 10px;
+    font-size: 11px;
+    gap: 4px;
+    align-self: flex-start;
+}
+
+.member-winloss-page .member-dash-filters-toolbar {
+    flex: 0 0 auto;
+    margin: 2px 0 0;
+    padding: 0;
+}
+
+.member-dash-columns {
+    --member-dash-matrix-toolbar-slot: 34px;
+    --member-mini-ccy-min: 5.5rem;
+    --member-mini-matrix-visible-ccy: 8;
+    --member-dash-rail-split-gap: clamp(12px, 1.1vw, 20px);
+    --member-dash-total-col-min: 7.5rem;
+    display: grid;
+    grid-template-columns: clamp(220px, 34%, 480px) minmax(0, 1fr);
+    column-gap: clamp(12px, 1.1vw, 18px);
+    row-gap: 10px;
+    align-items: start;
+    width: 100%;
+    min-width: 0;
+}
+
+.member-dash-columns--no-mini-rail {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.member-dash-col-filters {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: clamp(14px, 1.25vw, 20px);
+    border-right: 1px solid #e5e7eb;
+}
+
+/* Date Range — 与 Capture Maintenance 同款（outlined 外框 + 内嵌白底条，非 Transaction 蓝块日历） */
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field {
+    width: 100%;
+    min-width: 0;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-anchor {
+    gap: 0;
+    width: 100%;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-shell {
+    position: relative;
+    box-sizing: border-box;
+    margin-top: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: clamp(6px, 0.52vw, 8px);
+    background: #fff;
+    width: 100%;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-shell:hover,
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-shell:focus-within,
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-shell:has(.date-range-picker:focus-visible) {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* 浮动标签：文字叠在边框上（与 Capture Maintenance 一致） */
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-label {
+    position: absolute;
+    left: clamp(10px, 0.83vw, 14px);
+    top: 0;
+    transform: translateY(-50%);
+    z-index: 3;
+    padding: 0 clamp(5px, 0.42vw, 7px);
+    margin: 0;
+    font-size: clamp(11px, 0.85vw, 13px);
+    font-weight: 600;
+    font-family: var(--font-heading-page, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    color: #374151;
+    background-color: #fff;
+    pointer-events: none;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-label--txn-capture-date {
+    left: clamp(46px, 3.35vw, 58px);
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-shell:focus-within .report-outlined-label,
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-shell:has(.date-range-picker:focus-visible) .report-outlined-label {
+    color: #3b82f6;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field.customer-report-filter-group,
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .customer-report-filter-group.report-outlined-anchor {
+    display: block;
+    gap: 0;
+    min-width: 0;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-inner .transaction-date-range-group {
+    min-width: 0 !important;
+    width: 100%;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-inner .transaction-date-range-group .date-range-picker {
+    min-width: 0 !important;
+    width: 100%;
+    max-width: 100%;
+    min-height: clamp(32px, 2.25vw, 36px) !important;
+    gap: clamp(8px, 0.7vw, 12px);
+    padding: clamp(4px, 0.3vw, 6px) clamp(8px, 0.75vw, 12px) clamp(4px, 0.3vw, 6px) 0 !important;
+    border: none !important;
+    border-radius: clamp(5px, 0.42vw, 7px) !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-inner .transaction-date-range-group .date-range-picker:hover,
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-inner .transaction-date-range-group .date-range-picker:focus-visible {
+    border: none !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+}
+
+/* 取消 Transaction 页左侧蓝色色块，改为与 Capture Maintenance 一致的蓝色图标 */
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    align-self: center !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 0 0 clamp(8px, 0.6vw, 12px) !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    color: #3b82f6 !important;
+    background: transparent !important;
+    background-clip: border-box !important;
+    box-shadow: none !important;
+    font-size: 15px !important;
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 5;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-inner .transaction-date-range-group #date-range-display {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: #1f2937;
+    font-size: var(--text-small, 13px);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .customer-report-filter-group {
+    margin: 0;
+    min-width: 0;
+    width: 100%;
+}
+
+/* 右半区：Accounts + 矩阵 + Total；与左侧 Account/Currency 同行垂直居中 */
+.member-winloss-page .member-dash-columns > .member-dash-right-rail {
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+    align-self: center;
+    justify-self: stretch;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    box-sizing: border-box;
+}
+
+.member-winloss-page .member-dash-rail-stack {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+    width: auto;
+    align-items: stretch;
+    align-self: center;
+    gap: 4px;
+}
+
+.member-winloss-page .member-dash-rail-toolbar {
+    flex: 0 0 auto;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+}
+
+.member-winloss-page .member-dash-rail-composite {
+    display: none;
+}
+
+.member-dash-columns > .member-dash-right-rail {
+    justify-self: stretch;
+    width: 100%;
+    max-width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(var(--member-dash-total-col-min, 7.5rem), max-content);
+    grid-template-rows: auto auto;
+    column-gap: var(--member-dash-rail-split-gap, 20px);
+    row-gap: 6px;
+    align-items: start;
+    padding: 0;
+    margin-left: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    box-sizing: border-box;
+}
+
+.member-dash-rail-composite {
+    display: contents;
+}
+
+.member-dash-rail-toolbar {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: var(--member-dash-matrix-toolbar-slot, 34px);
+    display: flex;
+    align-items: center;
+}
+
+.member-dash-mini-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.member-dash-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.member-dash-filter-trigger:hover {
+    background: #fff;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+
+.member-dash-filter-trigger .fa-filter {
+    color: #3b82f6;
+    font-size: 12px;
+}
+
+.member-dash-grid-curr:empty {
+    display: none;
+}
+
+.member-dash-grid-curr {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.member-winloss-page .member-dash-rail-matrix {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    align-self: stretch;
+    border-radius: 6px;
+}
+
+.member-dash-rail-matrix {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    width: 100%;
+    border: 1px solid #c5daf2;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(30, 58, 95, 0.06);
+}
+
+.member-dash-matrix-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    width: 100%;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
+.member-winloss-page .member-dash-rail-total {
+    flex: 0 0 var(--member-dash-total-width, 5.25rem);
+    width: var(--member-dash-total-width, 5.25rem);
+    min-width: var(--member-dash-total-width, 5.25rem);
+    max-width: var(--member-dash-total-width, 5.25rem);
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: 0;
+}
+
+.member-dash-rail-total {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: start;
+    min-width: var(--member-dash-total-col-min, 7.5rem);
+    max-width: min(11rem, 28vw);
+    border: 1px solid #c5daf2;
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(30, 58, 95, 0.06);
+}
+
+.member-dash-total-matrix {
+    display: flex;
+    flex-direction: column;
+}
+
+.member-dash-total-matrix-hd {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 7px 10px;
+    background: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%);
+    color: #1e3a5f;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #b8cfe8;
+    box-sizing: border-box;
+}
+
+.member-winloss-page .member-dash-total-matrix-hd {
+    min-height: 24px;
+    padding: 3px 2px;
+    font-size: 8px;
+    letter-spacing: 0.03em;
+}
+
+.member-dash-total-matrix-body {
+    flex: 0 1 auto;
+    padding: 0;
+    max-height: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.member-dash-total-values {
+    display: block;
+    width: 100%;
+}
+
+.member-dash-total-amt {
+    display: block;
+    padding: 12px 10px;
+    text-align: center;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.member-dash-total-values--grid .member-dash-total-currency-grid {
+    display: flex;
+    flex-direction: column;
+}
+
+.member-dash-total-grid-cell {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: 6px 8px;
+    align-items: center;
+    min-height: 34px;
+    padding: 5px 10px;
+    border-bottom: 1px solid #e8eef5;
+    box-sizing: border-box;
+}
+
+.member-winloss-page .member-dash-total-grid-cell {
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    gap: 1px 3px;
+    min-height: 24px;
+    padding: 2px 4px;
+}
+
+.member-dash-total-grid-cell:nth-child(even) {
+    background: #f8fafc;
+}
+
+.member-dash-total-grid-cell:last-child {
+    border-bottom: none;
+}
+
+.member-dash-total-grid-code {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.02em;
+    margin-bottom: 0;
+}
+
+.member-winloss-page .member-dash-total-grid-code {
+    font-size: 8px;
+}
+
+.member-dash-total-grid-amt {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.member-winloss-page .member-dash-total-grid-amt {
+    font-size: 9px;
+}
+
+.member-dash-total-grid-amt--neg {
+    color: #dc2626;
+}
+
+/* Mini balance matrix (CSS grid) */
+.member-balance-mini-grid {
+    display: block;
+    min-width: min-content;
+}
+
+.member-balance-mini-grid.member-balance-mini-matrix {
+    display: grid;
+    width: 100%;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    line-height: 1.25;
+}
+
+.member-balance-mini-matrix--many-ccy {
+    width: max-content;
+    min-width: 100%;
+}
+
+.member-balance-mini-matrix--many-ccy .member-balance-matrix-th,
+.member-balance-mini-matrix--many-ccy .member-balance-matrix-rowhead,
+.member-balance-mini-matrix--many-ccy .member-balance-matrix-cell {
+    padding: 6px 8px;
+    font-size: 11px;
+    min-height: 34px;
+}
+
+.member-balance-matrix-corner,
+.member-balance-matrix-rowhead {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+}
+
+.member-balance-matrix-corner {
+    z-index: 3;
+    background: linear-gradient(180deg, #eef4fc 0%, #dce9f8 100%);
+    border-right: 1px solid #c5daf2;
+    border-bottom: 1px solid #c5daf2;
+    min-height: 36px;
+}
+
+.member-balance-matrix-th {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 10px;
+    min-height: 36px;
+    background: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%);
+    color: #1e3a5f;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    border-right: 1px solid #b8cfe8;
+    border-bottom: 1px solid #b8cfe8;
+    box-sizing: border-box;
+}
+
+.member-balance-matrix-rowhead {
+    font-weight: 700;
+}
+
+.member-balance-matrix-th--edge {
+    border-right-color: #b8cfe8;
+}
+
+.member-balance-matrix-rowhead {
+    display: flex;
+    align-items: center;
+    padding: 7px 12px;
+    min-height: 36px;
+    font-weight: 700;
+    color: #1e293b;
+    background: #f1f5f9;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+.member-balance-matrix-rowhead--edge {
+    border-bottom-color: #e2e8f0;
+}
+
+.member-balance-matrix-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 7px 10px;
+    min-height: 36px;
+    background: #ffffff;
+    border-right: 1px solid #e8eef5;
+    border-bottom: 1px solid #e8eef5;
+    color: #0f172a;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    box-sizing: border-box;
+}
+
+.member-balance-matrix-cell--alt {
+    background: #f8fafc;
+}
+
+.member-balance-matrix-cell--na {
+    color: #94a3b8;
+    justify-content: center;
+    font-weight: 500;
+}
+
+.member-balance-matrix-cell--edge {
+    border-right-color: #e8eef5;
+}
+
+.member-balance-matrix-cell--edge-row {
+    border-bottom-color: #e8eef5;
+}
+
+.member-balance-matrix-amt {
+    white-space: nowrap;
+}
+
+.member-balance-matrix-amt--neg {
+    color: #dc2626;
+}
+
+.member-balance-mini-hint {
+    margin: 4px 0 0;
+    padding: 0 8px 4px;
+    font-size: 11px;
+    color: #b45309;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+/* Win/Loss 迷你矩阵 — 紧凑尺寸 */
+.member-winloss-page .member-dash-total-values--grid .member-dash-total-grid-cell {
+    min-height: 24px;
+}
+
+.member-dash-total-values--grid .member-dash-total-grid-cell {
+    min-height: 36px;
+}
+
+.member-winloss-page .member-dash-matrix-scroll {
+    width: 100%;
+    max-width: 100%;
+}
+
+.member-winloss-page .member-balance-mini-grid.member-balance-mini-matrix {
+    width: 100%;
+    min-width: 100%;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.member-winloss-page .member-balance-mini-matrix--many-ccy {
+    width: 100%;
+    min-width: 100%;
+}
+
+.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-th,
+.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-rowhead,
+.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-cell {
+    padding: 2px 4px;
+    font-size: 9px;
+    min-height: 22px;
+}
+
+.member-winloss-page .member-balance-matrix-corner {
+    min-height: 24px;
+    padding: 0;
+}
+
+.member-winloss-page .member-balance-matrix-th {
+    min-height: 24px;
+    padding: 3px 4px;
+    font-size: 9px;
+    letter-spacing: 0;
+}
+
+.member-winloss-page .member-balance-matrix-rowhead {
+    min-height: 24px;
+    padding: 3px 5px;
+    font-size: 10px;
+}
+
+.member-winloss-page .member-balance-matrix-cell {
+    min-height: 24px;
+    padding: 3px 5px;
+    font-size: 10px;
+}
+
+.member-winloss-page .member-balance-matrix-amt {
+    font-size: 10px;
+}
+
+.member-winloss-page .member-balance-mini-hint {
+    margin: 2px 0 0;
+    padding: 0 6px 2px;
+    font-size: 10px;
+}
+
+.member-balance-mini-hint:empty {
+    display: none;
+}
+
+/* Accounts in grid modal */
+.member-linked-filter-modal-content.transaction-modal-content {
+    width: min(100%, 400px) !important;
+    max-width: min(100%, 400px) !important;
+}
+
+.member-linked-filter-modal-content .transaction-modal-body {
+    padding: 16px 20px;
+    max-height: min(70vh, 480px);
+}
+
+.member-linked-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.member-linked-filter-search {
+    flex: 1 1 160px;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.member-linked-filter-bulk {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.member-linked-bulk-btn {
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #f8fafc;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+}
+
+.member-linked-bulk-btn:hover {
+    border-color: #3b82f6;
+    background: #fff;
+}
+
+.member-linked-filter-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px 12px;
+}
+
+.member-linked-cb-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.member-linked-cb-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.member-linked-filter-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 20px 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 1180px) {
+    .member-dash-columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .member-winloss-page .member-dash-columns {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto;
+    }
+
+    .member-winloss-page .member-dash-unified-bar {
+        min-height: 0;
+    }
+
+    .member-winloss-page .member-dash-columns {
+        min-height: 0;
+        align-items: start;
+    }
+
+    .member-winloss-page .member-dash-col-filters {
+        grid-column: 1;
+        grid-row: 1;
+        min-height: 0;
+        flex-direction: column;
+        gap: 8px;
+        padding: 0 0 10px;
+        border-right: none;
+        border-bottom: 1px solid #e8eef5;
+    }
+
+    .member-winloss-page .member-dash-col-filters .member-winloss-gc-panel {
+        flex: 0 0 auto;
+        align-content: start;
+        padding: 10px 0 0;
+    }
+
+    .member-winloss-page .member-dash-columns > .member-dash-right-rail {
+        grid-column: 1;
+        grid-row: 2;
+        min-height: 0;
+        flex-direction: row;
+        align-items: flex-start;
+        align-self: stretch;
+        justify-content: flex-start;
+        padding-left: 0;
+    }
+
+    .member-winloss-page .member-dash-rail-stack {
+        align-self: stretch;
+    }
+
+    .member-winloss-page .member-dash-rail-total {
+        align-self: flex-start;
+    }
+
+    .member-dash-col-filters {
+        padding-right: 0;
+        border-right: none;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .member-dash-columns > .member-dash-right-rail {
+        justify-self: stretch;
+        width: 100%;
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        padding-left: 0;
+    }
+
+    .member-dash-rail-composite {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: var(--member-dash-rail-split-gap, 20px);
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .member-dash-rail-toolbar,
+    .member-dash-rail-matrix,
+    .member-dash-rail-total {
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    .member-dash-rail-matrix {
+        flex: 1 1 auto;
+        min-width: 0;
+        border-radius: 6px;
+    }
+
+    .member-dash-rail-total {
+        flex: 0 0 auto;
+        min-width: var(--member-dash-total-col-min, 7.5rem);
+        width: min(100%, 11rem);
+        max-width: 11rem;
+        align-self: flex-start;
+        border-radius: 8px;
+    }
+
+    .member-dash-matrix-scroll {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 720px) {
+    .member-linked-filter-checkboxes {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .member-dash-columns > .member-dash-right-rail {
+        padding: 10px 12px;
+    }
 }

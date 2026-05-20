@@ -197,13 +197,16 @@ export function sanitizeCurrencySelection(available, isAllSelected, selectedCurr
   if (!linkedCurrenciesLoaded) {
     return { isAllSelected: retained.length === 0 ? true : isAllSelected, selectedCurrencies: retained.length === 0 && !isAllSelected ? [] : retained };
   }
-  if (!available.length || retained.length === 0) {
+  if (!available.length) {
     return { isAllSelected: true, selectedCurrencies: [] };
   }
   if (retained.length === 0 && !isAllSelected) {
     return { isAllSelected: false, selectedCurrencies: [] };
   }
-  return { isAllSelected: retained.length === 0 ? true : isAllSelected, selectedCurrencies: retained };
+  if (retained.length === 0) {
+    return { isAllSelected: true, selectedCurrencies: [] };
+  }
+  return { isAllSelected, selectedCurrencies: retained };
 }
 
 export function computeTableTotals(rows) {
@@ -236,6 +239,8 @@ export function groupHistoryForDisplay(historyRows, isAllSelected, selectedCurre
 }
 
 export function miniMatrixGridTemplateColumns(ncu) {
-  const rowHeadClamp = "minmax(5.5rem, max-content)";
-  return `${rowHeadClamp} repeat(${ncu}, minmax(5.5rem, max-content))`;
+  const rowHead = "minmax(3.25rem, 6rem)";
+  const colMin = "3.25rem";
+  const ccyCols = `repeat(${ncu}, minmax(${colMin}, 1fr))`;
+  return `${rowHead} ${ccyCols}`;
 }

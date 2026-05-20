@@ -1,7 +1,5 @@
 import { MoneyDecimal } from "../../utils/moneyDecimal.js";
-import { accountHoldsMiniGridCurrency, miniMatrixGridTemplateColumns } from "./memberPageHelpers.js";
-
-const SHELL_ROW_COUNT = 5;
+import { accountHoldsMiniGridCurrency, miniMatrixGridTemplateColumns, MINI_GRID_SHELL_ROWS } from "./memberPageHelpers.js";
 
 function formatGridAmt(dec) {
   return MoneyDecimal.formatThousands(dec.toString(), 2);
@@ -94,7 +92,7 @@ export default function MemberMiniGrid({
 
   let listOrdered = accounts || [];
   if (shellMode && !listOrdered.length && ncu) {
-    const rowCount = Math.max(3, SHELL_ROW_COUNT);
+    const rowCount = Math.max(3, MINI_GRID_SHELL_ROWS);
     listOrdered = Array.from({ length: rowCount }, () => ({ id: -1, account_id: "–", name: "" }));
   }
 
@@ -104,8 +102,9 @@ export default function MemberMiniGrid({
 
   return (
     <>
-      <div
-        id="member_balance_grid"
+      <div className="member-dash-matrix-scroll">
+        <div
+          id="member_balance_grid"
         className={`member-balance-mini-grid${ncu ? " member-balance-mini-matrix" : ""}${manyCcy ? " member-balance-mini-matrix--many-ccy" : ""}`}
         role={ncu ? "grid" : undefined}
         aria-label={ncu ? "Balances by account and currency" : undefined}
@@ -140,8 +139,9 @@ export default function MemberMiniGrid({
             ))}
           </>
         )}
+        </div>
       </div>
-      <p id="member_balance_grid_hint" className="member-balance-mini-hint" style={{ margin: "4px 0 0" }}>
+      <p id="member_balance_grid_hint" className="member-balance-mini-hint">
         {hint || ""}
       </p>
     </>

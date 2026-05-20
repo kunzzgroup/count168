@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import flatpickr from "flatpickr";
-import "flatpickr/dist/flatpickr.min.css";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import { useLoginLang } from "../../utils/useLoginLang.js";
+import { MAINTENANCE_I18N } from "../../translateFile/maintenanceTranslate.js";
+import { ensureMaintenanceDateRangePicker } from "../../utils/maintenanceDateRangePicker.js";
+import ReportDatePicker from "../report/common/ReportDatePicker.jsx";
 import "../../../public/css/member.css";
+import "../../../public/css/userlist.css";
+import "../../../public/css/date-range-picker.css";
+import "../../../public/css/report-outlined-fields.css";
+import "../../../public/css/transaction.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 import MemberMiniGrid, { MemberMiniGridTotals } from "./MemberMiniGrid.jsx";
 import MemberLinkedFilterModal from "./MemberLinkedFilterModal.jsx";
 import { MINI_GRID_SHELL_CCY, computeTableTotals } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
+
+const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
 
 function dmy(date) {
   const d = String(date.getDate()).padStart(2, "0");
@@ -18,12 +26,16 @@ function dmy(date) {
   return `${d}/${m}/${y}`;
 }
 
-function parseDmy(value) {
-  const s = String(value || "").trim();
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  const dt = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-  return Number.isNaN(dt.getTime()) ? null : dt;
+function parseDmyToYmd(dmy) {
+  const match = String(dmy || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return "";
+  return `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}`;
+}
+
+function formatDmyFromYmd(ymd) {
+  const [y, mo, d] = (ymd || "").split("-");
+  if (!y || !mo || !d) return "";
+  return `${d}/${mo}/${y}`;
 }
 
 function readCookie(name) {
@@ -54,6 +66,8 @@ const AVATAR_MAP = {
 
 export default function MemberPage() {
   const navigate = useNavigate();
+  const lang = useLoginLang();
+  const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -67,14 +81,8 @@ export default function MemberPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [showQuickSelect, setShowQuickSelect] = useState(false);
-  const [quickRangeLabel, setQuickRangeLabel] = useState("Period");
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const avatarContainerRef = useRef(null);
-  const quickSelectRef = useRef(null);
-  const dateRangeInputRef = useRef(null);
-  const flatpickrRef = useRef(null);
-  const lastRangeRef = useRef({ from: "", to: "" });
 
   const showNotification = useCallback((message, type = "info") => {
     if (!message) return;
@@ -122,6 +130,19 @@ export default function MemberPage() {
     onCurrencyToggle,
     formatPaymentHistoryMoney,
   } = useMemberWinLoss({ showNotification });
+
+  const periodPresets = useMemo(
+    () => QUICK_RANGE_KEYS.map((key) => ({ key, label: m[key] || key })),
+    [m],
+  );
+
+  const handleDateRangeChange = useCallback(
+    (start, end) => {
+      setDateFrom(formatDmyFromYmd(start));
+      setDateTo(formatDmyFromYmd(end));
+    },
+    [setDateFrom, setDateTo],
+  );
 
   const today = useMemo(() => new Date(), []);
   const monday = useMemo(() => {
@@ -178,66 +199,23 @@ export default function MemberPage() {
   }, [navigate, monday, today, initSession]);
 
   useEffect(() => {
-    if (loading || !me || !dateFrom || !dateTo) return;
-    let cancelled = false;
-    (async () => {
-      await injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css");
-      if (cancelled) return;
-      const inputEl = dateRangeInputRef.current;
-      const fromDate = parseDmy(dateFrom);
-      const toDate = parseDmy(dateTo);
-      if (inputEl && fromDate && toDate) {
-        flatpickrRef.current = flatpickr(inputEl, {
-          mode: "range",
-          dateFormat: "d/m/Y",
-          defaultDate: [fromDate, toDate],
-          onChange: (dates) => {
-            if (dates.length === 2) {
-              setDateFrom(dmy(dates[0]));
-              setDateTo(dmy(dates[1]));
-            }
-          },
-          onClose: (dates) => {
-            // Keep legacy behavior: single picked day becomes from/to same day.
-            if (dates.length === 1) {
-              const single = dmy(dates[0]);
-              setDateFrom(single);
-              setDateTo(single);
-              if (flatpickrRef.current) flatpickrRef.current.setDate([dates[0], dates[0]], false);
-            }
-          },
-        });
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (flatpickrRef.current && typeof flatpickrRef.current.destroy === "function") {
-        flatpickrRef.current.destroy();
-        flatpickrRef.current = null;
-      }
-    };
-  }, [loading, me]);
+    injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css").catch(() => {});
+  }, []);
 
   useEffect(() => {
-    const fp = flatpickrRef.current;
-    if (!fp || !dateFrom || !dateTo) return;
-    const last = lastRangeRef.current;
-    if (last.from === dateFrom && last.to === dateTo) return;
-    const fromDate = parseDmy(dateFrom);
-    const toDate = parseDmy(dateTo);
-    if (fromDate && toDate) {
-      fp.setDate([fromDate, toDate], false);
-      lastRangeRef.current = { from: dateFrom, to: dateTo };
-    }
-  }, [dateFrom, dateTo]);
+    if (loading || !me) return;
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: m.selectDateRange,
+      selectEndDateHint: m.selectEndDate,
+      monthLabels: m.monthsShort,
+    });
+  }, [loading, me, m]);
 
   useEffect(() => {
     const onClickOutside = (e) => {
       if (avatarContainerRef.current && !avatarContainerRef.current.contains(e.target)) {
         setShowAvatarOptions(false);
-      }
-      if (quickSelectRef.current && !quickSelectRef.current.contains(e.target)) {
-        setShowQuickSelect(false);
       }
     };
     document.addEventListener("click", onClickOutside);
@@ -253,65 +231,6 @@ export default function MemberPage() {
     } catch {
       // ignore
     }
-  };
-
-  const applyQuickRange = (range) => {
-    const now = new Date();
-    let start = new Date(now);
-    let end = new Date(now);
-    switch (range) {
-      case "today":
-        break;
-      case "yesterday":
-        start.setDate(start.getDate() - 1);
-        end = new Date(start);
-        break;
-      case "thisWeek": {
-        const dow = now.getDay();
-        const toMon = dow === 0 ? 6 : dow - 1;
-        start.setDate(start.getDate() - toMon);
-        break;
-      }
-      case "lastWeek": {
-        const dow = now.getDay();
-        const toSun = dow === 0 ? 0 : dow;
-        end.setDate(end.getDate() - toSun - 1);
-        start = new Date(end);
-        start.setDate(start.getDate() - 6);
-        break;
-      }
-      case "thisMonth":
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case "lastMonth":
-        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        end = new Date(now.getFullYear(), now.getMonth(), 0);
-        break;
-      case "thisYear":
-        start = new Date(now.getFullYear(), 0, 1);
-        break;
-      case "lastYear":
-        start = new Date(now.getFullYear() - 1, 0, 1);
-        end = new Date(now.getFullYear() - 1, 11, 31);
-        break;
-      default:
-        return;
-    }
-    const labelMap = {
-      today: "Today",
-      yesterday: "Yesterday",
-      thisWeek: "This Week",
-      lastWeek: "Last Week",
-      thisMonth: "This Month",
-      lastMonth: "Last Month",
-      thisYear: "This Year",
-      lastYear: "Last Year",
-    };
-    setQuickRangeLabel(labelMap[range] || "Period");
-    setDateFrom(dmy(start));
-    setDateTo(dmy(end));
-    if (flatpickrRef.current) flatpickrRef.current.setDate([start, end], true);
-    setShowQuickSelect(false);
   };
 
   const toggleNotifications = async () => {
@@ -423,143 +342,150 @@ export default function MemberPage() {
           <div className="transaction-search-section member-dash-unified-bar">
             <div className={`member-dash-columns${showMiniRail ? "" : " member-dash-columns--no-mini-rail"}`}>
               <div className="member-dash-col member-dash-col-filters">
-            <div className="transaction-form-group transaction-capture-date-group">
-              <label className="transaction-label transaction-date-range-label">Capture Date</label>
-              <div className="transaction-capture-date-row">
-                <div className="transaction-date-range-wrap" id="capture_date_range_wrap">
-                  <i className="fas fa-calendar-alt" aria-hidden="true" />
-                  <input ref={dateRangeInputRef} type="text" id="capture_date_range" className="transaction-input transaction-date-range-input" defaultValue={`${dateFrom} - ${dateTo}`} placeholder="Select date range" readOnly style={{ cursor: "pointer" }} />
-                </div>
-                <div className="transaction-quick-select-wrap">
-                  <div className="dropdown transaction-quick-select-dropdown" ref={quickSelectRef}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary dropdown-toggle transaction-quick-select-btn"
-                      onClick={() => setShowQuickSelect((prev) => !prev)}
-                    >
-                      <i className="fas fa-calendar-alt" />
-                      <span id="quick-select-text">{quickRangeLabel}</span>
-                      <i className="fas fa-chevron-down" />
-                    </button>
-                    <div className={`dropdown-menu${showQuickSelect ? " show" : ""}`} id="quick-select-dropdown">
-                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("today")}>Today</button>
-                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("yesterday")}>Yesterday</button>
-                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("thisWeek")}>This Week</button>
-                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("lastWeek")}>Last Week</button>
-                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("thisMonth")}>This Month</button>
-                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("lastMonth")}>Last Month</button>
-                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("thisYear")}>This Year</button>
-                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("lastYear")}>Last Year</button>
+            <div className="member-winloss-date-field">
+              <ReportDatePicker
+                dateFrom={parseDmyToYmd(dateFrom || dmy(monday))}
+                dateTo={parseDmyToYmd(dateTo || dmy(today))}
+                onRangeChange={handleDateRangeChange}
+                containerClass="customer-report-filter-group"
+                label={m.dateRange}
+                placeholder={m.selectDateRange}
+                selectEndDateHint={m.selectEndDate}
+                outlinedFloatingLabel
+                captureDateStyle
+                periodPresets={periodPresets}
+                periodShortcutsAria={m.period}
+                monthLabels={m.monthsShort}
+                weekdaysShort={m.weekdaysShort}
+              />
+            </div>
+            <div className="user-gc-inline-panel member-winloss-gc-panel" id="member_gc_filter_panel">
+              {companies.length > 1 && (
+                <div className="user-gc-inline-row" id="member_company_filter">
+                  <span className="user-gc-inline-label">Company:</span>
+                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="member_company_buttons">
+                    <div className="user-gc-segment-group" role="group" aria-label="Company">
+                      {companies.map((company) => (
+                        <button
+                          key={company.id}
+                          type="button"
+                          className={`user-gc-segment${Number(company.company_id) === Number(companyId) ? " is-on" : ""}`}
+                          onClick={() => switchCompany(company.company_id, company.company_code)}
+                        >
+                          {String(company.company_code || "").toUpperCase()}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
-              </div>
-              <input type="hidden" id="date_from" value={dateFrom} readOnly />
-              <input type="hidden" id="date_to" value={dateTo} readOnly />
-            </div>
-            {companies.length > 1 && (
-              <div className="member-company-filter" id="member_company_filter" style={{ display: "flex", visibility: "visible" }}>
-                <span className="transaction-company-label">Company:</span>
-                <div id="member_company_buttons" className="transaction-company-buttons member-currency-buttons">
-                  {companies.map((company) => (
-                    <button key={company.id} type="button" className={`transaction-company-btn ${Number(company.company_id) === Number(companyId) ? "active" : ""}`} onClick={() => switchCompany(company.company_id, company.company_code)}>
-                      {String(company.company_code || "").toUpperCase()}
-                    </button>
-                  ))}
+              )}
+              {linkedAccounts.length > 1 && (
+                <div className="user-gc-inline-row" id="member_account_filter">
+                  <span className="user-gc-inline-label">Account:</span>
+                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="member_account_buttons">
+                    <div className="user-gc-segment-group" role="group" aria-label="Account">
+                      {linkedAccounts.map((acc) => (
+                        <button
+                          key={acc.id}
+                          type="button"
+                          className={`user-gc-segment${Number(acc.id) === Number(viewAccountId) ? " is-on" : ""}`}
+                          onClick={() => switchAccount(acc.id, acc.account_id, acc.name)}
+                        >
+                          {String(acc.account_id || acc.name || acc.id)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
-            <div className="member-account-filter transaction-company-filter" id="member_account_filter" style={{ display: linkedAccounts.length > 1 ? "flex" : "none" }}>
-              <span className="transaction-company-label">Account:</span>
-              <div id="member_account_buttons" className="transaction-company-buttons member-currency-buttons">
-                {linkedAccounts.map((acc) => (
-                  <button key={acc.id} type="button" className={`transaction-company-btn ${Number(acc.id) === Number(viewAccountId) ? "active" : ""}`} onClick={() => switchAccount(acc.id, acc.account_id, acc.name)}>
-                    {String(acc.account_id || acc.name || acc.id)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="transaction-company-filter member-currency-filter" id="member_currency_filter" style={{ display: "flex", visibility: "visible" }}>
-              <span className="transaction-company-label">Currency:</span>
-              <div id="member_currency_buttons" className="transaction-company-buttons member-currency-buttons">
-                {(availableCurrencies.length === 0 || availableCurrencies.length > 1) && (
-                  <button
-                    type="button"
-                    className={`transaction-company-btn member-currency-all ${isAllSelected ? "active" : ""}`}
-                    onClick={onCurrencyAll}
-                  >
-                    All
-                  </button>
-                )}
-                {availableCurrencies.map((code, index) => (
-                  <button
-                    key={code}
-                    type="button"
-                    draggable
-                    onDragStart={(e) => e.dataTransfer.setData("text/plain", code)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const dragged = e.dataTransfer.getData("text/plain");
-                      if (!dragged || dragged === code) return;
-                      const from = availableCurrencies.indexOf(dragged);
-                      const to = index;
-                      if (from < 0 || to < 0) return;
-                      const next = [...availableCurrencies];
-                      const [moved] = next.splice(from, 1);
-                      next.splice(to, 0, moved);
-                      persistCurrencyOrder(next);
-                    }}
-                    className={`transaction-company-btn ${selectedCurrencies.includes(code) ? "active" : ""}`}
-                    onClick={() => onCurrencyToggle(code)}
-                  >
-                    {code}
-                  </button>
-                ))}
+              )}
+              <div className="user-gc-inline-row" id="member_currency_filter">
+                <span className="user-gc-inline-label">Currency:</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll" id="member_currency_buttons">
+                  <div className="user-gc-segment-group" role="group" aria-label="Currency">
+                    {(availableCurrencies.length === 0 || availableCurrencies.length > 1) && (
+                      <button
+                        type="button"
+                        className={`user-gc-segment${isAllSelected ? " is-on" : ""}`}
+                        onClick={onCurrencyAll}
+                      >
+                        All
+                      </button>
+                    )}
+                    {availableCurrencies.map((code, index) => (
+                      <button
+                        key={code}
+                        type="button"
+                        draggable
+                        data-currency={code}
+                        className={`user-gc-segment user-gc-segment--draggable-pill${selectedCurrencies.includes(code) ? " is-on" : ""}`}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", code);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const dragged = e.dataTransfer.getData("text/plain");
+                          if (!dragged || dragged === code) return;
+                          const from = availableCurrencies.indexOf(dragged);
+                          const to = index;
+                          if (from < 0 || to < 0) return;
+                          const next = [...availableCurrencies];
+                          const [moved] = next.splice(from, 1);
+                          next.splice(to, 0, moved);
+                          persistCurrencyOrder(next);
+                        }}
+                        onClick={() => onCurrencyToggle(code)}
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
               </div>
               {showMiniRail && (
                 <div className="member-dash-right-rail" aria-hidden="false">
-                  <div className="member-dash-rail-toolbar">
-                    <div className="member-dash-mini-toolbar">
-                      {linkedAccounts.length > 0 && (
-                        <button
-                          type="button"
-                          className="member-dash-filter-trigger"
-                          id="member_linked_filter_btn"
-                          title="Choose which linked accounts appear in the grid"
-                          onClick={() => setShowLinkedFilterModal(true)}
-                        >
-                          <i className="fas fa-filter" aria-hidden="true" />
-                          <span>Accounts</span>
-                        </button>
-                      )}
-                      <span className="member-dash-grid-curr" id="member_balance_grid_currency_line" />
+                  <div className="member-dash-rail-stack">
+                    {linkedAccounts.length > 0 && (
+                      <div className="member-dash-rail-toolbar">
+                        <div className="member-dash-mini-toolbar">
+                          <button
+                            type="button"
+                            className="member-dash-filter-trigger"
+                            id="member_linked_filter_btn"
+                            title="Choose which linked accounts appear in the grid"
+                            onClick={() => setShowLinkedFilterModal(true)}
+                          >
+                            <i className="fas fa-filter" aria-hidden="true" />
+                            <span>Accounts</span>
+                          </button>
+                          <span className="member-dash-grid-curr" id="member_balance_grid_currency_line" />
+                        </div>
+                      </div>
+                    )}
+                    <div className="member-dash-rail-matrix">
+                      <MemberMiniGrid
+                        shellMode={miniGridShell}
+                        currencies={miniGridShell ? MINI_GRID_SHELL_CCY : miniGridCurrencies}
+                        accounts={miniGridAccounts}
+                        balanceMap={miniGridBalances}
+                        hint={miniGridHint}
+                        linkedCurrenciesLoaded={linkedCurrenciesLoaded}
+                        linkedAccountCurrenciesMap={linkedAccountCurrenciesMap}
+                      />
                     </div>
                   </div>
-                  <div className="member-dash-rail-matrix member-dash-col member-dash-col-grid member-dash-col-split">
-                    <MemberMiniGrid
-                      shellMode={miniGridShell}
-                      currencies={miniGridShell ? MINI_GRID_SHELL_CCY : miniGridCurrencies}
-                      accounts={miniGridAccounts}
-                      balanceMap={miniGridBalances}
-                      hint={miniGridHint}
-                      linkedCurrenciesLoaded={linkedCurrenciesLoaded}
-                      linkedAccountCurrenciesMap={linkedAccountCurrenciesMap}
-                    />
-                  </div>
-                  <div className="member-dash-rail-total member-dash-col member-dash-col-total-col member-dash-col-split">
-                    <div className="member-dash-total-column-stack">
-                      <div className="member-dash-total-matrix" role="region" aria-label="Balance totals">
-                        <div className="member-dash-total-matrix-hd">Total</div>
-                        <div className="member-dash-total-matrix-body">
-                          <div id="member_balance_total_value" className="member-dash-total-values" aria-live="polite">
-                            <MemberMiniGridTotals
-                              currencyOrder={miniGridShell ? MINI_GRID_SHELL_CCY : miniGridCurrencies}
-                              totalsByCu={miniGridTotals}
-                            />
-                          </div>
+                  <div className="member-dash-rail-total">
+                    <div className="member-dash-total-matrix" role="region" aria-label="Balance totals">
+                      <div className="member-dash-total-matrix-hd">Total</div>
+                      <div className="member-dash-total-matrix-body">
+                        <div id="member_balance_total_value" className="member-dash-total-values" aria-live="polite">
+                          <MemberMiniGridTotals
+                            currencyOrder={miniGridShell ? MINI_GRID_SHELL_CCY : miniGridCurrencies}
+                            totalsByCu={miniGridTotals}
+                          />
                         </div>
                       </div>
                     </div>
@@ -568,7 +494,6 @@ export default function MemberPage() {
               )}
             </div>
           </div>
-        </div>
         <div className="member-currency-section" id="member_currency_tables_section" style={{ display: "flex", visibility: "visible" }}>
           <div id="member_currency_tables" className="member-currency-tables">
             {loadingTable ? (
@@ -652,6 +577,7 @@ export default function MemberPage() {
             </div>
           ))}
         </div>
+      </div>
       </div>
 
       <div className={`notification-overlay ${showNotifications ? "show" : ""}`} onClick={toggleNotifications} />

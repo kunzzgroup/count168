@@ -57,6 +57,21 @@ export default function LoginPage() {
   const roleFromUrl = searchParams.get("role") === "member" ? "member" : "admin";
 
   const [role, setRole] = useState(roleFromUrl);
+
+  const setLoginRole = useCallback(
+    (nextRole) => {
+      setRole(nextRole);
+      const next = new URLSearchParams(searchParams);
+      if (nextRole === "member") {
+        next.set("role", "member");
+      } else {
+        next.delete("role");
+      }
+      const qs = next.toString();
+      navigate(qs ? `/login?${qs}` : "/login", { replace: true });
+    },
+    [navigate, searchParams],
+  );
   const [companyId, setCompanyId] = useState("");
   const [userField, setUserField] = useState("");
   const [password, setPassword] = useState("");
@@ -253,7 +268,7 @@ export default function LoginPage() {
 
         // Smooth routing: do not follow legacy "dashboard.php -> member" chain.
         if (loginRole === "member" || userType === "member") {
-          window.location.assign(new URL("/member", `${window.location.origin}/`).toString());
+          navigate("/member", { replace: true });
           return;
         }
 
@@ -315,7 +330,7 @@ export default function LoginPage() {
               id="admin-tab"
               type="button"
               className={`sc-login-role-tab${role === "admin" ? " active" : ""}`}
-              onClick={() => setRole("admin")}
+              onClick={() => setLoginRole("admin")}
             >
               {i18n.admin}
             </button>
@@ -323,7 +338,7 @@ export default function LoginPage() {
               id="member-tab"
               type="button"
               className={`sc-login-role-tab${role === "member" ? " active" : ""}`}
-              onClick={() => setRole("member")}
+              onClick={() => setLoginRole("member")}
             >
               {i18n.member}
             </button>
