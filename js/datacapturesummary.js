@@ -15959,6 +15959,12 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         }
 
         const templates = result.templates || {};
+        const subsByParentFromApi = (result.subsByParent && typeof result.subsByParent === 'object')
+            ? result.subsByParent
+            : null;
+        if (result.diagnostics) {
+            console.info('[Summary] templates API diagnostics', result.diagnostics);
+        }
         // 跨 template key 全局去重，防止同一 sub 模板在多个分组下重复套用
         if (typeof window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__ === 'function') {
             window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__();
@@ -16114,44 +16120,43 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         }
                     });
 
-                    // Sub 只套用一次：按 parent_id_product + row_index 归属到对应 main
-                    let anySubsApplied = false;
-                    let allSubs = template.subs && Array.isArray(template.subs) ? template.subs : [];
-                    if (allSubs.length > 0 && typeof window.__SUMMARY_FILTER_SUBS_FOR_PARENT__ === 'function') {
-                        allSubs = window.__SUMMARY_FILTER_SUBS_FOR_PARENT__(allSubs, originalIdProduct);
-                    }
-                    if (allSubs.length > 0) {
-                        if (typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
-                            anySubsApplied = window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(originalIdProduct, allSubs);
-                        } else {
-                            sortedTemplates.forEach((mainTemplate) => {
-                                const ctx = mainRowByTemplate.get(mainTemplate);
-                                if (!ctx) return;
-                                const subsForThisMain = filterSubTemplatesForMainTemplate(allSubs, mainTemplate, sortedTemplates, ctx.mainIdProduct);
-                                if (subsForThisMain.length > 0) {
-                                    applySubTemplatesToSummaryRow(ctx.mainIdProduct, ctx.mainRow, subsForThisMain);
-                                    anySubsApplied = true;
-                                }
-                            });
+                    // Sub 行改由 API subsByParent 在 main 套用完成后统一处理（避免每个 template key 重复套用）
+                    if (!subsByParentFromApi) {
+                        let anySubsApplied = false;
+                        let allSubs = template.subs && Array.isArray(template.subs) ? template.subs : [];
+                        if (allSubs.length > 0 && typeof window.__SUMMARY_FILTER_SUBS_FOR_PARENT__ === 'function') {
+                            allSubs = window.__SUMMARY_FILTER_SUBS_FOR_PARENT__(allSubs, originalIdProduct);
                         }
-                    }
-                    // Fallback: when we have subs but none were applied (e.g. main row was deleted), only apply subs to a row whose main id_product **exactly** matches the sub's parent (e.g. GAMS(SV)HKD), never to another id_product (e.g. GAMS(SV)MYR), otherwise sub 会跑去和别的 id_product mix
-                    if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                        const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
-                        if (firstRow) {
-                            const idProductCell = firstRow.querySelector('td:first-child');
-                            const productValues = getProductValuesFromCell(idProductCell);
-                            const rowMainId = (productValues.main || '').trim();
-                            // 必须整串一致才套用：避免 GAMS(SV)HKD 的 sub 被套到 GAMS(SV)MYR 行（normalize 后都是 GAMS）
-                            const rowIsExactParent = rowMainId === (originalIdProduct || '').trim();
-                            if (rowIsExactParent) {
-                                const mainNorm = normalizedIdProduct;
-                                const subsToApply = template.subs.filter(sub => {
-                                    const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
-                                    return mainNorm && normalizeIdProductText(subParentNorm) === mainNorm;
+                        if (allSubs.length > 0) {
+                            if (typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
+                                anySubsApplied = window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(originalIdProduct, allSubs);
+                            } else {
+                                sortedTemplates.forEach((mainTemplate) => {
+                                    const ctx = mainRowByTemplate.get(mainTemplate);
+                                    if (!ctx) return;
+                                    const subsForThisMain = filterSubTemplatesForMainTemplate(allSubs, mainTemplate, sortedTemplates, ctx.mainIdProduct);
+                                    if (subsForThisMain.length > 0) {
+                                        applySubTemplatesToSummaryRow(ctx.mainIdProduct, ctx.mainRow, subsForThisMain);
+                                        anySubsApplied = true;
+                                    }
                                 });
-                                if (subsToApply.length > 0) {
-                                    applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                            }
+                        }
+                        if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
+                            const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
+                            if (firstRow) {
+                                const idProductCell = firstRow.querySelector('td:first-child');
+                                const productValues = getProductValuesFromCell(idProductCell);
+                                const rowMainId = (productValues.main || '').trim();
+                                const rowIsExactParent = rowMainId === (originalIdProduct || '').trim();
+                                if (rowIsExactParent) {
+                                    const subsToApply = template.subs.filter(sub => {
+                                        const subParentRaw = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
+                                        return subParentRaw === (originalIdProduct || '').trim();
+                                    });
+                                    if (subsToApply.length > 0) {
+                                        applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                                    }
                                 }
                             }
                         }
@@ -16164,7 +16169,17 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             }
         });
 
-        // Maintenance - Formula 删除数据后：无 template 的行不显示 formula，避免 Summary 仍显示已删公式
+        // 按精确 parent_id_product 一次性套用所有 sub（API 已去重，每 parent 每 account 仅一条）
+        if (subsByParentFromApi && typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
+            Object.keys(subsByParentFromApi).forEach((parentIdProduct) => {
+                const subsForParent = subsByParentFromApi[parentIdProduct];
+                if (Array.isArray(subsForParent) && subsForParent.length > 0) {
+                    window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(parentIdProduct, subsForParent);
+                }
+            });
+        }
+
+        // Maintenance - Formula 删除数据后：无 template 的行不显示 formula，避免 Summary 仍显示已删 formula
         if (summaryTableBody) {
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
             allSummaryRows.forEach((summaryRow) => {

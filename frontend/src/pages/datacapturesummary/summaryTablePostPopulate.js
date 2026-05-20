@@ -75,16 +75,6 @@ export async function runSummaryTablePostPopulate(idProducts) {
       });
     }
     await window.autoPopulateSummaryRowsFromTemplates(idProducts);
-    if (window.currentProcessHadTemplates !== true) {
-      await new Promise((resolve) => window.setTimeout(resolve, 120));
-      if (typeof window.__SUMMARY_STRIP_SUB_ROWS__ === "function") {
-        window.__SUMMARY_STRIP_SUB_ROWS__();
-        await new Promise((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(resolve));
-        });
-      }
-      await window.autoPopulateSummaryRowsFromTemplates(idProducts);
-    }
   } catch (error) {
     console.error("Auto-populate templates error:", error);
     try {
