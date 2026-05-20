@@ -15614,6 +15614,112 @@ function findSummaryRowByIdProduct(idProduct, ctx = null) {
     return null;
 }
 
+/** 旧版 inheritFormulasToSubAccounts 误写入 allMains 的项（id 为 mainId_subAccId） */
+function isInheritedAccountLinkMainTemplate(mainTemplate) {
+    if (!mainTemplate) return false;
+    if (mainTemplate.inherited_from_account_link === true) return true;
+    const tid = mainTemplate.id;
+    if (tid == null || tid === '') return false;
+    const s = String(tid);
+    return /^inherit_\d+_\d+$/i.test(s) || /^\d+_\d+$/.test(s);
+}
+
+function summarySubTemplateFingerprint(sub, parentExact) {
+    const parent = (sub?.parent_id_product || parentExact || '').trim();
+    const accountId = sub?.account_id != null ? String(sub.account_id) : '';
+    const subOrder = sub?.sub_order != null && sub?.sub_order !== '' ? String(Number(sub.sub_order)) : '0';
+    const variant = sub?.formula_variant != null ? String(sub.formula_variant) : '1';
+    return `${parent}|${accountId}|${subOrder}|${variant}`;
+}
+
+function summaryCollectMainRowsForParent(parentIdProduct) {
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) return [];
+    const parentTrimmed = (parentIdProduct || '').trim();
+    if (!parentTrimmed) return [];
+    const mains = [];
+    Array.from(summaryTableBody.querySelectorAll('tr')).forEach((row, domIndex) => {
+        if ((row.getAttribute('data-product-type') || 'main') !== 'main') return;
+        const idProductCell = row.querySelector('td:first-child');
+        const productValues = getProductValuesFromCell(idProductCell);
+        const mainRaw = (productValues.main || idProductCell?.textContent || '').trim();
+        if (mainRaw !== parentTrimmed) return;
+        const rowIndexAttr = row.getAttribute('data-row-index');
+        const rowIndex = rowIndexAttr != null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))
+            ? Number(rowIndexAttr) : domIndex;
+        mains.push({ row, rowIndex, mainRaw });
+    });
+    return mains;
+}
+
+function summaryFindMainRowForSubTemplate(parentIdProduct, subTemplate) {
+    const parentExact = (subTemplate?.parent_id_product || parentIdProduct || '').trim();
+    if (!parentExact) return null;
+    let mains = summaryCollectMainRowsForParent(parentExact);
+    if (mains.length === 0) return null;
+    if (mains.length === 1) return mains[0].row;
+    const sortedMains = [...mains].sort((a, b) => a.rowIndex - b.rowIndex);
+    const subRowIndex = subTemplate?.row_index != null && subTemplate?.row_index !== ''
+        ? Number(subTemplate.row_index) : null;
+    if (subRowIndex != null && !Number.isNaN(subRowIndex)) {
+        for (let i = 0; i < sortedMains.length; i++) {
+            const mainRowIndex = sortedMains[i].rowIndex;
+            const nextMainRowIndex = i < sortedMains.length - 1 ? sortedMains[i + 1].rowIndex : Number.POSITIVE_INFINITY;
+            if (subRowIndex >= mainRowIndex && subRowIndex < nextMainRowIndex) {
+                return sortedMains[i].row;
+            }
+        }
+    }
+    return sortedMains[0].row;
+}
+
+function applySubsForIdProductGroup(idProduct, subTemplates) {
+    if (!Array.isArray(subTemplates) || subTemplates.length === 0) return false;
+    const parentExact = (idProduct || '').trim();
+    const scopedSubs = subTemplates.filter((sub) => {
+        const subParentRaw = (sub?.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
+        return Boolean(parentExact && subParentRaw && subParentRaw === parentExact);
+    });
+    if (scopedSubs.length === 0) return false;
+    if (!window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__) {
+        window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__ = new Set();
+    }
+    const appliedTemplateIds = window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__;
+    const subsByMainRow = new Map();
+    scopedSubs.forEach((sub) => {
+        if (!sub) return;
+        const logicalKey = summarySubTemplateFingerprint(sub, parentExact);
+        if (appliedTemplateIds.has(`fp:${logicalKey}`)) return;
+        const templateId = sub.id != null ? String(sub.id) : null;
+        if (templateId && appliedTemplateIds.has(`id:${templateId}`)) return;
+        const mainRow = summaryFindMainRowForSubTemplate(parentExact, sub);
+        if (!mainRow) return;
+        const parentRowIndexAttr = mainRow.getAttribute('data-row-index');
+        const parentRowIndex = parentRowIndexAttr != null && parentRowIndexAttr !== '' && !Number.isNaN(Number(parentRowIndexAttr))
+            ? Number(parentRowIndexAttr) : 'na';
+        const scopedKey = `acc:${parentRowIndex}:${logicalKey}`;
+        if (appliedTemplateIds.has(scopedKey)) return;
+        if (!subsByMainRow.has(mainRow)) subsByMainRow.set(mainRow, []);
+        subsByMainRow.get(mainRow).push(sub);
+        appliedTemplateIds.add(`fp:${logicalKey}`);
+        appliedTemplateIds.add(scopedKey);
+        if (templateId) appliedTemplateIds.add(`id:${templateId}`);
+    });
+    if (subsByMainRow.size === 0) return false;
+    subsByMainRow.forEach((subs, mainRow) => {
+        const idCell = mainRow.querySelector('td:first-child');
+        const pv = getProductValuesFromCell(idCell);
+        const mainIdProduct = (pv.main || parentExact || idProduct || '').trim();
+        applySubTemplatesToSummaryRow(mainIdProduct, mainRow, subs);
+    });
+    return true;
+}
+
+window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ = applySubsForIdProductGroup;
+window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__ = function () {
+    window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__ = new Set();
+};
+
 async function autoPopulateSummaryRowsFromTemplates(idProducts) {
     try {
         if (!Array.isArray(idProducts)) {
@@ -15673,6 +15779,17 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         }
 
         const templates = result.templates || {};
+        const subsByParentFromApi = (result.subsByParent && typeof result.subsByParent === 'object')
+            ? result.subsByParent
+            : null;
+        if (result.diagnostics) {
+            console.info('[Summary] templates API diagnostics', result.diagnostics);
+        }
+        if (typeof window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__ === 'function') {
+            window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__();
+        } else {
+            window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__ = new Set();
+        }
         // 仅当当前 process 在 Maintenance 有模板时才允许恢复刷新缓存，避免「全新 process」显示上次误恢复留下的 formula
         window.currentProcessHadTemplates = (typeof templates === 'object' && templates !== null && Object.keys(templates).length > 0);
 
@@ -15803,54 +15920,45 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         // 不再因「多账号单行」而跳过：始终套用模板，单行由 applyMainTemplateToRow 按 account_id/row_index 匹配其中一个模板，确保有储存的 formula 能套上且不丢失。
                     }
                     // Sort templates by row_index to apply them in the correct order
-                    const sortedTemplates = [...template.allMains].sort((a, b) => {
+                    const sortedTemplates = [...template.allMains]
+                        .filter((m) => !isInheritedAccountLinkMainTemplate(m))
+                        .sort((a, b) => {
                         const aIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
                         const bIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
                         return aIndex - bIndex;
                     });
 
-                    // Apply each main template to its corresponding row based on account_id and row_index
-                    // Use mainTemplate.id_product so we find the correct row when multiple mains (e.g. "ABC (AAA)", "ABC (TTT)")
-                    let anySubsApplied = false;
+                    const mainRowByTemplate = new Map();
                     sortedTemplates.forEach((mainTemplate, accountOrderIndex) => {
                         const mainIdProduct = mainTemplate.id_product || originalIdProduct;
                         const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate, accountOrderIndex);
-                        // Apply subs whose parent matches this main row. Exact match (after stripping leading "N " from DB) or when only one main, allow normalized match.
-                        if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                            const mainTrimmed = (mainIdProduct || '').trim();
-                            const mainNorm = normalizeIdProductText(mainTrimmed);
-                            const onlyOneMain = sortedTemplates.length === 1;
-                            const subsForThisMain = template.subs.filter(sub => {
-                                const subParentRaw = (sub.parent_id_product || '').trim();
-                                const subParentNorm = subParentRaw.replace(/^\d+\s+/, '').trim(); // strip leading "1 " from DB
-                                const subParentBare = normalizeIdProductText(subParentNorm);
-                                const exactMatch = (subParentRaw === mainTrimmed) || (subParentNorm === mainTrimmed);
-                                const normalizedMatch = onlyOneMain && mainNorm && subParentBare === mainNorm;
-                                return exactMatch || normalizedMatch;
-                            });
-                            if (subsForThisMain.length > 0) {
-                                applySubTemplatesToSummaryRow(mainIdProduct, mainRow, subsForThisMain);
-                                anySubsApplied = true;
-                            }
+                        if (mainRow) {
+                            mainRowByTemplate.set(mainTemplate, { mainRow, mainIdProduct });
                         }
                     });
-                    // Fallback: when we have subs but none were applied (e.g. main row was deleted), only apply subs to a row whose main id_product **exactly** matches the sub's parent (e.g. GAMS(SV)HKD), never to another id_product (e.g. GAMS(SV)MYR), otherwise sub 会跑去和别的 id_product mix
-                    if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                        const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
-                        if (firstRow) {
-                            const idProductCell = firstRow.querySelector('td:first-child');
-                            const productValues = getProductValuesFromCell(idProductCell);
-                            const rowMainId = (productValues.main || '').trim();
-                            // 必须整串一致才套用：避免 GAMS(SV)HKD 的 sub 被套到 GAMS(SV)MYR 行（normalize 后都是 GAMS）
-                            const rowIsExactParent = rowMainId === (originalIdProduct || '').trim();
-                            if (rowIsExactParent) {
-                                const mainNorm = normalizedIdProduct;
-                                const subsToApply = template.subs.filter(sub => {
-                                    const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
-                                    return mainNorm && normalizeIdProductText(subParentNorm) === mainNorm;
-                                });
-                                if (subsToApply.length > 0) {
-                                    applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+
+                    // Sub 行改由 API subsByParent 在 main 套用完成后统一处理（避免每个 template key 重复套用）
+                    if (!subsByParentFromApi) {
+                        let anySubsApplied = false;
+                        let allSubs = template.subs && Array.isArray(template.subs) ? template.subs : [];
+                        if (allSubs.length > 0 && typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
+                            anySubsApplied = window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(originalIdProduct, allSubs);
+                        }
+                        if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
+                            const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
+                            if (firstRow) {
+                                const idProductCell = firstRow.querySelector('td:first-child');
+                                const productValues = getProductValuesFromCell(idProductCell);
+                                const rowMainId = (productValues.main || '').trim();
+                                const rowIsExactParent = rowMainId === (originalIdProduct || '').trim();
+                                if (rowIsExactParent) {
+                                    const subsToApply = template.subs.filter(sub => {
+                                        const subParentRaw = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
+                                        return subParentRaw === (originalIdProduct || '').trim();
+                                    });
+                                    if (subsToApply.length > 0) {
+                                        applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                                    }
                                 }
                             }
                         }
@@ -15862,6 +15970,16 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 }
             }
         });
+
+        // 按精确 parent_id_product 一次性套用所有 sub（API 已去重，每 parent 每 account 仅一条）
+        if (subsByParentFromApi && typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
+            Object.keys(subsByParentFromApi).forEach((parentIdProduct) => {
+                const subsForParent = subsByParentFromApi[parentIdProduct];
+                if (Array.isArray(subsForParent) && subsForParent.length > 0) {
+                    window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(parentIdProduct, subsForParent);
+                }
+            });
+        }
 
         // Maintenance - Formula 删除数据后：无 template 的行不显示 formula，避免 Summary 仍显示已删公式
         if (summaryTableBody) {
