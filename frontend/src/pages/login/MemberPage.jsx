@@ -1,11 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import flatpickr from "flatpickr";
-import "flatpickr/dist/flatpickr.min.css";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
-import "../../../public/css/member.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
+
+function loadScriptOnce(src, key) {
+  return new Promise((resolve, reject) => {
+    const marker = key || src;
+    const existing = document.querySelector(`script[data-member-script="${marker}"]`);
+    if (existing) return resolve();
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = false;
+    s.dataset.memberScript = marker;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.body.appendChild(s);
+  });
+}
 
 function dmy(date) {
   const d = String(date.getDate()).padStart(2, "0");
@@ -28,94 +40,30 @@ function formatMoney(v) {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function formatHistoryMoney(value) {
-  if (value === "-" || value === null || value === undefined) return "-";
-  const cleaned = String(value).replace(/,/g, "").trim();
-  if (cleaned === "" || cleaned === "-") return "0.00";
-  const exact2 = cleaned.match(/^(-?)(\d+)\.(\d{2})$/);
-  if (exact2) {
-    const neg = exact2[1] === "-" ? "-" : "";
-    const intWithSep = exact2[2].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    return `${neg}${intWithSep}.${exact2[3]}`;
-  }
-  return formatMoney(cleaned);
-}
-
-function parseMoneyToCents(value) {
-  if (value === "-" || value === null || value === undefined) return 0;
-  const cleaned = String(value).replace(/,/g, "").trim();
-  if (!cleaned || cleaned === "-") return 0;
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
-}
-
-function parseJsonResponse(text) {
-  const raw = String(text || "").trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const start = raw.indexOf("{");
-    if (start === -1) throw new Error("Invalid JSON response");
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-    let quote = "";
-    let end = -1;
-    for (let i = start; i < raw.length; i += 1) {
-      const ch = raw[i];
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (inString) {
-        if (ch === "\\") escaped = true;
-        else if (ch === quote) inString = false;
-        continue;
-      }
-      if (ch === '"' || ch === "'") {
-        inString = true;
-        quote = ch;
-        continue;
-      }
-      if (ch === "{") depth += 1;
-      if (ch === "}") {
-        depth -= 1;
-        if (depth === 0) {
-          end = i;
-          break;
-        }
-      }
-    }
-    if (end === -1) throw new Error("Invalid JSON response");
-    return JSON.parse(raw.slice(start, end + 1));
-  }
-}
-
 function readCookie(name) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : "";
 }
 
 const AVATAR_MAP = {
-  male1: assetUrl("images/avatar1.png"),
-  male2: assetUrl("images/avatar2.png"),
-  male3: assetUrl("images/avatar3.png"),
-  male4: assetUrl("images/avatar4.png"),
-  male5: assetUrl("images/avatar5.png"),
-  male6: assetUrl("images/avatar6.png"),
-  male7: assetUrl("images/avatar7.png"),
-  male8: assetUrl("images/avatar8.png"),
-  male9: assetUrl("images/avatar9.png"),
-  female1: assetUrl("images/female1.png"),
-  female2: assetUrl("images/female2.png"),
-  female3: assetUrl("images/female3.png"),
-  female4: assetUrl("images/female4.png"),
-  female5: assetUrl("images/female5.png"),
-  female6: assetUrl("images/female6.png"),
-  female7: assetUrl("images/female7.png"),
-  female8: assetUrl("images/female8.png"),
-  female9: assetUrl("images/female9.png"),
+  male1: "/images/avatar1.png",
+  male2: "/images/avatar2.png",
+  male3: "/images/avatar3.png",
+  male4: "/images/avatar4.png",
+  male5: "/images/avatar5.png",
+  male6: "/images/avatar6.png",
+  male7: "/images/avatar7.png",
+  male8: "/images/avatar8.png",
+  male9: "/images/avatar9.png",
+  female1: "/images/female1.png",
+  female2: "/images/female2.png",
+  female3: "/images/female3.png",
+  female4: "/images/female4.png",
+  female5: "/images/female5.png",
+  female6: "/images/female6.png",
+  female7: "/images/female7.png",
+  female8: "/images/female8.png",
+  female9: "/images/female9.png",
 };
 
 export default function MemberPage() {
@@ -125,9 +73,7 @@ export default function MemberPage() {
   const [companies, setCompanies] = useState([]);
   const [linkedAccounts, setLinkedAccounts] = useState([]);
   const [currencySummary, setCurrencySummary] = useState([]);
-  const [accountCurrencies, setAccountCurrencies] = useState([]);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
-  const [isAllSelected, setIsAllSelected] = useState(true);
   const [currencyOrder, setCurrencyOrder] = useState([]);
   const [historyRows, setHistoryRows] = useState([]);
   const [loadingTable, setLoadingTable] = useState(false);
@@ -140,22 +86,16 @@ export default function MemberPage() {
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
-  const [notifications, setNotifications] = useState([]);
   const [accountId, setAccountId] = useState(0);
   const [companyId, setCompanyId] = useState(0);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showQuickSelect, setShowQuickSelect] = useState(false);
-  const [quickRangeLabel, setQuickRangeLabel] = useState("Period");
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const avatarContainerRef = useRef(null);
   const quickSelectRef = useRef(null);
   const dateRangeInputRef = useRef(null);
   const flatpickrRef = useRef(null);
-  const lastRangeRef = useRef({ from: "", to: "" });
-  const summaryAbortRef = useRef(null);
-  const historyAbortRef = useRef(null);
-  const searchSeqRef = useRef(0);
 
   const today = useMemo(() => new Date(), []);
   const monday = useMemo(() => {
@@ -214,32 +154,26 @@ export default function MemberPage() {
   }, [navigate, monday, today]);
 
   useEffect(() => {
-    if (loading || !me || !dateFrom || !dateTo) return;
+    if (loading || !me) return;
     let cancelled = false;
     (async () => {
-      await injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css");
+      await Promise.all([
+        injectStylesheet(assetUrl("css/member.css")),
+        injectStylesheet("https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"),
+        injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
+      ]);
       if (cancelled) return;
+      await loadScriptOnce("https://cdn.jsdelivr.net/npm/flatpickr", "flatpickr-cdn");
       const inputEl = dateRangeInputRef.current;
-      const fromDate = parseDmy(dateFrom);
-      const toDate = parseDmy(dateTo);
-      if (inputEl && fromDate && toDate) {
-        flatpickrRef.current = flatpickr(inputEl, {
+      if (inputEl && window.flatpickr) {
+        flatpickrRef.current = window.flatpickr(inputEl, {
           mode: "range",
           dateFormat: "d/m/Y",
-          defaultDate: [fromDate, toDate],
+          defaultDate: [parseDmy(dateFrom), parseDmy(dateTo)],
           onChange: (dates) => {
             if (dates.length === 2) {
               setDateFrom(dmy(dates[0]));
               setDateTo(dmy(dates[1]));
-            }
-          },
-          onClose: (dates) => {
-            // Keep legacy behavior: single picked day becomes from/to same day.
-            if (dates.length === 1) {
-              const single = dmy(dates[0]);
-              setDateFrom(single);
-              setDateTo(single);
-              if (flatpickrRef.current) flatpickrRef.current.setDate([dates[0], dates[0]], false);
             }
           },
         });
@@ -249,23 +183,9 @@ export default function MemberPage() {
       cancelled = true;
       if (flatpickrRef.current && typeof flatpickrRef.current.destroy === "function") {
         flatpickrRef.current.destroy();
-        flatpickrRef.current = null;
       }
     };
-  }, [loading, me]);
-
-  useEffect(() => {
-    const fp = flatpickrRef.current;
-    if (!fp || !dateFrom || !dateTo) return;
-    const last = lastRangeRef.current;
-    if (last.from === dateFrom && last.to === dateTo) return;
-    const fromDate = parseDmy(dateFrom);
-    const toDate = parseDmy(dateTo);
-    if (fromDate && toDate) {
-      fp.setDate([fromDate, toDate], false);
-      lastRangeRef.current = { from: dateFrom, to: dateTo };
-    }
-  }, [dateFrom, dateTo]);
+  }, [loading, me, dateFrom, dateTo]);
 
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -301,36 +221,39 @@ export default function MemberPage() {
   }, [accountId, companyId]);
 
   useEffect(() => {
-    if (!accountId || !companyId) {
-      setAccountCurrencies([]);
-      return;
-    }
+    if (!accountId || !companyId || !dateFrom || !dateTo) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(
-          buildApiUrl(
-            `api/accounts/account_currency_api.php?action=get_account_currencies&account_id=${accountId}&company_id=${companyId}`,
-          ),
-          { credentials: "include", cache: "no-store" },
-        );
+        const params = new URLSearchParams({
+          date_from: dateFrom,
+          date_to: dateTo,
+          target_account_id: String(accountId),
+          company_id: String(companyId),
+          show_inactive: "1",
+          hide_zero_balance: "0",
+        });
+        const res = await fetch(buildApiUrl(`api/transactions/search_api.php?${params.toString()}`), { credentials: "include" });
         const json = await res.json();
+        if (!json?.success) throw new Error();
+        const rows = [...(json?.data?.left_table || []), ...(json?.data?.right_table || [])].filter(
+          (r) => Number(r.account_db_id) === Number(accountId),
+        );
         if (!cancelled) {
-          const linkedCodes = Array.isArray(json?.data)
-            ? json.data
-                .map((c) => String(c.currency_code || c.code || "").trim().toUpperCase())
-                .filter(Boolean)
-            : [];
-          setAccountCurrencies(linkedCodes);
+          setCurrencySummary(rows);
+          setSelectedCurrencies([...new Set(rows.map((r) => String(r.currency || "").trim()).filter(Boolean))]);
         }
       } catch {
-        if (!cancelled) setAccountCurrencies([]);
+        if (!cancelled) {
+          setCurrencySummary([]);
+          setSelectedCurrencies([]);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [accountId, companyId]);
+  }, [accountId, companyId, dateFrom, dateTo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -350,126 +273,55 @@ export default function MemberPage() {
     };
   }, []);
 
-  const showNotification = useCallback((message, type = "info") => {
-    if (!message) return;
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setNotifications((prev) => {
-      const next = [...prev, { id, message, type }];
-      return next.slice(-2);
-    });
-    window.setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, 2500);
-  }, []);
-
-  const performMemberSearch = useCallback(async () => {
-    if (!accountId || !companyId || !dateFrom || !dateTo) return;
-    searchSeqRef.current += 1;
-    const seq = searchSeqRef.current;
-
-    if (summaryAbortRef.current) summaryAbortRef.current.abort();
-    if (historyAbortRef.current) historyAbortRef.current.abort();
-    summaryAbortRef.current = new AbortController();
-    historyAbortRef.current = new AbortController();
-
-    setLoadingTable(true);
-    try {
-      const summaryParams = new URLSearchParams({
-        date_from: dateFrom,
-        date_to: dateTo,
-        target_account_id: String(accountId),
-        company_id: String(companyId),
-        show_inactive: "1",
-        hide_zero_balance: "0",
-      });
-      const summaryRes = await fetch(buildApiUrl(`api/transactions/search_api.php?${summaryParams.toString()}`), {
-        credentials: "include",
-        cache: "no-store",
-        signal: summaryAbortRef.current.signal,
-      });
-      const summaryText = await summaryRes.text();
-      const summaryJson = parseJsonResponse(summaryText);
-      if (!summaryJson?.success) throw new Error(summaryJson?.error || "Failed to load currency summary");
-
-      const rows = [...(summaryJson?.data?.left_table || []), ...(summaryJson?.data?.right_table || [])].filter(
-        (r) => Number(r.account_db_id) === Number(accountId)
-      );
-      if (seq !== searchSeqRef.current) return;
-      setCurrencySummary(rows);
-      setIsAllSelected(true);
-      setSelectedCurrencies([]);
-
-      const historyParams = new URLSearchParams({
-        account_id: String(accountId),
-        date_from: dateFrom,
-        date_to: dateTo,
-        company_id: String(companyId),
-      });
-      const historyRes = await fetch(buildApiUrl(`api/transactions/history_api.php?${historyParams.toString()}`), {
-        credentials: "include",
-        cache: "no-store",
-        signal: historyAbortRef.current.signal,
-      });
-      const historyText = await historyRes.text();
-      const historyJson = parseJsonResponse(historyText);
-      if (!historyJson?.success) throw new Error(historyJson?.error || "No data in the selected date range.");
-      if (seq !== searchSeqRef.current) return;
-      setHistoryRows(Array.isArray(historyJson?.data?.history) ? historyJson.data.history : []);
-      showNotification("Query completed", "success");
-    } catch (e) {
-      if (e?.name === "AbortError") return;
-      if (seq !== searchSeqRef.current) return;
-      setCurrencySummary([]);
-      setHistoryRows([]);
-      showNotification(e?.message || "Failed to load member data.", "error");
-    } finally {
-      if (seq === searchSeqRef.current) setLoadingTable(false);
-    }
-  }, [accountId, companyId, dateFrom, dateTo, showNotification]);
-
   useEffect(() => {
-    performMemberSearch();
+    if (!accountId || !companyId || !dateFrom || !dateTo) return;
+    let cancelled = false;
+    setLoadingTable(true);
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          account_id: String(accountId),
+          date_from: dateFrom,
+          date_to: dateTo,
+          company_id: String(companyId),
+        });
+        const res = await fetch(buildApiUrl(`api/transactions/history_api.php?${params.toString()}`), { credentials: "include" });
+        const json = await res.json();
+        if (!json?.success) throw new Error();
+        if (!cancelled) setHistoryRows(Array.isArray(json?.data?.history) ? json.data.history : []);
+      } catch {
+        if (!cancelled) setHistoryRows([]);
+      } finally {
+        if (!cancelled) setLoadingTable(false);
+      }
+    })();
     return () => {
-      if (summaryAbortRef.current) summaryAbortRef.current.abort();
-      if (historyAbortRef.current) historyAbortRef.current.abort();
+      cancelled = true;
     };
-  }, [performMemberSearch]);
+  }, [accountId, companyId, dateFrom, dateTo]);
 
   const availableCurrencies = useMemo(() => {
-    const accountCodes = accountCurrencies.map((c) => String(c || "").trim()).filter(Boolean);
-    const summaryCodes = currencySummary.map((r) => String(r.currency || "").trim()).filter(Boolean);
-    const historyCodes = historyRows.map((r) => String(r.currency || "").trim()).filter(Boolean);
-    const merged = [...new Set([...accountCodes, ...summaryCodes, ...historyCodes, ...currencyOrder.filter(Boolean)])];
-    if (!currencyOrder.length) return merged;
+    const codes = [...new Set(currencySummary.map((r) => String(r.currency || "").trim()).filter(Boolean))];
+    if (!currencyOrder.length) return codes;
     const orderSet = new Set(currencyOrder);
-    const ordered = currencyOrder.filter((c) => merged.includes(c));
-    const rest = merged.filter((c) => !orderSet.has(c));
+    const ordered = currencyOrder.filter((c) => codes.includes(c));
+    const rest = codes.filter((c) => !orderSet.has(c));
     return [...ordered, ...rest];
-  }, [accountCurrencies, currencySummary, historyRows, currencyOrder]);
-
-  useEffect(() => {
-    if (!availableCurrencies.length) {
-      setIsAllSelected(true);
-      setSelectedCurrencies([]);
-      return;
-    }
-    setSelectedCurrencies((prev) => prev.filter((code) => availableCurrencies.includes(code)));
-  }, [availableCurrencies]);
+  }, [currencySummary, currencyOrder]);
 
   const groupedRows = useMemo(() => {
+    const selected = new Set(selectedCurrencies);
     const map = new Map();
     for (const row of historyRows) {
       const c = String(row.currency || "-").trim() || "-";
+      if (selectedCurrencies.length > 0 && !selected.has(c)) continue;
       if (!map.has(c)) map.set(c, []);
       map.get(c).push(row);
     }
-    if (isAllSelected) {
-      const order = availableCurrencies.length > 0 ? availableCurrencies : Array.from(map.keys());
-      return order.map((c) => [c, map.get(c) || []]);
-    }
-    if (!selectedCurrencies.length) return [];
-    return selectedCurrencies.map((c) => [c, map.get(c) || []]);
-  }, [historyRows, isAllSelected, selectedCurrencies, availableCurrencies]);
+    return selectedCurrencies.length > 0
+      ? selectedCurrencies.map((c) => [c, map.get(c) || []])
+      : Array.from(map.entries());
+  }, [historyRows, selectedCurrencies]);
 
   const handleSelectAvatar = (avatarId) => {
     setSelectedAvatarId(avatarId);
@@ -524,17 +376,6 @@ export default function MemberPage() {
       default:
         return;
     }
-    const labelMap = {
-      today: "Today",
-      yesterday: "Yesterday",
-      thisWeek: "This Week",
-      lastWeek: "Last Week",
-      thisMonth: "This Month",
-      lastMonth: "Last Month",
-      thisYear: "This Year",
-      lastYear: "Last Year",
-    };
-    setQuickRangeLabel(labelMap[range] || "Period");
     setDateFrom(dmy(start));
     setDateTo(dmy(end));
     if (flatpickrRef.current) flatpickrRef.current.setDate([start, end], true);
@@ -565,15 +406,11 @@ export default function MemberPage() {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), { credentials: "include" });
       const json = await res.json();
       if (json?.success) {
-        if (typeof window.updateSidebarDataCaptureVisibility === "function" && json?.data) {
-          window.updateSidebarDataCaptureVisibility(json.data.has_gambling, json.data.has_bank);
-        }
         setCompanyId(Number(nextCompanyId));
         setMe((prev) => (prev ? { ...prev, company_id: Number(nextCompanyId) } : prev));
-        showNotification(`Switched to company ${nextCompanyId}`, "success");
       }
     } catch {
-      showNotification("Failed to switch company", "error");
+      // ignore
     }
   };
 
@@ -582,12 +419,9 @@ export default function MemberPage() {
     try {
       const res = await fetch(buildApiUrl(`api/session/update_account_session_api.php?account_id=${nextAccountId}`), { credentials: "include" });
       const json = await res.json();
-      if (json?.success) {
-        setAccountId(Number(json?.data?.account_id || nextAccountId));
-        showNotification(`Switched to account ${json?.data?.account_code || nextAccountId}`, "success");
-      }
+      if (json?.success) setAccountId(Number(json?.data?.account_id || nextAccountId));
     } catch {
-      showNotification("Failed to switch account", "error");
+      // ignore
     }
   };
 
@@ -602,12 +436,9 @@ export default function MemberPage() {
       const json = await res.json();
       if (json?.success) {
         setCurrencyOrder(Array.isArray(json?.data?.order) ? json.data.order : nextOrder);
-        setIsAllSelected(true);
-        setSelectedCurrencies([]);
-        showNotification("Currency order saved", "success");
       }
     } catch {
-      showNotification("Failed to save currency order", "error");
+      // ignore save failure
     }
   };
 
@@ -632,7 +463,7 @@ export default function MemberPage() {
       <div className="informationmenu">
         <div className="informationmenu-header">
           <div className="header-logo-section">
-            <img src={assetUrl("images/count_whitelogo.png")} alt="EAZYCOUNT Logo" className="header-logo" />
+            <img src="/images/count_whitelogo.png" alt="EAZYCOUNT Logo" className="header-logo" />
             <div className="notification-bell" title="Notifications" onClick={toggleNotifications}>
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
@@ -653,14 +484,14 @@ export default function MemberPage() {
                 <div className={`avatar-list ${selectedGender === "male" ? "show" : ""}`}>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <div key={`male-${num}`} className={`avatar-option ${selectedAvatarId === `male${num}` ? "selected" : ""}`} onClick={() => handleSelectAvatar(`male${num}`)}>
-                      <img src={assetUrl(`images/avatar${num}.png`)} alt={`Male Avatar ${num}`} className="avatar-option-img" />
+                      <img src={`/images/avatar${num}.png`} alt={`Male Avatar ${num}`} className="avatar-option-img" />
                     </div>
                   ))}
                 </div>
                 <div className={`avatar-list ${selectedGender === "female" ? "show" : ""}`}>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <div key={`female-${num}`} className={`avatar-option ${selectedAvatarId === `female${num}` ? "selected" : ""}`} onClick={() => handleSelectAvatar(`female${num}`)}>
-                      <img src={assetUrl(`images/female${num}.png`)} alt={`Female Avatar ${num}`} className="avatar-option-img" />
+                      <img src={`/images/female${num}.png`} alt={`Female Avatar ${num}`} className="avatar-option-img" />
                     </div>
                   ))}
                 </div>
@@ -697,6 +528,7 @@ export default function MemberPage() {
 
       <div className="transaction-container">
         <h1 className="transaction-title">Win/Loss</h1>
+        <div className="transaction-separator-line" />
         <div className="transaction-main-content">
           <div className="transaction-search-section" style={{ flex: 1 }}>
             <div className="transaction-form-group transaction-capture-date-group">
@@ -714,7 +546,7 @@ export default function MemberPage() {
                       onClick={() => setShowQuickSelect((prev) => !prev)}
                     >
                       <i className="fas fa-calendar-alt" />
-                      <span id="quick-select-text">{quickRangeLabel}</span>
+                      <span id="quick-select-text">Period</span>
                       <i className="fas fa-chevron-down" />
                     </button>
                     <div className={`dropdown-menu${showQuickSelect ? " show" : ""}`} id="quick-select-dropdown">
@@ -758,19 +590,6 @@ export default function MemberPage() {
             <div className="transaction-company-filter member-currency-filter" id="member_currency_filter" style={{ display: "flex", visibility: "visible" }}>
               <span className="transaction-company-label">Currency:</span>
               <div id="member_currency_buttons" className="transaction-company-buttons member-currency-buttons">
-                {availableCurrencies.length > 0 && (
-                  <button
-                    type="button"
-                    className={`transaction-company-btn member-currency-all ${isAllSelected ? "active" : ""}`}
-                    onClick={() => {
-                      if (isAllSelected) return;
-                      setIsAllSelected(true);
-                      setSelectedCurrencies([]);
-                    }}
-                  >
-                    All
-                  </button>
-                )}
                 {availableCurrencies.map((code, index) => (
                   <button
                     key={code}
@@ -792,10 +611,9 @@ export default function MemberPage() {
                       persistCurrencyOrder(next);
                     }}
                     className={`transaction-company-btn ${selectedCurrencies.includes(code) ? "active" : ""}`}
-                    onClick={() => {
-                      setIsAllSelected(false);
-                      setSelectedCurrencies((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
-                    }}
+                    onClick={() =>
+                      setSelectedCurrencies((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
+                    }
                   >
                     {code}
                   </button>
@@ -808,15 +626,13 @@ export default function MemberPage() {
           <div id="member_currency_tables" className="member-currency-tables">
             {loadingTable ? (
               <p className="member-currency-empty" style={{ margin: 0 }}>Loading...</p>
-            ) : groupedRows.length === 0 && !isAllSelected ? (
-              <p className="member-currency-empty" style={{ margin: 0 }}>Please select currency</p>
             ) : groupedRows.length === 0 ? (
               <p className="member-currency-empty" style={{ margin: 0 }}>No data in the selected date range.</p>
             ) : (
               groupedRows.map(([currency, rows]) => {
-                const totalWinLossCents = rows.reduce((sum, r) => sum + parseMoneyToCents(r.win_loss), 0);
-                const totalCrDrCents = rows.reduce((sum, r) => sum + parseMoneyToCents(r.cr_dr), 0);
-                const closingCents = rows.length ? parseMoneyToCents(rows[rows.length - 1].balance) : 0;
+                const totalWinLoss = rows.reduce((sum, r) => sum + Number(String(r.win_loss || 0).replace(/,/g, "")), 0);
+                const totalCrDr = rows.reduce((sum, r) => sum + Number(String(r.cr_dr || 0).replace(/,/g, "")), 0);
+                const closing = rows.length ? Number(String(rows[rows.length - 1].balance || 0).replace(/,/g, "")) : 0;
                 return (
                   <div className="member-currency-table-wrapper" key={currency}>
                     <h3 className="member-currency-table-title">{`Currency: ${currency}`}</h3>
@@ -844,11 +660,11 @@ export default function MemberPage() {
                               <td className="transaction-history-col-product">{row.is_bank_process_transaction ? row.card_owner || "-" : row.product || "-"}</td>
                               <td className="transaction-history-col-currency">{row.currency || "-"}</td>
                               <td className="transaction-history-col-rate">{row.rate || "-"}</td>
-                              <td className="transaction-history-col-winloss">{formatHistoryMoney(row.win_loss)}</td>
-                              <td className="transaction-history-col-crdr">{formatHistoryMoney(row.cr_dr)}</td>
-                              <td className="transaction-history-col-balance">{formatHistoryMoney(row.balance)}</td>
+                              <td className="transaction-history-col-winloss">{formatMoney(row.win_loss)}</td>
+                              <td className="transaction-history-col-crdr">{formatMoney(row.cr_dr)}</td>
+                              <td className="transaction-history-col-balance">{formatMoney(row.balance)}</td>
                               <td className="transaction-history-col-description">{row.description || "-"}</td>
-                              <td className="transaction-history-col-remark text-uppercase">{(row.remark || row.sms || "-").toUpperCase()}</td>
+                              <td className="transaction-history-col-remark text-uppercase">{row.remark || row.sms || "-"}</td>
                             </tr>
                           ))
                         )}
@@ -859,9 +675,9 @@ export default function MemberPage() {
                           <td className="transaction-history-col-product">-</td>
                           <td className="transaction-history-col-currency">-</td>
                           <td className="transaction-history-col-rate">-</td>
-                          <td className="transaction-history-col-winloss">{formatHistoryMoney((totalWinLossCents / 100).toFixed(2))}</td>
-                          <td className="transaction-history-col-crdr">{formatHistoryMoney((totalCrDrCents / 100).toFixed(2))}</td>
-                          <td className="transaction-history-col-balance">{formatHistoryMoney((closingCents / 100).toFixed(2))}</td>
+                          <td className="transaction-history-col-winloss">{formatMoney(totalWinLoss)}</td>
+                          <td className="transaction-history-col-crdr">{formatMoney(totalCrDr)}</td>
+                          <td className="transaction-history-col-balance">{formatMoney(closing)}</td>
                           <td className="transaction-history-col-description">-</td>
                           <td className="transaction-history-col-remark">-</td>
                         </tr>
@@ -873,22 +689,7 @@ export default function MemberPage() {
             )}
           </div>
         </div>
-        <div id="notificationContainer" className="transaction-notification-container">
-          {notifications.map((note) => (
-            <div
-              key={note.id}
-              className={`transaction-notification ${
-                note.type === "error"
-                  ? "transaction-notification-error"
-                  : note.type === "warning"
-                    ? "transaction-notification-warning"
-                    : "transaction-notification-success"
-              } show`}
-            >
-              {note.message}
-            </div>
-          ))}
-        </div>
+        <div id="notificationContainer" className="transaction-notification-container" />
       </div>
 
       <div className={`notification-overlay ${showNotifications ? "show" : ""}`} onClick={toggleNotifications} />

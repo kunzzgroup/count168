@@ -19,6 +19,8 @@ import { getRoleClass } from "./transactionPaymentLogic.js";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
+import { useLoginLang } from "../../utils/useLoginLang.js";
+import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/transactionTranslate.js";
 
 /** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
 const ROUTE_BODY_CLASSES_TO_CLEAR = [
@@ -40,6 +42,11 @@ const ROUTE_BODY_CLASSES_TO_CLEAR = [
 export default function TransactionPaymentPage() {
   const location = useLocation();
   const todayDmy = useMemo(() => formatDmy(new Date()), []);
+  
+  // Translation
+  const lang = useLoginLang();
+  const m = useMemo(() => TRANSACTION_I18N[lang] || TRANSACTION_I18N.en, [lang]);
+  const t = useCallback((key, params) => getTransactionText(lang, key, params), [lang]);
 
   // 1. UI State
   const ui = useTransactionUI();
@@ -62,6 +69,8 @@ export default function TransactionPaymentPage() {
     refreshContraInboxBadge: ui.refreshContraInboxBadge,
     filterSnapshot,
     accountOptions: data.accountOptions,
+    m,
+    t,
   });
 
   // 4. Search Logic
@@ -72,6 +81,8 @@ export default function TransactionPaymentPage() {
     txType: form.txType,
     currencyRowsOrdered,
     setCurrencyRowsOrdered: data.setCurrencyRowsOrdered,
+    m,
+    t,
   });
   formSearchRef.current = search.runSearch;
 
@@ -142,6 +153,12 @@ export default function TransactionPaymentPage() {
     return installTransactionExcelCopy();
   }, []);
 
+  useEffect(() => {
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      monthLabels: m.monthsShort,
+    });
+  }, [lang, m]);
+
   /** Hooks must run every render — never after `return null` / `Navigate` (React #310). */
   const singleCategoryFallbackRoleClass = useMemo(() => {
     const raw = search.selectedCategories || [];
@@ -157,6 +174,20 @@ export default function TransactionPaymentPage() {
       return false;
     }
   }, [location.search]);
+  
+  const periodPresets = useMemo(
+    () => [
+      ["today", m.today],
+      ["yesterday", m.yesterday],
+      ["thisWeek", m.thisWeek],
+      ["lastWeek", m.lastWeek],
+      ["thisMonth", m.thisMonth],
+      ["lastMonth", m.lastMonth],
+      ["thisYear", m.thisYear],
+      ["lastYear", m.lastYear],
+    ],
+    [m],
+  );
 
   const onSearch = useCallback(() => {
     search.runSearch({ silent: false });
@@ -179,6 +210,8 @@ export default function TransactionPaymentPage() {
         approveContra={(opts) => ui.onApproveContra(opts.transactionId, opts.companyId, search.runSearch)}
         rejectContra={(opts) => ui.onRejectContra(opts.transactionId, opts.companyId)}
         fsCompanyId={filterSnapshot?.companyId}
+        m={m}
+        t={t}
       />
 
       <main className="transaction-main">
@@ -194,9 +227,8 @@ export default function TransactionPaymentPage() {
               color: "#78350f",
               fontSize: 13,
             }}
-          >
-            已启用 <strong>底部 Summary Win/Loss 展示容差</strong>（<code style={{ background: "#fde68a", padding: "2px 6px", borderRadius: 4 }}>tx_wl_tol=1</code>）：合计 Win/Loss 绝对值不超过 <strong>RM1.00</strong> 时将显示 <strong>0.00</strong>，并重算该行 Balance；各账户列与 API 仍为真实轧差。
-          </div>
+            dangerouslySetInnerHTML={{ __html: m.toleranceBanner }}
+          />
         ) : null}
         <div className="transaction-main-content">
           <TransactionSearchSection
@@ -229,6 +261,8 @@ export default function TransactionPaymentPage() {
             onCurrencyDragStart={search.onCurrencyDragStart}
             onCurrencyDropOn={search.onCurrencyDropOn}
             toggleCurrencyBtn={search.toggleCurrencyBtn}
+            m={m}
+            t={t}
           />
 
           <TransactionAddSection
@@ -282,6 +316,8 @@ export default function TransactionPaymentPage() {
             rateMiddlemanRate={form.rateMiddlemanRate}
             setRateMiddlemanRate={form.setRateMiddlemanRate}
             rateMiddlemanAmount={form.rateMiddlemanAmount}
+            m={m}
+            t={t}
           />
         </div>
 
@@ -299,22 +335,15 @@ export default function TransactionPaymentPage() {
             })
           }
           handleBalanceCellClick={form.handleBalanceCellClick}
+          m={m}
+          t={t}
         />
       </main>
 
       {/* Same date logic as legacy page, with Transaction-specific range picker layout. */}
       <div className="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style={{ display: "none" }}>
         <div className="transaction-calendar-presets" aria-label="Period shortcuts">
-          {[
-            ["today", "Today"],
-            ["yesterday", "Yesterday"],
-            ["thisWeek", "This Week"],
-            ["lastWeek", "Last Week"],
-            ["thisMonth", "This Month"],
-            ["lastMonth", "Last Month"],
-            ["thisYear", "This Year"],
-            ["lastYear", "Last Year"],
-          ].map(([key, label]) => (
+          {periodPresets.map(([key, label]) => (
             <button
               key={key}
               type="button"
@@ -348,7 +377,7 @@ export default function TransactionPaymentPage() {
             </button>
           </div>
           <div className="calendar-weekdays">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+            {m.weekdaysShort.map((d) => (
               <div key={d} className="calendar-weekday">{d}</div>
             ))}
           </div>
@@ -361,6 +390,8 @@ export default function TransactionPaymentPage() {
         setHistory={ui.setHistory}
         histMoney={formatHistoryMoney}
         showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
+        m={m}
+        t={t}
       />
 
       <div id="notificationContainer" className="transaction-notification-container" aria-live="polite">

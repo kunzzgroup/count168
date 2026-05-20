@@ -22,7 +22,6 @@ import {
 } from "./captureMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
-import MaintenanceCalendarPopup from "../shared/MaintenanceCalendarPopup.jsx";
 
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
@@ -61,6 +60,8 @@ export default function CaptureMaintenancePage() {
   // -- Data State --
   const [processes, setProcesses] = useState([]);
   const [captureData, setCaptureData] = useState([]);
+  const [captureListEpoch, setCaptureListEpoch] = useState(0);
+  const [captureDataSourceCompanyId, setCaptureDataSourceCompanyId] = useState(null);
   const [loading, setLoading] = useState(false);
   /** 与 Report 页一致：非首次拉数时用细条 + 保留旧表，避免切换公司整表 Loading 卡顿感 */
   const [listSyncing, setListSyncing] = useState(false);
@@ -74,6 +75,9 @@ export default function CaptureMaintenancePage() {
 
   const captureSeqRef = useRef(0);
   const captureAbortRef = useRef(null);
+  const companyIdRef = useRef(null);
+  const captureDataRef = useRef(captureData);
+  captureDataRef.current = captureData;
   const initialCaptureSearchDoneRef = useRef(false);
   /** 切换公司已手动触发拉数时跳过 useEffect 里下一次重复请求，少等一轮渲染 */
   const suppressNextSearchEffectRef = useRef(false);
@@ -135,8 +139,6 @@ export default function CaptureMaintenancePage() {
       if (!cancelled) setCssReady(true);
     });
 
-    ensureMaintenanceDateRangePicker();
-
     return () => {
       cancelled = true;
       setCssReady(false);
@@ -161,30 +163,12 @@ export default function CaptureMaintenancePage() {
 
   useEffect(() => {
     if (bootLoading || !me || !cssReady) return;
-    if (!document.getElementById("date-range-picker")) return;
-    if (!window?.MaintenanceDateRangePicker?.init) return;
-
-    const timer = setTimeout(() => {
-      window.MaintenanceDateRangePicker.init({
-        onChange: () => {
-          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        },
-      });
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [bootLoading, me, cssReady]);
-
-  useEffect(() => {
-    if (bootLoading || !me || !cssReady) return;
     window.MaintenanceDateRangePicker?.setLocaleStrings?.({
       placeholder: t("selectDateRange"),
       selectEndDateHint: t("selectEndDate"),
+      monthLabels: m.monthsShort,
     });
-  }, [bootLoading, me, cssReady, lang, t]);
+  }, [bootLoading, me, cssReady, lang, t, m]);
 
   // -- Boot Logic --
   useEffect(() => {
@@ -309,6 +293,7 @@ export default function CaptureMaintenancePage() {
   const performSearch = useCallback(async (overrides = {}) => {
     const effectiveCompanyId = overrides.companyId ?? companyId;
     if (!effectiveCompanyId || !dateFrom || !dateTo) return;
+    const searchCompanyId = Number(effectiveCompanyId);
     captureAbortRef.current?.abort();
     const ac = new AbortController();
     captureAbortRef.current = ac;
@@ -332,7 +317,10 @@ export default function CaptureMaintenancePage() {
         { signal: ac.signal },
       );
       if (seq !== captureSeqRef.current) return;
+      if (searchCompanyId !== Number(companyIdRef.current)) return;
+      setCaptureListEpoch((e) => e + 1);
       setCaptureData(data);
+      setCaptureDataSourceCompanyId(searchCompanyId);
       if (!quietRefresh) {
         if (data.length > 0) {
           notify(t("foundRecords", { n: data.length }), "success");
@@ -342,8 +330,11 @@ export default function CaptureMaintenancePage() {
       }
     } catch (err) {
       if (err?.name === "AbortError" || seq !== captureSeqRef.current) return;
+      if (searchCompanyId !== Number(companyIdRef.current)) return;
       notify(err.message, "error");
+      setCaptureListEpoch((e) => e + 1);
       setCaptureData([]);
+      setCaptureDataSourceCompanyId(null);
     } finally {
       initialCaptureSearchDoneRef.current = true;
       if (seq === captureSeqRef.current) {
@@ -373,6 +364,10 @@ export default function CaptureMaintenancePage() {
     },
     [],
   );
+
+  useEffect(() => {
+    companyIdRef.current = companyId;
+  }, [companyId]);
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
@@ -452,14 +447,24 @@ export default function CaptureMaintenancePage() {
     );
   };
 
-  const toggleSelectAll = () => {
-    const selectable = captureData.filter(row => !(row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true));
-    if (selectedIds.length === selectable.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(selectable.map(row => row.capture_id));
-    }
-  };
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const selectable = captureDataRef.current.filter(
+        (row) => !(row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true),
+      );
+      if (prev.length === selectable.length && selectable.length > 0) return [];
+      return selectable.map((row) => row.capture_id);
+    });
+  }, []);
+
+  const selectableRowsCount = useMemo(
+    () =>
+      captureData.filter(
+        (row) => !(row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true),
+      ).length,
+    [captureData],
+  );
+  const selectAll = selectedIds.length > 0 && selectedIds.length === selectableRowsCount;
 
   const handleDeleteClick = () => {
     if (selectedIds.length === 0) {
@@ -497,10 +502,6 @@ export default function CaptureMaintenancePage() {
 
   if (bootLoading || !me || !cssReady) return null;
 
-  const selectableRows = captureData.filter(row => !(row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true));
-  const isAllSelected = selectableRows.length > 0 && selectedIds.length === selectableRows.length;
-  const isIndeterminate = selectedIds.length > 0 && selectedIds.length < selectableRows.length;
-
   return (
     <div className="container">
       <div className="maintenance-header">
@@ -532,6 +533,8 @@ export default function CaptureMaintenancePage() {
           setSelectedProcess={setSelectedProcess}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          setDateFrom={setDateFrom}
+          setDateTo={setDateTo}
           today={todayDmy}
           companyId={companyId}
           companies={companies}
@@ -552,14 +555,16 @@ export default function CaptureMaintenancePage() {
             </div>
           )}
           <CaptureMaintenanceTable
+            key={captureDataSourceCompanyId ?? companyId ?? "no-company"}
             data={captureData}
+            listEpoch={captureListEpoch}
+            rowKeyCompanyId={captureDataSourceCompanyId ?? companyId}
             loading={loading}
             listSyncing={listSyncing}
             selectedIds={selectedIds}
             toggleSelect={toggleSelect}
             toggleSelectAll={toggleSelectAll}
-            isAllSelected={isAllSelected}
-            isIndeterminate={isIndeterminate}
+            selectAll={selectAll}
             m={m}
           />
         </div>
@@ -578,12 +583,9 @@ export default function CaptureMaintenancePage() {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDeleteAction}
-        title={m.confirmDeleteTitle}
-        cancelText={m.cancel}
-        confirmText={m.delete}
-        message={t("deleteConfirmRecords", { count: selectedIds.length })}
+        count={selectedIds.length}
+        t={t}
       />
-      <MaintenanceCalendarPopup months={m.monthsShort} weekdays={m.weekdaysShort} />
     </div>
   );
 }

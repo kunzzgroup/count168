@@ -5,6 +5,7 @@ export default function ProcessSelect({
   selectedValue,
   onSelect,
   placeholder = "--Select All--",
+  unsetPlaceholder,
   searchPlaceholder = "Search process...",
   noResultsText = "No results found",
   ariaLabelledBy,
@@ -50,18 +51,22 @@ export default function ProcessSelect({
   };
 
   const handleSelect = (process) => {
-    const value = process.id != null ? String(process.process_name) : "";
+    const value =
+      process.id != null && process.process_name !== placeholder
+        ? String(process.process_name)
+        : "";
     onSelect(value);
     setIsOpen(false);
   };
 
   const getDisplayText = (value) => {
-    if (!value) return placeholder;
-    const p = processes.find(proc => String(proc.process_name) === value);
+    if (value === null || value === undefined) {
+      return unsetPlaceholder || placeholder;
+    }
+    if (value === "") return placeholder;
+    const p = processes.find((proc) => String(proc.process_name) === value);
     if (!p) return placeholder;
-    return p.description 
-      ? `${p.process_name} (${p.description})`
-      : p.process_name;
+    return p.description ? `${p.process_name} (${p.description})` : p.process_name;
   };
 
   const handleKeyDown = (e) => {
@@ -111,10 +116,14 @@ export default function ProcessSelect({
           <div className="custom-select-options">
             {displayProcesses.length > 0 ? (
               displayProcesses.map((p, index) => {
-                const value = p.id != null ? String(p.process_name) : "";
-                const text = p.id != null 
-                  ? (p.description ? `${p.process_name} (${p.description})` : p.process_name)
-                  : placeholder;
+                const value =
+                  p.id != null && p.process_name !== placeholder ? String(p.process_name) : "";
+                const text =
+                  p.process_name !== placeholder
+                    ? p.description
+                      ? `${p.process_name} (${p.description})`
+                      : p.process_name
+                    : placeholder;
                 
                 return (
                   <div 

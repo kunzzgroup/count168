@@ -1,6 +1,18 @@
 import React from "react";
 import BankSearchableAccountPick from "./BankSearchableAccountPick.jsx";
-import { parseProfitSharingToRows, parseBankContractTermMonths, contractBillingEndYmdForBankForm, bankProcessFrequencyNormalized } from "../bankProcessHelpers.js";
+import BankFormDateField from "./BankFormDateField.jsx";
+import {
+  parseProfitSharingToRows,
+  serializeProfitSharingRows,
+  parseBankContractTermMonths,
+  contractBillingEndYmdForBankForm,
+  bankProcessFrequencyNormalized,
+  BANK_PROCESS_CONTRACT_OPTIONS,
+  formatBankProcessContractLabel,
+  formatBankAccountDisplay,
+  formatBankMoneyFixed2,
+  sanitizeBankMoneyTyping,
+} from "../bankProcessHelpers.js";
 
 export default function BankProcessFormModal({
   editMode,
@@ -16,6 +28,7 @@ export default function BankProcessFormModal({
   onOpenProfitShareModal,
   onOpenBankFormNoteModal,
   onOpenAddAccountForField,
+  lang,
   t,
 }) {
   const hasDayEnd = !!String(form.day_end || "").trim();
@@ -23,6 +36,29 @@ export default function BankProcessFormModal({
   const contract = String(form.contract || "").trim();
   const frequency = bankProcessFrequencyNormalized(form.day_start_frequency);
   const isOnce = frequency === "once";
+  const profitSharingRows = parseProfitSharingToRows(form.profit_sharing, accounts);
+
+  const profitSharingDisplayLabel = (row) => {
+    const acc = accounts.find((a) => String(a.id) === String(row.accountId));
+    if (acc) return formatBankAccountDisplay(acc.account_id, acc.name, acc.id);
+    return row.accountLabel;
+  };
+
+  const blurMoneyField = (field) => (ev) => {
+    const raw = String(ev.target.value ?? "").trim();
+    if (!raw) {
+      setForm((prev) => (prev[field] === "" ? prev : { ...prev, [field]: "" }));
+      return;
+    }
+    const formatted = formatBankMoneyFixed2(raw, { emptyAsZero: false });
+    setForm((prev) => (prev[field] === formatted ? prev : { ...prev, [field]: formatted }));
+  };
+
+  const removeProfitSharingAt = (idx) => {
+    const next = profitSharingRows.filter((_, i) => i !== idx);
+    setForm((prev) => ({ ...prev, profit_sharing: serializeProfitSharingRows(next, accounts) }));
+  };
+
   let dayEndMin = dayStart || undefined;
   if (!isOnce && dayStart && contract) {
     const term = parseBankContractTermMonths(contract);
@@ -125,9 +161,10 @@ export default function BankProcessFormModal({
                         className="bank-input"
                         inputMode="decimal"
                         autoComplete="off"
-                        placeholder={t("enterAmount")}
+                        placeholder="0.00"
                         value={form.cost}
-                        onChange={(ev) => setForm((prev) => ({ ...prev, cost: ev.target.value }))}
+                        onChange={(ev) => setForm((prev) => ({ ...prev, cost: sanitizeBankMoneyTyping(ev.target.value) }))}
+                        onBlur={blurMoneyField("cost")}
                         required
                       />
                     </div>
@@ -190,9 +227,10 @@ export default function BankProcessFormModal({
                         className="bank-input"
                         inputMode="decimal"
                         autoComplete="off"
-                        placeholder={t("enterAmount")}
+                        placeholder="0.00"
                         value={form.price}
-                        onChange={(ev) => setForm((prev) => ({ ...prev, price: ev.target.value }))}
+                        onChange={(ev) => setForm((prev) => ({ ...prev, price: sanitizeBankMoneyTyping(ev.target.value) }))}
+                        onBlur={blurMoneyField("price")}
                         required
                       />
                     </div>
@@ -202,32 +240,27 @@ export default function BankProcessFormModal({
               <div className="bank-form-row">
                 <div className="bank-form-cell bank-form-cell-left">
                   <div className="form-row bank-day-start-row">
-                    <div className="form-group bank-day-start-input-wrap">
-                      <label htmlFor="bank_day_start">{t("dayStart")}</label>
-                      <input id="bank_day_start" name="day_start" type="date" className="bank-input" value={form.day_start} onChange={(ev) => setForm((prev) => ({ ...prev, day_start: ev.target.value }))} />
-                    </div>
-                    <div className="form-group bank-day-end-input-wrap" style={isOnce ? { opacity: 0.75 } : undefined}>
-                      <label htmlFor="bank_day_end">{t("dayEnd")}</label>
-                      <input
-                        id="bank_day_end"
-                        name="day_end"
-                        type="date"
-                        className="bank-input"
-                        min={isOnce ? undefined : dayEndMin}
-                        disabled={isOnce}
-                        title={isOnce ? t("dayEndNotUsedWhenOnce") : undefined}
-                        value={form.day_end}
-                        onChange={(ev) => {
-                          const v = ev.target.value;
-                          setForm((prev) => {
-                            const hasEnd = !!String(v).trim();
-                            let freq = bankProcessFrequencyNormalized(prev.day_start_frequency);
-                            if (hasEnd && freq !== "once") freq = "1st_of_every_month";
-                            return { ...prev, day_end: v, day_start_frequency: freq };
-                          });
-                        }}
-                      />
-                    </div>
+                    <BankFormDateField
+                      fieldKey="bank_day_start"
+                      htmlFor="bank_day_start"
+                      label={t("dayStart")}
+                      value={form.day_start}
+                      placeholder={t("pickDate")}
+                      clearLabel={t("clearDate")}
+                      wrapClassName="bank-day-start-input-wrap"
+                    />
+                    <BankFormDateField
+                      fieldKey="bank_day_end"
+                      htmlFor="bank_day_end"
+                      label={t("dayEnd")}
+                      value={form.day_end}
+                      disabled={isOnce}
+                      minYmd={isOnce ? undefined : dayEndMin}
+                      placeholder={t("pickDate")}
+                      clearLabel={t("clearDate")}
+                      wrapClassName="bank-day-end-input-wrap"
+                      className={isOnce ? "bank-day-end-input-wrap--muted" : ""}
+                    />
                   </div>
                 </div>
                 <div className="bank-form-cell bank-form-cell-right">
@@ -247,7 +280,20 @@ export default function BankProcessFormModal({
                     </div>
                     <div className="form-group">
                       <label htmlFor="bank_profit">{t("profit")}</label>
-                      <input id="bank_profit" name="profit" type="number" className="bank-input" placeholder={t("autoCalculated")} readOnly style={{ backgroundColor: "#f5f5f5" }} value={form.profit} />
+                      <input
+                        id="bank_profit"
+                        name="profit"
+                        type="text"
+                        className="bank-input bank-input--money"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        readOnly
+                        tabIndex={-1}
+                        aria-readonly="true"
+                        style={{ backgroundColor: "#f5f5f5", cursor: "not-allowed" }}
+                        value={form.profit ? formatBankMoneyFixed2(form.profit, { emptyAsZero: false }) : ""}
+                        onChange={() => {}}
+                      />
                     </div>
                   </div>
                 </div>
@@ -281,17 +327,37 @@ export default function BankProcessFormModal({
                   <div className="bank-profit-sharing-container form-group">
                     <div className="bank-profit-sharing-header">
                       <h3>{t("selectedProfitSharing")}</h3>
-                      <button type="button" className="bank-add-btn" title={t("addProfitSharing")} onClick={onOpenProfitShareModal}>+</button>
+                      <button
+                        type="button"
+                        className="bank-add-btn"
+                        title={t("addProfitSharing")}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={onOpenProfitShareModal}
+                      >
+                        +
+                      </button>
                     </div>
                     <div className="bank-profit-sharing-list" id="selectedProfitSharingList">
-                      {parseProfitSharingToRows(form.profit_sharing, accounts).length === 0 ? (
+                      {profitSharingRows.length === 0 ? (
                         <div className="no-profit-sharing"><p>{t("noProfitSharingSelected")}</p></div>
                       ) : (
-                        parseProfitSharingToRows(form.profit_sharing, accounts).map((row, idx) => (
-                          <div key={`${row.accountLabel}-${idx}`} className="bank-profit-sharing-item" style={{ padding: "6px 0", borderBottom: "1px solid #eee" }}>
-                            <span>{row.accountLabel}</span>
-                            {" — "}
-                            <span>{row.amount}</span>
+                        profitSharingRows.map((row, idx) => (
+                          <div key={`${row.accountId || row.accountLabel}-${idx}`} className="profit-sharing-item">
+                            <div className="ps-item-content">
+                              <span className="ps-account-name" title={profitSharingDisplayLabel(row)}>
+                                {profitSharingDisplayLabel(row)}
+                              </span>
+                              <span className="ps-amount-value">{formatBankMoneyFixed2(row.amount)}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="remove-profit-sharing-item"
+                              title={t("removeRow")}
+                              aria-label={t("removeRow")}
+                              onClick={() => removeProfitSharingAt(idx)}
+                            >
+                              ×
+                            </button>
                           </div>
                         ))
                       )}
@@ -312,13 +378,11 @@ export default function BankProcessFormModal({
                         disabled={isOnce}
                       >
                         <option value="">{t("contract")}</option>
-                        <option value="1 MONTH">1 MONTH</option>
-                        <option value="2 MONTHS">2 MONTHS</option>
-                        <option value="3 MONTHS">3 MONTHS</option>
-                        <option value="6 MONTHS">6 MONTHS</option>
-                        <option value="1+1">1+1 MONTH</option>
-                        <option value="1+2">1+2 MONTHS</option>
-                        <option value="1+3">1+3 MONTHS</option>
+                        {BANK_PROCESS_CONTRACT_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {formatBankProcessContractLabel(lang, opt.value)}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div className="form-group">

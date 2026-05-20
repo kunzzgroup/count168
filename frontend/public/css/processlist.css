@@ -56,14 +56,15 @@
     color: #900;
 }
 
-/* Country Selection Modal — dual column + footer (matches Add Process picker layout) */
+/* Country Selection Modal — dual column + footer (matches Bank Selection picker layout) */
+.process-page .modal-content.country-selection-modal,
 .modal-content.country-selection-modal {
     width: min(56.25rem, 94vw);
     max-width: 56.25rem;
     max-height: min(90vh, 640px);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: hidden !important;
     border-radius: 12px;
 }
 
@@ -106,8 +107,30 @@
     column-gap: 1.25rem;
     align-items: stretch;
     flex: 1 1 auto;
-    min-height: 280px;
+    min-height: 0;
+    height: min(52vh, 420px);
     max-height: min(52vh, 420px);
+}
+
+#countrySelectionModal .available-countries-section {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(160px, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-right: 1px solid #e8ecf1;
+    padding-right: 1rem;
+}
+
+#countrySelectionModal .selected-countries-section {
+    display: grid;
+    grid-template-rows: auto minmax(160px, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding-left: 0.25rem;
 }
 
 .available-countries-section {
@@ -199,6 +222,63 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
+#countrySelectionModal #existingCountries.country-list,
+#countrySelectionModal .country-list {
+    grid-row: 4;
+    align-self: stretch;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    padding: 6px 4px;
+    background: #fff;
+}
+
+#countrySelectionModal .selected-countries-list {
+    grid-row: 2;
+    align-self: stretch;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    padding: 10px;
+    background: #fff;
+}
+
+#countrySelectionModal #existingCountries.country-list::-webkit-scrollbar,
+#countrySelectionModal .selected-countries-list::-webkit-scrollbar {
+    width: 10px;
+}
+
+#countrySelectionModal #existingCountries.country-list::-webkit-scrollbar-thumb,
+#countrySelectionModal .selected-countries-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+    border: 2px solid #fff;
+}
+
+#countrySelectionModal #existingCountries.country-list::-webkit-scrollbar-track,
+#countrySelectionModal .selected-countries-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 6px;
+}
+
 .country-list {
     flex: 1 1 auto;
     min-height: 140px;
@@ -217,9 +297,6 @@
     border-radius: 8px;
     padding: 10px;
     background: #fff;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
 }
 
 .modal-content.country-selection-modal .country-item {
@@ -227,12 +304,23 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     padding: 8px 10px;
-    margin: 0 4px 4px;
+    margin: 0 0 4px;
     border-radius: 8px;
     cursor: pointer;
     border: 1px solid transparent;
     transition: background 0.15s, border-color 0.15s;
+}
+
+.modal-content.country-selection-modal .selected-countries-list .selected-country-modal-item {
+    margin: 0 0 8px;
+}
+
+.modal-content.country-selection-modal .selected-countries-list .selected-country-modal-item:last-child {
+    margin-bottom: 0;
 }
 
 .modal-content.country-selection-modal .country-item:last-child {
@@ -288,8 +376,8 @@
     display: block;
 }
 
-/* Bank picker reuses .country-item row pattern */
-.bank-list .country-item {
+/* Bank picker row pattern — scoped away from #bankSelectionModal (modal uses rules above) */
+.bank-list:not(#existingBanks) .country-item {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -300,26 +388,6 @@
     border-radius: 0;
     cursor: pointer;
     border: none;
-}
-
-.bank-list .country-item:last-child {
-    border-bottom: none;
-}
-
-.bank-list .country-item:hover {
-    background-color: #e9ecef;
-}
-
-.bank-list .country-item.selected {
-    background-color: #e3f2fd;
-}
-
-.bank-list .country-item .country-item-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-    min-height: 0;
 }
 
 .modal-content.country-selection-modal .country-item input[type="checkbox"] {
@@ -424,22 +492,53 @@
     justify-content: center;
 }
 
+.process-page #countrySelectionModal .country-selection-modal-footer .btn.btn-save,
+.process-page #countrySelectionModal .country-selection-modal-footer .btn.btn-cancel,
+#countrySelectionModal .country-selection-modal-footer .btn {
+    min-width: 88px !important;
+    width: auto !important;
+    max-width: 140px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 40px !important;
+    padding: 0 16px !important;
+    flex: 0 0 auto !important;
+    transform: none !important;
+}
+
+.process-page #countrySelectionModal .country-selection-add-btn.btn {
+    min-width: 0 !important;
+    width: auto !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    padding: 0 16px !important;
+    flex: 0 0 auto !important;
+}
+
 @media (max-width: 720px) {
     .country-selection-container {
         grid-template-columns: 1fr;
+        height: auto;
         max-height: none;
         row-gap: 1rem;
     }
 
-    .available-countries-section {
+    #countrySelectionModal .available-countries-section {
         border-right: none;
         padding-right: 0;
         border-bottom: 1px solid #e8ecf1;
         padding-bottom: 12px;
     }
 
-    .selected-countries-section {
+    #countrySelectionModal .selected-countries-section {
         padding-left: 0;
+    }
+
+    #countrySelectionModal #existingCountries.country-list,
+    #countrySelectionModal .selected-countries-list {
+        min-height: 200px !important;
+        height: 200px !important;
     }
 }
 
@@ -464,52 +563,117 @@
     display: inline !important;
 }
 
-/* Bank Selection Modal (layout: left = Add/Available, right = Selected) */
-.bank-selection-modal .modal-content {
+/* Bank Selection Modal — dual column + footer (matches Country Selection layout) */
+.process-page .modal-content.bank-selection-modal,
+.modal-content.bank-selection-modal {
+    width: min(56.25rem, 94vw);
     max-width: 56.25rem;
-    width: 90%;
+    max-height: min(90vh, 640px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+    border-radius: 12px;
+}
+
+.bank-selection-modal-header.modal-header {
+    flex: 0 0 auto;
+    position: relative;
+    padding: 14px 40px 12px 18px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.bank-selection-modal-header h2 {
+    margin: 0;
+    padding: 0;
+    font-size: var(--text-page-title, 1.25rem);
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-page-title, 700);
+    color: #0f172a;
+    letter-spacing: 0.02em;
+}
+
+.bank-selection-modal-header .close {
+    top: 10px;
+    right: 12px;
+}
+
+#bankSelectionModal .bank-selection-modal-body.modal-body {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 14px 18px 16px;
+    overflow: hidden;
 }
 
 .bank-selection-container {
-    display: flex;
-    gap: 0;
-    height: clamp(300px, 26.04vw, 500px);
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1.25rem;
+    align-items: stretch;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: min(52vh, 420px);
+    max-height: min(52vh, 420px);
+}
+
+#bankSelectionModal .available-banks-section {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(160px, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-right: 1px solid #e8ecf1;
+    padding-right: 1rem;
+}
+
+#bankSelectionModal .selected-banks-section {
+    display: grid;
+    grid-template-rows: auto minmax(160px, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding-left: 0.25rem;
 }
 
 .available-banks-section {
-    flex: 1;
-    border-right: 0.0625rem solid #e9ecef;
-    padding-right: clamp(10px, 1.04vw, 20px);
-    min-width: 20rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-right: 1px solid #e8ecf1;
+    padding-right: 1rem;
 }
 
 .selected-banks-section {
-    flex: 1;
-    padding-left: clamp(10px, 1.04vw, 20px);
-    min-width: 20rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-left: 0.25rem;
 }
 
 .available-banks-section h3,
 .selected-banks-section h3 {
-    margin-top: 0;
-    margin-bottom: clamp(6px, 0.52vw, 10px);
+    margin: 0 0 8px 0;
     color: #0f172a;
-    font-size: var(--text-medium);
+    font-size: var(--text-small, 13px);
     font-family: var(--font-heading-page);
     font-weight: 600;
 }
 
 .add-bank-bar {
-    margin-bottom: clamp(10px, 1.04vw, 20px);
-    padding-bottom: clamp(10px, 1.04vw, 20px);
-    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e8ecf1;
 }
 
 .add-bank-bar h3 {
-    margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
+    margin: 0 0 8px 0;
     color: #0f172a;
-    font-size: var(--text-medium);
+    font-size: var(--text-small, 13px);
     font-family: var(--font-heading-page);
     font-weight: 600;
 }
@@ -520,54 +684,266 @@
 
 .add-bank-input-group {
     display: flex;
-    gap: 0.5rem;
-    align-items: center;
+    gap: 8px;
+    align-items: stretch;
 }
 
 .add-bank-input-group input {
-    width: 100%;
-    padding: 0.625rem 0.875rem;
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
     border: 1px solid #dbe3ee;
-    border-radius: 0.52rem;
-    font-size: var(--text-small);
+    border-radius: 8px;
+    font-size: var(--text-small, 13px);
     font-family: var(--font-ui);
-    min-height: 2.55rem;
+    min-height: 40px;
     box-sizing: border-box;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
+.bank-selection-add-btn.btn {
+    flex-shrink: 0;
+    min-height: 40px;
+    height: 40px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: var(--text-small, 13px);
+}
+
 .bank-search {
-    margin-bottom: 0.9375rem;
+    margin-bottom: 10px;
 }
 
 .bank-search input {
     width: 100%;
-    padding: 0.625rem 0.875rem;
+    padding: 8px 12px;
     border: 1px solid #dbe3ee;
-    border-radius: 0.52rem;
-    font-size: var(--text-small);
+    border-radius: 8px;
+    font-size: var(--text-small, 13px);
     font-family: var(--font-ui);
-    min-height: 2.55rem;
+    min-height: 40px;
     box-sizing: border-box;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
+/* Grid 第 4 行：填满剩余高度并在内部滚动（勿用 height:auto，否则会被外层裁切且无滚动条） */
+#bankSelectionModal #existingBanks.bank-list,
+#bankSelectionModal .bank-list {
+    grid-row: 4;
+    align-self: stretch;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    padding: 6px 4px;
+    background: #fff;
+}
+
+#bankSelectionModal .selected-banks-list {
+    grid-row: 2;
+    align-self: stretch;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    padding: 10px;
+    background: #fff;
+}
+
+#bankSelectionModal #existingBanks.bank-list::-webkit-scrollbar,
+#bankSelectionModal .selected-banks-list::-webkit-scrollbar {
+    width: 10px;
+}
+
+#bankSelectionModal #existingBanks.bank-list::-webkit-scrollbar-thumb,
+#bankSelectionModal .selected-banks-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+    border: 2px solid #fff;
+}
+
+#bankSelectionModal #existingBanks.bank-list::-webkit-scrollbar-track,
+#bankSelectionModal .selected-banks-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 6px;
+}
+
 .bank-list {
-    max-height: 300px;
+    flex: 1 1 auto;
+    min-height: 140px;
     overflow-y: auto;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
-    padding: 0px 10px;
-    background-color: #f8f9fa;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    padding: 6px 4px;
+    background: #fff;
 }
 
 .selected-banks-list {
-    max-height: 18.75rem;
+    flex: 1 1 auto;
+    min-height: 140px;
     overflow-y: auto;
-    border: 0.0625rem solid #e9ecef;
-    border-radius: 0.25rem;
-    padding: 0.625rem;
-    background-color: #f8f9fa;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    padding: 10px;
+    background: #fff;
+}
+
+.modal-content.bank-selection-modal .bank-list .country-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    margin: 0 0 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.modal-content.bank-selection-modal .bank-list .country-item-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.modal-content.bank-selection-modal .bank-list .country-item-code {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.modal-content.bank-selection-modal .bank-list .country-list-delete,
+.modal-content.bank-selection-modal .bank-list .remove-country-modal {
+    flex-shrink: 0;
+}
+
+.modal-content.bank-selection-modal .selected-banks-list .selected-country-modal-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    margin: 0 0 6px;
+    background: #e8f4fd;
+    border: 1px solid #64b5f6;
+    border-radius: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+}
+
+.modal-content.bank-selection-modal .selected-banks-list .selected-country-modal-item:last-child {
+    margin-bottom: 0;
+}
+
+.modal-content.bank-selection-modal .selected-banks-list .selected-country-modal-item span {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-small, 13px);
+    font-weight: 600;
+    color: #1565c0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.modal-content.bank-selection-modal .selected-banks-list .no-countries {
+    padding: 1.5rem 12px;
+}
+
+.modal-content.bank-selection-modal .bank-list .country-item:last-child {
+    margin-bottom: 0;
+}
+
+.modal-content.bank-selection-modal .bank-list .country-item:hover {
+    background: #f1f5f9;
+}
+
+.modal-content.bank-selection-modal .bank-list .country-item.is-picked {
+    background: #e8f4fd;
+    border-color: #90caf9;
+}
+
+.bank-selection-modal-footer.modal-footer {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px 14px;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.process-page #bankSelectionModal .bank-selection-modal-footer .btn.btn-save,
+.process-page #bankSelectionModal .bank-selection-modal-footer .btn.btn-cancel,
+#bankSelectionModal .bank-selection-modal-footer .btn {
+    min-width: 88px !important;
+    width: auto !important;
+    max-width: 140px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 40px !important;
+    padding: 0 16px !important;
+    font-size: var(--text-small, 13px) !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+    transform: none !important;
+}
+
+.process-page #bankSelectionModal .bank-selection-add-btn.btn {
+    min-width: 0 !important;
+    width: auto !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    padding: 0 16px !important;
+    flex: 0 0 auto !important;
+}
+
+@media (max-width: 720px) {
+    .bank-selection-container {
+        grid-template-columns: 1fr;
+        max-height: none;
+        row-gap: 1rem;
+    }
+
+    .available-banks-section {
+        border-right: none;
+        padding-right: 0;
+        border-bottom: 1px solid #e8ecf1;
+        padding-bottom: 12px;
+    }
+
+    .selected-banks-section {
+        padding-left: 0;
+    }
 }
 
 .bank-item {
@@ -1092,9 +1468,12 @@
     font-family: var(--font-ui);
 }
 
-#addBankModal .bank-profit-sharing-item {
-    font-size: var(--text-small);
-    font-family: var(--font-ui);
+#addBankModal .bank-profit-sharing-list .profit-sharing-item {
+    margin-bottom: 8px;
+}
+
+#addBankModal .bank-profit-sharing-list .profit-sharing-item:last-child {
+    margin-bottom: 0;
 }
 
 /* Bank modal footer: same cancel/save typography as .process-page .btn-* */
@@ -1336,6 +1715,192 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
     width: 100%;
 }
 
+/* Add/Edit Bank Process — localized MaintenanceDateRangePicker (replaces native type="date") */
+#addBankModal .bank-form-datepicker-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+}
+
+#addBankModal .bank-form-datepicker-wrap .bank-form-datepicker-input {
+    width: 100%;
+    cursor: pointer;
+}
+
+#addBankModal .bank-form-datepicker-hitbox {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    opacity: 0;
+    cursor: pointer;
+    min-width: 0 !important;
+    width: 100% !important;
+    min-height: 100%;
+}
+
+#addBankModal .bank-form-datepicker-hitbox--disabled {
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+#addBankModal .bank-form-datepicker-wrap:focus-within .bank-form-datepicker-input {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+#addBankModal .bank-form-datepicker-sr-span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+#addBankModal .bank-form-datepicker-clear {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#addBankModal .bank-form-datepicker-clear:hover {
+    color: #475569;
+}
+
+body.process-page .calendar-popup-clear-wrap {
+    padding: 8px 10px 4px;
+    border-top: 1px solid rgba(226, 232, 240, 0.95);
+    justify-content: flex-end;
+    box-sizing: border-box;
+}
+
+body.process-page .calendar-popup--match-anchor .calendar-popup-clear-wrap {
+    padding: 6px 4px 2px;
+}
+
+body.process-page .calendar-popup-clear-btn {
+    border: 1px solid rgba(203, 213, 225, 0.95);
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+body.process-page .calendar-popup-clear-btn:hover:not(:disabled) {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #4338ca;
+}
+
+body.process-page .calendar-popup-clear-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+#addBankModal .bank-day-end-input-wrap--muted {
+    opacity: 0.75;
+}
+
+body.process-page .calendar-popup.calendar-popup--transaction-range {
+    display: none;
+    grid-template-columns: 1fr;
+    gap: 0;
+    width: clamp(280px, 20vw, 320px);
+    max-width: calc(100vw - 24px);
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(203, 213, 225, 0.9);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.16);
+}
+
+/* Bank Add/Edit Process：日历宽度与起始日/结束日输入框一致（宽度由 JS 写入 inline style） */
+body.process-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--match-anchor {
+    width: auto;
+    min-width: 0;
+    max-width: calc(100vw - 24px);
+    padding: 8px 6px 10px;
+    box-sizing: border-box;
+}
+
+body.process-page .calendar-popup--match-anchor .calendar-header {
+    max-width: none;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    column-gap: 2px;
+}
+
+body.process-page .calendar-popup--match-anchor .calendar-month-year {
+    min-height: 30px;
+    width: 100%;
+    max-width: 100%;
+}
+
+body.process-page .calendar-popup--match-anchor .calendar-month-year select {
+    min-height: 28px;
+    padding: 4px 2px;
+    font-size: clamp(10px, 0.72vw, 12px);
+}
+
+body.process-page .calendar-popup--match-anchor .calendar-weekdays,
+body.process-page .calendar-popup--match-anchor .calendar-days {
+    max-width: none;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+body.process-page .calendar-popup--match-anchor .calendar-weekday {
+    font-size: clamp(9px, 0.65vw, 11px);
+}
+
+body.process-page .calendar-popup--match-anchor .calendar-day {
+    min-height: 22px;
+    font-size: clamp(9px, 0.65vw, 11px);
+    border-radius: 5px;
+}
+
+body.process-page .calendar-popup.calendar-popup--transaction-range[style*="display: block"] {
+    display: grid !important;
+}
+
+body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets .transaction-calendar-panel,
+body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-header,
+body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-weekdays,
+body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-days {
+    max-width: none;
+    width: 100%;
+}
+
 .bank-form .bank-day-start-frequency-wrap {
     width: 100%;
     min-width: 160px;
@@ -1447,6 +2012,52 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
 
 .account-select-with-buttons .custom-select-wrapper {
     flex: 1;
+    min-width: 0;
+    width: 100%;
+}
+
+#addBankModal .account-select-with-buttons .custom-select-wrapper,
+#profitSharingModal .account-select-with-buttons .custom-select-wrapper {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+}
+
+.custom-select-dropdown.custom-select-dropdown-portal {
+    display: block !important;
+    box-sizing: border-box;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.52rem;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+    background: #ffffff;
+    overflow: hidden;
+}
+
+#addBankModal .custom-select-dropdown.custom-select-dropdown-portal,
+#profitSharingModal .custom-select-dropdown.custom-select-dropdown-portal {
+    font-family: var(--font-ui);
+}
+
+/* Portal 挂在 body 上，不在 #addBankModal 内，需单独指定字号 */
+body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-select-search input,
+.custom-select-dropdown.custom-select-dropdown-portal .custom-select-search input {
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
+}
+
+body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-select-option,
+.custom-select-dropdown.custom-select-dropdown-portal .custom-select-option {
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-select-no-results,
+.custom-select-dropdown.custom-select-dropdown-portal .custom-select-no-results {
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
 }
 
 /* Card Merchant / Customer select bar: match Add Process / Account modal */
@@ -1574,7 +2185,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
     padding: 6px 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
     box-sizing: border-box;
 }
 
@@ -1586,7 +2198,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
 .custom-select-option {
     padding: 8px 12px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
     border-bottom: 1px solid #f5f5f5;
 }
 
@@ -1607,7 +2220,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
     padding: 12px;
     text-align: center;
     color: #999;
-    font-size: 14px;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
 }
 
 /* Add Process 内 Copy From 下拉：框高不变，选项更紧凑以同屏显示更多条，文字不裁切 */
@@ -1719,6 +2333,11 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
     z-index: 20000;
 }
 
+/* Add Account 内操作（创建币种等）的 toast：高于 account-modal(20000) 与公司选择器(25000)，位置仍在右上 */
+.process-notification-container.process-notification-container--above-account-modal {
+    z-index: 26000;
+}
+
 /* modal-content 覆盖全局 88% 宽度：固定宽度填满弹窗，随行数增加高度自然增长 */
 #profitSharingModal .modal-content {
     width: min(640px, 92vw) !important;
@@ -1785,6 +2404,61 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
     margin-bottom: 15px;
     width: 100%;
     box-sizing: border-box;
+}
+
+/* Amount 与 Account 下拉同高：覆盖 process-page .form-group input 的较大 padding/字号 */
+#profitSharingModal .profit-sharing-row .form-group .bank-input.profit-sharing-amount {
+    width: 100%;
+    padding: 0.625rem 0.875rem !important;
+    border: 1px solid #dbe3ee !important;
+    border-radius: 0.52rem !important;
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
+    min-height: 3.3rem !important;
+    height: 3.3rem !important;
+    line-height: 1.4;
+    box-sizing: border-box;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    transform: none;
+}
+
+#profitSharingModal .profit-sharing-row .form-group .bank-input.profit-sharing-amount:focus {
+    outline: none;
+    border-color: #0D60FF !important;
+    box-shadow: 0 0 0 4px rgba(13, 96, 255, 0.08) !important;
+    transform: none;
+}
+
+#profitSharingModal .profit-sharing-amount::-webkit-outer-spin-button,
+#profitSharingModal .profit-sharing-amount::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#profitSharingModal .profit-sharing-amount {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* Amount 列与 Account 列同宽：右侧留与 + 按钮等宽的占位 */
+#profitSharingModal .profit-sharing-amount-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+#profitSharingModal .profit-sharing-amount-field .bank-input.profit-sharing-amount {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+}
+
+#profitSharingModal .profit-sharing-amount-spacer {
+    flex-shrink: 0;
+    width: clamp(22px, 1.45vw, 26px);
+    height: clamp(22px, 1.45vw, 26px);
 }
 
 #profitSharingModal .profit-sharing-modal-btn {
@@ -1924,9 +2598,11 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
 
 .bank-profit-sharing-header h3 {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
     color: #1e293b;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.015em;
 }
 
 .bank-add-ps-btn {
@@ -2027,19 +2703,28 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
 }
 
 .ps-account-name {
+    flex: 1;
+    min-width: 0;
     font-weight: 600;
     color: #334155;
-    font-size: 0.9rem;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .ps-amount-value {
-    font-family: 'Monaco', 'Consolas', monospace;
-    font-weight: 700;
+    flex-shrink: 0;
+    font-family: var(--font-ui);
+    font-weight: var(--font-weight-semibold);
     color: #2563eb;
-    font-size: 0.95rem;
+    font-size: var(--text-small);
+    font-variant-numeric: tabular-nums;
     background: #eff6ff;
-    padding: 2px 8px;
-    border-radius: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #bfdbfe;
 }
 
 .remove-profit-sharing-item {

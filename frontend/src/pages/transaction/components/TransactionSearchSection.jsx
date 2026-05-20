@@ -4,7 +4,7 @@ import { isCompanyVisibleForSharedFilter } from "../../../utils/sharedCompanyFil
 /** GroupID = ALL: show C168 first (same expectation as other owner tools). */
 function orderSnapCompaniesForAllGroup(companies) {
   const list = Array.isArray(companies) ? companies : [];
-  if (list.length === 0) return list;
+  if (list.length === 0) return [...list];
   const code = (c) => String(c.company_id || "").trim().toUpperCase();
   const i = list.findIndex((c) => code(c) === "C168");
   if (i <= 0) return [...list];
@@ -36,14 +36,16 @@ export default function TransactionSearchSection({
   onCurrencyDragStart,
   onCurrencyDropOn,
   toggleCurrencyBtn,
+  m,
+  t,
 }) {
   const hideGroupFilter = !fs.snapGroupIds?.length;
-  const displayFilterChips = [
-    { id: "show_name", key: "showName", label: "Show Name" },
-    { id: "show_capture_only", key: "showCaptureOnly", label: "Show Win/Loss Only" },
-    { id: "show_inactive", key: "showPaymentOnly", label: "Show Payment Only" },
-    { id: "show_zero_balance", key: "showZeroBalance", label: "Show 0 balance" },
-  ];
+  const displayFilterChips = useMemo(() => [
+    { id: "show_name", key: "showName", label: m.showName },
+    { id: "show_capture_only", key: "showCaptureOnly", label: m.showCaptureOnly },
+    { id: "show_inactive", key: "showPaymentOnly", label: m.showPaymentOnly },
+    { id: "show_zero_balance", key: "showZeroBalance", label: m.showZeroBalance },
+  ], [m]);
 
   const companiesForCompanyStrip = useMemo(() => {
     const list = fs.snapCompanies || [];
@@ -59,7 +61,7 @@ export default function TransactionSearchSection({
         >
           <div className={`report-outlined-shell${categoryOpen ? " report-outlined-shell--menu-open" : ""}`}>
             <span className="report-outlined-label" id="transaction-category-outlined-label">
-              Category
+              {m.category}
             </span>
             <div className="report-outlined-inner">
               <div id="filter_category" className="transaction-category-multiselect">
@@ -73,7 +75,7 @@ export default function TransactionSearchSection({
                   >
                     <div id="category_selected_tags" className="category-selected-tags">
                       {selectedCategories.length === 0 ? (
-                        <span className="category-placeholder">--Select All--</span>
+                        <span className="category-placeholder">{m.selectAllCategories}</span>
                       ) : (
                         selectedCategories.map((c) => (
                           <div key={c} className="category-tag" data-category-value={c}>
@@ -119,7 +121,7 @@ export default function TransactionSearchSection({
                           }
                           onChange={(e) => onCategoryAllChange(e.target.checked)}
                         />
-                        <span>--Select All--</span>
+                        <span>{m.selectAllCategories}</span>
                       </label>
                     </div>
                     <div id="category_options_container">
@@ -148,7 +150,7 @@ export default function TransactionSearchSection({
         <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
           <div className="report-outlined-shell">
             <span className="report-outlined-label report-outlined-label--txn-capture-date" id="transaction-capture-date-outlined-label">
-              Capture Date
+              {m.captureDate}
             </span>
             <div className="report-outlined-inner">
               <div className="transaction-date-range-group">
@@ -201,7 +203,7 @@ export default function TransactionSearchSection({
           <div className="user-gc-inline-panel">
             {fs.snapGroupIds.length > 0 && (
               <div id="group-buttons-wrapper" className="user-gc-inline-row">
-                <span className="user-gc-inline-label">GroupID:</span>
+                <span className="user-gc-inline-label">{m.groupId}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label="Group ID">
                     <button
@@ -210,7 +212,7 @@ export default function TransactionSearchSection({
                       data-group-filter="all"
                       onClick={() => onGroupFilterAllClick?.()}
                     >
-                      ALL
+                      {m.all}
                     </button>
                     {fs.snapGroupIds.map((gid) => (
                       <button
@@ -230,7 +232,7 @@ export default function TransactionSearchSection({
 
             {fs.snapCompanies.length > 0 && (
               <div id="company-buttons-wrapper" className="user-gc-inline-row">
-                <span className="user-gc-inline-label">Company:</span>
+                <span className="user-gc-inline-label">{m.company}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label="Company">
                     {companiesForCompanyStrip.map((comp) => {
@@ -265,7 +267,7 @@ export default function TransactionSearchSection({
 
             {currencyRowsOrdered.length > 0 && (
               <div id="currency-buttons-wrapper" className="user-gc-inline-row">
-                <span className="user-gc-inline-label">Currency:</span>
+                <span className="user-gc-inline-label">{m.currencyLabel}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div id="currency-buttons-container" className="user-gc-segment-group" role="group" aria-label="Currency">
                     <button
@@ -274,7 +276,7 @@ export default function TransactionSearchSection({
                       data-currency-code="ALL"
                       onClick={toggleAllCurrenciesBtn}
                     >
-                      All
+                      {m.all}
                     </button>
                     {currencyRowsOrdered.map((c) => {
                       const code = c.code;

@@ -29,7 +29,7 @@ import {
 // Components
 import UserModal from "./components/UserModal.jsx";
 import UserConfirmModal from "./components/UserConfirmModal.jsx";
-import { getUserListText } from "../../translateFile/userListTranslate.js";
+import { getUserListText, translateUserListApiMessage } from "../../translateFile/userListTranslate.js";
 
 function roleBadgeClass(role) {
   return `role-${String(role || "").toLowerCase().replace(/\s+/g, "-")}`;
@@ -139,6 +139,13 @@ export default function UserListPage() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 1800);
   }, []);
+
+  const notifyApi = useCallback(
+    (apiMessage, fallbackKey, type = "success", params = {}) => {
+      notify(translateUserListApiMessage(lang, apiMessage, fallbackKey, params), type);
+    },
+    [lang, notify],
+  );
 
   const currentUserId = me?.user_id ?? null;
   const currentUserRole = normRole(me?.role);
@@ -289,7 +296,7 @@ export default function UserListPage() {
       const json = await res.json();
       if (ac.signal.aborted) return;
       if (!res.ok || !json.success) {
-        notify(json.message || getUserListText(langRef.current, "failedToLoadUsers"), "danger");
+        notifyApi(json.message, "failedToLoadUsers", "danger");
         setUsersRaw([]);
         return;
       }
@@ -330,7 +337,7 @@ export default function UserListPage() {
       setSelectAllUsers(false);
     } catch (e) {
       if (ac.signal.aborted) return;
-      notify(getUserListText(langRef.current, "failedToLoadUsers"), "danger");
+      notifyApi(null, "failedToLoadUsers", "danger");
     } finally {
       if (!ac.signal.aborted) setTableLoading(false);
     }
@@ -395,7 +402,7 @@ export default function UserListPage() {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), { credentials: "include" });
       const json = await res.json();
       if (!json.success) {
-        notify(json.error || json.message || t("couldNotSwitchCompany"), "danger");
+        notifyApi(json.error || json.message, "couldNotSwitchCompany", "danger");
         setTableLoading(false);
         return;
       }
@@ -653,7 +660,7 @@ export default function UserListPage() {
       const fd = new FormData(); fd.append("id", String(row.id));
       const res = await fetch(buildApiUrl("api/users/toggle_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json(); const newStatus = json?.data?.newStatus || json?.newStatus;
-      if (!json.success || !newStatus) { notify(json.message || t("toggleFailed"), "danger"); return; }
+      if (!json.success || !newStatus) { notifyApi(json.message, "toggleFailed", "danger"); return; }
       setUsersRaw((prev) => prev.map((u) => (Number(u.id) === Number(row.id) ? { ...u, status: newStatus } : u))); notify(t("statusUpdated"), "success");
     } catch { notify(t("toggleFailed"), "danger"); }
   };
@@ -703,7 +710,7 @@ export default function UserListPage() {
     }
     try {
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(payload) });
-      const json = await res.json(); if (!json.success) { notify(json.message || t("saveFailed"), "danger"); return; }
+      const json = await res.json(); if (!json.success) { notifyApi(json.message, "saveFailed", "danger"); return; }
       if (isEditMode && form.id) {
         editUserDetailCacheRef.current.delete(String(form.id));
         setEditReadyIds((prev) => {
@@ -712,7 +719,7 @@ export default function UserListPage() {
           return next;
         });
       }
-      notify(json.message || t("saved"), "success"); closeModal();
+      notifyApi(json.message, "saved", "success"); closeModal();
       if (isEditMode && json.data?.will_lose_access) { setUsersRaw((prev) => prev.filter((u) => Number(u.id) !== Number(form.id))); }
       else if (json.data) { setUsersRaw((prev) => isEditMode ? prev.map((u) => (Number(u.id) === Number(json.data.id) ? { ...u, ...json.data, is_owner_shadow: u.is_owner_shadow } : u)) : [...prev, { ...json.data, is_owner_shadow: false }]); }
       else { void fetchUsers(); }
@@ -1082,7 +1089,7 @@ export default function UserListPage() {
           )}
         </div>
       </div>
-      {toast && <div id="notificationContainer" className="notification-container"><div className={`notification notification-${toast.type} show`}>{toast.message}</div></div>}
+      {toast && <div id="accountNotificationContainer" className="account-notification-container"><div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div></div>}
       <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={userMutationsBlocked} t={t} />
       <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} confirmDisabled={userMutationsBlocked} t={t} />
     </>

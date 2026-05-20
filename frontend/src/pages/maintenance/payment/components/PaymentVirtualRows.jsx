@@ -9,12 +9,62 @@ function pickOverscan(count) {
   return 4;
 }
 
+function PaymentVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, disableSelectAll }) {
+  const labels = [
+    m.tblNo,
+    m.tblCreatedAt,
+    m.tblAccountTo,
+    m.tblAccountFrom,
+    m.tblAmount,
+    m.tblDescription,
+    m.tblRemark,
+    m.tblSubmitter,
+    m.tblDeleter,
+  ];
+
+  return (
+    <div className="maintenance-virtual-thead" role="rowgroup">
+      <div className="maintenance-virtual-head-row payment-virtual-head-row" role="row">
+        {labels.map((label, i) => (
+            <div
+              key={label}
+              role="columnheader"
+              className={`maintenance-virtual-th payment-virtual-th--left${i === 4 ? " maintenance-header-amount" : ""}`}
+            >
+              {label}
+            </div>
+          ))}
+        <div
+          role="columnheader"
+          className="maintenance-virtual-th payment-virtual-th-checkbox maintenance-select-all-header"
+        >
+          <input
+            type="checkbox"
+            id={disableSelectAll ? undefined : "select_all_payment"}
+            ref={disableSelectAll ? undefined : selectAllRef}
+            className="maintenance-row-checkbox"
+            checked={selectAll}
+            onChange={toggleSelectAll}
+            title={m.selectAll}
+            disabled={disableSelectAll}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentVirtualRows({
   rows,
   rowHeight,
   rowKeyPrefix,
   selectedSet,
   onToggleRow,
+  selectAllRef,
+  selectAll,
+  toggleSelectAll,
+  m,
+  disableSelectAll,
 }) {
   const scrollRef = useRef(null);
   const sizeCacheRef = useRef(new Map());
@@ -70,6 +120,13 @@ export default function PaymentVirtualRows({
 
   return (
     <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
+      <PaymentVirtualTableHead
+        selectAllRef={selectAllRef}
+        selectAll={selectAll}
+        toggleSelectAll={toggleSelectAll}
+        m={m}
+        disableSelectAll={disableSelectAll}
+      />
       <div className="maintenance-virtual-spacer" style={{ height: totalH, position: "relative", width: "100%" }}>
         {vItems.map((virtualRow) => {
           const row = rows[virtualRow.index];
@@ -89,6 +146,8 @@ export default function PaymentVirtualRows({
                 top: 0,
                 left: 0,
                 width: "100%",
+                height: `${virtualRow.size}px`,
+                minHeight: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >

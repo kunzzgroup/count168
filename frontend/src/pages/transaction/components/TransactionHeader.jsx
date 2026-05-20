@@ -8,18 +8,20 @@ export default function TransactionHeader({
   approveContra,
   rejectContra,
   fsCompanyId,
+  m,
+  t,
 }) {
   return (
     <div className="transaction-header-bar">
       <div className="transaction-header-left">
-        <h1 className="transaction-title">Transaction List</h1>
+        <h1 className="transaction-title">{m.transactionList}</h1>
         {canApproveContra && (
           <div className="contra-inbox-wrap" id="contraInboxWrap">
             <button type="button" className="contra-inbox-btn contra-inbox-main" id="contraInboxBtn" onClick={toggleContraInbox}>
               <svg className="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
               </svg>
-              Contra Inbox
+              {m.contraInbox}
               <span className="contra-inbox-badge" id="contraInboxCount">
                 {contraInbox.items.length}
               </span>
@@ -27,28 +29,28 @@ export default function TransactionHeader({
             <div className="contra-inbox-popover" id="contraInboxPopover" style={{ display: contraInbox.open ? "block" : "none" }}>
               <div className="contra-inbox-popover-header">
                 <div className="contra-inbox-popover-title">
-                  Contra Inbox
+                  {m.contraInbox}
                   <span className="contra-inbox-badge" id="contraInboxCount2">
                     {contraInbox.items.length}
                   </span>
                 </div>
                 <button type="button" className="contra-inbox-btn" id="contraInboxRefreshBtn" onClick={refreshContraInbox}>
-                  Refresh
+                  {m.refresh}
                 </button>
               </div>
               <div className="contra-inbox-popover-body">
-                {contraInbox.loading && <div style={{ padding: 12 }}>Loading...</div>}
+                {contraInbox.loading && <div style={{ padding: 12 }}>{m.loading}</div>}
                 <table className="contra-inbox-table">
                   <thead>
                     <tr>
-                      <th>Date</th>
-                      <th>From</th>
-                      <th>To</th>
-                      <th>Currency</th>
-                      <th>Amount</th>
-                      <th>Submitted By</th>
-                      <th>Description</th>
-                      <th>Action</th>
+                      <th>{m.date}</th>
+                      <th>{m.from}</th>
+                      <th>{m.to}</th>
+                      <th>{m.currency}</th>
+                      <th>{m.amount}</th>
+                      <th>{m.submittedBy}</th>
+                      <th>{m.description}</th>
+                      <th>{m.action}</th>
                     </tr>
                   </thead>
                   <tbody id="contraInboxTbody">
@@ -77,19 +79,19 @@ export default function TransactionHeader({
                               await approveContra({ transactionId: tid, companyId: fsCompanyId });
                             }}
                           >
-                            Approve
+                            {m.approve}
                           </button>
                           <button
                             type="button"
                             className="contra-inbox-btn contra-inbox-reject"
                             onClick={async () => {
-                              if (!confirm("确定要拒绝这条 Contra 交易吗？拒绝后数据将被永久删除。")) return;
+                              if (!confirm(m.confirmRejectContra)) return;
                               const tid = it.transaction_id || it.id;
                               if (!tid) return;
                               await rejectContra({ transactionId: tid, companyId: fsCompanyId });
                             }}
                           >
-                            Reject
+                            {m.reject}
                           </button>
                         </td>
                       </tr>

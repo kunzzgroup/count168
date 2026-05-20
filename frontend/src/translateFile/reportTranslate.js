@@ -57,6 +57,8 @@ export const REPORT_I18N = {
     currencyDash: "Currency: -",
     totalColon: "Total:",
     total: "Total",
+    monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    weekdaysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
   },
   zh: {
     customerReportTitle: "客户报表",
@@ -86,10 +88,10 @@ export const REPORT_I18N = {
 
     showAll: "显示全部",
     groupId: "集团:",
-    groupFilterAll: "全部",
+    groupFilterAll: "ALL",
     company: "公司:",
-    currency: "币种:",
-    all: "全部",
+    currency: "货币:",
+    all: "ALL",
 
     process: "流程",
     allProcess: "全部流程",
@@ -99,7 +101,7 @@ export const REPORT_I18N = {
     colName: "名称",
     colGroupId: "集团",
     colCompanyId: "公司",
-    colCurrency: "币种",
+    colCurrency: "货币",
     colWin: "赢",
     colLose: "输",
     colProcess: "流程",
@@ -112,10 +114,12 @@ export const REPORT_I18N = {
     noDataAdjustSearch: "暂无数据。请调整筛选条件后重试。",
     loadReportFailed: "报表加载失败",
 
-    currencyLine: "币种：{code}",
-    currencyDash: "币种：-",
+    currencyLine: "货币：{code}",
+    currencyDash: "货币：-",
     totalColon: "合计：",
     total: "合计",
+    monthsShort: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+    weekdaysShort: ["日", "一", "二", "三", "四", "五", "六"],
   },
 };
 

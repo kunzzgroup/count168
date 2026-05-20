@@ -425,6 +425,7 @@ body.dashboard-page.maintenance-page {
     0% {
         transform: translateX(-120%);
     }
+
     100% {
         transform: translateX(420%);
     }
@@ -492,13 +493,13 @@ body.dashboard-page.maintenance-page {
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table tbody tr {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table tbody tr:nth-child(even),
@@ -598,7 +599,7 @@ body.dashboard-page.maintenance-page {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    border-bottom: none;
     text-align: center;
     vertical-align: middle;
     box-sizing: border-box;
@@ -915,94 +916,195 @@ body.dashboard-page.maintenance-page {
     line-height: 1;
 }
 
-/* Confirm Delete Modal Styles */
+/* Confirm Delete Modal Styles - same as account page */
 .maintenance-modal {
+    display: none;
     position: fixed;
-    z-index: 10001;
+    z-index: 1000;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
+    overflow: auto;
     background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(0.25rem);
+}
+
+#confirmDeleteModal.maintenance-modal {
     display: flex;
-    justify-content: center;
     align-items: center;
-    backdrop-filter: blur(4px);
+    justify-content: center;
+    z-index: 10000;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    animation: accountConfirmFadeIn 0.2s ease-out;
+}
+
+@keyframes accountConfirmFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .maintenance-confirm-modal-content {
-    background-color: #ffffff;
-    border-radius: 12px;
-    width: clamp(400px, 33.33vw, 500px);
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fafc 100%);
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 24px;
+    width: clamp(400px, 35vw, 550px);
     max-width: 90%;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    padding: clamp(24px, 2.08vw, 40px);
-    text-align: center;
+    flex: 0 0 auto;
+    align-self: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: accountConfirmSlideDown 0.3s ease-out;
+    overflow: hidden;
+    position: relative;
+}
+
+@keyframes accountConfirmSlideDown {
+    from {
+        transform: translateY(-80px) scale(0.95);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
 }
 
 .maintenance-confirm-icon-container {
     display: flex;
     justify-content: center;
-    margin-bottom: clamp(16px, 1.35vw, 26px);
+    align-items: center;
+    padding-top: clamp(30px, 2.6vw, 50px);
+    padding-bottom: clamp(15px, 1.3vw, 25px);
 }
 
 .maintenance-confirm-icon {
-    width: clamp(48px, 4.17vw, 80px);
-    height: clamp(48px, 4.17vw, 80px);
-    color: #ef4444;
+    width: clamp(50px, 4.17vw, 80px);
+    height: clamp(50px, 4.17vw, 80px);
+    color: #dc2626;
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    border-radius: 50%;
+    padding: clamp(10px, 0.83vw, 16px);
+    animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+    }
+
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+    }
 }
 
 .maintenance-confirm-title {
-    font-family: var(--font-heading-page);
-    font-size: clamp(20px, 1.67vw, 32px);
-    font-weight: 700;
+    text-align: center;
     color: #1e293b;
-    margin: 0 0 clamp(12px, 1.04vw, 20px) 0;
+    font-size: var(--text-h2);
+    font-weight: 700;
+    margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
+    font-family: var(--font-heading-page), -apple-system, sans-serif;
+    letter-spacing: -0.02em;
 }
 
 .maintenance-confirm-message {
-    font-family: var(--font-heading-page);
-    font-size: clamp(14px, 1.04vw, 20px);
-    color: #64748b;
-    margin: 0 0 clamp(24px, 2.08vw, 40px) 0;
-    line-height: 1.5;
+    text-align: center;
+    font-size: var(--text-h3);
+    color: #475569;
+    line-height: 1.7;
+    margin: 0;
+    padding: 0 clamp(25px, 2.08vw, 40px);
+    white-space: pre-line;
+    font-weight: 500;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 .maintenance-confirm-actions {
     display: flex;
-    gap: clamp(12px, 1.04vw, 20px);
+    gap: 12px;
+    padding: clamp(25px, 2.08vw, 40px);
     justify-content: center;
+    background: rgba(248, 250, 252, 0.8);
+    margin-top: clamp(18px, 1.67vw, 32px);
 }
 
-.maintenance-btn {
+body.maintenance-page #confirmDeleteModal .confirm-cancel,
+body.maintenance-page #confirmDeleteModal .confirm-delete {
+    flex: 0 0 auto;
+    min-width: clamp(90px, 7vw, 130px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+/* Scrollbar for long messages */
+.maintenance-confirm-message::-webkit-scrollbar {
+    width: 6px;
+}
+
+.maintenance-confirm-message::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+.maintenance-confirm-message::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 10px;
+}
+
+/* Button styles for confirm modal */
+body.maintenance-page .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-family: var(--font-heading-page);
+    font-weight: 600;
     padding: clamp(10px, 0.83vw, 16px) clamp(20px, 1.67vw, 32px);
-    border: none;
     border-radius: 6px;
-    font-size: clamp(12px, 0.94vw, 18px);
-    font-weight: 500;
+    border: none;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: var(--font-heading-page);
+    font-size: var(--text-base);
     white-space: nowrap;
 }
 
-.maintenance-btn-cancel {
-    background: #f1f5f9;
-    color: #334155;
+body.maintenance-page .btn-cancel {
+    background: linear-gradient(180deg, #9ca3af 0%, #5a6370 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(107, 114, 128, 0.3);
 }
 
-.maintenance-btn-cancel:hover {
-    background: #e2e8f0;
+body.maintenance-page .btn-cancel:hover {
+    background: linear-gradient(180deg, #5a6370 0%, #9ca3af 100%);
+    box-shadow: 0 4px 8px rgba(107, 114, 128, 0.4);
+    transform: translateY(-1px);
 }
 
-.maintenance-btn-delete {
-    background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
+body.maintenance-page .btn-delete {
+    background: var(--btn-delete-gradient);
     color: white;
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
 }
 
-.maintenance-btn-delete:hover {
-    background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
+body.maintenance-page .btn-delete:hover {
+    background: var(--btn-delete-gradient-hover);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
 }
@@ -1242,9 +1344,7 @@ body.dashboard-page.maintenance-page {
     display: grid;
     /* 列宽与 table nth-child 比例对齐；第 7 列 Input Method 加宽 */
     grid-template-columns:
-        minmax(28px, 4fr) minmax(64px, 13fr) minmax(52px, 9fr) minmax(36px, 5fr)
-        minmax(40px, 6fr) minmax(52px, 8.5fr) minmax(180px, 26fr) minmax(96px, 18fr) minmax(56px, 10fr)
-        minmax(48px, 7fr);
+        minmax(28px, 4fr) minmax(64px, 13fr) minmax(52px, 9fr) minmax(36px, 5fr) minmax(40px, 6fr) minmax(52px, 8.5fr) minmax(180px, 26fr) minmax(96px, 18fr) minmax(56px, 10fr) minmax(48px, 7fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
@@ -1254,7 +1354,7 @@ body.dashboard-page.maintenance-page {
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     color: #ffffff;
     font-weight: bold;
-    font-size: clamp(10px, 0.89vw, 17px);
+    font-size: var(--text-base);
     padding: var(--formula-list-cell-padding-y) var(--formula-list-cell-padding-x);
     text-align: center;
     min-height: var(--formula-list-cell-min-height);
@@ -1292,7 +1392,7 @@ body.dashboard-page.maintenance-page {
 
 .formula-maintenance-page-root .maintenance-virtual-data-row {
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    box-shadow: none;
     transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
@@ -1301,21 +1401,21 @@ body.dashboard-page.maintenance-page {
 }
 
 .formula-maintenance-page-root .maintenance-virtual-data-row:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
+    box-shadow: none;
+    transform: none;
 }
 
 /* 虚拟列表（数据 ≥ 60 条）：不用 table/td，改 .maintenance-table-cell 无效 */
 .formula-maintenance-page-root .maintenance-virtual-cell {
-    font-size: clamp(10px, 0.88vw, 15px);
-    font-weight: bold;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
     color: #374151;
     line-height: var(--formula-list-cell-line-height);
     padding: var(--formula-list-cell-padding-y) var(--formula-list-cell-padding-x);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    border-bottom: none;
     min-height: var(--formula-list-cell-min-height);
     box-sizing: border-box;
     display: flex;
@@ -1398,4 +1498,44 @@ body.dashboard-page.maintenance-page {
     box-sizing: border-box;
     font-size: clamp(10px, 0.88vw, 14px);
     font-weight: bold;
+}
+
+.formula-maintenance-page-root .formula-virtual-th--left {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+.formula-maintenance-page-root .formula-virtual-th--right {
+    justify-content: flex-end !important;
+    text-align: right !important;
+}
+
+/* Force Process Select Dropdown Button to be Full Width and Align Arrow to the Far Right */
+.formula-process-control .custom-select-wrapper {
+    flex: 1 !important;
+    width: 100% !important;
+}
+
+.formula-process-control .custom-select-button {
+    width: 100% !important;
+    position: relative !important;
+    padding-right: 56px !important; /* Spaced to accommodate both chevron and clear button */
+}
+
+.formula-process-control .custom-select-button::after {
+    right: 14px !important;
+}
+
+/* Absolute position the clear icon button to prevent layout shifting/pushing */
+.formula-process-control {
+    position: relative !important;
+}
+
+.formula-process-control .formula-clear-icon-btn {
+    position: absolute !important;
+    right: 32px !important; /* Positioned nicely next to the dropdown arrow */
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 10 !important;
+    margin: 0 !important;
 }

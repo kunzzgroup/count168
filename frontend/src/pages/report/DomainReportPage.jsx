@@ -8,6 +8,7 @@ import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/domain_report.css";
 import "../../../public/css/report-outlined-fields.css";
+import "../../../public/css/maintenance_unified_filters.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/maintenance_notifications.css";
 import {
@@ -18,7 +19,7 @@ import {
   isBankOnlyCategoryCompany
 } from "./domainReportLogic.js";
 import { formatYmd } from "../../utils/dateUtils.js";
-import { getReportText } from "../../translateFile/reportTranslate.js";
+import { getReportText, REPORT_I18N } from "../../translateFile/reportTranslate.js";
 
 // Components
 import DomainReportFilters from "./components/DomainReportFilters.jsx";
@@ -30,6 +31,7 @@ export default function DomainReportPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getReportText(lang, key, params), [lang]);
+  const r = useMemo(() => REPORT_I18N[lang] || REPORT_I18N.en, [lang]);
 
   // -- State: Boot / Me --
   const [bootLoading, setBootLoading] = useState(true);
@@ -377,6 +379,8 @@ export default function DomainReportPage() {
           dateTo={dateTo}
           onRangeChange={(s, e) => { setDateFrom(s); setDateTo(e); }}
           t={t}
+          monthLabels={r.monthsShort}
+          weekdaysShort={r.weekdaysShort}
         />
 
         <div className="domain-report-table-region">

@@ -1,4 +1,5 @@
 import React from "react";
+import { formatBankProcessContractLabel } from "../bankProcessHelpers.js";
 
 export default function AccountingDueModal({
   accountingRows,
@@ -10,6 +11,7 @@ export default function AccountingDueModal({
   onPostToTransaction,
   onDismissRows,
   onClose,
+  lang,
   t,
 }) {
   const postableRows = accountingRows.filter((r) => !r.already_posted_today);
@@ -90,7 +92,7 @@ export default function AccountingDueModal({
                       <td>{r.start_date || r.day_start || "-"}</td>
                       <td>{r.card_owner || r.name || r.supplier || "-"}</td>
                       <td>{r.bank || "-"}</td>
-                      <td>{r.contract || "-"}</td>
+                      <td>{r.contract ? formatBankProcessContractLabel(lang, r.contract) : "-"}</td>
                       <td><input type="checkbox" checked={delChecked} onChange={(e) => setAccountingDeleteSelected((prev) => { const n = new Set(prev); if (e.target.checked) n.add(id); else n.delete(id); return n; })} /></td>
                     </tr>
                   );

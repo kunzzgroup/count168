@@ -16,6 +16,7 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
 require_once __DIR__ . '/../../includes/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
@@ -844,9 +845,9 @@ try {
         }
     }
     if (empty($target_account_ids) && $isMemberUser) {
-        $memberAccountId = (int) ($_SESSION['user_id'] ?? 0);
-        if ($memberAccountId > 0) {
-            $target_account_ids = [$memberAccountId];
+        $memberPivotViewId = member_session_winloss_view_account_id();
+        if ($memberPivotViewId > 0) {
+            $target_account_ids = [$memberPivotViewId];
         }
     }
     $currency_filters = [];
@@ -878,8 +879,8 @@ try {
                 throw new Exception('无权访问该 company');
             }
         } elseif ($userType === 'member') {
-            // member 用户可以访问通过 account_company 关联的公司
-            $memberAccountId = (int) $_SESSION['user_id'];
+            // member：公司权限以登录账号为准（不因 Win/Loss 查看关联账而变）
+            $memberAccountId = member_session_canonical_account_id();
             $stmt = $pdo->prepare("
                 SELECT 1 
                 FROM account_company ac
@@ -905,6 +906,24 @@ try {
             throw new Exception('缺少公司信息');
         }
         $company_id = $_SESSION['company_id'];
+    }
+
+    // Member：target_account_id 仅可为当前会话账号在同公司的关联闭包内 id，防止越权查询他人余额
+    if ($isMemberUser && !empty($target_account_ids)) {
+        $pivotId = member_session_canonical_account_id();
+        if ($pivotId > 0) {
+            $allowed = member_linked_member_closure_ids($pdo, $pivotId, (int) $company_id);
+            $allowedMap = [];
+            foreach ($allowed as $cid) {
+                $allowedMap[(int) $cid] = true;
+            }
+            $target_account_ids = array_values(array_filter($target_account_ids, function ($tid) use ($allowedMap) {
+                return !empty($allowedMap[(int) $tid]);
+            }));
+            if (empty($target_account_ids)) {
+                $target_account_ids = [$pivotId];
+            }
+        }
     }
 
     // 验证必填参数

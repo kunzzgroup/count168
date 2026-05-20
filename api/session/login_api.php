@@ -107,6 +107,7 @@ try {
         if ($account) {
             // Member 登录成功（保留 member_login_account_id 供 Win/Loss 刷新后恢复所选被连接方）
             $_SESSION['member_login_account_id'] = $account['id'];
+            $_SESSION['member_winloss_view_account_id'] = $account['id'];
             $_SESSION['user_id'] = $account['id'];
             $_SESSION['login_id'] = $account['account_id'];
             $_SESSION['name'] = $account['name'];
@@ -121,7 +122,11 @@ try {
             $stmt = $pdo->prepare("UPDATE account SET last_login = NOW() WHERE id = ?");
             $stmt->execute([$account['id']]);
 
-            echo json_encode(['status' => 'success', 'redirect' => '/dashboard']);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => '/member',
+                'user_type' => 'member',
+            ]);
             exit;
         } else {
             if ($password_match && $has_expired) {

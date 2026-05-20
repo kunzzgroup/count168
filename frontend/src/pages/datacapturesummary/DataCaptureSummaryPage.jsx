@@ -1,20 +1,62 @@
-import { useEffect, useLayoutEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { Component, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { buildApiUrl } from "../../utils/apiUrl.js";
 import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
+import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
+import EditFormulaModal from "./components/EditFormulaModal.jsx";
+import AccountModal from "../../components/AccountModal.jsx";
+import { useSummaryEditFormula } from "./hooks/useSummaryEditFormula.js";
+import { useSummaryAddAccount } from "./hooks/useSummaryAddAccount.js";
+import SummaryActionBar from "./components/SummaryActionBar.jsx";
+import SummarySubmitBar from "./components/SummarySubmitBar.jsx";
+import SummaryNotification from "./components/SummaryNotification.jsx";
+import SummaryConfirmDeleteModal from "./components/SummaryConfirmDeleteModal.jsx";
+import { useSummaryBoot } from "./hooks/useSummaryBoot.js";
+import { useSummaryCaptureBootstrap } from "./hooks/useSummaryCaptureBootstrap.js";
+import { useSummaryRows } from "./hooks/useSummaryRows.js";
+import { useSummaryPageActions } from "./hooks/useSummaryPageActions.js";
+import { useSummaryOverlays } from "./hooks/useSummaryOverlays.js";
+import { useSummaryLegacyChrome } from "./hooks/useSummaryLegacyChrome.js";
+import {
+  useSummaryTableBridge,
+  hideSummaryLoadingChrome,
+  showSummaryTableChrome,
+  removeLegacySummaryEmptyStateDom,
+} from "./hooks/useSummaryTableBridge.js";
+import { useSummaryTablePopulate } from "./hooks/useSummaryTablePopulate.js";
+import { useSummaryFormulaEngine } from "./hooks/useSummaryFormulaEngine.js";
+import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
+import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
+import "../../../public/css/userlist.css";
 import "../../../public/css/datacapturesummary.css";
 import "../../../public/css/global-13inch.css";
+
+/** Legacy engine present (SPA revisit or full page load after prior visit). */
+function areSummaryLegacyScriptsLoaded() {
+  return (
+    typeof window.Decimal !== "undefined" &&
+    typeof window.MoneyDecimal !== "undefined" &&
+    typeof window.initDataCaptureSummaryPage === "function"
+  );
+}
 
 /** Avoid hanging when `load` already fired before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
   return new Promise((resolve, reject) => {
     const clean = src.split(/[?#]/)[0];
     const finish = (node) => {
-      node.dataset.loaded = "1";
+      if (node) node.dataset.loaded = "1";
       resolve();
     };
+
+    if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
+      resolve();
+      return;
+    }
+
     const nodes = document.querySelectorAll("script[src]");
     for (let i = 0; i < nodes.length; i += 1) {
       const n = nodes[i];
@@ -24,8 +66,37 @@ function loadScriptOnce(src, isAlreadyLoaded) {
         resolve();
         return;
       }
-      n.addEventListener("load", () => finish(n), { once: true });
-      n.addEventListener("error", () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
+      if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
+        finish(n);
+        return;
+      }
+      const onLoad = () => finish(n);
+      const timeoutId = window.setTimeout(() => {
+        n.removeEventListener("load", onLoad);
+        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
+          finish(n);
+          return;
+        }
+        n.remove();
+        loadScriptOnce(src, isAlreadyLoaded).then(resolve).catch(reject);
+      }, 10000);
+      n.addEventListener(
+        "load",
+        () => {
+          window.clearTimeout(timeoutId);
+          onLoad();
+        },
+        { once: true }
+      );
+      n.addEventListener(
+        "error",
+        () => {
+          window.clearTimeout(timeoutId);
+          n.remove();
+          loadScriptOnce(src, isAlreadyLoaded).then(resolve).catch(reject);
+        },
+        { once: true }
+      );
       queueMicrotask(() => {
         if (n.dataset.loaded === "1") return;
         if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) finish(n);
@@ -41,22 +112,106 @@ function loadScriptOnce(src, isAlreadyLoaded) {
   });
 }
 
-const CAPTURE_STORAGE_KEYS = [
-  "capturedTableData",
-  "capturedProcessData",
-  "capturedDataCaptureType",
-  "capturedFormatPreviewHtml",
-  "captured655PreviewHtml",
-  "capturedTableRateValues",
-  "capturedTableFormulaSourceForRefresh",
-  "capturedCaptureId",
-];
+class SummaryPageErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
 
-export default function DataCaptureSummaryPage() {
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="container">
+          <h1>Data Capture Summary</h1>
+          <p role="alert" style={{ color: "#b91c1c", padding: "12px 0" }}>
+            Failed to load Data Capture Summary. Please refresh the page or return to Data Capture.
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function DataCaptureSummaryPageInner() {
   const navigate = useNavigate();
-  const [bootLoading, setBootLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const { companyId, bootLoading: sessionBootLoading, bootError } = useSummaryBoot();
+
+  const [scriptsReady, setScriptsReady] = useState(() => areSummaryLegacyScriptsLoaded());
   const [engineError, setEngineError] = useState("");
-  const [companyId, setCompanyId] = useState(null);
+  const [legacyInitDone, setLegacyInitDone] = useState(false);
+  const [dataPopulating, setDataPopulating] = useState(false);
+
+  const sessionReady = !sessionBootLoading && !bootError && companyId != null;
+
+  const capture = useSummaryCaptureBootstrap({
+    companyId,
+    searchParams,
+    enabled: sessionReady,
+  });
+
+  const { rows: summaryRows, syncFromDom, resetToInitialRows } = useSummaryRows(
+    capture.transformedTableData,
+    capture.hasCaptureData
+  );
+
+  useSummaryTableBridge({
+    hasCaptureData: capture.hasCaptureData,
+    processData: capture.processData,
+  });
+
+  useSummaryTablePopulate({
+    tableData: capture.transformedTableData,
+    hasCaptureData: capture.hasCaptureData,
+    scriptsReady,
+    legacyInitDone,
+    syncFromDom,
+    resetToInitialRows,
+    onPopulatingChange: setDataPopulating,
+  });
+
+  useEffect(() => {
+    if (capture.hasCaptureData && scriptsReady) {
+      setDataPopulating(true);
+    } else if (!capture.hasCaptureData) {
+      setDataPopulating(false);
+    }
+  }, [capture.hasCaptureData, scriptsReady]);
+
+  const pageActions = useSummaryPageActions({ companyId, scriptsReady });
+  const editFormula = useSummaryEditFormula({ scriptsReady });
+  const overlays = useSummaryOverlays();
+  const addAccount = useSummaryAddAccount({
+    companyId,
+    scriptsReady,
+    notify: overlays.showNotification,
+  });
+  useSummaryFormulaEngine();
+  useSummaryLegacyChrome(scriptsReady);
+
+  const showEmptyState =
+    sessionReady &&
+    scriptsReady &&
+    !engineError &&
+    !capture.hasCaptureData &&
+    !(capture.serverStateQueryEnabled && capture.serverStateLoading);
+
+  /** Revisit only: wait for saved summary state. Fresh capture (?success=1) must not block init. */
+  const waitForServerStateBeforeInit =
+    capture.hasCaptureData &&
+    !capture.freshFromCapture &&
+    capture.serverStateQueryEnabled &&
+    capture.serverStateLoading;
+
+  const hydrateRef = useRef(capture.hydrateLegacyGlobals);
+  hydrateRef.current = capture.hydrateLegacyGlobals;
+  const initGenerationRef = useRef(0);
+  const legacyInitDoneRef = useRef(false);
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page");
@@ -67,45 +222,143 @@ export default function DataCaptureSummaryPage() {
   }, []);
 
   useEffect(() => {
+    if (!sessionReady) return;
+
+    window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
+    setEngineError("");
+
+    if (areSummaryLegacyScriptsLoaded()) {
+      setScriptsReady(true);
+      return () => {
+        window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
+      };
+    }
+
     let alive = true;
+
     (async () => {
       try {
         await injectStylesheet("https://fonts.googleapis.com/css?family=Amaranth");
       } catch {
         /* ignore */
       }
+
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
+        await Promise.all([
+          loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined"),
+          loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined"),
+          loadScriptOnce(buildApiUrl("js/datacapturesummary.js"), () => typeof window.initDataCaptureSummaryPage === "function"),
+        ]);
+        if (alive) setScriptsReady(true);
+      } catch (e) {
         if (!alive) return;
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
+        if (areSummaryLegacyScriptsLoaded()) {
+          setScriptsReady(true);
           return;
         }
-        const id = meJson.data.company_id != null ? Number(meJson.data.company_id) : null;
-        setCompanyId(Number.isFinite(id) ? id : null);
-      } catch {
-        if (!alive) return;
-        navigate("/login", { replace: true });
-      } finally {
-        if (alive) setBootLoading(false);
+        console.error(e);
+        setEngineError("Failed to load Data Capture Summary scripts.");
       }
     })();
+
     return () => {
       alive = false;
+      window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
     };
-  }, [navigate]);
+  }, [sessionReady]);
 
-  /** Match legacy PHP: sidebar Data Capture title starts a fresh capture round */
+  /** Hydrate React-loaded capture state, then run legacy table init after full shell mounts. */
+  useEffect(() => {
+    if (!sessionReady || !scriptsReady || engineError) return;
+    if (waitForServerStateBeforeInit) return;
+
+    const generation = initGenerationRef.current + 1;
+    initGenerationRef.current = generation;
+    let cancelled = false;
+
+    const runInit = () => {
+      if (cancelled || initGenerationRef.current !== generation) return;
+      if (legacyInitDoneRef.current) return;
+      legacyInitDoneRef.current = true;
+
+      hydrateRef.current();
+      const shell = document.querySelector(".container");
+      if (shell) delete shell.dataset.summaryPageInit;
+      if (typeof window.initDataCaptureSummaryPage === "function") {
+        window.initDataCaptureSummaryPage();
+      }
+      if (capture.hasCaptureData) {
+        removeLegacySummaryEmptyStateDom();
+      }
+      setLegacyInitDone(true);
+    };
+
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(runInit);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [
+    sessionReady,
+    scriptsReady,
+    engineError,
+    waitForServerStateBeforeInit,
+    capture.hasCaptureData,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      legacyInitDoneRef.current = false;
+      setLegacyInitDone(false);
+      setDataPopulating(false);
+      const shell = document.querySelector(".container");
+      if (shell) delete shell.dataset.summaryPageInit;
+    };
+  }, []);
+
+  /** Apply server state when it arrives after init (revisit / refresh paths). */
+  useEffect(() => {
+    if (!sessionReady || !scriptsReady || capture.freshFromCapture) return;
+    if (capture.serverState == null) return;
+
+    window._summaryStateFromServer = capture.serverState;
+
+    const shell = document.querySelector(".container");
+    if (shell?.dataset.summaryPageInit !== "1") return;
+
+    try {
+      window.restoreFormulaSourceFromRefresh?.();
+      window.restoreRateValuesFromRefresh?.();
+    } catch (e) {
+      console.warn("Late summary server-state restore failed:", e);
+    }
+  }, [sessionReady, scriptsReady, capture.serverState, capture.freshFromCapture]);
+
+  /** React-owned loading fallback when legacy init is delayed or skipped. */
+  useLayoutEffect(() => {
+    if (!sessionReady || !scriptsReady || engineError) return;
+    if (waitForServerStateBeforeInit) return;
+
+    if (!capture.hasCaptureData) {
+      hideSummaryLoadingChrome();
+      showSummaryTableChrome();
+    }
+  }, [
+    sessionReady,
+    scriptsReady,
+    engineError,
+    waitForServerStateBeforeInit,
+    capture.hasCaptureData,
+  ]);
+
+  /** Sidebar Data Capture → fresh capture round (SPA navigate). */
   useEffect(() => {
     function navigateToDataCaptureFresh() {
       window.isNavigatingAwayByBackOrSubmit = true;
-      try {
-        for (const k of CAPTURE_STORAGE_KEYS) localStorage.removeItem(k);
-      } catch {
-        /* ignore */
-      }
-      window.location.assign(buildApiUrl("datacapture"));
+      clearSummaryCaptureRoundStorage();
+      navigate("/datacapture", { replace: true });
     }
 
     let tries = 0;
@@ -130,52 +383,28 @@ export default function DataCaptureSummaryPage() {
     }, 100);
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [navigate]);
 
-  useEffect(() => {
-    if (bootLoading) return;
+  const pageBootLoading = sessionBootLoading || (sessionReady && !scriptsReady && !engineError);
 
-    let alive = true;
-    window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
-    window.DATACAPTURESUMMARY_COMPANY_ID = companyId != null ? companyId : null;
-
-    setEngineError("");
-
-    (async () => {
-      try {
-        await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
-        await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
-        await loadScriptOnce(buildApiUrl("js/datacapturesummary.js"), () => typeof window.initDataCaptureSummaryPage === "function");
-        if (!alive) return;
-        if (typeof window.initDataCaptureSummaryPage === "function") {
-          window.initDataCaptureSummaryPage();
-        }
-      } catch (e) {
-        if (!alive) return;
-        console.error(e);
-        setEngineError("Failed to load Data Capture Summary scripts.");
-      }
-    })();
-
-    return () => {
-      alive = false;
-      window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = false;
-    };
-  }, [bootLoading, companyId]);
-
-  const alertDayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
-
-  if (bootLoading) {
-    return (
-      <div className="container">
-        <p style={{ padding: "24px", margin: 0 }}>Loading…</p>
-      </div>
-    );
-  }
+  const showPageBootOverlay = pageBootLoading;
+  const showDataLoading =
+    !showPageBootOverlay && capture.hasCaptureData && dataPopulating && !engineError;
 
   return (
     <div className="container">
       <h1>Data Capture Summary</h1>
+
+      {showPageBootOverlay ? (
+        <div
+          className="loading-container"
+          style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 24px" }}
+          aria-busy="true"
+        >
+          <div className="loading-spinner" />
+          <p style={{ margin: "12px 0 0" }}>Loading…</p>
+        </div>
+      ) : null}
 
       {engineError ? (
         <div style={{ marginBottom: 12, color: "#b91c1c" }} role="alert">
@@ -183,274 +412,75 @@ export default function DataCaptureSummaryPage() {
         </div>
       ) : null}
 
-      <div id="loadingState" className="loading-container">
+      <div
+        id="loadingState"
+        className="loading-container"
+        style={{ display: showDataLoading ? undefined : "none" }}
+      >
         <div className="loading-spinner" />
         <p>Loading data...</p>
       </div>
 
-      <div className="summary-action-buttons" id="actionButtons" style={{ display: "none" }}>
-        <div style={{ flex: 1 }} />
-        <div className="batch-controls-group">
-          <label htmlFor="rateInput" className="batch-label">
-            Rate
-          </label>
-          <input type="text" id="rateInput" className="batch-input" placeholder="e.g. *3 or /3" />
-          <button type="button" className="btn-update-all" id="rateSelectAllBtn" onClick={(e) => window.toggleAllRate?.(e.currentTarget)}>
-            Select All
-          </button>
-          <button type="button" className="btn-update-all" id="topSubmitBtn" onClick={() => window.submitRateValues?.()}>
-            Submit
-          </button>
-        </div>
-        <div style={{ flex: 1 }} />
-        <button
-          type="button"
-          className="summary-btn summary-btn-delete"
-          id="summaryDeleteSelectedBtn"
-          onClick={() => window.deleteSelectedRows?.()}
-          title="Delete selected rows"
-          disabled
-        >
-          Delete
-        </button>
-      </div>
+      <SummaryActionBar
+        rateInput={pageActions.rateInput}
+        onRateInputChange={pageActions.setRateInput}
+        rateSelectAllLabel={pageActions.rateSelectAllLabel}
+        rateSelectAllRef={pageActions.rateSelectAllRef}
+        onToggleRateSelectAll={pageActions.handleToggleRateSelectAll}
+        onRateBatchSubmit={pageActions.handleRateBatchSubmit}
+        deleteCount={pageActions.deleteCount}
+        deleteDisabled={pageActions.deleteDisabled}
+        onDeleteSelected={pageActions.handleDeleteSelected}
+      />
 
       <div className="summary-table-container" id="summaryTableContainer" style={{ display: "none" }}>
-        <div className="process-info-container" id="processInfoContainer" style={{ display: "none" }}>
-          <div className="process-info-row">
-            <div className="process-info-item">
-              <span className="process-info-label">Date:</span>
-              <span className="process-info-value" id="processInfoDate">
-                -
-              </span>
-            </div>
-            <div className="process-info-item">
-              <span className="process-info-label">Process:</span>
-              <span className="process-info-value" id="processInfoProcess">
-                -
-              </span>
-            </div>
-            <div className="process-info-item">
-              <span className="process-info-label">Description:</span>
-              <span className="process-info-value" id="processInfoDescription">
-                -
-              </span>
-            </div>
-            <div className="process-info-item">
-              <span className="process-info-label">Currency:</span>
-              <span className="process-info-value" id="processInfoCurrency">
-                -
-              </span>
-            </div>
-            <div className="process-info-item">
-              <span className="process-info-label">Remark:</span>
-              <span className="process-info-value" id="processInfoRemark">
-                -
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="table-wrapper">
-          <table className="summary-table" id="summaryTable">
-            <thead>
-              <tr>
-                <th className="id-product-header">Id Product</th>
-                <th>Account</th>
-                <th />
-                <th>Currency</th>
-                <th>Formula</th>
-                <th>Source</th>
-                <th>Rate</th>
-                <th>Rate Value</th>
-                <th>Processed Amount</th>
-                <th>Skip</th>
-                <th>Delete</th>
-              </tr>
-            </thead>
-            <tbody id="summaryTableBody" />
-            <tfoot>
-              <tr id="summaryTotalRow">
-                <td colSpan={8} className="summary-total-label" />
-                <td id="summaryTotalAmount">0.00</td>
-                <td />
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <SummaryProcessInfo processData={capture.processData} visible={capture.hasCaptureData} />
+        <SummaryTable
+          tableData={capture.transformedTableData}
+          rows={summaryRows}
+          visible={capture.hasCaptureData}
+        />
       </div>
 
-      <div className="summary-submit-container" id="summarySubmitContainer" style={{ display: "none" }}>
-        <button type="button" className="btn btn-submit" id="summarySubmitBtn" onClick={() => window.submitSummaryData?.()}>
-          Submit
-        </button>
-        <button type="button" className="btn btn-cancel" onClick={() => window.goBackToDataCapture?.()} style={{ marginLeft: 10 }}>
-          Back
-        </button>
-        <button type="button" className="btn btn-refresh" onClick={() => window.refreshPage?.()} title="Refresh page">
-          <img src={assetUrl("images/refresh.svg")} alt="Refresh" style={{ width: "clamp(23px, 1.8vw, 35px)", height: "clamp(23px, 1.8vw, 35px)" }} />
-        </button>
-      </div>
+      {showEmptyState ? <SummaryEmptyState /> : null}
 
-      <div id="notificationPopup" className="notification-popup" style={{ display: "none" }}>
-        <div className="notification-header">
-          <span className="notification-title" id="notificationTitle">
-            Notification
-          </span>
-          <button type="button" className="notification-close" onClick={() => window.hideNotification?.()}>
-            &times;
-          </button>
-        </div>
-        <div className="notification-message" id="notificationMessage">
-          Message
-        </div>
-      </div>
+      <EditFormulaModal
+        key={editFormula.sessionKey}
+        open={editFormula.open}
+        productValue={editFormula.productValue}
+        onClose={() => window.closeEditFormulaForm?.()}
+        onOpenAddAccount={addAccount.showAddAccount}
+      />
 
-      <div id="confirmDeleteModal" className="summary-modal" style={{ display: "none" }}>
-        <div className="summary-confirm-modal-content">
-          <div className="summary-confirm-icon-container">
-            <svg className="summary-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-          <h2 className="summary-confirm-title">Confirm Delete</h2>
-          <p id="confirmDeleteMessage" className="summary-confirm-message">
-            This action cannot be undone.
-          </p>
-          <div className="summary-confirm-actions">
-            <button type="button" className="summary-btn summary-btn-cancel confirm-cancel" onClick={() => window.closeConfirmDeleteModal?.()}>
-              Cancel
-            </button>
-            <button type="button" className="summary-btn summary-btn-delete confirm-delete" onClick={() => window.confirmDelete?.()}>
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
+      <AccountModal {...addAccount.accountModalProps} />
 
-      <div id="addModal" className="account-modal" style={{ display: "none" }}>
-        <div className="account-modal-content">
-          <div className="account-modal-header">
-            <h2>Add Account</h2>
-            <span className="account-close" role="presentation" onClick={() => window.closeAddModal?.()}>
-              &times;
-            </span>
-          </div>
-          <div className="account-modal-body">
-            <form id="addAccountForm" className="account-form">
-              <div className="account-form-columns">
-                <div className="account-form-column">
-                  <h3 className="account-section-header">Personal Information</h3>
-                  <div className="account-form-group">
-                    <label htmlFor="add_account_id">Account ID *</label>
-                    <input type="text" id="add_account_id" name="account_id" required />
-                  </div>
-                  <div className="account-form-group">
-                    <label htmlFor="add_name">Name *</label>
-                    <input type="text" id="add_name" name="name" required />
-                  </div>
-                  <div className="account-form-group">
-                    <label htmlFor="add_role">Role *</label>
-                    <select id="add_role" name="role" required defaultValue="">
-                      <option value="">Select Role</option>
-                    </select>
-                  </div>
-                  <div className="account-form-group">
-                    <label htmlFor="add_password">Password *</label>
-                    <input type="password" id="add_password" name="password" required autoComplete="new-password" />
-                  </div>
-                </div>
+      <SummarySubmitBar
+        submitting={pageActions.submitting}
+        onSubmit={pageActions.handleSubmitSummary}
+        onBack={pageActions.handleBack}
+        onRefresh={pageActions.handleRefresh}
+      />
 
-                <div className="account-form-column">
-                  <h3 className="account-section-header">Payment</h3>
-                  <div className="account-form-group" />
-                  <div className="account-form-group">
-                    <label>Payment Alert</label>
-                    <div className="account-radio-group">
-                      <label className="account-radio-label">
-                        <input type="radio" name="add_payment_alert" value="1" />
-                        Yes
-                      </label>
-                      <label className="account-radio-label">
-                        <input type="radio" name="add_payment_alert" value="0" defaultChecked />
-                        No
-                      </label>
-                    </div>
-                  </div>
-                  <div className="account-form-row" id="add_alert_fields" style={{ display: "none" }}>
-                    <div className="account-form-group">
-                      <label htmlFor="add_alert_type">Alert Type</label>
-                      <select id="add_alert_type" name="alert_type" defaultValue="">
-                        <option value="">Select Type</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        {alertDayOptions.map((d) => (
-                          <option key={d} value={String(d)}>
-                            {d} Days
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="account-form-group">
-                      <label htmlFor="add_alert_start_date">Start Date</label>
-                      <input type="date" id="add_alert_start_date" name="alert_start_date" />
-                    </div>
-                  </div>
-                  <div className="account-form-group" id="add_alert_amount_row" style={{ display: "none" }}>
-                    <label htmlFor="add_alert_amount">Alert (Amount)</label>
-                    <input type="number" id="add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)" />
-                  </div>
-                  <div className="account-form-group">
-                    <label htmlFor="add_remark">Remark</label>
-                    <textarea id="add_remark" name="remark" rows={1} style={{ resize: "none", overflowY: "hidden", lineHeight: 1.5 }} />
-                  </div>
-                </div>
-              </div>
+      <SummaryNotification
+        notification={overlays.notification}
+        shown={overlays.notificationShown}
+        onClose={overlays.hideNotification}
+      />
 
-              <div className="account-form-section">
-                <div className="account-advance-section">
-                  <h3>Advanced Account</h3>
-
-                  <div className="account-other-currency">
-                    <label>Other Currency:</label>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                      <input
-                        type="text"
-                        id="addCurrencyInput"
-                        placeholder="Enter new currency code (e.g., EUR, JPY, GBP)"
-                        style={{ flex: 1, padding: 8, border: "1px solid #ddd", borderRadius: 4 }}
-                      />
-                      <button type="button" className="account-btn-add-currency" onClick={() => window.addCurrencyFromInput?.("add")}>
-                        Create Currency
-                      </button>
-                    </div>
-                    <div className="account-currency-list" id="addCurrencyList" />
-                  </div>
-
-                  <div className="account-other-currency" style={{ marginTop: 20 }}>
-                    <label>Company:</label>
-                    <div className="account-currency-list" id="addCompanyList" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="account-form-actions">
-                <button type="submit" className="account-btn account-btn-save">
-                  Add Account
-                </button>
-                <button type="button" className="account-btn account-btn-cancel" onClick={() => window.closeAddModal?.()}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
+      <SummaryConfirmDeleteModal
+        open={overlays.confirmOpen}
+        message={overlays.confirmMessage}
+        onCancel={overlays.closeConfirmDelete}
+        onConfirm={overlays.confirmDelete}
+      />
     </div>
+  );
+}
+
+export default function DataCaptureSummaryPage() {
+  return (
+    <SummaryPageErrorBoundary>
+      <DataCaptureSummaryPageInner />
+    </SummaryPageErrorBoundary>
   );
 }

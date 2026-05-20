@@ -104,6 +104,33 @@ export const ACCOUNT_I18N = {
     searchAccount: "Search account...",
     noAccountsToLink: "No accounts available to link.",
     readOnlyActionBlocked: "Read-only account: this action is not allowed.",
+    apiAccountCreated: "Account created successfully!",
+    apiAccountUpdated: "Account updated successfully",
+    apiStatusUpdated: "Status updated",
+    apiUnauthorized: "User not logged in",
+    apiMissingCompany: "Missing company information",
+    apiNoPermissionCompany: "No permission to access this company",
+    apiInvalidRequestMethod: "Invalid request method",
+    apiMethodNotAllowed: "Method not allowed",
+    apiCurrencyDeleted: "Currency deleted successfully",
+    apiCurrencyCreated: "Currency created successfully",
+    apiAccountLinked: "Account links saved successfully",
+    apiLinkRemoved: "Account link removed",
+    apiConnectionTypeUpdated: "Connection type updated",
+    apiCannotDeleteActiveAccounts: "Cannot delete active accounts",
+    apiNoAccountIds: "No account IDs provided",
+    apiCompanyNotSelected: "Company not selected",
+    apiCurrencyNotFound: "Currency not found or access denied",
+    apiCurrencyIdRequired: "Currency ID is required",
+    apiPaymentAlertUpdateFailed: "Failed to update payment alert",
+    apiFillRequiredFields: "Please fill in all required fields",
+    apiAccountIdExists: "Account ID already exists",
+    apiInvalidRoleSelected: "Invalid role selected",
+    apiCompanyUpdated: "Company updated",
+    apiUserNotLoggedInOrCompany: "User not logged in or missing company information",
+    apiReadOnlyCannotAdd: "Read-only account cannot add accounts",
+    apiReadOnlyCannotDelete: "Read-only account cannot delete accounts",
+    apiCurrencyInUse: "Currency is in use and cannot be deleted",
   },
   zh: {
     failedToLoadAccounts: "加载账号失败",
@@ -119,12 +146,12 @@ export const ACCOUNT_I18N = {
     saveFailed: "保存失败",
     accountSavedSuccessfully: "账号保存成功",
     createFailed: "创建失败",
-    failedDeleteCurrency: "删除币种失败",
-    currencyDeleted: "币种已删除",
+    failedDeleteCurrency: "删除货币失败",
+    currencyDeleted: "货币已删除",
     loadLinksFailed: "加载关联失败",
-    currencySettingsSaved: "币种设置已保存",
+    currencySettingsSaved: "货币设置已保存",
     pleaseSelectCompanyFirst: "请先选择公司",
-    pleaseSelectCurrencyFirst: "请先选择币种（再次点击可取消选中）",
+    pleaseSelectCurrencyFirst: "请先选择货币（再次点击可取消选中）",
     failedOpenLinkModal: "打开关联账号弹窗失败",
     accountLinksSavedSuccessfully: "账号关联保存成功",
     failedSaveAccountLinks: "保存账号关联失败",
@@ -134,10 +161,10 @@ export const ACCOUNT_I18N = {
     inactive: "停用",
     showInactive: "显示停用",
     showAll: "显示全部",
-    currencySetting: "币种设置",
+    currencySetting: "货币设置",
     deleteWithCount: "删除（{count}）",
-    groupId: "GroupID：",
-    groupFilterAll: "全部",
+    groupId: "集团：",
+    groupFilterAll: "ALL",
     company: "公司：",
     companyRequiredMark: "公司 *",
     selectCompanies: "选择公司",
@@ -174,7 +201,7 @@ export const ACCOUNT_I18N = {
     nameRequired: "姓名 *",
     roleRequired: "角色 *",
     selectRole: "选择角色",
-    supplier: "供应商",
+    supplier: "SUPPLIER",
     passwordRequired: "密码 *",
     payment: "支付",
     paymentAlert: "支付提醒",
@@ -189,16 +216,16 @@ export const ACCOUNT_I18N = {
     alertAmount: "提醒金额",
     enterAmountPlaceholder: "输入金额（会自动转为负数）",
     advancedAccount: "高级账号",
-    otherCurrency: "其他币种：",
-    newCurrencyPlaceholder: "输入新币种代码（例如 EUR、JPY、GBP）",
-    createCurrency: "创建币种",
+    otherCurrency: "其他货币：",
+    newCurrencyPlaceholder: "输入新货币代码（例如 EUR、JPY、GBP）",
+    createCurrency: "创建货币",
     updateAccount: "更新账号",
     save: "保存",
     back: "返回",
-    addCurrency: "新增币种：",
-    pleaseEnterNewCurrency: "请输入新币种",
+    addCurrency: "新增货币：",
+    pleaseEnterNewCurrency: "请输入新货币",
     add: "添加",
-    currency: "币种：",
+    currency: "货币：",
     searchBar: "搜索栏",
     filterRow: "筛选角色",
     selectAll: "全选",
@@ -210,8 +237,151 @@ export const ACCOUNT_I18N = {
     searchAccount: "搜索账号...",
     noAccountsToLink: "暂无可关联账号。",
     readOnlyActionBlocked: "只读账号，无法执行此操作。",
+    apiAccountCreated: "账户创建成功！",
+    apiAccountUpdated: "账号更新成功",
+    apiStatusUpdated: "状态更新成功",
+    apiUnauthorized: "用户未登录",
+    apiMissingCompany: "缺少公司信息",
+    apiNoPermissionCompany: "无权限访问该公司",
+    apiInvalidRequestMethod: "无效的请求方法",
+    apiMethodNotAllowed: "不允许的请求方法",
+    apiCurrencyDeleted: "货币删除成功",
+    apiCurrencyCreated: "货币创建成功",
+    apiAccountLinked: "账户关联成功",
+    apiLinkRemoved: "账户关联已移除",
+    apiConnectionTypeUpdated: "连接类型更新成功",
+    apiCannotDeleteActiveAccounts: "无法删除启用中的账号",
+    apiNoAccountIds: "未提供账号 ID",
+    apiCompanyNotSelected: "未选择公司",
+    apiCurrencyNotFound: "未找到货币或无权访问",
+    apiCurrencyIdRequired: "需要提供货币 ID",
+    apiPaymentAlertUpdateFailed: "Payment alert 更新失败",
+    apiFillRequiredFields: "请填写所有必填字段",
+    apiAccountIdExists: "账户 ID 已存在",
+    apiInvalidRoleSelected: "选择的角色无效",
+    apiCompanyUpdated: "公司已更新",
+    apiUserNotLoggedInOrCompany: "用户未登录或缺少公司信息",
+    apiReadOnlyCannotAdd: "只读账号无法添加账户",
+    apiReadOnlyCannotDelete: "只读账号无法删除账户",
+    apiCurrencyInUse: "货币正在使用中，无法删除",
   },
 };
+
+function normAccountApiMessage(message) {
+  return String(message || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.!?！。]+$/g, "");
+}
+
+const ACCOUNT_API_MESSAGE_KEYS = {
+  [normAccountApiMessage("Account updated successfully")]: "accountSavedSuccessfully",
+  [normAccountApiMessage("Account saved successfully")]: "accountSavedSuccessfully",
+  [normAccountApiMessage("账号保存成功")]: "accountSavedSuccessfully",
+  [normAccountApiMessage("账户创建成功！")]: "apiAccountCreated",
+  [normAccountApiMessage("Account created successfully!")]: "apiAccountCreated",
+  [normAccountApiMessage("Accounts deleted successfully")]: "accountsDeletedSuccessfully",
+  [normAccountApiMessage("账号删除成功")]: "accountsDeletedSuccessfully",
+  [normAccountApiMessage("Currency deleted successfully")]: "apiCurrencyDeleted",
+  [normAccountApiMessage("货币已删除")]: "currencyDeleted",
+  [normAccountApiMessage("Currency settings saved")]: "currencySettingsSaved",
+  [normAccountApiMessage("货币设置已保存")]: "currencySettingsSaved",
+  [normAccountApiMessage("Account links saved successfully")]: "accountLinksSavedSuccessfully",
+  [normAccountApiMessage("账号关联保存成功")]: "accountLinksSavedSuccessfully",
+  [normAccountApiMessage("账户关联成功")]: "accountLinksSavedSuccessfully",
+  [normAccountApiMessage("账户关联已移除")]: "apiLinkRemoved",
+  [normAccountApiMessage("连接类型更新成功")]: "apiConnectionTypeUpdated",
+  [normAccountApiMessage("状态更新成功")]: "apiStatusUpdated",
+  [normAccountApiMessage("Status updated")]: "apiStatusUpdated",
+  [normAccountApiMessage("Toggle failed")]: "toggleFailed",
+  [normAccountApiMessage("切换失败")]: "toggleFailed",
+  [normAccountApiMessage("User not logged in")]: "apiUnauthorized",
+  [normAccountApiMessage("用户未登录")]: "apiUnauthorized",
+  [normAccountApiMessage("用户未登录或缺少公司信息")]: "apiUserNotLoggedInOrCompany",
+  [normAccountApiMessage("Missing company information")]: "apiMissingCompany",
+  [normAccountApiMessage("缺少公司信息")]: "apiMissingCompany",
+  [normAccountApiMessage("No permission to access this company")]: "apiNoPermissionCompany",
+  [normAccountApiMessage("无权限访问该公司")]: "apiNoPermissionCompany",
+  [normAccountApiMessage("Invalid request method")]: "apiInvalidRequestMethod",
+  [normAccountApiMessage("Method not allowed")]: "apiMethodNotAllowed",
+  [normAccountApiMessage("只读账号无法执行此操作")]: "readOnlyActionBlocked",
+  [normAccountApiMessage("Read-only account: this action is not allowed.")]: "readOnlyActionBlocked",
+  [normAccountApiMessage("只读账号无法添加账户")]: "apiReadOnlyCannotAdd",
+  [normAccountApiMessage("只读账号无法删除账户")]: "apiReadOnlyCannotDelete",
+  [normAccountApiMessage("When Payment Alert is enabled, both Alert Type and Start Date are required")]:
+    "paymentAlertRequiredFields",
+  [normAccountApiMessage("When Payment Alert is enabled, Alert Type and Start Date are required")]:
+    "paymentAlertRequiredFields",
+  [normAccountApiMessage("当支付提醒为是时，必须填写提醒类型和开始日期")]: "paymentAlertRequiredFields",
+  [normAccountApiMessage("Please fill in all required fields")]: "apiFillRequiredFields",
+  [normAccountApiMessage("请填写所有必填字段")]: "apiFillRequiredFields",
+  [normAccountApiMessage("Account ID already exists")]: "apiAccountIdExists",
+  [normAccountApiMessage("账户ID已存在")]: "apiAccountIdExists",
+  [normAccountApiMessage("Invalid role selected")]: "apiInvalidRoleSelected",
+  [normAccountApiMessage("选择的角色无效")]: "apiInvalidRoleSelected",
+  [normAccountApiMessage("Company updated")]: "apiCompanyUpdated",
+  [normAccountApiMessage("Company 已更新")]: "apiCompanyUpdated",
+  [normAccountApiMessage("No account IDs provided")]: "apiNoAccountIds",
+  [normAccountApiMessage("Company not selected")]: "apiCompanyNotSelected",
+  [normAccountApiMessage("Currency not found or access denied")]: "apiCurrencyNotFound",
+  [normAccountApiMessage("Currency ID is required")]: "apiCurrencyIdRequired",
+  [normAccountApiMessage("Payment alert 更新失败")]: "apiPaymentAlertUpdateFailed",
+  [normAccountApiMessage("Failed to load accounts")]: "failedToLoadAccounts",
+  [normAccountApiMessage("加载账号失败")]: "failedToLoadAccounts",
+  [normAccountApiMessage("Failed to load account")]: "failedToLoadAccount",
+  [normAccountApiMessage("加载账号失败")]: "failedToLoadAccount",
+  [normAccountApiMessage("Delete failed")]: "deleteFailed",
+  [normAccountApiMessage("删除失败")]: "deleteFailed",
+  [normAccountApiMessage("Save failed")]: "saveFailed",
+  [normAccountApiMessage("保存失败")]: "saveFailed",
+  [normAccountApiMessage("Create failed")]: "createFailed",
+  [normAccountApiMessage("创建失败")]: "createFailed",
+  [normAccountApiMessage("Failed to delete currency")]: "failedDeleteCurrency",
+  [normAccountApiMessage("删除货币失败")]: "failedDeleteCurrency",
+  [normAccountApiMessage("Failed to switch company")]: "failedToSwitchCompany",
+  [normAccountApiMessage("切换公司失败")]: "failedToSwitchCompany",
+  [normAccountApiMessage("Network error")]: "networkError",
+  [normAccountApiMessage("网络错误")]: "networkError",
+};
+
+function accountMessageLanguageHint(message) {
+  const text = String(message || "");
+  const hasCjk = /[\u4e00-\u9fff]/.test(text);
+  const hasLatin = /[a-zA-Z]/.test(text);
+  if (hasCjk && !hasLatin) return "zh";
+  if (hasLatin && !hasCjk) return "en";
+  return "mixed";
+}
+
+function translateAccountDynamicApiMessage(lang, message) {
+  const raw = String(message || "").trim();
+  if (!raw) return null;
+  let m = raw.match(/^Cannot delete active accounts:\s*(.+)$/i);
+  if (m) return getAccountText(lang, "apiCannotDeleteActiveAccounts") + ": " + m[1];
+  m = raw.match(/^(?:Currency is being used|正在使用|Cannot delete).*currency/i);
+  if (m || /being used|正在使用/i.test(raw)) return getAccountText(lang, "apiCurrencyInUse");
+  return null;
+}
+
+/** Map backend API message to account-list i18n for toasts. */
+export function translateAccountApiMessage(lang, apiMessage, fallbackKey = "", params = {}) {
+  const message = String(apiMessage ?? "").trim();
+  const locale = lang === "zh" ? "zh" : "en";
+
+  const dynamic = translateAccountDynamicApiMessage(locale, message);
+  if (dynamic) return dynamic;
+
+  const key = ACCOUNT_API_MESSAGE_KEYS[normAccountApiMessage(message)];
+  if (key) return getAccountText(locale, key, params);
+
+  const hint = accountMessageLanguageHint(message);
+  if (message && hint !== "mixed" && hint !== locale && fallbackKey) {
+    return getAccountText(locale, fallbackKey, params);
+  }
+
+  return message || (fallbackKey ? getAccountText(locale, fallbackKey, params) : "");
+}
 
 export function getAccountText(lang, key, params = {}) {
   const locale = lang === "zh" ? "zh" : "en";

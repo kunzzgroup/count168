@@ -25,7 +25,7 @@ const FormulaVirtualDataRow = memo(function FormulaVirtualDataRow({
       role="row"
       className={`maintenance-virtual-data-row formula-virtual-data-row ${stripe}${isEditing ? " formula-virtual-data-row--editing" : ""}`}
     >
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center">
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left">
         {row.no ?? index + 1}
       </div>
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left formula-virtual-cell--wrap" title={row.process}>
@@ -114,7 +114,7 @@ const FormulaVirtualDataRow = memo(function FormulaVirtualDataRow({
           <span className="formula-cell-clamp-2 description-display">{row._description ?? toUpperDisplay(row.description)}</span>
         )}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center formula-virtual-cell-actions">
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left formula-virtual-cell-actions">
         <div className="maintenance-formula-actions-inner">
           {isEditing ? (
             <>

@@ -648,117 +648,42 @@ body {
             box-sizing: border-box;
         }
 
-        /* Add Account modal overlay: on top and horizontally centered within right content area */
+        /*
+         * Shared AccountModal (#account-addModal): center in full viewport (not sidebar-offset).
+         */
+        body.dashboard-page #account-addModal.account-modal {
+            z-index: 10001;
+            padding: 0;
+            box-sizing: border-box;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.dashboard-page #account-addModal .account-modal-content {
+            top: auto;
+            margin: 0;
+            transform: none;
+        }
+
+        body.dashboard-page .user-modal-company-picker-root--above-modals {
+            z-index: 10002;
+        }
+
+        /* Legacy PHP #addModal only (SPA uses #account-addModal) */
         #addModal.account-modal {
             display: none;
             position: fixed;
-            z-index: 10001; /* ensure Add Account is in front */
+            z-index: 10001;
             left: 0;
             top: 0;
             width: 100%;
             height: 100%;
             overflow: auto;
-            /* Shift overlay so the modal centers in main column (exclude sidebar), like Edit Formula */
             padding-left: clamp(150px, 13.02vw, 250px);
             padding-right: clamp(16px, 2vw, 28px);
             box-sizing: border-box;
             align-items: flex-start;
             justify-content: center;
-        }
-
-        /*
-         * Summary Add Account uses #addModal (not #account-addModal), so it only got generic
-         * .account-modal-content (~950px max) — feels cramped. Match reference: ~65–72vw wide, roomier padding.
-         */
-        #addModal.account-modal .account-modal-content {
-            width: clamp(1020px, 72vw, 1400px);
-            max-width: calc(100vw - clamp(150px, 13.02vw, 250px) - 48px);
-            margin-top: clamp(56px, 7vh, 100px);
-            margin-bottom: clamp(24px, 4vh, 48px);
-            padding: clamp(18px, 2vw, 32px) clamp(26px, 3vw, 48px);
-            top: auto;
-            transform: none;
-            border-radius: 1rem;
-            box-sizing: border-box;
-            max-height: min(92vh, calc(100vh - clamp(72px, 10vh, 120px)));
-        }
-
-        #addModal.account-modal .account-modal-header {
-            padding-bottom: clamp(12px, 1.4vw, 20px);
-            margin-bottom: clamp(6px, 0.8vw, 12px);
-        }
-
-        #addModal.account-modal .account-modal-header h2 {
-            font-size: clamp(22px, 1.85vw, 32px);
-            letter-spacing: -0.02em;
-        }
-
-        #addModal.account-modal .account-modal-body {
-            padding: 0;
-        }
-
-        #addModal.account-modal .account-form-columns {
-            gap: clamp(1.35rem, 2.2vw, 2.25rem);
-            padding: clamp(1.15rem, 1.9vw, 2rem) clamp(1.15rem, 2vw, 2rem);
-        }
-
-        #addModal.account-modal .account-form-section {
-            padding-left: clamp(1.15rem, 2vw, 2rem);
-            padding-right: clamp(1.15rem, 2vw, 2rem);
-            padding-bottom: clamp(0.65rem, 1vw, 1rem);
-        }
-
-        #addModal.account-modal .account-section-header {
-            font-size: clamp(15px, 1.15vw, 18px);
-            margin-bottom: clamp(10px, 1.2vw, 16px);
-        }
-
-        #addModal.account-modal .account-form-group label {
-            font-size: clamp(13px, 1.05vw, 15px);
-            margin-bottom: clamp(6px, 0.65vw, 10px);
-        }
-
-        #addModal.account-modal .account-form-group input,
-        #addModal.account-modal .account-form-group select,
-        #addModal.account-modal .account-form-group textarea {
-            font-size: clamp(14px, 1.05vw, 16px);
-            min-height: 2.85rem;
-            padding: clamp(10px, 0.9vw, 14px) clamp(14px, 1.1vw, 18px);
-            border-radius: 8px;
-        }
-
-        #addModal.account-modal .account-radio-group {
-            gap: clamp(10px, 1vw, 16px);
-        }
-
-        #addModal.account-modal .account-form-actions {
-            padding: clamp(1.1rem, 1.8vw, 1.5rem) clamp(1.25rem, 2.2vw, 2.25rem);
-            gap: clamp(12px, 1.2vw, 18px);
-        }
-
-        #addModal.account-modal .account-btn-save,
-        #addModal.account-modal .account-btn-cancel {
-            padding: clamp(12px, 1.05vw, 16px) clamp(28px, 2.8vw, 48px);
-            font-size: clamp(14px, 1.08vw, 17px);
-            border-radius: 10px;
-        }
-
-        #addModal.account-modal .account-btn-add-currency {
-            padding: clamp(10px, 0.95vw, 14px) clamp(18px, 1.8vw, 28px);
-            font-size: clamp(13px, 1.02vw, 15px);
-            flex-shrink: 0;
-        }
-
-        #addModal.account-modal #addCurrencyInput {
-            min-height: 2.75rem;
-            font-size: clamp(14px, 1.05vw, 16px);
-        }
-
-        #addModal.account-modal .account-currency-list .account-currency-item,
-        #addModal.account-modal .account-currency-list .currency-toggle-item {
-            font-size: clamp(13px, 1vw, 15px);
-            padding: clamp(9px, 0.85vw, 13px) clamp(13px, 1.15vw, 18px);
-            border-radius: 999px;
         }
 
         @keyframes fadeIn {
@@ -974,6 +899,10 @@ body {
 
         .notification-popup.info {
             border-left: 4px solid #17a2b8;
+        }
+
+        .notification-popup.warning {
+            border-left: 4px solid #ffc107;
         }
 
         .notification-header {
@@ -1973,6 +1902,13 @@ body {
             justify-content: center;
             transition: all 0.2s ease;
             flex-shrink: 0;
+            position: relative;
+            z-index: 10003;
+            pointer-events: auto;
+        }
+
+        #editFormulaModal .account-add-btn {
+            pointer-events: auto;
         }
 
         .account-add-btn:hover {

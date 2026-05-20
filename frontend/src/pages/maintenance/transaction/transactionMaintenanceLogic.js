@@ -9,6 +9,7 @@ export async function fetchCompanyPermissions(companyCode) {
     const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ action: "get_company_permissions", company_id: companyCode })
     });
     const result = await response.json();
@@ -41,7 +42,7 @@ export async function fetchProcesses(companyId) {
   }
   const url = buildApiUrl(`api/processes/processlist_api.php?${params.toString()}`);
   
-  const response = await fetch(url);
+  const response = await fetch(url, { credentials: "include" });
   const data = await response.json();
   if (!data.success) {
     throw new Error(data.error || 'Failed to load process list');
@@ -67,11 +68,24 @@ export async function searchTransactionData({ dateFrom, dateTo, process, company
   }
   
   const url = buildApiUrl(`api/transactions/maintenance_search_api.php?${params.toString()}`);
-  const response = await fetch(url, signal ? { signal } : undefined);
-  const data = await response.json();
-  
-  if (!data.success) {
-    throw new Error(data.error || 'Search failed');
+  let response;
+  try {
+    response = await fetch(url, { credentials: "include", signal });
+  } catch (err) {
+    if (err?.name === "AbortError" || signal?.aborted) {
+      throw err;
+    }
+    throw new Error(err?.message || "Search failed");
+  }
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(response.ok ? "Search failed" : `Search failed (${response.status})`);
+  }
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || data.message || "Search failed");
   }
   return data.data || [];
 }
@@ -80,7 +94,9 @@ export async function searchTransactionData({ dateFrom, dateTo, process, company
  * Update session company
  */
 export async function updateSessionCompany(companyId) {
-  const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`));
+  const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`), {
+    credentials: "include",
+  });
   const result = await response.json();
   if (!result.success) {
     throw new Error(result.error || 'Failed to update session company');

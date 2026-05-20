@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import {
@@ -251,6 +251,7 @@ export function useTransactionData({
           setFilterSnapshot((prev) => (prev ? { ...prev, companyId: numericCid } : prev));
         }
       } catch (e) {
+        if (e?.name === "AbortError" || isCancelledError(e)) return;
         console.error(e);
       }
     },

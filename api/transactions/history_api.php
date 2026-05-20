@@ -18,6 +18,7 @@ header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 header('X-Count168-History-Sort: calendar');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
@@ -1030,8 +1031,8 @@ try {
                 throw new Exception('无权访问该公司');
             }
         } elseif ($userType === 'member') {
-            // member 用户可以访问通过 account_company 关联的公司
-            $memberAccountId = (int) $_SESSION['user_id'];
+            // member：公司以登录账号的 account_company 为准
+            $memberAccountId = member_session_canonical_account_id();
             $stmt = $pdo->prepare("
                 SELECT 1 
                 FROM account_company ac

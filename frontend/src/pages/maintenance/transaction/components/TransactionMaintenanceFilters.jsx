@@ -1,5 +1,21 @@
 import { useMemo } from "react";
 import ProcessSelect from "./ProcessSelect.jsx";
+import ReportDatePicker from "../../../report/common/ReportDatePicker.jsx";
+import ReportGcFilterPanel from "../../../report/components/ReportGcFilterPanel.jsx";
+
+const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
+
+function parseDmy(dmy) {
+  const match = String(dmy || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return "";
+  return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+}
+
+function formatDmy(ymd) {
+  const [y, m, d] = (ymd || "").split("-");
+  if (!y || !m || !d) return "";
+  return `${d}/${m}/${y}`;
+}
 
 export default function TransactionMaintenanceFilters({
   processes,
@@ -7,6 +23,8 @@ export default function TransactionMaintenanceFilters({
   setSelectedProcess,
   dateFrom,
   dateTo,
+  setDateFrom,
+  setDateTo,
   today,
   companyId,
   companies,
@@ -43,148 +61,75 @@ export default function TransactionMaintenanceFilters({
     });
   }, [dedupedCompanies, selectedGroup]);
 
+  const periodPresets = useMemo(
+    () => QUICK_RANGE_KEYS.map((key) => ({ key, label: m[key] || key })),
+    [m],
+  );
+
   return (
-    <div className="maintenance-search-section">
-      <div className="maintenance-filters">
-        <div className="maintenance-form-group maintenance-outlined-field">
-          <div className="maintenance-outlined-field__wrap">
+    <div className="customer-report-filter-container">
+      <div className="customer-report-filters">
+        <div className="customer-report-filter-group report-outlined-anchor">
+          <div className="report-outlined-shell">
             <span
               id="transaction-maintenance-process-legend"
-              className="maintenance-outlined-field__label"
+              className="report-outlined-label"
             >
               {m.process}
             </span>
-            <ProcessSelect
-              processes={processes}
-              selectedValue={selectedProcess}
-              onSelect={setSelectedProcess}
-              placeholder={m.selectAllProcesses}
-              searchPlaceholder={m.searchProcessPlaceholder}
-              noResultsText={m.noResultsFound}
-              ariaLabelledBy="transaction-maintenance-process-legend"
-            />
-          </div>
-        </div>
-
-        <div className="maintenance-form-group maintenance-date-inline maintenance-outlined-field">
-          <div className="maintenance-outlined-field__wrap">
-            <span
-              id="transaction-maintenance-date-range-legend"
-              className="maintenance-outlined-field__label"
-            >
-              {m.dateRange}
-            </span>
-            <div
-              className="date-range-picker"
-              id="date-range-picker"
-              aria-labelledby="transaction-maintenance-date-range-legend"
-            >
-              <i className="fas fa-calendar-alt" aria-hidden={true} />
-              <span id="date-range-display">{m.selectDateRange}</span>
-            </div>
-          </div>
-          <input type="hidden" id="date_from" defaultValue={dateFrom || today} />
-          <input type="hidden" id="date_to" defaultValue={dateTo || today} />
-        </div>
-
-        <div className="maintenance-form-group quick-select-wrap">
-          <label className="maintenance-label">
-            <i className="fas fa-clock" /> {m.quickSelect}
-          </label>
-          <div className="quick-select-dropdown quick-select-dropdown-toggle">
-            <button
-              type="button"
-              className="dropdown-toggle"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.toggleQuickSelectDropdown?.();
-              }}
-            >
-              <i className="fas fa-calendar-alt" />
-              <span id="quick-select-text">{m.period}</span>
-              <i className="fas fa-chevron-down" />
-            </button>
-            <div className="dropdown-menu" id="quick-select-dropdown">
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("today")}>
-                {m.today}
-              </button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("yesterday")}>
-                {m.yesterday}
-              </button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisWeek")}>
-                {m.thisWeek}
-              </button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastWeek")}>
-                {m.lastWeek}
-              </button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisMonth")}>
-                {m.thisMonth}
-              </button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastMonth")}>
-                {m.lastMonth}
-              </button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisYear")}>
-                {m.thisYear}
-              </button>
-              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastYear")}>
-                {m.lastYear}
-              </button>
+            <div className="report-outlined-inner">
+              <ProcessSelect
+                processes={processes}
+                selectedValue={selectedProcess}
+                onSelect={setSelectedProcess}
+                placeholder={m.selectAllProcesses}
+                searchPlaceholder={m.searchProcessPlaceholder}
+                noResultsText={m.noResultsFound}
+                ariaLabelledBy="transaction-maintenance-process-legend"
+              />
             </div>
           </div>
         </div>
+
+        <ReportDatePicker
+          dateFrom={parseDmy(dateFrom || today)}
+          dateTo={parseDmy(dateTo || today)}
+          onRangeChange={(start, end) => {
+            setDateFrom(formatDmy(start));
+            setDateTo(formatDmy(end));
+          }}
+          containerClass="customer-report-filter-group"
+          label={m.dateRange}
+          placeholder={m.selectDateRange}
+          selectEndDateHint={m.selectEndDate}
+          outlinedFloatingLabel
+          captureDateStyle
+          periodPresets={periodPresets}
+          periodShortcutsAria={m.period}
+          monthLabels={m.monthsShort}
+          weekdaysShort={m.weekdaysShort}
+        />
       </div>
 
       <div className="maintenance-filter-row">
-        <div className="maintenance-filter-left">
-          {(snapGroupIds.length > 0 || snapCompanies.length > 0) && (
-            <div className="user-gc-inline-panel maintenance-gc-panel">
-              {snapGroupIds.length > 0 && (
-                <div className="user-gc-inline-row">
-                  <span className="user-gc-inline-label">{m.groupId}</span>
-                  <div
-                    className="user-gc-inline-pills user-gc-inline-pills--segment-scroll"
-                    id="group-buttons-wrapper"
-                  >
-                    <div className="user-gc-segment-group" role="group" aria-label={m.groupId}>
-                      {snapGroupIds.map((gid) => (
-                        <button
-                          key={gid}
-                          type="button"
-                          className={`user-gc-segment${selectedGroup === gid ? " is-on" : ""}`}
-                          onClick={() => onGroupClick(gid)}
-                        >
-                          {gid}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {snapCompanies.length > 0 && (
-                <div className="user-gc-inline-row">
-                  <span className="user-gc-inline-label">{m.company}</span>
-                  <div
-                    className="user-gc-inline-pills user-gc-inline-pills--segment-scroll"
-                    id="company-buttons-wrapper"
-                  >
-                    <div className="user-gc-segment-group" role="group" aria-label={m.company}>
-                      {visibleCompanies.map((comp) => (
-                        <button
-                          key={comp.id}
-                          type="button"
-                          className={`user-gc-segment${Number(comp.id) === Number(companyId) ? " is-on" : ""}`}
-                          onClick={() => onSwitchCompany(comp)}
-                        >
-                          {String(comp.company_id || "").toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+        <div className="maintenance-filter-left-full">
+          <ReportGcFilterPanel
+            groupIds={snapGroupIds}
+            groupFilterKind={selectedGroup ? "follow" : "all"}
+            selectedGroupKey={selectedGroup}
+            onPickAllGroups={() => onGroupClick("")}
+            onPickGroup={(g) => onGroupClick(g)}
+            companyButtons={visibleCompanies}
+            companyId={companyId}
+            highlightCompanyId={companyId}
+            onSwitchCompany={onSwitchCompany}
+            t={(key) => {
+              if (key === "groupId") return m.groupId;
+              if (key === "company") return m.company;
+              if (key === "groupFilterAll") return m.all || "All";
+              return m[key] || key;
+            }}
+          />
         </div>
       </div>
     </div>

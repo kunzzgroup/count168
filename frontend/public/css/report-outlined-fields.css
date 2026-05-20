@@ -1,11 +1,14 @@
 /* Outlined floating label — reports + Transaction (Category / Capture Date row) */
 
+body.maintenance-page .customer-report-filters .report-outlined-anchor,
 body.dashboard-page.report-page .customer-report-filters .report-outlined-anchor,
+body.maintenance-page .domain-report-filters .report-outlined-anchor,
 body.dashboard-page.report-page .domain-report-filters .report-outlined-anchor,
 body.transaction-page .transaction-category-date-row .report-outlined-anchor {
     gap: 0;
 }
 
+body.maintenance-page .report-outlined-shell,
 body.dashboard-page.report-page .report-outlined-shell,
 body.transaction-page .transaction-category-date-row .report-outlined-shell {
     position: relative;
@@ -17,6 +20,7 @@ body.transaction-page .transaction-category-date-row .report-outlined-shell {
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+body.maintenance-page .report-outlined-label,
 body.dashboard-page.report-page .report-outlined-label,
 body.transaction-page .transaction-category-date-row .report-outlined-label {
     position: absolute;
@@ -35,9 +39,13 @@ body.transaction-page .transaction-category-date-row .report-outlined-label {
     line-height: 1.15;
 }
 
+body.maintenance-page .report-outlined-shell:hover,
 body.dashboard-page.report-page .report-outlined-shell:hover,
+body.maintenance-page .report-outlined-shell:focus-within,
 body.dashboard-page.report-page .report-outlined-shell:focus-within,
+body.maintenance-page .report-outlined-shell:has(.custom-select-button.open),
 body.dashboard-page.report-page .report-outlined-shell:has(.custom-select-button.open),
+body.maintenance-page .report-outlined-shell:has(.date-range-picker:focus-visible),
 body.dashboard-page.report-page .report-outlined-shell:has(.date-range-picker:focus-visible),
 body.transaction-page .transaction-category-date-row .report-outlined-shell:hover,
 body.transaction-page .transaction-category-date-row .report-outlined-shell:focus-within,
@@ -47,8 +55,11 @@ body.transaction-page .transaction-category-date-row .report-outlined-shell:has(
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
+body.maintenance-page .report-outlined-shell:focus-within .report-outlined-label,
 body.dashboard-page.report-page .report-outlined-shell:focus-within .report-outlined-label,
+body.maintenance-page .report-outlined-shell:has(.custom-select-button.open) .report-outlined-label,
 body.dashboard-page.report-page .report-outlined-shell:has(.custom-select-button.open) .report-outlined-label,
+body.maintenance-page .report-outlined-shell:has(.date-range-picker:focus-visible) .report-outlined-label,
 body.dashboard-page.report-page .report-outlined-shell:has(.date-range-picker:focus-visible) .report-outlined-label,
 body.transaction-page .transaction-category-date-row .report-outlined-shell:focus-within .report-outlined-label,
 body.transaction-page .transaction-category-date-row .report-outlined-shell.report-outlined-shell--menu-open .report-outlined-label,
@@ -56,6 +67,7 @@ body.transaction-page .transaction-category-date-row .report-outlined-shell:has(
     color: #3b82f6;
 }
 
+body.maintenance-page .report-outlined-inner .custom-select-button,
 body.dashboard-page.report-page .report-outlined-inner .custom-select-button,
 body.transaction-page .transaction-category-date-row .report-outlined-inner .custom-select-button {
     margin: 0;
@@ -65,13 +77,16 @@ body.transaction-page .transaction-category-date-row .report-outlined-inner .cus
     background: transparent;
 }
 
+body.maintenance-page .report-outlined-inner .custom-select-button:hover,
 body.dashboard-page.report-page .report-outlined-inner .custom-select-button:hover,
 body.transaction-page .transaction-category-date-row .report-outlined-inner .custom-select-button:hover {
     border: none !important;
     box-shadow: none !important;
 }
 
+body.maintenance-page .report-outlined-inner .custom-select-button:focus,
 body.dashboard-page.report-page .report-outlined-inner .custom-select-button:focus,
+body.maintenance-page .report-outlined-inner .custom-select-button.open,
 body.dashboard-page.report-page .report-outlined-inner .custom-select-button.open,
 body.transaction-page .transaction-category-date-row .report-outlined-inner .custom-select-button:focus,
 body.transaction-page .transaction-category-date-row .report-outlined-inner .custom-select-button.open {
@@ -80,18 +95,21 @@ body.transaction-page .transaction-category-date-row .report-outlined-inner .cus
     outline: none;
 }
 
+body.maintenance-page .report-outlined-anchor .custom-select-wrapper,
 body.dashboard-page.report-page .report-outlined-anchor .custom-select-wrapper,
 body.transaction-page .transaction-category-date-row .report-outlined-anchor .custom-select-wrapper {
     position: relative;
     z-index: 1;
 }
 
+body.maintenance-page .report-outlined-anchor:has(.custom-select-button.open) .custom-select-wrapper,
 body.dashboard-page.report-page .report-outlined-anchor:has(.custom-select-button.open) .custom-select-wrapper,
 body.transaction-page .transaction-category-date-row .report-outlined-anchor.is-select-open .transaction-category-multiselect {
     position: relative;
     z-index: 40;
 }
 
+body.maintenance-page .report-outlined-inner .date-range-picker,
 body.dashboard-page.report-page .report-outlined-inner .date-range-picker,
 body.transaction-page .transaction-category-date-row .report-outlined-inner .date-range-picker {
     border: none !important;
@@ -101,6 +119,7 @@ body.transaction-page .transaction-category-date-row .report-outlined-inner .dat
     border-radius: inherit;
 }
 
+body.maintenance-page .report-outlined-inner .date-range-picker:hover,
 body.dashboard-page.report-page .report-outlined-inner .date-range-picker:hover,
 body.transaction-page .transaction-category-date-row .report-outlined-inner .date-range-picker:hover {
     border-color: transparent !important;

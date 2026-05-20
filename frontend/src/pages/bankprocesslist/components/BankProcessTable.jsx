@@ -1,7 +1,36 @@
 import React, { useLayoutEffect, useRef } from "react";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
-import { BANK_GRID_TEMPLATE_COLUMNS, BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT, canShowBankResend, normalizeBankProcessStatus, notifyTransactionDataChanged } from "../bankProcessHelpers.js";
+import {
+  BANK_GRID_TEMPLATE_COLUMNS,
+  BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT,
+  canShowBankResend,
+  normalizeBankProcessStatus,
+  notifyTransactionDataChanged,
+  formatBankProcessContractLabel,
+  bankProcessContractBadgeKey,
+  formatBankMoneyFixed2,
+  isValidBankMoneyInput,
+} from "../bankProcessHelpers.js";
+
+function formatBankMoneyCell(value) {
+  const raw = value != null ? String(value).trim() : "";
+  if (!raw) return "-";
+  if (!isValidBankMoneyInput(raw)) return raw;
+  return formatBankMoneyFixed2(raw);
+}
 import BankProcessStatusControl from "./BankProcessStatusControl.jsx";
+
+function BankSortIcon({ column, sortColumn, sortDirection }) {
+  return (
+    <span
+      className={`account-sort-icon${sortColumn === column ? ` is-active is-${sortDirection}` : ""}`}
+      aria-hidden="true"
+    >
+      <span className="account-sort-icon__up" />
+      <span className="account-sort-icon__down" />
+    </span>
+  );
+}
 
 function getContractStateClass(dayStart, dayEnd) {
   const now = new Date();
@@ -17,22 +46,23 @@ function getContractStateClass(dayStart, dayEnd) {
   return 'contract-expired';
 }
 
-function renderBankContract(value, dayStart, dayEnd) {
+function renderBankContract(value, dayStart, dayEnd, lang) {
   const text = String(value || "").trim();
   if (!text) return "-";
-  
-  const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' };
-  const contractRaw = contractMap[text] || text;
-  
+
+  const contractBadgeKey = bankProcessContractBadgeKey(text);
+  const displayLabel = formatBankProcessContractLabel(lang, text);
+
   const baseContractClass = getContractStateClass(dayStart || null, dayEnd || null);
-  const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
-  const contractClass = (grayContracts.indexOf(contractRaw) !== -1 && baseContractClass === 'contract-active')
-      ? 'contract-1month-active'
+  const grayContracts = ["1 MONTH", "1+1 MONTH", "1+2 MONTHS", "1+3 MONTHS"];
+  const contractClass =
+    grayContracts.indexOf(contractBadgeKey) !== -1 && baseContractClass === "contract-active"
+      ? "contract-1month-active"
       : baseContractClass;
 
   return (
     <span className={`contract-badge ${contractClass} bank-contract-pill`}>
-      {contractRaw}
+      {displayLabel}
     </span>
   );
 }
@@ -51,9 +81,11 @@ export default function BankProcessTable({
   openEdit,
   openRemarkModal,
   openResendModal,
-  supplierSortDir,
-  setSupplierSortDir,
+  sortColumn,
+  sortDirection,
+  onSort,
   showHeaderSelectAll,
+  lang,
   t,
 }) {
   const deletableRows = pageRows.filter(
@@ -81,7 +113,6 @@ export default function BankProcessTable({
       cardsEl.style.setProperty("--table-header-width", `${rect.width}px`);
     };
 
-    // Keep Bank list row width exactly aligned with the rendered header width.
     const raf1 = window.requestAnimationFrame(() => {
       window.requestAnimationFrame(syncHeaderWidth);
     });
@@ -100,28 +131,28 @@ export default function BankProcessTable({
       window.removeEventListener("resize", onResize);
       if (ro) ro.disconnect();
     };
-  }, [pageRows.length, showAll, supplierSortDir, showSelectColumn]);
+  }, [pageRows.length, showAll, sortColumn, sortDirection, showSelectColumn]);
 
   const gridCols = showSelectColumn ? BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT : BANK_GRID_TEMPLATE_COLUMNS;
 
-  const toggleSupplierSortDir = () => setSupplierSortDir((d) => (d === "asc" ? "desc" : "asc"));
+  const bankColClass = (key) => `bank-col bank-col-${key}`;
 
   const bankHeaderDefs = [
-    { key: "no", labelText: t("no") },
+    { key: "no", labelText: t("no"), sortable: true },
     { key: "supplier", labelText: t("supplier"), sortable: true },
-    { key: "ccy", labelText: t("country") },
-    { key: "bank", labelText: t("bank") },
-    { key: "types", labelText: t("types") },
-    { key: "owner", labelText: t("cardOwner") },
-    { key: "contract", labelText: t("contract") },
-    { key: "insurance", labelText: t("insurance") },
-    { key: "customer", labelText: t("customer") },
-    { key: "cost", labelText: t("cost") },
-    { key: "price", labelText: t("price") },
-    { key: "profit", labelText: t("profit") },
-    { key: "status", labelText: t("status") },
-    { key: "date", labelText: t("date") },
-    { key: "action", labelText: t("action") },
+    { key: "ccy", labelText: t("country"), sortable: true },
+    { key: "bank", labelText: t("bank"), sortable: true },
+    { key: "types", labelText: t("types"), sortable: true },
+    { key: "owner", labelText: t("cardOwner"), sortable: true },
+    { key: "contract", labelText: t("contract"), sortable: true },
+    { key: "insurance", labelText: t("insurance"), sortable: true },
+    { key: "customer", labelText: t("customer"), sortable: true },
+    { key: "cost", labelText: t("cost"), sortable: true },
+    { key: "price", labelText: t("price"), sortable: true },
+    { key: "profit", labelText: t("profit"), sortable: true },
+    { key: "status", labelText: t("status"), sortable: true },
+    { key: "date", labelText: t("date"), sortable: true },
+    { key: "action", labelText: t("action"), sortable: false },
   ];
 
   const bankHeaders = [...bankHeaderDefs];
@@ -143,43 +174,45 @@ export default function BankProcessTable({
     });
   }
 
+  const renderSortableHeader = (h) => (
+    <div
+      key={h.key}
+      className={`header-item bank-header header-item--with-sort-icon header-sortable ${bankColClass(h.key)}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => onSort(h.key)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSort(h.key);
+        }
+      }}
+    >
+      <span className="header-item__label">{h.labelText}</span>
+      <BankSortIcon column={h.key} sortColumn={sortColumn} sortDirection={sortDirection} />
+    </div>
+  );
+
   return (
     <div className={`process-table-wrapper${showSelectColumn ? " process-table-wrapper--select-col" : ""}`}>
       <div ref={headerRef} className="table-header" style={{ gridTemplateColumns: gridCols }}>
         {bankHeaders.map((h) => {
           if (h.isSelect) {
             return (
-              <div key={h.key} className="header-item bank-header header-item--select">
+              <div key={h.key} className={`header-item bank-header header-item--select ${bankColClass("bulk")}`}>
                 {h.label}
               </div>
             );
           }
-          const sortIconDir = h.sortable ? supplierSortDir : "asc";
+          if (h.sortable) {
+            return renderSortableHeader(h);
+          }
           return (
             <div
               key={h.key}
-              className={`header-item bank-header header-item--with-sort-icon${
-                h.sortable ? " header-sortable" : ""
-              }${h.key === "action" ? " bank-action-header" : ""}`}
-              role={h.sortable ? "button" : undefined}
-              tabIndex={h.sortable ? 0 : undefined}
-              onClick={h.sortable ? toggleSupplierSortDir : undefined}
-              onKeyDown={
-                h.sortable
-                  ? (e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        toggleSupplierSortDir();
-                      }
-                    }
-                  : undefined
-              }
+              className={`header-item bank-header ${bankColClass(h.key)}${h.key === "action" ? " bank-action-header" : ""}`}
             >
               <span className="header-item__label">{h.labelText}</span>
-              <span className={`account-sort-icon is-active is-${sortIconDir}`} aria-hidden="true">
-                <span className="account-sort-icon__up" />
-                <span className="account-sort-icon__down" />
-              </span>
             </div>
           );
         })}
@@ -199,21 +232,22 @@ export default function BankProcessTable({
         )}
         {!tableLoading && pageRows.map((r, i) => (
           <div key={r.id} className="process-card" style={{ gridTemplateColumns: gridCols }}>
-            <div className="card-item">{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</div>
-            <div className="card-item">{r.card_lower || "-"}</div>
-            <div className="card-item">{r.country || "-"}</div>
-            <div className="card-item">{r.bank || "-"}</div>
-            <div className="card-item">{r.type || "-"}</div>
-            <div className="card-item">{r.supplier || "-"}</div>
-            <div className="card-item bank-contract-cell">{renderBankContract(r.contract, r.day_start || r.date, r.day_end)}</div>
-            <div className="card-item">{r.insurance || "-"}</div>
-            <div className="card-item">{r.customer || "-"}</div>
-            <div className="card-item">{r.cost || "-"}</div>
-            <div className="card-item">{r.price || "-"}</div>
-            <div className="card-item">{r.profit || "-"}</div>
-            <div className="card-item bank-status-cell">
+            <div className={`card-item ${bankColClass("no")}`}>{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</div>
+            <div className={`card-item ${bankColClass("supplier")}`}>{r.card_lower || "-"}</div>
+            <div className={`card-item ${bankColClass("ccy")}`}>{r.country || "-"}</div>
+            <div className={`card-item ${bankColClass("bank")}`}>{r.bank || "-"}</div>
+            <div className={`card-item ${bankColClass("types")}`}>{r.type || "-"}</div>
+            <div className={`card-item ${bankColClass("owner")}`}>{r.supplier || "-"}</div>
+            <div className={`card-item bank-contract-cell ${bankColClass("contract")}`}>{renderBankContract(r.contract, r.day_start || r.date, r.day_end, lang)}</div>
+            <div className={`card-item ${bankColClass("insurance")}`}>{r.insurance || "-"}</div>
+            <div className={`card-item ${bankColClass("customer")}`}>{r.customer || "-"}</div>
+            <div className={`card-item ${bankColClass("cost")}`}>{formatBankMoneyCell(r.cost)}</div>
+            <div className={`card-item ${bankColClass("price")}`}>{formatBankMoneyCell(r.price)}</div>
+            <div className={`card-item ${bankColClass("profit")}`}>{formatBankMoneyCell(r.profit)}</div>
+            <div className={`card-item bank-status-cell ${bankColClass("status")}`}>
               <BankProcessStatusControl
                 row={r}
+                lang={lang}
                 notify={notify}
                 buildApiUrl={buildApiUrl}
                 t={t}
@@ -223,10 +257,10 @@ export default function BankProcessTable({
                 }}
               />
             </div>
-            <div className="card-item">{r.date || "-"}</div>
+            <div className={`card-item ${bankColClass("date")}`}>{r.date || "-"}</div>
             {showSelectColumn ? (
               <>
-                <div className="card-item bank-action-cell card-item--action">
+                <div className={`card-item bank-action-cell card-item--action ${bankColClass("action")}`}>
                   <span className="bank-action-tools">
                     <button type="button" className="edit-btn" aria-label={t("edit")} title={t("edit")} onClick={() => openEdit(r.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
                     <button type="button" className="edit-btn remark-action-btn" aria-label={t("remark")} title={t("remark")} onClick={() => openRemarkModal(r)} style={{ marginLeft: 6 }}>
@@ -267,7 +301,7 @@ export default function BankProcessTable({
                 </div>
               </>
             ) : (
-              <div className="card-item">
+              <div className={`card-item ${bankColClass("action")}`}>
                 <span className="bank-action-tools">
                   <button type="button" className="edit-btn" aria-label={t("edit")} title={t("edit")} onClick={() => openEdit(r.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
                   <button type="button" className="edit-btn remark-action-btn" aria-label={t("remark")} title={t("remark")} onClick={() => openRemarkModal(r)} style={{ marginLeft: 6 }}>

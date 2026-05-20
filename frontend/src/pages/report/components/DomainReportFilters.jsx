@@ -26,6 +26,8 @@ export default function DomainReportFilters({
   dateTo,
   onRangeChange,
   t,
+  monthLabels,
+  weekdaysShort,
 }) {
   const [processSearch, setProcessSearch] = useState("");
   const [processDropdownOpen, setProcessDropdownOpen] = useState(false);
@@ -128,6 +130,8 @@ export default function DomainReportFilters({
           captureDateStyle
           periodPresets={periodPresets}
           periodShortcutsAria={t("periodShortcutsAria")}
+          monthLabels={monthLabels}
+          weekdaysShort={weekdaysShort}
         />
       </div>
 

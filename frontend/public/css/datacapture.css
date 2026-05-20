@@ -1468,6 +1468,11 @@ body.datacapture-page .bottom-section .form-actions {
     opacity: 0.85;
 }
 
+/* 隱藏格式選單：保留於 DOM 供程式同步 type / restore；需 2.Format 或 4.RETURN 時可用 ?captureType= */
+.data-capture-type-selector.data-capture-type-selector--sr-only {
+    display: none !important;
+}
+
 .excel-table td.multi-selected {
     background-color: #e3f2fd !important;
 }
@@ -1494,6 +1499,7 @@ body.datacapture-page .bottom-section .form-actions {
 
 /* Context Menu Styles */
 .context-menu {
+    display: none;
     position: fixed;
     background: white;
     border: 1px solid #d0d7de;

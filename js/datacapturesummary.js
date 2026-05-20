@@ -7,19 +7,74 @@ function buildApiUrl(pathAndQuery) {
     return new URL(pathAndQuery, base).href;
 }
 
+/** React owns summary tbody — never appendChild/reorder DOM rows directly. */
+function isSummaryReactManagedTable() {
+    return window.__SUMMARY_REACT_TABLE__ === true
+        || (typeof window.__SUMMARY_IS_REACT_TABLE__ === 'function' && window.__SUMMARY_IS_REACT_TABLE__());
+}
+
+/**
+ * Apply computed row order via React state. Returns false if DOM reorder fallback is required.
+ */
+function applySummaryRowOrderViaReact(orderedRows) {
+    if (!isSummaryReactManagedTable() || typeof window.__SUMMARY_REACT_SET_ROW_ORDER__ !== 'function') {
+        return false;
+    }
+    if (!Array.isArray(orderedRows) || orderedRows.length === 0) {
+        return true;
+    }
+    const keys = orderedRows.map((row) => row && row.getAttribute('data-react-row-key')).filter(Boolean);
+    if (keys.length !== orderedRows.length) {
+        console.warn('applySummaryRowOrderViaReact: missing data-react-row-key, skip DOM reorder');
+        return false;
+    }
+    window.__SUMMARY_REACT_SET_ROW_ORDER__(keys);
+    return true;
+}
+
 // Notification functions
-function showNotification(title, message, type = 'success') {
+function showNotification(title, message, type) {
+    const normalized = (function normalizeSummaryNotificationArgs(t, m, ty) {
+        const KNOWN = { success: 1, error: 1, warning: 1, danger: 1, info: 1 };
+        const TITLES = { error: 'Error', danger: 'Error', warning: 'Warning', info: 'Info', success: 'Success' };
+        if (m != null && typeof m === 'string' && KNOWN[m.toLowerCase()] && (ty === undefined || ty === 'success' || ty === '')) {
+            ty = m.toLowerCase();
+            m = t;
+            t = TITLES[ty] || 'Notification';
+        }
+        ty = (ty != null && String(ty).trim() !== '') ? String(ty).toLowerCase() : 'success';
+        if (!KNOWN[ty]) ty = 'success';
+        return {
+            title: (t != null && String(t).trim() !== '') ? String(t) : 'Notification',
+            message: (m != null) ? String(m) : '',
+            type: ty
+        };
+    })(title, message, type);
+
+    title = normalized.title;
+    message = normalized.message;
+    type = normalized.type;
+
+    if (typeof window.__SUMMARY_REACT_SHOW_NOTIFICATION__ === 'function') {
+        window.__SUMMARY_REACT_SHOW_NOTIFICATION__(title, message, type);
+        return;
+    }
     const popup = document.getElementById('notificationPopup');
     const titleEl = document.getElementById('notificationTitle');
     const messageEl = document.getElementById('notificationMessage');
+    if (!popup || !titleEl || !messageEl) {
+        console.warn('Summary notification DOM not available:', title, message);
+        return;
+    }
 
     titleEl.textContent = title;
     messageEl.textContent = message;
 
     // Remove existing type classes
-    popup.classList.remove('success', 'error', 'info');
-    // Add new type class
-    popup.classList.add(type);
+    popup.classList.remove('success', 'error', 'info', 'warning');
+    // Add new type class (danger → error styling)
+    const cssType = type === 'danger' ? 'error' : (type === 'warning' ? 'warning' : type);
+    popup.classList.add(cssType || 'success');
 
     // Show popup
     popup.style.display = 'block';
@@ -79,7 +134,12 @@ function findColumnIndexByValue(processValue, numericValue) {
 }
 
 function hideNotification() {
+    if (typeof window.__SUMMARY_REACT_HIDE_NOTIFICATION__ === 'function') {
+        window.__SUMMARY_REACT_HIDE_NOTIFICATION__();
+        return;
+    }
     const popup = document.getElementById('notificationPopup');
+    if (!popup) return;
     popup.classList.remove('show');
     setTimeout(() => {
         popup.style.display = 'none';
@@ -102,41 +162,44 @@ function initDataCaptureSummaryPage() {
         }
 
         const rateInput = document.getElementById('rateInput');
-        if (rateInput) {
+        if (rateInput && rateInput.dataset.summaryRateBound !== '1') {
+            rateInput.dataset.summaryRateBound = '1';
             rateInput.addEventListener('input', function () {
                 recalculateAllRowsWithRate();
             });
         }
 
-        document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
-            radio.addEventListener('change', function () {
-                toggleAlertFields('add');
+        if (!window.__SUMMARY_REACT_TABLE__) {
+            document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
+                radio.addEventListener('change', function () {
+                    toggleAlertFields('add');
+                });
             });
-        });
 
-        ['add_account_id', 'add_name', 'add_remark', 'addCurrencyInput'].forEach(inputId => {
-            const input = document.getElementById(inputId);
-            if (input) {
-                input.addEventListener('input', function () {
-                    forceUppercase(this);
-                });
-                input.addEventListener('paste', function () {
-                    setTimeout(() => forceUppercase(this), 0);
-                });
-            }
-        });
-
-        const addCurrencyInputEl = document.getElementById('addCurrencyInput');
-        if (addCurrencyInputEl) {
-            addCurrencyInputEl.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addCurrencyFromInput('add');
+            ['add_account_id', 'add_name', 'add_remark', 'addCurrencyInput'].forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('input', function () {
+                        forceUppercase(this);
+                    });
+                    input.addEventListener('paste', function () {
+                        setTimeout(() => forceUppercase(this), 0);
+                    });
                 }
             });
-        }
 
-        bindSummaryAddAccountFormSubmitOnce();
+            const addCurrencyInputEl = document.getElementById('addCurrencyInput');
+            if (addCurrencyInputEl) {
+                addCurrencyInputEl.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCurrencyFromInput('add');
+                    }
+                });
+            }
+
+            bindSummaryAddAccountFormSubmitOnce();
+        }
 
         if (typeof fetchSummaryAccountList === 'function') {
             fetchSummaryAccountList().then(function (accounts) {
@@ -149,23 +212,33 @@ function initDataCaptureSummaryPage() {
 
         const urlParams = new URLSearchParams(window.location.search);
         window.__summaryFreshFromCapture = urlParams.get('success') === '1';
-        if (urlParams.get('success') === '1') {
-            showNotification('Success', 'Data captured and summary generated successfully!', 'success');
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (urlParams.get('error') === '1') {
-            showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
-            window.history.replaceState({}, document.title, window.location.pathname);
+        if (!window.__SUMMARY_REACT_TABLE__) {
+            if (urlParams.get('success') === '1') {
+                showNotification('Success', 'Data captured and summary generated successfully!', 'success');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (urlParams.get('error') === '1') {
+                showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
         }
 
         loadAndRenderCapturedTable().catch(function (e) {
             console.warn('loadAndRenderCapturedTable error:', e);
-            hideLoadingState();
-            showEmptyState();
+            if (!window.__SUMMARY_REACT_TABLE__) {
+                hideLoadingState();
+            }
+            if (!window.__SUMMARY_REACT_TABLE__ && !window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
+                showEmptyState();
+            }
         });
     } catch (error) {
         console.error('Error in initDataCaptureSummaryPage:', error);
-        hideLoadingState();
-        showEmptyState();
+        if (!window.__SUMMARY_REACT_TABLE__) {
+            hideLoadingState();
+        }
+        if (!window.__SUMMARY_REACT_TABLE__ && !window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
+            showEmptyState();
+        }
     }
 }
 
@@ -587,7 +660,9 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         appendedRows.add(row);
     });
 
-    finalRows.forEach(row => summaryTableBody.appendChild(row));
+    if (!applySummaryRowOrderViaReact(finalRows) && !isSummaryReactManagedTable()) {
+        finalRows.forEach(row => summaryTableBody.appendChild(row));
+    }
 }
 
 // Save current Rate Value column to localStorage (for refresh only; cleared on Back/Submit)
@@ -1307,13 +1382,24 @@ function goBackToDataCapture() {
     if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
     if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
-    window.location.href = buildApiUrl('datacapture?restore=1');
+    if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_NAV_BACK__ === 'function') {
+        window.__SUMMARY_REACT_NAV_BACK__();
+        return;
+    }
+    let backUrl = 'datacapture?restore=1';
+    const cid = typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null;
+    if (cid) backUrl += '&company_id=' + encodeURIComponent(cid);
+    window.location.href = buildApiUrl(backUrl);
 }
 
 // Refresh page function: save rate values and formula/source so they are restored after reload
 function refreshPage() {
     saveRateValuesForRefresh();
     saveFormulaSourceForRefresh();
+    if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_REFRESH__ === 'function') {
+        window.__SUMMARY_REACT_REFRESH__();
+        return;
+    }
     window.location.reload();
 }
 
@@ -1324,6 +1410,19 @@ async function loadAndRenderCapturedTable() {
         if (typeof window.__summaryFreshFromCapture === 'undefined') {
             const urlParams = new URLSearchParams(window.location.search);
             window.__summaryFreshFromCapture = urlParams.get('success') === '1';
+        }
+
+        // React SPA: table rows + captured reference table rendered by SummaryTable.jsx
+        if (window.__SUMMARY_REACT_TABLE__) {
+            const reactTableData = window.transformedTableData;
+            const reactProcessData = window.capturedProcessData;
+            if (reactTableData && reactProcessData) {
+                displayProcessInfo(reactProcessData);
+                // React owns loading chrome + template populate (__SUMMARY_REACT_ON_TABLE_READY__).
+                return;
+            }
+            // React data not hydrated yet — keep loading visible; React init will retry populate.
+            return;
         }
 
         const tableData = localStorage.getItem('capturedTableData');
@@ -1485,6 +1584,9 @@ function updateHeaderCurrencyFromSummaryTable() {
 
 // Hide loading state and show content
 function hideLoadingState() {
+    if (window.__SUMMARY_REACT_TABLE__) {
+        return;
+    }
     const loadingState = document.getElementById('loadingState');
     const actionButtons = document.getElementById('actionButtons');
     const summaryTableContainer = document.getElementById('summaryTableContainer');
@@ -2077,6 +2179,9 @@ function preserveSourceStructure(savedSourceExpression, newSourceData) {
 // 从单段引用解析出完整 id_product、row_label、dataColumnIndex（id_product 可含冒号，如 G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)）
 // 格式：id_product:row_label:column_index 或 id_product:column_index，从右侧解析以保留完整 id_product
 function parseIdProductColumnRef(part) {
+    if (typeof window.__SUMMARY_PARSE_ID_PRODUCT_COLUMN_REF__ === 'function') {
+        return window.__SUMMARY_PARSE_ID_PRODUCT_COLUMN_REF__(part);
+    }
     const p = (part || '').trim();
     if (!p) return null;
     const lastColon = p.lastIndexOf(':');
@@ -2109,6 +2214,9 @@ function parseIdProductColumnRef(part) {
 // 1. "id_product:row_label:column_index" (e.g., "BB:C:3")
 // 2. "id_product:column_index" (e.g., "BB:3")
 function isNewIdProductColumnFormat(sourceColumnsValue) {
+    if (typeof window.__SUMMARY_IS_NEW_ID_PRODUCT_COLUMN_FORMAT__ === 'function') {
+        return window.__SUMMARY_IS_NEW_ID_PRODUCT_COLUMN_FORMAT__(sourceColumnsValue);
+    }
     if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
         return false;
     }
@@ -2482,16 +2590,126 @@ function handleAddAccount(button, productValue) {
     });
 }
 
+/** Shared post-render init for Edit Formula form (legacy DOM inject + React modal). */
+function initEditFormulaFormAfterMount(prePopulatedData) {
+    // Clear clicked columns when opening new form (unless editing)
+    setTimeout(() => {
+        const formulaInput = document.getElementById('formula');
+        if (formulaInput && !prePopulatedData) {
+            formulaInput.removeAttribute('data-clicked-columns');
+        }
+    }, 100);
+
+    // Load currency and account data
+    loadFormData().then(() => {
+        // Initialize account custom select after data is loaded
+        setTimeout(() => {
+            initAccountInput();
+        }, 50);
+
+        // Populate form with pre-populated data if provided (after data is loaded)
+        if (prePopulatedData) {
+            populateFormWithData(prePopulatedData);
+        } else {
+            // Even if no prePopulatedData, set default currency from capturedProcessData
+            populateFormWithData({});
+        }
+
+        // Account、Currency、Formula 必填：根据三者是否填写启用/禁用 Save 按钮，并监听字段变化
+        setTimeout(() => {
+            if (typeof updateEditFormulaSaveButtonState === 'function') {
+                updateEditFormulaSaveButtonState();
+            }
+            const currencySelect = document.getElementById('currency');
+            if (currencySelect) {
+                currencySelect.removeEventListener('change', _onCurrencySelectLog);
+                currencySelect.addEventListener('change', _onCurrencySelectLog);
+            }
+            const formulaInput = document.getElementById('formula');
+            if (formulaInput) {
+                formulaInput.addEventListener('input', function () {
+                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                        updateEditFormulaSaveButtonState();
+                    }
+                });
+                formulaInput.addEventListener('change', function () {
+                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                        updateEditFormulaSaveButtonState();
+                    }
+                });
+            }
+        }, 150);
+    });
+
+    // Load id product list into first select box
+    loadIdProductList();
+
+    // Update formula data grid for current editing id product
+    setTimeout(() => {
+        updateFormulaDataGrid();
+    }, 100);
+
+    // Add event listener for first select box change
+    setTimeout(() => {
+        const descriptionSelect1 = document.getElementById('descriptionSelect1');
+        if (descriptionSelect1) {
+            descriptionSelect1.addEventListener('change', function () {
+                updateIdProductRowData(this.value);
+                updateFormulaDataGrid();
+            });
+        }
+
+    }, 100);
+
+    // Add input validation for Source Percent
+    addSourcePercentValidation();
+
+    // Add input validation for Formula (allow numbers, operators, parentheses)
+    addFormulaValidation();
+
+    // Add uppercase conversion for Description field
+    addUppercaseConversion('description');
+
+    // Add event listeners for input method and enable checkbox changes
+    addInputMethodChangeListeners();
+
+    // Make Data Capture Table cells clickable
+    makeTableCellsClickable();
+
+    // Initialize calculator keypad
+    initializeCalculatorKeypad();
+
+    bindEditFormulaAddAccountButton();
+}
+
+function bindEditFormulaAddAccountButton() {
+    const addBtn = document.querySelector('#editFormulaModal .account-add-btn');
+    if (!addBtn || addBtn.dataset.summaryAddAccountBound === '1') return;
+    addBtn.dataset.summaryAddAccountBound = '1';
+    addBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
+            window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+            return;
+        }
+        showAddAccountModal();
+    });
+}
+
+window.initEditFormulaFormAfterMount = initEditFormulaFormAfterMount;
+window.bindEditFormulaAddAccountButton = bindEditFormulaAddAccountButton;
+
 // Show Edit Formula Form as modal positioned slightly towards top
 function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
     // 规格：非编辑已有行时（新增）不沿用上次编辑的行货币
     if (!prePopulatedData || !prePopulatedData.accountDbId) {
         window._editFormulaRowCurrency = null;
     }
-    // Ensure modal container exists
+    // Ensure modal container exists (React SPA renders #editFormulaModal in page shell)
     let modal = document.getElementById('editFormulaModal');
     let modalContent = document.getElementById('editFormulaModalContent');
-    if (!modal) {
+    if (!modal && !window.__SUMMARY_REACT_TABLE__) {
         modal = document.createElement('div');
         modal.id = 'editFormulaModal';
         modal.className = 'summary-modal';
@@ -2520,6 +2738,15 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
                 }
             }
         }
+    }
+
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_SHOW_EDIT_FORMULA__ === 'function') {
+        window.__SUMMARY_REACT_SHOW_EDIT_FORMULA__({
+            productValue: productValue,
+            isSubIdProduct: isSubIdProduct,
+            prePopulatedData: prePopulatedData
+        });
+        return;
     }
 
     // Helper function to escape HTML for use in attribute values
@@ -2704,92 +2931,7 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
-    // Clear clicked columns when opening new form (unless editing)
-    setTimeout(() => {
-        const formulaInput = document.getElementById('formula');
-        if (formulaInput && !prePopulatedData) {
-            formulaInput.removeAttribute('data-clicked-columns');
-        }
-    }, 100);
-
-    // Load currency and account data
-    loadFormData().then(() => {
-        // Initialize account custom select after data is loaded
-        setTimeout(() => {
-            initAccountInput();
-        }, 50);
-
-        // Populate form with pre-populated data if provided (after data is loaded)
-        if (prePopulatedData) {
-            populateFormWithData(prePopulatedData);
-        } else {
-            // Even if no prePopulatedData, set default currency from capturedProcessData
-            populateFormWithData({});
-        }
-
-        // Account、Currency、Formula 必填：根据三者是否填写启用/禁用 Save 按钮，并监听字段变化
-        setTimeout(() => {
-            if (typeof updateEditFormulaSaveButtonState === 'function') {
-                updateEditFormulaSaveButtonState();
-            }
-            const currencySelect = document.getElementById('currency');
-            if (currencySelect) {
-                currencySelect.removeEventListener('change', _onCurrencySelectLog);
-                currencySelect.addEventListener('change', _onCurrencySelectLog);
-            }
-            const formulaInput = document.getElementById('formula');
-            if (formulaInput) {
-                formulaInput.addEventListener('input', function () {
-                    if (typeof updateEditFormulaSaveButtonState === 'function') {
-                        updateEditFormulaSaveButtonState();
-                    }
-                });
-                formulaInput.addEventListener('change', function () {
-                    if (typeof updateEditFormulaSaveButtonState === 'function') {
-                        updateEditFormulaSaveButtonState();
-                    }
-                });
-            }
-        }, 150);
-    });
-
-    // Load id product list into first select box
-    loadIdProductList();
-
-    // Update formula data grid for current editing id product
-    setTimeout(() => {
-        updateFormulaDataGrid();
-    }, 100);
-
-    // Add event listener for first select box change
-    setTimeout(() => {
-        const descriptionSelect1 = document.getElementById('descriptionSelect1');
-        if (descriptionSelect1) {
-            descriptionSelect1.addEventListener('change', function () {
-                updateIdProductRowData(this.value);
-                updateFormulaDataGrid();
-            });
-        }
-
-    }, 100);
-
-    // Add input validation for Source Percent
-    addSourcePercentValidation();
-
-    // Add input validation for Formula (allow numbers, operators, parentheses)
-    addFormulaValidation();
-
-    // Add uppercase conversion for Description field
-    addUppercaseConversion('description');
-
-    // Add event listeners for input method and enable checkbox changes
-    addInputMethodChangeListeners();
-
-    // Make Data Capture Table cells clickable
-    makeTableCellsClickable();
-
-    // Initialize calculator keypad
-    initializeCalculatorKeypad();
+    initEditFormulaFormAfterMount(prePopulatedData);
 }
 
 // Store the current selected row for calculator keypad
@@ -3497,7 +3639,7 @@ async function loadCurrenciesForAccount(accountId, preferredCurrency) {
     }
 }
 
-// Refresh account list
+// Refresh account list (exposed for React shared AccountModal after add)
 async function refreshAccountList(selectAccountId = null) {
     try {
         const editFormulaModal = document.getElementById('editFormulaModal');
@@ -3533,6 +3675,7 @@ async function refreshAccountList(selectAccountId = null) {
         showNotification('Error', 'Failed to refresh account list: ' + error.message, 'error');
     }
 }
+window.refreshAccountList = refreshAccountList;
 
 // Global variables for add account modal
 let roles = [];
@@ -3675,27 +3818,91 @@ async function loadAddAccountData() {
     await loadEditData();
 }
 
-async function addAccount() {
-    // Show add account modal
-    document.getElementById('addModal').style.display = 'block';
-    // 先加载 roles 和 currencies 数据
+async function loadAddAccountModalData() {
     await loadEditData();
-    // 加载所有货币为开关式
     await loadAccountCurrencies(null, 'add');
-    // 加载所有公司为开关式
     await loadAccountCompanies(null, 'add');
 }
 
-function closeAddModal() {
-    document.getElementById('addModal').style.display = 'none';
-    document.getElementById('addAccountForm').reset();
-    // 重置选中的货币列表
+/** Shared post-render init for Add Account modal (legacy page + React SPA). */
+function initAddAccountModalAfterMount() {
+    document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
+        if (radio.dataset.summaryAlertBound === '1') return;
+        radio.dataset.summaryAlertBound = '1';
+        radio.addEventListener('change', function () {
+            toggleAlertFields('add');
+        });
+    });
+
+    ['add_account_id', 'add_name', 'add_remark', 'addCurrencyInput'].forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (!input || input.dataset.summaryUpperBound === '1') return;
+        input.dataset.summaryUpperBound = '1';
+        input.addEventListener('input', function () {
+            forceUppercase(this);
+        });
+        input.addEventListener('paste', function () {
+            setTimeout(() => forceUppercase(this), 0);
+        });
+    });
+
+    const addCurrencyInputEl = document.getElementById('addCurrencyInput');
+    if (addCurrencyInputEl && addCurrencyInputEl.dataset.summaryEnterBound !== '1') {
+        addCurrencyInputEl.dataset.summaryEnterBound = '1';
+        addCurrencyInputEl.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addCurrencyFromInput('add');
+            }
+        });
+    }
+
+    bindSummaryAddAccountFormSubmitOnce();
+}
+
+function resetAddAccountModalDom() {
+    const form = document.getElementById('addAccountForm');
+    if (form) form.reset();
     selectedCurrencyIdsForAdd = [];
-    // 重置已删除的货币列表
     deletedCurrencyIds = [];
-    // 重置选中的公司列表，保留当前公司
     const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
     selectedCompanyIdsForAdd = currentCompanyId ? [currentCompanyId] : [];
+}
+
+window.initAddAccountModalAfterMount = initAddAccountModalAfterMount;
+window.loadAddAccountModalData = loadAddAccountModalData;
+window.__SUMMARY_RESET_ADD_ACCOUNT_MODAL__ = resetAddAccountModalDom;
+
+async function addAccount() {
+    const isSpa = window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ || window.__SUMMARY_REACT_TABLE__;
+    if (isSpa) {
+        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
+            return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+        }
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
+            return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+        }
+        const legacy = document.getElementById('addModal');
+        if (legacy) legacy.style.display = 'none';
+        console.warn('[Summary] Add Account: React handler not ready; avoid legacy #addModal on SPA.');
+        return;
+    }
+    const modal = document.getElementById('addModal');
+    if (!modal) {
+        console.warn('[Summary] Add Account: legacy #addModal missing.');
+        return;
+    }
+    modal.style.display = 'block';
+    await loadAddAccountModalData();
+}
+
+function closeAddModal() {
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__ === 'function') {
+        return window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__();
+    }
+    document.getElementById('addModal').style.display = 'none';
+    resetAddAccountModalDom();
 }
 
 function forceUppercase(input) {
@@ -7418,14 +7625,18 @@ function populateFormWithData(data) {
 
 // Close Edit Formula Form (modal)
 function closeEditFormulaForm() {
-    const modal = document.getElementById('editFormulaModal');
-    const modalContent = document.getElementById('editFormulaModalContent');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = '';
-    }
-    if (modalContent) {
-        modalContent.innerHTML = '';
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_CLOSE_EDIT_FORMULA__ === 'function') {
+        window.__SUMMARY_REACT_CLOSE_EDIT_FORMULA__();
+    } else {
+        const modal = document.getElementById('editFormulaModal');
+        const modalContent = document.getElementById('editFormulaModalContent');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        if (modalContent) {
+            modalContent.innerHTML = '';
+        }
     }
     // Clean up the global references
     window.currentAddAccountButton = null;
@@ -7578,9 +7789,15 @@ function extractRowDataForTemplate(row, formData) {
         ? (idProductSub || (formData.processValue && formData.processValue.trim()) || normalizeIdProductText(formData.processValue))
         : (idProductMain || (formData.processValue && formData.processValue.trim()) || normalizeIdProductText(formData.processValue) || '');
 
-    // Get parent_id_product
+    // Get parent_id_product — 必须用 DOM 上的完整 main id，不能只用 normalize 后的 processValue
     const parentIdProduct = productType === 'sub'
-        ? (idProductMain || row.getAttribute('data-parent-id-product') || formData.processValue)
+        ? (row.getAttribute('data-parent-id-product')?.trim()
+            || idProductMain?.trim()
+            || (() => {
+                const idCell = row.querySelector('td:first-child');
+                const pv = idCell ? getProductValuesFromCell(idCell) : {};
+                return (pv.main || '').trim() || null;
+            })())
         : null;
 
     // Get source columns and other data from row attributes
@@ -7736,7 +7953,39 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
             console.log('Template auto-saved successfully:', rowData.id_product);
             // Update the row's data-template-key, data-template-id, and data-formula-variant attributes
             // This ensures deletion can find the correct template info even if it was computed on the backend
-            const targetRow = rowElement || document.querySelector(`tr[data-product-type="${rowData.product_type}"]`);
+            let targetRow = rowElement;
+            if (!targetRow && rowData.product_type === 'sub' && rowData.parent_id_product) {
+                const parentTrimmed = String(rowData.parent_id_product).trim();
+                const parentRowIndex = rowData.row_index != null && !Number.isNaN(Number(rowData.row_index))
+                    ? Number(rowData.row_index)
+                    : null;
+                const candidates = Array.from(document.querySelectorAll('tr[data-product-type="sub"]'));
+                targetRow = candidates.find((tr) => {
+                    const rowParent = (tr.getAttribute('data-parent-id-product') || '').trim();
+                    if (rowParent !== parentTrimmed) return false;
+                    if (rowData.account_id) {
+                        const accCell = tr.querySelector('td:nth-child(2)');
+                        const rowAcc = accCell?.getAttribute('data-account-id');
+                        if (rowAcc && String(rowAcc) !== String(rowData.account_id)) return false;
+                    }
+                    if (rowData.sub_order != null && rowData.sub_order !== '') {
+                        const rowSubOrder = tr.getAttribute('data-sub-order');
+                        if (rowSubOrder && Number(rowSubOrder) !== Number(rowData.sub_order)) return false;
+                    }
+                    if (parentRowIndex !== null) {
+                        const rowParentIdx = tr.getAttribute('data-parent-row-index');
+                        if (rowParentIdx && Number(rowParentIdx) !== parentRowIndex) return false;
+                    }
+                    return true;
+                }) || null;
+            }
+            if (!targetRow && rowData.product_type === 'main' && rowData.id_product) {
+                targetRow = findSummaryRowByIdProduct(rowData.id_product, {
+                    productType: 'main',
+                    rowIndex: rowData.row_index,
+                    accountId: rowData.account_id
+                });
+            }
             if (targetRow) {
                 if (result.template_key) {
                     targetRow.setAttribute('data-template-key', result.template_key);
@@ -8000,6 +8249,9 @@ async function deleteTemplateAsync(templateKey, productType, templateId = null, 
 
 // Save Formula
 function saveFormula() {
+    if (typeof window.__SUMMARY_SAVE_FORMULA__ === 'function') {
+        return window.__SUMMARY_SAVE_FORMULA__();
+    }
     // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，先弹通知再 return
     const currencySelect = document.getElementById('currency');
     if (!currencySelect) {
@@ -9199,6 +9451,9 @@ function getColumnValueFromCellReference(cellReference, processValue, rowIndexOv
 // Example: "[iphsp3 : 4] + [iphsp3 : 2]" -> "17 + 42"
 // Also supports cell references: "A4 + A3" -> "17 + 42"
 function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
+    if (typeof window.__SUMMARY_PARSE_REFERENCE_FORMULA__ === 'function') {
+        return window.__SUMMARY_PARSE_REFERENCE_FORMULA__(formula, processValueOverride, clickedCellRefsOverride, rowIndexOverride);
+    }
     try {
         if (!formula || formula.trim() === '') {
             return '';
@@ -9531,6 +9786,9 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
 
 // Evaluate formula expression directly
 function evaluateFormulaExpression(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
+    if (typeof window.__SUMMARY_EVALUATE_FORMULA_EXPRESSION__ === 'function') {
+        return window.__SUMMARY_EVALUATE_FORMULA_EXPRESSION__(formula, processValueOverride, clickedCellRefsOverride, rowIndexOverride);
+    }
     try {
         if (!formula || formula.trim() === '') {
             return 0;
@@ -10207,6 +10465,9 @@ function getFormulaEditButtonHtml(formulaText) {
 
 // Calculate formula result from expression
 function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true, processValueForRefs = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
+    if (typeof window.__SUMMARY_CALCULATE_FORMULA_RESULT_FROM_EXPRESSION__ === 'function') {
+        return window.__SUMMARY_CALCULATE_FORMULA_RESULT_FROM_EXPRESSION__(formula, sourcePercentValue, inputMethod, enableInputMethod, enableSourcePercent, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
+    }
     try {
         if (!formula) {
             return 0;
@@ -11162,6 +11423,9 @@ function setRowProcessedAmountDisplay(row, finalAmount, processedAmountCell = nu
 }
 
 function removeThousandsSeparators(value) {
+    if (typeof window.__SUMMARY_REMOVE_THOUSANDS_SEPARATORS__ === 'function') {
+        return window.__SUMMARY_REMOVE_THOUSANDS_SEPARATORS__(value);
+    }
     if (value === null || value === undefined) {
         return value;
     }
@@ -11186,6 +11450,9 @@ function formatDecimalValue(value) {
 // Format negative numbers in formula by wrapping them with parentheses
 // Example: -84.56 -> (-84.56), 2873.76+-84.56 -> 2873.76+(-84.56)
 function formatNegativeNumbersInFormula(formula) {
+    if (typeof window.__SUMMARY_FORMAT_NEGATIVE_NUMBERS_IN_FORMULA__ === 'function') {
+        return window.__SUMMARY_FORMAT_NEGATIVE_NUMBERS_IN_FORMULA__(formula);
+    }
     if (!formula || typeof formula !== 'string') {
         return formula;
     }
@@ -11214,6 +11481,9 @@ function formatNegativeNumbersInFormula(formula) {
 }
 
 function evaluateMoneyExpression(expression) {
+    if (typeof window.__SUMMARY_EVALUATE_MONEY_EXPRESSION__ === 'function') {
+        return window.__SUMMARY_EVALUATE_MONEY_EXPRESSION__(expression);
+    }
     let expr = removeThousandsSeparators(String(expression || '').trim())
         .replace(/\u2212/g, '-')
         .replace(/\s*\([A-Z]{2,4}\)\s*/g, ' ')
@@ -11303,6 +11573,9 @@ function evaluateMoneyExpression(expression) {
 }
 
 function evaluateExpression(expression) {
+    if (typeof window.__SUMMARY_EVALUATE_EXPRESSION__ === 'function') {
+        return window.__SUMMARY_EVALUATE_EXPRESSION__(expression);
+    }
     try {
         if (!expression || typeof expression !== 'string') {
             // 使用 warn 避免在控制台显示严重错误，但保持返回 0 的逻辑
@@ -12524,16 +12797,18 @@ function toggleAllRate(button) {
     });
 
     // Update button text
+    const nextLabel = isSelectAll ? 'Clear All' : 'Select All';
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ === 'function') {
+        window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__(nextLabel);
+    } else if (button) {
+        button.textContent = nextLabel;
+    }
     if (isSelectAll) {
-        button.textContent = 'Clear All';
         if (updatedCount > 0) {
             showNotification('Success', `Selected ${updatedCount} row(s) with Rate`, 'success');
         }
-    } else {
-        button.textContent = 'Select All';
-        if (updatedCount > 0) {
-            showNotification('Success', `Cleared ${updatedCount} row(s) from Rate`, 'success');
-        }
+    } else if (updatedCount > 0) {
+        showNotification('Success', `Cleared ${updatedCount} row(s) from Rate`, 'success');
     }
 }
 
@@ -13307,6 +13582,9 @@ function cancelSourcePercentEdit(input, row, originalValue) {
 
 // Helper function to parse complete formula and extract base formula and source percent
 function parseCompleteFormula(completeFormula) {
+    if (typeof window.__SUMMARY_PARSE_COMPLETE_FORMULA__ === 'function') {
+        return window.__SUMMARY_PARSE_COMPLETE_FORMULA__(completeFormula);
+    }
     if (!completeFormula || !completeFormula.trim()) {
         return { baseFormula: '', sourcePercent: '' };
     }
@@ -14145,6 +14423,15 @@ function recalculateRowFormula(row, newSourcePercent) {
 // Optional rowIndex: when provided, use this as the row_index instead of calculating
 function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex = null) {
     const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) {
+        return null;
+    }
+
+    let reactProvidedRow = null;
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ADD_SUB_ROW__ === 'function') {
+        reactProvidedRow = window.__SUMMARY_REACT_ADD_SUB_ROW__(parentProcessValue, insertAfterRow, rowIndex);
+    }
+
     const rows = summaryTableBody.querySelectorAll('tr');
 
     let insertAfterIndex = -1;
@@ -14255,7 +14542,11 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
     }
 
     // Create new row（Sub 要在 Main 底下，并缩进显示）
-    const row = document.createElement('tr');
+    let row;
+    if (reactProvidedRow) {
+        row = reactProvidedRow;
+    } else {
+    row = document.createElement('tr');
     row.setAttribute('data-product-type', 'sub');
     row.setAttribute('data-parent-id-product', (parentProcessValue || '').trim());
     if (parentRowIndex !== null && !Number.isNaN(Number(parentRowIndex))) {
@@ -14368,6 +14659,7 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
     checkbox.addEventListener('change', updateDeleteButton);
     checkboxCell.appendChild(checkbox);
     row.appendChild(checkboxCell);
+    }
 
     // Insert the new row first, then set creation order based on position
     // This ensures creation_order reflects the insertion position
@@ -14491,7 +14783,9 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
         }
 
         // Insert after the row
-        insertAfterRow.insertAdjacentElement('afterend', row);
+        if (!reactProvidedRow) {
+            insertAfterRow.insertAdjacentElement('afterend', row);
+        }
 
         // Set row_index on the new row
         if (newRowIndex !== null) {
@@ -14530,7 +14824,7 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
             }
         }
         row.setAttribute('data-creation-order', String(creationOrder));
-    } else {
+    } else if (!reactProvidedRow) {
         // Fallback: append to the end
         summaryTableBody.appendChild(row);
         // Set row_index: use provided rowIndex if available, otherwise try to get from last row
@@ -14566,6 +14860,22 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
         // For appended rows, set sub_order to 1 (first sub row for this parent)
         row.setAttribute('data-sub-order', '1');
         console.log('Set sub_order: 1 for appended sub row');
+    } else if (reactProvidedRow) {
+        // React already placed the row; apply fallback metadata when insertAfterIndex was not resolved
+        if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
+            row.setAttribute('data-row-index', String(Number(rowIndex)));
+        }
+        if (!row.getAttribute('data-sub-order')) {
+            row.setAttribute('data-sub-order', '1');
+        }
+        if (!row.getAttribute('data-creation-order')) {
+            row.setAttribute('data-creation-order', String(Date.now()));
+        }
+        const deleteCb = row.querySelector('.summary-row-checkbox');
+        if (deleteCb) {
+            deleteCb.disabled = true;
+            deleteCb.title = 'Empty sub rows cannot be deleted';
+        }
     }
 
     return row;
@@ -14917,15 +15227,34 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     }
 
     row.setAttribute('data-product-type', data.productType || 'sub');
-    row.setAttribute('data-parent-id-product', processValue);
+    const parentIdForAttr = (processValue || row.getAttribute('data-parent-id-product') || '').trim();
+    if (parentIdForAttr) {
+        row.setAttribute('data-parent-id-product', parentIdForAttr);
+    }
     if (data.parentRowIndex !== undefined && data.parentRowIndex !== null && !Number.isNaN(Number(data.parentRowIndex))) {
         row.setAttribute('data-parent-row-index', String(Number(data.parentRowIndex)));
     } else {
         const existingParentRowIndex = row.getAttribute('data-parent-row-index');
         if (!existingParentRowIndex || existingParentRowIndex === '' || existingParentRowIndex === '999999') {
-            const currentRowIndex = row.getAttribute('data-row-index');
-            if (currentRowIndex && currentRowIndex !== '' && currentRowIndex !== '999999' && !Number.isNaN(Number(currentRowIndex))) {
-                row.setAttribute('data-parent-row-index', String(Number(currentRowIndex)));
+            const parentTrimmed = parentIdForAttr;
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if (summaryTableBody && parentTrimmed) {
+                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                for (const otherRow of allRows) {
+                    if ((otherRow.getAttribute('data-product-type') || 'main') !== 'main') continue;
+                    const otherIdProductCell = otherRow.querySelector('td:first-child');
+                    if (!otherIdProductCell) continue;
+                    const otherProductValues = getProductValuesFromCell(otherIdProductCell);
+                    const otherMainRaw = (otherProductValues.main || '').trim();
+                    if (otherMainRaw !== parentTrimmed && normalizeIdProductText(otherMainRaw) !== normalizeIdProductText(parentTrimmed)) {
+                        continue;
+                    }
+                    const parentRowIndex = otherRow.getAttribute('data-row-index');
+                    if (parentRowIndex && parentRowIndex !== '' && parentRowIndex !== '999999' && !Number.isNaN(Number(parentRowIndex))) {
+                        row.setAttribute('data-parent-row-index', String(Number(parentRowIndex)));
+                        break;
+                    }
+                }
             }
         }
     }
@@ -15664,6 +15993,18 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         }
 
         const templates = result.templates || {};
+        const subsByParentFromApi = (result.subsByParent && typeof result.subsByParent === 'object')
+            ? result.subsByParent
+            : null;
+        if (result.diagnostics) {
+            console.info('[Summary] templates API diagnostics', result.diagnostics);
+        }
+        // 跨 template key 全局去重，防止同一 sub 模板在多个分组下重复套用
+        if (typeof window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__ === 'function') {
+            window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__();
+        } else {
+            window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__ = new Set();
+        }
         // 仅当当前 process 在 Maintenance 有模板时才允许恢复刷新缓存，避免「全新 process」显示上次误恢复留下的 formula
         window.currentProcessHadTemplates = (typeof templates === 'object' && templates !== null && Object.keys(templates).length > 0);
 
@@ -15794,54 +16135,62 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         // 不再因「多账号单行」而跳过：始终套用模板，单行由 applyMainTemplateToRow 按 account_id/row_index 匹配其中一个模板，确保有储存的 formula 能套上且不丢失。
                     }
                     // Sort templates by row_index to apply them in the correct order
-                    const sortedTemplates = [...template.allMains].sort((a, b) => {
+                    // 排除旧版 API 误写入 allMains 的 account_link 继承项（id 形如 123_456），避免与 subs 重复套用
+                    const sortedTemplates = [...template.allMains]
+                        .filter((m) => !isInheritedAccountLinkMainTemplate(m))
+                        .sort((a, b) => {
                         const aIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
                         const bIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
                         return aIndex - bIndex;
                     });
 
                     // Apply each main template to its corresponding row based on account_id and row_index
-                    // Use mainTemplate.id_product so we find the correct row when multiple mains (e.g. "ABC (AAA)", "ABC (TTT)")
-                    let anySubsApplied = false;
+                    const mainRowByTemplate = new Map();
                     sortedTemplates.forEach((mainTemplate, accountOrderIndex) => {
                         const mainIdProduct = mainTemplate.id_product || originalIdProduct;
                         const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate, accountOrderIndex);
-                        // Apply subs whose parent matches this main row. Exact match (after stripping leading "N " from DB) or when only one main, allow normalized match.
-                        if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                            const mainTrimmed = (mainIdProduct || '').trim();
-                            const mainNorm = normalizeIdProductText(mainTrimmed);
-                            const onlyOneMain = sortedTemplates.length === 1;
-                            const subsForThisMain = template.subs.filter(sub => {
-                                const subParentRaw = (sub.parent_id_product || '').trim();
-                                const subParentNorm = subParentRaw.replace(/^\d+\s+/, '').trim(); // strip leading "1 " from DB
-                                const subParentBare = normalizeIdProductText(subParentNorm);
-                                const exactMatch = (subParentRaw === mainTrimmed) || (subParentNorm === mainTrimmed);
-                                const normalizedMatch = onlyOneMain && mainNorm && subParentBare === mainNorm;
-                                return exactMatch || normalizedMatch;
-                            });
-                            if (subsForThisMain.length > 0) {
-                                applySubTemplatesToSummaryRow(mainIdProduct, mainRow, subsForThisMain);
-                                anySubsApplied = true;
-                            }
+                        if (mainRow) {
+                            mainRowByTemplate.set(mainTemplate, { mainRow, mainIdProduct });
                         }
                     });
-                    // Fallback: when we have subs but none were applied (e.g. main row was deleted), only apply subs to a row whose main id_product **exactly** matches the sub's parent (e.g. GAMS(SV)HKD), never to another id_product (e.g. GAMS(SV)MYR), otherwise sub 会跑去和别的 id_product mix
-                    if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                        const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
-                        if (firstRow) {
-                            const idProductCell = firstRow.querySelector('td:first-child');
-                            const productValues = getProductValuesFromCell(idProductCell);
-                            const rowMainId = (productValues.main || '').trim();
-                            // 必须整串一致才套用：避免 GAMS(SV)HKD 的 sub 被套到 GAMS(SV)MYR 行（normalize 后都是 GAMS）
-                            const rowIsExactParent = rowMainId === (originalIdProduct || '').trim();
-                            if (rowIsExactParent) {
-                                const mainNorm = normalizedIdProduct;
-                                const subsToApply = template.subs.filter(sub => {
-                                    const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
-                                    return mainNorm && normalizeIdProductText(subParentNorm) === mainNorm;
+
+                    // Sub 行改由 API subsByParent 在 main 套用完成后统一处理（避免每个 template key 重复套用）
+                    if (!subsByParentFromApi) {
+                        let anySubsApplied = false;
+                        let allSubs = template.subs && Array.isArray(template.subs) ? template.subs : [];
+                        if (allSubs.length > 0 && typeof window.__SUMMARY_FILTER_SUBS_FOR_PARENT__ === 'function') {
+                            allSubs = window.__SUMMARY_FILTER_SUBS_FOR_PARENT__(allSubs, originalIdProduct);
+                        }
+                        if (allSubs.length > 0) {
+                            if (typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
+                                anySubsApplied = window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(originalIdProduct, allSubs);
+                            } else {
+                                sortedTemplates.forEach((mainTemplate) => {
+                                    const ctx = mainRowByTemplate.get(mainTemplate);
+                                    if (!ctx) return;
+                                    const subsForThisMain = filterSubTemplatesForMainTemplate(allSubs, mainTemplate, sortedTemplates, ctx.mainIdProduct);
+                                    if (subsForThisMain.length > 0) {
+                                        applySubTemplatesToSummaryRow(ctx.mainIdProduct, ctx.mainRow, subsForThisMain);
+                                        anySubsApplied = true;
+                                    }
                                 });
-                                if (subsToApply.length > 0) {
-                                    applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                            }
+                        }
+                        if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
+                            const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
+                            if (firstRow) {
+                                const idProductCell = firstRow.querySelector('td:first-child');
+                                const productValues = getProductValuesFromCell(idProductCell);
+                                const rowMainId = (productValues.main || '').trim();
+                                const rowIsExactParent = rowMainId === (originalIdProduct || '').trim();
+                                if (rowIsExactParent) {
+                                    const subsToApply = template.subs.filter(sub => {
+                                        const subParentRaw = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
+                                        return subParentRaw === (originalIdProduct || '').trim();
+                                    });
+                                    if (subsToApply.length > 0) {
+                                        applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                                    }
                                 }
                             }
                         }
@@ -15854,7 +16203,17 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             }
         });
 
-        // Maintenance - Formula 删除数据后：无 template 的行不显示 formula，避免 Summary 仍显示已删公式
+        // 按精确 parent_id_product 一次性套用所有 sub（API 已去重，每 parent 每 account 仅一条）
+        if (subsByParentFromApi && typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
+            Object.keys(subsByParentFromApi).forEach((parentIdProduct) => {
+                const subsForParent = subsByParentFromApi[parentIdProduct];
+                if (Array.isArray(subsForParent) && subsForParent.length > 0) {
+                    window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(parentIdProduct, subsForParent);
+                }
+            });
+        }
+
+        // Maintenance - Formula 删除数据后：无 template 的行不显示 formula，避免 Summary 仍显示已删 formula
         if (summaryTableBody) {
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
             allSummaryRows.forEach((summaryRow) => {
@@ -15950,6 +16309,9 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         // 因此无论 skipRowIndexReorder 当前是否为 true，这里始终执行一次基于 row_index 的全局重排。
         if (typeof reorderSummaryRowsByRowIndex === 'function') {
             reorderSummaryRowsByRowIndex();
+        }
+        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+            window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (error) {
         console.error('Error auto-populating summary rows:', error);
@@ -17869,16 +18231,22 @@ function reorderSummaryRowsByRowIndex() {
             })
             .map(data => data.row);
 
-        // 按新顺序重新挂载行
-        orderedRows.forEach(row => summaryTableBody.appendChild(row));
+        // 按新顺序重新挂载行（React 表由 state 重排，避免 appendChild 破坏协调导致 removeChild 报错）
+        if (!applySummaryRowOrderViaReact(orderedRows) && !isSummaryReactManagedTable()) {
+            orderedRows.forEach(row => summaryTableBody.appendChild(row));
+        }
 
         console.log(
             'Reordered rows by Data Capture Table order.',
-            'Total rows:', orderedRows.length
+            'Total rows:', orderedRows.length,
+            'reactManaged:', isSummaryReactManagedTable()
         );
 
         if (typeof updateProcessedAmountTotal === 'function') {
             updateProcessedAmountTotal();
+        }
+        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function' && !isSummaryReactManagedTable()) {
+            window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
@@ -17930,6 +18298,52 @@ function findFirstSubPlaceholderRow(idProduct) {
     return null;
 }
 
+/** 旧版 inheritFormulasToSubAccounts 误写入 allMains 的项（id 为 mainId_subAccId） */
+function isInheritedAccountLinkMainTemplate(mainTemplate) {
+    if (!mainTemplate) return false;
+    if (mainTemplate.inherited_from_account_link === true) return true;
+    const tid = mainTemplate.id;
+    if (tid == null || tid === '') return false;
+    const s = String(tid);
+    return /^inherit_\d+_\d+$/i.test(s) || /^\d+_\d+$/.test(s);
+}
+
+/**
+ * 同一 id_product 多 main 时，仅将 sub 分给 row_index 落在该 main 区间的模板。
+ */
+function filterSubTemplatesForMainTemplate(subs, mainTemplate, sortedMainTemplates, mainIdProduct) {
+    if (!Array.isArray(subs) || subs.length === 0) return [];
+    const mainTrimmed = (mainIdProduct || (mainTemplate && mainTemplate.id_product) || '').trim();
+    const mainNorm = normalizeIdProductText(mainTrimmed);
+    const onlyOneMain = !Array.isArray(sortedMainTemplates) || sortedMainTemplates.length <= 1;
+    const mainTemplateRowIndex = (mainTemplate && mainTemplate.row_index !== undefined && mainTemplate.row_index !== null && !Number.isNaN(Number(mainTemplate.row_index)))
+        ? Number(mainTemplate.row_index)
+        : null;
+    const mainRowIndexes = (sortedMainTemplates || [])
+        .map((m) => (m.row_index !== undefined && m.row_index !== null && !Number.isNaN(Number(m.row_index))) ? Number(m.row_index) : null)
+        .filter((v) => v !== null)
+        .sort((a, b) => a - b);
+    const isFirstMainByRowIndex = mainTemplateRowIndex !== null && mainRowIndexes.length > 0 && mainTemplateRowIndex === mainRowIndexes[0];
+
+    return subs.filter((sub) => {
+        const subParentRaw = (sub.parent_id_product || '').trim();
+        const subParentNorm = subParentRaw.replace(/^\d+\s+/, '').trim();
+        const subParentBare = normalizeIdProductText(subParentNorm);
+        const exactMatch = (subParentRaw === mainTrimmed) || (subParentNorm === mainTrimmed);
+        if (!exactMatch) return false;
+        if (onlyOneMain || mainRowIndexes.length <= 1) return true;
+        if (mainTemplateRowIndex === null) return isFirstMainByRowIndex;
+        const subRowIndex = (sub.row_index !== undefined && sub.row_index !== null && !Number.isNaN(Number(sub.row_index)))
+            ? Number(sub.row_index)
+            : null;
+        if (subRowIndex === null) return isFirstMainByRowIndex;
+        const mainPos = mainRowIndexes.indexOf(mainTemplateRowIndex);
+        if (mainPos < 0) return isFirstMainByRowIndex;
+        const nextMainRowIndex = mainPos < mainRowIndexes.length - 1 ? mainRowIndexes[mainPos + 1] : Number.POSITIVE_INFINITY;
+        return subRowIndex >= mainTemplateRowIndex && subRowIndex < nextMainRowIndex;
+    });
+}
+
 function getOrCreateSubPlaceholderRow(idProduct) {
     // 现在不再依赖“空占位行”，直接创建一个新的 sub 行并返回其按钮引用
     const row = addSubIdProductRow(idProduct);
@@ -17939,6 +18353,37 @@ function getOrCreateSubPlaceholderRow(idProduct) {
     const addCell = row.querySelector('td:nth-child(3)');
     const button = addCell ? addCell.querySelector('.add-account-btn') : null;
     return button ? { row, button } : null;
+}
+
+function dedupeSubTemplatesForApply(subTemplates, mainParentIdExact) {
+    if (!Array.isArray(subTemplates) || subTemplates.length <= 1) {
+        return subTemplates || [];
+    }
+    const parentExact = (mainParentIdExact || '').trim();
+    const byKey = new Map();
+    subTemplates.forEach((sub) => {
+        if (!sub) return;
+        const parent = (sub.parent_id_product || parentExact || '').trim();
+        const accountId = sub.account_id != null ? String(sub.account_id) : '';
+        const subOrder = (sub.sub_order !== undefined && sub.sub_order !== null && sub.sub_order !== '')
+            ? String(Number(sub.sub_order))
+            : '0';
+        const variant = sub.formula_variant != null ? String(sub.formula_variant) : '1';
+        const key = parent + '|' + accountId + '|' + subOrder + '|' + variant;
+        if (!byKey.has(key)) {
+            byKey.set(key, sub);
+            return;
+        }
+        const existing = byKey.get(key);
+        const existingInherited = existing.inherited_from_account_link === true
+            || (existing.id != null && String(existing.id).indexOf('inherit_') === 0);
+        const currentInherited = sub.inherited_from_account_link === true
+            || (sub.id != null && String(sub.id).indexOf('inherit_') === 0);
+        if (existingInherited && !currentInherited) {
+            byKey.set(key, sub);
+        }
+    });
+    return Array.from(byKey.values());
 }
 
 function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
@@ -17954,6 +18399,9 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     const mainRowIndex = (mainRowIndexAttr !== null && mainRowIndexAttr !== '' && !Number.isNaN(Number(mainRowIndexAttr)))
         ? Number(mainRowIndexAttr)
         : null;
+    const mainIdProductCell = mainRow.querySelector('td:first-child');
+    const mainProductValues = mainIdProductCell ? getProductValuesFromCell(mainIdProductCell) : {};
+    const mainParentIdExact = (mainProductValues.main || mainIdProductCell?.textContent || idProduct || '').trim();
 
     // Filter out empty sub templates (those with no meaningful data)
     const validSubTemplates = subTemplates.filter(template => {
@@ -17986,12 +18434,17 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         return;
     }
 
+    const dedupedSubTemplates = dedupeSubTemplatesForApply(validSubTemplates, mainParentIdExact);
+    if (dedupedSubTemplates.length === 0) {
+        return;
+    }
+
     // IMPORTANT: Sort sub templates by sub_order first, then by row_index, then by id to maintain correct order
     // sub_order is the primary sort key for sub rows (determines position relative to parent main row)
     // Use id (database primary key) instead of updated_at because updated_at changes when saving,
     // which would cause newly saved rows to move to the end
     // This ensures sub rows are applied in the correct order when loading from database
-    validSubTemplates.sort((a, b) => {
+    dedupedSubTemplates.sort((a, b) => {
         // First sort by sub_order (position relative to parent main row)
         const aSubOrder = (a.sub_order !== undefined && a.sub_order !== null) ? Number(a.sub_order) : null;
         const bSubOrder = (b.sub_order !== undefined && b.sub_order !== null) ? Number(b.sub_order) : null;
@@ -18042,7 +18495,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     // 这样既保证分组不乱，又能尽量还原之前的 vertical 位置。
     let lastRowInGroup = mainRow;
 
-    validSubTemplates.forEach((template, templateIndex) => {
+    dedupedSubTemplates.forEach((template, templateIndex) => {
         let insertAfterRow = lastRowInGroup;
 
         // 仅当上一行是 main 时，才用 row_index 选择插入位置（决定挂在哪个 main 下）；
@@ -18147,6 +18600,35 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             }
         }
 
+        // 同一 parent main + account + sub_order 的 sub 已存在时复用（必须 parent 关系一致，不能跨 main 复用）
+        if (!targetRow && template.account_id) {
+            const templateAccountId = String(template.account_id);
+            const templateSubOrder = (template.sub_order !== undefined && template.sub_order !== null) ? Number(template.sub_order) : null;
+            const templateParentRaw = (template.parent_id_product || mainParentIdExact || '').trim();
+            for (const row of Array.from(summaryTableBody.querySelectorAll('tr'))) {
+                if ((row.getAttribute('data-product-type') || 'main') !== 'sub') continue;
+                const rowParentId = (row.getAttribute('data-parent-id-product') || '').trim();
+                if (templateParentRaw && rowParentId && rowParentId !== templateParentRaw) continue;
+                if (templateParentRaw && !rowParentId && mainParentIdExact && rowParentId !== mainParentIdExact) continue;
+                const rowParentRowIndexAttr = row.getAttribute('data-parent-row-index');
+                const rowParentRowIndex = (rowParentRowIndexAttr !== null && rowParentRowIndexAttr !== '' && !Number.isNaN(Number(rowParentRowIndexAttr)))
+                    ? Number(rowParentRowIndexAttr)
+                    : null;
+                if (mainRowIndex !== null && rowParentRowIndex !== null && rowParentRowIndex !== mainRowIndex) continue;
+                const accountCell = row.querySelector('td:nth-child(2)');
+                const rowAccountDbId = accountCell?.getAttribute('data-account-id');
+                if (!rowAccountDbId || rowAccountDbId !== templateAccountId) continue;
+                const rowSubOrderRaw = row.getAttribute('data-sub-order');
+                const rowSubOrder = (rowSubOrderRaw !== null && rowSubOrderRaw !== '') ? Number(rowSubOrderRaw) : null;
+                const subOrderMatch = (templateSubOrder === null && rowSubOrder === null)
+                    || (templateSubOrder !== null && rowSubOrder !== null && templateSubOrder === rowSubOrder);
+                if (!subOrderMatch) continue;
+                targetRow = row;
+                console.log('Found existing sub row by parent+account_id (+ sub_order):', mainParentIdExact, templateAccountId);
+                break;
+            }
+        }
+
         // If no existing row found, create a new one
         if (!targetRow) {
             // Get row_index from template if available
@@ -18170,7 +18652,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             // Since templates are now sorted by row_index and updated_at, use templateIndex to preserve order
             // Use a base timestamp plus templateIndex * 1000 to ensure correct relative order
             // This ensures sub rows with same row_index maintain their relative order from database
-            const baseTime = Date.now() - validSubTemplates.length * 1000;
+            const baseTime = Date.now() - dedupedSubTemplates.length * 1000;
             const creationOrder = baseTime + templateIndex * 1000;
             newRow.setAttribute('data-creation-order', String(creationOrder));
             targetRow = newRow;
@@ -18189,7 +18671,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             // If updating existing row, preserve its existing creation-order if it has one
             // Only set if missing to maintain the original order
             if (!targetRow.getAttribute('data-creation-order')) {
-                const baseTime = Date.now() - validSubTemplates.length * 1000;
+                const baseTime = Date.now() - dedupedSubTemplates.length * 1000;
                 const creationOrder = baseTime + templateIndex * 1000;
                 targetRow.setAttribute('data-creation-order', String(creationOrder));
                 console.log('Set missing creation-order on existing sub row:', creationOrder);
@@ -19311,6 +19793,7 @@ function updateIdProductWithDescription(processValue, descriptionValue, targetRo
 
 // Show empty state when no data is available
 function showEmptyState() {
+    if (window.__SUMMARY_REACT_TABLE__ || window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) return;
     const dcHref = buildApiUrl('datacapture');
     const emptyStateHTML = `
         <div class="summary-table-container empty-state-container">
@@ -19338,10 +19821,15 @@ function showEmptyState() {
 // Update delete button state
 function updateDeleteButton() {
     const selectedCheckboxes = document.querySelectorAll('.summary-row-checkbox:checked');
+    const count = selectedCheckboxes.length;
+    if (typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function') {
+        window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__(count);
+    }
     const deleteBtn = document.getElementById('summaryDeleteSelectedBtn');
+    if (!deleteBtn) return;
 
-    if (selectedCheckboxes.length > 0) {
-        deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
+    if (count > 0) {
+        deleteBtn.textContent = `Delete (${count})`;
         deleteBtn.disabled = false;
     } else {
         deleteBtn.textContent = 'Delete';
@@ -19349,40 +19837,34 @@ function updateDeleteButton() {
     }
 }
 
-// Delete selected rows
-function deleteSelectedRows() {
+function collectValidDeleteRowTargetsFromDom() {
     const checkboxes = document.querySelectorAll('.summary-row-checkbox:checked');
-    const rowsToDelete = Array.from(checkboxes).map(cb => ({
+    return Array.from(checkboxes).map(cb => ({
         checkbox: cb,
         row: cb.closest('tr'),
         value: cb.getAttribute('data-value')
-    }));
-
-    // Filter out empty sub rows (rows with + button but no data)
-    const validRowsToDelete = rowsToDelete.filter(item => {
+    })).filter(item => {
         const row = item.row;
-        const addCell = row.querySelector('td:nth-child(3)'); // Add column with + button
-        const hasAddButton = addCell && addCell.querySelector('.add-account-btn');
-        const accountCell = row.querySelector('td:nth-child(2)'); // Account text column
+        if (!row) return false;
+        const productType = (row.getAttribute('data-product-type') || 'main').trim();
+        const accountCell = row.querySelector('td:nth-child(2)');
         const accountText = accountCell ? accountCell.textContent.trim() : '';
-        const hasData = accountText !== '' && accountText !== '+';
-
-        // Don't allow deletion of empty sub rows (has + button but no data)
-        if (hasAddButton && !hasData) {
-            return false;
-        }
-
-        return item.value && item.value.trim() !== '';
+        const hasAccount = accountText !== '' && accountText !== '+';
+        if (productType === 'sub' && !hasAccount) return false;
+        const idCell = row.querySelector('td:first-child');
+        const idFromCell = idCell
+            ? (idCell.getAttribute('data-main-product') || idCell.textContent || '').trim()
+            : '';
+        const idFromCheckbox = item.value && String(item.value).trim() !== '' ? String(item.value).trim() : '';
+        return idFromCell !== '' || idFromCheckbox !== '';
     });
+}
 
-    if (validRowsToDelete.length === 0) {
-        showNotification('Error', 'Please select valid rows to delete. Empty sub rows cannot be deleted.', 'error');
+function performDeleteSelectedRows(validRowsToDelete) {
+    if (!Array.isArray(validRowsToDelete) || validRowsToDelete.length === 0) {
         return;
     }
-
-    showConfirmDelete(
-        `Are you sure you want to delete ${validRowsToDelete.length} selected row(s)? This action cannot be undone.`,
-        function () {
+    try {
             // 先收集 template 信息再删 DOM，否则 row 引用会失效
             const templatesToDelete = [];
             validRowsToDelete.forEach(item => {
@@ -19402,9 +19884,17 @@ function deleteSelectedRows() {
                     });
                 }
             });
-            // 修改删除逻辑：
-            // 1. 如果是 sub row（追加账号），则直接从 DOM 移除。
-            // 2. 如果是 main row，则清空资料字段并保留 row（显示 0.00）。
+            const reactKeysToRemove = [];
+            validRowsToDelete.forEach(item => {
+                const row = item.row;
+                if (!row) return;
+                const productType = (row.getAttribute('data-product-type') || 'main').trim();
+                if (productType === 'sub') {
+                    const reactKey = row.getAttribute('data-react-row-key');
+                    if (reactKey) reactKeysToRemove.push(reactKey);
+                }
+            });
+
             validRowsToDelete.forEach(item => {
                 const row = item.row;
                 if (!row) return;
@@ -19412,47 +19902,28 @@ function deleteSelectedRows() {
                 const productType = (row.getAttribute('data-product-type') || 'main').trim();
 
                 if (productType === 'sub') {
-                    // 对于 sub row，直接彻底移除（与之前行为一致，解决刷新才删掉的问题）
-                    if (row.parentNode) {
-                        row.remove();
+                    if (!(window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function')) {
+                        if (row.parentNode) {
+                            row.remove();
+                        }
                     }
                 } else {
-                    // 对于 main row，执行清空资料逻辑（不删行，清空内容并设置 0.00）
                     const cells = row.querySelectorAll('td');
-
-                    // 保持 cells[0] (Id Product)
-                    // 保持 cells[2] (+)
-
-                    // 清空 Account (TD 1)
                     if (cells[1]) {
                         cells[1].textContent = '';
                         cells[1].removeAttribute('data-account-id');
                         cells[1].removeAttribute('data-account-db-id');
                     }
-
-                    // 清空 Currency (TD 3)
                     if (cells[3]) cells[3].textContent = '';
-
-                    // 清空 Formula (TD 4)
                     if (cells[4]) cells[4].textContent = '';
-
-                    // 清空 Source (TD 5)
                     if (cells[5]) cells[5].textContent = '';
-
-                    // 取消 Rate Checkbox (TD 6)
                     const rateCheckbox = row.querySelector('.rate-checkbox');
                     if (rateCheckbox) rateCheckbox.checked = false;
-
-                    // 清空 Rate Value (TD 7)
                     if (cells[7]) cells[7].textContent = '';
-
-                    // 清空 Processed Amount (TD 8) - 设置为 0.00
                     if (cells[8]) {
                         cells[8].textContent = '0.00';
                         cells[8].style.color = '#000000';
                     }
-
-                    // 重置行属性 (Template IDs, Keys, etc.)
                     row.removeAttribute('data-template-id');
                     row.removeAttribute('data-template-key');
                     row.removeAttribute('data-formula-raw');
@@ -19466,8 +19937,6 @@ function deleteSelectedRows() {
                     row.removeAttribute('data-formula-variant');
                     row.removeAttribute('data-account-id');
                     row.removeAttribute('data-account-db-id');
-
-                    // 取消勾选 Select 和 Delete (TD 9, TD 10)
                     const selectCb = row.querySelector('.summary-select-checkbox');
                     if (selectCb) {
                         selectCb.checked = false;
@@ -19475,18 +19944,21 @@ function deleteSelectedRows() {
                     }
                     const deleteCb = row.querySelector('.summary-row-checkbox');
                     if (deleteCb) deleteCb.checked = false;
-
-                    // 刷新 Id Product 单元格显示（以清掉 description 渲染）
                     if (typeof refreshIdProductCellDisplay === 'function') {
                         refreshIdProductCellDisplay(row);
                     }
                 }
             });
+            if (reactKeysToRemove.length > 0 && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function') {
+                window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__(reactKeysToRemove);
+            }
+            if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+                window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
+            }
             rebuildUsedAccountIds();
             updateDeleteButton();
             updateProcessedAmountTotal();
             showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
-            // 后台删除模板，不阻塞界面
             if (templatesToDelete.length > 0) {
                 const deletePromises = templatesToDelete.map(t =>
                     deleteTemplateAsync(t.template_key, t.product_type, t.template_id, t.formula_variant)
@@ -19495,17 +19967,46 @@ function deleteSelectedRows() {
                     console.log('Deleted', templatesToDelete.length, 'template(s) from database');
                 }).catch(err => {
                     console.error('Error deleting templates:', err);
-                    showNotification('Warning', 'Row(s) removed from table; some template cleanup failed. You may refresh to sync.', 'warning');
                 });
             }
+    } catch (deleteError) {
+        console.error('deleteSelectedRows failed:', deleteError);
+        showNotification('Error', 'Failed to delete rows. Please refresh the page and try again.', 'error');
+    }
+}
+
+// Delete selected rows
+function deleteSelectedRows() {
+    const preconfirmed = window.__SUMMARY_DELETE_ALREADY_CONFIRMED__ === true
+        && Array.isArray(window.__SUMMARY_DELETE_VALID_ROWS__);
+    let validRowsToDelete = preconfirmed ? window.__SUMMARY_DELETE_VALID_ROWS__ : null;
+
+    if (!validRowsToDelete) {
+        validRowsToDelete = collectValidDeleteRowTargetsFromDom();
+        if (validRowsToDelete.length === 0) {
+            showNotification('Error', 'Please select valid rows to delete. Empty sub rows cannot be deleted.', 'error');
+            return;
         }
-    );
+        showConfirmDelete(
+            `Are you sure you want to delete ${validRowsToDelete.length} selected row(s)? This action cannot be undone.`,
+            function () {
+                performDeleteSelectedRows(validRowsToDelete);
+            }
+        );
+        return;
+    }
+
+    performDeleteSelectedRows(validRowsToDelete);
 }
 
 // Confirm delete modal functions
 let deleteCallback = null;
 
 function showConfirmDelete(message, callback) {
+    if (typeof window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__ === 'function') {
+        window.__SUMMARY_REACT_SHOW_CONFIRM_DELETE__(message, callback);
+        return;
+    }
     const modal = document.getElementById('confirmDeleteModal');
     const messageEl = document.getElementById('confirmDeleteMessage');
 
@@ -19517,6 +20018,10 @@ function showConfirmDelete(message, callback) {
 }
 
 function closeConfirmDeleteModal() {
+    if (typeof window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__ === 'function') {
+        window.__SUMMARY_REACT_CLOSE_CONFIRM_DELETE__();
+        return;
+    }
     const modal = document.getElementById('confirmDeleteModal');
     modal.style.display = 'none';
     document.body.style.overflow = '';
@@ -19524,6 +20029,10 @@ function closeConfirmDeleteModal() {
 }
 
 function confirmDelete() {
+    if (typeof window.__SUMMARY_REACT_CONFIRM_DELETE__ === 'function') {
+        window.__SUMMARY_REACT_CONFIRM_DELETE__();
+        return;
+    }
     if (deleteCallback) {
         deleteCallback();
     }
@@ -19723,6 +20232,9 @@ function updateRate() {
 
 // Parse source columns input (e.g. "5+4" -> {columnNumbers: [5, 4], operators: "+"})
 function parseSourceColumnsInput(input) {
+    if (typeof window.__SUMMARY_PARSE_SOURCE_COLUMNS_INPUT__ === 'function') {
+        return window.__SUMMARY_PARSE_SOURCE_COLUMNS_INPUT__(input);
+    }
     try {
         // Normalize Chinese parentheses to English parentheses
         input = input.replace(/[（）]/g, function (match) {
@@ -19820,131 +20332,76 @@ function extractOperatorsSequence(expression) {
 // Submit summary data
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
-async function submitSummaryData() {
-    // Prevent duplicate submissions
-    if (isSubmitting) {
-        console.log('Submission already in progress, ignoring duplicate request');
+function setSummarySubmitUiActive(active) {
+    isSubmitting = !!active;
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ON_SUBMITTING_CHANGE__ === 'function') {
+        window.__SUMMARY_REACT_ON_SUBMITTING_CHANGE__(!!active);
         return;
     }
-
-    console.log('Submit summary data');
-
-    // Disable submit button and set submitting flag
     const submitBtn = document.getElementById('summarySubmitBtn');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = '提交中...';
-    }
-    isSubmitting = true;
+    if (!submitBtn) return;
+    submitBtn.disabled = !!active;
+    submitBtn.textContent = active ? '提交中...' : 'Submit';
+}
 
-    // Validate total is within -0.05 to 0.05 range
+/** Used by React summarySubmitValidation.js before full payload migration. */
+function validateSummaryRowsCurrencyFormula(rows) {
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.querySelectorAll('td');
+        const selectCheckbox = row.querySelector('.summary-select-checkbox');
+        if (selectCheckbox && selectCheckbox.checked) continue;
+        const accountCell = cells[1];
+        if (!accountCell) continue;
+        const accountText = accountCell.textContent.trim();
+        const hasButton = accountCell.querySelector('.add-account-btn');
+        if (!accountText || accountText === '+' || hasButton) continue;
+        const currencyCell = cells[3];
+        const currencyText = (currencyCell && currencyCell.textContent) ? String(currencyCell.textContent).trim().replace(/[()]/g, '') : '';
+        const formulaCell = cells[4];
+        const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim() || '') : '';
+        const currencyEmpty = !currencyText || /^select\s*curren/i.test(currencyText);
+        const formulaEmpty = !formulaText || !String(formulaText).trim();
+        if (currencyEmpty || formulaEmpty) {
+            const msg = currencyEmpty && formulaEmpty
+                ? '请先填写 Currency 和 Formula 后再提交。Cannot save: Currency and Formula are required.'
+                : (currencyEmpty ? '请先选择 Currency 后再提交。Cannot save: Currency is required.' : '请先填写 Formula 后再提交。Cannot save: Formula is required.');
+            return { ok: false, message: msg };
+        }
+    }
+    return { ok: true };
+}
+
+
+async function prepareSummarySubmitCollection(parsedProcessData) {
+    if (typeof window.__SUMMARY_REACT_PREPARE_SUBMIT_COLLECTION__ === 'function') {
+        return window.__SUMMARY_REACT_PREPARE_SUBMIT_COLLECTION__(parsedProcessData);
+    }
     const summaryTableBody = document.getElementById('summaryTableBody');
-    const totalCell = document.getElementById('summaryTotalAmount');
-    if (summaryTableBody && totalCell) {
-        let totalAmount = MoneyDecimal.toDecimal('0', 0);
-        let hasValue = false;
-        const totalDebugRows = [];
-
-        summaryTableBody.querySelectorAll('tr').forEach(row => {
-            // 如果 Select 被勾选，则这行不参与合计/校验
-            const selectCheckbox = row.querySelector('.summary-select-checkbox');
-            if (selectCheckbox && selectCheckbox.checked) {
-                return;
-            }
-
-            const cells = row.querySelectorAll('td');
-            const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
-            const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
-                ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
-                : String(rowFinalAmount);
-            totalDebugRows.push({
-                process: (cells[0] && cells[0].textContent ? String(cells[0].textContent).trim() : ''),
-                raw: String(rowFinalAmount),
-                quant6: String(rowForTotal)
-            });
-            try {
-                totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
-                hasValue = true;
-            } catch (_) { /* ignore invalid amount */ }
-        });
-
-        const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
-        const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
-        console.log('Processed Amount total (submit validation):', {
-            rows: totalDebugRows,
-            sumQuant6Raw: finalTotalRaw,
-            sumDisplay2: finalTotal
-        });
-        if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
-            // Re-enable button on validation error
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
-            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`, 'error');
-            return;
-        }
+    if (!summaryTableBody) {
+        return { ok: false, message: 'Summary table not found.', rows: [] };
     }
+    const rows = summaryTableBody.querySelectorAll('tr');
+    window.__summaryAccountListCache = await fetchSummaryAccountList();
+    const rowValidation = validateSummaryRowsCurrencyFormula(rows);
+    if (!rowValidation.ok) {
+        return { ok: false, message: rowValidation.message, rows: [] };
+    }
+    const summaryRows = collectSummarySubmitRowsFromTable(rows, parsedProcessData);
+    if (summaryRows.length === 0) {
+        return {
+            ok: false,
+            warning: true,
+            message: 'No data to submit. Please add at least one row with data.',
+            rows: []
+        };
+    }
+    return { ok: true, rows: summaryRows };
+}
 
-    try {
-        // Get process data from localStorage
-        const processData = localStorage.getItem('capturedProcessData');
-        if (!processData) {
-            // Re-enable button on error
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
-            showNotification('Error', 'No process data found. Please return to Data Capture page.', 'error');
-            return;
-        }
-
-        const parsedProcessData = JSON.parse(processData);
-        console.log('Process data:', parsedProcessData);
-
-        // Collect all rows with data from summary table
-        const summaryTableBody = document.getElementById('summaryTableBody');
-        const rows = summaryTableBody.querySelectorAll('tr');
-        const summaryRows = [];
-
-        // Pre-load account list so rows without data-account-id can resolve accountId (e.g. when Submit without opening edit form)
-        window.__summaryAccountListCache = await fetchSummaryAccountList();
-
-        // 先校验：有 Account 的行必须同时填写 Currency 和 Formula，任一项空则不允许 Submit
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const cells = row.querySelectorAll('td');
-            const selectCheckbox = row.querySelector('.summary-select-checkbox');
-            if (selectCheckbox && selectCheckbox.checked) continue;
-            const accountCell = cells[1];
-            if (!accountCell) continue;
-            const accountText = accountCell.textContent.trim();
-            const hasButton = accountCell.querySelector('.add-account-btn');
-            if (!accountText || accountText === '+' || hasButton) continue;
-            // 该行有 Account，必须填写 Currency 和 Formula；任一项空则不能 Save，并弹出通知
-            const currencyCell = cells[3];
-            const currencyText = (currencyCell && currencyCell.textContent) ? String(currencyCell.textContent).trim().replace(/[()]/g, '') : '';
-            const formulaCell = cells[4];
-            const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim() || '') : '';
-            const currencyEmpty = !currencyText || /^select\s*curren/i.test(currencyText);
-            const formulaEmpty = !formulaText || !String(formulaText).trim();
-            if (currencyEmpty || formulaEmpty) {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit';
-                }
-                isSubmitting = false;
-                const msg = currencyEmpty && formulaEmpty
-                    ? '请先填写 Currency 和 Formula 后再提交。Cannot save: Currency and Formula are required.'
-                    : (currencyEmpty ? '请先选择 Currency 后再提交。Cannot save: Currency is required.' : '请先填写 Formula 后再提交。Cannot save: Formula is required.');
-                showNotification('Error', msg, 'error');
-                return;
-            }
-        }
-
-        rows.forEach(row => {
+function collectSummarySubmitRowsFromTable(rows, parsedProcessData) {
+    const summaryRows = [];
+    rows.forEach(row => {
             const cells = row.querySelectorAll('td');
 
             // 如果 Select 列被勾选，则整行不提交到数据库
@@ -20268,15 +20725,104 @@ async function submitSummaryData() {
                 rateValue: rateValue, // Rate Value column value (priority) or global rateInput value (if checkbox checked)
                 displayOrder: displayOrder // Preserve row order from Data Capture Table
             });
-        });
+    });
+    return summaryRows;
+}
 
-        if (summaryRows.length === 0) {
+window.__SUMMARY_PREPARE_SUBMIT_COLLECTION__ = prepareSummarySubmitCollection;
+window.__SUMMARY_COLLECT_SUBMIT_ROWS__ = async function () {
+    const raw = localStorage.getItem('capturedProcessData');
+    if (!raw) return [];
+    const parsedProcessData = JSON.parse(raw);
+    const prep = await prepareSummarySubmitCollection(parsedProcessData);
+    return prep.ok ? prep.rows : [];
+};
+
+function validateSummarySubmitTotal() {
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) {
+        return { ok: true };
+    }
+    let totalAmount = MoneyDecimal.toDecimal('0', 0);
+    let hasValue = false;
+    summaryTableBody.querySelectorAll('tr').forEach(row => {
+        const selectCheckbox = row.querySelector('.summary-select-checkbox');
+        if (selectCheckbox && selectCheckbox.checked) {
+            return;
+        }
+        const cells = row.querySelectorAll('td');
+        const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+        const rowForTotal = typeof truncateProcessedAmountTo6Decimals === 'function'
+            ? truncateProcessedAmountTo6Decimals(rowFinalAmount)
+            : String(rowFinalAmount);
+        try {
+            totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowForTotal), 0));
+            hasValue = true;
+        } catch (_) { /* ignore invalid amount */ }
+    });
+    const finalTotalRaw = hasValue ? totalAmount.toString() : '0';
+    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
+    if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
+        return {
+            ok: false,
+            total: finalTotal,
+            message: `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`
+        };
+    }
+    return { ok: true, total: finalTotal };
+}
+
+window.validateSummarySubmitTotal = validateSummarySubmitTotal;
+window.__SUMMARY_VALIDATE_SUBMIT_TOTAL__ = validateSummarySubmitTotal;
+window.validateSummaryRowsCurrencyFormula = validateSummaryRowsCurrencyFormula;
+
+async function submitSummaryData() {
+    if (typeof window.__SUMMARY_REACT_EXECUTE_SUBMIT__ === 'function') {
+        return window.__SUMMARY_REACT_EXECUTE_SUBMIT__();
+    }
+
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+        console.log('Submission already in progress, ignoring duplicate request');
+        return;
+    }
+
+    console.log('Submit summary data');
+
+    setSummarySubmitUiActive(true);
+    const submitBtn = document.getElementById('summarySubmitBtn');
+
+    const totalValidation = validateSummarySubmitTotal();
+    if (!totalValidation.ok) {
+        setSummarySubmitUiActive(false);
+        showNotification('Error', totalValidation.message || 'Total validation failed.', 'error');
+        return;
+    }
+
+    try {
+        // Get process data from localStorage
+        const processData = localStorage.getItem('capturedProcessData');
+        if (!processData) {
             // Re-enable button on error
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
+            showNotification('Error', 'No process data found. Please return to Data Capture page.', 'error');
+            return;
+        }
+
+        const parsedProcessData = JSON.parse(processData);
+        console.log('Process data:', parsedProcessData);
+
+        const prep = await prepareSummarySubmitCollection(parsedProcessData);
+        if (!prep.ok) {
+            setSummarySubmitUiActive(false);
+            showNotification(prep.warning ? 'Warning' : 'Error', prep.message || 'Failed to prepare summary rows.', 'error');
+            return;
+        }
+        const summaryRows = prep.rows;
+
+                if (summaryRows.length === 0) {
+            // Re-enable button on error
+            setSummarySubmitUiActive(false);
             showNotification('Warning', 'No data to submit. Please add at least one row with data.', 'error');
             return;
         }
@@ -20305,11 +20851,7 @@ async function submitSummaryData() {
             console.log('JSON stringify successful, length:', jsonData.length);
         } catch (error) {
             console.error('JSON stringify failed:', error);
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
             showNotification('Error', 'Data serialization failed: ' + error.message + '. The data may be too large or contain circular references.', 'error');
             return;
         }
@@ -20317,11 +20859,7 @@ async function submitSummaryData() {
         // Verify JSON is complete (check if it ends properly)
         if (!jsonData || jsonData.length === 0) {
             console.error('JSON data is empty!');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
             showNotification('Error', 'The data is empty after serialization. Please check whether the data is correct.', 'error');
             return;
         }
@@ -20332,11 +20870,7 @@ async function submitSummaryData() {
             console.log('JSON verification successful, rows in verified data:', verifyData.summaryRows ? verifyData.summaryRows.length : 0);
         } catch (error) {
             console.error('JSON verification failed:', error);
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-            isSubmitting = false;
+            setSummarySubmitUiActive(false);
             showNotification('Error', 'Failed to verify data after serialization: ' + error.message, 'error');
             return;
         }
@@ -20573,11 +21107,7 @@ async function submitSummaryData() {
                     if (batchRows.length === 1) {
                         failedProblemRows.push(batchRows[0]);
                     }
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'Submit';
-                    }
-                    isSubmitting = false;
+                    setSummarySubmitUiActive(false);
 
                     let errorMessage = error.message || 'Unknown error';
                     if (error.status) {
@@ -20631,6 +21161,10 @@ async function submitSummaryData() {
             }
             // Clear localStorage after successful submission (redirect 前再清表数据，避免重复进入看到旧表)
             setTimeout(() => {
+                if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__ === 'function') {
+                    window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__();
+                    return;
+                }
                 window.isNavigatingAwayByBackOrSubmit = true;
                 try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
                 try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
@@ -20653,13 +21187,7 @@ async function submitSummaryData() {
             errorMessage = 'The server returned an invalid response. This may be due to the data size exceeding the server limit (PHP post_max_size). Please reduce the number of rows submitted or contact the administrator.';
         }
 
-        // Re-enable button on error
-        const submitBtn = document.getElementById('summarySubmitBtn');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit';
-        }
-        isSubmitting = false;
+        setSummarySubmitUiActive(false);
 
         showNotification('Error', `Submission failed: ${errorMessage}`, 'error');
     }
@@ -20768,6 +21296,8 @@ async function fetchSummaryAccountList() {
         return [];
     }
 }
+window.fetchSummaryAccountList = fetchSummaryAccountList;
+window.getCurrentProcessId = getCurrentProcessId;
 
 // Helper function to get currency ID by currency code
 function getCurrencyIdByCode(currencyCode) {
@@ -20810,6 +21340,10 @@ document.addEventListener('keydown', function (event) {
 });
 
 window.initDataCaptureSummaryPage = initDataCaptureSummaryPage;
+window.deleteSelectedRows = deleteSelectedRows;
+window.updateDeleteButton = updateDeleteButton;
+window.collectValidDeleteRowTargets = collectValidDeleteRowTargetsFromDom;
+window.executeDeleteSelectedRows = performDeleteSelectedRows;
 if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => initDataCaptureSummaryPage());
