@@ -2782,10 +2782,11 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     min-width: 0;
     min-height: 55px;
     margin: 0;
+    overflow: hidden;
     border-radius: 10px;
-    padding: 8px 12px;
-    background: #f1f5f9;
-    border: 1.5px solid #cbd5e1;
+    padding: 8px 10px;
+    background: var(--account-select-card-bg);
+    border: 1.5px solid var(--account-select-card-border);
     box-shadow: none;
     cursor: pointer;
     transition:
@@ -2803,13 +2804,13 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 }
 
 #userModal .user-modal-select-card:has(input[type="checkbox"]:checked) {
-    background-color: #ffffff;
-    border: 1.5px solid #0d60ff;
+    background-color: var(--account-select-card-bg-checked);
+    border: 1.5px solid var(--account-select-card-border-checked);
 }
 
 #userModal .user-modal-select-card:has(input[type="checkbox"]:checked):hover {
     background-color: #f8fbff !important;
-    border-color: #0d60ff !important;
+    border-color: var(--account-select-card-border-checked) !important;
 }
 
 #userModal .user-modal-select-card .account-label,
@@ -2818,14 +2819,15 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     max-width: 100%;
     text-align: left;
     white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
+    overflow: hidden;
+    text-overflow: ellipsis;
     overflow-wrap: anywhere;
     word-break: break-word;
-    line-height: 1.2;
-    color: #334155;
-    font-size: 13px;
-    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-page-fg);
+    font-family: inherit;
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-semibold);
     letter-spacing: 0.02em;
 }
 
@@ -2833,23 +2835,25 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     display: block;
     margin-top: 2px;
     white-space: normal;
+    overflow: hidden;
     overflow-wrap: anywhere;
     word-break: break-word;
     max-width: 100%;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.2;
-    color: #64748b;
+    font-family: inherit;
+    font-size: var(--text-tiny);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25;
+    color: var(--color-muted-fg);
     letter-spacing: 0;
 }
 
 #userModal .user-modal-select-card:has(input[type="checkbox"]:checked) .account-label,
 #userModal .user-modal-select-card:has(input[type="checkbox"]:checked) .account-label.account-label--process {
-    color: #0d60ff;
+    color: var(--account-select-label-checked);
 }
 
 #userModal .user-modal-select-card:has(input[type="checkbox"]:checked) .account-label-desc {
-    color: #797979;
+    color: var(--account-select-desc-checked);
 }
 
 #userModal .user-modal-select-card input[type="checkbox"] {
@@ -2873,8 +2877,8 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 }
 
 #userModal .user-modal-select-card input[type="checkbox"]:checked + .account-label {
-    color: #0d60ff;
-    font-weight: 700;
+    color: var(--account-select-label-checked);
+    font-weight: var(--font-weight-bold);
 }
 
 #userModal .user-modal-select-card:has(input[type="checkbox"]:focus-visible) {
@@ -2952,9 +2956,13 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
         background-color: #fff;
     }
 
-    #userModal .account-label,
-    .account-label {
-        font-size: clamp(8px, 0.73vw, 12px) !important;
+    #userModal .user-modal-select-card .account-label,
+    #userModal .user-modal-select-card .account-label.account-label--process {
+        font-size: var(--text-tiny) !important;
+    }
+
+    #userModal .user-modal-select-card .account-label-desc {
+        font-size: var(--domain-fluid-9-065-11) !important;
     }
 
     #userModal .permissions-actions,
