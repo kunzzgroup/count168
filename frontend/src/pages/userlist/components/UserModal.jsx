@@ -467,10 +467,10 @@ export default function UserModal({
                   </div>
                 )}
                 <div className="user-modal-permissions-compact">
-                  <div className="form-group user-info-field permission-field-group">
+                  <div className="form-group user-info-field company-field-group permission-field-group">
                     <div className="user-modal-company-heading-row">
                       <label id="user-modal-permission-trigger-label" htmlFor="user-modal-permission-open-btn" className="permission-field-label">
-                        <span>{t("permissions")}</span>
+                        <span className="permission-field-label-text">{t("permissions")}</span>
                         {readOnlyToggleVisible ? (
                           <ReadOnlyToggleInline
                             readOnlyToggleCanInteract={readOnlyToggleCanInteract}
@@ -491,11 +491,11 @@ export default function UserModal({
                         {t("selectPermissions")}
                       </button>
                     </div>
-                    {selectedPermissionLabels.length > 0 ? (
-                      <div className="user-modal-permission-summary" aria-labelledby="user-modal-permission-trigger-label">
+                    <div className="user-modal-company-summary" aria-labelledby="user-modal-permission-trigger-label">
+                      {selectedPermissionLabels.length ? (
                         <span className="user-modal-company-summary-text">{selectedPermissionLabels.join(", ")}</span>
-                      </div>
-                    ) : null}
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>

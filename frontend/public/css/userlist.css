@@ -1383,21 +1383,19 @@ label.user-modal-col-title.acc-proc-label {
     filter: brightness(1.02);
 }
 
-/* ── Permission compact (≤1200px): same layout as Company field, borderless summary ── */
+/* ── Permission compact (≤1200px): same layout + summary box as Company field ── */
 #userModal .permission-field-group .permission-field-label {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px 10px;
+    flex: 1;
+    min-width: 0;
 }
 
-#userModal .permission-field-group .user-modal-permission-summary {
-    margin-top: 8px;
-    min-width: 0;
-    padding: 0 4px;
-    border: none;
-    border-radius: 0;
-    background: transparent;
+#userModal .permission-field-group .permission-field-label-text {
+    font-weight: 600;
+    color: #334155;
 }
 
 @media (max-width: 1200px) {
