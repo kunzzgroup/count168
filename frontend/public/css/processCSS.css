@@ -1240,8 +1240,16 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page.process-page--bank .process-table-wrapper .table-header {
     gap: 2px;
     column-gap: 2px;
-    width: 100%;
-    min-width: min-content;
+    width: var(--table-header-width, 100%);
+    min-width: var(--table-header-width, min-content);
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode {
+    width: var(--table-header-width, 100%);
+    min-width: var(--table-header-width, min-content);
+    box-sizing: border-box;
 }
 
 /* Bank 列表：表头/数据格统一 flex，justify-content 才能同时生效 */
@@ -1254,20 +1262,20 @@ body.process-page.process-page--bank .process-table-wrapper .process-cards.bank-
     min-width: 0;
 }
 
-/* 表头：完整展示文案 + 排序图标，不省略 */
+/* 表头与数据列同轨：单元格内省略，避免文案叠到邻列 */
 body.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header,
 body.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header.header-item--with-sort-icon {
-    overflow: visible;
-    min-width: min-content;
+    overflow: hidden;
+    min-width: 0;
 }
 
 body.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header .header-item__label,
 body.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header.header-item--with-sort-icon .header-item__label {
-    min-width: auto;
-    max-width: none;
-    overflow: visible;
-    text-overflow: clip;
-    flex-shrink: 0;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
     white-space: nowrap;
 }
 
@@ -1396,16 +1404,6 @@ body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table
     padding-right: 4px !important;
 }
 
-/* Supplier ↔ Country（数据行再收紧） */
-body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(1) {
-    padding-right: 2px !important;
-}
-
-body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(2) {
-    padding-left: 2px !important;
-    padding-right: 0 !important;
-}
-
 body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(2).header-item--with-sort-icon {
     gap: 4px !important;
     align-items: center !important;
@@ -1413,29 +1411,13 @@ body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table
 
 body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon .header-item__label {
     flex: 0 0 auto !important;
-    overflow: visible !important;
-    text-overflow: clip !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
 body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .bank-header.header-item--with-sort-icon .account-sort-icon {
     flex: 0 0 auto !important;
     align-self: center !important;
-}
-
-body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(3) {
-    padding-left: 0 !important;
-    padding-right: 2px !important;
-}
-
-/* Bank ↔ Types */
-body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(4) {
-    padding-left: 2px !important;
-    padding-right: 2px !important;
-}
-
-body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card > .card-item:nth-child(5) {
-    padding-left: 2px !important;
-    padding-right: 6px !important;
 }
 
 .process-page .process-card:hover {

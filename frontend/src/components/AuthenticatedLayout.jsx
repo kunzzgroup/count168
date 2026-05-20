@@ -111,7 +111,11 @@ export default function AuthenticatedLayout() {
   useEffect(() => {
     document.body.classList.toggle("sidebar-collapsed", sidebarIconOnly);
     document.body.classList.toggle("sidebar-tablet-expanded", sidebarTabletExpanded);
+    const t = window.setTimeout(() => {
+      window.dispatchEvent(new Event("ec:sidebar-layout-changed"));
+    }, 280);
     return () => {
+      window.clearTimeout(t);
       document.body.classList.remove("sidebar-collapsed", "sidebar-tablet-expanded");
     };
   }, [sidebarIconOnly, sidebarTabletExpanded]);

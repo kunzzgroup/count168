@@ -108,9 +108,13 @@ export default function BankProcessTable({
     const syncHeaderWidth = () => {
       const headerEl = headerRef.current;
       const cardsEl = cardsRef.current;
+      const wrapperEl = headerEl?.parentElement;
       if (!headerEl || !cardsEl) return;
-      const rect = headerEl.getBoundingClientRect();
-      cardsEl.style.setProperty("--table-header-width", `${rect.width}px`);
+      const width = Math.ceil(Math.max(headerEl.scrollWidth, headerEl.offsetWidth, headerEl.getBoundingClientRect().width));
+      const widthPx = `${width}px`;
+      cardsEl.style.setProperty("--table-header-width", widthPx);
+      headerEl.style.setProperty("--table-header-width", widthPx);
+      if (wrapperEl) wrapperEl.style.setProperty("--table-header-width", widthPx);
     };
 
     const raf1 = window.requestAnimationFrame(() => {
@@ -119,16 +123,19 @@ export default function BankProcessTable({
 
     const onResize = () => syncHeaderWidth();
     window.addEventListener("resize", onResize);
+    window.addEventListener("ec:sidebar-layout-changed", onResize);
 
     let ro = null;
-    if (typeof window.ResizeObserver === "function" && headerRef.current) {
+    const observeEl = headerRef.current?.parentElement;
+    if (typeof window.ResizeObserver === "function" && observeEl) {
       ro = new window.ResizeObserver(() => syncHeaderWidth());
-      ro.observe(headerRef.current);
+      ro.observe(observeEl);
     }
 
     return () => {
       window.cancelAnimationFrame(raf1);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("ec:sidebar-layout-changed", onResize);
       if (ro) ro.disconnect();
     };
   }, [pageRows.length, showAll, sortColumn, sortDirection, showSelectColumn]);
