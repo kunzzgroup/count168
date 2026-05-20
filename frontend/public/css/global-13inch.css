@@ -202,11 +202,6 @@
         min-height: 0 !important;
     }
 
-    body.ec-auth-shell.account-page .account-card-item {
-        line-height: 1.15 !important;
-        font-size: 12px !important;
-    }
-
     body.ec-auth-shell .card-item,
     body.ec-auth-shell .account-card-item,
     body.ec-auth-shell .contract-card-item,
@@ -654,10 +649,13 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         overflow: hidden !important;
     }
 
-    /* 覆盖上文 body.ec-auth-shell .account-cards 的 min-height:0，保留列表体 responsive 最小高度 */
-    body.account-page:not(.account-page--show-all) .account-cards,
+    /* User List 保留列表体最小高度；Account List 与 Process List 一致，由 flex 分配剩余高度 */
     body.user-page:not(.user-page--show-all) .user-cards {
         min-height: var(--list-table-body-min-height) !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .account-cards {
+        min-height: 0 !important;
     }
 
     /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
