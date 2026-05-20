@@ -1896,6 +1896,13 @@ body {
             justify-content: center;
             transition: all 0.2s ease;
             flex-shrink: 0;
+            position: relative;
+            z-index: 10003;
+            pointer-events: auto;
+        }
+
+        #editFormulaModal .account-add-btn {
+            pointer-events: auto;
         }
 
         .account-add-btn:hover {

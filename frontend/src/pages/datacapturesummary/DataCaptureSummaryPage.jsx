@@ -185,9 +185,13 @@ function DataCaptureSummaryPageInner() {
 
   const pageActions = useSummaryPageActions({ companyId, scriptsReady });
   const editFormula = useSummaryEditFormula({ scriptsReady });
-  const addAccount = useSummaryAddAccount({ scriptsReady });
-  useSummaryFormulaEngine();
   const overlays = useSummaryOverlays();
+  const addAccount = useSummaryAddAccount({
+    companyId,
+    scriptsReady,
+    notify: overlays.showNotification,
+  });
+  useSummaryFormulaEngine();
   useSummaryLegacyChrome(scriptsReady);
 
   const showEmptyState =
@@ -445,6 +449,7 @@ function DataCaptureSummaryPageInner() {
         open={editFormula.open}
         productValue={editFormula.productValue}
         onClose={() => window.closeEditFormulaForm?.()}
+        onOpenAddAccount={addAccount.showAddAccount}
       />
 
       <AccountModal {...addAccount.accountModalProps} />

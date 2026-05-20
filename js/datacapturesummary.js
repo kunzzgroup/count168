@@ -2678,9 +2678,27 @@ function initEditFormulaFormAfterMount(prePopulatedData) {
 
     // Initialize calculator keypad
     initializeCalculatorKeypad();
+
+    bindEditFormulaAddAccountButton();
+}
+
+function bindEditFormulaAddAccountButton() {
+    const addBtn = document.querySelector('#editFormulaModal .account-add-btn');
+    if (!addBtn || addBtn.dataset.summaryAddAccountBound === '1') return;
+    addBtn.dataset.summaryAddAccountBound = '1';
+    addBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
+            window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+            return;
+        }
+        showAddAccountModal();
+    });
 }
 
 window.initEditFormulaFormAfterMount = initEditFormulaFormAfterMount;
+window.bindEditFormulaAddAccountButton = bindEditFormulaAddAccountButton;
 
 // Show Edit Formula Form as modal positioned slightly towards top
 function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {

@@ -278,8 +278,6 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
   );
 
   useEffect(() => {
-    if (!scriptsReady) return undefined;
-
     window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ = () => {
       void showAddAccount();
     };
@@ -289,7 +287,7 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
       delete window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__;
       delete window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__;
     };
-  }, [scriptsReady, showAddAccount, closeAddAccount]);
+  }, [showAddAccount, closeAddAccount]);
 
   return {
     open,

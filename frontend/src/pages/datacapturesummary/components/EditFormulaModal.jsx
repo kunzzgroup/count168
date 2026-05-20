@@ -26,7 +26,20 @@ function CalcButton({ value, action, className = "" }) {
  * React-owned Edit Formula modal shell — form fields match legacy DOM ids
  * so initEditFormulaFormAfterMount / saveFormula continue to work unchanged.
  */
-export default function EditFormulaModal({ open, productValue, onClose }) {
+export default function EditFormulaModal({ open, productValue, onClose, onOpenAddAccount }) {
+  const handleOpenAddAccount = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof onOpenAddAccount === "function") {
+      void onOpenAddAccount();
+      return;
+    }
+    if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === "function") {
+      window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+      return;
+    }
+    window.showAddAccountModal?.();
+  };
   if (!open) return null;
 
   return (
@@ -77,9 +90,7 @@ export default function EditFormulaModal({ open, productValue, onClose }) {
                       <button
                         type="button"
                         className="account-add-btn"
-                        onClick={() =>
-                          window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__?.() ?? window.showAddAccountModal?.()
-                        }
+                        onClick={handleOpenAddAccount}
                         title="Add New Account"
                       >
                         +
