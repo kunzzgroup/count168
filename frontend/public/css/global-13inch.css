@@ -166,7 +166,7 @@
         padding: var(--table-header-height) !important;
     }
 
-    body.ec-auth-shell .table-header .header-item,
+    body.ec-auth-shell .table-header:not(.bank-virtual-head-row) .header-item,
     body.ec-auth-shell .account-table-header .header-item,
     body.ec-auth-shell .card-item,
     body.ec-auth-shell .account-card-item,

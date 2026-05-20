@@ -858,6 +858,7 @@ body.process-page {
     --bank-list-cell-padding-y: clamp(4px, 0.4vw, 7px);
     --bank-list-cell-padding-x: clamp(6px, 0.65vw, 12px);
     --bank-list-cell-min-height: clamp(32px, 2.4vw, 44px);
+    --bank-list-header-row-height: clamp(40px, 2.8vw, 48px);
     --bank-list-cell-line-height: 1.35;
     --bank-virtual-table-min-width: 1320px;
     --bank-virtual-grid-columns:
@@ -933,8 +934,10 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 .process-page.process-page--bank .bank-virtual-head-row.table-header {
     margin-top: 12px;
     border-radius: 8px 8px 0 0;
-    background: transparent;
+    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     padding: 0;
+    overflow: hidden;
+    grid-auto-rows: var(--bank-list-header-row-height, var(--bank-list-cell-min-height));
 }
 
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
@@ -964,27 +967,32 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 .process-page.process-page--bank .bank-virtual-th {
-    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
+    background: transparent;
     color: #ffffff;
     font-weight: bold;
     font-size: var(--text-base);
+    line-height: 1.2;
     padding: var(--bank-list-cell-padding-y) var(--bank-list-cell-padding-x);
     text-align: center;
-    min-height: var(--bank-list-cell-min-height);
+    min-height: var(--bank-list-header-row-height, var(--bank-list-cell-min-height));
+    height: 100%;
+    align-self: stretch;
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
     min-width: 0;
     overflow: hidden;
+    border-radius: 0;
 }
 
 .process-page.process-page--bank .bank-virtual-head-row .bank-virtual-th:first-child {
-    border-top-left-radius: 8px;
+    border-top-left-radius: 0;
 }
 
 .process-page.process-page--bank .bank-virtual-th-checkbox {
-    border-top-right-radius: 8px;
+    border-top-right-radius: 0;
 }
 
 .process-page.process-page--bank .bank-virtual-cell {
@@ -1315,6 +1323,11 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     line-height: 1.2;
 }
 
+.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.header-item--with-sort-icon {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+}
+
 .process-page .table-header .header-item.header-item--with-sort-icon .header-item__label {
     min-width: 0;
     flex: 0 1 auto;
@@ -1401,14 +1414,26 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     transition: all 0.2s ease;
 }
 
-/* Bank virtual：表头/数据格统一 flex，justify-content 才能同时生效 */
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
+/* Bank virtual：数据格 flex；表头格仅用 --bank-list-cell-* padding（勿写 2px 4px，避免高低不齐） */
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-virtual-cell {
     display: flex !important;
     align-items: center;
     padding: 2px 4px;
     box-sizing: border-box;
+    min-width: 0;
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    align-self: stretch !important;
+    height: 100% !important;
+    min-height: var(--bank-list-header-row-height, var(--bank-list-cell-min-height)) !important;
+    padding: var(--bank-list-cell-padding-y) var(--bank-list-cell-padding-x) !important;
+    box-sizing: border-box !important;
     min-width: 0;
 }
 
@@ -1479,11 +1504,13 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .header-item__label {
-    flex: 0 0 auto;
-    display: inline-block;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: block;
     line-height: 1.2;
-    vertical-align: middle;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon {
@@ -1539,6 +1566,15 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th {
+    padding: var(--bank-list-cell-padding-y) var(--bank-list-cell-padding-x) !important;
+    box-sizing: border-box !important;
+    align-self: stretch !important;
+    height: 100% !important;
+    min-height: var(--bank-list-header-row-height, var(--bank-list-cell-min-height)) !important;
+    flex-wrap: nowrap !important;
+}
+
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-virtual-cell {
     padding-top: var(--bank-list-cell-padding-y) !important;
     padding-bottom: var(--bank-list-cell-padding-y) !important;
@@ -1553,10 +1589,11 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .header-item__label {
-    flex: 0 1 auto !important;
+    flex: 1 1 auto !important;
     min-width: 0 !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    white-space: nowrap !important;
 }
 
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon {
