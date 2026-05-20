@@ -1653,7 +1653,7 @@ export default function BankProcessListPage() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <div className="userlist-filter-chips" role="group">
+              <div className="userlist-filter-chips userlist-filter-chips--bank-process" role="group">
                 <button
                   type="button"
                   className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
@@ -1699,8 +1699,6 @@ export default function BankProcessListPage() {
                   </span>
                   <span className="user-filter-chip__label">{t("showAll")}</span>
                 </button>
-              </div>
-              <div className="userlist-filter-chips" role="group">
                 <button
                   type="button"
                   className={`user-filter-chip${showOfficial ? " is-selected" : ""}`}

@@ -2512,10 +2512,35 @@ body.process-page .userlist-filter-chips .user-filter-chip:nth-child(2) {
     justify-content: flex-start;
 }
 
-/* Bank Process：第二组（Official / E-Invoice / Block）第三颗 chip */
-body.process-page.process-page--bank .action-controls-row .userlist-filter-chips + .userlist-filter-chips .user-filter-chip:nth-child(3) {
-    min-width: 6.5rem;
+/* Bank Process：5 颗 filter chip 单行对齐（按英文最长文案预留宽度） */
+body.process-page.process-page--bank .action-controls-row .userlist-filter-chips--bank-process {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+
+body.process-page.process-page--bank .action-controls-row .userlist-filter-chips--bank-process .user-filter-chip {
+    flex-shrink: 0;
     justify-content: flex-start;
+}
+
+body.process-page.process-page--bank .action-controls-row .userlist-filter-chips--bank-process .user-filter-chip:nth-child(1) {
+    min-width: 8.25rem;
+}
+
+body.process-page.process-page--bank .action-controls-row .userlist-filter-chips--bank-process .user-filter-chip:nth-child(2) {
+    min-width: 6.75rem;
+}
+
+body.process-page.process-page--bank .action-controls-row .userlist-filter-chips--bank-process .user-filter-chip:nth-child(3) {
+    min-width: 7.5rem;
+}
+
+body.process-page.process-page--bank .action-controls-row .userlist-filter-chips--bank-process .user-filter-chip:nth-child(4) {
+    min-width: 8.75rem;
+}
+
+body.process-page.process-page--bank .action-controls-row .userlist-filter-chips--bank-process .user-filter-chip:nth-child(5) {
+    min-width: 7.75rem;
 }
 
 /* Checkbox section */
