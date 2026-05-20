@@ -1343,14 +1343,27 @@ body.account-page #confirmDeleteModal .confirm-delete {
     padding: 10px 20px;
     border-radius: 0.9rem;
     height: auto;
-    max-height: 92vh;
+    max-height: min(92vh, calc(100dvh - 24px));
+    max-height: min(92vh, calc(100vh - 24px));
     overflow-x: hidden;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    transform: translateY(-50%);
-    transform-origin: center center;
+    top: auto;
+    transform: none;
+    margin: 0;
     box-shadow: 0 24px 48px -18px rgba(15, 23, 42, 0.35), 0 8px 18px -10px rgba(15, 23, 42, 0.2);
+}
+
+/* 父级 account-modal 已 flex 居中，勿再用 translateY(-50%) 导致超高内容底部被裁切 */
+#account-addModal.account-modal,
+#account-editModal.account-modal {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 12px;
+    box-sizing: border-box;
 }
 
 /* Remove large side empty space by allowing form to fill container */
@@ -2782,6 +2795,231 @@ screen and (max-width: 1440px) {
 @media (max-height: 820px) {
     :root {
         --text-page-title-mt: clamp(0.4rem, 0.6vh, 0.85rem);
+    }
+}
+
+/* ==========================================================================
+   Add/Edit Account modal — full card visible without scroll (≤820px height)
+   ========================================================================== */
+@media (max-height: 820px) {
+
+    #account-addModal.account-modal,
+    #account-editModal.account-modal {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: 8px;
+        box-sizing: border-box;
+    }
+
+    #account-addModal .account-modal-content,
+    #account-editModal .account-modal-content {
+        top: auto;
+        transform: none;
+        margin: 0;
+        width: min(920px, calc(100vw - 16px));
+        max-width: calc(100vw - 16px);
+        max-height: calc(100dvh - 16px);
+        max-height: calc(100vh - 16px);
+        padding: 6px 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+    }
+
+    #account-addModal .account-modal-header,
+    #account-editModal .account-modal-header {
+        margin: -6px -12px 0;
+        padding: 2px 12px;
+        flex-shrink: 0;
+    }
+
+    #account-addModal .account-modal-header h2,
+    #account-editModal .account-modal-header h2 {
+        font-size: clamp(1.1rem, 2.4vh, 1.35rem) !important;
+        padding: 6px 0 !important;
+        line-height: 1.15;
+    }
+
+    #account-addModal .account-close,
+    #account-editModal .account-close {
+        top: 0.55rem;
+        right: 0.85rem;
+        width: 20px;
+        height: 20px;
+    }
+
+    #account-addModal .account-modal-body,
+    #account-editModal .account-modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+    }
+
+    #account-addModal .account-form,
+    #account-editModal .account-form {
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    #account-addModal .account-form-columns,
+    #account-editModal .account-form-columns {
+        gap: 0.35rem;
+        padding: 0.3rem 0.55rem;
+    }
+
+    #account-addModal .account-form-column .account-section-header,
+    #account-editModal .account-form-column .account-section-header {
+        font-size: 12px !important;
+        margin-bottom: 0.2rem !important;
+        padding-bottom: 0.15rem !important;
+    }
+
+    #account-addModal .account-form-column .account-form-group,
+    #account-editModal .account-form-column .account-form-group {
+        margin-bottom: 0.35rem !important;
+    }
+
+    #account-addModal .account-form-group label,
+    #account-editModal .account-form-group label {
+        font-size: 12px !important;
+        margin-bottom: 0.15rem !important;
+    }
+
+    #account-addModal .account-form-group input,
+    #account-addModal .account-form-group select,
+    #account-addModal .account-form-group textarea,
+    #account-editModal .account-form-group input,
+    #account-editModal .account-form-group select,
+    #account-editModal .account-form-group textarea {
+        min-height: 1.75rem !important;
+        padding: 0.2rem 0.45rem !important;
+        font-size: 12px !important;
+        border-radius: 0.4rem;
+    }
+
+    #account-addModal .account-form-group textarea,
+    #account-editModal .account-form-group textarea {
+        min-height: 1.75rem !important;
+        line-height: 1.25 !important;
+    }
+
+    #account-addModal .account-radio-label,
+    #account-editModal .account-radio-label {
+        padding: 0.2rem 0.55rem !important;
+        font-size: 11px !important;
+    }
+
+    #account-addModal .account-form-section,
+    #account-editModal .account-form-section {
+        padding: 0 0.55rem !important;
+        padding-bottom: 0.2rem !important;
+    }
+
+    #account-addModal .account-advance-section,
+    #account-editModal .account-advance-section {
+        padding-top: 0.15rem !important;
+    }
+
+    #account-addModal .account-advance-section h3,
+    #account-editModal .account-advance-section h3 {
+        font-size: 12px !important;
+        margin: 2px 0 4px !important;
+        padding-bottom: 2px !important;
+    }
+
+    #account-addModal .account-other-currency,
+    #account-editModal .account-other-currency {
+        padding: 4px 8px !important;
+        margin: 0 0 4px !important;
+        font-size: 12px !important;
+        gap: 8px !important;
+    }
+
+    #account-addModal .account-other-currency--company,
+    #account-editModal .account-other-currency--company {
+        margin: 6px 0 4px !important;
+    }
+
+    #account-addModal .account-other-currency label,
+    #account-editModal .account-other-currency label {
+        font-size: 12px !important;
+        min-width: 6.5rem;
+    }
+
+    #account-addModal .account-other-currency input,
+    #account-editModal .account-other-currency input {
+        min-height: 28px !important;
+        padding: 4px 6px !important;
+        font-size: 12px !important;
+    }
+
+    #account-addModal .account-btn-add-currency,
+    #account-editModal .account-btn-add-currency {
+        padding: 4px 12px !important;
+        font-size: 12px !important;
+        min-height: 28px;
+    }
+
+    #account-addModal .account-currency-list,
+    #account-editModal .account-currency-list {
+        gap: 0.25rem !important;
+    }
+
+    #account-addModal .account-currency-item.currency-toggle-item,
+    #account-editModal .account-currency-item.currency-toggle-item {
+        padding: 3px 10px !important;
+        min-height: 1.5rem !important;
+        gap: 0.3rem !important;
+    }
+
+    #account-addModal .account-currency-item.currency-toggle-item .currency-code-text,
+    #account-editModal .account-currency-item.currency-toggle-item .currency-code-text,
+    #account-addModal .account-currency-item.currency-toggle-item.selected .currency-code-text,
+    #account-editModal .account-currency-item.currency-toggle-item.selected .currency-code-text {
+        font-size: 11px !important;
+        line-height: 1.15 !important;
+    }
+
+    #account-addModal .account-currency-item.currency-toggle-item .currency-delete-btn,
+    #account-editModal .account-currency-item.currency-toggle-item .currency-delete-btn {
+        width: 14px;
+        height: 14px;
+        font-size: 13px;
+    }
+
+    #account-addModal .user-modal-company-open-btn,
+    #account-editModal .user-modal-company-open-btn {
+        padding: 4px 10px !important;
+        font-size: 11px !important;
+    }
+
+    #account-addModal .account-other-currency--company > .account-modal-company-field .user-modal-company-summary,
+    #account-editModal .account-other-currency--company > .account-modal-company-field .user-modal-company-summary {
+        margin-top: 4px !important;
+        padding: 3px 8px !important;
+        font-size: 12px;
+    }
+
+    #account-addModal .account-form-actions,
+    #account-editModal .account-form-actions {
+        flex-shrink: 0;
+        padding: 8px 14px !important;
+        gap: 8px;
+        margin-top: auto;
+    }
+
+    #account-addModal .account-btn-save,
+    #account-addModal .account-btn-cancel,
+    #account-editModal .account-btn-save,
+    #account-editModal .account-btn-cancel {
+        padding: 6px 14px !important;
+        font-size: 12px !important;
+        min-height: 32px;
     }
 }
 
