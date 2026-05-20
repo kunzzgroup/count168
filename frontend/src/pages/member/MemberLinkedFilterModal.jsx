@@ -7,6 +7,7 @@ export default function MemberLinkedFilterModal({
   onClose,
   onApply,
   onNotify,
+  t,
 }) {
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState([]);
@@ -39,7 +40,7 @@ export default function MemberLinkedFilterModal({
 
   const apply = () => {
     if (!draft.length) {
-      onNotify("Select at least one account.", "warning");
+      onNotify(t("selectAtLeastOneAccount"), "warning");
       return;
     }
     onApply(draft);
@@ -60,8 +61,8 @@ export default function MemberLinkedFilterModal({
     >
       <div className="transaction-modal-content member-linked-filter-modal-content">
         <div className="transaction-modal-header">
-          <h3 id="member_linked_filter_modal_title">Accounts in grid</h3>
-          <button type="button" className="transaction-modal-close member-linked-filter-close" aria-label="Close" onClick={onClose}>
+          <h3 id="member_linked_filter_modal_title">{t("linkedFilterTitle")}</h3>
+          <button type="button" className="transaction-modal-close member-linked-filter-close" aria-label={t("close")} onClick={onClose}>
             &times;
           </button>
         </div>
@@ -71,17 +72,17 @@ export default function MemberLinkedFilterModal({
               type="search"
               id="member_linked_filter_search"
               className="member-linked-filter-search"
-              placeholder="Search account…"
+              placeholder={t("linkedFilterSearch")}
               autoComplete="off"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <div className="member-linked-filter-bulk">
               <button type="button" className="member-linked-bulk-btn" onClick={selectAll}>
-                Select all
+                {t("linkedFilterSelectAll")}
               </button>
               <button type="button" className="member-linked-bulk-btn" onClick={clearAll}>
-                Clear
+                {t("linkedFilterClear")}
               </button>
             </div>
           </div>
@@ -100,15 +101,13 @@ export default function MemberLinkedFilterModal({
         </div>
         <div className="member-linked-filter-footer">
           <button type="button" className="transaction-submit-btn" id="member_linked_filter_apply" onClick={apply}>
-            Apply
+            {t("linkedFilterApply")}
           </button>
           <button type="button" className="btn btn-secondary member-linked-filter-cancel-btn" onClick={onClose}>
-            Cancel
+            {t("cancel")}
           </button>
         </div>
       </div>
     </div>
   );
 }
-
-

@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
 
+/** Persist language and notify listeners (sidebar toggle, maintenance pages, etc.). */
+export function applyLoginLang(nextLang) {
+  const normalized = nextLang === "zh" ? "zh" : "en";
+  localStorage.setItem("login_lang", normalized);
+  window.dispatchEvent(new CustomEvent("eazycount:language-updated", { detail: { lang: normalized } }));
+}
+
 /** Syncs with sidebar EN/中 toggle (`login_lang` + `eazycount:language-updated`). */
 export function useLoginLang() {
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
