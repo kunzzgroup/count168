@@ -1,5 +1,35 @@
 /** API-RETURN / 4.RETURN parsers. */
 
+/**
+ * Whether a cell should be split as a RETURN formula/description column.
+ * Supports `LABEL : (expr)` from Transaction Payment (label may contain letters)
+ * and pure numeric expressions without a label.
+ */
+export function isReturnFormulaLikeCell(raw) {
+    if (raw === null || raw === undefined) return false;
+    const cell = String(raw).trim();
+    if (!cell) return false;
+
+    const isDatePattern =
+        /^\d{2}[-/]\d{2}[-/]\d{4}$/.test(cell) || /^\d{4}[-/]\d{2}[-/]\d{2}$/.test(cell);
+    if (isDatePattern) return false;
+
+    if (!/\d/.test(cell)) return false;
+
+    const hasParentheses = cell.includes("(") || cell.includes(")");
+    const hasColon = cell.includes(":");
+    const hasMathOperators = cell.includes("+") || cell.includes("*") || cell.includes("/");
+    const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators);
+
+    if (hasParentheses || hasColonAndOperators) return true;
+
+    // Pure numeric formula (no label letters), e.g. 681.19*.11*[1]
+    if (/[A-Za-z]/.test(cell)) return false;
+    const numericOnly = cell.replace(/,/g, "");
+    if (/^-?\d+(?:\.\d+)?$/.test(numericOnly)) return false;
+    return /[+\-*/()[\]]/.test(cell);
+}
+
 export function smartSplitPreservingDates(text) {
     if (!text || typeof text !== 'string') return [];
 
