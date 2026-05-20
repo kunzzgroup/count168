@@ -167,14 +167,12 @@
 }
 
 /* ==========================================================================
-   Add / Edit User modal (#userModal) — 桌面三栏；平板上下分区（见 ≤1024）
+   Add / Edit User modal (#userModal) — three columns always (match design)
    ========================================================================== */
 
 body.user-page #userModal .user-modal-card {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: stretch;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
 }
 
 /* 左栏：基本信息可滚，Permissions 触发器 + 摘要固定在底部（弹窗内勾选） */
@@ -226,120 +224,28 @@ body.user-page #userModal .account-grid.account-grid--four {
 }
 
 @media (max-width: 1024px) {
-  /* 上：用户信息 + 权限（全宽）；下：Account | Process 各半宽 */
-  body.user-page #userModal .user-modal-card {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: var(--user-modal-tablet-info-row) minmax(0, 1fr);
-    min-width: 0 !important;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  body.user-page #userModal .user-modal-col--info.user-info-panel {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    flex: none !important;
-    width: 100% !important;
-    max-width: none !important;
-    max-height: none !important;
-    min-height: 0 !important;
-    border-right: none !important;
-    border-bottom: 1px solid var(--color-border-slate);
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  body.user-page #userModal .user-modal-content .user-info-panel form {
-    flex: 0 0 auto;
-    min-height: auto;
-    overflow: visible;
-  }
-
-  body.user-page #userModal .user-modal-col--account {
-    grid-column: 1;
-    grid-row: 2;
-    min-height: 0;
-    border-right: 1px solid var(--color-border-slate);
-  }
-
-  body.user-page #userModal .user-modal-col--process {
-    grid-column: 2;
-    grid-row: 2;
-    min-height: 0;
+  body.user-page #userModal .user-modal-col--info {
+    flex: 0 0 var(--user-modal-info-col-width) !important;
   }
 
   body.user-page #userModal .modal-body {
-    overflow: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.user-page #userModal .user-modal-card {
+    min-width: min(100%, 96rem);
   }
 
   body.user-page #userModal .user-modal-content .user-info-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--space-gap);
-    align-content: start;
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  body.user-page #userModal .user-modal-content .user-info-field-row {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-gap);
-    width: 100%;
-    margin-bottom: 0;
-  }
-
-  body.user-page #userModal .user-modal-content .user-info-field-row:first-of-type {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  body.user-page #userModal .user-modal-content .user-info-field-row > .form-group,
-  body.user-page #userModal .user-modal-content .user-info-field-row > .password-row-container {
-    margin-bottom: var(--space-gap);
-  }
-
-  body.user-page #userModal .user-modal-content .password-row-container,
-  body.user-page #userModal .user-modal-content .user-info-grid > .form-group.user-info-field,
-  body.user-page #userModal .user-modal-content .company-field-group {
-    grid-column: 1 / -1;
-  }
-
   body.user-page #userModal .user-modal-content .sidebar-permissions-section {
     flex-shrink: 0;
-    margin-top: var(--space-gap);
-    padding: var(--space-card);
-    border: 1px solid var(--color-border-slate);
-    border-radius: var(--radius-panel);
-    background: var(--color-surface-subtle);
-    box-shadow: var(--shadow-sm);
-  }
-
-  body.user-page #userModal .user-modal-permissions-heading-row {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    padding-left: 0;
-    padding-right: 0;
-    border-bottom-color: var(--color-border-slate);
-  }
-
-  body.user-page #userModal .user-modal-permission-open-btn {
-    width: auto;
-    min-width: clamp(12rem, 28vw, 16rem);
-  }
-
-  body.user-page #userModal .user-modal-permission-summary {
-    margin-left: 0;
-    margin-right: 0;
-    max-height: none;
-    border: none;
-    background: transparent;
-    padding: 0;
+    background: var(--color-surface);
   }
 }

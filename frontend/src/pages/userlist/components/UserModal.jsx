@@ -11,8 +11,11 @@ const modalBodyStyle = {
   width: "100%",
 };
 
-/** 布局由 .user-modal-card CSS 控制（平板为 grid，桌面为 flex 三栏） */
 const userModalCardStyle = {
+  display: "flex",
+  flexDirection: "row",
+  flexWrap: "nowrap",
+  alignItems: "stretch",
   flex: 1,
   minHeight: 0,
   minWidth: 0,
@@ -408,18 +411,7 @@ export default function UserModal({
                 </div>
                 <div className="user-modal-permission-summary" aria-label={t("permissions")}>
                   {selectedPermissionLabels.length ? (
-                    <>
-                      <p className="user-modal-permission-summary-count">
-                        {t("permissionsSelectedCount", { count: selectedPermissionLabels.length })}
-                      </p>
-                      <ul className="user-modal-permission-chip-list">
-                        {PERMISSION_KEYS.filter((key) => permSelected.has(key)).map((key) => (
-                          <li key={key} className="user-modal-permission-chip">
-                            {getPermissionLabel(key)}
-                          </li>
-                        ))}
-                      </ul>
-                    </>
+                    <span className="user-modal-permission-summary-text">{selectedPermissionLabels.join(", ")}</span>
                   ) : (
                     <span className="user-modal-permission-summary-empty">{t("permissionNoneSelected")}</span>
                   )}

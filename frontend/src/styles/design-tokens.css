@@ -364,13 +364,12 @@
   :root {
     --layout-sidebar-width: 15rem;
     --layout-main-gap: 1.2rem;
-    --user-modal-info-col-width: 100%;
-    --user-modal-perm-summary-max-h: none;
+    --user-modal-info-col-width: clamp(26rem, 38vw, 38rem);
+    --user-modal-perm-summary-max-h: clamp(6.4rem, 18vh, 11.2rem);
     --user-modal-perm-picker-width: min(96vw, 100%);
     --user-modal-perm-picker-max-h: min(88vh, 100%);
     --user-modal-perm-picker-grid-cols: 2;
-    --user-modal-account-grid-cols: 2;
-    --user-modal-tablet-info-row: minmax(18rem, 46vh);
+    --user-modal-account-grid-cols: 3;
   }
 }
 
