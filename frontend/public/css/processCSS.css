@@ -861,12 +861,9 @@ body.process-page {
     --bank-list-header-row-height: clamp(40px, 2.8vw, 48px);
     --bank-list-cell-line-height: 1.35;
     --bank-virtual-table-min-width: 1320px;
-    --bank-virtual-grid-columns:
-        minmax(40px, 2fr) minmax(72px, 6fr) minmax(52px, 4fr) minmax(56px, 5fr) minmax(60px, 5fr)
-        minmax(84px, 7fr) minmax(88px, 6fr) minmax(64px, 5fr) minmax(72px, 5.5fr) minmax(56px, 4fr)
-        minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(80px, 5fr);
+    --bank-virtual-grid-columns: minmax(40px, 2.7fr) minmax(72px, 6fr) minmax(52px, 4fr) minmax(56px, 5fr) minmax(60px, 5fr) minmax(84px, 7fr) minmax(88px, 6fr) minmax(64px, 5fr) minmax(72px, 5.5fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(80px, 5fr);
     --bank-virtual-grid-columns-with-select:
-        minmax(40px, 2fr) minmax(72px, 6fr) minmax(52px, 4fr) minmax(56px, 5fr) minmax(60px, 5fr)
+        minmax(40px, 2.7fr) minmax(72px, 6fr) minmax(52px, 4fr) minmax(56px, 5fr) minmax(60px, 5fr)
         minmax(84px, 7fr) minmax(88px, 6fr) minmax(64px, 5fr) minmax(72px, 5.5fr) minmax(56px, 4fr)
         minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(80px, 5fr)
         minmax(48px, 48px);
@@ -1607,7 +1604,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 .process-page .card-item {
-    font-size: clamp(10px, 0.7vw, 13px);
+    font-size: var(--text-medium) !important;
     font-weight: bold;
     color: #374151;
     display: flex;
@@ -4114,10 +4111,6 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 }
 
 @media (max-width: 1024px) {
-    .process-page .card-item {
-        font-size: clamp(9px, 0.85vw, 14px);
-    }
-
     .process-page .process-cards {
         min-height: calc(100vh - 250px);
     }
