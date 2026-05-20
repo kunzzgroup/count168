@@ -108,13 +108,14 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
   return fallback;
 }
 
-/** Bank 列表列宽：每列 min 容纳「表头文案 + 排序图标」，避免 No / Country 等被截断 */
+/**
+ * Bank 列表 grid（与 processCSS.css --bank-virtual-grid-columns* 一致，供测试/文档引用）。
+ * 小屏：外层 .bank-virtual-table 横向滚动 + inner min-width，对齐 payment-maintenance 虚拟表。
+ */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "minmax(52px,0.1fr) minmax(96px,0.34fr) minmax(80px,0.2fr) minmax(68px,0.3fr) minmax(64px,0.24fr) minmax(100px,0.72fr) minmax(96px,0.5fr) minmax(76px,0.4fr) minmax(80px,0.42fr) minmax(64px,0.22fr) minmax(64px,0.22fr) minmax(68px,0.22fr) minmax(108px,0.44fr) minmax(76px,0.36fr) minmax(88px,0.3fr)";
+  "minmax(40px,2fr) minmax(72px,6fr) minmax(52px,4fr) minmax(56px,5fr) minmax(60px,5fr) minmax(84px,7fr) minmax(88px,6fr) minmax(64px,5fr) minmax(72px,5.5fr) minmax(56px,4fr) minmax(56px,4fr) minmax(56px,4fr) minmax(96px,7fr) minmax(64px,4.5fr) minmax(80px,5fr)";
 
-/** Action 与批量勾选分两列（与 User List / Games Process 一致） */
-export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT =
-  "minmax(52px,0.1fr) minmax(96px,0.34fr) minmax(80px,0.2fr) minmax(68px,0.3fr) minmax(64px,0.24fr) minmax(100px,0.72fr) minmax(96px,0.5fr) minmax(76px,0.4fr) minmax(80px,0.42fr) minmax(64px,0.22fr) minmax(64px,0.22fr) minmax(68px,0.22fr) minmax(108px,0.44fr) minmax(76px,0.36fr) minmax(88px,0.28fr) 48px";
+export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT = `${BANK_GRID_TEMPLATE_COLUMNS} minmax(48px,48px)`;
 
 export function normalizeRows(data) {
   if (!Array.isArray(data)) return [];

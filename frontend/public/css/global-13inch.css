@@ -226,21 +226,11 @@
         line-height: 1.15 !important;
     }
 
-    /* Bank Process 卡片表：Supplier↔Country、Bank↔Types 列间距（覆盖下方全局 padding 0 10px） */
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header,
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .process-cards.bank-mode .process-card {
-        column-gap: 2px !important;
-        gap: 2px !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item.bank-header {
-        padding-left: 4px !important;
-        padding-right: 4px !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper .table-header .header-item:nth-child(2).header-item--with-sort-icon {
-        gap: 4px !important;
-        align-items: center !important;
+    /* Bank Process virtual table：列对齐由 --bank-virtual-grid-active 控制 */
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row {
+        column-gap: 0 !important;
+        gap: 0 !important;
     }
 
     /* Stop Bank badges from overflowing horizontally due to global constraints */
