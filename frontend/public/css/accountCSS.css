@@ -55,8 +55,28 @@ body.account-page:not(.account-page--show-all) {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: 52px;
+    padding-bottom: 0;
     box-sizing: border-box;
+}
+
+/* 分页模式：与 Process（Games）一致 — 分页在 flex 流内，不占固定底栏留白 */
+body.account-page:not(.account-page--show-all) .account-table-wrapper {
+    flex: 1 1 auto;
+    padding-bottom: 0;
+}
+
+body.account-page:not(.account-page--show-all) .account-pagination-container {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    top: auto;
+    margin-top: 8px;
+    margin-bottom: 0;
+    margin-left: auto;
+    align-self: flex-end;
+    flex-shrink: 0;
+    z-index: 1;
 }
 
 .account-page .account-table-header {
@@ -469,7 +489,7 @@ body.account-page:not(.account-page--show-all) .account-cards {
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1.2fr 0.42fr;
     gap: 8px;
-    padding: 0 22px;
+    padding: clamp(1px, 0.21vw, 4px) 22px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -2682,13 +2702,17 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
 /* ==========================================================================
    Laptop / short viewport — align with process-page (Games list) list density
    ========================================================================== */
-@media (max-height: 820px) {
-    :root {
-        --text-page-title-mt: clamp(0.4rem, 0.6vh, 0.85rem);
+@media (max-height: 820px),
+screen and (max-width: 1440px) {
+    body.account-page {
+        --account-list-title-size: clamp(2rem, 1.65vw, 2.75rem);
+        --account-list-title-mt: clamp(0.35rem, 0.5vh, 0.75rem);
     }
 
     body.account-page:not(.account-page--show-all) .account-page-title {
-        margin-top: 4px !important;
+        margin-top: var(--account-list-title-mt, 4px) !important;
+        font-size: var(--account-list-title-size, var(--text-page-title)) !important;
+        line-height: 1.15;
     }
 
     body.account-page .action-buttons-container {
@@ -2700,26 +2724,64 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     }
 
     body.account-page .action-buttons-container .user-gc-inline-panel {
-        padding: 8px 16px 12px 16px;
+        padding: 8px 16px 10px 16px;
         column-gap: clamp(8px, 0.83vw, 16px);
-        row-gap: 10px;
+        row-gap: 8px;
+    }
+
+    body.account-page .user-gc-segment {
+        min-height: 26px;
+        padding: 4px 10px;
+        font-size: var(--text-small);
     }
 
     body.account-page .account-table-header {
         margin-top: 6px;
+        padding: 4px 18px !important;
     }
 
+    body.account-page:not(.account-page--show-all) .account-card,
     body.ec-auth-shell.account-page:not(.account-page--show-all) .account-card {
-        padding: 0 20px !important;
+        padding: clamp(0px, 0.12vw, 2px) 18px !important;
         min-height: 0 !important;
+        gap: 6px !important;
     }
 
+    body.account-page .account-card-item,
     body.ec-auth-shell.account-page .account-card-item {
-        line-height: 1.2 !important;
+        font-size: 12px !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0.01em !important;
+    }
+
+    body.account-page .account-table-header {
+        gap: 6px !important;
+        font-size: var(--text-small) !important;
     }
 
     body.account-page .account-role-badge {
         padding: 0 clamp(3px, 0.35vw, 6px);
+        font-size: 10px;
+        border-radius: 12px;
+    }
+
+    body.account-page .account-edit-btn img,
+    body.account-page .account-edit-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    body.ec-auth-shell.account-page .btn-currency-setting,
+    body.ec-auth-shell.account-page .btn-add,
+    body.ec-auth-shell.account-page .btn-delete {
+        padding: 6px 12px !important;
+        font-size: 12px !important;
+    }
+}
+
+@media (max-height: 820px) {
+    :root {
+        --text-page-title-mt: clamp(0.4rem, 0.6vh, 0.85rem);
     }
 }
 

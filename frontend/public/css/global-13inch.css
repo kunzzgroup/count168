@@ -196,10 +196,15 @@
         min-height: 20px !important;
     }
 
-    /* Account List：与 Process（.process-card）一致，列表行不加纵向 10px */
+    /* Account List：与 Process / User List 行高一致 */
     body.ec-auth-shell.account-page:not(.account-page--show-all) .account-card {
-        padding: 0 22px !important;
+        padding: clamp(1px, 0.21vw, 4px) 22px !important;
         min-height: 0 !important;
+    }
+
+    body.ec-auth-shell.account-page .account-card-item {
+        line-height: 1.15 !important;
+        font-size: 12px !important;
     }
 
     body.ec-auth-shell .card-item,
