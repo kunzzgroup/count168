@@ -6,6 +6,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/profit_sharing_account_label.php';
 
 /**
  * 解析 bank_process.day_start（支持 yyyy-mm-dd、d/m/Y 等），与 history_api 原逻辑一致。
@@ -72,7 +73,7 @@ function bankProcessProfitSharingOriginalAmountByAccount(array $t): ?string
         if ($accountText === '' || $amountStr === '') {
             continue;
         }
-        if (strcasecmp($accountText, $currentCode) === 0) {
+        if (profitSharingLabelMatchesAccountReference($accountText, $currentCode)) {
             return money_normalize($amountStr, 2);
         }
     }
