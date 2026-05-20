@@ -17,7 +17,7 @@ body.account-page {
     background-repeat: no-repeat;
     color: #334155;
     overflow-x: hidden;
-    overflow-y: hidden;
+    overflow-y: auto;
     font-size: clamp(0.875rem, 2.5vw, 1rem);
     position: relative;
 }
@@ -25,35 +25,39 @@ body.account-page {
 .account-page .container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
+    padding: 1px 40px 72px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    height: 100vh;
+    min-height: 100vh;
+    height: auto;
     box-sizing: border-box;
-    overflow: hidden;
-}
-
-/* account-list：在 global-13inch 等使用 !important 时仍保持一屏无滚动 */
-body.account-page:not(.account-page--show-all) {
-    overflow-x: hidden !important;
-    overflow-y: hidden !important;
-    height: 100vh !important;
-}
-
-/* 固定一屏布局：标题/筛选/表头/列表20行/分页（与 processlist Games 一致） */
-.account-page .content {
-    height: calc(100vh - 22px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-height: 0;
+    overflow: visible;
 }
 
 /* ==========================================================================
-   Account List — layout / spacing / overflow（对齐 process-page Games 列表）
+   Account List — 整页滚动 + 行高/宽度对齐 Process + 分页固定右下
    ========================================================================== */
 body.account-page {
     font-family: var(--font-ui) !important;
     font-size: var(--text-medium) !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+body.account-page:not(.account-page--show-all) .container {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow: visible !important;
+}
+
+.account-page .content {
+    min-height: calc(100vh - 22px);
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
 }
 
 body.account-page:not(.account-page--show-all) .content > .account-page-title {
@@ -99,11 +103,12 @@ body.account-page .action-buttons-container .user-gc-inline-panel {
 }
 
 body.account-page .account-table-wrapper {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    width: 100%;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     padding-bottom: 0;
     box-sizing: border-box;
 }
@@ -111,37 +116,41 @@ body.account-page .account-table-wrapper {
 .account-page .account-table-header {
     flex-shrink: 0;
     margin-top: 12px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 body.account-page:not(.account-page--show-all) .account-cards {
-    flex: 1;
+    flex: 0 1 auto;
+    width: 100%;
     min-height: 0;
     max-height: none;
-    overflow: hidden;
+    overflow: visible;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
 }
 
+/* 行高/左右内边距与 process-card 一致，不挤压 flex 高度 */
 body.account-page:not(.account-page--show-all) .account-card {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
+    width: 100%;
     height: auto;
     min-height: 0;
+    padding: 0 22px;
     box-sizing: border-box;
 }
 
 body.account-page:not(.account-page--show-all) .account-pagination-container {
-    position: relative;
-    right: auto;
-    bottom: auto;
+    position: fixed;
+    right: max(40px, env(safe-area-inset-right, 0px));
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
     left: auto;
     top: auto;
-    margin-top: 8px !important;
-    margin-bottom: 0 !important;
-    margin-left: auto !important;
-    align-self: flex-end;
+    margin: 0;
+    align-self: auto;
     flex-shrink: 0;
-    z-index: 1;
+    z-index: 120;
     width: fit-content;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 20px;
@@ -551,7 +560,7 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1.2fr 0.42fr;
     gap: 8px;
-    padding: clamp(1px, 0.21vw, 4px) 22px;
+    padding: 0 22px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -561,7 +570,7 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 }
 
 body.account-page:not(.account-page--show-all) .account-card {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     min-height: 0;
     height: auto;
 }
