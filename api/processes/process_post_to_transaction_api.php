@@ -1482,7 +1482,10 @@ try {
                 }
             }
         }
-        $companyProfit = money_sub($profit, $totalPs, 2);
+        // bank_process.profit：新版前端存「净毛利」(sell−buy−已扣 PS)，旧版/JS 存「毛利」(sell−buy)。
+        // 公司 Profit 必须以本笔入账的 sell/buy 差额为毛利再扣 PS；若用 profit 再减 PS，净毛利会重复扣除分成（Once 等场景 Win/Loss 与 Description 不符）。
+        $grossProfitForTxn = money_sub($price, $cost, 2);
+        $companyProfit = money_sub($grossProfitForTxn, $totalPs, 2);
         if (money_cmp(money_abs($companyProfit), '0.00001') < 0) {
             $companyProfit = '0.00000000';
         }

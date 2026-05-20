@@ -115,6 +115,61 @@ function sendResponse($success, $message = '', $data = null) {
     exit;
 }
 
+/**
+ * Map MySQL duplicate-key / PDO errors to short client messages (no SQLSTATE / "Database error").
+ */
+function userlistDuplicateEntryClientMessage(string $msg): string
+{
+    if (stripos($msg, 'Duplicate entry') === false) {
+        return '';
+    }
+    $key = '';
+    if (preg_match("/for key [`'\"]?([^`'\"\\s]+)/i", $msg, $m)) {
+        $key = strtolower($m[1]);
+    }
+    if ($key === 'email' || substr($key, -6) === '.email' || strpos($key, 'email') !== false) {
+        return 'Duplicate email';
+    }
+    if (strpos($key, 'login') !== false) {
+        return 'Duplicate login ID';
+    }
+    if (strpos($key, 'uniq_user_company') !== false || strpos($key, 'unique_user_company') !== false) {
+        return 'Duplicate company link for this user';
+    }
+    if ($key === 'primary') {
+        return 'Duplicate record';
+    }
+    return 'Duplicate value';
+}
+
+function userlistFriendlyDbError(Throwable $e): string
+{
+    $raw = $e->getMessage();
+    $dup = userlistDuplicateEntryClientMessage($raw);
+    if ($dup !== '') {
+        return $dup;
+    }
+    if ($e instanceof PDOException) {
+        error_log('userlist_api PDO: ' . $raw);
+        return 'Could not save changes. Please try again.';
+    }
+    $prefixes = ['Failed to create user: ', 'Failed to create company association: ', 'Failed to update user: '];
+    foreach ($prefixes as $p) {
+        if (strpos($raw, $p) === 0) {
+            $inner = substr($raw, strlen($p));
+            $dupInner = userlistDuplicateEntryClientMessage($inner);
+            if ($dupInner !== '') {
+                return $dupInner;
+            }
+        }
+    }
+    if (stripos($raw, 'SQLSTATE') !== false || stripos($raw, 'Integrity constraint') !== false) {
+        error_log('userlist_api DB: ' . $raw);
+        return 'Could not save changes. Please try again.';
+    }
+    return $raw;
+}
+
 // Validate required fields for create/update
 function validateUserData($data, $isUpdate = false) {
     $required = ['login_id', 'name', 'email', 'role', 'status'];
@@ -278,6 +333,13 @@ try {
                     sendResponse(false, 'Email already exists in one of the selected companies');
                 }
             }
+
+            // user.email 为全局 UNIQUE：与所选公司无关，需单独拦截以免落到 PDO 异常
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM user WHERE email = ?');
+            $stmt->execute([$input['email']]);
+            if ((int) $stmt->fetchColumn() > 0) {
+                sendResponse(false, 'Duplicate email');
+            }
             
             // Hash password
             $hashedPassword = password_hash($input['password'], PASSWORD_DEFAULT);
@@ -406,11 +468,11 @@ try {
                 error_log("Create user PDO error: " . $e->getMessage());
                 error_log("SQL State: " . $e->getCode());
                 error_log("Error Info: " . print_r($e->errorInfo, true));
-                sendResponse(false, 'Database error: ' . $e->getMessage());
+                sendResponse(false, userlistFriendlyDbError($e));
             } catch (Exception $e) {
                 $pdo->rollBack();
                 error_log("Create user error: " . $e->getMessage());
-                sendResponse(false, 'Failed to create user: ' . $e->getMessage());
+                sendResponse(false, userlistFriendlyDbError($e));
             }
             break;
             
@@ -561,6 +623,12 @@ try {
             $stmt->execute([$input['email'], $input['id'], $current_company_id]);
             if ($stmt->fetchColumn() > 0) {
                 sendResponse(false, 'Email already exists in current company');
+            }
+
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM user WHERE email = ? AND id != ?');
+            $stmt->execute([$input['email'], $input['id']]);
+            if ((int) $stmt->fetchColumn() > 0) {
+                sendResponse(false, 'Duplicate email');
             }
             
             // Prepare update query
@@ -759,11 +827,11 @@ try {
                 error_log("Update user PDO error: " . $e->getMessage());
                 error_log("SQL State: " . $e->getCode());
                 error_log("Error Info: " . print_r($e->errorInfo, true));
-                sendResponse(false, 'Database error: ' . $e->getMessage());
+                sendResponse(false, userlistFriendlyDbError($e));
             } catch (Exception $e) {
                 $pdo->rollBack();
                 error_log("Update user error: " . $e->getMessage());
-                sendResponse(false, 'Failed to update user: ' . $e->getMessage());
+                sendResponse(false, userlistFriendlyDbError($e));
             }
             break;
             
@@ -1103,7 +1171,7 @@ try {
                     
                     sendResponse(false, $errorMsg);
                 } else {
-                    sendResponse(false, 'Database error: ' . $e->getMessage());
+                    sendResponse(false, userlistFriendlyDbError($e));
                 }
             }
             break;
@@ -1203,8 +1271,8 @@ try {
     error_log("Database error in userlist_api: " . $e->getMessage());
     error_log("SQL State: " . $e->getCode());
     error_log("Error Info: " . print_r($e->errorInfo, true));
-    sendResponse(false, 'Database error occurred: ' . $e->getMessage(), null);
+    sendResponse(false, userlistFriendlyDbError($e), null);
 } catch (Exception $e) {
     error_log("General error in userlist_api: " . $e->getMessage());
-    sendResponse(false, 'An error occurred: ' . $e->getMessage(), null);
+    sendResponse(false, userlistFriendlyDbError($e), null);
 }
