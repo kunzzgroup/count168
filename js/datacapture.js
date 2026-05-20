@@ -9018,6 +9018,20 @@ function extractSimpleBinaryOperatorTokens(expression) {
     return [m[1], m[2], m[3]];
 }
 
+// Payment History 标签 : 单数字：ALIBABA : 3491.82 / AP95 : (-2758.19) → ['3491.82'] 或 ['-2758.19']
+function extractSimpleColonValueTokens(expression) {
+    if (!expression || typeof expression !== 'string') return null;
+    if (extractSimpleBinaryOperatorTokens(expression)) return null;
+    const compact = expression.replace(/\s/g, '').replace(/,/g, '');
+    if (/[*/]/.test(compact) || /\+/.test(compact)) return null;
+    if (/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/.test(compact)) return null;
+    let m = compact.match(/^(-?\d+(?:\.\d+)?)$/);
+    if (m) return [m[1]];
+    m = compact.match(/^\((-?\d+(?:\.\d+)?)\)$/);
+    if (m) return [m[1]];
+    return null;
+}
+
 // 解析 Description 列内容
 // 输入：KING855 : (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)
 // 输出：['KING855:', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225']
@@ -9044,6 +9058,12 @@ function parseApiReturnDescription(description) {
     const simpleBinTokens = extractSimpleBinaryOperatorTokens(expression);
     if (simpleBinTokens) {
         simpleBinTokens.forEach(t => result.push(t));
+        return result.length > 0 ? result : null;
+    }
+
+    const simpleValueTokens = extractSimpleColonValueTokens(expression);
+    if (simpleValueTokens) {
+        simpleValueTokens.forEach(t => result.push(t));
         return result.length > 0 ? result : null;
     }
 
@@ -9132,10 +9152,13 @@ function parseApiReturnFormat(pastedData) {
     // 检查是否包含冒号和运算符（API-RETURN 格式的特征）
     // 注意：现在也支持没有冒号的情况（只有公式）
     const hasColon = trimmed.includes(':');
+    const colonIndex = trimmed.indexOf(':');
+    const expressionProbe = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
     const hasOperators = trimmed.includes('(') || trimmed.includes('+') || trimmed.includes('-') ||
         trimmed.includes('*') || trimmed.includes('/');
+    const hasSimpleColonValue = hasColon && extractSimpleColonValueTokens(expressionProbe) !== null;
 
-    if (!hasOperators) {
+    if (!hasOperators && !hasSimpleColonValue) {
         return null;
     }
 
@@ -9145,7 +9168,6 @@ function parseApiReturnFormat(pastedData) {
     const result = [];
 
     // 1. 提取冒号前的标签（如 KING855）
-    const colonIndex = trimmed.indexOf(':');
     if (colonIndex > 0) {
         const label = trimmed.substring(0, colonIndex).trim();
         if (label) {
@@ -9157,9 +9179,11 @@ function parseApiReturnFormat(pastedData) {
     const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
 
     // 3. 提取数字
-    // 如果表达式包含括号，说明是公式，需要正确处理减号（减号可能是负数符号或运算符）
     let numbers = [];
-    if (expression.includes('(') || expression.includes(')')) {
+    const simpleValueOnly = extractSimpleColonValueTokens(expression);
+    if (simpleValueOnly) {
+        numbers = simpleValueOnly;
+    } else if (expression.includes('(') || expression.includes(')')) {
         // 公式格式：按运算符分割提取数字（包括负数）
         let cleanFormula = expression.replace(/[()\s]/g, '');
 
@@ -9206,17 +9230,22 @@ function parseApiReturnFormat(pastedData) {
         if (simpleBinTokens) {
             numbers = simpleBinTokens;
         } else {
-            // 非括号格式：按运算符边界提取数字
-            let cleanFormula = expression.replace(/\s/g, '');
-            const numberPattern = /(?:^|[+\-*/])(-?\d+\.?\d*)/g;
-            let match;
-            while ((match = numberPattern.exec(cleanFormula)) !== null) {
-                const num = match[1];
-                if (num) numbers.push(num);
-            }
-            if (numbers.length === 0) {
-                const matchedNumbers = expression.match(/-?\d+\.\d+|-?\d+/g);
-                if (matchedNumbers) numbers = matchedNumbers;
+            const simpleValTokens = extractSimpleColonValueTokens(expression);
+            if (simpleValTokens) {
+                numbers = simpleValTokens;
+            } else {
+                // 非括号格式：按运算符边界提取数字
+                let cleanFormula = expression.replace(/\s/g, '');
+                const numberPattern = /(?:^|[+\-*/])(-?\d+\.?\d*)/g;
+                let match;
+                while ((match = numberPattern.exec(cleanFormula)) !== null) {
+                    const num = match[1];
+                    if (num) numbers.push(num);
+                }
+                if (numbers.length === 0) {
+                    const matchedNumbers = expression.match(/-?\d+\.\d+|-?\d+/g);
+                    if (matchedNumbers) numbers = matchedNumbers;
+                }
             }
         }
     }
@@ -17243,12 +17272,14 @@ function handleCellPaste(e) {
                             const hasColon = cell.includes(':');
                             const hasMathOperators = cell.includes('+') || cell.includes('*') || cell.includes('/');
                             const hasSubtractionBetweenNumbers = /[\d,.]+\s*-\s*[\d,.]+/.test(cell);
+                            const exprAfterColon = hasColon ? cell.substring(cell.indexOf(':') + 1).trim() : '';
+                            const hasColonAndSingleValue = hasColon && extractSimpleColonValueTokens(exprAfterColon) !== null;
                             // 只有包含括号，或者包含冒号和运算符的才认为是公式
                             const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators || hasSubtractionBetweenNumbers);
 
                             const hasFormula = !isDatePattern &&
                                 cell.match(/\d/) && // 包含数字
-                                (hasParentheses || hasColonAndOperators);
+                                (hasParentheses || hasColonAndOperators || hasColonAndSingleValue);
 
                             if (hasFormula) {
                                 formulaFound = true;
@@ -17720,11 +17751,13 @@ function handleCellPaste(e) {
             const hasMathOperators = s.includes('+') || s.includes('*') || s.includes('/');
             // Payment History：MAXBET : 11815.14-0.00（冒号后两数用减号连接，无括号/乘号）
             const hasSubtractionBetweenNumbers = /[\d,.]+\s*-\s*[\d,.]+/.test(s);
+            const exprAfterColon = hasColon ? s.substring(s.indexOf(':') + 1).trim() : '';
+            const hasColonAndSingleValue = hasColon && extractSimpleColonValueTokens(exprAfterColon) !== null;
             const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators || hasSubtractionBetweenNumbers);
 
-            // Payment History Description：含字母但有「标签 : 公式」
+            // Payment History Description：含字母但有「标签 : 公式」或「标签 : 单数字」
             if (/[A-Za-z]/.test(s)) {
-                return hasColonAndOperators;
+                return hasColonAndOperators || hasColonAndSingleValue;
             }
 
             // 纯数字（包括 0.06、-104.14）不是公式
