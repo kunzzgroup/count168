@@ -75,39 +75,16 @@
     font-size: clamp(1.35rem, 2vw, 1.55rem) !important;
   }
 
-  /* Sidebar @1024（覆盖 sidebar.css 较大字号，避免 Transaction Payment 被截断） */
-  body.ec-auth-shell.user-page .informationmenu .informationmenu-section-title {
-    font-size: 1.05rem !important;
-    padding: 0.45rem 0.65rem !important;
-    line-height: 1.2;
+  body.user-page .informationmenu .informationmenu-section-title {
+    font-size: 1.15rem !important;
+    padding: 0.55rem 0.85rem !important;
+    line-height: 1.25;
   }
 
-  body.ec-auth-shell.user-page .informationmenu .informationmenu-item {
-    font-size: 0.95rem !important;
-    padding: 0.45rem 0.65rem !important;
-  }
-
-  body.ec-auth-shell.user-page .informationmenu .section-icon {
-    width: 1.05rem !important;
-    height: 1.05rem !important;
-    margin-right: 0.4rem !important;
-  }
-
-  body.ec-auth-shell.user-page .informationmenu .user-name {
-    font-size: 1.1rem !important;
-  }
-
-  body.ec-auth-shell.user-page .informationmenu .user-role {
-    font-size: 0.85rem !important;
-  }
-
-  body.ec-auth-shell.user-page .informationmenu .sidebar-lang-switch {
-    width: 8.5rem !important;
-    height: 2.35rem !important;
-  }
-
-  body.ec-auth-shell.user-page .informationmenu .sidebar-lang-option {
-    font-size: 0.85rem !important;
+  body.user-page .informationmenu .informationmenu-section-title .section-icon {
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+    margin-right: 0.45rem !important;
   }
 
   body.user-page .search-container.userlist-search-bar .userlist-search-input,
@@ -119,24 +96,12 @@
     font-size: 10px !important;
   }
 
-  /* Add User / Delete：缩小按钮与图标（覆盖 min-width token） */
-  body.user-page .user-toolbar-actions-right .btn-add,
-  body.user-page .user-toolbar-actions-right .btn-delete,
-  body.ec-auth-shell.user-page .user-toolbar-actions-right .btn-add,
-  body.ec-auth-shell.user-page .user-toolbar-actions-right .btn-delete {
-    font-size: 9px !important;
-    padding: 4px 8px !important;
-    min-width: 0 !important;
-    width: auto !important;
-    min-height: 26px;
-    border-radius: 5px;
-    gap: 4px;
-    line-height: 1.2;
-  }
-
-  body.user-page .user-toolbar-actions-right .btn-add .btn-add__icon {
-    width: 11px !important;
-    height: 11px !important;
+  body.user-page .action-buttons .btn-add,
+  body.user-page .action-buttons .btn-delete,
+  body.ec-auth-shell.user-page .btn-add,
+  body.ec-auth-shell.user-page .btn-delete {
+    font-size: 10px !important;
+    padding: 6px 10px !important;
   }
 
   body.user-page .user-gc-inline-label,
