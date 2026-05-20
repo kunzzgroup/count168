@@ -810,6 +810,15 @@ body.process-page {
     overflow: hidden;
     max-height: 100vh;
     padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
+    padding-left: var(--layout-main-offset);
+}
+
+@media (max-width: 1200px) {
+    body.ec-auth-shell.process-page.process-page--bank .container,
+    body.ec-auth-shell.process-page.process-page--bank #root > .container {
+        padding-left: var(--layout-main-offset) !important;
+        transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
 }
 
 .process-page.process-page--bank .content {
@@ -3934,6 +3943,13 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
 }
 
+@media (max-width: 1200px) {
+    body.ec-auth-shell.process-page .container {
+        padding-left: var(--layout-main-offset) !important;
+        transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+}
+
 @media (max-width: 1024px) {
     .process-page .card-item {
         font-size: clamp(9px, 0.85vw, 14px);
@@ -3943,11 +3959,10 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
         min-height: calc(100vh - 250px);
     }
 
-    /* Edit Process 弹窗在 1024px：与红框同尺寸，仅占侧栏右侧整块 */
+    /* Edit Process 弹窗：仅占侧栏右侧整块，随侧栏展开/收起贴合 */
     .process-page #editModal {
-        left: 180px !important;
-        /* 遮罩从侧栏右侧开始 */
-        width: calc(100vw - 210px) !important;
+        left: var(--layout-main-offset) !important;
+        width: calc(100vw - var(--layout-main-offset) - var(--layout-main-gap, 1.2rem)) !important;
         top: 80px;
         border-radius: 16px;
         height: 500px;
