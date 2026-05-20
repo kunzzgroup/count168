@@ -3,26 +3,47 @@
    Desktop / laptop: design-tokens + global-13inch. Tablet: ≤1024. No phone UX.
    ========================================================================== */
 
-/* --- Tablet (768–1024) --- */
+/* --- Tablet (768–1024)：对齐宽屏布局（图二）— 顶栏右置按钮 + 表格可横滑且表头完整 --- */
 @media (max-width: 1024px) {
+  body.user-page .container {
+    padding-right: clamp(12px, 1.5vw, 24px);
+  }
+
+  /* 顶栏单行：左搜索/筛选，右 Add / Delete（禁止 wrap 把按钮挤到左侧第二行） */
   body.user-page .action-buttons {
-    flex-wrap: wrap;
-    gap: var(--space-gap);
-    align-items: flex-start;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 10px;
+    padding: 10px clamp(12px, 1.2vw, 18px);
   }
 
   body.user-page .action-buttons > div:first-child {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     min-width: 0;
+    display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    gap: var(--space-gap);
+    gap: 8px;
   }
 
   body.user-page .user-toolbar-actions-right {
-    flex-wrap: wrap;
-    gap: var(--space-gap);
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    margin-left: auto;
   }
 
+  body.user-page .search-container.userlist-search-bar {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: min(100%, clamp(160px, 22vw, 240px));
+  }
+
+  body.user-page .userlist-filter-chips {
+    flex-shrink: 0;
+  }
+
+  /* 表格：保持 global-13inch 列比例，总宽略大于主区时可横滑，避免 St... / Crea... 省略 */
   body.user-page .user-table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -30,7 +51,22 @@
 
   body.user-page .user-table-wrapper .table-header,
   body.user-page .user-table-wrapper .user-card {
-    min-width: 68rem;
+    min-width: 52rem;
+    width: max(100%, 52rem);
+    box-sizing: border-box;
+    gap: 10px;
+    padding-left: 16px;
+    padding-right: 16px;
+    grid-template-columns: 0.5fr 1.6fr 1.8fr 2.5fr 1.8fr 1.2fr 1.8fr 1.5fr 0.8fr !important;
+  }
+
+  body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .table-header,
+  body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .user-card {
+    grid-template-columns: 0.5fr 1.6fr 1.8fr 2.5fr 1.8fr 1.2fr 1.8fr 1.5fr 0.75fr 48px !important;
+  }
+
+  body.user-page .user-table-wrapper .table-header .header-item__label {
+    white-space: nowrap;
   }
 }
 
@@ -175,7 +211,8 @@ body.user-page #userModal .user-modal-content .sidebar-permissions-section .perm
   }
 
   body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
-    min-height: clamp(160px, 26vh, 280px);
+    min-height: 0;
+    height: 0;
     padding-bottom: 8px;
   }
 
