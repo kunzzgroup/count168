@@ -9007,14 +9007,15 @@ function parseApiReturnTableFormat(pastedData) {
     };
 }
 
-// Payment History 简单减法：11815.14-0.00 → ['11815.14', '-', '0.00']（减号单独一列）
-function extractSimpleSubtractionTokens(expression) {
+// Payment History 简单二元式（无括号）：11815.14-0.00 / 11.36*0.1255 / 100/0.9
+// → ['左', 运算符, '右']，运算符 - * / 各占一列
+function extractSimpleBinaryOperatorTokens(expression) {
     if (!expression || typeof expression !== 'string') return null;
     const compact = expression.replace(/\s/g, '').replace(/,/g, '');
-    if (/[()+*/]/.test(compact)) return null;
-    const m = compact.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/);
+    if (/[()+]/.test(compact)) return null;
+    const m = compact.match(/^(-?\d+(?:\.\d+)?)([\-*/])(-?\d+(?:\.\d+)?)$/);
     if (!m) return null;
-    return [m[1], '-', m[2]];
+    return [m[1], m[2], m[3]];
 }
 
 // 解析 Description 列内容
@@ -9040,9 +9041,9 @@ function parseApiReturnDescription(description) {
     // 2. 提取表达式部分（冒号后的内容）
     const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
 
-    const simpleSubTokens = extractSimpleSubtractionTokens(expression);
-    if (simpleSubTokens) {
-        simpleSubTokens.forEach(t => result.push(t));
+    const simpleBinTokens = extractSimpleBinaryOperatorTokens(expression);
+    if (simpleBinTokens) {
+        simpleBinTokens.forEach(t => result.push(t));
         return result.length > 0 ? result : null;
     }
 
@@ -9201,9 +9202,9 @@ function parseApiReturnFormat(pastedData) {
             }
         }
     } else {
-        const simpleSubTokens = extractSimpleSubtractionTokens(expression);
-        if (simpleSubTokens) {
-            numbers = simpleSubTokens;
+        const simpleBinTokens = extractSimpleBinaryOperatorTokens(expression);
+        if (simpleBinTokens) {
+            numbers = simpleBinTokens;
         } else {
             // 非括号格式：按运算符边界提取数字
             let cleanFormula = expression.replace(/\s/g, '');
