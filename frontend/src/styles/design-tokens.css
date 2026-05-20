@@ -369,8 +369,8 @@
     --user-modal-perm-picker-width: min(96vw, 100%);
     --user-modal-perm-picker-max-h: min(88vh, 100%);
     --user-modal-perm-picker-grid-cols: 2;
-    --user-modal-account-grid-cols: 4;
-    --user-modal-tablet-info-max-h: min(44vh, 40rem);
+    --user-modal-account-grid-cols: 2;
+    --user-modal-tablet-info-row: minmax(18rem, 46vh);
   }
 }
 

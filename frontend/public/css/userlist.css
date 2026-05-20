@@ -3185,33 +3185,21 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 
     #userModal .user-modal-content .user-info-panel,
     .modal-content.edit-mode .user-info-panel {
-        min-height: 0;
-        overflow: hidden;
-        max-height: 100%;
         display: flex;
         flex-direction: column;
     }
 
-    /* 平板：表单区可滚，权限区固定在左栏底部可见 */
     #userModal .user-info-panel form {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow: hidden;
+        flex: 0 0 auto;
         display: flex;
         flex-direction: column;
+        overflow: visible;
     }
 
     #userModal .user-info-grid {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: var(--space-gap);
-    }
-
-    #userModal .user-info-panel form {
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+        flex: 0 0 auto;
+        overflow: visible;
+        padding-bottom: 0;
     }
 
     #userModal .user-modal-company-open-btn {
