@@ -235,6 +235,7 @@ export default function UserModal({
   }, [open, pageReadOnlyLock]);
 
   const permissionsLocked = fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
+  const showSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
 
   return (
     <>
@@ -267,14 +268,14 @@ export default function UserModal({
                     />
                   </div>
                 </div>
-                {isC168Company ? (
+                {showSecondaryPassword ? (
                   <div className="form-group user-info-field password-row-container password-row-container--split">
                     <div className="password-field-wrapper">
                       <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
                       <input id="password" type="password" disabled={pageReadOnlyLock} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
                     </div>
                     <div className="password-field-wrapper">
-                      <label htmlFor="secondary_password">{t("secondaryPassword6Digits")}</label>
+                      <label htmlFor="secondary_password">{t("secondaryPassword")}</label>
                       <input
                         id="secondary_password"
                         type="password"

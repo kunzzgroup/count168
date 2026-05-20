@@ -692,7 +692,14 @@ export default function UserListPage() {
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
     let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: form.email.trim().toLowerCase(), role: form.role, status: form.status };
     if (form.password.trim()) payload.password = form.password;
-    if (isC168Company && form.secondary_password.trim()) { if (!/^\d{6}$/.test(form.secondary_password.trim())) { notify(t("secondaryPasswordMustBe6Digits"), "danger"); return; } payload.secondary_password = form.secondary_password.trim(); }
+    const allowSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
+    if (allowSecondaryPassword && form.secondary_password.trim()) {
+      if (!/^\d{6}$/.test(form.secondary_password.trim())) {
+        notify(t("secondaryPasswordMustBe6Digits"), "danger");
+        return;
+      }
+      payload.secondary_password = form.secondary_password.trim();
+    }
     const roleForReadOnly = normRole(form.role) || normRole(editingRow?.role);
     if (roleForReadOnly && roleHasReadOnlyToggle(roleForReadOnly) && canInteractWithReadOnlyToggle(currentUserRole, roleForReadOnly)) {
       payload.read_only = form.read_only ? 1 : 0;
