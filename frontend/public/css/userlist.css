@@ -2906,7 +2906,7 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     #userModal .user-modal-content .user-info-panel,
     .modal-content.edit-mode .user-info-panel {
         min-height: 0;
-        overflow-y: auto;
+        overflow: hidden;
         max-height: 100%;
         display: flex;
         flex-direction: column;
@@ -2920,9 +2920,10 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 
     #userModal .user-modal-content .sidebar-permissions-section .permissions-container,
     .modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
-        max-height: min(200px, 23vh);
+        flex: 1 1 0;
+        min-height: clamp(140px, 22vh, 260px);
+        max-height: none;
         overflow-y: auto;
-        flex-shrink: 0;
         padding-bottom: 8px;
         /* 底部留空，最后一行不被裁切/遮挡 */
     }

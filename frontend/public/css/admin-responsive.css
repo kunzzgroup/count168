@@ -69,22 +69,60 @@ body.user-page #userModal .user-modal-card {
   flex-wrap: nowrap !important;
 }
 
-/* 矮屏（如 1536×750）：Permissions 区增高，左栏表单可滚 */
+/* 左栏：User Information + Select All/Clear All 固定，仅 Permissions 列表滚动 */
+body.user-page #userModal .user-modal-content .user-info-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.user-page #userModal .user-modal-content .user-info-panel > .user-modal-col-title {
+  flex-shrink: 0;
+}
+
+body.user-page #userModal .user-modal-content .user-info-panel form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.user-page #userModal .user-modal-content .user-info-grid {
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+body.user-page #userModal .user-modal-content .sidebar-permissions-section {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.user-page #userModal .user-modal-content .sidebar-permissions-title {
+  flex-shrink: 0;
+}
+
+body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
+  flex: 1 1 0;
+  min-height: clamp(150px, 22vh, 260px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-actions {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+/* 矮屏（如 1536×750）：只加高 Permissions 滚动区 */
 @media (max-height: 850px) {
-  body.user-page #userModal .user-modal-content .user-info-panel form {
-    overflow-y: auto;
-    min-height: 0;
-  }
-
-  body.user-page #userModal .user-modal-content .sidebar-permissions-section {
-    flex: 1 1 auto;
-    min-height: clamp(220px, 34vh, 340px);
-  }
-
   body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
-    flex: 1 1 auto;
-    min-height: clamp(180px, 28vh, 300px);
-    max-height: none;
+    min-height: clamp(200px, 32vh, 340px);
   }
 }
 
@@ -121,25 +159,16 @@ body.user-page #userModal .user-modal-card {
   }
 
   body.user-page #userModal .user-modal-content .user-info-panel {
-    min-height: 0;
-    overflow-y: auto;
-    max-height: 100%;
-    display: flex;
-    flex-direction: column;
+    overflow: hidden;
   }
 
   body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
     min-height: clamp(160px, 26vh, 280px);
-    max-height: min(280px, 32vh);
-    overflow-y: auto;
-    flex-shrink: 0;
     padding-bottom: 8px;
   }
 
   body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-actions {
-    margin-top: clamp(2px, -2vw, 12px);
-    margin-bottom: 0;
-    flex-shrink: 0;
+    margin-top: auto;
     background-color: #fff;
   }
 }
