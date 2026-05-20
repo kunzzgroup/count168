@@ -217,13 +217,17 @@ export default function DataCapturePage() {
   useLayoutEffect(() => {
     window.__DC_OPEN_DESCRIPTION_MODAL__ = openDescriptionModal;
     window.__DC_CLOSE_DESCRIPTION_MODAL__ = closeDescriptionModal;
+    /** Legacy onclick / scripts expect expandDescription() */
+    window.expandDescription = openDescriptionModal;
     return () => {
       try {
         delete window.__DC_OPEN_DESCRIPTION_MODAL__;
         delete window.__DC_CLOSE_DESCRIPTION_MODAL__;
+        delete window.expandDescription;
       } catch {
         window.__DC_OPEN_DESCRIPTION_MODAL__ = undefined;
         window.__DC_CLOSE_DESCRIPTION_MODAL__ = undefined;
+        window.expandDescription = undefined;
       }
     };
   }, [openDescriptionModal, closeDescriptionModal]);
@@ -691,7 +695,12 @@ export default function DataCapturePage() {
                       placeholder="Click + to select descriptions"
                       value={form.descriptionDisplay}
                     />
-                    <button type="button" className="add-icon" onClick={() => window.expandDescription?.()}>
+                    <button
+                      type="button"
+                      className="add-icon"
+                      onClick={() => openDescriptionModal()}
+                      title="Select descriptions"
+                    >
                       +
                     </button>
                   </div>
