@@ -1384,7 +1384,7 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 /* ── Permission picker (Account / Process / sidebar perms in modal) ── */
-#userModal .sidebar-permissions-section .user-modal-permission-heading-row {
+#userModal .user-modal-permissions-compact .user-modal-permission-heading-row {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -1394,7 +1394,7 @@ label.user-modal-col-title.acc-proc-label {
     margin: 0;
 }
 
-#userModal .sidebar-permissions-section .user-modal-permission-summary {
+#userModal .user-modal-permissions-compact .user-modal-permission-summary {
     margin: 10px 19.968px 0;
 }
 
@@ -1463,6 +1463,45 @@ label.user-modal-col-title.acc-proc-label {
 .user-modal-permission-summary-empty {
     color: #94a3b8;
     font-size: clamp(11px, 0.75vw, 13px);
+}
+
+/* ≥1025px: inline permission list; ≤1024px: Choose permissions + modal */
+.user-modal-permissions-inline {
+    display: none;
+    flex: 1 1 0;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.user-modal-permissions-compact {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+@media (min-width: 1025px) {
+    .user-modal-permissions-inline {
+        display: flex;
+    }
+
+    .user-modal-permissions-compact {
+        display: none !important;
+    }
+
+    #userModal .sidebar-permissions-section .user-modal-permissions-inline .sidebar-permissions-title.user-modal-permissions-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 0;
+        padding: 0 19.968px 9.984px;
+        color: #1e293b;
+        border-bottom: 2px solid #cbd5e1;
+        font-size: 18px;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
 }
 
 .user-modal-permission-picker-root {
@@ -3324,7 +3363,7 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
         padding-top: 10px;
     }
 
-    #userModal .sidebar-permissions-section .sidebar-permissions-title.user-modal-permission-heading-row {
+    #userModal .user-modal-permissions-compact .sidebar-permissions-title.user-modal-permission-heading-row {
         flex-direction: column;
         align-items: stretch;
         gap: 8px;
@@ -3361,7 +3400,7 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
         box-sizing: border-box;
     }
 
-    #userModal .sidebar-permissions-section .user-modal-permission-summary {
+    #userModal .user-modal-permissions-compact .user-modal-permission-summary {
         margin: 8px 6px 0;
     }
 
