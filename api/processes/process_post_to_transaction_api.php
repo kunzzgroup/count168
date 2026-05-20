@@ -14,6 +14,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/profit_sharing_account_label.php';
 require_once __DIR__ . '/../includes/ensure_bank_process_day_end_monthly_cap_column.php';
 require_once __DIR__ . '/contract_billing_addon.php';
 
@@ -965,19 +966,21 @@ function parseProfitSharingString(string $profitSharing): array
     return $result;
 }
 
-/** 按公司内 account_id 或 name 解析账户，返回 account.id，找不到返回 null */
+/** 按公司内 account_id 或 name 解析账户，返回 account.id，找不到返回 null（支持 UI 文案 "CODE [NAME]"） */
 function resolveAccountIdByText(PDO $pdo, int $companyId, string $accountText): ?int
 {
-    $text = trim($accountText);
-    if ($text === '') {
-        return null;
-    }
     $stmt = $pdo->prepare("SELECT a.id FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id AND ac.company_id = ?
             WHERE (LOWER(TRIM(a.account_id)) = LOWER(?) OR LOWER(TRIM(a.name)) = LOWER(?)) LIMIT 1");
-    $stmt->execute([$companyId, $text, $text]);
-    $id = $stmt->fetchColumn();
-    return $id ? (int) $id : null;
+    foreach (profitSharingAccountLabelLookupCandidates($accountText) as $candidate) {
+        $stmt->execute([$companyId, $candidate, $candidate]);
+        $id = $stmt->fetchColumn();
+        if ($id) {
+            return (int) $id;
+        }
+    }
+
+    return null;
 }
 
 try {

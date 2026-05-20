@@ -3969,8 +3969,9 @@ function initProfitSharingAccountSelect(buttonId, dropdownId, hiddenInputId) {
             isOpen = false;
         });
         optionsContainer.appendChild(selectOpt);
+        // 与 Supplier/Customer 一致：account_id [name]
         function getDisplayText(account) {
-            return String(account.account_id ?? account.name ?? '').trim();
+            return formatBankAccountDisplay(account.account_id, account.name, account.id);
         }
         let filtered = accounts.filter(acc => {
             const t = getDisplayText(acc).toLowerCase();

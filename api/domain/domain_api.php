@@ -358,19 +358,32 @@ function getCompanyPkByCode(PDO $pdo, string $companyCode): ?int {
     return (int) $v;
 }
 
+/** Sales/CS/IT Share% 可选 account.role（supplier 在库中可能存为 upline） */
+function feeShareSalesCsItAllowedAccountRoles(): array {
+    return ['staff', 'agent', 'partner', 'supplier', 'upline'];
+}
+
+function feeShareSalesCsItRoleInSql(): string {
+    return implode(', ', array_map(static function ($r) {
+        return "'" . $r . "'";
+    }, feeShareSalesCsItAllowedAccountRoles()));
+}
+
 /**
- * Share % 下拉数据：始终仅列出 C168 旗下的 Account（与当前编辑的公司无关），且 role 只能是 staff/agent。
+ * Share % 下拉数据：始终仅列出 C168 旗下的 Account（与当前编辑的公司无关），
+ * Sales/CS/IT 区 role 为 staff、agent、partner、supplier（含 upline）。
  */
 function fetchFeeSharePickerAccounts(PDO $pdo): array {
     $rows = [];
     $c168Pk = getC168CompanyPk($pdo);
     if ($c168Pk) {
+        $roleIn = feeShareSalesCsItRoleInSql();
         $accStmt = $pdo->prepare("
             SELECT DISTINCT a.id, a.account_id, a.name
             FROM account a
             INNER JOIN account_company ac ON ac.account_id = a.id
             WHERE ac.company_id = ?
-              AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
+              AND LOWER(TRIM(COALESCE(a.role, ''))) IN ($roleIn)
             ORDER BY a.account_id ASC
         ");
         $accStmt->execute([$c168Pk]);
@@ -415,7 +428,7 @@ function fetchFeeShareProfitPickerAccounts(PDO $pdo): array {
 }
 
 /**
- * 校验：C168 旗下；Profit 池仅 profit role；Sales/CS/IT 仅 staff/agent。
+ * 校验：C168 旗下；Profit 池仅 profit role；Sales/CS/IT 为 staff/agent/partner/supplier（含 upline）。
  */
 function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
     $c168Pk = getC168CompanyPk($pdo);
@@ -470,6 +483,7 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
         if (!$c168Pk) {
             return false;
         }
+        $roleIn = feeShareSalesCsItRoleInSql();
         $placeholders = buildInPlaceholders(count($otherIds));
         $sql = "
             SELECT COUNT(DISTINCT a.id)
@@ -477,7 +491,7 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
             INNER JOIN account_company ac ON ac.account_id = a.id
             WHERE ac.company_id = ?
               AND a.id IN ($placeholders)
-              AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
+              AND LOWER(TRIM(COALESCE(a.role, ''))) IN ($roleIn)
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute(array_merge([$c168Pk], $otherIds));
@@ -1278,7 +1292,7 @@ function createDomainShareCommissionPayments(
                 continue;
             }
 
-            $roleSql = "LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')";
+            $roleSql = 'LOWER(TRIM(COALESCE(a.role, \'\'))) IN (' . feeShareSalesCsItRoleInSql() . ')';
             $chk = $pdo->prepare("
                 SELECT COUNT(*)
                 FROM account_company ac
@@ -2904,7 +2918,7 @@ try {
                 }
                 $saveCompanyPk = (int) $saveRow['id'];
                 if (!feeShareAllocationsTargetsValid($pdo, $saveNormalized)) {
-                    jsonResponse(false, 'Share %: Profit rows must use profit-role accounts under C168; Sales/CS/IT must use staff or agent under C168.', null);
+                    jsonResponse(false, 'Share %: Profit rows must use profit-role accounts under C168; Sales/CS/IT must use staff, agent, partner, or supplier under C168.', null);
                     exit;
                 }
                 $saveJson = feeShareAllocationsToJson($saveNormalized);
