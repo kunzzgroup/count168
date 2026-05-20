@@ -1419,6 +1419,36 @@ label.user-modal-col-title.acc-proc-label {
     word-break: break-word;
 }
 
+.user-modal-permission-summary-count {
+    margin: 0 0 0.6rem;
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-caption);
+}
+
+.user-modal-permission-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.user-modal-permission-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border-blue-light);
+    background: var(--color-surface-info-soft);
+    color: var(--color-primary-deep-text);
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
 .user-modal-permission-summary-empty {
     color: var(--color-text-placeholder);
     font-size: var(--domain-fluid-11-083-14);
@@ -3149,64 +3179,8 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 
     #userModal .user-modal-content .modal-body,
     .modal-content.edit-mode .modal-body {
-        max-height: min(calc(100vh - 13rem), 86vh);
-        padding-bottom: clamp(5.2rem, 5vw, 7.2rem);
-    }
-
-    #userModal .user-modal-content .user-info-panel,
-    .modal-content.edit-mode .user-info-panel {
-        min-height: 0;
-        overflow: hidden;
-        max-height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-
-    /* 平板：表单区可滚，权限区固定在左栏底部可见 */
-    #userModal .user-info-panel form {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-    }
-
-    #userModal .user-info-grid {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: var(--space-gap);
-    }
-
-    #userModal .sidebar-permissions-section {
-        flex-shrink: 0;
-        margin-top: 0;
-        padding-bottom: var(--space-gap);
-        background: var(--color-surface);
-        box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.06);
-    }
-
-    #userModal .user-modal-permissions-heading-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--space-gap);
-    }
-
-    #userModal .user-modal-permissions-heading-row .sidebar-permissions-title {
-        flex: 1 1 auto;
-        width: 100%;
-    }
-
-    #userModal .user-modal-permission-open-btn {
-        width: 100%;
-        text-align: center;
-        white-space: normal;
-    }
-
-    #userModal .user-modal-permission-summary {
-        margin-left: var(--user-modal-perm-heading-pad-inline);
-        margin-right: var(--user-modal-perm-heading-pad-inline);
+        max-height: min(calc(100vh - 11rem), 88vh);
+        padding-bottom: clamp(4.8rem, 4.5vw, 6.4rem);
     }
 
     #userModal .user-modal-company-open-btn {
