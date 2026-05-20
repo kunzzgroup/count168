@@ -200,7 +200,7 @@
     body.ec-auth-shell.account-page:not(.account-page--show-all) .account-card {
         padding: 0 22px !important;
         min-height: 0 !important;
-        flex: 0 0 auto !important;
+        flex: 0 1 auto !important;
     }
 
     body.ec-auth-shell .card-item,
@@ -582,7 +582,6 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     /* 1. Unlock the main bounding containers so they stretch infinitely downwards */
     html,
     body.user-page,
-    body.account-page,
     body.transaction-page,
     body.datacapture-page,
     body.dashboard-page,
@@ -607,19 +606,22 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         /* Absolute guarantee we never cut off the bottom element */
     }
 
-    /* User List（非 Show All）：保持一屏锁定 */
-    body.user-page:not(.user-page--show-all) {
+    /* User / Account List（非 Show All）：与 Process List 一屏 flex 布局 */
+    body.user-page:not(.user-page--show-all),
+    body.account-page:not(.account-page--show-all) {
         overflow-y: hidden !important;
         height: 100vh !important;
         max-height: 100vh !important;
     }
 
-    body.user-page:not(.user-page--show-all) .container {
+    body.user-page:not(.user-page--show-all) .container,
+    body.account-page:not(.account-page--show-all) .container {
         height: 100vh !important;
         overflow: hidden !important;
     }
 
-    body.user-page:not(.user-page--show-all) .content {
+    body.user-page:not(.user-page--show-all) .content,
+    body.account-page:not(.account-page--show-all) .content {
         height: calc(100vh - 22px) !important;
         min-height: 0 !important;
         overflow: hidden !important;
@@ -649,15 +651,13 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         min-height: var(--list-table-body-min-height) !important;
     }
 
-    /* Account List：整页滚动，列表区自然展开（与 Process 行高一致，不内嵌滚动） */
     body.account-page:not(.account-page--show-all) .account-cards {
-        overflow: visible !important;
+        overflow: hidden !important;
         min-height: 0 !important;
     }
 
-    /* Account List：表格底部分页留白（与 userlist .user-table-wrapper 一致，不撑大整页） */
     body.account-page:not(.account-page--show-all) .account-table-wrapper {
-        padding-bottom: 52px !important;
+        padding-bottom: 0 !important;
     }
 
     /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
