@@ -1435,6 +1435,19 @@ label.user-modal-col-title.acc-proc-label {
     list-style: none;
 }
 
+.user-modal-permission-chip-list--scroll {
+    max-height: min(8.8rem, 22vh);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.user-modal-chip-more {
+    margin: 0.4rem 0 0;
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-caption);
+}
+
 .user-modal-permission-chip {
     display: inline-flex;
     align-items: center;

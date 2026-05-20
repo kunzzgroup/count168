@@ -40,6 +40,8 @@ import {
   isUserModalPageReadOnlyLock,
 } from "../userListLogic.js";
 
+const TABLET_CHIP_PREVIEW_MAX = 6;
+
 export default function UserModal({
   open,
   onClose,
@@ -317,6 +319,29 @@ export default function UserModal({
     return p.description ? `${id} · ${p.description}` : id;
   };
 
+  const renderTabletChipSummary = (items, countLabel, emptyLabel, chipClass, formatChip) => {
+    if (!items.length) {
+      return <span className="user-modal-permission-summary-empty">{emptyLabel}</span>;
+    }
+    const visible = items.slice(0, TABLET_CHIP_PREVIEW_MAX);
+    const rest = items.length - visible.length;
+    return (
+      <>
+        <p className="user-modal-permission-summary-count">{countLabel}</p>
+        <ul className="user-modal-permission-chip-list user-modal-permission-chip-list--scroll">
+          {visible.map((item) => (
+            <li key={item.id} className={`user-modal-permission-chip ${chipClass}`}>
+              {formatChip(item)}
+            </li>
+          ))}
+        </ul>
+        {rest > 0 ? (
+          <p className="user-modal-chip-more">{t("summaryAndMore", { count: rest })}</p>
+        ) : null}
+      </>
+    );
+  };
+
   return (
     <>
     <div id="userModal" className="modal" style={{ display: open ? "block" : "none" }} aria-hidden={!open}>
@@ -506,40 +531,6 @@ export default function UserModal({
               <div className="user-modal-tablet-pickers">
                 <div className="user-modal-tablet-picker-block">
                   <div className="user-modal-permissions-heading-row user-modal-tablet-picker-heading">
-                    <h3 className="sidebar-permissions-title user-modal-permissions-title">{t("account")}</h3>
-                    <button
-                      type="button"
-                      className="user-modal-permission-open-btn"
-                      disabled={accProcPickerDisabled}
-                      onClick={() => {
-                        setAccountSearchQuery("");
-                        setAccountPickerOpen(true);
-                      }}
-                    >
-                      {t("selectAccounts")}
-                    </button>
-                  </div>
-                  <div className="user-modal-permission-summary" aria-label={t("account")}>
-                    {selectedAccountsForSummary.length ? (
-                      <>
-                        <p className="user-modal-permission-summary-count">
-                          {t("accountsSelectedCount", { count: selectedAccountsForSummary.length })}
-                        </p>
-                        <ul className="user-modal-permission-chip-list">
-                          {selectedAccountsForSummary.map((a) => (
-                            <li key={a.id} className="user-modal-permission-chip user-modal-permission-chip--account">
-                              {formatAccountChip(a)}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    ) : (
-                      <span className="user-modal-permission-summary-empty">{t("accountsNoneSelected")}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="user-modal-tablet-picker-block">
-                  <div className="user-modal-permissions-heading-row user-modal-tablet-picker-heading">
                     <h3 className="sidebar-permissions-title user-modal-permissions-title">{t("process")}</h3>
                     <button
                       type="button"
@@ -554,21 +545,37 @@ export default function UserModal({
                     </button>
                   </div>
                   <div className="user-modal-permission-summary" aria-label={t("process")}>
-                    {selectedProcessesForSummary.length ? (
-                      <>
-                        <p className="user-modal-permission-summary-count">
-                          {t("processesSelectedCount", { count: selectedProcessesForSummary.length })}
-                        </p>
-                        <ul className="user-modal-permission-chip-list">
-                          {selectedProcessesForSummary.map((p) => (
-                            <li key={p.id} className="user-modal-permission-chip user-modal-permission-chip--process">
-                              {formatProcessChip(p)}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    ) : (
-                      <span className="user-modal-permission-summary-empty">{t("processesNoneSelected")}</span>
+                    {renderTabletChipSummary(
+                      selectedProcessesForSummary,
+                      t("processesSelectedCount", { count: selectedProcessesForSummary.length }),
+                      t("processesNoneSelected"),
+                      "user-modal-permission-chip--process",
+                      formatProcessChip
+                    )}
+                  </div>
+                </div>
+                <div className="user-modal-tablet-picker-block">
+                  <div className="user-modal-permissions-heading-row user-modal-tablet-picker-heading">
+                    <h3 className="sidebar-permissions-title user-modal-permissions-title">{t("account")}</h3>
+                    <button
+                      type="button"
+                      className="user-modal-permission-open-btn"
+                      disabled={accProcPickerDisabled}
+                      onClick={() => {
+                        setAccountSearchQuery("");
+                        setAccountPickerOpen(true);
+                      }}
+                    >
+                      {t("selectAccounts")}
+                    </button>
+                  </div>
+                  <div className="user-modal-permission-summary" aria-label={t("account")}>
+                    {renderTabletChipSummary(
+                      selectedAccountsForSummary,
+                      t("accountsSelectedCount", { count: selectedAccountsForSummary.length }),
+                      t("accountsNoneSelected"),
+                      "user-modal-permission-chip--account",
+                      formatAccountChip
                     )}
                   </div>
                 </div>

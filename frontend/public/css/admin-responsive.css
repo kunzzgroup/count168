@@ -252,6 +252,11 @@ body.user-page #userModal .account-grid.account-grid--four {
     border-radius: var(--radius-panel);
     background: var(--color-surface-subtle);
     box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+  }
+
+  body.user-page #userModal .user-modal-tablet-picker-block:first-child {
+    order: -1;
   }
 
   body.user-page #userModal .user-modal-col--info.user-info-panel {
