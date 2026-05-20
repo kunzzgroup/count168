@@ -16118,7 +16118,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     let anySubsApplied = false;
                     let allSubs = template.subs && Array.isArray(template.subs) ? template.subs : [];
                     if (allSubs.length > 0 && typeof window.__SUMMARY_FILTER_SUBS_FOR_PARENT__ === 'function') {
-                        allSubs = window.__SUMMARY_FILTER_SUBS_FOR_PARENT__(allSubs, originalIdProduct, normalizedIdProduct);
+                        allSubs = window.__SUMMARY_FILTER_SUBS_FOR_PARENT__(allSubs, originalIdProduct);
                     }
                     if (allSubs.length > 0) {
                         if (typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
@@ -18306,6 +18306,37 @@ function getOrCreateSubPlaceholderRow(idProduct) {
     return button ? { row, button } : null;
 }
 
+function dedupeSubTemplatesForApply(subTemplates, mainParentIdExact) {
+    if (!Array.isArray(subTemplates) || subTemplates.length <= 1) {
+        return subTemplates || [];
+    }
+    const parentExact = (mainParentIdExact || '').trim();
+    const byKey = new Map();
+    subTemplates.forEach((sub) => {
+        if (!sub) return;
+        const parent = (sub.parent_id_product || parentExact || '').trim();
+        const accountId = sub.account_id != null ? String(sub.account_id) : '';
+        const subOrder = (sub.sub_order !== undefined && sub.sub_order !== null && sub.sub_order !== '')
+            ? String(Number(sub.sub_order))
+            : '0';
+        const variant = sub.formula_variant != null ? String(sub.formula_variant) : '1';
+        const key = parent + '|' + accountId + '|' + subOrder + '|' + variant;
+        if (!byKey.has(key)) {
+            byKey.set(key, sub);
+            return;
+        }
+        const existing = byKey.get(key);
+        const existingInherited = existing.inherited_from_account_link === true
+            || (existing.id != null && String(existing.id).indexOf('inherit_') === 0);
+        const currentInherited = sub.inherited_from_account_link === true
+            || (sub.id != null && String(sub.id).indexOf('inherit_') === 0);
+        if (existingInherited && !currentInherited) {
+            byKey.set(key, sub);
+        }
+    });
+    return Array.from(byKey.values());
+}
+
 function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     if (!Array.isArray(subTemplates) || subTemplates.length === 0) {
         return;
@@ -18354,12 +18385,17 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         return;
     }
 
+    const dedupedSubTemplates = dedupeSubTemplatesForApply(validSubTemplates, mainParentIdExact);
+    if (dedupedSubTemplates.length === 0) {
+        return;
+    }
+
     // IMPORTANT: Sort sub templates by sub_order first, then by row_index, then by id to maintain correct order
     // sub_order is the primary sort key for sub rows (determines position relative to parent main row)
     // Use id (database primary key) instead of updated_at because updated_at changes when saving,
     // which would cause newly saved rows to move to the end
     // This ensures sub rows are applied in the correct order when loading from database
-    validSubTemplates.sort((a, b) => {
+    dedupedSubTemplates.sort((a, b) => {
         // First sort by sub_order (position relative to parent main row)
         const aSubOrder = (a.sub_order !== undefined && a.sub_order !== null) ? Number(a.sub_order) : null;
         const bSubOrder = (b.sub_order !== undefined && b.sub_order !== null) ? Number(b.sub_order) : null;
@@ -18410,7 +18446,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     // 这样既保证分组不乱，又能尽量还原之前的 vertical 位置。
     let lastRowInGroup = mainRow;
 
-    validSubTemplates.forEach((template, templateIndex) => {
+    dedupedSubTemplates.forEach((template, templateIndex) => {
         let insertAfterRow = lastRowInGroup;
 
         // 仅当上一行是 main 时，才用 row_index 选择插入位置（决定挂在哪个 main 下）；
@@ -18567,7 +18603,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             // Since templates are now sorted by row_index and updated_at, use templateIndex to preserve order
             // Use a base timestamp plus templateIndex * 1000 to ensure correct relative order
             // This ensures sub rows with same row_index maintain their relative order from database
-            const baseTime = Date.now() - validSubTemplates.length * 1000;
+            const baseTime = Date.now() - dedupedSubTemplates.length * 1000;
             const creationOrder = baseTime + templateIndex * 1000;
             newRow.setAttribute('data-creation-order', String(creationOrder));
             targetRow = newRow;
@@ -18586,7 +18622,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             // If updating existing row, preserve its existing creation-order if it has one
             // Only set if missing to maintain the original order
             if (!targetRow.getAttribute('data-creation-order')) {
-                const baseTime = Date.now() - validSubTemplates.length * 1000;
+                const baseTime = Date.now() - dedupedSubTemplates.length * 1000;
                 const creationOrder = baseTime + templateIndex * 1000;
                 targetRow.setAttribute('data-creation-order', String(creationOrder));
                 console.log('Set missing creation-order on existing sub row:', creationOrder);
@@ -19752,41 +19788,34 @@ function updateDeleteButton() {
     }
 }
 
-// Delete selected rows
-function deleteSelectedRows() {
+function collectValidDeleteRowTargetsFromDom() {
     const checkboxes = document.querySelectorAll('.summary-row-checkbox:checked');
-    const rowsToDelete = Array.from(checkboxes).map(cb => ({
+    return Array.from(checkboxes).map(cb => ({
         checkbox: cb,
         row: cb.closest('tr'),
         value: cb.getAttribute('data-value')
-    }));
-
-    // Filter out empty sub rows (rows with + button but no data)
-    const validRowsToDelete = rowsToDelete.filter(item => {
+    })).filter(item => {
         const row = item.row;
-        const addCell = row.querySelector('td:nth-child(3)'); // Add column with + button
-        const hasAddButton = addCell && addCell.querySelector('.add-account-btn');
-        const accountCell = row.querySelector('td:nth-child(2)'); // Account text column
+        if (!row) return false;
+        const productType = (row.getAttribute('data-product-type') || 'main').trim();
+        const accountCell = row.querySelector('td:nth-child(2)');
         const accountText = accountCell ? accountCell.textContent.trim() : '';
-        const hasData = accountText !== '' && accountText !== '+';
-
-        // Don't allow deletion of empty sub rows (has + button but no data)
-        if (hasAddButton && !hasData) {
-            return false;
-        }
-
-        return item.value && item.value.trim() !== '';
+        const hasAccount = accountText !== '' && accountText !== '+';
+        if (productType === 'sub' && !hasAccount) return false;
+        const idCell = row.querySelector('td:first-child');
+        const idFromCell = idCell
+            ? (idCell.getAttribute('data-main-product') || idCell.textContent || '').trim()
+            : '';
+        const idFromCheckbox = item.value && String(item.value).trim() !== '' ? String(item.value).trim() : '';
+        return idFromCell !== '' || idFromCheckbox !== '';
     });
+}
 
-    if (validRowsToDelete.length === 0) {
-        showNotification('Error', 'Please select valid rows to delete. Empty sub rows cannot be deleted.', 'error');
+function performDeleteSelectedRows(validRowsToDelete) {
+    if (!Array.isArray(validRowsToDelete) || validRowsToDelete.length === 0) {
         return;
     }
-
-    showConfirmDelete(
-        `Are you sure you want to delete ${validRowsToDelete.length} selected row(s)? This action cannot be undone.`,
-        function () {
-            try {
+    try {
             // 先收集 template 信息再删 DOM，否则 row 引用会失效
             const templatesToDelete = [];
             validRowsToDelete.forEach(item => {
@@ -19806,9 +19835,6 @@ function deleteSelectedRows() {
                     });
                 }
             });
-            // 修改删除逻辑：
-            // 1. 如果是 sub row（追加账号），则直接从 DOM 移除。
-            // 2. 如果是 main row，则清空资料字段并保留 row（显示 0.00）。
             const reactKeysToRemove = [];
             validRowsToDelete.forEach(item => {
                 const row = item.row;
@@ -19827,49 +19853,28 @@ function deleteSelectedRows() {
                 const productType = (row.getAttribute('data-product-type') || 'main').trim();
 
                 if (productType === 'sub') {
-                    // React SPA: let React unmount rows; avoid row.remove() which breaks reconciliation.
                     if (!(window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ === 'function')) {
                         if (row.parentNode) {
                             row.remove();
                         }
                     }
                 } else {
-                    // 对于 main row，执行清空资料逻辑（不删行，清空内容并设置 0.00）
                     const cells = row.querySelectorAll('td');
-
-                    // 保持 cells[0] (Id Product)
-                    // 保持 cells[2] (+)
-
-                    // 清空 Account (TD 1)
                     if (cells[1]) {
                         cells[1].textContent = '';
                         cells[1].removeAttribute('data-account-id');
                         cells[1].removeAttribute('data-account-db-id');
                     }
-
-                    // 清空 Currency (TD 3)
                     if (cells[3]) cells[3].textContent = '';
-
-                    // 清空 Formula (TD 4)
                     if (cells[4]) cells[4].textContent = '';
-
-                    // 清空 Source (TD 5)
                     if (cells[5]) cells[5].textContent = '';
-
-                    // 取消 Rate Checkbox (TD 6)
                     const rateCheckbox = row.querySelector('.rate-checkbox');
                     if (rateCheckbox) rateCheckbox.checked = false;
-
-                    // 清空 Rate Value (TD 7)
                     if (cells[7]) cells[7].textContent = '';
-
-                    // 清空 Processed Amount (TD 8) - 设置为 0.00
                     if (cells[8]) {
                         cells[8].textContent = '0.00';
                         cells[8].style.color = '#000000';
                     }
-
-                    // 重置行属性 (Template IDs, Keys, etc.)
                     row.removeAttribute('data-template-id');
                     row.removeAttribute('data-template-key');
                     row.removeAttribute('data-formula-raw');
@@ -19883,8 +19888,6 @@ function deleteSelectedRows() {
                     row.removeAttribute('data-formula-variant');
                     row.removeAttribute('data-account-id');
                     row.removeAttribute('data-account-db-id');
-
-                    // 取消勾选 Select 和 Delete (TD 9, TD 10)
                     const selectCb = row.querySelector('.summary-select-checkbox');
                     if (selectCb) {
                         selectCb.checked = false;
@@ -19892,8 +19895,6 @@ function deleteSelectedRows() {
                     }
                     const deleteCb = row.querySelector('.summary-row-checkbox');
                     if (deleteCb) deleteCb.checked = false;
-
-                    // 刷新 Id Product 单元格显示（以清掉 description 渲染）
                     if (typeof refreshIdProductCellDisplay === 'function') {
                         refreshIdProductCellDisplay(row);
                     }
@@ -19909,7 +19910,6 @@ function deleteSelectedRows() {
             updateDeleteButton();
             updateProcessedAmountTotal();
             showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
-            // 后台删除模板，不阻塞界面
             if (templatesToDelete.length > 0) {
                 const deletePromises = templatesToDelete.map(t =>
                     deleteTemplateAsync(t.template_key, t.product_type, t.template_id, t.formula_variant)
@@ -19918,15 +19918,36 @@ function deleteSelectedRows() {
                     console.log('Deleted', templatesToDelete.length, 'template(s) from database');
                 }).catch(err => {
                     console.error('Error deleting templates:', err);
-                    showNotification('Warning', 'Row(s) removed from table; some template cleanup failed. You may refresh to sync.', 'warning');
                 });
             }
-            } catch (deleteError) {
-                console.error('deleteSelectedRows failed:', deleteError);
-                showNotification('Error', 'Failed to delete rows. Please refresh the page and try again.', 'error');
-            }
+    } catch (deleteError) {
+        console.error('deleteSelectedRows failed:', deleteError);
+        showNotification('Error', 'Failed to delete rows. Please refresh the page and try again.', 'error');
+    }
+}
+
+// Delete selected rows
+function deleteSelectedRows() {
+    const preconfirmed = window.__SUMMARY_DELETE_ALREADY_CONFIRMED__ === true
+        && Array.isArray(window.__SUMMARY_DELETE_VALID_ROWS__);
+    let validRowsToDelete = preconfirmed ? window.__SUMMARY_DELETE_VALID_ROWS__ : null;
+
+    if (!validRowsToDelete) {
+        validRowsToDelete = collectValidDeleteRowTargetsFromDom();
+        if (validRowsToDelete.length === 0) {
+            showNotification('Error', 'Please select valid rows to delete. Empty sub rows cannot be deleted.', 'error');
+            return;
         }
-    );
+        showConfirmDelete(
+            `Are you sure you want to delete ${validRowsToDelete.length} selected row(s)? This action cannot be undone.`,
+            function () {
+                performDeleteSelectedRows(validRowsToDelete);
+            }
+        );
+        return;
+    }
+
+    performDeleteSelectedRows(validRowsToDelete);
 }
 
 // Confirm delete modal functions
@@ -21270,6 +21291,10 @@ document.addEventListener('keydown', function (event) {
 });
 
 window.initDataCaptureSummaryPage = initDataCaptureSummaryPage;
+window.deleteSelectedRows = deleteSelectedRows;
+window.updateDeleteButton = updateDeleteButton;
+window.collectValidDeleteRowTargets = collectValidDeleteRowTargetsFromDom;
+window.executeDeleteSelectedRows = performDeleteSelectedRows;
 if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => initDataCaptureSummaryPage());

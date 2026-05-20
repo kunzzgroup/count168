@@ -4,11 +4,11 @@ import {
   buildSummaryRestoreCapturePath,
   buildSummarySubmittedCapturePath,
   clearSummarySessionAfterSubmit,
-  runLegacyDeleteSelectedRows,
   runLegacyRateBatchSubmit,
   runLegacyRateSelectAll,
   saveSummaryRefreshState,
 } from "../summaryPageActions.js";
+import { requestSummaryDeleteConfirmation } from "../summaryDeleteFlow.js";
 import { useSummarySubmit } from "./useSummarySubmit.js";
 
 /**
@@ -104,7 +104,7 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
   }, []);
 
   const handleDeleteSelected = useCallback(() => {
-    runLegacyDeleteSelectedRows();
+    requestSummaryDeleteConfirmation({});
   }, []);
 
   const handleSubmitSummary = useCallback(() => {

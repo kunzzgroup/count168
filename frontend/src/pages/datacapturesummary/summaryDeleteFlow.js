@@ -67,13 +67,11 @@ function runDeleteAfterConfirm(valid, showNotification) {
   if (typeof window.deleteSelectedRows === "function") {
     window.__SUMMARY_DELETE_VALID_ROWS__ = valid;
     window.__SUMMARY_DELETE_ALREADY_CONFIRMED__ = true;
-    window.__SUMMARY_DELETE_DIRECT_LEGACY__ = true;
     try {
       window.deleteSelectedRows();
     } finally {
       delete window.__SUMMARY_DELETE_VALID_ROWS__;
       delete window.__SUMMARY_DELETE_ALREADY_CONFIRMED__;
-      delete window.__SUMMARY_DELETE_DIRECT_LEGACY__;
     }
     return true;
   }

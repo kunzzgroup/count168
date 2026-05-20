@@ -1453,6 +1453,58 @@ function resolveAccountDisplayInTemplates(PDO $pdo, int $companyId, array &$temp
 }
 
 /**
+ * 同一 parent + account (+ sub_order + formula_variant) 只保留一条 sub 模板；DB 记录优先于 account_link 继承副本。
+ */
+function dedupeTemplateGroupSubs(array $subs): array {
+    if (count($subs) <= 1) {
+        return $subs;
+    }
+    $byKey = [];
+    foreach ($subs as $sub) {
+        if (!is_array($sub)) {
+            continue;
+        }
+        $parent = trim((string)($sub['parent_id_product'] ?? ''));
+        $accountId = (int)($sub['account_id'] ?? 0);
+        $subOrder = isset($sub['sub_order']) && $sub['sub_order'] !== null && $sub['sub_order'] !== ''
+            ? (string)(float)$sub['sub_order']
+            : '0';
+        $variant = (int)($sub['formula_variant'] ?? 1);
+        $key = strtolower($parent) . '|' . $accountId . '|' . $subOrder . '|' . $variant;
+        if (!isset($byKey[$key])) {
+            $byKey[$key] = $sub;
+            continue;
+        }
+        $byKey[$key] = pickPreferredSubTemplateRow($byKey[$key], $sub);
+    }
+    return array_values($byKey);
+}
+
+function pickPreferredSubTemplateRow(array $existing, array $candidate): array {
+    $existingInherited = !empty($existing['inherited_from_account_link'])
+        || (isset($existing['id']) && is_string($existing['id']) && strpos((string)$existing['id'], 'inherit_') === 0);
+    $candidateInherited = !empty($candidate['inherited_from_account_link'])
+        || (isset($candidate['id']) && is_string($candidate['id']) && strpos((string)$candidate['id'], 'inherit_') === 0);
+    if ($existingInherited && !$candidateInherited) {
+        return $candidate;
+    }
+    if ($candidateInherited && !$existingInherited) {
+        return $existing;
+    }
+    $existingId = isset($existing['id']) && is_numeric($existing['id']) ? (int)$existing['id'] : 0;
+    $candidateId = isset($candidate['id']) && is_numeric($candidate['id']) ? (int)$candidate['id'] : 0;
+    if ($candidateId > $existingId) {
+        return $candidate;
+    }
+    if ($existingId > $candidateId) {
+        return $existing;
+    }
+    $existingUpdated = $existing['updated_at'] ?? '';
+    $candidateUpdated = $candidate['updated_at'] ?? '';
+    return ($candidateUpdated > $existingUpdated) ? $candidate : $existing;
+}
+
+/**
  * 把 Main Acc 的 Formula 动态派生一份给 Sub Acc，通过 account_link 表中的 unidirectional 映射。
  */
 function inheritFormulasToSubAccounts(PDO $pdo, int $companyId, array $templates): array {
@@ -1530,26 +1582,14 @@ function inheritFormulasToSubAccounts(PDO $pdo, int $companyId, array $templates
                         continue;
                     }
 
-                    // 若 Maintenance 已保存同 parent + account (+ row_index) 的 sub 模板，不再注入继承副本
+                    // 若已存在同 parent + account 的 sub 模板（含 DB 保存项），不再注入继承副本
                     $alreadyInSubs = false;
-                    $mainRowIndex = isset($t['row_index']) && $t['row_index'] !== null && $t['row_index'] !== ''
-                        ? (int)$t['row_index']
-                        : null;
                     foreach ($templates[$mainKey]['subs'] as $existingSub) {
-                        if ((int)($existingSub['account_id'] ?? 0) !== (int)$subAccId) {
-                            continue;
+                        if ((int)($existingSub['account_id'] ?? 0) === (int)$subAccId
+                            && trim((string)($existingSub['parent_id_product'] ?? '')) === $parentIdProduct) {
+                            $alreadyInSubs = true;
+                            break;
                         }
-                        if (trim((string)($existingSub['parent_id_product'] ?? '')) !== $parentIdProduct) {
-                            continue;
-                        }
-                        $existingRowIndex = isset($existingSub['row_index']) && $existingSub['row_index'] !== null && $existingSub['row_index'] !== ''
-                            ? (int)$existingSub['row_index']
-                            : null;
-                        if ($mainRowIndex !== null && $existingRowIndex !== null && $existingRowIndex !== $mainRowIndex) {
-                            continue;
-                        }
-                        $alreadyInSubs = true;
-                        break;
                     }
                     if ($alreadyInSubs) {
                         $addedForSubAcc[$dedupKey] = true;
@@ -1790,6 +1830,12 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
 
     if (isset($companyId) && $companyId > 0) {
         $templates = inheritFormulasToSubAccounts($pdo, (int)$companyId, $templates);
+    }
+
+    foreach ($templates as $mainKey => $group) {
+        if (!empty($group['subs']) && is_array($group['subs'])) {
+            $templates[$mainKey]['subs'] = dedupeTemplateGroupSubs($group['subs']);
+        }
     }
 
     return $templates;

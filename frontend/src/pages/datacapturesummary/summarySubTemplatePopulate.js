@@ -99,30 +99,28 @@ export function findMainRowForSubTemplate(idProduct, subTemplate) {
   return null;
 }
 
-export function filterSubsForParentIdProduct(subs, originalIdProduct, normalizedIdProduct) {
+export function filterSubsForParentIdProduct(subs, originalIdProduct) {
   if (!Array.isArray(subs) || subs.length === 0) return [];
   const parentExact = (originalIdProduct || "").trim();
-  const parentNorm = (normalizedIdProduct || normalizeSummaryIdProductText(parentExact) || "").trim();
+  if (!parentExact) return [];
 
   return subs.filter((sub) => {
     const subParentRaw = (sub.parent_id_product || "").trim().replace(/^\d+\s+/, "").trim();
-    if (!subParentRaw) return false;
-    if (parentExact && subParentRaw === parentExact) return true;
-    if (parentNorm) {
-      const subParentBare = normalizeSummaryIdProductText(subParentRaw);
-      return subParentBare === parentNorm;
-    }
-    return false;
+    return subParentRaw !== "" && subParentRaw === parentExact;
   });
 }
 
 function subBelongsToParentGroup(sub, parentExact) {
   const subParentRaw = (sub?.parent_id_product || "").trim().replace(/^\d+\s+/, "").trim();
-  if (!subParentRaw || !parentExact) return false;
-  if (subParentRaw === parentExact) return true;
-  const subParentBare = normalizeSummaryIdProductText(subParentRaw);
-  const parentBare = normalizeSummaryIdProductText(parentExact);
-  return Boolean(parentBare && subParentBare === parentBare);
+  return Boolean(parentExact && subParentRaw && subParentRaw === parentExact);
+}
+
+function subTemplateFingerprint(sub, parentExact) {
+  const parent = (sub?.parent_id_product || parentExact || "").trim();
+  const accountId = sub?.account_id != null ? String(sub.account_id) : "";
+  const subOrder = sub?.sub_order != null && sub?.sub_order !== "" ? String(Number(sub.sub_order)) : "0";
+  const variant = sub?.formula_variant != null ? String(sub.formula_variant) : "1";
+  return `${parent}|${accountId}|${subOrder}|${variant}`;
 }
 
 function getGlobalAppliedTemplateIds() {
@@ -160,6 +158,12 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
 
   scopedSubs.forEach((sub) => {
     if (!sub) return;
+
+    const logicalKey = subTemplateFingerprint(sub, parentExact);
+    if (appliedTemplateIds.has(`fp:${logicalKey}`)) {
+      return;
+    }
+
     const templateId = sub.id != null ? String(sub.id) : null;
     if (templateId && appliedTemplateIds.has(`id:${templateId}`)) {
       return;
@@ -168,17 +172,13 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
     const mainRow = findMainRowForSubTemplate(parentExact, sub);
     if (!mainRow) return;
 
-    const accountKey =
-      sub.account_id != null
-        ? `${String(sub.account_id)}:${sub.sub_order != null ? Number(sub.sub_order) : ""}:${sub.formula_variant != null ? sub.formula_variant : ""}`
-        : null;
     const parentRowIndexAttr = mainRow.getAttribute("data-row-index");
     const parentRowIndex =
       parentRowIndexAttr != null && parentRowIndexAttr !== "" && !Number.isNaN(Number(parentRowIndexAttr))
         ? Number(parentRowIndexAttr)
         : "na";
-    const scopedKey = accountKey ? `acc:${parentRowIndex}:${accountKey}` : null;
-    if (scopedKey && appliedTemplateIds.has(scopedKey)) {
+    const scopedKey = `acc:${parentRowIndex}:${logicalKey}`;
+    if (appliedTemplateIds.has(scopedKey)) {
       return;
     }
 
@@ -186,11 +186,10 @@ export function applySubsForIdProductGroup(idProduct, subTemplates) {
       subsByMainRow.set(mainRow, []);
     }
     subsByMainRow.get(mainRow).push(sub);
+    appliedTemplateIds.add(`fp:${logicalKey}`);
+    appliedTemplateIds.add(scopedKey);
     if (templateId) {
       appliedTemplateIds.add(`id:${templateId}`);
-    }
-    if (scopedKey) {
-      appliedTemplateIds.add(scopedKey);
     }
   });
 
