@@ -1454,6 +1454,53 @@ label.user-modal-col-title.acc-proc-label {
     font-size: var(--domain-fluid-11-083-14);
 }
 
+.user-modal-tablet-pickers {
+    display: none;
+}
+
+.user-modal-col--desktop-only {
+    display: flex;
+}
+
+.user-modal-account-picker {
+    width: var(--user-modal-perm-picker-width);
+    max-height: var(--user-modal-perm-picker-max-h);
+}
+
+.user-modal-account-picker-list {
+    list-style: none;
+    margin: var(--space-gap) 0 0;
+    padding: 0 var(--user-modal-perm-picker-pad) var(--space-gap);
+    overflow-y: auto;
+    flex: 1;
+    min-height: 12rem;
+    display: grid;
+    grid-template-columns: repeat(var(--user-modal-account-grid-cols), minmax(0, 1fr));
+    gap: var(--space-gap);
+    align-content: start;
+    -webkit-overflow-scrolling: touch;
+}
+
+.user-modal-account-picker-row {
+    margin: 0;
+    min-width: 0;
+}
+
+.user-modal-account-picker-label {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-gap);
+    width: 100%;
+    min-height: 3.6rem;
+    margin: 0;
+    cursor: pointer;
+}
+
+.user-modal-account-picker-label.is-checked {
+    border-color: var(--account-select-card-border-checked);
+    background: var(--account-select-card-bg-checked);
+}
+
 .user-modal-permission-picker-root,
 .user-modal-company-picker-root {
     position: fixed;
