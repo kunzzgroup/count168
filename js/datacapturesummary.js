@@ -7,6 +7,31 @@ function buildApiUrl(pathAndQuery) {
     return new URL(pathAndQuery, base).href;
 }
 
+/** React owns summary tbody — never appendChild/reorder DOM rows directly. */
+function isSummaryReactManagedTable() {
+    return window.__SUMMARY_REACT_TABLE__ === true
+        || (typeof window.__SUMMARY_IS_REACT_TABLE__ === 'function' && window.__SUMMARY_IS_REACT_TABLE__());
+}
+
+/**
+ * Apply computed row order via React state. Returns false if DOM reorder fallback is required.
+ */
+function applySummaryRowOrderViaReact(orderedRows) {
+    if (!isSummaryReactManagedTable() || typeof window.__SUMMARY_REACT_SET_ROW_ORDER__ !== 'function') {
+        return false;
+    }
+    if (!Array.isArray(orderedRows) || orderedRows.length === 0) {
+        return true;
+    }
+    const keys = orderedRows.map((row) => row && row.getAttribute('data-react-row-key')).filter(Boolean);
+    if (keys.length !== orderedRows.length) {
+        console.warn('applySummaryRowOrderViaReact: missing data-react-row-key, skip DOM reorder');
+        return false;
+    }
+    window.__SUMMARY_REACT_SET_ROW_ORDER__(keys);
+    return true;
+}
+
 // Notification functions
 function showNotification(title, message, type) {
     const normalized = (function normalizeSummaryNotificationArgs(t, m, ty) {
@@ -635,7 +660,9 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         appendedRows.add(row);
     });
 
-    finalRows.forEach(row => summaryTableBody.appendChild(row));
+    if (!applySummaryRowOrderViaReact(finalRows) && !isSummaryReactManagedTable()) {
+        finalRows.forEach(row => summaryTableBody.appendChild(row));
+    }
 }
 
 // Save current Rate Value column to localStorage (for refresh only; cleared on Back/Submit)
@@ -18155,18 +18182,21 @@ function reorderSummaryRowsByRowIndex() {
             })
             .map(data => data.row);
 
-        // 按新顺序重新挂载行
-        orderedRows.forEach(row => summaryTableBody.appendChild(row));
+        // 按新顺序重新挂载行（React 表由 state 重排，避免 appendChild 破坏协调导致 removeChild 报错）
+        if (!applySummaryRowOrderViaReact(orderedRows) && !isSummaryReactManagedTable()) {
+            orderedRows.forEach(row => summaryTableBody.appendChild(row));
+        }
 
         console.log(
             'Reordered rows by Data Capture Table order.',
-            'Total rows:', orderedRows.length
+            'Total rows:', orderedRows.length,
+            'reactManaged:', isSummaryReactManagedTable()
         );
 
         if (typeof updateProcessedAmountTotal === 'function') {
             updateProcessedAmountTotal();
         }
-        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function') {
+        if (typeof window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ === 'function' && !isSummaryReactManagedTable()) {
             window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__();
         }
     } catch (e) {

@@ -56,6 +56,26 @@ export function useSummaryRows(tableData, enabled) {
     });
   }, []);
 
+  /** Reorder React row list to match legacy-computed order (avoids tbody appendChild). */
+  const setRowOrder = useCallback((orderedKeys) => {
+    if (!Array.isArray(orderedKeys) || orderedKeys.length === 0) return;
+    flushSync(() => {
+      setRows((prev) => {
+        const byKey = new Map(prev.map((row) => [row.key, row]));
+        const next = [];
+        orderedKeys.forEach((key) => {
+          const row = byKey.get(key);
+          if (row) {
+            next.push(row);
+            byKey.delete(key);
+          }
+        });
+        byKey.forEach((row) => next.push(row));
+        return next.length ? next : prev;
+      });
+    });
+  }, []);
+
   const addSubRow = useCallback((parentProcessValue, insertAfterRow, rowIndex) => {
     const insertAfterKey = insertAfterRow?.getAttribute?.("data-react-row-key") || null;
     let newKey = "";
@@ -88,6 +108,7 @@ export function useSummaryRows(tableData, enabled) {
     window.__SUMMARY_REACT_ADD_SUB_ROW__ = addSubRow;
     window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__ = syncFromDom;
     window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__ = removeRowsByKeys;
+    window.__SUMMARY_REACT_SET_ROW_ORDER__ = setRowOrder;
     window.__SUMMARY_STRIP_SUB_ROWS__ = stripSubRows;
     window.__SUMMARY_REACT_RESET_ROWS__ = resetToInitialRows;
 
@@ -95,10 +116,11 @@ export function useSummaryRows(tableData, enabled) {
       delete window.__SUMMARY_REACT_ADD_SUB_ROW__;
       delete window.__SUMMARY_REACT_SYNC_ROWS_FROM_DOM__;
       delete window.__SUMMARY_REACT_REMOVE_ROWS_BY_KEYS__;
+      delete window.__SUMMARY_REACT_SET_ROW_ORDER__;
       delete window.__SUMMARY_STRIP_SUB_ROWS__;
       delete window.__SUMMARY_REACT_RESET_ROWS__;
     };
-  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys, stripSubRows, resetToInitialRows]);
+  }, [enabled, addSubRow, syncFromDom, removeRowsByKeys, stripSubRows, resetToInitialRows, setRowOrder]);
 
   return { rows, syncFromDom, resetToInitialRows, removeRowsByKeys, stripSubRows };
 }
