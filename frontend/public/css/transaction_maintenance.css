@@ -847,8 +847,8 @@ body.maintenance-page #confirmDeleteModal .confirm-delete {
     border-radius: 10px;
 }
 
-/* Button styles for confirm modal */
-body.maintenance-page .btn {
+/* Button styles for confirm modal (scoped — avoid overriding sidebar .logout-btn) */
+body.maintenance-page .maintenance-modal .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -864,25 +864,25 @@ body.maintenance-page .btn {
     white-space: nowrap;
 }
 
-body.maintenance-page .btn-cancel {
+body.maintenance-page .maintenance-modal .btn-cancel {
     background: linear-gradient(180deg, #9ca3af 0%, #5a6370 100%);
     color: white;
     box-shadow: 0 2px 4px rgba(107, 114, 128, 0.3);
 }
 
-body.maintenance-page .btn-cancel:hover {
+body.maintenance-page .maintenance-modal .btn-cancel:hover {
     background: linear-gradient(180deg, #5a6370 0%, #9ca3af 100%);
     box-shadow: 0 4px 8px rgba(107, 114, 128, 0.4);
     transform: translateY(-1px);
 }
 
-body.maintenance-page .btn-delete {
+body.maintenance-page .maintenance-modal .btn-delete {
     background: var(--btn-delete-gradient);
     color: white;
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
 }
 
-body.maintenance-page .btn-delete:hover {
+body.maintenance-page .maintenance-modal .btn-delete:hover {
     background: var(--btn-delete-gradient-hover);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
