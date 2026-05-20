@@ -306,14 +306,14 @@ export default function AuthenticatedLayout() {
       <div className={`informationmenu${sidebarIconOnly ? " is-collapsed" : ""}`} onClick={(e) => e.stopPropagation()}>
         <div className="informationmenu-header">
           <div className="header-logo-section">
-            {isTabletViewport && (
+            {isTabletViewport && sidebarCollapsed && (
               <button
                 type="button"
                 className="sidebar-hamburger-toggle"
                 onClick={onHamburgerClick}
-                aria-label={sidebarCollapsed ? i18n.sidebarExpand : i18n.sidebarCollapse}
-                aria-expanded={!sidebarCollapsed}
-                title={sidebarCollapsed ? i18n.sidebarExpand : i18n.sidebarCollapse}
+                aria-label={i18n.sidebarExpand}
+                aria-expanded={false}
+                title={i18n.sidebarExpand}
               >
                 <span className="sidebar-hamburger-box" aria-hidden="true">
                   <span className="sidebar-hamburger-line" />
