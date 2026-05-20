@@ -311,7 +311,7 @@ body.account-page:not(.account-page--show-all) {
 .account-table-header {
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1fr 0.6fr;
-    gap: 15px;
+    gap: 8px;
     padding:var(--table-header-height);
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
@@ -468,7 +468,7 @@ body.account-page:not(.account-page--show-all) .account-cards {
 .account-card {
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1.2fr 0.42fr;
-    gap: 15px;
+    gap: 8px;
     padding: 0 22px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
@@ -2677,5 +2677,49 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     text-align: center;
     color: #999;
     font-size: 14px;
+}
+
+/* ==========================================================================
+   Laptop / short viewport — align with process-page (Games list) list density
+   ========================================================================== */
+@media (max-height: 820px) {
+    :root {
+        --text-page-title-mt: clamp(0.4rem, 0.6vh, 0.85rem);
+    }
+
+    body.account-page:not(.account-page--show-all) .account-page-title {
+        margin-top: 4px !important;
+    }
+
+    body.account-page .action-buttons-container {
+        margin-top: 8px;
+    }
+
+    body.account-page .action-buttons-container > .action-buttons {
+        padding: 6px 14px;
+    }
+
+    body.account-page .action-buttons-container .user-gc-inline-panel {
+        padding: 8px 16px 12px 16px;
+        column-gap: clamp(8px, 0.83vw, 16px);
+        row-gap: 10px;
+    }
+
+    body.account-page .account-table-header {
+        margin-top: 6px;
+    }
+
+    body.ec-auth-shell.account-page:not(.account-page--show-all) .account-card {
+        padding: 0 20px !important;
+        min-height: 0 !important;
+    }
+
+    body.ec-auth-shell.account-page .account-card-item {
+        line-height: 1.2 !important;
+    }
+
+    body.account-page .account-role-badge {
+        padding: 0 clamp(3px, 0.35vw, 6px);
+    }
 }
 

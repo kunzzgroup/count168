@@ -196,6 +196,12 @@
         min-height: 20px !important;
     }
 
+    /* Account List：与 Process（.process-card）一致，列表行不加纵向 10px */
+    body.ec-auth-shell.account-page:not(.account-page--show-all) .account-card {
+        padding: 0 22px !important;
+        min-height: 0 !important;
+    }
+
     body.ec-auth-shell .card-item,
     body.ec-auth-shell .account-card-item,
     body.ec-auth-shell .contract-card-item,
