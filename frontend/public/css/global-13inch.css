@@ -593,6 +593,13 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         overflow-x: hidden !important;
     }
 
+    body.datacapture-page #root {
+        height: auto !important;
+        min-height: 100vh !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
     body.ec-auth-shell .container,
     body.ec-auth-shell .content,
     body.ec-auth-shell .transaction-container,
