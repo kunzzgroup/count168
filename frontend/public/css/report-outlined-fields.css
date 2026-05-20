@@ -126,6 +126,39 @@ body.transaction-page .transaction-category-date-row .report-outlined-inner .dat
     box-shadow: none !important;
 }
 
+/* Maintenance Payment: native select inside outlined shell (match Process / Date Range) */
+body.maintenance-page .report-outlined-inner .maintenance-select {
+    margin: 0;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    border: none !important;
+    border-radius: inherit;
+    box-shadow: none !important;
+    background-color: transparent;
+    min-height: clamp(32px, 2.25vw, 36px);
+    padding: clamp(4px, 0.3vw, 6px) clamp(28px, 2vw, 35px) clamp(4px, 0.3vw, 6px) clamp(10px, 0.83vw, 14px);
+    font-size: clamp(11px, 0.85vw, 14px);
+    font-family: var(--font-heading-page);
+    color: #374151;
+}
+
+body.maintenance-page .report-outlined-inner .maintenance-select:hover,
+body.maintenance-page .report-outlined-inner .maintenance-select:focus {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none;
+}
+
+body.maintenance-page .report-outlined-shell:has(.maintenance-select:focus-visible) {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+body.maintenance-page .report-outlined-shell:has(.maintenance-select:focus-visible) .report-outlined-label {
+    color: #3b82f6;
+}
+
 /* Transaction: border belongs to shell; strip inner category button chrome */
 body.transaction-page .report-outlined-inner .category-dropdown-button {
     border: none !important;
