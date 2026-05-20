@@ -13,7 +13,7 @@ function readCookie(name) {
 }
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "ec_sidebar_collapsed";
-const TABLET_MEDIA_QUERY = "(max-width: 1024px)";
+const TABLET_MEDIA_QUERY = "(max-width: 1100px)";
 
 const AVATAR_MAP = {
   male1: assetUrl("images/avatar1.png"),
