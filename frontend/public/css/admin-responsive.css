@@ -69,6 +69,25 @@ body.user-page #userModal .user-modal-card {
   flex-wrap: nowrap !important;
 }
 
+/* 矮屏（如 1536×750）：Permissions 区增高，左栏表单可滚 */
+@media (max-height: 850px) {
+  body.user-page #userModal .user-modal-content .user-info-panel form {
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  body.user-page #userModal .user-modal-content .sidebar-permissions-section {
+    flex: 1 1 auto;
+    min-height: clamp(220px, 34vh, 340px);
+  }
+
+  body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
+    flex: 1 1 auto;
+    min-height: clamp(180px, 28vh, 300px);
+    max-height: none;
+  }
+}
+
 @media (max-width: 1280px) {
   body.user-page #userModal .user-modal-col--info {
     flex: 0 0 clamp(280px, 28vw, 460px) !important;
@@ -110,7 +129,8 @@ body.user-page #userModal .user-modal-card {
   }
 
   body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
-    max-height: min(200px, 23vh);
+    min-height: clamp(160px, 26vh, 280px);
+    max-height: min(280px, 32vh);
     overflow-y: auto;
     flex-shrink: 0;
     padding-bottom: 8px;
