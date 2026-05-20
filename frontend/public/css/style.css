@@ -168,9 +168,48 @@ body.bg::before {
     box-sizing: border-box;
 }
 
+.secondary-verify-header {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.secondary-verify-back-btn {
+    grid-row: 1;
+    grid-column: 1;
+    justify-self: start;
+    align-self: center;
+    z-index: 1;
+    border: none;
+    background: transparent;
+    color: #56ccf2;
+    font-size: var(--text-h2, 1.25rem);
+    font-weight: 600;
+    font-family: var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1.25;
+    transition: color 0.2s ease;
+}
+
+.secondary-verify-back-btn:hover {
+    color: #004ff9;
+}
+
+.secondary-verify-back-btn:focus-visible {
+    outline: 2px solid #004ff9;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
 .secondary-verify-title {
+    grid-row: 1;
+    grid-column: 1;
     text-align: center;
-    margin: 0 0 8px;
+    margin: 0;
+    padding: 0 36px;
+    box-sizing: border-box;
     color: var(--color-body-strong);
     font-size: var(--text-h2);
     font-weight: 700;

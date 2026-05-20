@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SECONDARY_VERIFY_I18N } from "../../translateFile/secondaryPasswordVerifyTranslate.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
+import SecondaryVerifyBackButton from "./SecondaryVerifyBackButton.jsx";
 
 export default function OwnerSecondaryPasswordPage() {
   const navigate = useNavigate();
@@ -70,6 +71,18 @@ export default function OwnerSecondaryPasswordPage() {
     if (errorMessage) setErrorMessage("");
   };
 
+  const onBack = async () => {
+    try {
+      await fetch(buildApiUrl("api/session/logout_api.php"), {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // still return to login
+    }
+    navigate("/login", { replace: true });
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     const value = password.trim();
@@ -108,7 +121,10 @@ export default function OwnerSecondaryPasswordPage() {
     <div className="login-container">
       <div className="login-card login-card--solo">
         <div className="form-content form-content--secondary-verify">
-          <h2 className="secondary-verify-title">{i18n.title}</h2>
+          <div className="secondary-verify-header">
+            <SecondaryVerifyBackButton onClick={onBack} ariaLabel={i18n.backToLogin} />
+            <h2 className="secondary-verify-title">{i18n.title}</h2>
+          </div>
           <p className="secondary-verify-lead">{i18n.lead}</p>
 
           <form className="login-form" onSubmit={onSubmit}>
