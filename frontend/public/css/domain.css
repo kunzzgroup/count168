@@ -2746,6 +2746,11 @@ body.domain-page #account-addModal.account-modal {
     z-index: 2147483002 !important;
 }
 
+/* Company picker from Add Account — above #account-addModal (2147483002) */
+body.domain-page .user-modal-company-picker-root--above-modals {
+    z-index: 2147483003 !important;
+}
+
 /* Modal Styles */
 .modal {
     display: none;
