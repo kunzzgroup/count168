@@ -657,6 +657,10 @@ function configurePasswordFieldsForContext({ isOwnerShadow = false, isEdit = fal
 
 function showAlert(message, type = 'success') {
     const container = document.getElementById('notificationContainer');
+    if (!container) {
+        window.alert(message);
+        return;
+    }
 
     // 检查现有通知数量，最多保留2个
     const existingNotifications = container.querySelectorAll('.notification');
@@ -684,7 +688,8 @@ function showAlert(message, type = 'success') {
         notification.classList.add('show');
     }, 10);
 
-    // 1.5秒后开始消失动画
+    // 成功约 1.5s；错误信息略长便于阅读（如 Login ID 已存在）
+    const visibleMs = type === 'danger' ? 4500 : 1500;
     setTimeout(() => {
         notification.classList.remove('show');
         // 0.3秒后完全移除
@@ -693,7 +698,7 @@ function showAlert(message, type = 'success') {
                 notification.remove();
             }
         }, 300);
-    }, 1500);
+    }, visibleMs);
 }
 
 function openAddModal() {

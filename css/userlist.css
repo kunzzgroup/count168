@@ -1457,3 +1457,50 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
 .toggle-switch:has(input:disabled) {
     cursor: not-allowed;
 }
+
+/* Toast：须高于 #userModal (999) 与 #confirmModal (10000)，否则 Add/Edit User 全屏模态会盖住错误提示 */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 11000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: min(400px, calc(100vw - 40px));
+    pointer-events: none;
+}
+
+.notification-container .notification {
+    pointer-events: auto;
+}
+
+.notification {
+    padding: 16px 20px;
+    border-radius: 12px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateX(120%);
+    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    font-weight: 500;
+    position: relative;
+    word-wrap: break-word;
+    border-left: 4px solid;
+    opacity: 0;
+}
+
+.notification.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.notification-success {
+    background-color: #f0fdf4;
+    color: #166534;
+    border-left-color: #22c55e;
+}
+
+.notification-danger {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border-left-color: #ef4444;
+}
