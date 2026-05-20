@@ -22,6 +22,7 @@ let showInactive = false;
 // 当前用户信息
 const currentUserId = typeof window.USERLIST_CURRENT_USER_ID !== 'undefined' ? window.USERLIST_CURRENT_USER_ID : null;
 const currentUserRole = typeof window.USERLIST_CURRENT_USER_ROLE !== 'undefined' ? window.USERLIST_CURRENT_USER_ROLE : '';
+const isC168Company = typeof window.USERLIST_IS_C168 !== 'undefined' && !!window.USERLIST_IS_C168;
 
 // 用户数据数组（从页面中提取）
 let usersData = [];
@@ -522,6 +523,41 @@ function setupInputFormatting() {
     });
 }
 
+function configureSecondaryPasswordField({ visible = false, required = false, disabled = false, placeholder = 'Enter 6-digit password', clear = true } = {}) {
+    const group = document.getElementById('secondaryPasswordGroup');
+    const input = document.getElementById('secondary_password');
+    if (!group || !input) return;
+
+    group.style.display = visible ? '' : 'none';
+    input.required = required;
+    input.disabled = disabled;
+    input.placeholder = placeholder;
+    if (clear) {
+        input.value = '';
+    }
+}
+
+function configurePasswordFieldsForContext({ isOwnerShadow = false, isEdit = false } = {}) {
+    const passwordRowContainer = document.getElementById('passwordRowContainer');
+    if (passwordRowContainer) {
+        passwordRowContainer.style.display = 'flex';
+    }
+
+    const passwordInput = document.getElementById('password');
+    if (passwordInput) {
+        passwordInput.required = !isEdit;
+    }
+
+    const showSecondaryPassword = isOwnerShadow || isC168Company;
+    configureSecondaryPasswordField({
+        visible: showSecondaryPassword,
+        required: false,
+        disabled: false,
+        placeholder: isEdit ? 'Leave empty to keep current password' : 'Enter 6-digit password',
+        clear: true
+    });
+}
+
 function showAlert(message, type = 'success') {
     const container = document.getElementById('notificationContainer');
 
@@ -570,16 +606,7 @@ function openAddModal() {
     document.getElementById('userId').value = '';
     document.getElementById('status').value = 'active';
     document.getElementById('password').required = true;
-    // 显示密码字段（根据是否是c168公司显示不同的布局）
-    const passwordRowContainer = document.getElementById('passwordRowContainer');
-    const passwordGroup = document.getElementById('passwordGroup');
-    if (passwordRowContainer) {
-        // C168公司：显示密码行容器
-        passwordRowContainer.style.display = 'flex';
-    } else if (passwordGroup) {
-        // 非C168公司：显示单个密码字段
-        passwordGroup.style.display = 'block';
-    }
+    configurePasswordFieldsForContext({ isEdit: false });
     document.getElementById('login_id').disabled = false;
     const hiddenLoginId = document.getElementById('hidden_login_id');
     if (hiddenLoginId) {
@@ -733,16 +760,7 @@ function editUser(id, isOwnerShadow = false) {
     isEditMode = true;
     document.getElementById('modalTitle').textContent = isOwnerShadow ? 'Edit Owner' : 'Edit User';
     document.getElementById('password').required = false;
-    // 显示密码字段（根据是否是c168公司显示不同的布局）
-    const passwordRowContainer = document.getElementById('passwordRowContainer');
-    const passwordGroup = document.getElementById('passwordGroup');
-    if (passwordRowContainer) {
-        // C168公司：显示密码行容器
-        passwordRowContainer.style.display = 'flex';
-    } else if (passwordGroup) {
-        // 非C168公司：显示单个密码字段
-        passwordGroup.style.display = 'block';
-    }
+    configurePasswordFieldsForContext({ isOwnerShadow, isEdit: true });
 
     // 切换到编辑模式 UI
     const editModeRightPanel = document.getElementById('editModeRightPanel');
@@ -781,11 +799,18 @@ function editUser(id, isOwnerShadow = false) {
     const editingUserId = parseInt(id);
     const isEditingSelf = currentUserId && editingUserId && currentUserId === editingUserId;
 
-    // 如果是owner影子，禁用role字段
+    // 如果是owner影子，禁用role字段，并确保 User Information 字段可编辑
     const roleSelect = document.getElementById('role');
     if (isOwnerShadow) {
         roleSelect.value = 'owner';
         roleSelect.disabled = true;
+        document.getElementById('name').disabled = false;
+        document.getElementById('email').disabled = false;
+        document.getElementById('password').disabled = false;
+        const secondaryPasswordInput = document.getElementById('secondary_password');
+        if (secondaryPasswordInput) {
+            secondaryPasswordInput.disabled = false;
+        }
     } else {
         const editingUserRole = items[4].querySelector('.role-badge').textContent.trim().toLowerCase();
 
@@ -1136,6 +1161,7 @@ function closeModal() {
     document.getElementById('name').disabled = false;
     document.getElementById('email').disabled = false;
     document.getElementById('password').disabled = false;
+    configurePasswordFieldsForContext({ isEdit: false });
 
     // 恢复 Company 按钮
     const companyButtons = document.querySelectorAll('#user-company-buttons-container .transaction-company-btn');

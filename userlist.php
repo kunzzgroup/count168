@@ -469,24 +469,16 @@ $can_create_user = $current_role_level_for_create < 5;
                             }
                             ?>
 
-                            <?php if ($is_c168_company): ?>
                             <div class="form-group user-info-field password-row-container" id="passwordRowContainer">
                                 <div class="password-field-wrapper" id="passwordGroup">
                                     <label for="password">Password *</label>
                                     <input type="password" id="password" name="password">
                                 </div>
-                                <div class="password-field-wrapper" id="secondaryPasswordGroup">
-                                    <label for="secondary_password">Secondary Password (6 digits)</label>
+                                <div class="password-field-wrapper" id="secondaryPasswordGroup"<?php echo $is_c168_company ? '' : ' style="display:none;"'; ?>>
+                                    <label for="secondary_password">Secondary Password</label>
                                     <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit password">
                                 </div>
                             </div>
-                            <div class="form-group user-info-field" style="margin-top: -10px; margin-bottom: 10px;"><small style="color: #64748b; font-size: 12px; display: block;"></small></div>
-                            <?php else: ?>
-                            <div class="form-group user-info-field" id="passwordGroup">
-                                <label for="password">Password *</label>
-                                <input type="password" id="password" name="password">
-                            </div>
-                            <?php endif; ?>
 
                             <div class="form-group user-info-field">
                                 <label for="name">Name *</label>
@@ -616,6 +608,7 @@ $can_create_user = $current_role_level_for_create < 5;
         window.USERLIST_CURRENT_USER_ROLE = '<?php echo strtolower($current_user_role); ?>';
         window.USERLIST_CURRENT_COMPANY_ID = <?php echo json_encode($_SESSION['company_id'] ?? null); ?>;
         window.USERLIST_SHOW_ALL = <?php echo $showAllUsers ? 'true' : 'false'; ?>;
+        window.USERLIST_IS_C168 = <?php echo $is_c168_company ? 'true' : 'false'; ?>;
     </script>
     <script src="js/userlist.js?v=<?php echo $assetVer('js/userlist.js'); ?>"></script>
 </body>
