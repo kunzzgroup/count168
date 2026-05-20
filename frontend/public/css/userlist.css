@@ -2874,29 +2874,36 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 }
 
 @media (max-width: 1024px) {
+    #userModal .user-modal-content .user-info-panel .form-group label,
     .modal-content.edit-mode .user-info-panel .form-group label {
         font-size: clamp(9px, 0.85vw, 15px);
     }
 
+    #userModal .form-group input,
+    #userModal .form-group select,
     .form-group input,
     .form-group select {
         font-size: clamp(9px, 0.85vw, 14px);
     }
 
+    #userModal .permission-label,
     .permission-label {
         font-size: clamp(9px, 0.85vw, 14px);
     }
 
+    #userModal .permission-icon,
     .permission-icon {
         height: 16px;
     }
 
     /* 1024px：左侧 Permissions + Select All/Clear All 稳定在底线上方 */
+    #userModal .user-modal-content .modal-body,
     .modal-content.edit-mode .modal-body {
         max-height: min(calc(100vh - 130px), 86vh);
         padding-bottom: clamp(52px, 5vw, 72px);
     }
 
+    #userModal .user-modal-content .user-info-panel,
     .modal-content.edit-mode .user-info-panel {
         min-height: 0;
         overflow-y: auto;
@@ -2911,6 +2918,7 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
         margin-top: -4px;
     }
 
+    #userModal .user-modal-content .sidebar-permissions-section .permissions-container,
     .modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
         max-height: min(200px, 23vh);
         overflow-y: auto;
@@ -2919,6 +2927,7 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
         /* 底部留空，最后一行不被裁切/遮挡 */
     }
 
+    #userModal .user-modal-content .sidebar-permissions-section .permissions-actions,
     .modal-content.edit-mode .edit-mode-permissions-container .permissions-actions {
         margin-top: clamp(2px, -2vw, 12px);
         margin-bottom: 0;
@@ -2926,10 +2935,12 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
         background-color: #fff;
     }
 
+    #userModal .account-label,
     .account-label {
         font-size: clamp(8px, 0.73vw, 12px) !important;
     }
 
+    #userModal .permissions-actions,
     .permissions-actions {
         padding-top: 12px;
     }

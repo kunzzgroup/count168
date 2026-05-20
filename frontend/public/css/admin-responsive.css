@@ -59,3 +59,67 @@
     pointer-events: none;
   }
 }
+
+/* ==========================================================================
+   Add / Edit User modal (#userModal) — three columns always (match design)
+   ========================================================================== */
+
+body.user-page #userModal .user-modal-card {
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+}
+
+@media (max-width: 1280px) {
+  body.user-page #userModal .user-modal-col--info {
+    flex: 0 0 clamp(280px, 28vw, 460px) !important;
+  }
+
+  body.user-page #userModal .account-grid.account-grid--four {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  body.user-page #userModal .user-modal-col {
+    padding: clamp(10px, 0.8vw, 16px);
+  }
+}
+
+@media (max-width: 1024px) {
+  body.user-page #userModal .user-modal-col--info {
+    flex: 0 0 clamp(220px, 24vw, 320px) !important;
+  }
+
+  body.user-page #userModal .account-grid.account-grid--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body.user-page #userModal .modal-body {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.user-page #userModal .user-modal-card {
+    min-width: 920px;
+  }
+
+  body.user-page #userModal .user-modal-content .user-info-panel {
+    min-height: 0;
+    overflow-y: auto;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-container {
+    max-height: min(200px, 23vh);
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding-bottom: 8px;
+  }
+
+  body.user-page #userModal .user-modal-content .sidebar-permissions-section .permissions-actions {
+    margin-top: clamp(2px, -2vw, 12px);
+    margin-bottom: 0;
+    flex-shrink: 0;
+    background-color: #fff;
+  }
+}
