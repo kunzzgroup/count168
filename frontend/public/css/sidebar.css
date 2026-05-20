@@ -1467,6 +1467,16 @@ body.ec-auth-shell .informationmenu .submenu-item {
         padding: 0.6rem 1.2rem !important;
         font-size: 1.1rem !important;
     }
+
+    body.ec-auth-shell .informationmenu.is-collapsed .user-info-container {
+        padding: 0.4rem !important;
+        margin-right: 0 !important;
+    }
+
+    body.ec-auth-shell .informationmenu.is-collapsed .current-avatar {
+        width: 2.25rem !important;
+        height: 2.25rem !important;
+    }
 }
 
 /* Same keyframe names as login-shadcn.css so sidebar ios26 matches login (dashboard does not load login-shadcn) */
@@ -1511,14 +1521,14 @@ body.ec-auth-shell .informationmenu .submenu-item {
 }
 
 /* =============================================================================
-   Tablet sidebar: collapse to icon-only + fix long menu label truncation
+   Tablet sidebar: hamburger toggle + icon-only collapse
    ============================================================================= */
 
-.sidebar-collapse-toggle {
-    width: 32px;
-    height: 32px;
+.sidebar-hamburger-toggle {
+    width: 36px;
+    height: 36px;
     border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 8px;
+    border-radius: 10px;
     background: rgba(255, 255, 255, 0.12);
     color: #fff;
     display: none;
@@ -1527,16 +1537,48 @@ body.ec-auth-shell .informationmenu .submenu-item {
     cursor: pointer;
     flex-shrink: 0;
     padding: 0;
-    transition: background 0.2s ease, transform 0.2s ease;
+    transition: background 0.2s ease;
 }
 
-.sidebar-collapse-toggle:hover {
+.sidebar-hamburger-toggle:hover {
     background: rgba(255, 255, 255, 0.22);
 }
 
-.sidebar-collapse-toggle svg {
+.sidebar-hamburger-box {
     width: 18px;
-    height: 18px;
+    height: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+.sidebar-hamburger-line {
+    display: block;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    transform-origin: center;
+    transition: transform 0.25s ease, opacity 0.2s ease;
+}
+
+.sidebar-hamburger-toggle.is-active .sidebar-hamburger-line:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+}
+
+.sidebar-hamburger-toggle.is-active .sidebar-hamburger-line:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+
+.sidebar-hamburger-toggle.is-active .sidebar-hamburger-line:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+}
+
+.sidebar-menu-label {
+    flex: 1;
+    min-width: 0;
 }
 
 @media (max-width: 1024px) {
@@ -1546,7 +1588,7 @@ body.ec-auth-shell .informationmenu .submenu-item {
         gap: 8px;
     }
 
-    .sidebar-collapse-toggle {
+    .sidebar-hamburger-toggle {
         display: inline-flex;
     }
 
@@ -1581,8 +1623,9 @@ body.ec-auth-shell .informationmenu .submenu-item {
     .informationmenu.is-collapsed .user-info,
     .informationmenu.is-collapsed .sidebar-lang-switch-wrap,
     .informationmenu.is-collapsed .company-expiration-countdown,
-    .informationmenu.is-collapsed .content-separator {
-        display: none;
+    .informationmenu.is-collapsed .content-separator,
+    .informationmenu.is-collapsed .sidebar-menu-label {
+        display: none !important;
     }
 
     .informationmenu.is-collapsed .informationmenu-header {
@@ -1590,13 +1633,15 @@ body.ec-auth-shell .informationmenu .submenu-item {
     }
 
     .informationmenu.is-collapsed .header-logo-section {
-        margin-bottom: 4px;
+        margin-bottom: 6px;
+        justify-content: center;
     }
 
     .informationmenu.is-collapsed .user-info-container {
         padding: 4px;
         margin-right: 0;
         min-height: auto;
+        justify-content: center;
     }
 
     .informationmenu.is-collapsed .avatar-selector-container {
@@ -1609,16 +1654,19 @@ body.ec-auth-shell .informationmenu .submenu-item {
         height: 36px;
     }
 
+    .informationmenu.is-collapsed .informationmenu-content {
+        overflow-x: hidden;
+    }
+
     .informationmenu.is-collapsed .informationmenu-section-title {
-        font-size: 0;
         justify-content: center;
-        padding: 10px 6px;
+        padding: 10px 0;
         border-radius: 12px;
-        margin: 0 4px;
+        margin: 2px 6px;
         white-space: nowrap;
-        text-overflow: clip;
-        overflow: visible;
+        overflow: hidden;
         transform: none;
+        gap: 0;
     }
 
     .informationmenu.is-collapsed .informationmenu-section-title:hover {
@@ -1629,16 +1677,40 @@ body.ec-auth-shell .informationmenu .submenu-item {
         width: 22px;
         height: 22px;
         margin-right: 0;
+        flex-shrink: 0;
+    }
+
+    body.ec-auth-shell .informationmenu.is-collapsed .informationmenu-section-title {
+        padding: 0.65rem 0 !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+        justify-content: center !important;
+        overflow: hidden !important;
+    }
+
+    body.ec-auth-shell .informationmenu.is-collapsed .sidebar-menu-label {
+        display: none !important;
+        width: 0 !important;
+        max-width: 0 !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
 
     body.ec-auth-shell .informationmenu.is-collapsed .section-icon {
-        width: 1.6rem !important;
-        height: 1.6rem !important;
+        width: 1.35rem !important;
+        height: 1.35rem !important;
         margin-right: 0 !important;
     }
 
     .informationmenu.is-collapsed .section-arrow {
-        display: none;
+        display: none !important;
+    }
+
+    .informationmenu.is-collapsed .informationmenu-section-title.current-page,
+    .informationmenu.is-collapsed .informationmenu-section-title.active {
+        margin-left: 6px;
+        margin-right: 6px;
     }
 
     .informationmenu.is-collapsed .informationmenu-footer {
