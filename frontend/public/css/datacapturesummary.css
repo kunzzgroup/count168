@@ -649,14 +649,20 @@ body {
         }
 
         /*
-         * Shared AccountModal (#account-addModal): use accountCSS.css (same as Account List).
-         * Only layer above Edit Formula + offset for dashboard sidebar — do NOT override modal content width.
+         * Shared AccountModal (#account-addModal): center in full viewport (not sidebar-offset).
          */
         body.dashboard-page #account-addModal.account-modal {
             z-index: 10001;
-            padding-left: clamp(150px, 13.02vw, 250px);
-            padding-right: clamp(16px, 2vw, 28px);
+            padding: 0;
             box-sizing: border-box;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.dashboard-page #account-addModal .account-modal-content {
+            top: auto;
+            margin: 0;
+            transform: none;
         }
 
         body.dashboard-page .user-modal-company-picker-root--above-modals {
