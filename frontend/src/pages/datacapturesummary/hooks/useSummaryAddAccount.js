@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import {
   DEFAULT_FORM,
@@ -20,11 +20,6 @@ function normalizeCompanyRow(row) {
 function isVirtualGroupLinkCompanyRow(c) {
   const ls = c?.link_source_group ?? c?.linkSourceGroup;
   return ls != null && String(ls).trim() !== "";
-}
-
-function hideLegacySummaryAddAccountModal() {
-  const legacy = document.getElementById("addModal");
-  if (legacy) legacy.style.display = "none";
 }
 
 /**
@@ -51,12 +46,7 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
   const [selectedCurrencyIds, setSelectedCurrencyIds] = useState([]);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
   const [currencyInput, setCurrencyInput] = useState("");
-
-  const openingRef = useRef(false);
-  const companyIdRef = useRef(companyId);
-  const notifyRef = useRef(notify);
-  companyIdRef.current = companyId;
-  notifyRef.current = notify;
+  const [opening, setOpening] = useState(false);
 
   const orderedRoles = useMemo(() => getOrderedRoles(roles), [roles]);
   const companyButtons = useMemo(
@@ -85,59 +75,55 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
     };
   }, [companyId]);
 
-  const loadSelectionMeta = useCallback(async (accountId) => {
-    const cid = companyIdRef.current;
-    const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
-    if (accountId) currencyParams.set("account_id", String(accountId));
-    if (cid) currencyParams.set("company_id", String(cid));
-    const companyUrl = accountId
-      ? `api/accounts/account_company_api.php?action=get_available_companies&account_id=${accountId}`
-      : "api/accounts/account_company_api.php?action=get_available_companies";
+  const loadSelectionMeta = useCallback(
+    async (accountId) => {
+      const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
+      if (accountId) currencyParams.set("account_id", String(accountId));
+      if (companyId) currencyParams.set("company_id", String(companyId));
+      const companyUrl = accountId
+        ? `api/accounts/account_company_api.php?action=get_available_companies&account_id=${accountId}`
+        : "api/accounts/account_company_api.php?action=get_available_companies";
 
-    const [curRes, compRes] = await Promise.all([
-      fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), {
-        credentials: "include",
-      }),
-      fetch(buildApiUrl(companyUrl), { credentials: "include" }),
-    ]);
-    const curJ = await curRes.json();
-    const compJ = await compRes.json();
+      const [curRes, compRes] = await Promise.all([
+        fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), {
+          credentials: "include",
+        }),
+        fetch(buildApiUrl(companyUrl), { credentials: "include" }),
+      ]);
+      const curJ = await curRes.json();
+      const compJ = await compRes.json();
 
-    if (curJ.success && Array.isArray(curJ.data)) {
-      setCurrencies(curJ.data.map((c) => ({ id: c.id, code: c.code, is_linked: !!c.is_linked })));
-      setSelectedCurrencyIds([]);
-    }
-    if (compJ.success && Array.isArray(compJ.data)) {
-      const linked = compJ.data.filter((c) => c.is_linked).map((c) => Number(c.id));
-      setSelectedCompanyIds(linked.length ? linked : cid ? [Number(cid)] : []);
-    }
-  }, []);
+      if (curJ.success && Array.isArray(curJ.data)) {
+        setCurrencies(curJ.data.map((c) => ({ id: c.id, code: c.code, is_linked: !!c.is_linked })));
+        setSelectedCurrencyIds([]);
+      }
+      if (compJ.success && Array.isArray(compJ.data)) {
+        const linked = compJ.data.filter((c) => c.is_linked).map((c) => Number(c.id));
+        setSelectedCompanyIds(linked.length ? linked : companyId ? [Number(companyId)] : []);
+      }
+    },
+    [companyId]
+  );
 
   const resetToAdd = useCallback(() => {
-    const cid = companyIdRef.current;
     setForm({ ...DEFAULT_FORM, payment_alert: "0" });
     setSelectedCurrencyIds([]);
-    setSelectedCompanyIds(cid ? [Number(cid)] : []);
+    setSelectedCompanyIds(companyId ? [Number(companyId)] : []);
     setCurrencyInput("");
-  }, []);
+  }, [companyId]);
 
   const closeAddAccount = useCallback(() => {
-    hideLegacySummaryAddAccountModal();
     setOpen(false);
     resetToAdd();
-    openingRef.current = false;
   }, [resetToAdd]);
 
   const showAddAccount = useCallback(async () => {
-    const cid = companyIdRef.current;
-    const notifyFn = notifyRef.current;
-    if (!cid) {
-      notifyFn?.(t("pleaseSelectCompanyFirst"), "", "danger");
+    if (!companyId) {
+      notify?.(t("pleaseSelectCompanyFirst"), "", "danger");
       return;
     }
-    if (openingRef.current) return;
-    openingRef.current = true;
-    hideLegacySummaryAddAccountModal();
+    if (opening) return;
+    setOpening(true);
     try {
       const editRes = await fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" });
       const editJson = await editRes.json();
@@ -146,39 +132,20 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
       await loadSelectionMeta(null);
       setOpen(true);
     } catch {
-      notifyFn?.(t("errorLoadingAccount"), "", "danger");
+      notify?.(t("errorLoadingAccount"), "", "danger");
     } finally {
-      openingRef.current = false;
+      setOpening(false);
     }
-  }, [loadSelectionMeta, resetToAdd, t]);
-
-  const showAddAccountRef = useRef(showAddAccount);
-  showAddAccountRef.current = showAddAccount;
-  const closeAddAccountRef = useRef(closeAddAccount);
-  closeAddAccountRef.current = closeAddAccount;
-
-  useEffect(() => {
-    window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ = () => {
-      void showAddAccountRef.current();
-    };
-    window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__ = () => {
-      closeAddAccountRef.current();
-    };
-
-    return () => {
-      delete window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__;
-      delete window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__;
-    };
-  }, []);
+  }, [companyId, loadSelectionMeta, notify, opening, resetToAdd, t]);
 
   const createCurrency = useCallback(
     async (e) => {
       if (e?.preventDefault) e.preventDefault();
       const code = toUpper(currencyInput).trim();
       if (!code) return;
-      const targetCompany = selectedCompanyIds[0] || companyIdRef.current;
+      const targetCompany = selectedCompanyIds[0] || companyId;
       if (!targetCompany) {
-        notifyRef.current?.(t("pleaseSelectCompanyFirst"), "", "danger");
+        notify?.(t("pleaseSelectCompanyFirst"), "", "danger");
         return;
       }
       try {
@@ -190,16 +157,16 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
         });
         const json = await res.json();
         if (!json.success || !json.data) {
-          notifyRef.current?.(apiMsg(json, "createFailed"), "", "danger");
+          notify?.(apiMsg(json, "createFailed"), "", "danger");
           return;
         }
         setCurrencies((prev) => [...prev, { id: json.data.id, code: json.data.code, is_linked: false }]);
         setCurrencyInput("");
       } catch {
-        notifyRef.current?.(t("createFailed"), "", "danger");
+        notify?.(t("createFailed"), "", "danger");
       }
     },
-    [apiMsg, currencyInput, selectedCompanyIds, t]
+    [apiMsg, companyId, currencyInput, notify, selectedCompanyIds, t]
   );
 
   const removeCurrency = useCallback(
@@ -213,16 +180,16 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
         });
         const json = await res.json();
         if (!json.success) {
-          notifyRef.current?.(apiMsg(json, "failedDeleteCurrency"), "", "danger");
+          notify?.(apiMsg(json, "failedDeleteCurrency"), "", "danger");
           return;
         }
         setCurrencies((prev) => prev.filter((c) => Number(c.id) !== Number(cid)));
         setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== Number(cid)));
       } catch {
-        notifyRef.current?.(t("failedDeleteCurrency"), "", "danger");
+        notify?.(t("failedDeleteCurrency"), "", "danger");
       }
     },
-    [apiMsg, t]
+    [apiMsg, notify, t]
   );
 
   const submitAddAccount = useCallback(
@@ -230,7 +197,7 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
       e.preventDefault();
       const alertAmount = normalizeAlertAmount(form.alert_amount);
       if (form.payment_alert === "1" && (!form.alert_type || !form.alert_start_date)) {
-        notifyRef.current?.(t("paymentAlertRequiredFields"), "", "danger");
+        notify?.(t("paymentAlertRequiredFields"), "", "danger");
         return;
       }
 
@@ -245,7 +212,7 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
         fd.set("alert_amount", "");
       }
       if (selectedCompanyIds.length) fd.set("company_ids", JSON.stringify(selectedCompanyIds));
-      if (companyIdRef.current) fd.set("company_id", String(companyIdRef.current));
+      if (companyId) fd.set("company_id", String(companyId));
       if (selectedCurrencyIds.length) fd.set("currency_ids", JSON.stringify(selectedCurrencyIds));
 
       try {
@@ -256,7 +223,7 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
         });
         const json = await res.json();
         if (!json.success) {
-          notifyRef.current?.(apiMsg(json, "saveFailed"), "", "danger");
+          notify?.(apiMsg(json, "saveFailed"), "", "danger");
           return;
         }
 
@@ -287,18 +254,40 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
           );
         }
 
-        closeAddAccountRef.current();
-        notifyRef.current?.(t("accountSavedSuccessfully"), "", "success");
+        closeAddAccount();
+        notify?.(t("accountSavedSuccessfully"), "", "success");
 
         if (scriptsReady && typeof window.refreshAccountList === "function") {
           await window.refreshAccountList(newAccountId);
         }
       } catch {
-        notifyRef.current?.(t("saveFailed"), "", "danger");
+        notify?.(t("saveFailed"), "", "danger");
       }
     },
-    [apiMsg, form, scriptsReady, selectedCompanyIds, selectedCurrencyIds, t]
+    [
+      apiMsg,
+      closeAddAccount,
+      companyId,
+      form,
+      notify,
+      scriptsReady,
+      selectedCompanyIds,
+      selectedCurrencyIds,
+      t,
+    ]
   );
+
+  useEffect(() => {
+    window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ = () => {
+      void showAddAccount();
+    };
+    window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__ = closeAddAccount;
+
+    return () => {
+      delete window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__;
+      delete window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__;
+    };
+  }, [showAddAccount, closeAddAccount]);
 
   return {
     open,

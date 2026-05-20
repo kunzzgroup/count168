@@ -31,7 +31,7 @@ export function useSummaryTableBridge({ hasCaptureData, processData }) {
   useLayoutEffect(() => {
     window.__SUMMARY_REACT_TABLE__ = true;
     return () => {
-      /* Keep __SUMMARY_REACT_TABLE__ for SPA — clearing it sends Add Account to legacy #addModal */
+      delete window.__SUMMARY_REACT_TABLE__;
     };
   }, []);
 
