@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/dataCaptureRoundStorage.js";
@@ -70,6 +70,7 @@ export default function AuthenticatedLayout() {
   );
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
   const sidebarIconOnly = isTabletViewport && sidebarCollapsed;
+  const sidebarTabletExpanded = isTabletViewport && !sidebarCollapsed;
 
   /* useLayoutEffect: before paint — body.bg uses display:flex and centers #root (login shell); leaving it for one frame breaks full-width hit targets on Domain, etc. */
   useLayoutEffect(() => {
@@ -109,16 +110,37 @@ export default function AuthenticatedLayout() {
 
   useEffect(() => {
     document.body.classList.toggle("sidebar-collapsed", sidebarIconOnly);
-    return () => document.body.classList.remove("sidebar-collapsed");
-  }, [sidebarIconOnly]);
+    document.body.classList.toggle("sidebar-tablet-expanded", sidebarTabletExpanded);
+    return () => {
+      document.body.classList.remove("sidebar-collapsed", "sidebar-tablet-expanded");
+    };
+  }, [sidebarIconOnly, sidebarTabletExpanded]);
 
-  const toggleSidebarCollapse = () => {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, next ? "1" : "0");
-      return next;
-    });
+  const collapseSidebar = useCallback(() => {
+    setSidebarCollapsed(true);
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "1");
+  }, []);
+
+  const expandSidebar = useCallback(() => {
+    setSidebarCollapsed(false);
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "0");
+  }, []);
+
+  const onHamburgerClick = (e) => {
+    e.stopPropagation();
+    if (sidebarCollapsed) expandSidebar();
   };
+
+  const path = location.pathname;
+  const prevPathRef = useRef(path);
+  useEffect(() => {
+    if (!isTabletViewport || sidebarCollapsed) {
+      prevPathRef.current = path;
+      return;
+    }
+    if (prevPathRef.current !== path) collapseSidebar();
+    prevPathRef.current = path;
+  }, [path, isTabletViewport, sidebarCollapsed, collapseSidebar]);
 
   const sidebarMenuTitle = (label) => (sidebarIconOnly ? label : undefined);
 
@@ -252,7 +274,6 @@ export default function AuthenticatedLayout() {
       navigate("/login", { replace: true });
     }
   };
-  const path = location.pathname;
   const isProcessPage = path === "/process-list" || path === "/bank-process-list";
   const applyLanguage = (nextLang) => {
     const normalized = nextLang === "zh" ? "zh" : "en";
@@ -277,15 +298,19 @@ export default function AuthenticatedLayout() {
 
   return (
     <>
-      <div className="informationmenu-overlay" style={{ display: "none" }} aria-hidden="true" />
-      <div className={`informationmenu${sidebarIconOnly ? " is-collapsed" : ""}`}>
+      <div
+        className={`informationmenu-overlay sidebar-dismiss-overlay${sidebarTabletExpanded ? " show" : ""}`}
+        onClick={collapseSidebar}
+        aria-hidden={!sidebarTabletExpanded}
+      />
+      <div className={`informationmenu${sidebarIconOnly ? " is-collapsed" : ""}`} onClick={(e) => e.stopPropagation()}>
         <div className="informationmenu-header">
           <div className="header-logo-section">
             {isTabletViewport && (
               <button
                 type="button"
-                className={`sidebar-hamburger-toggle${sidebarCollapsed ? "" : " is-active"}`}
-                onClick={toggleSidebarCollapse}
+                className="sidebar-hamburger-toggle"
+                onClick={onHamburgerClick}
                 aria-label={sidebarCollapsed ? i18n.sidebarExpand : i18n.sidebarCollapse}
                 aria-expanded={!sidebarCollapsed}
                 title={sidebarCollapsed ? i18n.sidebarExpand : i18n.sidebarCollapse}

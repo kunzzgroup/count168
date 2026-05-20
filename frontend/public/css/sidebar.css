@@ -1527,21 +1527,36 @@ body.ec-auth-shell .informationmenu .submenu-item {
 .sidebar-hamburger-toggle {
     width: 36px;
     height: 36px;
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    border: 1px solid rgba(14, 147, 243, 0.65);
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
+    background: linear-gradient(
+        165deg,
+        rgba(14, 147, 243, 0.45) 0%,
+        rgba(0, 45, 73, 0.95) 100%
+    );
+    color: var(--sidebar-menu-text, #ffffff);
+    box-shadow:
+        0 2px 8px rgba(0, 45, 73, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
     display: none;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
     padding: 0;
-    transition: background 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .sidebar-hamburger-toggle:hover {
-    background: rgba(255, 255, 255, 0.22);
+    border-color: var(--sidebar-active-bg, #0e93f3);
+    background: linear-gradient(
+        165deg,
+        rgba(14, 147, 243, 0.65) 0%,
+        rgba(0, 45, 73, 1) 100%
+    );
+    box-shadow:
+        0 4px 12px rgba(14, 147, 243, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .sidebar-hamburger-box {
@@ -1558,22 +1573,8 @@ body.ec-auth-shell .informationmenu .submenu-item {
     width: 100%;
     height: 2px;
     border-radius: 2px;
-    background: currentColor;
-    transform-origin: center;
-    transition: transform 0.25s ease, opacity 0.2s ease;
-}
-
-.sidebar-hamburger-toggle.is-active .sidebar-hamburger-line:nth-child(1) {
-    transform: translateY(6px) rotate(45deg);
-}
-
-.sidebar-hamburger-toggle.is-active .sidebar-hamburger-line:nth-child(2) {
-    opacity: 0;
-    transform: scaleX(0);
-}
-
-.sidebar-hamburger-toggle.is-active .sidebar-hamburger-line:nth-child(3) {
-    transform: translateY(-6px) rotate(-45deg);
+    background: var(--sidebar-active-bg, #0e93f3);
+    box-shadow: 0 0 6px rgba(14, 147, 243, 0.45);
 }
 
 .sidebar-menu-label {
@@ -1582,6 +1583,16 @@ body.ec-auth-shell .informationmenu .submenu-item {
 }
 
 @media (max-width: 1200px) {
+    /* 平板侧栏展开：点击主内容区遮罩收起（无 ✕ 动画） */
+    .informationmenu-overlay.sidebar-dismiss-overlay.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        background: rgba(0, 45, 73, 0.42);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+    }
+
     .header-logo-section {
         flex-wrap: wrap;
         justify-content: center;
@@ -1590,6 +1601,10 @@ body.ec-auth-shell .informationmenu .submenu-item {
 
     .sidebar-hamburger-toggle {
         display: inline-flex;
+    }
+
+    body.ec-auth-shell.sidebar-tablet-expanded .informationmenu {
+        z-index: 1001;
     }
 
     /* Expanded tablet: allow long labels (e.g. Transaction Payment) to wrap */
