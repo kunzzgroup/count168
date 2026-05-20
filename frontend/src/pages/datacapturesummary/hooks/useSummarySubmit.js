@@ -23,6 +23,7 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess }) {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     setSubmitting(true);
+    window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__?.();
 
     try {
       const totalValidation = validateSummarySubmitTotal();

@@ -3874,12 +3874,23 @@ window.loadAddAccountModalData = loadAddAccountModalData;
 window.__SUMMARY_RESET_ADD_ACCOUNT_MODAL__ = resetAddAccountModalDom;
 
 async function addAccount() {
-    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
-        return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+    const isSpa = window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ || window.__SUMMARY_REACT_TABLE__;
+    if (isSpa) {
+        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
+            return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+        }
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (typeof window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ === 'function') {
+            return window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__();
+        }
+        const legacy = document.getElementById('addModal');
+        if (legacy) legacy.style.display = 'none';
+        console.warn('[Summary] Add Account: React handler not ready; avoid legacy #addModal on SPA.');
+        return;
     }
     const modal = document.getElementById('addModal');
     if (!modal) {
-        console.warn('[Summary] Add Account: legacy #addModal missing; use SPA AccountModal.');
+        console.warn('[Summary] Add Account: legacy #addModal missing.');
         return;
     }
     modal.style.display = 'block';
