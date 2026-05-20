@@ -22,7 +22,7 @@ body.announcement-page {
 .announcement-page-container.container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
+    padding: 1px 40px 20px var(--layout-main-offset);
     padding-bottom: 40px;
     width: 100%;
     min-height: 100vh;

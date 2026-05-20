@@ -20,7 +20,7 @@ body {
         .container {
             max-width: none;
             margin: 0;
-            padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
+            padding: 1px 40px 20px var(--layout-main-offset);
             width: 100%;
             min-height: 100vh !important;
             height: auto !important;
@@ -935,7 +935,7 @@ body {
         /* Responsive Design */
         @media (max-width: 768px) {
             .container {
-                padding: 1px 20px 20px clamp(180px, 14.06vw, 270px);
+                padding: 1px 20px 20px var(--layout-main-offset);
             }
             
             .edit-formula-form-container .form-layout {

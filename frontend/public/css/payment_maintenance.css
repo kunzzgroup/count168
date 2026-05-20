@@ -31,7 +31,7 @@ body.dashboard-page.maintenance-page {
     max-width: none;
     margin: 0;
     /* 与 Domain/Customer Report、Transaction 主区一致：左侧 sidebar 留白 + 右侧响应式边距 */
-    padding: 1px clamp(20px, 2.08vw, 40px) 20px clamp(180px, 14.06vw, 270px);
+    padding: 1px clamp(20px, 2.08vw, 40px) 20px var(--layout-main-offset);
     width: 100%;
     min-height: 100vh;
     height: auto;

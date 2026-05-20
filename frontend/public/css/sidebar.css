@@ -1728,15 +1728,26 @@ body.ec-auth-shell .informationmenu .submenu-item {
         height: 20px;
     }
 
-    /* 主内容区：随侧栏宽（展开 15rem / 收起 4.5rem）自动贴合 */
+    /* 主内容区：随侧栏宽（展开 15rem / 收起 4.5rem）自动贴合 — 所有 Authenticated 页面 */
     body.ec-auth-shell .informationmenu {
         transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    /* #root 下页面顶层壳（与各页 .container / -container 一致） */
+    body.ec-auth-shell #root > :is(
+        .container,
+        .container-fluid.transaction-container,
+        .dashboard-container,
+        .own-container,
+        .datacapture-container,
+        [class*="-maintenance-page-root"],
+        [class*="-page-root"]
+    ),
     body.ec-auth-shell :is(
         .user-page .container,
         .account-page .container,
         .process-page .container,
+        .process-page--bank .container,
         .transaction-page .transaction-container,
         .dashboard-page .dashboard-container,
         .dashboard-page .container,
@@ -1747,12 +1758,28 @@ body.ec-auth-shell .informationmenu .submenu-item {
         .maintenance-page .container,
         .report-page .container,
         .ownership-page .container,
+        .ownership-page .own-container,
         .announcement-page .container,
-        .announcement-page .announcement-page-container
+        .announcement-page .announcement-page-container,
+        .transaction-page .container-fluid.transaction-container
     ) {
         padding-left: var(--layout-main-offset) !important;
         transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         box-sizing: border-box;
     }
+}
+
+/* 桌面端也使用变量，保证与侧栏宽度一致（非平板收起时等同原 clamp） */
+body.ec-auth-shell #root > :is(
+    .container,
+    .container-fluid.transaction-container,
+    .dashboard-container,
+    .own-container,
+    .datacapture-container,
+    [class$="-page-root"],
+    [class$="-maintenance-page-root"]
+) {
+    padding-left: var(--layout-main-offset);
+    box-sizing: border-box;
 }
 
