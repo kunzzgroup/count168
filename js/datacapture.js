@@ -17667,21 +17667,39 @@ function handleCellPaste(e) {
             return tokens;
         }
 
-        // 4.RETURN 专用：判断某个单元格是否像“公式列”
-        // 目的：
-        // - 避免把 Content（含字母、括号、-、数字）误判为公式，导致真正 Formula 列不被拆分
-        // - 只对纯数字/运算符组成的表达式进行拆分
+        // Payment History / Excel 复制时 Description 单元格内可能带换行，先压成单行再解析
+        function normalizeReturnPasteCell(raw) {
+            return String(raw == null ? '' : raw)
+                .replace(/[\r\n\u2028\u2029]+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        // 4.RETURN 专用：判断某个单元格是否应拆成「标签 + 数字列」
+        // 与 API_RETURN 一致：支持 Payment History 的「28WIN PROFIT : 64.77*(0.7)」；纯备注/Content 仍排除
         function isReturnFormulaCell(raw) {
             if (raw === null || raw === undefined) return false;
-            const s = String(raw).trim();
+            const s = normalizeReturnPasteCell(raw);
             if (!s) return false;
-            // 内容列/备注列通常含字母，直接排除
-            if (/[A-Za-z]/.test(s)) return false;
+
+            const isDatePattern = /^\d{2}[-/]\d{2}[-/]\d{4}$/.test(s) ||
+                /^\d{4}[-/]\d{2}[-/]\d{2}$/.test(s);
+            if (isDatePattern) return false;
+            if (!/\d/.test(s)) return false;
+
+            const hasParentheses = s.includes('(') || s.includes(')');
+            const hasColon = s.includes(':');
+            const hasMathOperators = s.includes('+') || s.includes('*') || s.includes('/');
+            const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators);
+
+            // Payment History Description：含字母但有「标签 : 公式」
+            if (/[A-Za-z]/.test(s)) {
+                return hasColonAndOperators;
+            }
+
             // 纯数字（包括 0.06、-104.14）不是公式
             const numericOnly = s.replace(/,/g, '');
             if (/^-?\d+(?:\.\d+)?$/.test(numericOnly)) return false;
-            // 必须同时包含数字与至少一个运算符/括号/方括号
-            if (!/\d/.test(s)) return false;
             if (!/[+\-*/()[\]]/.test(s)) return false;
             return true;
         }
@@ -17689,6 +17707,9 @@ function handleCellPaste(e) {
         // 4.RETURN：一行内已由 Tab 分列后的单元格数组（就地修改）：去尾冒号、按需展开公式列
         function processReturnRowTabCells(cells, lineNo) {
             const lineTag = `Line ${lineNo}`;
+            for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+                cells[colIndex] = normalizeReturnPasteCell(cells[colIndex]);
+            }
             for (let colIndex = 0; colIndex < cells.length; colIndex++) {
                 if (cells[colIndex] && cells[colIndex].endsWith(':') && !cells[colIndex].includes('(')) {
                     cells[colIndex] = cells[colIndex].slice(0, -1);
@@ -17822,6 +17843,9 @@ function handleCellPaste(e) {
                             console.log(`4.RETURN: Line ${i + 1} smart split result:`, columns.length, 'columns');
 
                             if (columns.length > 0) {
+                                for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+                                    columns[colIndex] = normalizeReturnPasteCell(columns[colIndex]);
+                                }
                                 // 处理所有列：去掉标签后的冒号
                                 for (let colIndex = 0; colIndex < columns.length; colIndex++) {
                                     if (columns[colIndex] && columns[colIndex].endsWith(':') && !columns[colIndex].includes('(')) {
@@ -18025,6 +18049,9 @@ function handleCellPaste(e) {
                     console.log('4.RETURN: Smart split result:', columns.length, 'columns');
 
                     if (columns.length > 0) {
+                        for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+                            columns[colIndex] = normalizeReturnPasteCell(columns[colIndex]);
+                        }
                         // 处理所有列：去掉标签后的冒号
                         for (let colIndex = 0; colIndex < columns.length; colIndex++) {
                             if (columns[colIndex] && columns[colIndex].endsWith(':') && !columns[colIndex].includes('(')) {
@@ -18042,6 +18069,35 @@ function handleCellPaste(e) {
 
                             if (isFormula) {
                                 hasFormula = true;
+                                let parsedFormula = null;
+                                if (cell.includes(':')) {
+                                    parsedFormula = parseApiReturnFormat(cell);
+                                }
+                                if (parsedFormula && parsedFormula.columns && parsedFormula.columns.length > 0) {
+                                    const parsedColumns = parsedFormula.columns;
+                                    let label = '';
+                                    let numbersToInsert = [];
+                                    const firstElement = parsedColumns[0];
+                                    if (firstElement && !/^-?\d+\.?\d*$/.test(firstElement)) {
+                                        label = firstElement.replace(':', '');
+                                        numbersToInsert = parsedColumns.slice(1);
+                                    } else {
+                                        numbersToInsert = parsedColumns;
+                                    }
+                                    if (label) {
+                                        columns[colIndex] = label;
+                                    } else {
+                                        columns[colIndex] = '';
+                                    }
+                                    if (numbersToInsert.length > 0) {
+                                        if (!label) {
+                                            columns.splice(colIndex, 1, ...numbersToInsert);
+                                        } else {
+                                            columns.splice(colIndex + 1, 0, ...numbersToInsert);
+                                        }
+                                    }
+                                    break;
+                                }
                                 // 解析公式列（支持 .11 / [1] 等 RETURN 特殊写法）
                                 const numbers = extractReturnTokens(cell);
                                 if (numbers.length > 0) {
