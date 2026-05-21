@@ -1667,8 +1667,55 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
     flex-wrap: wrap;
 }
 
-.bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-remark-actions .btn {
+.bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-remark-actions .btn,
+#addBankModal .bank-remark-actions .bank-note-open-btn {
     min-width: 120px;
+}
+
+.process-page #addBankModal .bank-remark-actions .bank-note-open-btn {
+    font-family: var(--font-heading-page);
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
+    min-width: 120px;
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
+    background: var(--btn-add-gradient);
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    --sweep-color: rgba(255, 255, 255, 0.2);
+}
+
+.process-page #addBankModal .bank-remark-actions .bank-note-open-btn:hover {
+    background: var(--btn-add-gradient-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+}
+
+.process-page #addBankModal .bank-remark-actions .bank-note-open-btn:active {
+    transform: translateY(0);
+}
+
+body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-open-btn {
+    font-size: var(--text-medium) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    min-width: 120px !important;
+    width: auto !important;
+    padding: clamp(6px, 0.42vw, 8px) 20px !important;
+    border-radius: 6px !important;
+    height: auto !important;
+}
+
+body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-open-btn:hover {
+    transform: translateY(-1px) !important;
 }
 
 .bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-input {

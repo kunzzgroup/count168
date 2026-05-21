@@ -392,8 +392,8 @@ export default function BankProcessFormModal({
                   </div>
                   <div className="form-group bank-remark-wrap" style={{ marginTop: 12 }}>
                     <div className="bank-remark-actions">
-                      <button type="button" id="bank_sop_btn" className="btn btn-save" onClick={() => onOpenBankFormNoteModal("sop")}>{t("sop")}</button>
-                      <button type="button" id="bank_remark_btn" className="btn btn-save" onClick={() => onOpenBankFormNoteModal("remark")}>{t("remark")}</button>
+                      <button type="button" id="bank_sop_btn" className="btn btn-save bank-note-open-btn" onClick={() => onOpenBankFormNoteModal("sop")}>{t("sop")}</button>
+                      <button type="button" id="bank_remark_btn" className="btn btn-save bank-note-open-btn" onClick={() => onOpenBankFormNoteModal("remark")}>{t("remark")}</button>
                     </div>
                     {(form.sop || form.remark) ? (
                       <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>{[form.sop && t("sopFilled"), form.remark && t("remarkFilled")].filter(Boolean).join(" · ")}</p>
