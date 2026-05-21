@@ -31,8 +31,6 @@ export default function TransactionMaintenanceFilters({
   selectedGroup,
   onGroupClick,
   onSwitchCompany,
-  onExport,
-  canExport,
   m,
 }) {
   const normalize = (value) => String(value || "").toUpperCase().trim();
@@ -111,17 +109,6 @@ export default function TransactionMaintenanceFilters({
           monthLabels={m.monthsShort}
           weekdaysShort={m.weekdaysShort}
         />
-
-        <div className="maintenance-actions-top">
-          <button
-            type="button"
-            className="maintenance-export-btn"
-            onClick={onExport}
-            disabled={!canExport}
-          >
-            {m.export}
-          </button>
-        </div>
       </div>
 
       <div className="maintenance-filter-row">

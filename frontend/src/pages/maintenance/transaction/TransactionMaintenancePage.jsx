@@ -20,7 +20,6 @@ import {
   isBankOnlyCategoryCompany,
   searchTransactionData,
   updateSessionCompany,
-  exportTransactionMaintenanceCsv,
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
@@ -489,26 +488,6 @@ export default function TransactionMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
   };
 
-  const handleExport = useCallback(() => {
-    try {
-      const count = exportTransactionMaintenanceCsv({
-        data: transactionData,
-        m,
-        companyCode,
-        dateFrom,
-        dateTo,
-      });
-      notify(t("exportSuccess", { n: count }), "success");
-    } catch (err) {
-      notify(err?.message || t("exportFailed"), "error");
-    }
-  }, [transactionData, m, companyCode, dateFrom, dateTo, notify, t]);
-
-  const canExport =
-    listRowCount > 0 &&
-    !transactionQuery.isFetching &&
-    !showListSkeleton;
-
   if (bootLoading || !me || !cssReady) return null;
 
   return (
@@ -549,8 +528,6 @@ export default function TransactionMaintenancePage() {
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
           onSwitchCompany={handleSwitchCompany}
-          onExport={handleExport}
-          canExport={canExport}
           m={m}
         />
 
