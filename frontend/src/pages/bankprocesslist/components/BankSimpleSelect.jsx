@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { getProcessModalDropdownZIndex } from "../../../components/ProcessModalPortal.jsx";
 
 const PORTAL_MIN_WIDTH = 180;
 
@@ -44,7 +45,7 @@ export default function BankSimpleSelect({
       maxWidth: `${width}px`,
       top: openBelow ? `${rect.bottom + 2}px` : "auto",
       bottom: openBelow ? "auto" : `${window.innerHeight - rect.top + 2}px`,
-      zIndex: 10001,
+      zIndex: getProcessModalDropdownZIndex(wrapRef.current),
     });
   }, []);
 

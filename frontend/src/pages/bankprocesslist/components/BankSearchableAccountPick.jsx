@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { getProcessModalDropdownZIndex } from "../../../components/ProcessModalPortal.jsx";
 import { filterBankPickAccounts, formatBankAccountDisplay } from "../bankProcessHelpers.js";
 
 const PORTAL_MIN_WIDTH = 220;
@@ -45,7 +46,7 @@ export default function BankSearchableAccountPick({ value, onChange, accounts, d
       maxWidth: `${width}px`,
       top: openBelow ? `${rect.bottom + 2}px` : "auto",
       bottom: openBelow ? "auto" : `${window.innerHeight - rect.top + 2}px`,
-      zIndex: 10001,
+      zIndex: getProcessModalDropdownZIndex(wrapRef.current),
     });
   }, []);
 

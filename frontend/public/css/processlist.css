@@ -2324,6 +2324,8 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
     background: #ffffff;
     overflow: hidden;
+    /* Above ProcessModalPortal backdrop (10050); inline style from JS may raise further in nested modals */
+    z-index: 10060;
 }
 
 #addBankModal .custom-select-dropdown.custom-select-dropdown-portal,
