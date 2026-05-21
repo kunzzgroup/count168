@@ -892,6 +892,7 @@ export default function UserListPage() {
             </div>
           </div>
           <div className={`user-table-wrapper user-list-table${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
+            <div className="user-list-table-inner">
             <div className="table-header user-list-table-header">
               <div
                 className="header-item header-item--with-sort-icon header-sortable"
@@ -1086,6 +1087,7 @@ export default function UserListPage() {
                 );
               })
               )}
+            </div>
             </div>
           </div>
           {!showAll && (

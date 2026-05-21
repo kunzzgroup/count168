@@ -49,10 +49,9 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  body.user-page .user-list-table .user-list-table-header,
-  body.user-page .user-list-table .user-list-row {
-    min-width: 980px;
-    width: max(100%, 980px);
+  body.user-page .user-list-table-inner {
+    min-width: max(100%, 980px);
+    width: 100%;
     box-sizing: border-box;
   }
 

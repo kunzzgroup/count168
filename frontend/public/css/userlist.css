@@ -97,26 +97,46 @@ body.user-page:not(.user-page--show-all) {
         48px;
 }
 
+.user-list-table {
+    width: 100%;
+}
+
+.user-list-table-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
+}
+
 .user-list-table .user-list-table-header,
 .user-list-table .user-list-row {
-    gap: 8px;
-    grid-template-columns: var(--user-list-grid-cols);
+    display: grid !important;
+    gap: 8px !important;
+    grid-template-columns: var(--user-list-grid-cols) !important;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .user-list-table.user-table-wrapper--bulk-delete-col .user-list-table-header,
 .user-list-table.user-table-wrapper--bulk-delete-col .user-list-row {
-    grid-template-columns: var(--user-list-grid-cols-bulk);
+    grid-template-columns: var(--user-list-grid-cols-bulk) !important;
 }
 
 .user-list-table .user-list-table-header {
-    padding: var(--table-header-height);
+    padding: var(--table-header-height) !important;
     margin-top: 8px;
-    gap: 8px;
 }
 
 .user-list-table .user-list-row {
-    padding: clamp(1px, 0.21vw, 4px) 22px;
-    gap: 8px;
+    padding: clamp(1px, 0.21vw, 4px) 22px !important;
+}
+
+.user-list-table .user-list-table-header .header-item,
+.user-list-table .user-list-row .card-item {
+    padding: 0 !important;
+    box-sizing: border-box;
 }
 
 .user-list-table .user-list-table-header .header-item:not(.header-item--select) {
@@ -2681,7 +2701,7 @@ body.process-page.process-page--bank .userlist-filter-chips--bank-process .user-
     border-radius: 0;
 }
 
-.table-header {
+.table-header:not(.user-list-table-header) {
     display: grid;
     /* 默认 9 列；勾选列见 .user-table-wrapper--bulk-delete-col */
     grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3.5fr) minmax(0, 2.6fr) minmax(0, 1.5fr) minmax(0, 2.5fr) minmax(0, 2fr) minmax(0, 1.95fr);
@@ -2724,9 +2744,9 @@ body.user-page .table-header .header-item.header-item--with-sort-icon .account-s
     flex-shrink: 0;
 }
 
-/* Show Inactive / Show All 时：第 10 列批量删除勾选（与表头全选对齐） */
-body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .table-header,
-body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .user-card {
+/* Show Inactive / Show All 时：第 10 列批量删除勾选（legacy 非 user-list-table 页面） */
+body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .table-header:not(.user-list-table-header),
+body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .user-card:not(.user-list-row) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3.5fr) minmax(0, 2.6fr) minmax(0, 1.5fr) minmax(0, 2.5fr) minmax(0, 2fr) minmax(0, 1.75fr) 48px;
 }
 
@@ -2778,7 +2798,7 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     min-height: 0;
 }
 
-.user-card {
+.user-card:not(.user-list-row) {
     display: none;
     grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3.5fr) minmax(0, 2.6fr) minmax(0, 1.5fr) minmax(0, 2.5fr) minmax(0, 2fr) minmax(0, 1.95fr);
     gap: 15px;
@@ -2791,9 +2811,12 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     /* 允许内容收缩 */
 }
 
-.user-card.show-card {
+.user-card.show-card:not(.user-list-row) {
     display: grid;
-    /* 添加新class来显示 */
+}
+
+.user-list-table .user-list-row.show-card {
+    display: grid !important;
 }
 
 .user-cards--settling .user-card.show-card {
