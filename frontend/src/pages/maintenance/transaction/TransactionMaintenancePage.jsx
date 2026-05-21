@@ -21,6 +21,8 @@ import {
   normalizeMaintenanceProcessFilter,
   searchTransactionData,
   updateSessionCompany,
+  isMaintenanceRecoverableError,
+  getMaintenanceSearchUserMessage,
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
@@ -139,18 +141,26 @@ export default function TransactionMaintenancePage() {
     gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
     retry: (failureCount, error) =>
-      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 2,
+      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 5,
+    retryDelay: (attempt) => Math.min(2500, 500 * (attempt + 1)),
   });
 
   const transactionData = transactionQuery.data ?? [];
   const listRowCount = transactionData.length;
-  /** 无上一屏数据且请求中：仅显示简洁 Loading 文案（不显示骨架行） */
+  const searchRecoverable =
+    transactionQuery.isError &&
+    listRowCount === 0 &&
+    isMaintenanceRecoverableError(transactionQuery.error);
+  /** 无数据：加载中或可恢复错误 — 显示 Loading，不出现 Search failed */
   const showListSkeleton =
     listQueryEnabled &&
-    (transactionQuery.isLoading || (transactionQuery.isFetching && listRowCount === 0));
+    listRowCount === 0 &&
+    (transactionQuery.isLoading ||
+      transactionQuery.isFetching ||
+      (searchRecoverable && !recoverableExhausted));
+  const recoverableRetryRef = useRef(0);
+  const [recoverableExhausted, setRecoverableExhausted] = useState(false);
   const lastToastKeyRef = useRef(null);
-  const lastErrorMsgRef = useRef(null);
-  const lastErrorQueryKeyRef = useRef("");
 
   const searchQueryKey = useMemo(
     () =>
@@ -165,9 +175,58 @@ export default function TransactionMaintenancePage() {
   );
 
   useEffect(() => {
-    lastErrorMsgRef.current = null;
-    lastErrorQueryKeyRef.current = "";
+    recoverableRetryRef.current = 0;
+    setRecoverableExhausted(false);
   }, [searchQueryKey]);
+
+  useEffect(() => {
+    if (!listQueryEnabled || !searchRecoverable || transactionQuery.isFetching) return;
+    if (recoverableRetryRef.current >= 10) {
+      setRecoverableExhausted(true);
+      return;
+    }
+
+    const delay = Math.min(4000, 700 * (recoverableRetryRef.current + 1));
+    const timer = window.setTimeout(() => {
+      recoverableRetryRef.current += 1;
+      transactionQuery.refetch({ cancelRefetch: false });
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [
+    listQueryEnabled,
+    searchRecoverable,
+    recoverableExhausted,
+    transactionQuery.isFetching,
+    transactionQuery.errorUpdatedAt,
+    searchQueryKey,
+    transactionQuery,
+  ]);
+
+  useEffect(() => {
+    if (transactionQuery.isSuccess) {
+      recoverableRetryRef.current = 0;
+      setRecoverableExhausted(false);
+    }
+  }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt]);
+
+  const listStatusMessage = useMemo(() => {
+    if (showListSkeleton) return t("searchRetrying");
+    if (recoverableExhausted) return t("searchRetryHint");
+    if (transactionQuery.isError && listRowCount === 0) {
+      return getMaintenanceSearchUserMessage(transactionQuery.error, {
+        loadingMessage: t("searchRetrying"),
+        narrowRangeMessage: t("searchRetryHint"),
+      });
+    }
+    return "";
+  }, [
+    showListSkeleton,
+    recoverableExhausted,
+    transactionQuery.isError,
+    transactionQuery.error,
+    listRowCount,
+    t,
+  ]);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -451,27 +510,6 @@ export default function TransactionMaintenancePage() {
     t,
   ]);
 
-  useEffect(() => {
-    if (!transactionQuery.isError || !transactionQuery.error) return;
-    if (transactionQuery.isFetching) return;
-    if (transactionQuery.error?.name === "AbortError" || isCancelledError(transactionQuery.error)) return;
-    const errorKey = `${searchQueryKey}:${transactionQuery.errorUpdatedAt ?? ""}`;
-    if (lastErrorQueryKeyRef.current === errorKey) return;
-    const msg = transactionQuery.error.message || t("searchFailed");
-    if (lastErrorMsgRef.current === msg) return;
-    lastErrorQueryKeyRef.current = errorKey;
-    lastErrorMsgRef.current = msg;
-    notify(msg, "error");
-  }, [
-    transactionQuery.isError,
-    transactionQuery.error,
-    transactionQuery.isFetching,
-    transactionQuery.errorUpdatedAt,
-    searchQueryKey,
-    notify,
-    t,
-  ]);
-
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
@@ -585,9 +623,8 @@ export default function TransactionMaintenancePage() {
         <TransactionMaintenanceTable
           data={transactionData}
           showSkeleton={showListSkeleton}
+          statusMessage={listStatusMessage}
           isPlaceholderData={transactionQuery.isPlaceholderData}
-          isError={transactionQuery.isError}
-          error={transactionQuery.error}
           m={m}
         />
       </div>

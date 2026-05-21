@@ -58,6 +58,10 @@ export const MAINTENANCE_I18N = {
     pleaseSelectDateRange: "Please select date range",
     noBankProcessTransactions: "No bank process transactions found",
     searchFailed: "Search failed",
+    searchRetrying: "Loading data…",
+    searchRetryHint: "Loading is taking longer. Try a shorter date range or select a Process.",
+    searchNetworkError:
+      "Network connection interrupted. Please retry or use a shorter date range.",
     searchRangeTooLarge:
       "This date range returns too much data. Narrow the dates or select a Process, then try again.",
 
@@ -172,6 +176,9 @@ export const MAINTENANCE_I18N = {
     pleaseSelectDateRange: "请选择日期范围",
     noBankProcessTransactions: "未找到银行流程交易",
     searchFailed: "搜索失败",
+    searchRetrying: "正在加载数据…",
+    searchRetryHint: "加载较慢，请缩小日期范围或选择 Process。",
+    searchNetworkError: "网络连接中断，请重试或缩小日期范围。",
     searchRangeTooLarge: "该日期段数据量过大，请缩小日期范围或选择 Process 后再试。",
 
     pageTitleDataCapture: "维护 - 数据采集",

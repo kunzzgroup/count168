@@ -105,18 +105,16 @@ function VirtualDataRow({ row, index }) {
 /**
  * @param {object} props
  * @param {Array} props.data
- * @param {boolean} props.showSkeleton — 无上一屏数据时的初次加载（显示表头 + 顶部蓝条，非居中 Loading 文案）
- * @param {boolean} props.isPlaceholderData — 正在拉取新 query，界面仍为上一查询数据
- * @param {boolean} props.isError
- * @param {Error | null} props.error
+ * @param {boolean} props.showSkeleton
+ * @param {string} props.statusMessage
+ * @param {boolean} props.isPlaceholderData
  * @param {object} props.m
  */
 export default function TransactionMaintenanceTable({
   data,
   showSkeleton,
+  statusMessage = "",
   isPlaceholderData,
-  isError,
-  error,
   m,
 }) {
   const scrollRef = useRef(null);
@@ -168,11 +166,16 @@ export default function TransactionMaintenanceTable({
     rowVirtualizer.measure();
   }, [rows, rowVirtualizer]);
 
-  if (isError && rows.length === 0 && !showSkeleton) {
+  if (rows.length === 0 && (showSkeleton || statusMessage)) {
+    const label = statusMessage || m.loading;
     return (
-      <div className="empty-state-container" style={{ display: "block" }}>
-        <div className="empty-state">
-          <p>{error?.message || m.searchFailed}</p>
+      <div className="maintenance-list-container maintenance-virtual-table" style={{ display: "block" }}>
+        <div className="maintenance-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
+          <TopLoadingBar label={label} />
+          <div className="maintenance-virtual-scroll" tabIndex={0}>
+            <VirtualTableHeader m={m} />
+            <div className="maintenance-virtual-empty-loading" aria-hidden />
+          </div>
         </div>
       </div>
     );

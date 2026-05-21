@@ -2,14 +2,14 @@ import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { formatDmy, parseDdMmYyyyToYmd, parseYmd } from "../../../utils/dateUtils.js";
 
 /** 宽日期兜底分片（后端已 SQL 分页，默认整段查询；仅超大范围才分片）。 */
-const MAINTENANCE_CHUNK_DAYS = 60;
-const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 400;
-const MAINTENANCE_PARALLEL_CHUNKS = 4;
+const MAINTENANCE_CHUNK_DAYS = 45;
+const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 120;
+const MAINTENANCE_PARALLEL_CHUNKS = 2;
 /** Page sizes tried in order when a response is still too large. */
-const MAINTENANCE_PAGE_SIZES = [5000, 2500, 1500, 1000, 500];
+const MAINTENANCE_PAGE_SIZES = [1500, 1000, 750, 500, 250];
 const MAINTENANCE_MAX_PAGES = 40;
-const MAINTENANCE_FETCH_RETRIES = 3;
-const MAINTENANCE_RETRY_BASE_MS = 250;
+const MAINTENANCE_FETCH_RETRIES = 4;
+const MAINTENANCE_RETRY_BASE_MS = 400;
 
 function isFetchAbortError(err, signal) {
   if (signal?.aborted) return true;
@@ -28,6 +28,7 @@ function sleep(ms) {
 }
 
 function isMaintenanceTransferError(err) {
+  if (err?.isMaintenanceTransfer) return true;
   const msg = String(err?.message || "").toLowerCase();
   return (
     msg.includes("failed to fetch") ||
@@ -35,13 +36,24 @@ function isMaintenanceTransferError(err) {
     msg.includes("network error") ||
     msg.includes("load failed") ||
     msg.includes("http2") ||
+    msg.includes("quic") ||
+    msg.includes("err_quic") ||
+    msg.includes("incomplete") ||
+    msg.includes("unexpected end") ||
     msg.includes("search failed (502)") ||
     msg.includes("search failed (503)") ||
     msg.includes("search failed (504)") ||
     msg.includes("search failed (413)") ||
     msg.includes("search failed (524)") ||
-    msg.includes("search failed (520)")
+    msg.includes("search failed (520)") ||
+    msg.includes("search failed (0)")
   );
+}
+
+function throwMaintenanceTransferError(message = "Failed to fetch") {
+  const err = new Error(message);
+  err.isMaintenanceTransfer = true;
+  throw err;
 }
 
 /**
@@ -376,23 +388,31 @@ async function searchTransactionMaintenanceOnce({
     });
   } catch (err) {
     rethrowIfAborted(err, signal);
-    throw new Error(err?.message || "Search failed");
+    if (isMaintenanceTransferError(err)) throw err;
+    throwMaintenanceTransferError(err?.message || "Failed to fetch");
   }
 
   let data;
   try {
     data = await response.json();
   } catch {
-    throw new Error(response.ok ? "Search failed" : `Search failed (${response.status})`);
+    if (!response.ok) {
+      const status = response.status || 0;
+      if (status >= 500 || status === 0 || status === 413 || status === 524) {
+        throwMaintenanceTransferError("Failed to fetch");
+      }
+      throw new Error(`HTTP ${status}`);
+    }
+    throwMaintenanceTransferError("Failed to fetch");
   }
 
   if (!response.ok || !data.success) {
     const detail = data.error || data.message;
-    throw new Error(
-      detail
-        ? `${detail}${response.ok ? "" : ` (HTTP ${response.status})`}`
-        : `Search failed (${response.status})`,
-    );
+    const status = response.status || 0;
+    if (!detail && (status >= 500 || status === 0 || status === 413 || status === 524)) {
+      throwMaintenanceTransferError("Failed to fetch");
+    }
+    throw new Error(detail || `HTTP ${status}`);
   }
 
   const rows = Array.isArray(data.data) ? data.data : [];
@@ -415,6 +435,22 @@ export async function updateSessionCompany(companyId) {
     throw new Error(result.error || 'Failed to update session company');
   }
   return result.data;
+}
+
+export function isMaintenanceRecoverableError(err) {
+  if (!err || err?.name === "AbortError") return false;
+  return isMaintenanceTransferError(err);
+}
+
+export function getMaintenanceSearchUserMessage(
+  err,
+  { loadingMessage = "Loading data…", narrowRangeMessage = "Loading is taking longer. Try a shorter date range or select a Process." } = {},
+) {
+  if (!err || isMaintenanceRecoverableError(err)) {
+    return loadingMessage;
+  }
+  const detail = String(err?.message || "").trim();
+  return detail || narrowRangeMessage;
 }
 
 export function formatAmount(value) {
