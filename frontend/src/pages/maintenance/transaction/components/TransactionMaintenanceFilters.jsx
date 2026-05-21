@@ -79,6 +79,7 @@ export default function TransactionMaintenanceFilters({
             </span>
             <div className="report-outlined-inner">
               <ProcessSelect
+                key={`process-select-${companyId ?? "none"}`}
                 processes={processes}
                 selectedValue={selectedProcess}
                 onSelect={setSelectedProcess}

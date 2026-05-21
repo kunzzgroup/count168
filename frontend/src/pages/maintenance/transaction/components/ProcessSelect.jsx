@@ -22,8 +22,14 @@ export default function ProcessSelect({
     return text.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
+  const isSelectAllOption = (process) =>
+    process == null ||
+    process.id == null ||
+    process.id === "" ||
+    process.process_name === placeholder;
+
   const displayProcesses = [
-    { id: "", process_name: placeholder },
+    { id: null, process_name: placeholder },
     ...filteredProcesses
   ];
 
@@ -50,14 +56,13 @@ export default function ProcessSelect({
   };
 
   const handleSelect = (process) => {
-    // Transaction maintenance uses process_name as value based on original JS
-    const value = process.id != null ? String(process.process_name) : "";
+    const value = isSelectAllOption(process) ? "" : String(process.process_name);
     onSelect(value);
     setIsOpen(false);
   };
 
   const getDisplayText = (value) => {
-    if (!value) return placeholder;
+    if (!value || value === placeholder) return placeholder;
     const p = processes.find(proc => String(proc.process_name) === value);
     if (!p) return placeholder;
     return p.description 
@@ -112,7 +117,7 @@ export default function ProcessSelect({
           <div className="custom-select-options">
             {displayProcesses.length > 0 ? (
               displayProcesses.map((p, index) => {
-                const value = p.id != null ? String(p.process_name) : "";
+                const value = isSelectAllOption(p) ? "" : String(p.process_name);
                 const text = p.id != null 
                   ? (p.description ? `${p.process_name} (${p.description})` : p.process_name)
                   : placeholder;

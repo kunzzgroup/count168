@@ -100,6 +100,17 @@ function formatMaintenanceIdProductLikeDataSummary(array $row): string
     return $product;
 }
 
+/** UNION 分支字符串列统一排序规则，避免 Illegal mix of collations。 */
+function maintenanceUnionTextExpr(string $expr): string
+{
+    return "CONVERT(($expr) USING utf8mb4) COLLATE utf8mb4_unicode_ci";
+}
+
+function maintenanceUnionNullTextCol(): string
+{
+    return "CONVERT((NULL) USING utf8mb4) COLLATE utf8mb4_unicode_ci";
+}
+
 /** 缓存 transactions.source_bank_process_id 列是否存在（避免每次 SHOW COLUMNS）。 */
 function maintenanceHasSourceBankCol(PDO $pdo): bool
 {
@@ -193,34 +204,34 @@ function maintenanceBuildTransactionUnionBranch(
 
     $sql = "
         SELECT
-            'transaction' AS data_type,
+            " . maintenanceUnionTextExpr("'transaction'") . " AS data_type,
             t.id AS transaction_id,
             NULL AS capture_id,
             NULL AS capture_detail_id,
-            NULL AS process_id,
-            a.account_id,
-            fa.account_id AS from_account,
-            t.description,
-            COALESCE(t.sms, '') AS remark,
-            COALESCE(c.code, '') AS currency_code,
+            " . maintenanceUnionNullTextCol() . " AS process_id,
+            " . maintenanceUnionTextExpr('a.account_id') . " AS account_id,
+            " . maintenanceUnionTextExpr('fa.account_id') . " AS from_account,
+            " . maintenanceUnionTextExpr('t.description') . " AS description,
+            " . maintenanceUnionTextExpr("COALESCE(t.sms, '')") . " AS remark,
+            " . maintenanceUnionTextExpr("COALESCE(c.code, '')") . " AS currency_code,
             COALESCE(t.amount, 0) AS amount,
             t.transaction_date,
             t.created_at AS sort_created_at,
-            DATE_FORMAT(t.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
-            COALESCE(u.login_id, o.owner_code) AS created_by,
+            " . maintenanceUnionTextExpr("DATE_FORMAT(t.created_at, '%d/%m/%Y %H:%i:%s')") . " AS dts_created,
+            " . maintenanceUnionTextExpr("COALESCE(u.login_id, o.owner_code, '-')") . " AS created_by,
             0 AS is_deleted,
-            NULL AS deleted_by,
-            NULL AS dts_deleted,
-            NULL AS source_value,
-            NULL AS source_percent,
+            " . maintenanceUnionNullTextCol() . " AS deleted_by,
+            " . maintenanceUnionNullTextCol() . " AS dts_deleted,
+            " . maintenanceUnionNullTextCol() . " AS source_value,
+            " . maintenanceUnionNullTextCol() . " AS source_percent,
             NULL AS rate,
-            NULL AS id_product,
-            NULL AS id_product_main,
-            NULL AS id_product_sub,
-            NULL AS product_type,
-            NULL AS description_main,
-            NULL AS description_sub,
-            NULL AS columns_value
+            " . maintenanceUnionNullTextCol() . " AS id_product,
+            " . maintenanceUnionNullTextCol() . " AS id_product_main,
+            " . maintenanceUnionNullTextCol() . " AS id_product_sub,
+            " . maintenanceUnionNullTextCol() . " AS product_type,
+            " . maintenanceUnionNullTextCol() . " AS description_main,
+            " . maintenanceUnionNullTextCol() . " AS description_sub,
+            " . maintenanceUnionNullTextCol() . " AS columns_value
         FROM transactions t
         INNER JOIN account a ON t.account_id = a.id
         LEFT JOIN account fa ON t.from_account_id = fa.id
@@ -260,34 +271,34 @@ function maintenanceBuildCaptureUnionBranch(
 
     $sql = "
         SELECT
-            'datacapture' AS data_type,
+            " . maintenanceUnionTextExpr("'datacapture'") . " AS data_type,
             NULL AS transaction_id,
             dc.id AS capture_id,
             dcd.id AS capture_detail_id,
-            p.process_id,
-            a.account_id,
-            NULL AS from_account,
-            COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
-            COALESCE(dc.remark, '') AS remark,
-            c.code AS currency_code,
+            " . maintenanceUnionTextExpr('p.process_id') . " AS process_id,
+            " . maintenanceUnionTextExpr('a.account_id') . " AS account_id,
+            " . maintenanceUnionNullTextCol() . " AS from_account,
+            " . maintenanceUnionTextExpr("COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture')") . " AS description,
+            " . maintenanceUnionTextExpr("COALESCE(dc.remark, '')") . " AS remark,
+            " . maintenanceUnionTextExpr('c.code') . " AS currency_code,
             dcd.processed_amount AS amount,
             dc.capture_date AS transaction_date,
             dc.created_at AS sort_created_at,
-            DATE_FORMAT(dc.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
-            COALESCE(u.login_id, o.owner_code) AS created_by,
+            " . maintenanceUnionTextExpr("DATE_FORMAT(dc.created_at, '%d/%m/%Y %H:%i:%s')") . " AS dts_created,
+            " . maintenanceUnionTextExpr("COALESCE(u.login_id, o.owner_code, '-')") . " AS created_by,
             0 AS is_deleted,
-            NULL AS deleted_by,
-            NULL AS dts_deleted,
-            dcd.source_value,
-            dcd.source_percent,
+            " . maintenanceUnionNullTextCol() . " AS deleted_by,
+            " . maintenanceUnionNullTextCol() . " AS dts_deleted,
+            " . maintenanceUnionTextExpr('dcd.source_value') . " AS source_value,
+            " . maintenanceUnionTextExpr('dcd.source_percent') . " AS source_percent,
             dcd.rate,
-            dcd.id_product,
-            dcd.id_product_main,
-            dcd.id_product_sub,
-            dcd.product_type,
-            dcd.description_main,
-            dcd.description_sub,
-            dcd.columns_value
+            " . maintenanceUnionTextExpr('dcd.id_product') . " AS id_product,
+            " . maintenanceUnionTextExpr('dcd.id_product_main') . " AS id_product_main,
+            " . maintenanceUnionTextExpr('dcd.id_product_sub') . " AS id_product_sub,
+            " . maintenanceUnionTextExpr('dcd.product_type') . " AS product_type,
+            " . maintenanceUnionTextExpr('dcd.description_main') . " AS description_main,
+            " . maintenanceUnionTextExpr('dcd.description_sub') . " AS description_sub,
+            " . maintenanceUnionTextExpr('dcd.columns_value') . " AS columns_value
         FROM data_capture_details dcd
         INNER JOIN data_captures dc ON dcd.capture_id = dc.id
         INNER JOIN process p ON dc.process_id = p.id
@@ -367,16 +378,18 @@ function maintenanceSearchPaginatedFast(
     $orderSql = 'transaction_date DESC, sort_created_at DESC, '
         . 'IFNULL(capture_id, 0) DESC, IFNULL(capture_detail_id, 0) DESC, IFNULL(transaction_id, 0) DESC';
 
-    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM ($unionSql) AS merged");
-    $countStmt->execute($params);
-    $total = (int)$countStmt->fetchColumn();
-
     $offset = ($page - 1) * $page_size;
+    $fetchLimit = $page_size + 1;
     $dataStmt = $pdo->prepare(
-        "SELECT * FROM ($unionSql) AS merged ORDER BY $orderSql LIMIT " . (int)$page_size . ' OFFSET ' . (int)$offset
+        "SELECT * FROM (SELECT * FROM ($unionSql) AS union_rows) AS merged "
+        . "ORDER BY $orderSql LIMIT " . (int)$fetchLimit . ' OFFSET ' . (int)$offset
     );
     $dataStmt->execute($params);
     $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+    $hasMore = count($rows) > $page_size;
+    if ($hasMore) {
+        $rows = array_slice($rows, 0, $page_size);
+    }
 
     $formatted = [];
     $baseNo = $offset + 1;
@@ -386,14 +399,15 @@ function maintenanceSearchPaginatedFast(
         $formatted[] = $item;
     }
 
+    $returned = count($formatted);
     echo json_encode([
         'success' => true,
         'data' => $formatted,
         'pagination' => [
             'page' => $page,
             'page_size' => $page_size,
-            'total' => $total,
-            'has_more' => ($offset + count($formatted)) < $total,
+            'total' => $hasMore ? -1 : ($offset + $returned),
+            'has_more' => $hasMore,
         ],
     ], JSON_UNESCAPED_UNICODE);
 }
@@ -462,6 +476,13 @@ try {
         }
     }
 
+    if ($process !== null) {
+        $processLower = strtolower($process);
+        if (in_array($processLower, ['select all', '--select all--'], true) || in_array($process, ['全部', '--全部--'], true)) {
+            $process = null;
+        }
+    }
+
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');
     }
@@ -493,21 +514,25 @@ try {
         return;
     }
 
-    // 常用路径：无已删除记录 + 分页 → SQL 层 UNION 分页（避免全量加载）
+    // 常用路径：无已删除记录 + 分页 → SQL UNION（失败则回退 legacy 双查询）
     if (!$includeDeleted && $page_size > 0) {
         $page = $page > 0 ? $page : 1;
-        maintenanceSearchPaginatedFast(
-            $pdo,
-            $company_id,
-            $date_from_db,
-            $date_to_db,
-            $process,
-            $category,
-            $is_bank_category,
-            $page,
-            $page_size
-        );
-        return;
+        try {
+            maintenanceSearchPaginatedFast(
+                $pdo,
+                $company_id,
+                $date_from_db,
+                $date_to_db,
+                $process,
+                $category,
+                $is_bank_category,
+                $page,
+                $page_size
+            );
+            return;
+        } catch (Throwable $fastErr) {
+            error_log('maintenance_search_api fast path fallback: ' . $fastErr->getMessage());
+        }
     }
 
     $has_source_bank_col = maintenanceHasSourceBankCol($pdo);
