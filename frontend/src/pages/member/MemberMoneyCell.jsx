@@ -22,20 +22,40 @@ export function MemberAmountArrow({ up }) {
 }
 
 /**
- * 金额单元格：正数盈利（绿）、负数亏损（红）、零为中性色；非零时可显示胶囊徽章。
+ * 金额单元格：正数盈利（绿）、负数亏损（红）、零为中性色。
+ * - pill：胶囊徽章（明细表少用）
+ * - variant="summary"：合计行；样式由 tr.transaction-summary-total--amt-* 控制
  */
-export default function MemberMoneyCell({ value, formatMoney, pill = false }) {
+export default function MemberMoneyCell({ value, formatMoney, pill = false, variant }) {
   const n = parseMoneyNumber(value);
   const display = formatMoney(value);
 
   if (n === null) {
+    if (variant === "summary") {
+      return <span className="member-summary-amount member-summary-amount--na">–</span>;
+    }
     return <span className="member-amount member-amount--empty">–</span>;
   }
   if (n === 0) {
+    if (variant === "summary") {
+      return <span className="member-summary-amount member-summary-amount--zero">-</span>;
+    }
     return <span className="member-amount member-amount--zero">-</span>;
   }
 
   const tone = n > 0 ? "pos" : "neg";
+
+  if (variant === "summary") {
+    const gain = n > 0;
+    return (
+      <span className={`member-summary-amount member-summary-amount--${gain ? "gain" : "loss"}`}>
+        <span className="member-summary-amount__arrow" aria-hidden="true">
+          {gain ? "▲" : "▼"}
+        </span>
+        <span className="member-summary-amount__figure">{display}</span>
+      </span>
+    );
+  }
 
   if (pill && n !== 0) {
     return (
