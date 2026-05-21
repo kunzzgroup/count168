@@ -2833,7 +2833,7 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     align-items: center;
     transition: all 0.2s ease;
     min-width: 0;
-    /* 允许内容收缩 */
+    /* 允许内容收缩 0*/
 }
 
 .user-card.show-card:not(.user-list-row) {

@@ -213,7 +213,15 @@ export default function BankProcessListPage() {
   const listAbortRef = useRef(null);
   const skipNextBankFetchRef = useRef(false);
   const bankDatePickerInitRef = useRef(false);
-  const bankContractEndHintRef = useRef(null);
+  const contractSyncKeysRef = useRef({ day_start: "", contract: "", frequency: "" });
+
+  const seedContractSyncKeys = useCallback((f) => {
+    contractSyncKeysRef.current = {
+      day_start: String(f?.day_start || "").trim(),
+      contract: String(f?.contract || "").trim(),
+      frequency: String(f?.day_start_frequency || "1st_of_every_month").trim(),
+    };
+  }, []);
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -777,43 +785,39 @@ export default function BankProcessListPage() {
     setForm((prev) => ({ ...prev, day_start_frequency: "1st_of_every_month" }));
   }, [modalOpen, form.day_end, form.day_start_frequency]);
 
-  // Auto calculate Day end (legacy autoCalculateBankDayEnd skips Frequency = Once)
+  // Contract / Day start / Frequency 变化时自动填 Day end；用户手动改 Day end 不会被覆盖（不监听 day_end）
   useEffect(() => {
-    if (!modalOpen) return;
-    if (bankProcessFrequencyNormalized(form.day_start_frequency) === "once") {
-      bankContractEndHintRef.current = null;
+    if (!modalOpen) {
+      contractSyncKeysRef.current = { day_start: "", contract: "", frequency: "" };
       return;
     }
+    if (bankProcessFrequencyNormalized(form.day_start_frequency) === "once") return;
+
     const start = String(form.day_start || "").trim();
-    const currentEnd = String(form.day_end || "").trim();
     const contract = String(form.contract || "").trim();
     const frequency = String(form.day_start_frequency || "1st_of_every_month").trim();
 
-    if (!start) {
-      bankContractEndHintRef.current = null;
-      return;
-    }
+    const prev = contractSyncKeysRef.current;
+    const keysChanged =
+      prev.day_start !== start || prev.contract !== contract || prev.frequency !== frequency;
+    contractSyncKeysRef.current = { day_start: start, contract, frequency };
+
+    if (!keysChanged || !start) return;
 
     const term = parseBankContractTermMonths(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
 
     if (!calculated) {
-      bankContractEndHintRef.current = null;
-      if (currentEnd && currentEnd < start) {
-        setForm((prev) => ({ ...prev, day_end: start }));
-      }
+      setForm((prevForm) => {
+        const cur = String(prevForm.day_end || "").trim();
+        if (cur && cur < start) return { ...prevForm, day_end: start };
+        return prevForm;
+      });
       return;
     }
 
-    const prevContractEnd = bankContractEndHintRef.current;
-    if (currentEnd && currentEnd < calculated) {
-      setForm((prev) => ({ ...prev, day_end: calculated }));
-    } else if (prevContractEnd && currentEnd && calculated < prevContractEnd && currentEnd <= prevContractEnd && currentEnd > calculated) {
-      setForm((prev) => ({ ...prev, day_end: calculated }));
-    }
-
-    bankContractEndHintRef.current = calculated;
-  }, [modalOpen, form.day_start, form.contract, form.day_start_frequency, form.day_end]);
+    setForm((prevForm) => (prevForm.day_end === calculated ? prevForm : { ...prevForm, day_end: calculated }));
+  }, [modalOpen, form.day_start, form.contract, form.day_start_frequency]);
 
   useEffect(() => {
     return () => {
@@ -1012,6 +1016,7 @@ export default function BankProcessListPage() {
   const openAdd = () => {
     setEditMode(false);
     resetForm();
+    seedContractSyncKeys(EMPTY_BANK_FORM);
     setCountryModalOpen(false);
     setBankModalOpen(false);
     setProfitShareModalOpen(false);
@@ -1242,8 +1247,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success || !json.data) return notify(apiMsg(json, "failedLoadBankProcess"), "danger");
       const d = json.data;
-      setEditMode(true);
-      setForm({
+      const nextForm = {
         id: String(d.id || ""),
         country: d.country || "", bank: d.bank || "", type: d.type || "", name: d.name || "",
         card_merchant_id: d.card_merchant_id ? String(d.card_merchant_id) : "",
@@ -1259,7 +1263,10 @@ export default function BankProcessListPage() {
         day_end: d.day_end ? String(d.day_end).slice(0, 10) : "",
         day_start_frequency: bankProcessFrequencyNormalized(d.day_start_frequency),
         status: d.status || "active", remark: d.remark || "", sop: d.sop || "",
-      });
+      };
+      seedContractSyncKeys(nextForm);
+      setEditMode(true);
+      setForm(nextForm);
       setModalOpen(true);
     } catch { notify(t("failedLoadBankProcess"), "danger"); }
   };
