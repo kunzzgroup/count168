@@ -797,6 +797,9 @@
     text-align: left;
     word-break: break-word;
     min-width: 120px;
+}
+
+.member-winloss-table td.transaction-history-col-description {
     text-transform: uppercase;
 }
 .member-winloss-table .transaction-history-col-remark {
