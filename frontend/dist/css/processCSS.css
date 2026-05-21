@@ -2266,6 +2266,12 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     }
 }
 
+/* Portaled modals (direct child of body.process-page) — above fixed sidebar */
+body.process-page > .modal,
+body.process-page > .process-modal {
+    z-index: 10050;
+}
+
 /* Modal Styles (align with userlist) — above fixed sidebar (.informationmenu z-index: 1000–1001) */
 .process-page .modal {
     display: none;

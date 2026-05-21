@@ -1,8 +1,10 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 
 export default function BankRemarkModal({ remarkDraft, setRemarkDraft, onSave, onClose, t }) {
   return (
-    <div id="bankRemarkModal" className="modal bank-modal sop-modal" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id="bankRemarkModal" className="modal bank-modal sop-modal" style={processModalBackdropStyle}>
       <div className="modal-content sop-modal-content">
         <div className="modal-header">
           <h2 id="processNoteModalTitle">{t("remark")}</h2>
@@ -23,5 +25,6 @@ export default function BankRemarkModal({ remarkDraft, setRemarkDraft, onSave, o
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

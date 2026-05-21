@@ -1,4 +1,5 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { bankProcessFrequencyNormalized } from "../bankProcessHelpers.js";
 import BankFormDateField from "./BankFormDateField.jsx";
 
@@ -19,7 +20,8 @@ export default function ResendModal({
   const hasDayEnd = !!String(resendDayEnd || "").trim();
 
   return (
-    <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={processModalBackdropStyle}>
       <div className="process-confirm-modal-content bank-resend-modal-content">
         <div className="bank-resend-modal-hero">
           <div className="process-confirm-icon-container bank-resend-modal-icon-wrap">
@@ -98,5 +100,6 @@ export default function ResendModal({
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

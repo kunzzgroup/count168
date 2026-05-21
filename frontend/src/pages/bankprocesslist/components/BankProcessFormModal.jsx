@@ -1,4 +1,5 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import BankSearchableAccountPick from "./BankSearchableAccountPick.jsx";
 import BankSimpleSelect from "./BankSimpleSelect.jsx";
 import BankFormDateField from "./BankFormDateField.jsx";
@@ -70,7 +71,8 @@ export default function BankProcessFormModal({
   }
 
   return (
-    <div id="addBankModal" className="modal bank-modal" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id="addBankModal" className="modal bank-modal" style={processModalBackdropStyle}>
       <div className="modal-content bank-modal-content">
         <div className="modal-header">
           <h2 id="bankModalTitle">{editMode ? t("editProcess") : t("addProcess")}</h2>
@@ -404,5 +406,6 @@ export default function BankProcessFormModal({
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

@@ -1,4 +1,5 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import BankSearchableAccountPick from "./BankSearchableAccountPick.jsx";
 import { formatBankMoneyFixed2, sanitizeBankMoneyTyping } from "../bankProcessHelpers.js";
 
@@ -30,7 +31,8 @@ export default function ProfitSharingModal({
   };
 
   return (
-    <div id="profitSharingModal" className="modal" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id="profitSharingModal" className="modal" style={{ ...processModalBackdropStyle, zIndex: 10100 }}>
       <div className="modal-content">
         <div className="modal-header">
           <h2>{t("addProfitSharing")}</h2>
@@ -90,5 +92,6 @@ export default function ProfitSharingModal({
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }
