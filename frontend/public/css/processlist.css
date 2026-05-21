@@ -1492,27 +1492,69 @@
     margin-bottom: 0;
 }
 
-/* Bank modal footer: same cancel/save typography as .process-page .btn-* */
+/* Bank modal footer: match page toolbar Add Process / Cancel colors & sizing */
+.process-page #addBankModal .bank-actions .btn-save,
 .process-page #addBankModal .bank-actions .btn-cancel {
-    font-size: var(--text-medium);
     font-family: var(--font-heading-page);
+    font-size: var(--text-medium);
     font-weight: var(--font-weight-semibold);
-    width: clamp(5rem, 6.25vw, 7.5rem);
-    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
-    border-radius: 0.375rem;
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    white-space: nowrap;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
+    --sweep-color: rgba(255, 255, 255, 0.2);
 }
 
+.process-page #addBankModal .bank-actions .btn-save {
+    background: var(--btn-add-gradient);
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.process-page #addBankModal .bank-actions .btn-save:hover {
+    background: var(--btn-add-gradient-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+}
+
+.process-page #addBankModal .bank-actions .btn-save:active {
+    transform: translateY(0);
+}
+
+.process-page #addBankModal .bank-actions .btn-cancel {
+    background: linear-gradient(180deg, #aab8c2 0%, #657786 100%);
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(101, 119, 134, 0.2);
+}
+
+.process-page #addBankModal .bank-actions .btn-cancel:hover {
+    background: linear-gradient(180deg, #9ca9b4 0%, #5a6a78 100%);
+    box-shadow: 0 4px 8px rgba(101, 119, 134, 0.3);
+    transform: translateY(-1px);
+}
+
+body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-save,
 body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel {
     font-size: var(--text-medium) !important;
-    font-family: var(--font-heading-page) !important;
     font-weight: var(--font-weight-semibold) !important;
-    width: clamp(5rem, 6.25vw, 7.5rem) !important;
-    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem !important;
-    border-radius: 0.375rem !important;
+    min-width: var(--userlist-btn-add-width) !important;
+    width: auto !important;
+    padding: clamp(6px, 0.42vw, 8px) 20px !important;
+    border-radius: 6px !important;
+    height: auto !important;
+}
+
+body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-save:hover,
+body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
+    transform: translateY(-1px) !important;
 }
 
 /* Bank Modal Styles - Separate from Gambling modal */

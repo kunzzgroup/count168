@@ -57,6 +57,8 @@
     body.ec-auth-shell.account-page .btn-delete,
     body.ec-auth-shell.process-page .action-buttons .btn-add,
     body.ec-auth-shell.process-page .action-buttons .btn-delete,
+    body.ec-auth-shell.process-page #addBankModal .bank-actions .btn-save,
+    body.ec-auth-shell.process-page #addBankModal .bank-actions .btn-cancel,
     body.ec-auth-shell.account-page .btn-currency-setting,
     body.ec-auth-shell.user-page #userModal .btn-save,
     body.ec-auth-shell.user-page #userModal .btn-cancel,
