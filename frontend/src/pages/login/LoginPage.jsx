@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LOGIN_I18N } from "../../translateFile/loginTranslate.js";
+import LoginSuggestInput from "./LoginSuggestInput.jsx";
+import { getRecentCompanyIds, getRecentUserIds, saveLoginEntry } from "./loginSuggestStorage.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 
 function escapeHtml(text) {
@@ -240,6 +242,12 @@ export default function LoginPage() {
     [role, i18n.accountPlaceholder, i18n.usernamePlaceholder]
   );
 
+  const recentCompanyIds = useMemo(() => getRecentCompanyIds(role), [role]);
+  const recentUserIds = useMemo(
+    () => getRecentUserIds({ companyId, role }),
+    [companyId, role],
+  );
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
@@ -260,6 +268,12 @@ export default function LoginPage() {
       const res = await fetch("/api/session/login_api.php", { method: "POST", body: fd, credentials: "include" });
       const data = await res.json();
       if (data.status === "success" && data.redirect) {
+        saveLoginEntry({
+          companyId: companyId.toUpperCase().trim(),
+          userId: userField.toUpperCase().trim(),
+          role,
+        });
+
         const userType = String(data.user_type || "").toLowerCase();
         const redirect = String(data.redirect || "");
         const loginRole = role;
@@ -345,35 +359,31 @@ export default function LoginPage() {
           </div>
 
           <div className="sc-login-card-content">
-            <form className="sc-login-form" onSubmit={onSubmit}>
-              <div className="sc-login-input-row">
-                <i className="fas fa-building sc-login-input-icon" />
-                <input
-                  id="company-id"
-                  type="text"
-                  className="sc-login-input"
-                  placeholder={i18n.companyPlaceholder}
-                  required
-                  value={companyId}
-                  onChange={(e) => setCompanyId(e.target.value.toUpperCase())}
-                />
-              </div>
+            <form className="sc-login-form" onSubmit={onSubmit} autoComplete="off">
+              <LoginSuggestInput
+                id="company-id"
+                iconClass="fas fa-building"
+                placeholder={i18n.companyPlaceholder}
+                required
+                value={companyId}
+                suggestions={recentCompanyIds}
+                autoComplete="off"
+                onChange={(e) => setCompanyId(e.target.value.toUpperCase())}
+              />
+
+              <LoginSuggestInput
+                id="user-id"
+                iconClass="fas fa-user"
+                placeholder={userPlaceholder}
+                required
+                value={userField}
+                suggestions={recentUserIds}
+                autoComplete="off"
+                onChange={(e) => setUserField(e.target.value.toUpperCase())}
+              />
 
               <div className="sc-login-input-row">
-                <i className="fas fa-user sc-login-input-icon" />
-                <input
-                  id="user-id"
-                  type="text"
-                  className="sc-login-input"
-                  placeholder={userPlaceholder}
-                  required
-                  value={userField}
-                  onChange={(e) => setUserField(e.target.value.toUpperCase())}
-                />
-              </div>
-
-              <div className="sc-login-input-row">
-                <i className="fas fa-lock sc-login-input-icon" />
+                <i className="fas fa-lock sc-login-input-icon" aria-hidden="true" />
                 <input
                   id="password"
                   type="password"
@@ -381,6 +391,7 @@ export default function LoginPage() {
                   placeholder={i18n.passwordPlaceholder}
                   required
                   value={password}
+                  autoComplete="current-password"
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
