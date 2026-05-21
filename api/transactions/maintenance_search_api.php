@@ -7,11 +7,11 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json; charset=utf-8');
-if (extension_loaded('zlib') && !ini_get('zlib.output_compression')) {
-    ob_start('ob_gzhandler');
-}
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+
+@ini_set('memory_limit', '512M');
+@set_time_limit(300);
 
 /**
  * 统一 Rate 显示：最多 8 位小数，不补尾零（与 Data Summary / Payment History 一致）
@@ -694,7 +694,7 @@ try {
     echo json_encode([
         'success' => true,
         'data' => $formatted
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode([
@@ -712,4 +712,3 @@ try {
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
 }
-?>
