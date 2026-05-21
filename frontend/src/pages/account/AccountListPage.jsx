@@ -882,10 +882,10 @@ export default function AccountListPage() {
     <>
       <div className="container">
         <div className="content">
+          <h1 className="account-page-title">{t("accountList")}</h1>
           <div className="action-buttons-container">
             <div className="action-buttons">
               <div className="account-toolbar-top-row">
-                <h1 className="account-page-title account-toolbar-title">{t("accountList")}</h1>
                 <div className="action-controls-row account-toolbar-primary">
                 <div className="search-container userlist-search-bar">
                   <span className="userlist-search-bar__icon" aria-hidden="true">
