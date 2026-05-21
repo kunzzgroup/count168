@@ -392,7 +392,12 @@ async function searchTransactionMaintenanceOnce({
   }
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || data.message || "Search failed");
+    const detail = data.error || data.message;
+    throw new Error(
+      detail
+        ? `${detail}${response.ok ? "" : ` (HTTP ${response.status})`}`
+        : `Search failed (${response.status})`,
+    );
   }
 
   const rows = Array.isArray(data.data) ? data.data : [];
