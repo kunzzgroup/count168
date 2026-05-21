@@ -5,6 +5,7 @@ import { MoneyDecimal } from "../../utils/moneyDecimal.js";
 import {
   MINI_GRID_SHELL_CCY,
   accountHoldsMiniGridCurrency,
+  applyCurrencyToggle,
   applyDefaultWLGridSelection,
   formatPaymentHistoryMoney,
   getAvailableCurrencies,
@@ -411,16 +412,14 @@ export function useMemberWinLoss({ showNotification, lang }) {
       historyAbortRef.current = new AbortController();
       const signal = historyAbortRef.current.signal;
 
-      const useAll = selectionOverride?.isAllSelected ?? isAllSelected;
-      const useSelected = selectionOverride?.selectedCurrencies ?? selectedCurrencies;
-      let targetCurrencies = useAll ? availableCurrencies : [...useSelected];
+      let useAll = selectionOverride?.isAllSelected ?? isAllSelected;
+      let useSelected = selectionOverride?.selectedCurrencies ?? selectedCurrencies;
+      if (!useAll && (!useSelected?.length) && availableCurrencies.length > 0) {
+        useAll = true;
+        useSelected = [];
+      }
+      const targetCurrencies = useAll ? availableCurrencies : [...useSelected];
       if (!targetCurrencies.length) {
-        if (availableCurrencies.length > 0) {
-          setHistoryRows([]);
-          setMiniGridBalances(new Map());
-          setMiniGridTotals(new Map());
-          return;
-        }
         const params = new URLSearchParams({
           account_id: String(viewAccountId),
           date_from: dateFrom,
@@ -701,14 +700,12 @@ export function useMemberWinLoss({ showNotification, lang }) {
 
   const onCurrencyToggle = useCallback(
     (code) => {
-      const nextSelected = selectedCurrencies.includes(code)
-        ? selectedCurrencies.filter((c) => c !== code)
-        : [...selectedCurrencies, code];
-      setIsAllSelected(false);
-      setSelectedCurrencies(nextSelected);
-      fetchMemberHistory(searchSeqRef.current, { isAllSelected: false, selectedCurrencies: nextSelected });
+      const next = applyCurrencyToggle(availableCurrencies, isAllSelected, selectedCurrencies, code);
+      setIsAllSelected(next.isAllSelected);
+      setSelectedCurrencies(next.selectedCurrencies);
+      fetchMemberHistory(searchSeqRef.current, next);
     },
-    [selectedCurrencies, fetchMemberHistory],
+    [availableCurrencies, isAllSelected, selectedCurrencies, fetchMemberHistory],
   );
 
   useEffect(() => {

@@ -1,18 +1,64 @@
+import { useLayoutEffect, useRef } from "react";
 import { MoneyDecimal } from "../../utils/moneyDecimal.js";
+
 import {
   accountHoldsMiniGridCurrency,
+  formatMiniGridMoney,
+  miniGridAmountTone,
+  MEMBER_AMOUNT_NA_MARK,
   miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
+  WINLOSS_MATRIX_FILL_CCY_COLS,
+  WINLOSS_MATRIX_ROWHEAD_COL_WIDTH,
+  WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD,
 } from "./memberPageHelpers.js";
 
-function formatGridAmt(dec) {
-  return MoneyDecimal.formatThousands(dec.toString(), 2);
+function totalRowToneClass(tone) {
+  if (tone === "pos") return "gain";
+  if (tone === "neg") return "loss";
+  if (tone === "zero") return "zero";
+  return "na";
+}
+
+function MemberTotalGridAmount({ dec, tone }) {
+  const display = formatMiniGridMoney(dec);
+  if (tone === "pos" || tone === "neg") {
+    const gain = tone === "pos";
+    return (
+      <span className={`member-total-val member-total-val--${gain ? "gain" : "loss"}`}>
+        <span className="member-total-val__arrow" aria-hidden="true">
+          {gain ? "▲" : "▼"}
+        </span>
+        <span className="member-total-val__figure">{display}</span>
+      </span>
+    );
+  }
+  return <span className={`member-total-val member-total-val--${tone === "zero" ? "zero" : "na"}`}>{display}</span>;
+}
+
+function resolveBalanceCell({
+  shellMode,
+  idNum,
+  cu,
+  balanceMap,
+  linkedCurrenciesLoaded,
+  linkedAccountCurrenciesMap,
+}) {
+  const holds =
+    shellMode || idNum <= 0
+      ? false
+      : accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedCurrenciesLoaded, idNum, cu);
+  const key = `${idNum}|${cu}`;
+  const balDec = !shellMode && holds && balanceMap?.has(key) ? balanceMap.get(key) : null;
+  const hasBalance = balDec != null && typeof balDec.lt === "function";
+  const isNa = shellMode || !holds || !hasBalance;
+  return { isNa, balDec };
 }
 
 export function MemberMiniGridTotals({ currencyOrder, totalsByCu, t }) {
   const order = currencyOrder.map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
   if (!order.length) {
-    return <span className="member-dash-total-amt">–</span>;
+    return <span className="member-dash-total-amt member-amount--empty">{MEMBER_AMOUNT_NA_MARK}</span>;
   }
   return (
     <div className="member-dash-total-values member-dash-total-values--grid">
@@ -23,11 +69,12 @@ export function MemberMiniGridTotals({ currencyOrder, totalsByCu, t }) {
             raw != null && typeof raw.lt === "function"
               ? raw
               : MoneyDecimal.toDecimal("0", 0);
-          const neg = dec.lt(0);
+          const tone = miniGridAmountTone(dec);
+          const rowTone = totalRowToneClass(tone);
           return (
-            <div key={cu} className="member-dash-total-grid-cell">
+            <div key={cu} className={`member-dash-total-grid-cell member-dash-total-grid-cell--${rowTone}`}>
               <span className="member-dash-total-grid-code">{cu}</span>
-              <span className={`member-dash-total-grid-amt${neg ? " member-dash-total-grid-amt--neg" : ""}`}>{formatGridAmt(dec)}</span>
+              <MemberTotalGridAmount dec={dec} tone={tone} />
             </div>
           );
         })}
@@ -58,16 +105,15 @@ function MiniGridRow({
         {code}
       </div>
       {orderUpper.map((cu, ci) => {
-        const holds =
-          shellMode || idNum <= 0
-            ? false
-            : accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedCurrenciesLoaded, idNum, cu);
-        const key = `${idNum}|${cu}`;
-        const balDec =
-          !shellMode && holds && balanceMap?.has(key) ? balanceMap.get(key) : null;
-        const hasBalance = balDec != null && typeof balDec.lt === "function";
-        const isNa = shellMode || !holds || !hasBalance;
-        const neg = hasBalance && balDec.lt(0);
+        const { isNa, balDec } = resolveBalanceCell({
+          shellMode,
+          idNum,
+          cu,
+          balanceMap,
+          linkedCurrenciesLoaded,
+          linkedAccountCurrenciesMap,
+        });
+        const tone = isNa ? null : miniGridAmountTone(balDec);
         return (
           <div
             key={`${idNum}-${cu}`}
@@ -75,10 +121,10 @@ function MiniGridRow({
             role="gridcell"
           >
             {isNa ? (
-              "–"
+              <span className="member-balance-matrix-na">{MEMBER_AMOUNT_NA_MARK}</span>
             ) : (
-              <span className={`member-balance-matrix-amt${neg ? " member-balance-matrix-amt--neg" : ""}`}>
-                {formatGridAmt(balDec)}
+              <span className={`member-balance-matrix-amt member-balance-matrix-amt--${tone}`}>
+                {formatMiniGridMoney(balDec)}
               </span>
             )}
           </div>
@@ -110,16 +156,71 @@ export default function MemberMiniGrid({
   const manyCcy = ncu >= 12;
   const lastCi = ncu - 1;
   const lastRi = listOrdered.length - 1;
+  const gridRef = useRef(null);
+  const fillMode = ncu > 0 && ncu < WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD;
+  const gridCols = ncu > 0 ? miniMatrixGridTemplateColumns(ncu) : undefined;
+
+  useLayoutEffect(() => {
+    const scroll = gridRef.current?.parentElement;
+    const grid = gridRef.current;
+    if (!scroll?.classList.contains("member-dash-matrix-scroll") || !grid) return undefined;
+    if (ncu < 1) {
+      scroll.style.removeProperty("--member-wl-ccy-fill-col-w");
+      grid.style.removeProperty("--member-wl-ccy-fill-col-w");
+      grid.style.removeProperty("grid-template-columns");
+      return undefined;
+    }
+
+    const syncColWidth = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const matrixCol = scroll.closest(".member-dash-col-matrix");
+      let innerW = 0;
+      if (matrixCol) {
+        const cs = getComputedStyle(matrixCol);
+        innerW =
+          matrixCol.clientWidth -
+          (parseFloat(cs.paddingLeft) || 0) -
+          (parseFloat(cs.paddingRight) || 0);
+      }
+      if (innerW <= 0) innerW = scroll.closest(".member-dash-rail-matrix")?.clientWidth ?? 0;
+      if (innerW <= 0) return;
+
+      /* 单列宽 = 中栏按 9 列均分；表/白卡宽度 = 账户列 + n 个币种列，随选中数量变宽 */
+      const m = String(WINLOSS_MATRIX_ROWHEAD_COL_WIDTH).match(/^([\d.]+)rem$/);
+      const rowheadPx = m ? parseFloat(m[1]) * rem : 5.75 * rem;
+      const colPx = (innerW - rowheadPx) / WINLOSS_MATRIX_FILL_CCY_COLS;
+      const colW = `${Math.max(4.25 * rem, colPx)}px`;
+
+      scroll.style.setProperty("--member-wl-ccy-fill-col-w", colW);
+      grid.style.setProperty("--member-wl-ccy-fill-col-w", colW);
+      grid.style.gridTemplateColumns = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content) repeat(${ncu}, minmax(${colW}, ${colW}))`;
+    };
+
+    syncColWidth();
+    requestAnimationFrame(syncColWidth);
+    const ro = new ResizeObserver(syncColWidth);
+    const matrixColEl = scroll.closest(".member-dash-col-matrix");
+    if (matrixColEl) ro.observe(matrixColEl);
+    window.addEventListener("resize", syncColWidth);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", syncColWidth);
+      scroll.style.removeProperty("--member-wl-ccy-fill-col-w");
+      grid.style.removeProperty("--member-wl-ccy-fill-col-w");
+      grid.style.removeProperty("grid-template-columns");
+    };
+  }, [ncu, orderUpper.join("|"), listOrdered.length]);
 
   return (
     <>
       <div className="member-dash-matrix-scroll">
         <div
           id="member_balance_grid"
-          className={`member-balance-mini-grid${ncu ? " member-balance-mini-matrix" : ""}${manyCcy ? " member-balance-mini-matrix--many-ccy" : ""}`}
+          ref={gridRef}
+          className={`member-balance-mini-grid${ncu ? " member-balance-mini-matrix" : ""}${manyCcy ? " member-balance-mini-matrix--many-ccy" : ""}${fillMode ? " member-balance-mini-matrix--ccy-fill" : ""}${ncu >= WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD ? " member-balance-mini-matrix--ccy-scroll" : ""}`}
           role={ncu ? "grid" : undefined}
           aria-label={ncu ? t?.("balancesGridAria") || "Balances by account and currency" : undefined}
-          style={ncu ? { gridTemplateColumns: miniMatrixGridTemplateColumns(ncu) } : undefined}
+          style={gridCols ? { gridTemplateColumns: gridCols } : undefined}
         >
           {ncu > 0 && (
             <>

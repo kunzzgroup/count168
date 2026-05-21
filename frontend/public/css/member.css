@@ -760,7 +760,115 @@
     width: 10%;
     min-width: 90px;
 }
- .text-uppercase {
+
+/* Win/Loss 表金额：盈利绿 / 亏损红 */
+.member-winloss-table td.transaction-history-col-winloss,
+.member-winloss-table td.transaction-history-col-crdr,
+.member-winloss-table td.transaction-history-col-balance {
+    text-align: right;
+}
+.member-amount {
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-semibold, 600);
+}
+.member-amount--pos {
+    color: #15803d;
+}
+.member-amount--neg {
+    color: #b91c1c;
+}
+/* 0.00 → "-"：加粗深蓝、略放大，与无数据浅色区分 */
+.member-amount--zero,
+.member-balance-matrix-amt--zero,
+.member-total-val--zero {
+    color: #002c49;
+    font-weight: 800;
+    font-size: 1.05em;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+}
+
+/* 0.00 的 "-" 在单元格内水平居中（明细表金额列） */
+.member-winloss-table td.transaction-history-col-winloss:has(.member-amount--zero),
+.member-winloss-table td.transaction-history-col-crdr:has(.member-amount--zero),
+.member-winloss-table td.transaction-history-col-balance:has(.member-amount--zero) {
+    text-align: center;
+}
+/* 无数据 → "–"（en dash）：浅色、无底色 */
+.member-amount--empty {
+    color: #cbd5e1;
+    font-weight: 400;
+}
+.member-amount-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: inherit;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+.member-amount-pill--pos {
+    background-color: #dcfce7;
+    color: #166534;
+}
+.member-amount-pill--neg {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+.member-amount-pill__icon {
+    flex-shrink: 0;
+}
+/* 合计行灰底：胶囊自带底色，文字金额用浅色以便辨认 */
+.member-winloss-table .transaction-summary-total .member-amount--pos {
+    color: #bbf7d0;
+}
+.member-winloss-table .transaction-summary-total .member-amount--neg {
+    color: #fecaca;
+}
+.member-winloss-table .transaction-summary-total .member-amount--zero {
+    color: #002c49 !important;
+    font-weight: 800 !important;
+    font-size: 1.05em !important;
+    background: transparent;
+    box-shadow: none;
+}
+.member-winloss-table .transaction-summary-total .member-amount--empty {
+    color: #94a3b8;
+    background: transparent;
+    box-shadow: none;
+}
+.member-winloss-table .transaction-summary-total .member-amount-pill--pos {
+    background-color: #166534;
+    color: #ecfdf5;
+}
+.member-winloss-table .transaction-summary-total .member-amount-pill--neg {
+    background-color: #991b1b;
+    color: #fef2f2;
+}
+/* 合计行 Cr/Dr：胶囊高对比，与 Balance 合计同级醒目 */
+.member-winloss-table .transaction-summary-total td.transaction-history-col-crdr .member-amount-pill {
+    padding: 4px 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+.member-winloss-table .transaction-summary-total td.transaction-history-col-crdr .member-amount-pill--pos {
+    background-color: #15803d;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(21, 128, 61, 0.35);
+}
+.member-winloss-table .transaction-summary-total td.transaction-history-col-crdr .member-amount-pill--neg {
+    background-color: #b91c1c;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(185, 28, 28, 0.35);
+}
+
+.text-uppercase {
     text-transform: uppercase;
 }
 
@@ -779,31 +887,53 @@ body.transaction-page.member-winloss-page .transaction-container {
     flex-direction: column;
     min-height: 100vh;
     box-sizing: border-box;
+    padding-left: var(--layout-main-offset) !important;
+    width: 100%;
+    max-width: 100%;
 }
 
 body.transaction-page.member-winloss-page .transaction-main-content.member-winloss-dash {
     flex: 1 1 auto;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 body.transaction-page.member-winloss-page .transaction-main-content.member-winloss-dash > .transaction-search-section.member-dash-unified-bar {
     flex: 0 0 auto;
-    min-height: 0;
+    flex-shrink: 0;
+    min-height: min-content;
     display: flex;
     flex-direction: column;
+    position: relative;
+    z-index: 5;
+    isolation: isolate;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 body.transaction-page.member-winloss-page .transaction-main-content.member-winloss-dash > .member-currency-section {
     flex: 0 0 auto;
-    min-height: 0;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
+
 
 .member-winloss-page .member-dash-unified-bar {
     overflow: visible;
     padding: 8px 10px;
-    min-height: 0;
+    min-height: min-content;
     background: linear-gradient(160deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
     border-color: #e2e8f0;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
@@ -828,7 +958,7 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 .member-winloss-page .member-dash-columns {
     --member-winloss-matrix-inline-gutter: 10px;
     --member-mini-ccy-min: clamp(3.75rem, 5vw, 5rem);
-    --member-dash-total-col-min: 9.5rem;
+    --member-dash-total-col-min: 15rem;
     --member-winloss-label-w: 5.75rem;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -842,19 +972,109 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 }
 
 .member-winloss-page .member-dash-columns--three-col {
+    display: grid !important;
+    /* 左栏 1.4fr；中栏 2fr；Total 固定极限列宽 */
     grid-template-columns:
-        minmax(0, 1.15fr)
+        minmax(0, 1.4fr)
         minmax(0, 2fr)
-        minmax(var(--member-dash-total-col-min, 9.5rem), max-content);
+        var(--member-dash-total-col-min, 12.5rem) !important;
     grid-template-rows: auto;
+    width: 100%;
+    min-width: 0;
+    position: relative;
     /* 矩阵与 Total：表头行 / 数据行共用高度；many-ccy 时与迷你格同步变矮 */
     --member-wl-matrix-hdr-h: 40px;
     --member-wl-matrix-row-h: 40px;
+    /* 与 memberPageHelpers 同步：<10 列铺满；≥10 列单列宽 = 9 列均分宽 */
+    --member-wl-matrix-fill-ccy-cols: 9;
+    --member-wl-matrix-rowhead-w: 5.75rem;
+    --member-wl-matrix-scroll-ccy-threshold: 10;
+    /* 矩阵右缘与 Total 分割线之间的留白 */
+    --member-winloss-matrix-divider-gap: 10px;
 }
 
 .member-winloss-page .member-dash-columns--three-col:has(.member-balance-mini-matrix--many-ccy) {
     --member-wl-matrix-hdr-h: 34px;
     --member-wl-matrix-row-h: 34px;
+}
+
+/* 矩阵白卡铺满中栏；勿 justify-self:flex-end（会把中栏压成右侧细条） */
+.member-winloss-page .member-dash-columns--three-col .member-dash-col-matrix {
+    align-items: stretch;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    overflow: hidden;
+    padding-right: var(--member-winloss-matrix-divider-gap, 10px);
+    display: flex;
+    justify-self: stretch;
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-col-total {
+    align-items: stretch;
+    align-self: start;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* 1–9 / ≥10 币种：贴右；表宽随列数变宽，≥10 时横向滚动 */
+.member-winloss-page .member-dash-columns--three-col .member-dash-col-matrix:has(.member-balance-mini-matrix--ccy-fill),
+.member-winloss-page .member-dash-columns--three-col .member-dash-col-matrix:has(.member-balance-mini-matrix--ccy-scroll) {
+    align-items: flex-end;
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-fill) {
+    flex: 0 1 auto;
+    align-items: flex-start;
+    align-self: flex-end;
+    margin-inline-start: auto;
+    width: max-content;
+    max-width: 100%;
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-fill) {
+    flex: 0 1 auto;
+    width: max-content;
+    max-width: 100%;
+    align-self: flex-end;
+    margin-inline-start: auto;
+    box-sizing: border-box;
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll) {
+    flex: 1 1 auto;
+    align-items: stretch;
+    align-self: flex-end;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-scroll) {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 0;
+    align-self: flex-end;
+    box-sizing: border-box;
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:not(:has(.member-balance-mini-matrix--ccy-fill)):not(:has(.member-balance-mini-matrix--ccy-scroll)) {
+    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-rail-matrix:not(:has(.member-balance-mini-matrix--ccy-fill)):not(:has(.member-balance-mini-matrix--ccy-scroll)) {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+    box-sizing: border-box;
 }
 
 /* 宽屏：由 JS 写入 --member-winloss-filters-h（= 左侧筛选含 Currency 整块高度），中/右栏不超出该高度，底与左栏对齐，内部滚动 */
@@ -875,11 +1095,14 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 .member-winloss-page .member-dash-columns--three-col .member-dash-col-filters {
     grid-column: 1;
     grid-row: 1;
+    align-self: start;
+    height: auto;
+    max-height: none;
 }
 
 .member-winloss-page .member-dash-col-filters {
     grid-column: 1;
-    grid-row: 1 / -1;
+    grid-row: 1;
     min-width: 0;
     min-height: 0;
     align-self: stretch;
@@ -1244,40 +1467,41 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     box-sizing: border-box;
 }
 
-/* 中栏：Win/Loss 矩阵 — 与左右栏分割线留少量空隙；在网格行内纵向撑满 */
+/* 中栏：Win/Loss 矩阵；1–9 币种时贴右向左增宽；宽屏下由 --member-winloss-filters-h 封顶并在栏内滚动 */
 .member-winloss-page .member-dash-col-matrix {
     grid-column: 2;
     grid-row: 1;
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
     justify-content: flex-start;
     gap: 0;
     min-width: 0;
     min-height: 0;
-    height: 100%;
+    height: auto;
     overflow: hidden;
     padding-inline: var(--member-winloss-matrix-inline-gutter, 10px);
     padding-block: 0;
     border-right: 1px solid #d1dae6;
     box-sizing: border-box;
-    align-self: stretch;
+    align-self: start;
 }
 
-/* 矩阵白卡占满中栏剩余高度，列表在卡内滚动 */
+/* 矩阵区域默认随内容；≥10 列时再铺满中栏 */
 .member-winloss-page .member-dash-matrix-center-wrap {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
     justify-content: flex-start;
     min-height: 0;
-    width: 100%;
+    width: max-content;
+    max-width: 100%;
     box-sizing: border-box;
     padding: 0;
 }
 
-/* 右栏：Total — 与矩阵同高撑满网格行 */
+/* 右栏：Total — 与矩阵同规则封顶，不反向撑高左栏 */
 .member-winloss-page .member-dash-col-total {
     grid-column: 3;
     grid-row: 1;
@@ -1287,12 +1511,12 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     justify-content: flex-start;
     min-width: 0;
     min-height: 0;
-    height: 100%;
+    height: auto;
     overflow: hidden;
     padding-inline: var(--member-winloss-matrix-inline-gutter, 10px);
     padding-block: 0;
     box-sizing: border-box;
-    align-self: stretch;
+    align-self: start;
 }
 
 .member-winloss-page .member-dash-rail-toolbar {
@@ -1423,8 +1647,8 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 .member-winloss-page .member-dash-col-total .member-dash-rail-total {
     flex: 1 1 auto;
     width: 100%;
-    min-width: var(--member-dash-total-col-min, 9.5rem);
-    max-width: min(11rem, 28vw);
+    min-width: 0;
+    max-width: none;
     min-height: 0;
     align-self: stretch;
     margin-left: 0;
@@ -1432,6 +1656,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
 }
 
 /* Total 卡身填满右栏剩余高度，币种列表在 body 内滚动 */
@@ -1453,6 +1678,8 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     max-height: none;
     overflow-y: auto;
     overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .member-winloss-page .member-dash-rail-matrix > .member-balance-mini-hint {
@@ -1462,14 +1689,24 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 .member-dash-rail-total {
     grid-column: 2;
     grid-row: 1 / 3;
-    align-self: start;
-    min-width: var(--member-dash-total-col-min, 7.5rem);
-    max-width: min(11rem, 28vw);
+    align-self: stretch;
+    min-width: var(--member-dash-total-col-min, 12.5rem);
+    max-width: min(15rem, 32vw);
     border: 1px solid #c5daf2;
     border-radius: 8px;
     background: #ffffff;
     overflow: hidden;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(30, 58, 95, 0.06);
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-rail-total {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-total-matrix {
+    width: 100%;
 }
 
 .member-dash-total-matrix {
@@ -1522,45 +1759,132 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 
 .member-dash-total-grid-cell {
     display: grid;
-    grid-template-columns: 2.75rem minmax(0, 1fr);
-    gap: 6px 8px;
+    grid-template-columns: 2.85rem minmax(0, 1fr);
+    gap: 8px 10px;
     align-items: center;
-    min-height: 34px;
-    padding: 5px 10px;
-    border-bottom: 1px solid #e8eef5;
+    min-height: 36px;
+    padding: 6px 12px 6px 10px;
+    border-bottom: 1px solid #eef2f6;
+    background: #ffffff;
     box-sizing: border-box;
-}
-
-.member-dash-total-grid-cell:nth-child(even) {
-    background: #f8fafc;
+    transition: background-color 0.15s ease;
 }
 
 .member-dash-total-grid-cell:last-child {
     border-bottom: none;
 }
 
+.member-dash-total-grid-cell--gain {
+    background: linear-gradient(90deg, rgba(34, 197, 94, 0.07) 0%, #ffffff 72%);
+    box-shadow: inset 3px 0 0 #22c55e;
+}
+
+.member-dash-total-grid-cell--loss {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.06) 0%, #ffffff 72%);
+    box-shadow: inset 3px 0 0 #ef4444;
+}
+
+.member-dash-total-grid-cell--zero,
+.member-dash-total-grid-cell--na {
+    background: #ffffff;
+}
+
 .member-dash-total-grid-code {
     font-size: 11px;
-    font-weight: 700;
-    color: #475569;
-    letter-spacing: 0.02em;
-    margin-bottom: 0;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+    justify-self: start;
 }
 
-.member-dash-total-grid-amt {
-    font-size: 12px;
-    font-weight: 700;
-    color: #0f172a;
-    text-align: right;
+/* Total 面板金额 — 行内细箭头 + 数字，无圆点/胶囊 */
+.member-total-val {
+    display: inline-flex;
+    align-items: center;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
-.member-dash-total-grid-amt--neg {
+.member-total-val--gain,
+.member-total-val--loss {
+    justify-content: flex-end;
+    justify-self: stretch;
+    width: 100%;
+    gap: 5px;
+    padding-right: 2px;
+}
+
+.member-total-val__arrow {
+    flex-shrink: 0;
+    font-size: 8px;
+    line-height: 1;
+    transform: scaleX(0.92);
+    opacity: 0.88;
+}
+
+.member-total-val--gain .member-total-val__arrow {
+    color: #16a34a;
+}
+
+.member-total-val--gain .member-total-val__figure {
+    color: #166534;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.member-total-val--loss .member-total-val__arrow {
     color: #dc2626;
 }
 
-/* Win/Loss Total 面板 — 与矩阵表头/数据行同高（变量见 .member-dash-columns--three-col） */
+.member-total-val--loss .member-total-val__figure {
+    color: #b91c1c;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.member-total-val--zero {
+    justify-content: center;
+    justify-self: stretch;
+    width: 100%;
+    font-size: 13px;
+    font-weight: 800;
+    color: #002c49;
+    letter-spacing: 0.08em;
+}
+
+.member-total-val--na {
+    justify-content: flex-end;
+    justify-self: stretch;
+    width: 100%;
+    padding-right: 2px;
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+}
+
+/* Win/Loss Total 面板 — 整体加大（仅 padding/尺寸，字号不变） */
+.member-winloss-page .member-dash-total-values--grid {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+}
+
+.member-winloss-page .member-dash-total-values--grid .member-dash-total-currency-grid {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+}
+
 .member-winloss-page .member-dash-total-matrix-hd {
     min-height: var(--member-wl-matrix-hdr-h, 40px);
     padding: 7px 10px;
@@ -1569,20 +1893,33 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     box-sizing: border-box;
 }
 
+/* Total 行铺满表宽：币种列固定，金额列 1fr 填满右侧 */
 .member-winloss-page .member-dash-total-grid-cell {
-    grid-template-columns: 2.75rem minmax(0, 1fr);
-    gap: 6px 8px;
+    display: grid;
+    grid-template-columns: 2.85rem minmax(0, 1fr);
+    gap: 8px 10px;
+    align-items: center;
     min-height: var(--member-wl-matrix-row-h, 40px);
-    padding: 7px 10px;
+    padding: 8px 12px 8px 10px;
     box-sizing: border-box;
+    width: 100%;
 }
 
 .member-winloss-page .member-dash-total-grid-code {
     font-size: 11px;
 }
 
-.member-winloss-page .member-dash-total-grid-amt {
-    font-size: 12px;
+.member-winloss-page .member-total-val--gain .member-total-val__figure,
+.member-winloss-page .member-total-val--loss .member-total-val__figure {
+    font-size: 13px;
+}
+
+.member-winloss-page .member-dash-total-grid-cell--gain:hover {
+    background: linear-gradient(90deg, rgba(34, 197, 94, 0.1) 0%, #ffffff 72%);
+}
+
+.member-winloss-page .member-dash-total-grid-cell--loss:hover {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.09) 0%, #ffffff 72%);
 }
 
 /* Mini balance matrix (CSS grid) */
@@ -1603,7 +1940,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     box-sizing: border-box;
 }
 
-.member-balance-mini-matrix--many-ccy {
+.member-balance-mini-matrix--many-ccy:not(.member-balance-mini-matrix--ccy-scroll) {
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -1693,9 +2030,27 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 }
 
 .member-balance-matrix-cell--na {
-    color: #94a3b8;
     justify-content: center;
-    font-weight: 500;
+}
+
+/* 0.00 的 "-" 在矩阵格内水平居中，并强化可见度 */
+.member-balance-matrix-cell:has(.member-balance-matrix-amt--zero) {
+    justify-content: center;
+}
+
+.member-balance-matrix-cell:has(.member-balance-matrix-amt--zero) .member-balance-matrix-amt--zero {
+    display: inline-block;
+    color: #002c49;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    line-height: 1;
+}
+
+.member-balance-matrix-na {
+    color: #cbd5e1;
+    font-weight: 400;
+    line-height: 1;
 }
 
 .member-balance-matrix-cell--edge {
@@ -1711,10 +2066,29 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     width: 100%;
     text-align: right;
     white-space: nowrap;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.member-balance-matrix-amt--pos {
+    color: #15803d;
 }
 
 .member-balance-matrix-amt--neg {
-    color: #dc2626;
+    color: #b91c1c;
+}
+
+.member-balance-matrix-amt--zero {
+    margin-left: 0;
+    margin-inline: auto;
+    text-align: center;
+    color: #002c49;
+    font-weight: 800;
+}
+
+.member-balance-matrix-amt--empty {
+    color: #cbd5e1;
+    font-weight: 400;
 }
 
 .member-balance-mini-hint {
@@ -1735,21 +2109,86 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     min-height: var(--member-wl-matrix-row-h, 40px);
 }
 
-.member-winloss-page .member-dash-matrix-scroll {
+/* 仅无矩阵时的 scroll 占位；有 ccy-fill / ccy-scroll 时由下方专用规则接管 */
+.member-winloss-page
+    .member-dash-matrix-scroll:not(.member-dash-matrix-scroll--compact):not(:has(.member-balance-mini-matrix--ccy-fill)):not(:has(.member-balance-mini-matrix--ccy-scroll)) {
+    --member-wl-ccy-fill-col-w: 4.75rem;
     width: 100%;
     max-width: 100%;
     display: block;
     box-sizing: border-box;
     flex: 1 1 auto;
     min-height: 0;
-    overflow: auto;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
 }
 
-.member-winloss-page .member-balance-mini-grid.member-balance-mini-matrix {
+/* ≥10 列：scroll 占满白卡宽度；内表 max-content 超出时出现横向滚动条 */
+.member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-scroll) {
+    display: block;
     width: 100%;
     max-width: 100%;
+    flex: 1 1 auto;
     min-width: 0;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 1–9 列：左 Account + 右 Currency；单列宽=中栏/9；贴右，随列数向左变宽 */
+.member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-fill) {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    flex: 0 1 auto;
+    margin-inline-start: auto;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+.member-winloss-page .member-balance-mini-grid.member-balance-mini-matrix.member-balance-mini-matrix--ccy-fill {
+    display: grid;
+    width: max-content;
+    max-width: none;
+    min-width: max-content;
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.member-winloss-page .member-balance-mini-matrix--ccy-fill .member-balance-matrix-th,
+.member-winloss-page .member-balance-mini-matrix--ccy-fill .member-balance-matrix-cell {
+    min-width: var(--member-wl-ccy-fill-col-w, 4.75rem);
+    box-sizing: border-box;
+}
+
+/* ≥10 列：固定 px 列宽（=9 列时的单列宽）；未撑满时贴右，超出时由 scroll 横向滚动 */
+.member-winloss-page .member-balance-mini-grid.member-balance-mini-matrix.member-balance-mini-matrix--ccy-scroll {
+    display: grid;
+    width: max-content;
+    max-width: none;
+    min-width: max-content;
+    margin-inline-start: auto;
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.member-winloss-page .member-balance-mini-matrix--ccy-scroll .member-balance-matrix-th,
+.member-winloss-page .member-balance-mini-matrix--ccy-scroll .member-balance-matrix-cell {
+    min-width: var(--member-wl-ccy-fill-col-w, 4.75rem);
+    box-sizing: border-box;
+}
+
+/* ≥12 列仅缩小字号/行高，列宽仍由 --member-wl-ccy-fill-col-w 锁定 */
+.member-winloss-page .member-balance-mini-grid.member-balance-mini-matrix.member-balance-mini-matrix--ccy-scroll.member-balance-mini-matrix--many-ccy {
+    width: max-content;
+    max-width: none;
+    min-width: max-content;
+}
+
+.member-winloss-page .member-balance-mini-grid.member-balance-mini-matrix:not(.member-balance-mini-matrix--ccy-fill) {
     margin-inline: 0;
     font-size: 13px;
     line-height: 1.3;
@@ -1764,7 +2203,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 .member-winloss-page .member-balance-matrix-th {
     min-height: var(--member-wl-matrix-hdr-h, 40px);
     padding: 10px 12px;
-    font-size: 12px;
+    font-size: var(--text-medium);
     letter-spacing: 0.02em;
 }
 
@@ -1781,7 +2220,19 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 }
 
 .member-winloss-page .member-balance-matrix-amt {
-    font-size: var(--text-tiny);
+    font-size: var(--text-small);
+}
+
+.member-winloss-page .member-balance-matrix-cell:has(.member-balance-matrix-amt--zero) .member-balance-matrix-amt--zero {
+    font-size: 14px;
+    font-weight: 800;
+    color: #002c49;
+}
+
+.member-winloss-page .member-total-val--zero {
+    font-size: 13px;
+    font-weight: 800;
+    color: #002c49;
 }
 
 .member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-th,
@@ -1805,6 +2256,12 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     font-size: 11px;
 }
 
+.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-amt--zero {
+    font-size: 12px;
+    font-weight: 800;
+    color: #002c49;
+}
+
 .member-winloss-page .member-balance-mini-hint {
     margin: 6px 0 0;
     padding: 0 6px 4px;
@@ -1813,6 +2270,134 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 
 .member-balance-mini-hint:empty {
     display: none;
+}
+
+/* 单币种紧凑表：账户 | 金额 两列贴近，表宽随内容 */
+.member-dash-matrix-scroll--compact {
+    width: 100%;
+    max-width: 100%;
+    flex: 0 1 auto;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+/* 单层 grid + display:contents，表头/数据列宽一致，竖线对齐 */
+.member-wl-compact-matrix {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, max-content) minmax(var(--member-wl-ccy-fill-col-w, 4.75rem), var(--member-wl-ccy-fill-col-w, 4.75rem));
+    width: max-content;
+    max-width: none;
+    min-width: max-content;
+    margin-inline: 0 auto;
+    box-sizing: border-box;
+    font-size: 13px;
+    line-height: 1.3;
+    overflow: visible;
+}
+
+.member-winloss-page .member-wl-compact-matrix__amt-hd,
+.member-winloss-page .member-wl-compact-matrix__amt {
+    min-width: var(--member-wl-ccy-fill-col-w, 4.75rem);
+    box-sizing: border-box;
+}
+
+.member-wl-compact-matrix__hd,
+.member-wl-compact-matrix__row {
+    display: contents;
+}
+
+.member-wl-compact-matrix__account-hd,
+.member-wl-compact-matrix__amt-hd {
+    display: flex;
+    align-items: center;
+    min-height: var(--member-wl-matrix-hdr-h, 40px);
+    padding: 8px 12px;
+    box-sizing: border-box;
+    background: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%);
+    border-bottom: 1px solid #b8cfe8;
+    color: #1e3a5f;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+}
+
+.member-wl-compact-matrix__account-hd {
+    border-right: 1px solid #b8cfe8;
+}
+
+.member-wl-compact-matrix__amt-hd {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.member-wl-compact-matrix__account {
+    display: flex;
+    align-items: center;
+    min-height: var(--member-wl-matrix-row-h, 40px);
+    padding: 8px 12px;
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: #fff;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e8eef5;
+    box-sizing: border-box;
+}
+
+.member-wl-compact-matrix__amt {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: var(--member-wl-matrix-row-h, 40px);
+    padding: 8px 10px 8px 12px;
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+    background: #fff;
+    border-bottom: 1px solid #e8eef5;
+    box-sizing: border-box;
+}
+
+.member-wl-compact-matrix__row--alt .member-wl-compact-matrix__account,
+.member-wl-compact-matrix__row--alt .member-wl-compact-matrix__amt {
+    background: #f8fafc;
+}
+
+.member-wl-compact-matrix__row--last .member-wl-compact-matrix__account,
+.member-wl-compact-matrix__row--last .member-wl-compact-matrix__amt {
+    border-bottom: none;
+}
+
+.member-wl-compact-matrix__amt--na {
+    justify-content: center;
+    color: #94a3b8;
+    font-weight: 500;
+    text-align: center;
+}
+
+.member-winloss-page .member-wl-compact-matrix__account-hd,
+.member-winloss-page .member-wl-compact-matrix__amt-hd {
+    min-height: var(--member-wl-matrix-hdr-h, 40px);
+}
+
+.member-winloss-page .member-wl-compact-matrix__account,
+.member-winloss-page .member-wl-compact-matrix__amt {
+    min-height: var(--member-wl-matrix-row-h, 40px);
+}
+
+.member-winloss-page .member-wl-compact-matrix__account {
+    font-size: var(--text-small);
+}
+
+.member-winloss-page .member-wl-compact-matrix__amt {
+    font-size: 13px;
+}
+
+.member-winloss-page .member-wl-compact-matrix__amt .member-balance-matrix-amt {
+    font-size: var(--text-tiny);
 }
 
 /* Accounts in grid modal */

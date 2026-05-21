@@ -9,6 +9,12 @@ export const WINLOSS_MINI_MATRIX_ACCOUNT_SCROLL_THRESHOLD = 5;
 /** Win/Loss Currency：每条 segment 白底带最多按钮数（含第一段的「All」占位），多出的自动再开新带 */
 export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS = 7;
 
+/** Win/Loss 矩阵：<10 列 1fr 铺满；≥10 列时每列宽 = 9 列铺满时的单列宽，向右延伸并可横向滚动 */
+export const WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD = 10;
+/** 视口内按此列数均分宽度（与 <10 列时 9 列铺满的间距一致） */
+export const WINLOSS_MATRIX_FILL_CCY_COLS = 9;
+export const WINLOSS_MATRIX_ROWHEAD_COL_WIDTH = "5.75rem";
+
 export function normalizeNumber(value) {
   try {
     return MoneyDecimal.toDecimal(value || "0", 0);
@@ -20,15 +26,42 @@ export function normalizeNumber(value) {
 export function formatPaymentHistoryMoney(value) {
   if (value === "-" || value === null || value === undefined) return "-";
   const cleaned = String(value).replace(/,/g, "").trim();
-  if (cleaned === "" || cleaned === "-") return "0.00";
+  if (cleaned === "" || cleaned === "-") return "-";
+  try {
+    if (MoneyDecimal.toDecimal(cleaned, 0).isZero()) return "-";
+  } catch {
+    if (/^-?0+(?:\.0+)?$/.test(cleaned)) return "-";
+  }
   const exact2 = cleaned.match(/^(-?)(\d+)\.(\d{2})$/);
   if (exact2) {
     const neg = exact2[1] === "-" ? "-" : "";
-    const intWithSep = exact2[2].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const intPart = exact2[2].replace(/^0+/, "") || "0";
+    if (intPart === "0" && exact2[3] === "00" && !neg) return "-";
+    const intWithSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return `${neg}${intWithSep}.${exact2[3]}`;
   }
-  return MoneyDecimal.formatThousands(cleaned, 2);
+  const formatted = MoneyDecimal.formatThousands(cleaned, 2);
+  if (formatted === "0.00" || formatted === "-0.00") return "-";
+  return formatted;
 }
+
+/** Win/Loss 矩阵 / Total：格式金额，0 显示为 "-"。 */
+export function formatMiniGridMoney(dec) {
+  if (dec == null || typeof dec.isZero !== "function") return "-";
+  if (dec.isZero()) return "-";
+  return formatPaymentHistoryMoney(dec.toString());
+}
+
+/** Win/Loss 矩阵 / Total：金额色调 — pos | neg | zero（0.00）| empty（无有效金额） */
+export function miniGridAmountTone(dec) {
+  if (dec == null || typeof dec.isZero !== "function") return "empty";
+  if (dec.isZero()) return "zero";
+  if (dec.lt(0)) return "neg";
+  return "pos";
+}
+
+/** 无数据占位（en dash，与零值 hyphen 区分） */
+export const MEMBER_AMOUNT_NA_MARK = "–";
 
 export function memberHistoryClosingBalancesForAllCurrencies(rows, wantedUpperSet) {
   const map = new Map();
@@ -197,22 +230,37 @@ export function getMemberMiniGridCurrencies(availableCurrencies, isAllSelected, 
   return availableCurrencies.filter((code) => selectedCurrencies.includes(code));
 }
 
+/** 切换币种按钮：至少保留一项（无选中时回退为 All）。 */
+export function applyCurrencyToggle(available, isAllSelected, selectedCurrencies, code) {
+  if (!available?.length) {
+    return { isAllSelected: true, selectedCurrencies: [] };
+  }
+  if (isAllSelected) {
+    return { isAllSelected: false, selectedCurrencies: [code] };
+  }
+  if (selectedCurrencies.includes(code)) {
+    const next = selectedCurrencies.filter((c) => c !== code);
+    if (next.length === 0) {
+      return { isAllSelected: true, selectedCurrencies: [] };
+    }
+    return { isAllSelected: false, selectedCurrencies: next };
+  }
+  return { isAllSelected: false, selectedCurrencies: [...selectedCurrencies, code] };
+}
+
 export function sanitizeCurrencySelection(available, isAllSelected, selectedCurrencies, linkedCurrenciesLoaded, linkedAccountCurrenciesMap, wlGridSelectedIds, linkedAccounts) {
   const availSet = new Set(available);
   const retained = selectedCurrencies.filter((c) => availSet.has(c));
-  if (!linkedCurrenciesLoaded) {
-    return { isAllSelected: retained.length === 0 ? true : isAllSelected, selectedCurrencies: retained.length === 0 && !isAllSelected ? [] : retained };
-  }
   if (!available.length) {
     return { isAllSelected: true, selectedCurrencies: [] };
   }
-  if (retained.length === 0 && !isAllSelected) {
-    return { isAllSelected: false, selectedCurrencies: [] };
+  if (isAllSelected) {
+    return { isAllSelected: true, selectedCurrencies: [] };
   }
   if (retained.length === 0) {
     return { isAllSelected: true, selectedCurrencies: [] };
   }
-  return { isAllSelected, selectedCurrencies: retained };
+  return { isAllSelected: false, selectedCurrencies: retained };
 }
 
 export function computeTableTotals(rows) {
@@ -246,7 +294,9 @@ export function groupHistoryForDisplay(historyRows, isAllSelected, selectedCurre
 }
 
 export function miniMatrixGridTemplateColumns(ncu) {
-  const rowHead = "minmax(5.75rem, max-content)";
-  const ccyCols = `repeat(${ncu}, minmax(0, 1fr))`;
-  return `${rowHead} ${ccyCols}`;
+  const rowHead = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content)`;
+  if (ncu <= 0) return rowHead;
+  /* 1–9 列：每列宽 = 视口按 9 列均分；列数随选中币种增加，表贴右向左扩展 */
+  const col = "var(--member-wl-ccy-fill-col-w, 4.75rem)";
+  return `${rowHead} repeat(${ncu}, minmax(${col}, ${col}))`;
 }
