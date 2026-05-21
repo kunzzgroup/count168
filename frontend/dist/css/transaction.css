@@ -1798,20 +1798,24 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     background-color: #f8fafc;
 }
 
-/* Payment History：大图一 — 打开即大弹窗（无缩放/滑入动画）、表头 #002b49、斑马纹、仅纵向滚动、禁止横向滚动 */
+/* Payment History：随当前视口居中；内容少时收缩，行多时表体内滚动 */
 #historyModal.transaction-modal {
-    overflow: hidden;
-    align-items: center;
+    display: flex;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    align-items: safe center;
     justify-content: center;
 }
 
 /* 必须高于 member.css 的 `.transaction-page .transaction-modal-content`（同特异性时 member 后加载会盖住宽度） */
 .transaction-page .transaction-modal-content.transaction-history-modal {
     width: min(75vw, 1420px);
-    max-width: 100%;
-    max-height: 92vh;
-    height: min(90vh, 960px);
-    min-height: min(56vh, 520px);
+    max-width: calc(100% - 24px);
+    max-height: min(92vh, calc(100dvh - 24px));
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    align-self: center;
     animation: none;
     border-radius: 10px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -1831,7 +1835,7 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
 }
 
 .transaction-history-modal .transaction-modal-body {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
     overflow: hidden;
     display: flex;
@@ -1841,9 +1845,9 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
 }
 
 .transaction-history-modal .transaction-history-table-frame {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
-    max-height: none;
+    max-height: min(68vh, calc(100dvh - 160px));
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -1852,6 +1856,51 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     border-right: none;
     border-radius: 0;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+/* Payment History：平板 / 矮屏 / 小屏 — 宽度与高度跟当前视口，避免仍按 desktop 固定尺寸卡在下方 */
+@media (max-width: 1280px) {
+    .transaction-page .transaction-modal-content.transaction-history-modal {
+        width: min(94vw, 1420px);
+        max-width: calc(100% - 20px);
+        max-height: min(90vh, calc(100dvh - 20px));
+    }
+
+    .transaction-history-modal .transaction-history-table-frame {
+        max-height: min(62vh, calc(100dvh - 150px));
+    }
+}
+
+@media (max-height: 800px) {
+    .transaction-page .transaction-modal-content.transaction-history-modal {
+        max-height: calc(100dvh - 16px);
+    }
+
+    .transaction-history-modal .transaction-history-table-frame {
+        max-height: calc(100dvh - 140px);
+    }
+}
+
+@media (max-width: 768px) {
+    #historyModal.transaction-modal {
+        padding: 8px;
+        align-items: flex-start;
+    }
+
+    .transaction-page .transaction-modal-content.transaction-history-modal {
+        width: 100%;
+        max-width: 100%;
+        max-height: calc(100dvh - 16px);
+        border-radius: 8px;
+    }
+
+    .transaction-history-modal .transaction-modal-header {
+        padding: 10px 12px;
+    }
+
+    .transaction-history-modal .transaction-history-table-frame {
+        max-height: calc(100dvh - 120px);
+    }
 }
 
 .transaction-history-modal .transaction-modal-body .transaction-table {
