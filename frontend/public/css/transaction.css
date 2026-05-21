@@ -271,7 +271,7 @@ body.transaction-page .transaction-add-section .tx-add-winlose-heading {
 /* Process List 同款 user-gc：与 userlist.css 中 user/account/process 一致，交易页此前未挂 body 类名故整块栅格与 pill 外观缺失 */
 body.transaction-page .transaction-bottom-filters .user-gc-inline-panel {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto 1fr;
     column-gap: 14px;
     align-items: center;
     border-top: none;
@@ -304,20 +304,16 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-pills {
     gap: 8px;
     flex: 1 1 0;
     min-width: 0;
-    max-width: 100%;
 }
 
 body.transaction-page .transaction-bottom-filters .user-gc-inline-pills--segment-scroll {
     flex-wrap: nowrap;
     overflow-x: auto;
-    overflow-y: hidden;
-    max-width: 100%;
     gap: 0;
     padding-top: 2px;
     padding-bottom: 6px;
     scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x;
 }
 
 body.transaction-page .transaction-bottom-filters .user-gc-segment-group {
@@ -1159,16 +1155,17 @@ body.transaction-page .transaction-search-section .transaction-checkboxes,
     gap: 8px;
 }
 
-/* 4 颗 display chip：窄屏自动换行，全部可见；宽屏仍单行 */
+/* 单行 chip：窄屏或文案较长时横向滚动，不折行撑高区块 */
 body.transaction-page .transaction-search-section .transaction-checkboxes.userlist-filter-chips {
-    flex-wrap: wrap;
-    overflow-x: visible;
-    overflow-y: visible;
-    row-gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
     min-width: 0;
     width: 100%;
     align-items: center;
-    padding-bottom: 0;
+    padding-bottom: 0px;
 }
 
 body.transaction-page .transaction-search-section .transaction-checkboxes.userlist-filter-chips .user-filter-chip {
@@ -1248,16 +1245,6 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
 
 body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter-chip:nth-child(2) {
     min-width: 6.75rem;
-    justify-content: flex-start;
-}
-
-body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter-chip:nth-child(3) {
-    min-width: 9.5rem;
-    justify-content: flex-start;
-}
-
-body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter-chip:nth-child(4) {
-    min-width: 8.5rem;
     justify-content: flex-start;
 }
 
