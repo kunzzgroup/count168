@@ -269,13 +269,7 @@ export function groupHistoryForDisplay(historyRows, isAllSelected, selectedCurre
 export function miniMatrixGridTemplateColumns(ncu) {
   const rowHead = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content)`;
   if (ncu <= 0) return rowHead;
-  /* 单币种紧凑表单独组件，此处仅多币种矩阵 */
-  if (ncu === 1) {
-    return `${rowHead} minmax(4.25rem, max-content)`;
-  }
-  if (ncu < WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD) {
-    return `${rowHead} repeat(${ncu}, minmax(0, 1fr))`;
-  }
-  /* ≥10 列：列宽由滚动容器 JS 写入 --member-wl-ccy-fill-col-w（px），禁止 minmax(0,*) 压缩 */
-  return `${rowHead} repeat(${ncu}, var(--member-wl-ccy-fill-col-w))`;
+  /* 1–9 列：每列宽 = 视口按 9 列均分；列数随选中币种增加，表贴右向左扩展 */
+  const col = "var(--member-wl-ccy-fill-col-w, 4.75rem)";
+  return `${rowHead} repeat(${ncu}, minmax(${col}, ${col}))`;
 }
