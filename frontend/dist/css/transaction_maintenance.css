@@ -1197,6 +1197,33 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 }
 
 /* —— TanStack Virtual：全量数据只挂载视口附近行 —— */
+/* Transaction maintenance: one viewport — filters on top, table fills remainder and scrolls inside */
+body.dashboard-page.transaction-maintenance-page {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+}
+
+body.dashboard-page.transaction-maintenance-page #root {
+    height: 100% !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+}
+
+body.dashboard-page.transaction-maintenance-page .container {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box;
+}
+
+body.dashboard-page.transaction-maintenance-page .maintenance-header {
+    flex-shrink: 0;
+}
+
 .transaction-maintenance-page-root {
     --transaction-list-cell-padding-y: clamp(6px, 0.55vw, 10px);
     --transaction-list-cell-padding-x: clamp(10px, 1vw, 16px);
@@ -1204,9 +1231,15 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     --transaction-list-cell-line-height: 1.4;
     --transaction-list-cell-line-clamp: 2;
     --transaction-table-min-width: 1360px;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .transaction-maintenance-page-root .customer-report-filter-container {
+    flex-shrink: 0;
     border: 1px solid rgba(148, 163, 184, 0.22);
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
 }
@@ -1217,7 +1250,13 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     border: 1px solid rgba(148, 163, 184, 0.28);
     border-radius: 12px;
     box-shadow: 0 4px 18px rgba(15, 23, 42, 0.07);
-    overflow: hidden;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 .transaction-maintenance-page-root .transaction-cell-clamp-2 {
@@ -1234,16 +1273,15 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     line-height: var(--transaction-list-cell-line-height);
 }
 
-.transaction-maintenance-page-root .maintenance-virtual-table {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
 .maintenance-virtual-table-inner {
     min-width: var(--transaction-table-min-width);
     width: 100%;
     box-sizing: border-box;
     border-collapse: separate;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .maintenance-virtual-table--refreshing .maintenance-virtual-scroll {
@@ -1326,10 +1364,16 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 }
 
 .maintenance-virtual-scroll {
-    max-height: min(72vh, 900px);
-    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overflow-x: hidden;
     border-radius: 0 0 12px 12px;
     background: #fff;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-x pan-y;
     scrollbar-width: thin;
     scrollbar-color: rgba(59, 130, 246, 0.45) rgba(241, 245, 249, 0.9);
 }
@@ -1443,5 +1487,25 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 .maintenance-virtual-data-row .maintenance-cell-currency {
     text-align: center;
     justify-content: center;
+}
+
+/* Override global-13inch "unlock container height" for this page's flex viewport layout */
+@media screen and (max-width: 1440px) {
+    body.ec-auth-shell.transaction-maintenance-page,
+    body.ec-auth-shell.transaction-maintenance-page #root {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.ec-auth-shell.transaction-maintenance-page .container {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
 }
 

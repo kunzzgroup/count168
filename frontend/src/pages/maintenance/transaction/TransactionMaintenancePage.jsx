@@ -185,7 +185,7 @@ export default function TransactionMaintenancePage() {
   // -- Initialization --
   useEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
-    document.body.classList.add("dashboard-page", "maintenance-page");
+    document.body.classList.add("dashboard-page", "maintenance-page", "transaction-maintenance-page");
 
     const targets = [document.documentElement, document.body, document.getElementById("root")].filter(Boolean);
     const originalStyles = targets.map((el) => ({
@@ -204,12 +204,16 @@ export default function TransactionMaintenancePage() {
       maxHeightPriority: el.style.getPropertyPriority("max-height"),
     }));
     targets.forEach((el) => {
-      el.style.setProperty("overflow", "auto", "important");
-      el.style.setProperty("overflow-y", "auto", "important");
+      el.style.setProperty("overflow", "hidden", "important");
+      el.style.setProperty("overflow-y", "hidden", "important");
       el.style.setProperty("overflow-x", "hidden", "important");
-      el.style.setProperty("height", "auto", "important");
-      el.style.setProperty("min-height", "100vh", "important");
-      el.style.setProperty("max-height", "none", "important");
+      if (el === document.documentElement) {
+        el.style.setProperty("height", "100%", "important");
+      } else {
+        el.style.setProperty("height", "100dvh", "important");
+      }
+      el.style.setProperty("min-height", "0", "important");
+      el.style.setProperty("max-height", "100dvh", "important");
     });
 
     let cancelled = false;
@@ -238,7 +242,7 @@ export default function TransactionMaintenancePage() {
         if (item.maxHeight) el.style.setProperty("max-height", item.maxHeight, item.maxHeightPriority);
         else el.style.removeProperty("max-height");
       });
-      document.body.classList.remove("maintenance-page");
+      document.body.classList.remove("maintenance-page", "transaction-maintenance-page");
     };
   }, []);
 
