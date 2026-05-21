@@ -678,18 +678,18 @@ export default function MemberPage() {
                         )}
                       </tbody>
                       <tfoot>
-                        <tr className="transaction-table-row transaction-summary-total">
+                        <tr className="transaction-table-row transaction-summary-total transaction-summary-total--amt-pill-soft">
                           <td className="transaction-summary-total-label" colSpan={3}>
                             {t("totalRow", { currency })}
                           </td>
                           <td className="transaction-history-col-winloss">
-                            <MemberMoneyCell value={totalWinLoss.toString()} formatMoney={formatPaymentHistoryMoney} pill />
+                            <MemberMoneyCell value={totalWinLoss.toString()} formatMoney={formatPaymentHistoryMoney} variant="summary" />
                           </td>
                           <td className="transaction-history-col-crdr">
-                            <MemberMoneyCell value={totalCrDr.toString()} formatMoney={formatPaymentHistoryMoney} pill />
+                            <MemberMoneyCell value={totalCrDr.toString()} formatMoney={formatPaymentHistoryMoney} variant="summary" />
                           </td>
                           <td className="transaction-history-col-balance">
-                            <MemberMoneyCell value={closingBalance.toString()} formatMoney={formatPaymentHistoryMoney} pill />
+                            <MemberMoneyCell value={closingBalance.toString()} formatMoney={formatPaymentHistoryMoney} variant="summary" />
                           </td>
                           <td className="transaction-history-col-description" colSpan={2} />
                         </tr>
