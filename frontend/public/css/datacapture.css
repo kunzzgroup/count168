@@ -1005,38 +1005,166 @@ body.datacapture-page .bottom-section .form-actions {
     flex-wrap: wrap;
 }
 
-/* Description Selection Modal Styles */
-.description-selection-modal .modal-content {
-    max-width: 56.25rem;
-    width: 90%;
+/* Description Selection Modal — align with Process List / app-wide modal pattern */
+.modal-content.description-selection-modal {
+    width: min(980px, 94vw);
+    max-width: min(980px, 94vw);
+    min-height: 610px;
+    max-height: 90vh;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    margin: 3% auto;
+}
+
+.modal-content.description-selection-modal .modal-header {
+    position: relative;
+    flex-shrink: 0;
+    padding: 14px 18px 12px 18px;
+    border-bottom: none;
+    background: transparent;
+}
+
+.modal-content.description-selection-modal .modal-header h2 {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border-bottom: none;
+    font-size: var(--text-page-title);
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-page-title);
+    letter-spacing: var(--letter-spacing-page-title);
+    color: #1f2937;
+    line-height: 1.1;
+}
+
+.modal-content.description-selection-modal .close {
+    top: 50%;
+    transform: translateY(-50%);
+    right: 18px;
+}
+
+.modal-content.description-selection-modal .modal-body {
+    padding: 12px 16px 14px 16px;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.modal-content.description-selection-modal .modal-footer {
+    flex-shrink: 0;
+    margin-top: 0;
+    padding: 10px 16px 12px 16px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.modal-content.description-selection-modal .btn-save {
+    background: var(--btn-add-gradient);
+    color: #ffffff;
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-semibold);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.modal-content.description-selection-modal .btn-save:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+.modal-content.description-selection-modal .btn-cancel {
+    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
+    color: #ffffff;
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-semibold);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.modal-content.description-selection-modal .btn-cancel:hover:not(:disabled) {
+    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
+    transform: translateY(-1px);
+    border-color: transparent;
+    color: #ffffff;
+}
+
+.modal-content.description-selection-modal .modal-footer .btn {
+    min-width: 92px;
+    min-height: 34px;
+    height: 34px;
+    padding: 0 12px;
+    font-size: 13px;
+    border-radius: 5px;
+}
+
+.modal-content.description-selection-modal .add-description-input-group .btn {
+    min-width: 64px;
+    max-width: 64px;
+    min-height: 28px;
+    height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+    border-radius: 4px;
 }
 
 .description-selection-container {
-    display: flex;
-    gap: 0;
-    height: clamp(300px, 26.04vw, 500px);
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 28px;
+    flex: 1 1 auto;
+    min-height: 450px;
+    width: 100%;
+    align-items: stretch;
 }
 
 .selected-descriptions-section {
-    flex: 1;
-    border-right: 0.0625rem solid #e9ecef;
-    padding-right: clamp(10px, 1.04vw, 20px);
-    min-width: 20rem;
+    min-width: 0;
+    border-right: 1px solid #e5e7eb;
+    padding-right: 16px;
 }
 
 .available-descriptions-section {
-    flex: 1;
-    padding-left: clamp(10px, 1.04vw, 20px);
-    min-width: 20rem;
+    min-width: 0;
+    padding-left: 8px;
 }
 
 .selected-descriptions-section h3,
 .available-descriptions-section h3 {
-    margin-top: 0;
-    margin-bottom: clamp(6px, 0.52vw, 10px);
-    color: #495057;
-    font-size: clamp(12px, 0.83vw, 16px);
+    margin: 0 0 8px 0;
+    color: #374151;
+    font-size: var(--text-medium);
+    font-family: var(--font-heading-page);
+    font-weight: 600;
 }
 
 .add-description-bar {
@@ -1046,10 +1174,11 @@ body.datacapture-page .bottom-section .form-actions {
 }
 
 .add-description-bar h3 {
-    margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
-    color: #495057;
-    font-size: clamp(12px, 0.83vw, 16px);
-    font-weight: bold;
+    margin: 0 0 6px 0;
+    color: #374151;
+    font-size: var(--text-small);
+    font-family: var(--font-heading-page);
+    font-weight: 600;
 }
 
 .add-description-form {
@@ -1089,21 +1218,25 @@ body.datacapture-page .bottom-section .form-actions {
 }
 
 .description-list {
-    max-height: 300px;
+    height: 315px;
+    min-height: 315px;
+    max-height: 315px;
     overflow-y: auto;
-    border: 1px solid #e9ecef;
+    border: 1px solid #e5e7eb;
     border-radius: 4px;
-    padding: 0px 10px;
-    background-color: #f8f9fa;
+    padding: 0 10px;
+    background-color: #f8fafc;
 }
 
 .selected-descriptions-list {
-    max-height: 18.75rem;
+    height: 315px;
+    min-height: 315px;
+    max-height: 315px;
     overflow-y: auto;
-    border: 0.0625rem solid #e9ecef;
-    border-radius: 0.25rem;
-    padding: 0.625rem;
-    background-color: #f8f9fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 10px;
+    background-color: #f8fafc;
 }
 
 .description-item {

@@ -243,15 +243,14 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
               </div>
             </div>
           </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={handleConfirm}>
-              Confirm
-            </button>
-            <button type="button" className="btn btn-cancel" onClick={onClose}>
-              Cancel
-            </button>
-          </div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={handleConfirm}>
+            Confirm
+          </button>
         </div>
       </div>
     </div>
