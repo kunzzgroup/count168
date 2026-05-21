@@ -1198,11 +1198,26 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 
 /* —— TanStack Virtual：全量数据只挂载视口附近行 —— */
 .transaction-maintenance-page-root {
-    --transaction-list-cell-padding-y: clamp(4px, 0.5vw, 8px);
-    --transaction-list-cell-padding-x: clamp(10px, 1vw, 18px);
-    --transaction-list-cell-min-height: clamp(36px, 2.6vw, 48px);
-    --transaction-list-cell-line-height: 1.35;
+    --transaction-list-cell-padding-y: clamp(6px, 0.55vw, 10px);
+    --transaction-list-cell-padding-x: clamp(10px, 1vw, 16px);
+    --transaction-list-cell-min-height: clamp(38px, 2.7vw, 50px);
+    --transaction-list-cell-line-height: 1.4;
     --transaction-list-cell-line-clamp: 2;
+    --transaction-table-min-width: 1360px;
+}
+
+.transaction-maintenance-page-root .customer-report-filter-container {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.transaction-maintenance-page-root .maintenance-list-container.maintenance-virtual-table {
+    margin-top: clamp(14px, 1.2vw, 22px);
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 12px;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.07);
+    overflow: hidden;
 }
 
 .transaction-maintenance-page-root .transaction-cell-clamp-2 {
@@ -1225,6 +1240,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 }
 
 .maintenance-virtual-table-inner {
+    min-width: var(--transaction-table-min-width);
     width: 100%;
     box-sizing: border-box;
     border-collapse: separate;
@@ -1239,7 +1255,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     position: sticky;
     top: 0;
     z-index: 3;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.14);
 }
 
 .maintenance-virtual-stale-hint {
@@ -1260,39 +1276,80 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 .maintenance-virtual-data-row {
     display: grid;
     grid-template-columns:
-        minmax(36px, 3.3fr) minmax(96px, 8.5fr) minmax(56px, 9fr) minmax(64px, 10fr) minmax(68px, 11fr) minmax(80px, 12fr) minmax(55px, 8fr) minmax(40px, 5fr) minmax(40px, 5fr) minmax(48px, 6fr) minmax(52px, 6fr) minmax(52px, 6fr) minmax(56px, 6fr);
+        minmax(40px, 3fr)
+        minmax(108px, 8.5fr)
+        minmax(72px, 9fr)
+        minmax(84px, 11fr)
+        minmax(76px, 10fr)
+        minmax(92px, 12fr)
+        minmax(68px, 8fr)
+        minmax(72px, 6fr)
+        minmax(76px, 6.5fr)
+        minmax(56px, 5.5fr)
+        minmax(64px, 6fr)
+        minmax(64px, 6fr)
+        minmax(84px, 7.5fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
 }
 
 .maintenance-virtual-th {
-    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
+    background: linear-gradient(180deg, #5bb8f7 0%, #0d58eb 100%);
     color: #ffffff;
-    font-weight: bold;
-    font-size: var(--text-base);
-    padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1vw, 18px);
+    font-weight: 600;
+    font-size: clamp(11px, 0.82vw, 13px);
+    letter-spacing: 0.02em;
+    padding: clamp(8px, 0.65vw, 11px) clamp(8px, 0.85vw, 14px);
     text-align: center;
-    min-height: clamp(30px, 2.1vw, 38px);
+    min-height: clamp(34px, 2.4vw, 42px);
     display: flex;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
+    white-space: nowrap;
+    overflow: visible;
 }
 
-.maintenance-virtual-th:first-child {
-    border-top-left-radius: 8px;
+.transaction-maintenance-page-root .maintenance-virtual-th:first-child {
+    border-top-left-radius: 11px;
 }
 
-.maintenance-virtual-th:last-child {
-    border-top-right-radius: 8px;
+.transaction-maintenance-page-root .maintenance-virtual-th:last-child {
+    border-top-right-radius: 11px;
+}
+
+.transaction-maintenance-page-root .empty-state-container {
+    margin-top: clamp(14px, 1.2vw, 22px);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.07);
 }
 
 .maintenance-virtual-scroll {
     max-height: min(72vh, 900px);
     overflow: auto;
-    border-radius: 8px;
+    border-radius: 0 0 12px 12px;
     background: #fff;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.45) rgba(241, 245, 249, 0.9);
+}
+
+.transaction-maintenance-page-root .maintenance-virtual-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.transaction-maintenance-page-root .maintenance-virtual-scroll::-webkit-scrollbar-track {
+    background: rgba(241, 245, 249, 0.95);
+}
+
+.transaction-maintenance-page-root .maintenance-virtual-scroll::-webkit-scrollbar-thumb {
+    background: rgba(59, 130, 246, 0.4);
+    border-radius: 999px;
+}
+
+.transaction-maintenance-page-root .maintenance-virtual-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(59, 130, 246, 0.58);
 }
 
 .maintenance-virtual-row-wrap {
@@ -1310,21 +1367,24 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     background: #ffffff;
     box-shadow: none;
     transition: background-color 0.15s ease;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .maintenance-virtual-data-row--stripe {
-    background: #cceeff99;
+    background: #f4f9ff;
 }
 
-.maintenance-virtual-data-row:hover {
+.maintenance-virtual-data-row:hover,
+.maintenance-virtual-data-row--stripe:hover {
+    background: #e8f3ff;
     box-shadow: none;
     transform: none;
 }
 
 .maintenance-virtual-cell {
-    font-size: var(--text-medium);
-    font-weight: bold;
-    color: #374151;
+    font-size: clamp(11px, 0.82vw, 13px);
+    font-weight: 500;
+    color: #334155;
     line-height: var(--transaction-list-cell-line-height);
     padding: var(--transaction-list-cell-padding-y) var(--transaction-list-cell-padding-x);
     overflow: hidden;
