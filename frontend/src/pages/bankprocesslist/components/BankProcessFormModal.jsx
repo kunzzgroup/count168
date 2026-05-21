@@ -1,8 +1,10 @@
 import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
-import BankSearchableAccountPick from "./BankSearchableAccountPick.jsx";
-import BankSimpleSelect from "./BankSimpleSelect.jsx";
-import BankFormDateField from "./BankFormDateField.jsx";
+import {
+  BankFormDateField,
+  BankSearchableAccountPick,
+  BankSimpleSelect,
+} from "./bankProcessFormFields.jsx";
 import {
   parseProfitSharingToRows,
   serializeProfitSharingRows,
