@@ -153,10 +153,19 @@ export function formatMemberRole(lang, role) {
 
 export function formatMemberRowDescription(lang, row) {
   if (!row) return "-";
-  if (row.row_type === "bf") return getMemberText(lang, "openingBalance");
-  const desc = String(row.description || "").trim();
-  if (desc.toUpperCase() === "OPENING BALANCE") return getMemberText(lang, "openingBalance");
-  return desc || "-";
+  let text;
+  if (row.row_type === "bf") {
+    text = getMemberText(lang, "openingBalance");
+  } else {
+    const desc = String(row.description || "").trim();
+    if (desc.toUpperCase() === "OPENING BALANCE") {
+      text = getMemberText(lang, "openingBalance");
+    } else {
+      text = desc || "-";
+    }
+  }
+  if (!text || text === "-") return "-";
+  return String(text).toUpperCase();
 }
 
 /** Map backend API message to member i18n for toasts. */

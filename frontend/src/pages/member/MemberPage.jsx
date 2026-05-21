@@ -570,20 +570,17 @@ export default function MemberPage() {
                 <>
                   <div className="member-dash-col member-dash-col-matrix" aria-hidden="false">
                     {linkedAccounts.length > 0 && (
-                      <div className="member-dash-rail-toolbar">
-                        <div className="member-dash-mini-toolbar">
-                          <button
-                            type="button"
-                            className="member-dash-filter-trigger"
-                            id="member_linked_filter_btn"
-                            title={t("accountsFilterTitle")}
-                            onClick={() => setShowLinkedFilterModal(true)}
-                          >
-                            <i className="fas fa-filter" aria-hidden="true" />
-                            <span>{t("accounts")}</span>
-                          </button>
-                          <span className="member-dash-grid-curr" id="member_balance_grid_currency_line" />
-                        </div>
+                      <div className="member-dash-rail-toolbar member-dash-matrix-toolbar">
+                        <button
+                          type="button"
+                          className="member-dash-filter-trigger"
+                          id="member_linked_filter_btn"
+                          title={t("accountsFilterTitle")}
+                          onClick={() => setShowLinkedFilterModal(true)}
+                        >
+                          <i className="fas fa-filter" aria-hidden="true" />
+                          <span>{t("accounts")}</span>
+                        </button>
                       </div>
                     )}
                     <div className="member-dash-matrix-center-wrap">
@@ -674,7 +671,7 @@ export default function MemberPage() {
                               <td className="transaction-history-col-balance">
                                 <MemberMoneyCell value={row.balance} formatMoney={formatPaymentHistoryMoney} />
                               </td>
-                              <td className="transaction-history-col-description">{formatMemberRowDescription(lang, row)}</td>
+                              <td className="transaction-history-col-description text-uppercase">{formatMemberRowDescription(lang, row)}</td>
                               <td className="transaction-history-col-remark text-uppercase">{String(row.remark || row.sms || "-").toUpperCase()}</td>
                             </tr>
                           ))

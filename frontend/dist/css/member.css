@@ -797,6 +797,7 @@
     text-align: left;
     word-break: break-word;
     min-width: 120px;
+    text-transform: uppercase;
 }
 .member-winloss-table .transaction-history-col-remark {
     text-align: center;
@@ -1594,10 +1595,18 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     min-height: 28px;
     display: flex;
     align-items: center;
-    /* 栏本身已有 padding-inline，工具条不再重复加宽 */
+    justify-content: flex-start;
+    align-self: flex-start;
+    width: auto;
+    max-width: 100%;
     padding: 0 0 8px;
     margin: 0;
     box-sizing: border-box;
+}
+
+.member-winloss-page .member-dash-matrix-toolbar {
+    position: relative;
+    z-index: 1;
 }
 
 .member-winloss-page .member-dash-rail-composite {
