@@ -512,11 +512,11 @@ export default function MemberPage() {
                   {currencyFilterBands.map((band, segIdx) => (
                     <div
                       key={`member-ccy-band-${segIdx}`}
-                      className={`user-gc-segment-group member-winloss-currency-segments${
-                        band.length === WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS
-                          ? " member-winloss-currency-segments--full"
-                          : " member-winloss-currency-segments--partial"
-                      }`}
+                      className="user-gc-segment-group member-winloss-currency-segments"
+                      style={{
+                        width: `${(band.length / WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS) * 100}%`,
+                        gridTemplateColumns: `repeat(${band.length}, minmax(0, 1fr))`,
+                      }}
                     >
                       {band.map((cell) =>
                         cell.type === "all" ? (
