@@ -27,41 +27,15 @@ export default function TransactionMaintenanceFilters({
   setDateTo,
   today,
   companyId,
-  companies,
+  groupFilterKind,
+  snapGroupIds,
+  visibleCompanies,
   selectedGroup,
   onGroupClick,
   onPickAllGroups,
   onSwitchCompany,
   m,
 }) {
-  const normalize = (value) => String(value || "").toUpperCase().trim();
-  const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
-  const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => normalize(c.group_id)))].sort();
-  const dedupedCompanies = (() => {
-    const byCode = new Map();
-    for (const comp of snapCompanies) {
-      const key = normalize(comp.company_id);
-      const existing = byCode.get(key);
-      if (!existing) {
-        byCode.set(key, comp);
-        continue;
-      }
-      const existingIsCurrent = Number(existing.id) === Number(companyId);
-      const currentIsCurrent = Number(comp.id) === Number(companyId);
-      if (!existingIsCurrent && currentIsCurrent) byCode.set(key, comp);
-    }
-    return Array.from(byCode.values());
-  })();
-
-  const visibleCompanies = useMemo(() => {
-    return dedupedCompanies.filter((comp) => {
-      const cGid = comp.group_id != null ? normalize(comp.group_id) : "";
-      const isC168 = normalize(comp.company_id) === "C168";
-      if (selectedGroup) return cGid === selectedGroup || isC168;
-      return true;
-    });
-  }, [dedupedCompanies, selectedGroup]);
-
   const periodPresets = useMemo(
     () => QUICK_RANGE_KEYS.map((key) => ({ key, label: m[key] || key })),
     [m],
@@ -117,7 +91,7 @@ export default function TransactionMaintenanceFilters({
         <div className="maintenance-filter-left-full">
           <ReportGcFilterPanel
             groupIds={snapGroupIds}
-            groupFilterKind={selectedGroup ? "follow" : "all"}
+            groupFilterKind={groupFilterKind}
             selectedGroupKey={selectedGroup}
             onPickAllGroups={onPickAllGroups}
             onPickGroup={(g) => onGroupClick(g)}

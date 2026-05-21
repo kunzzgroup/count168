@@ -5,7 +5,7 @@ import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch, persistDashboardGroupFilter } from "../../../utils/sharedCompanyFilter.js";
+import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/transaction.css";
@@ -86,6 +86,7 @@ export default function TransactionMaintenancePage() {
   const [dateRangeReady, setDateRangeReady] = useState(false);
   const [searchDeferredReady, setSearchDeferredReady] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
+  const followGroupRef = useRef(() => {});
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -511,7 +512,7 @@ export default function TransactionMaintenancePage() {
   ]);
 
   // -- Handlers --
-  const handleSwitchCompany = async (c) => {
+  const handleSwitchCompany = useCallback(async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
     setSwitchingCompany(true);
     try {
@@ -551,6 +552,8 @@ export default function TransactionMaintenancePage() {
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
 
+      followGroupRef.current();
+
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }), "success");
     } catch (err) {
@@ -563,23 +566,25 @@ export default function TransactionMaintenancePage() {
     } finally {
       setSwitchingCompany(false);
     }
-  };
+  }, [companyId, navigate, notify, t]);
 
-  const handlePickAllGroups = useCallback(() => {
-    persistDashboardGroupFilter(null);
-    setSelectedGroup(null);
-  }, []);
+  const {
+    groupFilterKind,
+    snapGroupIds,
+    visibleCompanies,
+    handlePickAllGroups,
+    handleGroupClick,
+    followCurrentCompanyGroup,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: handleSwitchCompany,
+    switchingCompany,
+  });
 
-  const handleGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-    });
-  };
+  followGroupRef.current = followCurrentCompanyGroup;
 
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
@@ -623,6 +628,9 @@ export default function TransactionMaintenancePage() {
           today={todayDmy}
           companyId={companyId}
           companies={companies}
+          groupFilterKind={groupFilterKind}
+          snapGroupIds={snapGroupIds}
+          visibleCompanies={visibleCompanies}
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
           onPickAllGroups={handlePickAllGroups}

@@ -5,7 +5,7 @@ import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceSty
 import { injectStylesheet } from "../../../utils/injectStylesheet.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
+import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
@@ -399,15 +399,24 @@ export default function BankprocessMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, selectedPermission);
   }, [selectedPermission, companyCode]);
 
+  const followGroupRef = useRef(() => {});
+
   const handleSwitchCompany = useCallback(async (targetCompany) => {
     if (!targetCompany?.id) return;
     const nextId = Number(targetCompany.id);
     if (nextId === Number(currentCompanyIdRef.current)) return;
     try {
       await updateSessionCompany(nextId);
+      const newGroup = targetCompany.group_id
+        ? String(targetCompany.group_id).toUpperCase().trim()
+        : null;
       setCompanyId(nextId);
       setCompanyCode(targetCompany.company_id || "");
+      setSelectedGroup(newGroup);
+      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
+      else sessionStorage.removeItem("dashboard_group_filter");
       currentCompanyIdRef.current = nextId;
+      followGroupRef.current();
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: targetCompany.company_id }), "success");
     } catch (err) {
@@ -415,16 +424,24 @@ export default function BankprocessMaintenancePage() {
     }
   }, [notify, t]);
 
-  const onGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-    });
-  };
+  const {
+    groupFilterKind,
+    snapGroupIds: groupedIdsFromHook,
+    visibleCompanies,
+    handlePickAllGroups,
+    handleGroupClick: onGroupClick,
+    followCurrentCompanyGroup,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: handleSwitchCompany,
+  });
+
+  followGroupRef.current = followCurrentCompanyGroup;
+
+  const groupedIds = groupedIdsFromHook;
 
   const toggleBankprocessCurrency = useCallback((code) => {
     if (!code) return;
@@ -443,18 +460,6 @@ export default function BankprocessMaintenancePage() {
     setAllCurrenciesSelected(true);
     setSelectedCurrencies([]);
   }, []);
-
-  const visibleCompanies = useMemo(() => {
-    if (selectedGroup) {
-      return companies.filter((c) => String(c.group_id || "").toUpperCase().trim() === selectedGroup);
-    }
-    return companies.filter((c) => !String(c.group_id || "").trim());
-  }, [companies, selectedGroup]);
-
-  const groupedIds = useMemo(
-    () => [...new Set(companies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort(),
-    [companies]
-  );
 
   const selectableRows = useMemo(
     () => rows.filter((r) => !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true)),
@@ -522,8 +527,10 @@ export default function BankprocessMaintenancePage() {
         setQuery={setQuery}
         onSearch={performSearch}
         groupedIds={groupedIds}
+        groupFilterKind={groupFilterKind}
         selectedGroup={selectedGroup}
         onGroupClick={onGroupClick}
+        onPickAllGroups={handlePickAllGroups}
         companies={companies}
         visibleCompanies={visibleCompanies}
         companyId={companyId}

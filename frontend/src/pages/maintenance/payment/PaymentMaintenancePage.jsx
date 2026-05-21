@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
+import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/customer_report.css";
@@ -79,6 +79,7 @@ export default function PaymentMaintenancePage() {
   const initialPaymentSearchDoneRef = useRef(false);
   /** 切换公司已手动 performSearch 时跳过 useEffect 里下一轮重复请求 */
   const suppressNextSearchEffectRef = useRef(false);
+  const followGroupRef = useRef(() => {});
   const paymentDataRef = useRef(paymentData);
   paymentDataRef.current = paymentData;
 
@@ -408,6 +409,7 @@ export default function PaymentMaintenancePage() {
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
+      followGroupRef.current();
       void performSearch({ companyId: nextId });
       notify(t("switchedTo", { company: nextCode }), "success");
       try {
@@ -431,6 +433,7 @@ export default function PaymentMaintenancePage() {
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
+      followGroupRef.current();
 
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: nextCode }), "success");
@@ -441,16 +444,22 @@ export default function PaymentMaintenancePage() {
     }
   };
 
-  const handleGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-    });
-  };
+  const {
+    groupFilterKind,
+    snapGroupIds,
+    visibleCompanies,
+    handlePickAllGroups,
+    handleGroupClick,
+    followCurrentCompanyGroup,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: handleSwitchCompany,
+  });
+
+  followGroupRef.current = followCurrentCompanyGroup;
 
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
@@ -538,9 +547,12 @@ export default function PaymentMaintenancePage() {
         setDateTo={setDateTo}
         today={todayDmy}
         companyId={companyId}
-        companies={companies}
+        groupFilterKind={groupFilterKind}
+        snapGroupIds={snapGroupIds}
+        visibleCompanies={visibleCompanies}
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
+        onPickAllGroups={handlePickAllGroups}
         onSwitchCompany={handleSwitchCompany}
         currencies={currencies}
         selectedCurrency={selectedCurrency}

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
+import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
@@ -74,6 +74,7 @@ export default function FormulaMaintenancePage() {
   const companyIdRef = useRef(null);
   const initialFormulaSearchDoneRef = useRef(false);
   const suppressNextSearchEffectRef = useRef(false);
+  const followGroupRef = useRef(() => {});
 
   const [totalRowCount, setTotalRowCount] = useState(0);
   const [listHydrating, setListHydrating] = useState(false);
@@ -482,6 +483,7 @@ export default function FormulaMaintenancePage() {
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
+      followGroupRef.current();
 
       setSearchFilter("");
       setSelectedProcess(null);
@@ -494,16 +496,22 @@ export default function FormulaMaintenancePage() {
     }
   };
 
-  const handleGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-    });
-  };
+  const {
+    groupFilterKind,
+    snapGroupIds,
+    visibleCompanies,
+    handlePickAllGroups,
+    handleGroupClick,
+    followCurrentCompanyGroup,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: handleSwitchCompany,
+  });
+
+  followGroupRef.current = followCurrentCompanyGroup;
 
   const handlePermissionSwitch = (p) => {
     startTransition(() => {
@@ -678,9 +686,12 @@ export default function FormulaMaintenancePage() {
         searchFilter={searchFilter}
         setSearchFilter={setSearchFilter}
         companyId={companyId}
-        companies={companies}
+        groupFilterKind={groupFilterKind}
+        snapGroupIds={snapGroupIds}
+        visibleCompanies={visibleCompanies}
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
+        onPickAllGroups={handlePickAllGroups}
         onSwitchCompany={handleSwitchCompany}
         onClearFilters={handleClearFilters}
         selectedIds={selectedIds}

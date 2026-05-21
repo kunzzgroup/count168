@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import ProcessSelect from "./ProcessSelect.jsx";
 import ReportGcFilterPanel from "../../../report/components/ReportGcFilterPanel.jsx";
 
@@ -9,9 +8,12 @@ export default function FormulaMaintenanceFilters({
   searchFilter,
   setSearchFilter,
   companyId,
-  companies,
+  groupFilterKind,
+  snapGroupIds,
+  visibleCompanies,
   selectedGroup,
   onGroupClick,
+  onPickAllGroups,
   onSwitchCompany,
   onClearFilters,
   selectedIds,
@@ -20,17 +22,7 @@ export default function FormulaMaintenanceFilters({
   onDelete,
   m,
 }) {
-  const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
-  const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
   const showClear = Boolean(searchFilter || selectedProcess !== null);
-
-  const visibleCompanies = useMemo(() => {
-    return snapCompanies.filter((comp) => {
-      const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-      if (selectedGroup) return cGid === selectedGroup;
-      return true;
-    });
-  }, [snapCompanies, selectedGroup]);
 
   return (
     <div className="customer-report-filter-container">
@@ -109,9 +101,9 @@ export default function FormulaMaintenanceFilters({
         <div className="maintenance-filter-left-full">
           <ReportGcFilterPanel
             groupIds={snapGroupIds}
-            groupFilterKind={selectedGroup ? "follow" : "all"}
+            groupFilterKind={groupFilterKind}
             selectedGroupKey={selectedGroup}
-            onPickAllGroups={() => onGroupClick("")}
+            onPickAllGroups={onPickAllGroups}
             onPickGroup={(g) => onGroupClick(g)}
             companyButtons={visibleCompanies}
             companyId={companyId}

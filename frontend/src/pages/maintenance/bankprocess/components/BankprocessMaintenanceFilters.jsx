@@ -29,8 +29,10 @@ export default function BankprocessMaintenanceFilters({
   setQuery,
   onSearch,
   groupedIds,
+  groupFilterKind,
   selectedGroup,
   onGroupClick,
+  onPickAllGroups,
   companies,
   visibleCompanies,
   companyId,
@@ -144,9 +146,9 @@ export default function BankprocessMaintenanceFilters({
         <div className="maintenance-filter-left-full">
           <ReportGcFilterPanel
               groupIds={groupedIds}
-              groupFilterKind={selectedGroup ? "follow" : "all"}
+              groupFilterKind={groupFilterKind}
               selectedGroupKey={selectedGroup}
-              onPickAllGroups={() => onGroupClick("")}
+              onPickAllGroups={onPickAllGroups}
               onPickGroup={(g) => onGroupClick(g)}
               companyButtons={visibleCompanies}
               companyId={companyId}

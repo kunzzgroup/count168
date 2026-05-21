@@ -120,6 +120,50 @@ export function isCompanyVisibleForSharedFilter(comp, selectedGroup, hideGroupFi
   return g === selectedGroup;
 }
 
+/** Process List / Account List 同款：All 模式下按 group 排序展示全部公司 */
+export function sortCompaniesForAllGroupView(companies, groupIds) {
+  const list = [...(companies || [])];
+  const groupOrder = new Map((groupIds || []).map((gid, idx) => [String(gid).toUpperCase(), idx]));
+  return list.sort((a, b) => {
+    const ga = normalizeCompanyGroupId(a);
+    const gb = normalizeCompanyGroupId(b);
+    const ra = groupOrder.has(ga) ? groupOrder.get(ga) : Number.MAX_SAFE_INTEGER;
+    const rb = groupOrder.has(gb) ? groupOrder.get(gb) : Number.MAX_SAFE_INTEGER;
+    if (ra !== rb) return ra - rb;
+    return String(a.company_id || "").localeCompare(String(b.company_id || ""), undefined, { numeric: true });
+  });
+}
+
+/** Maintenance 各页公司 pill 可见性（对齐 Process List groupFilterKind 语义） */
+export function filterMaintenanceVisibleCompanies(
+  companies,
+  { groupFilterKind = "follow", selectedGroup = null, groupIds = [], preferredCompanyId = null } = {},
+) {
+  const list = dedupeOwnerCompaniesByCode(companies, preferredCompanyId);
+  const gids = groupIds.length ? groupIds : sortedUniqueGroupIds(list);
+
+  if (groupFilterKind === "all") {
+    return sortCompaniesForAllGroupView(list, gids);
+  }
+  if (groupFilterKind === "ungrouped") {
+    return list.filter((c) => !normalizeCompanyGroupId(c));
+  }
+
+  const sel = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+  if (gids.length === 0) return list;
+  if (!sel) {
+    const ung = list.filter((c) => !normalizeCompanyGroupId(c));
+    return ung.length ? ung : list;
+  }
+  const inG = list.filter((c) => normalizeCompanyGroupId(c) === sel);
+  return inG.length ? inG : list;
+}
+
+/** All 按钮：在 all ↔ ungrouped 间切换（与 Process List 一致） */
+export function toggleGroupFilterKind(current) {
+  return current === "all" ? "ungrouped" : "all";
+}
+
 /**
  * Full legacy group-button behaviour: update filter + session, optionally switch active company.
  * @param {(comp: object) => Promise<void>|void} params.switchCompany receives full company row ({ id, company_id, group_id, … }).

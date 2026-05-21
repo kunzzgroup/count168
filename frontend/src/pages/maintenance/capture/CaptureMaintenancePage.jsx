@@ -12,7 +12,7 @@ import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../u
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { formatYmd } from "../../../utils/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
+import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
   fetchCompanyPermissions,
   fetchProcesses,
@@ -81,6 +81,7 @@ export default function CaptureMaintenancePage() {
   const initialCaptureSearchDoneRef = useRef(false);
   /** 切换公司已手动触发拉数时跳过 useEffect 里下一次重复请求，少等一轮渲染 */
   const suppressNextSearchEffectRef = useRef(false);
+  const followGroupRef = useRef(() => {});
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -384,6 +385,7 @@ export default function CaptureMaintenancePage() {
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
+      followGroupRef.current();
       void performSearch({ companyId: nextId });
       notify(t("switchedTo", { company: nextCode }), "success");
       try {
@@ -414,6 +416,7 @@ export default function CaptureMaintenancePage() {
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
+      followGroupRef.current();
 
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: nextCode }), "success");
@@ -424,16 +427,22 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  const handleGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-    });
-  };
+  const {
+    groupFilterKind,
+    snapGroupIds,
+    visibleCompanies,
+    handlePickAllGroups,
+    handleGroupClick,
+    followCurrentCompanyGroup,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: handleSwitchCompany,
+  });
+
+  followGroupRef.current = followCurrentCompanyGroup;
 
   const handlePermissionSwitch = (p) => {
     if (p === activePermission) return;
@@ -537,9 +546,12 @@ export default function CaptureMaintenancePage() {
           setDateTo={setDateTo}
           today={todayDmy}
           companyId={companyId}
-          companies={companies}
+          groupFilterKind={groupFilterKind}
+          snapGroupIds={snapGroupIds}
+          visibleCompanies={visibleCompanies}
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
+          onPickAllGroups={handlePickAllGroups}
           onSwitchCompany={handleSwitchCompany}
           onDelete={handleDeleteClick}
           canDelete={selectedIds.length > 0}
