@@ -59,8 +59,8 @@
 /* Country Selection Modal — dual column + footer (matches Bank Selection picker layout) */
 .process-page .modal-content.country-selection-modal,
 .modal-content.country-selection-modal {
-    width: min(81rem, 96vw);
-    max-width: 81rem;
+    width: min(85rem, 96vw);
+    max-width: 85rem;
     max-height: min(92vh, 720px);
     display: flex;
     flex-direction: column;
@@ -364,13 +364,13 @@
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: #dc2626;
+    color: #94a3b8;
     cursor: pointer;
-    transition: color 0.15s, background 0.15s;
+    transition: color 0.15s;
 }
 
 .modal-content.country-selection-modal .country-list-delete:hover {
-    color: #b91c1c;
+    color: #dc2626;
 }
 
 .modal-content.country-selection-modal .country-list-delete-icon {
