@@ -549,6 +549,17 @@ export const addCalendarMonthsToYmd = (ymd, months) => {
   return `${y}-${mo}-${day}`;
 };
 
+export const subtractOneDayFromYmd = (ymd) => {
+  if (!ymd) return null;
+  const head = String(ymd).trim().substring(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(head)) return null;
+  const p = head.split("-").map(Number);
+  const d = new Date(p[0], p[1] - 1, p[2]);
+  if (isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 export const billingContractExclusiveEndYmdFirstOfMonthJs = (startYmd, termMonths) => {
   if (!startYmd || termMonths < 1) return null;
   const p = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -568,11 +579,23 @@ export const billingContractExclusiveEndYmdFirstOfMonthJs = (startYmd, termMonth
   return `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
 };
 
+/**
+ * Bank 表单 Day end 自动填（与 bank_process_list.js 一致，不参与入账）。
+ * 起租日 1 号：起租 + N 月（如 5/1 + 1M → 6/1）。
+ * 起租日非 1 号：起租 + N 月再减 1 天（如 4/15 + 1M → 5/14），不用 1 号锚点。
+ */
 export const contractBillingEndYmdForBankForm = (startYmd, termMonths, frequency) => {
   if (!startYmd || termMonths == null || termMonths < 1) return null;
   if (frequency === "once") return null;
-  if (frequency === 'monthly') return addCalendarMonthsToYmd(startYmd, termMonths);
-  return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+  const head = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!head) return null;
+  const startDay = parseInt(head[3], 10);
+  if (startDay === 1) {
+    return addCalendarMonthsToYmd(startYmd, termMonths);
+  }
+  const exclusiveCal = addCalendarMonthsToYmd(startYmd, termMonths);
+  if (!exclusiveCal) return null;
+  return subtractOneDayFromYmd(exclusiveCal) || null;
 };
 
 /** Matches legacy processlist.js / bank_process_list.js Accounting Due row period_types. */
