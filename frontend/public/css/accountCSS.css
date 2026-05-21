@@ -1952,46 +1952,17 @@ body.account-page #confirmDeleteModal .confirm-delete {
     padding: clamp(10px, 0.78vw, 14px) 0;
     color: #1f2937;
     letter-spacing: -0.02em;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 #account-addModal .account-close,
 #account-editModal .account-close {
-    right: 3rem;
-    top: 2.5rem;
-    color: #94a3b8;
-    width: clamp(22px, 1.45vw, 24px);
-    height: clamp(22px, 1.45vw, 24px);
-    border: 2px solid currentColor;
-    border-radius: 50%;
-    background: transparent;
-    font-size: 0;
-    font-weight: 700;
-    position: absolute;
-}
-
-#account-addModal .account-close::before,
-#account-addModal .account-close::after,
-#account-editModal .account-close::before,
-#account-editModal .account-close::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 55%;
-    height: 2px;
-    border-radius: 999px;
-    background: currentColor;
-    transform-origin: center;
-}
-
-#account-addModal .account-close::before,
-#account-editModal .account-close::before {
-    transform: translate(-50%, -50%) rotate(45deg);
-}
-
-#account-addModal .account-close::after,
-#account-editModal .account-close::after {
-    transform: translate(-50%, -50%) rotate(-45deg);
+    position: static;
+    right: auto;
+    top: auto;
+    flex-shrink: 0;
+    margin: 0;
 }
 
 #account-addModal .account-form-column .account-section-header,
@@ -2035,10 +2006,14 @@ body.account-page #confirmDeleteModal .confirm-delete {
 #account-addModal .account-modal-header,
 #account-editModal .account-modal-header {
     margin: -10px -20px 0;
-    padding: 3px 20px;
+    padding: 3px 3rem 3px 20px;
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
     border-radius: 0.9rem 0.9rem 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
 }
 
 .account-modal-header h2 {
@@ -2899,8 +2874,11 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     #account-addModal .account-modal-header,
     #account-editModal .account-modal-header {
         margin: -8px -18px 0;
-        padding: 6px 18px;
+        padding: 6px 1.1rem 6px 18px;
         flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
 
     #account-addModal .account-modal-header h2,
@@ -2909,14 +2887,16 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
         padding: 8px 0 !important;
         line-height: 1.2;
         letter-spacing: -0.02em;
+        flex: 1 1 auto;
+        min-width: 0;
     }
 
     #account-addModal .account-close,
     #account-editModal .account-close {
-        top: 0.85rem;
-        right: 1.1rem;
+        position: static;
         width: 22px;
         height: 22px;
+        flex-shrink: 0;
     }
 
     #account-addModal .account-modal-body,

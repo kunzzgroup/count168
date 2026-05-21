@@ -43,9 +43,27 @@
     overflow: hidden;
 }
 
+#linkAccountModal .account-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-right: 4rem;
+}
+
 #linkAccountModal .account-modal-header h2 {
-    padding: 3.25rem 4rem 20px 4rem;
+    padding: clamp(10px, 0.78vw, 14px) 0 clamp(10px, 0.78vw, 14px) 4rem;
     font-size: var(--text-page-title);
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+}
+
+#linkAccountModal .account-close {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    flex-shrink: 0;
 }
 
 #linkAccountModal .link-account-modal-body {

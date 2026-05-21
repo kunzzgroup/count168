@@ -1,6 +1,6 @@
 /**
  * Unified modal close button — matches Account List → Add Account modal.
- * Circular outline + pseudo-element X; balanced inset from modal edges.
+ * Circular outline + pseudo-element X; vertically centered with title.
  */
 
 :root {
@@ -9,7 +9,6 @@
   --modal-close-color-hover: #64748b;
   --modal-close-bg-hover: #f1f5f9;
   --modal-close-inset-x: clamp(1.25rem, 2.5vw, 3rem);
-  --modal-close-inset-y: clamp(1rem, 2vw, 2.5rem);
 }
 
 /* Shared appearance */
@@ -54,29 +53,10 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
   transition: color 0.2s, background-color 0.2s, border-color 0.2s;
   transform: none !important;
   z-index: 2;
-}
-
-/* Flex-header dismiss buttons need a positioning context for pseudo X */
-.edit-modal-close,
-.transaction-modal-close,
-.delete-dialog-close,
-.user-modal-company-picker-close,
-.user-modal-permission-picker-close,
-.modal-close-btn {
-  position: relative;
-}
-
-/* Account modal close: anchor to .account-modal-content, aligned with title row */
-.account-modal-header .account-close,
-#account-addModal .account-close,
-#account-editModal .account-close,
-#linkAccountModal .account-close {
-  position: absolute !important;
-  right: 3rem !important;
-  top: 2.5rem !important;
 }
 
 :is(
@@ -234,41 +214,76 @@
   outline: none;
 }
 
-/* Absolute placement — header / modal shell (not account-modal-header: close aligns to modal content) */
+/* Title row: close vertically centered with heading */
 :is(
+  .account-modal-header,
   .modal-header,
   .modal-header-bar,
+  .edit-modal-header,
+  .transaction-modal-header,
   .country-selection-modal-header,
   .bank-selection-modal-header,
   #processAccountingDueModal .modal-header,
-  .modal-content.description-selection-modal,
-  .domain-fee-react-modal,
-  .company-expiration-react-modal,
-  .company-settings-react-modal
+  .user-modal-company-picker-header,
+  .user-modal-permission-picker-header,
+  .delete-dialog-header
 ) {
-  position: relative;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px;
 }
 
+:is(
+  .account-modal-header,
+  .modal-header,
+  .modal-header-bar,
+  .edit-modal-header,
+  .transaction-modal-header,
+  .country-selection-modal-header,
+  .bank-selection-modal-header,
+  #processAccountingDueModal .modal-header,
+  .user-modal-company-picker-header,
+  .user-modal-permission-picker-header
+) :is(h1, h2, h3, h4) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Close in title row — flex sibling, not absolute */
+.account-modal-header .account-close,
 .modal-header .close,
 .modal-header-bar .close,
 .country-selection-modal-header .close,
 .bank-selection-modal-header .close,
 #processAccountingDueModal .modal-header .close,
-.modal-content.description-selection-modal .close,
+.edit-modal-header .edit-modal-close,
+.transaction-modal-header .transaction-modal-close,
+.delete-dialog-header .delete-dialog-close {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+}
+
+/* Domain modals: close overlays title bar — align to title cap-height center */
+.domain-fee-react-modal,
+.company-expiration-react-modal,
+.company-settings-react-modal {
+  position: relative;
+}
+
 .domain-fee-react-modal > .close,
 .company-expiration-react-modal > .close,
 .company-settings-react-modal > .close {
   position: absolute !important;
   right: var(--modal-close-inset-x) !important;
-  top: var(--modal-close-inset-y) !important;
+  top: calc(clamp(10px, 1.04vw, 20px) + clamp(14px, 1.25vw, 24px) * 0.5 - var(--modal-close-size) * 0.5) !important;
 }
 
 @media (max-width: 768px) {
   #account-addModal .account-close,
   #account-editModal .account-close,
   #linkAccountModal .account-close {
-    right: 1.1rem !important;
-    top: 0.85rem !important;
     width: 22px !important;
     height: 22px !important;
   }
