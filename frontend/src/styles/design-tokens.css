@@ -120,6 +120,16 @@
   --page-pad-inline-start: clamp(18rem, 14.06vw, 27rem);
 
   /*
+   * Ownership（/ownership）— 字号映射全局 --text-* 阶梯；改 --text-* 即可连带本页缩放
+   */
+  --own-text-stat: var(--text-h2);
+  --own-text-card-title: var(--text-h3);
+  --own-text-control: var(--text-base);
+  --own-text-body: var(--text-medium);
+  --own-text-label: var(--text-small);
+  --own-text-caption: var(--text-tiny);
+
+  /*
    * 列表表格体（User / Account 分页模式，非 Show All）：
    * 中间用 2vh 压低「最小高度」框，避免 52vh 过大；min 1rem 保底。
    * max 48rem：在 2vh 下常见分辨率几乎不会触发（2vh 远小于 48rem），仅作 clamp 上界与极端超高 vh 的保险。
