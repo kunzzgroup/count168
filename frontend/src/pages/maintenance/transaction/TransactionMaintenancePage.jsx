@@ -187,61 +187,12 @@ export default function TransactionMaintenancePage() {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "maintenance-page", "transaction-maintenance-page");
 
-    const targets = [document.documentElement, document.body, document.getElementById("root")].filter(Boolean);
-    const originalStyles = targets.map((el) => ({
-      el,
-      overflow: el.style.getPropertyValue("overflow"),
-      overflowPriority: el.style.getPropertyPriority("overflow"),
-      overflowY: el.style.getPropertyValue("overflow-y"),
-      overflowYPriority: el.style.getPropertyPriority("overflow-y"),
-      overflowX: el.style.getPropertyValue("overflow-x"),
-      overflowXPriority: el.style.getPropertyPriority("overflow-x"),
-      height: el.style.getPropertyValue("height"),
-      heightPriority: el.style.getPropertyPriority("height"),
-      minHeight: el.style.getPropertyValue("min-height"),
-      minHeightPriority: el.style.getPropertyPriority("min-height"),
-      maxHeight: el.style.getPropertyValue("max-height"),
-      maxHeightPriority: el.style.getPropertyPriority("max-height"),
-    }));
-    targets.forEach((el) => {
-      el.style.setProperty("overflow", "hidden", "important");
-      el.style.setProperty("overflow-y", "hidden", "important");
-      el.style.setProperty("overflow-x", "hidden", "important");
-      if (el === document.documentElement) {
-        el.style.setProperty("height", "100%", "important");
-      } else {
-        el.style.setProperty("height", "100dvh", "important");
-      }
-      el.style.setProperty("min-height", "0", "important");
-      el.style.setProperty("max-height", "100dvh", "important");
-    });
-
-    let cancelled = false;
-
     removeOtherMaintenanceStylesheets("transaction_maintenance.css");
     ensureMaintenanceDateRangePicker();
-    // Fonts/icons are in index.html; page CSS is bundled via imports — do not block on third-party CDN
-    // (some networks/devices block or stall fonts.googleapis.com / cdnjs → blank page + "failed to load resource").
     setCssReady(true);
 
     return () => {
-      cancelled = true;
       setCssReady(false);
-      originalStyles.forEach((item) => {
-        const { el } = item;
-        if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
-        else el.style.removeProperty("overflow");
-        if (item.overflowY) el.style.setProperty("overflow-y", item.overflowY, item.overflowYPriority);
-        else el.style.removeProperty("overflow-y");
-        if (item.overflowX) el.style.setProperty("overflow-x", item.overflowX, item.overflowXPriority);
-        else el.style.removeProperty("overflow-x");
-        if (item.height) el.style.setProperty("height", item.height, item.heightPriority);
-        else el.style.removeProperty("height");
-        if (item.minHeight) el.style.setProperty("min-height", item.minHeight, item.minHeightPriority);
-        else el.style.removeProperty("min-height");
-        if (item.maxHeight) el.style.setProperty("max-height", item.maxHeight, item.maxHeightPriority);
-        else el.style.removeProperty("max-height");
-      });
       document.body.classList.remove("maintenance-page", "transaction-maintenance-page");
     };
   }, []);
