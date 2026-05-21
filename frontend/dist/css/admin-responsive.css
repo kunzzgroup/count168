@@ -43,10 +43,21 @@
     flex-shrink: 0;
   }
 
-  /* 表格：保持 global-13inch 列比例，总宽略大于主区时可横滑，避免 St... / Crea... 省略 */
+  /* 表格：横向滚动在 inner 上，表头与数据行同宽同步 */
   body.user-page .user-table-wrapper {
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+
+  body.user-page .user-list-table-inner {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+
+  body.user-page .user-list-table .user-cards {
+    overflow-x: visible;
+    overflow-y: visible;
   }
 
   body.user-page .user-list-table-inner {

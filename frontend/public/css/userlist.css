@@ -119,24 +119,49 @@ body.user-page:not(.user-page--show-all) {
     box-sizing: border-box;
 }
 
+/* 覆盖 legacy .table-header / .user-card（gap 15px、旧 fr grid）— 与 Games Process 同写法 */
+body.user-page .user-list-table .table-header.user-list-table-header,
+body.user-page .user-list-table .user-card.user-list-row {
+    display: grid !important;
+    gap: 8px !important;
+    grid-template-columns: var(--user-list-grid-cols) !important;
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .user-list-table.user-table-wrapper--bulk-delete-col .user-list-table-header,
-.user-list-table.user-table-wrapper--bulk-delete-col .user-list-row {
+.user-list-table.user-table-wrapper--bulk-delete-col .user-list-row,
+body.user-page .user-list-table.user-table-wrapper--bulk-delete-col .table-header.user-list-table-header,
+body.user-page .user-list-table.user-table-wrapper--bulk-delete-col .user-card.user-list-row {
     grid-template-columns: var(--user-list-grid-cols-bulk) !important;
 }
 
-.user-list-table .user-list-table-header {
+.user-list-table .user-list-table-header,
+body.user-page .user-list-table .table-header.user-list-table-header {
     padding: var(--table-header-height) !important;
     margin-top: 8px;
+    background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
+    border-radius: 8px 8px 0 0;
+    font-weight: bold;
+    color: white;
+    font-size: var(--text-base);
+    min-width: 0;
 }
 
-.user-list-table .user-list-row {
-    padding: clamp(1px, 0.21vw, 4px) 22px !important;
+.user-list-table .user-list-row,
+body.user-page .user-list-table .user-card.user-list-row {
+    padding: 0 22px !important;
 }
 
 .user-list-table .user-list-table-header .header-item,
 .user-list-table .user-list-row .card-item {
     padding: 0 !important;
     box-sizing: border-box;
+}
+
+.user-list-table .user-list-table-header .header-sortable {
+    padding: 0 !important;
+    gap: 5px;
 }
 
 .user-list-table .user-list-table-header .header-item:not(.header-item--select) {
@@ -2717,15 +2742,15 @@ body.process-page.process-page--bank .userlist-filter-chips--bank-process .user-
     /* 允许内容收缩 */
 }
 
-/* 表头文案 EN/中 切换时列宽不因 min-content 变化；超长表头在格内省略 */
-body.user-page .table-header .header-item:not(.header-item--select) {
+/* 表头文案 EN/中 切换时列宽不因 min-content 变化；User List 专用表头不在此省略 */
+body.user-page .table-header:not(.user-list-table-header) .header-item:not(.header-item--select) {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 /* Account 同款排序图标：标签可省略，图标保持宽度 */
-body.user-page .table-header .header-item.header-item--with-sort-icon {
+body.user-page .table-header:not(.user-list-table-header) .header-item.header-item--with-sort-icon {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -2733,14 +2758,14 @@ body.user-page .table-header .header-item.header-item--with-sort-icon {
     overflow: hidden;
 }
 
-body.user-page .table-header .header-item.header-item--with-sort-icon .header-item__label {
+body.user-page .table-header:not(.user-list-table-header) .header-item.header-item--with-sort-icon .header-item__label {
     min-width: 0;
     flex: 1 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-body.user-page .table-header .header-item.header-item--with-sort-icon .account-sort-icon {
+body.user-page .table-header:not(.user-list-table-header) .header-item.header-item--with-sort-icon .account-sort-icon {
     flex-shrink: 0;
 }
 
