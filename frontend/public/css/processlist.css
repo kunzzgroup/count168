@@ -242,7 +242,7 @@
     border: 1px solid #dbe3ee;
     border-radius: 8px;
     padding: 10px;
-    background: #f8fafc;
+    background: #f1f5f9;
 }
 
 #countrySelectionModal .selected-countries-list {
@@ -258,10 +258,10 @@
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
-    border: 1px solid #dbe3ee;
+    border: 1px solid #bfdbfe;
     border-radius: 8px;
     padding: 10px;
-    background: #f8fafc;
+    background: #f0f9ff;
 }
 
 #countrySelectionModal #existingCountries.country-list::-webkit-scrollbar,
@@ -314,13 +314,15 @@
     margin: 0;
     border-radius: 8px;
     cursor: pointer;
-    background: #e8f4fd;
-    border: 1px solid #64b5f6;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
     transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 .modal-content.country-selection-modal .selected-countries-list .selected-country-modal-item {
     margin: 0 0 8px;
+    background: #dbeafe;
+    border: 1px solid #3b82f6;
 }
 
 .modal-content.country-selection-modal .selected-countries-list .selected-country-modal-item:last-child {
@@ -328,14 +330,14 @@
 }
 
 .modal-content.country-selection-modal .country-item:hover {
-    background: #dbeafe;
-    border-color: #42a5f5;
-    box-shadow: 0 1px 3px rgba(21, 101, 192, 0.12);
+    background: #f8fafc;
+    border-color: #94a3b8;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .modal-content.country-selection-modal .country-item.is-picked {
-    background: #bbdefb;
-    border-color: #1e88e5;
+    background: #e2e8f0;
+    border-color: #64748b;
 }
 
 .modal-content.country-selection-modal .country-item-left {
@@ -350,7 +352,7 @@
     font-size: var(--text-small, 13px);
     font-family: var(--font-ui);
     font-weight: 600;
-    color: #1565c0;
+    color: #334155;
 }
 
 .modal-content.country-selection-modal .country-list-delete {
@@ -439,6 +441,10 @@
     font-weight: 600;
 }
 
+.modal-content.country-selection-modal .selected-countries-list .selected-country-modal-item span {
+    color: #1d4ed8;
+}
+
 .remove-country-modal {
     background: none;
     border: none;
@@ -459,6 +465,15 @@
 .remove-country-modal:hover {
     background-color: #1565c0;
     color: white;
+}
+
+.modal-content.country-selection-modal .selected-countries-list .remove-country-modal {
+    color: #1d4ed8;
+}
+
+.modal-content.country-selection-modal .selected-countries-list .remove-country-modal:hover {
+    background-color: #1d4ed8;
+    color: #fff;
 }
 
 .no-countries {
