@@ -905,10 +905,21 @@ body.transaction-page.member-winloss-page .transaction-container {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    height: auto;
+    max-height: none;
+    overflow: visible;
     box-sizing: border-box;
     padding-left: var(--layout-main-offset) !important;
     width: 100%;
     max-width: 100%;
+}
+
+html,
+body.transaction-page.member-winloss-page {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
 }
 
 body.transaction-page.member-winloss-page .transaction-main-content.member-winloss-dash {
@@ -1101,9 +1112,49 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     .member-winloss-page .member-dash-columns--three-col.member-dash-columns--wl-sync-h > .member-dash-col-matrix,
     .member-winloss-page .member-dash-columns--three-col.member-dash-columns--wl-sync-h > .member-dash-col-total {
         max-height: var(--member-winloss-filters-h);
+        height: var(--member-winloss-filters-h);
         overflow: hidden;
         min-height: 0;
         box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* 覆盖 ccy-fill 的 max-content / flex:0 — 否则父级 overflow:hidden 会裁切且无法出现纵向滚动条 */
+    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix .member-dash-rail-toolbar {
+        flex: 0 0 auto;
+    }
+
+    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix .member-dash-matrix-center-wrap,
+    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix .member-dash-rail-matrix {
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
+        max-width: 100%;
+        align-self: stretch;
+        margin-inline-start: 0;
+    }
+
+    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix .member-dash-rail-matrix {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix .member-dash-matrix-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
+        max-width: 100%;
+        margin-inline-start: 0;
+        overflow-x: auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-total .member-dash-rail-total {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: 100%;
     }
 }
 
@@ -1203,7 +1254,7 @@ body.member-winloss-page #member_currency_filter > .user-gc-inline-label {
 
 body.member-winloss-page #member_account_buttons.member-winloss-account-pills,
 body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
-    margin-left: clamp(4px, 0.75vw, 8px);
+    margin-left: clamp(4px, 0.75vw, 5px);
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: stretch;
@@ -2620,16 +2671,30 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     }
 
     .member-winloss-page .member-dash-rail-matrix {
-        flex: 0 0 auto;
+        flex: 1 1 auto;
+        min-height: 0;
         width: 100%;
         max-width: 100%;
         min-width: 0;
         align-self: stretch;
         border-radius: 0;
+        display: flex;
+        flex-direction: column;
     }
 
-    .member-dash-matrix-scroll {
+    .member-winloss-page .member-dash-matrix-center-wrap {
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
         max-width: 100%;
+    }
+
+    .member-winloss-page .member-dash-matrix-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-width: 100%;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }
 
