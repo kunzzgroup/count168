@@ -34,6 +34,8 @@ export default function AccountModal({
   t,
   /** When nested above other modals (e.g. Domain Company Settings at 2147483001) */
   overlayZIndex,
+  /** Render on document.body so z-index is not trapped inside #root .container */
+  portalToBody = false,
 }) {
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
@@ -169,6 +171,8 @@ export default function AccountModal({
 
   return (
     <>
+    {(() => {
+      const modalNode = (
     <div
       id={modalId}
       className="account-modal"
@@ -384,6 +388,12 @@ export default function AccountModal({
         </div>
       </div>
     </div>
+      );
+      if (portalToBody && typeof document !== "undefined" && document.body) {
+        return createPortal(modalNode, document.body);
+      }
+      return modalNode;
+    })()}
     {companyPickerOpen
       ? createPortal(
           <div className="user-modal-company-picker-root user-modal-company-picker-root--above-modals">

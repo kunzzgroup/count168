@@ -2628,9 +2628,11 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     pointer-events: none;
 }
 
-/* Add Account 弹窗优先级最高，在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
+/* Add Account 弹窗优先级最高，在 Add Process / Profit Sharing 之上显示 */
+#account-addModal,
+#account-editModal,
 #addAccountModal {
-    z-index: 10102 !important;
+    z-index: 20050 !important;
 }
 
 /* Add Profit Sharing 弹窗层级低于 Add Account，避免盖住 Add Account */

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import AccountModal from "../../components/AccountModal.jsx";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
@@ -46,6 +47,7 @@ import { dedupeCompanyRowsForSwitcher } from "../processlist/processListHelpers.
 import { prefetchGamesProcessListPayload } from "../processlist/processRoutePrefetch.js";
 import ProcessDeleteConfirmModal from "../processlist/components/ProcessDeleteConfirmModal.jsx";
 import AddProcessIcon from "../processlist/components/AddProcessIcon.jsx";
+import { accountModalOverlayZIndex, processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
 
 // Component imports
 import BankProcessTable from "./components/BankProcessTable.jsx";
@@ -2092,6 +2094,8 @@ export default function BankProcessListPage() {
 
       <AccountModal
         open={addAccountModalOpen}
+        portalToBody
+        overlayZIndex={accountModalOverlayZIndex}
         title={accountModalIsEditMode ? tAccount("editAccount") : tAccount("addAccount")}
         isEditMode={accountModalIsEditMode}
         form={accountModalForm}
@@ -2140,15 +2144,21 @@ export default function BankProcessListPage() {
           </div>
         </div>
       </div>
-      {toast ? (
-        <div
-          className={`process-notification-container${addAccountModalOpen ? " process-notification-container--above-account-modal" : ""}`}
-        >
-          <div className={`process-notification process-notification-${toast.type === "danger" ? "danger" : (toast.type === "warning" ? "warning" : "success")} show`}>
-            {toast.message}
-          </div>
-        </div>
-      ) : null}
+      {toast && typeof document !== "undefined" && document.body
+        ? createPortal(
+            <div
+              className="process-notification-container"
+              style={{
+                zIndex: addAccountModalOpen ? processNotificationAboveAccountZIndex : processNotificationZIndex,
+              }}
+            >
+              <div className={`process-notification process-notification-${toast.type === "danger" ? "danger" : (toast.type === "warning" ? "warning" : "success")} show`}>
+                {toast.message}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }

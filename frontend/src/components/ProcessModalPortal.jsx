@@ -21,6 +21,12 @@ export const processModalBackdropStyle = {
 export const processModalDropdownZIndex = 10060;
 export const profitSharingModalDropdownZIndex = 10101;
 export const accountModalDropdownZIndex = 20001;
+/** Add Account modal above ProcessModalPortal bank modals (10050). */
+export const accountModalOverlayZIndex = 20050;
+/** Toast above bank/process modals (10050); below Add Account (20050). */
+export const processNotificationZIndex = 10100;
+/** Toast above Add Account modal and company picker. */
+export const processNotificationAboveAccountZIndex = 26000;
 
 /** Resolve portal dropdown z-index from the nearest open process/bank modal. */
 export function getProcessModalDropdownZIndex(fromEl) {

@@ -4186,7 +4186,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 10050;
+    z-index: 10100;
     display: flex;
     flex-direction: column;
     gap: 12px;
