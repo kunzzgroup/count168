@@ -1,4 +1,4 @@
-/* account-list.php 页面内联样式 - 输入框、Link Account 模态等 */
+﻿/* account-list.php 页面内联样式 - 输入框、Link Account 模态等 */
 /* Input formatting - 统一管理输入框格式 */
 #add_account_id,
 #edit_account_id_field,
@@ -1194,4 +1194,3 @@ body.account-page .search-container.userlist-search-bar .userlist-search-input {
     }
 }
 
-@import url('./modal-close-unified.css');

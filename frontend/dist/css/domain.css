@@ -1,4 +1,4 @@
-/*
+﻿/*
  * IMPORTANT: Scope list-page rules under body.domain-page .domain-react-page.
  * This file is bundled once; unscoped .container / .action-buttons / .search-input
  * leaked onto Process List, User List, etc. after visiting /domain — breaking layout and clicks.
@@ -4324,4 +4324,3 @@ body.domain-page .domain-confirm-modal-content .confirmDeleteBtn {
     }
 }
 
-@import url('./modal-close-unified.css');

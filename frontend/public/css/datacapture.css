@@ -1,4 +1,4 @@
-/* Ensure modals and popups are hidden before main CSS loads */
+﻿/* Ensure modals and popups are hidden before main CSS loads */
 #descriptionSelectionModal:not(.show),
 #contextMenu:not(.show) {
     display: none;
@@ -1937,4 +1937,3 @@ body.datacapture-page .bottom-section .form-actions {
 
 }
 
-@import url('./modal-close-unified.css');

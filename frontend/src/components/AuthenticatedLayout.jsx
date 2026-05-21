@@ -6,6 +6,7 @@ import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 import { applyLoginLang } from "../utils/useLoginLang.js";
+import "../../public/css/modal-close-unified.css";
 
 function readCookie(name) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));

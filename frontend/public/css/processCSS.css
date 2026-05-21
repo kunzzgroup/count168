@@ -1,4 +1,4 @@
-/* Base Styles */
+﻿/* Base Styles */
 body.process-page {
     font-family: var(--font-ui) !important;
     font-size: var(--text-medium) !important;
@@ -4900,4 +4900,3 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     font-size: clamp(12px, 0.86vw, 13px) !important;
 }
 
-@import url('./modal-close-unified.css');

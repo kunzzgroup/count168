@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --own-primary-blue: #3b8ef6;
     --own-primary-blue-hover: #2563eb;
     --own-primary-light: #e6f0fd;
@@ -1677,4 +1677,3 @@ body.ownership-page {
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, transparent 100%);
 }
 
-@import url('./modal-close-unified.css');

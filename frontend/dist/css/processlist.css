@@ -1,4 +1,4 @@
-/* Input formatting - 统一管理输入框格式 */
+﻿/* Input formatting - 统一管理输入框格式 */
 #add_process_id,
 #new_description_name,
 #add_remove_words,
@@ -2860,4 +2860,3 @@ body.process-page .user-gc-inline-panel .user-gc-segment {
     transition: background 0.06s ease, color 0.06s ease, border-color 0.06s ease;
 }
 
-@import url('./modal-close-unified.css');

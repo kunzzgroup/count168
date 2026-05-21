@@ -1,4 +1,4 @@
-body.user-page {
+﻿body.user-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
@@ -3424,4 +3424,3 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     cursor: not-allowed;
 }
 
-@import url('./modal-close-unified.css');

@@ -1,4 +1,4 @@
-/* useraccess.php */
+﻿/* useraccess.php */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
@@ -819,4 +819,3 @@ h1 {
     background: #94a3b8;
 }
 
-@import url('./modal-close-unified.css');

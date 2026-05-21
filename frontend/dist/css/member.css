@@ -1,4 +1,4 @@
-body.transaction-page {
+﻿body.transaction-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
@@ -1999,4 +1999,3 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     }
 }
 
-@import url('./modal-close-unified.css');

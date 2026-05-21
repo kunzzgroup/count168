@@ -1,4 +1,4 @@
-/* announcement.css - 从 announcement.php 提取 */
+﻿/* announcement.css - 从 announcement.php 提取 */
 /* 用專用 class 覆寫 accountCSS 的 100vh/overflow，避免縮小視窗時內容被裁切、滾動異常 */
 body.announcement-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -565,4 +565,3 @@ h1 {
     }
 }
 
-@import url('./modal-close-unified.css');

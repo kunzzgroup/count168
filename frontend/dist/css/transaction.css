@@ -1,4 +1,4 @@
-body.transaction-page {
+﻿body.transaction-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
@@ -3295,4 +3295,3 @@ body.transaction-page .transaction-add-section .transaction-account-inputs--to-o
     max-width: none;
 }
 
-@import url('./modal-close-unified.css');

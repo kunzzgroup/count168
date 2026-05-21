@@ -1,4 +1,4 @@
-/* capture_maintenance.php - 提取的页面样式 */
+﻿/* capture_maintenance.php - 提取的页面样式 */
 /* 限定在 maintenance 路由，便于在 SPA 中 static import 而不污染登录页等 body.bg */
 body.dashboard-page.maintenance-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -1544,4 +1544,3 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     text-align: right;
 }
 
-@import url('./modal-close-unified.css');

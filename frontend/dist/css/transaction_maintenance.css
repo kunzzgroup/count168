@@ -1,4 +1,4 @@
-/**
+﻿/**
  * transaction_maintenance.css - 从 transaction_maintenance.php 提取的样式
  */
 body {
@@ -1385,4 +1385,3 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     justify-content: center;
 }
 
-@import url('./modal-close-unified.css');
