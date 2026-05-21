@@ -43,6 +43,17 @@ body.user-page:not(.user-page--show-all) {
         padding-left: var(--layout-main-offset);
         transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
+
+    /* Admin / Account 顶栏 Delete (n)：固定 90px 宽会导致换行 */
+    body.user-page .user-toolbar-actions-right .btn-delete,
+    body.account-page .user-toolbar-actions-right .btn-delete,
+    body.ec-auth-shell.user-page .user-toolbar-actions-right .btn-delete,
+    body.ec-auth-shell.account-page .user-toolbar-actions-right .btn-delete {
+        width: auto;
+        min-width: var(--userlist-btn-delete-width);
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
 }
 
 /* 与 processlist / account-list 一致：主区域 flex 占满一屏，中间列表不触发整页滚动 */

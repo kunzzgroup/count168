@@ -1820,20 +1820,23 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     width: 100%;
 }
 
-/* Add/Edit Bank Process — localized MaintenanceDateRangePicker (replaces native type="date") */
-#addBankModal .bank-form-datepicker-wrap {
+/* Add/Edit Bank Process + Resend modal — localized MaintenanceDateRangePicker (replaces native type="date") */
+#addBankModal .bank-form-datepicker-wrap,
+#confirmBankResendModal .bank-form-datepicker-wrap {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
 }
 
-#addBankModal .bank-form-datepicker-wrap .bank-form-datepicker-input {
+#addBankModal .bank-form-datepicker-wrap .bank-form-datepicker-input,
+#confirmBankResendModal .bank-form-datepicker-wrap .bank-form-datepicker-input {
     width: 100%;
     cursor: pointer;
 }
 
-#addBankModal .bank-form-datepicker-hitbox {
+#addBankModal .bank-form-datepicker-hitbox,
+#confirmBankResendModal .bank-form-datepicker-hitbox {
     position: absolute;
     inset: 0;
     margin: 0;
@@ -1848,7 +1851,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     min-height: 100%;
 }
 
-#addBankModal .bank-form-datepicker-hitbox--disabled {
+#addBankModal .bank-form-datepicker-hitbox--disabled,
+#confirmBankResendModal .bank-form-datepicker-hitbox--disabled {
     cursor: not-allowed;
     pointer-events: none;
 }
@@ -1858,7 +1862,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
-#addBankModal .bank-form-datepicker-sr-span {
+#addBankModal .bank-form-datepicker-sr-span,
+#confirmBankResendModal .bank-form-datepicker-sr-span {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1870,7 +1875,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     border: 0;
 }
 
-#addBankModal .bank-form-datepicker-clear {
+#addBankModal .bank-form-datepicker-clear,
+#confirmBankResendModal .bank-form-datepicker-clear {
     position: absolute;
     right: 10px;
     top: 50%;
@@ -1890,7 +1896,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     justify-content: center;
 }
 
-#addBankModal .bank-form-datepicker-clear:hover {
+#addBankModal .bank-form-datepicker-clear:hover,
+#confirmBankResendModal .bank-form-datepicker-clear:hover {
     color: #475569;
 }
 
@@ -1929,7 +1936,8 @@ body.process-page .calendar-popup-clear-btn:disabled {
     cursor: not-allowed;
 }
 
-#addBankModal .bank-day-end-input-wrap--muted {
+#addBankModal .bank-day-end-input-wrap--muted,
+#confirmBankResendModal .bank-resend-day-end-field--muted {
     opacity: 0.75;
 }
 

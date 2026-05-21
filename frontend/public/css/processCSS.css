@@ -3920,6 +3920,47 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     letter-spacing: 0.02em;
 }
 
+#confirmBankResendModal .bank-resend-schedule-grid .form-group {
+    margin: 0;
+}
+
+#confirmBankResendModal .bank-resend-schedule-grid .form-group > label {
+    display: block;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+}
+
+#confirmBankResendModal .bank-form-datepicker-wrap .bank-form-datepicker-input {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 56px;
+    padding: 13px 40px 13px 16px;
+    font-size: 1.4125rem;
+    font-family: inherit;
+    color: #1e293b;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#confirmBankResendModal .bank-form-datepicker-wrap:focus-within .bank-form-datepicker-input {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+#confirmBankResendModal .bank-resend-datepicker-field--error .bank-form-datepicker-input {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.35) !important;
+}
+
+#confirmBankResendModal .bank-resend-day-end-field--muted {
+    opacity: 0.55;
+}
+
 #confirmBankResendModal .bank-resend-field__note {
     margin: 6px 0 0;
     font-size: 0.72rem;

@@ -117,6 +117,17 @@ export default function BankProcessListPage() {
       });
       return;
     }
+    if (fromId === "bank_resend_day_start_drp_from") {
+      setResendInlineError("");
+      setResendDayStart(iso);
+      return;
+    }
+    if (fromId === "bank_resend_day_end_drp_from") {
+      const minYmd = document.getElementById("bank_resend_day_end_drp_from")?.dataset?.minYmd || "";
+      if (minYmd && iso && iso < minYmd) return;
+      setResendDayEnd(iso);
+      return;
+    }
     const toDmy = document.getElementById(b.dateToId)?.value?.trim() || "";
     setDateFrom(dmyToIso(fromDmy));
     setDateTo(dmyToIso(toDmy));
@@ -499,10 +510,10 @@ export default function BankProcessListPage() {
   }, [loading, cssReady, bpLocale.monthsShort, t, handleDatePickerChange]);
 
   useEffect(() => {
-    if (!modalOpen) return;
+    if (!modalOpen && !resendModalOpen) return;
     ensureMaintenanceDateRangePicker();
     window.MaintenanceDateRangePicker?.bindPickers?.();
-  }, [modalOpen]);
+  }, [modalOpen, resendModalOpen]);
 
   /* Keep date-range chip wording in sync when login/UI language changes (picker caches placeholder internally). */
   useEffect(() => {
@@ -2029,8 +2040,8 @@ export default function BankProcessListPage() {
 
       {resendModalOpen && (
         <ResendModal
-          resendTarget={resendTarget} resendDayStart={resendDayStart} setResendDayStart={setResendDayStart}
-          resendDayEnd={resendDayEnd} setResendDayEnd={setResendDayEnd} resendFrequency={resendFrequency} setResendFrequency={setResendFrequency}
+          resendTarget={resendTarget} resendDayStart={resendDayStart}
+          resendDayEnd={resendDayEnd} resendFrequency={resendFrequency} setResendFrequency={setResendFrequency}
           resendInlineError={resendInlineError} setResendInlineError={setResendInlineError}
           onResend={resendAccountingDue} onClose={() => setResendModalOpen(false)}
           t={t}
