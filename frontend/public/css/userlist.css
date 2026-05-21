@@ -69,7 +69,93 @@ body.user-page:not(.user-page--show-all) {
     margin-top: 8px;
 }
 
-/* Show All：整页纵向滚动，展示全部过滤结果（与 account / process 一致） */
+/*
+ * User List table（与 Account / Games Process 同模式）
+ * 表头与数据行共用 grid 变量；完整显示 Action / Last Login / Created By 等标题
+ */
+.user-list-table {
+    --user-list-grid-cols:
+        38px
+        minmax(92px, 1fr)
+        minmax(80px, 1fr)
+        minmax(140px, 1.5fr)
+        minmax(88px, 0.9fr)
+        minmax(72px, 0.68fr)
+        minmax(128px, 1.3fr)
+        minmax(96px, 1fr)
+        minmax(72px, 0.5fr);
+    --user-list-grid-cols-bulk:
+        38px
+        minmax(92px, 1fr)
+        minmax(80px, 1fr)
+        minmax(140px, 1.5fr)
+        minmax(88px, 0.9fr)
+        minmax(72px, 0.68fr)
+        minmax(128px, 1.3fr)
+        minmax(96px, 1fr)
+        minmax(68px, 0.48fr)
+        48px;
+}
+
+.user-list-table .user-list-table-header,
+.user-list-table .user-list-row {
+    gap: 8px;
+    grid-template-columns: var(--user-list-grid-cols);
+}
+
+.user-list-table.user-table-wrapper--bulk-delete-col .user-list-table-header,
+.user-list-table.user-table-wrapper--bulk-delete-col .user-list-row {
+    grid-template-columns: var(--user-list-grid-cols-bulk);
+}
+
+.user-list-table .user-list-table-header {
+    padding: var(--table-header-height);
+    margin-top: 8px;
+    gap: 8px;
+}
+
+.user-list-table .user-list-row {
+    padding: clamp(1px, 0.21vw, 4px) 22px;
+    gap: 8px;
+}
+
+.user-list-table .user-list-table-header .header-item:not(.header-item--select) {
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.user-list-table .user-list-table-header .header-item.header-item--with-sort-icon {
+    overflow: visible;
+}
+
+.user-list-table .user-list-table-header .header-item.header-item--with-sort-icon .header-item__label {
+    overflow: visible;
+    text-overflow: clip;
+    flex-shrink: 0;
+    flex: 0 1 auto;
+}
+
+.user-list-table .user-list-table-header .header-item:first-child,
+.user-list-table .user-list-row .card-item:first-child {
+    justify-content: center;
+    text-align: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.user-list-table .user-list-table-header .header-item:nth-child(5),
+.user-list-table .user-list-table-header .header-item:nth-child(6),
+.user-list-table .user-list-row .card-item:nth-child(5),
+.user-list-table .user-list-row .card-item:nth-child(6) {
+    justify-content: center;
+}
+
+.user-list-table .user-list-table-header .header-item:nth-child(9),
+.user-list-table .user-list-row .card-item--action {
+    justify-content: center;
+}
+
 body.user-page.user-page--show-all {
     overflow-y: auto !important;
     height: auto;

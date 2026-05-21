@@ -332,10 +332,34 @@
         padding: 0 !important;
     }
 
-    /* User List only — 勿用通用 .table-header，否则会误伤 Process List（7 列）表头 */
-    body.ec-auth-shell.user-page .table-header,
-    body.ec-auth-shell .user-card {
-        grid-template-columns: 0.5fr 1.6fr 1.8fr 2.5fr 1.8fr 1.2fr 1.8fr 1.5fr 0.8fr !important;
+    /* User List grid（专用变量，表头/行一致） */
+    body.ec-auth-shell.user-page .user-list-table {
+        --user-list-grid-cols:
+            38px
+            minmax(92px, 1fr)
+            minmax(80px, 1fr)
+            minmax(140px, 1.5fr)
+            minmax(88px, 0.9fr)
+            minmax(72px, 0.68fr)
+            minmax(128px, 1.3fr)
+            minmax(96px, 1fr)
+            minmax(72px, 0.5fr);
+        --user-list-grid-cols-bulk:
+            38px
+            minmax(92px, 1fr)
+            minmax(80px, 1fr)
+            minmax(140px, 1.5fr)
+            minmax(88px, 0.9fr)
+            minmax(72px, 0.68fr)
+            minmax(128px, 1.3fr)
+            minmax(96px, 1fr)
+            minmax(68px, 0.48fr)
+            48px;
+    }
+
+    body.ec-auth-shell.user-page .user-list-table-header .header-item,
+    body.ec-auth-shell.user-page .user-list-row .card-item {
+        padding: 0 !important;
     }
 
     /* Games Process List：列宽 CSS 变量与 processCSS 一致，避免 laptop/tablet 错位或表头截断 */

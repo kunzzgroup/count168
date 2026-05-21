@@ -891,8 +891,8 @@ export default function UserListPage() {
               </div>
             </div>
           </div>
-          <div className={`user-table-wrapper${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
-            <div className="table-header">
+          <div className={`user-table-wrapper user-list-table${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
+            <div className="table-header user-list-table-header">
               <div
                 className="header-item header-item--with-sort-icon header-sortable"
                 role="button"
@@ -1049,7 +1049,7 @@ export default function UserListPage() {
                 const del = getDeleteCheckboxState(r, caps);
                 const editReady = caps.canEditDelete && modalAccessReady && editReadyIds.has(Number(r.id));
                 return (
-                  <div key={`${r.id}-${r.is_owner_shadow ? "o" : "u"}`} className={`user-card show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}>
+                  <div key={`${r.id}-${r.is_owner_shadow ? "o" : "u"}`} className={`user-card user-list-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}>
                     <div className="card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
                     <div className="card-item">{r.login_id}</div>
                     <div className="card-item">{r.name}</div>
