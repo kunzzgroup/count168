@@ -17,6 +17,8 @@ export const WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD = 10;
 /** 视口内按此列数均分宽度（与 <10 列时 9 列铺满的间距一致） */
 export const WINLOSS_MATRIX_FILL_CCY_COLS = 9;
 export const WINLOSS_MATRIX_ROWHEAD_COL_WIDTH = "5.75rem";
+/** 单列最小宽：容纳 "-9,999,999.00" 等带千分位金额，窄视口不足时矩阵横向滚动 */
+export const WINLOSS_MATRIX_MIN_CCY_COL_WIDTH = "6rem";
 
 export function normalizeNumber(value) {
   try {
@@ -299,7 +301,6 @@ export function groupHistoryForDisplay(historyRows, isAllSelected, selectedCurre
 export function miniMatrixGridTemplateColumns(ncu) {
   const rowHead = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content)`;
   if (ncu <= 0) return rowHead;
-  /* 1–9 列：每列宽 = 视口按 9 列均分；列数随选中币种增加，表贴右向左扩展 */
-  const col = "var(--member-wl-ccy-fill-col-w, 4.75rem)";
-  return `${rowHead} repeat(${ncu}, minmax(${col}, ${col}))`;
+  const colMin = `var(--member-wl-ccy-fill-col-w, ${WINLOSS_MATRIX_MIN_CCY_COL_WIDTH})`;
+  return `${rowHead} repeat(${ncu}, minmax(${colMin}, max-content))`;
 }

@@ -8,7 +8,7 @@ import {
   MEMBER_AMOUNT_NA_MARK,
   miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
-  WINLOSS_MATRIX_FILL_CCY_COLS,
+  WINLOSS_MATRIX_MIN_CCY_COL_WIDTH,
   WINLOSS_MATRIX_ROWHEAD_COL_WIDTH,
   WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD,
 } from "./memberPageHelpers.js";
@@ -185,15 +185,20 @@ export default function MemberMiniGrid({
       if (innerW <= 0) innerW = scroll.closest(".member-dash-rail-matrix")?.clientWidth ?? 0;
       if (innerW <= 0) return;
 
-      /* 单列宽 = 中栏按 9 列均分；表/白卡宽度 = 账户列 + n 个币种列，随选中数量变宽 */
-      const m = String(WINLOSS_MATRIX_ROWHEAD_COL_WIDTH).match(/^([\d.]+)rem$/);
-      const rowheadPx = m ? parseFloat(m[1]) * rem : 5.75 * rem;
-      const colPx = (innerW - rowheadPx) / WINLOSS_MATRIX_FILL_CCY_COLS;
-      const colW = `${Math.max(4.25 * rem, colPx)}px`;
+      const parseRem = (s, fallbackRem) => {
+        const hit = String(s).match(/^([\d.]+)rem$/);
+        return hit ? parseFloat(hit[1]) * rem : fallbackRem * rem;
+      };
+      const rowheadPx = parseRem(WINLOSS_MATRIX_ROWHEAD_COL_WIDTH, 5.75);
+      const minColPx = parseRem(WINLOSS_MATRIX_MIN_CCY_COL_WIDTH, 6);
+      /* 按实际币种列数均分中栏；不低于最小列宽，避免 1300px 等窄屏裁切金额 */
+      const fitColPx = (innerW - rowheadPx) / Math.max(ncu, 1);
+      const colPx = Math.max(minColPx, fitColPx);
+      const colW = `${colPx}px`;
 
       scroll.style.setProperty("--member-wl-ccy-fill-col-w", colW);
       grid.style.setProperty("--member-wl-ccy-fill-col-w", colW);
-      grid.style.gridTemplateColumns = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content) repeat(${ncu}, minmax(${colW}, ${colW}))`;
+      grid.style.gridTemplateColumns = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content) repeat(${ncu}, minmax(${colW}, max-content))`;
     };
 
     syncColWidth();
