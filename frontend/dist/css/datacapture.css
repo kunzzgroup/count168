@@ -1021,29 +1021,31 @@ body.datacapture-page .bottom-section .form-actions {
 .modal-content.description-selection-modal .modal-header {
     position: relative;
     flex-shrink: 0;
-    padding: 0;
+    margin: 0;
+    padding: 3px 20px;
+    background: #f8fafc;
     border-bottom: none;
-    background: transparent;
+    border-radius: 12px 12px 0 0;
+    box-sizing: border-box;
 }
 
 .modal-content.description-selection-modal .modal-header h2 {
-    background-color: #f8fafc;
     margin: 0;
-    padding: clamp(10px, 1.04vw, 20px) 32px;
-    padding-right: 3rem;
-    font-size: clamp(14px, 1.25vw, 24px);
+    padding: clamp(12px, 0.75vw, 15px) clamp(20px, 1.25vw, 25px);
+    background: transparent;
+    border-bottom: none;
+    font-size: var(--text-page-title);
     font-family: var(--font-heading-page);
-    font-weight: bold;
-    color: #1e293b;
-    border-bottom: 1px solid #e2e8f0;
+    font-weight: var(--font-weight-page-title);
+    letter-spacing: var(--letter-spacing-page-title);
+    color: #1f2937;
     line-height: 1.2;
-    letter-spacing: normal;
 }
 
 .modal-content.description-selection-modal .close {
     right: 1.25rem;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 1.25rem;
+    transform: none;
 }
 
 .modal-content.description-selection-modal .modal-body {
