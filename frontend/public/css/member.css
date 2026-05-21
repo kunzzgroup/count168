@@ -1254,7 +1254,7 @@ body.member-winloss-page #member_currency_filter > .user-gc-inline-label {
 
 body.member-winloss-page #member_account_buttons.member-winloss-account-pills,
 body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
-    margin-left: clamp(4px, 0.75vw, 8px);
+    margin-left: clamp(4px, 0.75vw, 5px);
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: stretch;
