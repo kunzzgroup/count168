@@ -1175,9 +1175,9 @@ body.lang-zh.process-page.process-page--bank .action-buttons-container .user-gc-
     z-index: 100 !important;
 }
 
-/* Bank Process List 顶栏：左侧筛选区 + 右侧 Delete/Add 分列，避免 5 颗 chip 挤掉右侧按钮 */
+/* Bank Process List 顶栏：日期/Search 与 Delete/Add 同一行垂直居中；filter chip 在下一行 */
 body.process-page.process-page--bank .action-buttons {
-    align-items: flex-start;
+    align-items: stretch;
 }
 
 body.process-page.process-page--bank .action-buttons .bank-process-toolbar-main {
@@ -1186,10 +1186,26 @@ body.process-page.process-page--bank .action-buttons .bank-process-toolbar-main 
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 100%;
 }
 
-body.process-page.process-page--bank .action-buttons .user-toolbar-actions-right {
-    flex-shrink: 0;
+body.process-page.process-page--bank .bank-process-toolbar-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(8px, 0.75vw, 12px);
+    flex-wrap: nowrap;
+    width: 100%;
+    min-width: 0;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-top-row .bank-process-toolbar-primary {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right {
+    flex: 0 0 auto;
     align-self: center;
 }
 
