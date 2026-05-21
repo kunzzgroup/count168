@@ -496,30 +496,143 @@ body.ownership-page {
     z-index: 10;
 }
 
-.own-account-select {
+/* 自定义账户下拉：与触发器等宽、边框连贯（避免原生 select 在平板上的错位） */
+.own-account-select-wrap {
+    position: relative;
     flex: 0 0 300px;
-    /* Wider select */
-    padding: 12px 16px;
-    /* Bigger padding */
-    border: 1px solid var(--own-gray-border);
-    border-radius: 8px;
-    font-size: var(--own-text-control);
-    /* Larger font */
-    font-weight: var(--font-weight-semibold);
-    color: var(--own-dark-text);
-    outline: none;
-    appearance: none;
-    background: url('data:image/svg+xml;utf8,<svg fill="none" stroke="%2364748b" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>') no-repeat right 16px center;
-    background-size: 16px;
-    background-color: var(--own-gray-bg);
+    min-width: 0;
     margin-right: 32px;
-    transition: border-color 0.2s, background-color 0.2s;
+    z-index: 20;
 }
 
-.own-account-select:focus {
+.own-account-row:focus-within .own-account-select-wrap {
+    z-index: 50;
+}
+
+.own-account-select-trigger {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 40px 12px 16px;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 8px;
+    font-family: var(--font-ui);
+    font-size: var(--own-text-select);
+    font-weight: var(--font-weight-semibold);
+    color: var(--own-dark-text);
+    text-align: left;
+    cursor: pointer;
+    background-color: var(--own-gray-bg);
+    background-image: url('data:image/svg+xml;utf8,<svg fill="none" stroke="%2364748b" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>');
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 16px;
+    transition: border-color 0.2s, background-color 0.2s, border-radius 0.15s ease, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.own-account-select-trigger-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+}
+
+.own-account-select-trigger:hover:not(:disabled) {
+    border-color: #cbd5e1;
+    background-color: #fff;
+}
+
+.own-account-select-trigger:focus-visible {
+    outline: none;
     border-color: var(--own-primary-blue);
-    background-color: white;
+    background-color: #fff;
     box-shadow: 0 0 0 3px rgba(59, 142, 246, 0.1);
+}
+
+.own-account-select-trigger.is-open,
+.own-account-select-trigger.is-open:focus-visible {
+    border-color: var(--own-primary-blue);
+    background-color: #fff;
+    border-radius: 8px 8px 0 0;
+    border-bottom-color: transparent;
+    box-shadow: none;
+}
+
+.own-account-select-trigger:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.own-account-select-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: #fff;
+    border: 1px solid var(--own-primary-blue);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    max-height: min(280px, 45vh);
+    overflow-x: hidden;
+    overflow-y: auto;
+    z-index: 100;
+    -webkit-overflow-scrolling: touch;
+}
+
+.own-account-select-option {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 16px;
+    border: none;
+    border-bottom: 1px solid var(--own-gray-border);
+    background: #fff;
+    font-family: var(--font-ui);
+    font-size: var(--own-text-select);
+    font-weight: var(--font-weight-semibold);
+    color: var(--own-dark-text);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.own-account-select-option:first-child:not(.is-selected) {
+    font-size: var(--own-text-caption);
+    font-weight: var(--font-weight-semibold);
+    color: var(--own-gray-text);
+    text-align: center;
+}
+
+.own-account-select-option:last-child {
+    border-bottom: none;
+}
+
+.own-account-select-option:hover {
+    background: var(--own-gray-bg);
+}
+
+.own-account-select-option.is-selected {
+    background: var(--own-primary-blue);
+    color: #fff;
+}
+
+.own-account-select-option.is-selected:hover {
+    background: var(--own-primary-blue-hover);
+}
+
+.own-account-select-option.is-group:not(.is-selected) {
+    background: #eef2ff;
+    color: #4f46e5;
 }
 
 .own-ownership-input-group {
@@ -1309,7 +1422,7 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     background: var(--own-gray-bg);
     color: var(--own-dark-text);
-    font-size: var(--own-text-body);
+    font-size: var(--own-text-select);
     font-weight: var(--font-weight-semibold);
     outline: none;
     cursor: pointer;
@@ -1482,14 +1595,6 @@ body.ownership-page {
     width: 100%;
 }
 
-/* Group ID entries in Account Ownership dropdown */
-.own-account-select option[value^="G_"] {
-    background-color: #eef2ff;
-    color: #4f46e5;
-    font-size: var(--own-text-label);
-    font-weight: var(--font-weight-semibold);
-}
-
 /* 平板：侧栏收起/展开时主区 padding 与全局 layout 同步 */
 @media (max-width: 1280px) {
     body.ec-auth-shell.ownership-page .own-container {
@@ -1497,7 +1602,26 @@ body.ownership-page {
         transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .own-account-select,
+    .own-account-select-wrap {
+        flex: 1 1 220px;
+        max-width: 100%;
+        margin-right: 16px;
+    }
+
+    .own-account-select-trigger {
+        padding: 10px 36px 10px 12px;
+        font-size: var(--own-text-select);
+    }
+
+    .own-account-select-option {
+        padding: 8px 12px;
+        font-size: var(--own-text-select);
+    }
+
+    .own-account-select-option:first-child:not(.is-selected) {
+        font-size: var(--own-text-caption);
+    }
+
     .own-percent-input,
     .own-partner-input {
         font-size: var(--own-text-body);

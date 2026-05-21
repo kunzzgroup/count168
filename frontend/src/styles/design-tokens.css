@@ -128,6 +128,8 @@
   --own-text-body: var(--text-medium);
   --own-text-label: var(--text-small);
   --own-text-caption: var(--text-tiny);
+  /* 行内下拉、账户选择（原 13–15px，避免用 --text-base 过大） */
+  --own-text-select: var(--own-text-label);
 
   /*
    * 列表表格体（User / Account 分页模式，非 Show All）：
