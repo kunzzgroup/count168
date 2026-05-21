@@ -574,3 +574,13 @@ export const contractBillingEndYmdForBankForm = (startYmd, termMonths, frequency
   if (frequency === 'monthly') return addCalendarMonthsToYmd(startYmd, termMonths);
   return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
 };
+
+/** Matches legacy processlist.js / bank_process_list.js Accounting Due row period_types. */
+export function accountingDuePeriodType(r) {
+  if (r.is_once_one_off) return "once_one_off";
+  if (r.is_manual_inactive) return "manual_inactive";
+  if (r.is_resend_consolidated_range) return "resend_consolidated_range";
+  if (r.is_partial_first_month) return "partial_first_month";
+  if (r.is_day_end_tail) return "day_end_tail";
+  return "monthly";
+}

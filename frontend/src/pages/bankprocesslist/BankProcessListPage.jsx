@@ -40,6 +40,7 @@ import {
   BANK_PICK_ACCOUNT_ROLES,
   filterBankPickAccounts,
   sortBankProcessTableRows,
+  accountingDuePeriodType,
 } from "./bankProcessHelpers.js";
 import { dedupeCompanyRowsForSwitcher } from "../processlist/processListHelpers.js";
 import { prefetchGamesProcessListPayload } from "../processlist/processRoutePrefetch.js";
@@ -52,20 +53,9 @@ import BankProcessFormModal from "./components/BankProcessFormModal.jsx";
 import CountrySelectionModal from "./components/CountrySelectionModal.jsx";
 import BankSelectionModal from "./components/BankSelectionModal.jsx";
 import ProfitSharingModal from "./components/ProfitSharingModal.jsx";
-import BankNoteModal from "./components/BankNoteModal.jsx";
-import BankRemarkModal from "./components/BankRemarkModal.jsx";
+import { BankNoteModal, BankRemarkModal } from "./components/bankProcessTextModals.jsx";
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
-
-/** Matches legacy processlist.js / bank_process_list.js Accounting Due row period_types. */
-function accountingDuePeriodType(r) {
-  if (r.is_once_one_off) return "once_one_off";
-  if (r.is_manual_inactive) return "manual_inactive";
-  if (r.is_resend_consolidated_range) return "resend_consolidated_range";
-  if (r.is_partial_first_month) return "partial_first_month";
-  if (r.is_day_end_tail) return "day_end_tail";
-  return "monthly";
-}
 
 export default function BankProcessListPage() {
   const navigate = useNavigate();
@@ -2155,5 +2145,3 @@ export default function BankProcessListPage() {
     </div>
   );
 }
-
-//abc

@@ -14,42 +14,20 @@ import {
   PAGE_SIZE,
   DEFAULT_FORM,
   getOrderedRoles,
+  normalizeCompanyRow,
+  isVirtualGroupLinkCompanyRow,
+  buildAccountsFetchKey,
+  buildAccountsUrl,
 } from "./accountLogic.js";
 
 // Components
 import AccountModal from "../../components/AccountModal.jsx";
-import AccountConfirmModal from "./components/AccountConfirmModal.jsx";
-import CurrencySettingModal from "./components/CurrencySettingModal.jsx";
-import LinkAccountModal from "./components/LinkAccountModal.jsx";
+import {
+  AccountConfirmModal,
+  CurrencySettingModal,
+  LinkAccountModal,
+} from "./components/accountModals.jsx";
 import { getAccountText, translateAccountApiMessage } from "../../translateFile/accountTranslate.js";
-
-function normalizeCompanyRow(row) {
-  if (!row || typeof row !== "object") return row;
-  return {
-    ...row,
-    group_id: row.group_id ?? row.groupId ?? row.group ?? null,
-    company_id: row.company_id ?? row.companyId ?? row.code ?? "",
-  };
-}
-
-/** 与 User List 一致：隐藏集团分润/合并产生的虚拟公司行 */
-function isVirtualGroupLinkCompanyRow(c) {
-  const ls = c?.link_source_group ?? c?.linkSourceGroup;
-  return ls != null && String(ls).trim() !== "";
-}
-
-function buildAccountsFetchKey(companyId, searchTerm, showInactive, showAll) {
-  return `${companyId || ""}|${String(searchTerm || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
-}
-
-function buildAccountsUrl(companyId, searchTerm, showInactive, showAll) {
-  const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
-  url.searchParams.set("company_id", String(companyId));
-  if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
-  if (showInactive) url.searchParams.set("showInactive", "1");
-  if (showAll) url.searchParams.set("showAll", "1");
-  return url;
-}
 
 export default function AccountListPage() {
   const navigate = useNavigate();
