@@ -92,11 +92,28 @@ export async function fetchProcesses(companyId) {
  * Search transaction maintenance data.
  * Automatically: splits wide date ranges → paginates each slice → retries → splits again on failure.
  */
+/** Select All 误传占位文案时视为未选 Process（与 ProcessSelect 一致）。 */
+export function normalizeMaintenanceProcessFilter(process) {
+  const raw = String(process ?? "").trim();
+  if (!raw) return "";
+  const lower = raw.toLowerCase();
+  if (
+    lower === "select all" ||
+    lower === "--select all--" ||
+    raw === "全部" ||
+    raw === "--全部--"
+  ) {
+    return "";
+  }
+  return raw;
+}
+
 export async function searchTransactionData({ dateFrom, dateTo, process, companyId, category, signal }) {
+  const processFilter = normalizeMaintenanceProcessFilter(process);
   const merged = await fetchMaintenanceDateRangeResilient({
     dateFrom,
     dateTo,
-    process,
+    process: processFilter,
     companyId,
     category,
     signal,

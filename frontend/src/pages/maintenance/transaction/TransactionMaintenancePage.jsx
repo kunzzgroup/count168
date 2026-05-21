@@ -18,6 +18,7 @@ import {
   fetchCompanyPermissions,
   fetchProcesses,
   isBankOnlyCategoryCompany,
+  normalizeMaintenanceProcessFilter,
   searchTransactionData,
   updateSessionCompany,
 } from "./transactionMaintenanceLogic.js";
@@ -90,6 +91,11 @@ export default function TransactionMaintenancePage() {
   /** Boot already loaded process/permission meta — skip duplicate meta effect on first paint. */
   const skipMetaAfterBootRef = useRef(false);
 
+  const processFilter = useMemo(
+    () => normalizeMaintenanceProcessFilter(selectedProcess),
+    [selectedProcess],
+  );
+
   const listQueryEnabled = Boolean(
     !bootLoading &&
     filtersReady &&
@@ -107,14 +113,14 @@ export default function TransactionMaintenancePage() {
       companyId,
       dateFrom,
       dateTo,
-      selectedProcess || "",
+      processFilter,
       activePermission || "",
     ],
     queryFn: ({ signal }) =>
       searchTransactionData({
         dateFrom,
         dateTo,
-        process: selectedProcess,
+        process: processFilter,
         companyId,
         category: activePermission,
         signal,
@@ -143,10 +149,10 @@ export default function TransactionMaintenancePage() {
         companyId,
         dateFrom,
         dateTo,
-        selectedProcess || "",
+        processFilter,
         activePermission || "",
       ]),
-    [companyId, dateFrom, dateTo, selectedProcess, activePermission],
+    [companyId, dateFrom, dateTo, processFilter, activePermission],
   );
 
   useEffect(() => {

@@ -462,6 +462,14 @@ try {
         }
     }
 
+    // 前端 Select All 曾误传占位文案（Select All / 全部），视为未筛选 Process
+    if ($process !== null) {
+        $processLower = strtolower($process);
+        if (in_array($processLower, ['select all', '--select all--'], true) || in_array($process, ['全部', '--全部--'], true)) {
+            $process = null;
+        }
+    }
+
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');
     }
