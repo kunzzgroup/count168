@@ -905,12 +905,12 @@ body.process-page {
     --bank-list-cell-min-height: clamp(32px, 2.4vw, 44px);
     --bank-list-header-row-height: clamp(40px, 2.8vw, 48px);
     --bank-list-cell-line-height: 1.35;
-    --bank-virtual-table-min-width: 1320px;
-    --bank-virtual-grid-columns: minmax(40px, 2.7fr) minmax(72px, 6fr) minmax(52px, 4fr) minmax(56px, 5fr) minmax(60px, 5fr) minmax(84px, 7fr) minmax(88px, 6fr) minmax(64px, 5fr) minmax(72px, 5.5fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(80px, 5fr);
+    --bank-virtual-table-min-width: 1420px;
+    --bank-virtual-grid-columns: minmax(40px, 2.7fr) minmax(84px, 6fr) minmax(84px, 4fr) minmax(56px, 5fr) minmax(68px, 5fr) minmax(96px, 7fr) minmax(88px, 6fr) minmax(92px, 5fr) minmax(80px, 5.5fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(72px, 5fr);
     --bank-virtual-grid-columns-with-select:
-        minmax(40px, 2.7fr) minmax(72px, 6fr) minmax(52px, 4fr) minmax(56px, 5fr) minmax(60px, 5fr)
-        minmax(84px, 7fr) minmax(88px, 6fr) minmax(64px, 5fr) minmax(72px, 5.5fr) minmax(56px, 4fr)
-        minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(80px, 5fr)
+        minmax(40px, 2.7fr) minmax(84px, 6fr) minmax(84px, 4fr) minmax(56px, 5fr) minmax(68px, 5fr)
+        minmax(96px, 7fr) minmax(88px, 6fr) minmax(92px, 5fr) minmax(80px, 5.5fr) minmax(56px, 4fr)
+        minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(72px, 5fr)
         minmax(48px, 48px);
     --bank-virtual-grid-active: var(--bank-virtual-grid-columns);
 }
@@ -978,7 +978,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     border-radius: 8px 8px 0 0;
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     padding: 0;
-    overflow: hidden;
+    overflow: visible;
     grid-auto-rows: var(--bank-list-header-row-height, var(--bank-list-cell-min-height));
 }
 
@@ -1479,20 +1479,20 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
     min-width: 0;
 }
 
-/* 表头与数据列同轨：单元格内省略，避免文案叠到邻列 */
+/* Bank 表头：完整显示标题（Country / Insurance / Card Owner 等），数据列仍 ellipsis */
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header.header-item--with-sort-icon {
-    overflow: hidden;
+    overflow: visible;
     min-width: 0;
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header .header-item__label,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header.header-item--with-sort-icon .header-item__label {
     min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 1;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    flex-shrink: 0;
     white-space: nowrap;
 }
 
@@ -1546,13 +1546,13 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .header-item__label {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
     display: block;
     line-height: 1.2;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon {
@@ -1631,10 +1631,10 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .header-item__label {
-    flex: 1 1 auto !important;
+    flex: 0 1 auto !important;
     min-width: 0 !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
     white-space: nowrap !important;
 }
 
