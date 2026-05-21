@@ -17,7 +17,11 @@ import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 import MemberMiniGrid, { MemberMiniGridTotals } from "./MemberMiniGrid.jsx";
 import MemberMoneyCell from "./MemberMoneyCell.jsx";
 import MemberLinkedFilterModal from "./MemberLinkedFilterModal.jsx";
-import { computeTableTotals, WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS } from "./memberPageHelpers.js";
+import {
+  computeTableTotals,
+  WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS,
+  WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS,
+} from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 
 const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
@@ -137,6 +141,17 @@ export default function MemberPage() {
     onCurrencyToggle,
     formatPaymentHistoryMoney,
   } = useMemberWinLoss({ showNotification, lang });
+
+  /** Account 多段：每段最多 7 格，未满行 segment 宽度按比例收缩，不拉满整栏 */
+  const accountFilterBands = useMemo(() => {
+    const accounts = Array.isArray(linkedAccounts) ? linkedAccounts : [];
+    const maxPerBand = WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS;
+    const bands = [];
+    for (let i = 0; i < accounts.length; i += maxPerBand) {
+      bands.push(accounts.slice(i, i + maxPerBand));
+    }
+    return bands;
+  }, [linkedAccounts]);
 
   /** Currency 多段：每段最多 8 格（含 All），每满一行新开一条 segment 白底条，列仍按 8 列对齐 */
   const currencyFilterBands = useMemo(() => {
@@ -488,29 +503,37 @@ export default function MemberPage() {
               {linkedAccounts.length > 1 && (
                 <div className="user-gc-inline-row" id="member_account_filter">
                   <span className="user-gc-inline-label">{t("account")}</span>
-                  <div className="user-gc-inline-pills member-winloss-account-pills" id="member_account_buttons">
-                    <div
-                      className="user-gc-segment-group member-winloss-account-segments"
-                      role="group"
-                      aria-label={t("ariaAccount")}
-                      style={{
-                        gridTemplateColumns:
-                          linkedAccounts.length > 7
-                            ? "repeat(7, minmax(0, 1fr))"
-                            : `repeat(${linkedAccounts.length}, minmax(0, 1fr))`,
-                      }}
-                    >
-                      {linkedAccounts.map((acc) => (
-                        <button
-                          key={acc.id}
-                          type="button"
-                          className={`user-gc-segment${Number(acc.id) === Number(viewAccountId) ? " is-on" : ""}`}
-                          onClick={() => switchAccount(acc.id, acc.account_id, acc.name)}
-                        >
-                          {String(acc.account_id || acc.name || acc.id)}
-                        </button>
-                      ))}
-                    </div>
+                  <div
+                    className="user-gc-inline-pills member-winloss-account-pills"
+                    id="member_account_buttons"
+                    role="group"
+                    aria-label={t("ariaAccount")}
+                  >
+                    {accountFilterBands.map((band, segIdx) => (
+                      <div
+                        key={`member-acc-band-${segIdx}`}
+                        className="user-gc-segment-group member-winloss-account-segments"
+                        style={{
+                          width: `${(band.length / WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS) * 100}%`,
+                          maxWidth: "100%",
+                          gridTemplateColumns: `repeat(${band.length}, minmax(max-content, 1fr))`,
+                        }}
+                      >
+                        {band.map((acc) => {
+                          const accountLabel = String(acc.account_id || acc.name || acc.id);
+                          return (
+                            <button
+                              key={acc.id}
+                              type="button"
+                              className={`user-gc-segment${Number(acc.id) === Number(viewAccountId) ? " is-on" : ""}`}
+                              onClick={() => switchAccount(acc.id, acc.account_id, acc.name)}
+                            >
+                              <span className="member-winloss-account-pill-label">{accountLabel}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -678,18 +701,18 @@ export default function MemberPage() {
                         )}
                       </tbody>
                       <tfoot>
-                        <tr className="transaction-table-row transaction-summary-total transaction-summary-total--amt-pill-soft">
+                        <tr className="transaction-table-row transaction-summary-total transaction-summary-total">
                           <td className="transaction-summary-total-label" colSpan={3}>
                             {t("totalRow", { currency })}
                           </td>
                           <td className="transaction-history-col-winloss">
-                            <MemberMoneyCell value={totalWinLoss.toString()} formatMoney={formatPaymentHistoryMoney} variant="summary" />
+                            <MemberMoneyCell value={totalWinLoss.toString()} formatMoney={formatPaymentHistoryMoney} />
                           </td>
                           <td className="transaction-history-col-crdr">
-                            <MemberMoneyCell value={totalCrDr.toString()} formatMoney={formatPaymentHistoryMoney} variant="summary" />
+                            <MemberMoneyCell value={totalCrDr.toString()} formatMoney={formatPaymentHistoryMoney} />
                           </td>
                           <td className="transaction-history-col-balance">
-                            <MemberMoneyCell value={closingBalance.toString()} formatMoney={formatPaymentHistoryMoney} variant="summary" />
+                            <MemberMoneyCell value={closingBalance.toString()} formatMoney={formatPaymentHistoryMoney} />
                           </td>
                           <td className="transaction-history-col-description" colSpan={2} />
                         </tr>
