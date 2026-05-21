@@ -6,7 +6,7 @@ function parseMoneyNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function AmountArrow({ up }) {
+export function MemberAmountArrow({ up }) {
   if (up) {
     return (
       <svg className="member-amount-pill__icon" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
@@ -28,16 +28,19 @@ export default function MemberMoneyCell({ value, formatMoney, pill = false }) {
   const n = parseMoneyNumber(value);
   const display = formatMoney(value);
 
-  if (display === "-" || n === null) {
-    return <span className="member-amount member-amount--empty">-</span>;
+  if (n === null) {
+    return <span className="member-amount member-amount--empty">–</span>;
+  }
+  if (n === 0) {
+    return <span className="member-amount member-amount--zero">-</span>;
   }
 
-  const tone = n > 0 ? "pos" : n < 0 ? "neg" : "zero";
+  const tone = n > 0 ? "pos" : "neg";
 
   if (pill && n !== 0) {
     return (
       <span className={`member-amount-pill member-amount-pill--${tone}`}>
-        <AmountArrow up={n > 0} />
+        <MemberAmountArrow up={n > 0} />
         <span className="member-amount-pill__text">{display}</span>
       </span>
     );

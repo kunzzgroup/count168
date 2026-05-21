@@ -26,15 +26,42 @@ export function normalizeNumber(value) {
 export function formatPaymentHistoryMoney(value) {
   if (value === "-" || value === null || value === undefined) return "-";
   const cleaned = String(value).replace(/,/g, "").trim();
-  if (cleaned === "" || cleaned === "-") return "0.00";
+  if (cleaned === "" || cleaned === "-") return "-";
+  try {
+    if (MoneyDecimal.toDecimal(cleaned, 0).isZero()) return "-";
+  } catch {
+    if (/^-?0+(?:\.0+)?$/.test(cleaned)) return "-";
+  }
   const exact2 = cleaned.match(/^(-?)(\d+)\.(\d{2})$/);
   if (exact2) {
     const neg = exact2[1] === "-" ? "-" : "";
-    const intWithSep = exact2[2].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const intPart = exact2[2].replace(/^0+/, "") || "0";
+    if (intPart === "0" && exact2[3] === "00" && !neg) return "-";
+    const intWithSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return `${neg}${intWithSep}.${exact2[3]}`;
   }
-  return MoneyDecimal.formatThousands(cleaned, 2);
+  const formatted = MoneyDecimal.formatThousands(cleaned, 2);
+  if (formatted === "0.00" || formatted === "-0.00") return "-";
+  return formatted;
 }
+
+/** Win/Loss 矩阵 / Total：格式金额，0 显示为 "-"。 */
+export function formatMiniGridMoney(dec) {
+  if (dec == null || typeof dec.isZero !== "function") return "-";
+  if (dec.isZero()) return "-";
+  return formatPaymentHistoryMoney(dec.toString());
+}
+
+/** Win/Loss 矩阵 / Total：金额色调 — pos | neg | zero（0.00）| empty（无有效金额） */
+export function miniGridAmountTone(dec) {
+  if (dec == null || typeof dec.isZero !== "function") return "empty";
+  if (dec.isZero()) return "zero";
+  if (dec.lt(0)) return "neg";
+  return "pos";
+}
+
+/** 无数据占位（en dash，与零值 hyphen 区分） */
+export const MEMBER_AMOUNT_NA_MARK = "–";
 
 export function memberHistoryClosingBalancesForAllCurrencies(rows, wantedUpperSet) {
   const map = new Map();

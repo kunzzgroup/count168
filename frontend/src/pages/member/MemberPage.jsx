@@ -194,7 +194,7 @@ export default function MemberPage() {
     return t;
   }, [today]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.body.classList.remove("bg", "dashboard-page");
     document.body.classList.add("transaction-page", "member-winloss-page", "ec-auth-shell");
     return () => {
@@ -682,7 +682,7 @@ export default function MemberPage() {
                             <MemberMoneyCell value={totalWinLoss.toString()} formatMoney={formatPaymentHistoryMoney} pill />
                           </td>
                           <td className="transaction-history-col-crdr">
-                            <MemberMoneyCell value={totalCrDr.toString()} formatMoney={formatPaymentHistoryMoney} />
+                            <MemberMoneyCell value={totalCrDr.toString()} formatMoney={formatPaymentHistoryMoney} pill />
                           </td>
                           <td className="transaction-history-col-balance">
                             <MemberMoneyCell value={closingBalance.toString()} formatMoney={formatPaymentHistoryMoney} pill />

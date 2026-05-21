@@ -3,6 +3,9 @@ import { MoneyDecimal } from "../../utils/moneyDecimal.js";
 
 import {
   accountHoldsMiniGridCurrency,
+  formatMiniGridMoney,
+  miniGridAmountTone,
+  MEMBER_AMOUNT_NA_MARK,
   miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
   WINLOSS_MATRIX_FILL_CCY_COLS,
@@ -10,8 +13,27 @@ import {
   WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD,
 } from "./memberPageHelpers.js";
 
-function formatGridAmt(dec) {
-  return MoneyDecimal.formatThousands(dec.toString(), 2);
+function totalRowToneClass(tone) {
+  if (tone === "pos") return "gain";
+  if (tone === "neg") return "loss";
+  if (tone === "zero") return "zero";
+  return "na";
+}
+
+function MemberTotalGridAmount({ dec, tone }) {
+  const display = formatMiniGridMoney(dec);
+  if (tone === "pos" || tone === "neg") {
+    const gain = tone === "pos";
+    return (
+      <span className={`member-total-val member-total-val--${gain ? "gain" : "loss"}`}>
+        <span className="member-total-val__arrow" aria-hidden="true">
+          {gain ? "▲" : "▼"}
+        </span>
+        <span className="member-total-val__figure">{display}</span>
+      </span>
+    );
+  }
+  return <span className={`member-total-val member-total-val--${tone === "zero" ? "zero" : "na"}`}>{display}</span>;
 }
 
 function resolveBalanceCell({
@@ -30,14 +52,13 @@ function resolveBalanceCell({
   const balDec = !shellMode && holds && balanceMap?.has(key) ? balanceMap.get(key) : null;
   const hasBalance = balDec != null && typeof balDec.lt === "function";
   const isNa = shellMode || !holds || !hasBalance;
-  const neg = hasBalance && balDec.lt(0);
-  return { isNa, neg, balDec };
+  return { isNa, balDec };
 }
 
 export function MemberMiniGridTotals({ currencyOrder, totalsByCu, t }) {
   const order = currencyOrder.map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
   if (!order.length) {
-    return <span className="member-dash-total-amt">–</span>;
+    return <span className="member-dash-total-amt member-amount--empty">{MEMBER_AMOUNT_NA_MARK}</span>;
   }
   return (
     <div className="member-dash-total-values member-dash-total-values--grid">
@@ -48,11 +69,12 @@ export function MemberMiniGridTotals({ currencyOrder, totalsByCu, t }) {
             raw != null && typeof raw.lt === "function"
               ? raw
               : MoneyDecimal.toDecimal("0", 0);
-          const neg = dec.lt(0);
+          const tone = miniGridAmountTone(dec);
+          const rowTone = totalRowToneClass(tone);
           return (
-            <div key={cu} className="member-dash-total-grid-cell">
+            <div key={cu} className={`member-dash-total-grid-cell member-dash-total-grid-cell--${rowTone}`}>
               <span className="member-dash-total-grid-code">{cu}</span>
-              <span className={`member-dash-total-grid-amt${neg ? " member-dash-total-grid-amt--neg" : ""}`}>{formatGridAmt(dec)}</span>
+              <MemberTotalGridAmount dec={dec} tone={tone} />
             </div>
           );
         })}
@@ -83,7 +105,7 @@ function MiniGridRow({
         {code}
       </div>
       {orderUpper.map((cu, ci) => {
-        const { isNa, neg, balDec } = resolveBalanceCell({
+        const { isNa, balDec } = resolveBalanceCell({
           shellMode,
           idNum,
           cu,
@@ -91,6 +113,7 @@ function MiniGridRow({
           linkedCurrenciesLoaded,
           linkedAccountCurrenciesMap,
         });
+        const tone = isNa ? null : miniGridAmountTone(balDec);
         return (
           <div
             key={`${idNum}-${cu}`}
@@ -98,10 +121,10 @@ function MiniGridRow({
             role="gridcell"
           >
             {isNa ? (
-              "–"
+              <span className="member-balance-matrix-na">{MEMBER_AMOUNT_NA_MARK}</span>
             ) : (
-              <span className={`member-balance-matrix-amt${neg ? " member-balance-matrix-amt--neg" : ""}`}>
-                {formatGridAmt(balDec)}
+              <span className={`member-balance-matrix-amt member-balance-matrix-amt--${tone}`}>
+                {formatMiniGridMoney(balDec)}
               </span>
             )}
           </div>
@@ -170,7 +193,7 @@ export default function MemberMiniGrid({
 
       scroll.style.setProperty("--member-wl-ccy-fill-col-w", colW);
       grid.style.setProperty("--member-wl-ccy-fill-col-w", colW);
-      grid.style.gridTemplateColumns = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content) repeat(${ncu}, ${colW})`;
+      grid.style.gridTemplateColumns = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content) repeat(${ncu}, minmax(${colW}, ${colW}))`;
     };
 
     syncColWidth();
