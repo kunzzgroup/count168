@@ -380,6 +380,11 @@ export default function TransactionMaintenancePage() {
         const procList = await fetchProcesses(cid);
         if (cancelled) return;
         setProcesses(procList);
+        setSelectedProcess((prev) => {
+          const filter = normalizeMaintenanceProcessFilter(prev);
+          if (!filter) return "";
+          return procList.some((p) => String(p.process_name) === filter) ? filter : "";
+        });
 
         const cached = switchPermsCacheRef.current;
         let permList;
@@ -463,9 +468,11 @@ export default function TransactionMaintenancePage() {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
     setSwitchingCompany(true);
     try {
-      const [res, perms] = await Promise.all([
+      const nextCompanyId = Number(c.id);
+      const [res, perms, procList] = await Promise.all([
         updateSessionCompany(c.id),
         fetchCompanyPermissions(c.company_id),
+        fetchProcesses(nextCompanyId),
       ]);
 
       // Legacy Redirect logic
@@ -487,8 +494,10 @@ export default function TransactionMaintenancePage() {
       skipMetaAfterBootRef.current = true;
       setActivePermission(nextActive);
       setPermissions(perms);
+      setProcesses(procList);
+      setSelectedProcess("");
 
-      setCompanyId(Number(c.id));
+      setCompanyId(nextCompanyId);
       setCompanyCode(code);
       
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
