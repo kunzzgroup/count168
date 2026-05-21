@@ -613,8 +613,6 @@ export default function MemberPage() {
           <div id="member_currency_tables" className="member-currency-tables">
             {loadingTable ? (
               <p className="member-currency-empty" style={{ margin: 0 }}>{t("loading")}</p>
-            ) : groupedRows.length === 0 && !isAllSelected ? (
-              <p className="member-currency-empty" style={{ margin: 0 }}>{t("selectCurrency")}</p>
             ) : groupedRows.length === 0 ? (
               <p className="member-currency-empty" style={{ margin: 0 }}>{t("noDataInRange")}</p>
             ) : (

@@ -197,22 +197,37 @@ export function getMemberMiniGridCurrencies(availableCurrencies, isAllSelected, 
   return availableCurrencies.filter((code) => selectedCurrencies.includes(code));
 }
 
+/** 切换币种按钮：至少保留一项（无选中时回退为 All）。 */
+export function applyCurrencyToggle(available, isAllSelected, selectedCurrencies, code) {
+  if (!available?.length) {
+    return { isAllSelected: true, selectedCurrencies: [] };
+  }
+  if (isAllSelected) {
+    return { isAllSelected: false, selectedCurrencies: [code] };
+  }
+  if (selectedCurrencies.includes(code)) {
+    const next = selectedCurrencies.filter((c) => c !== code);
+    if (next.length === 0) {
+      return { isAllSelected: true, selectedCurrencies: [] };
+    }
+    return { isAllSelected: false, selectedCurrencies: next };
+  }
+  return { isAllSelected: false, selectedCurrencies: [...selectedCurrencies, code] };
+}
+
 export function sanitizeCurrencySelection(available, isAllSelected, selectedCurrencies, linkedCurrenciesLoaded, linkedAccountCurrenciesMap, wlGridSelectedIds, linkedAccounts) {
   const availSet = new Set(available);
   const retained = selectedCurrencies.filter((c) => availSet.has(c));
-  if (!linkedCurrenciesLoaded) {
-    return { isAllSelected: retained.length === 0 ? true : isAllSelected, selectedCurrencies: retained.length === 0 && !isAllSelected ? [] : retained };
-  }
   if (!available.length) {
     return { isAllSelected: true, selectedCurrencies: [] };
   }
-  if (retained.length === 0 && !isAllSelected) {
-    return { isAllSelected: false, selectedCurrencies: [] };
+  if (isAllSelected) {
+    return { isAllSelected: true, selectedCurrencies: [] };
   }
   if (retained.length === 0) {
     return { isAllSelected: true, selectedCurrencies: [] };
   }
-  return { isAllSelected, selectedCurrencies: retained };
+  return { isAllSelected: false, selectedCurrencies: retained };
 }
 
 export function computeTableTotals(rows) {
