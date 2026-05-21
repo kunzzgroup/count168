@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, keepPreviousData, isCancelledError } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
+import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
@@ -200,17 +200,10 @@ export default function TransactionMaintenancePage() {
     let cancelled = false;
 
     removeOtherMaintenanceStylesheets("transaction_maintenance.css");
-
-    const links = [
-      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap",
-      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-    ];
-
-    Promise.all(links.map(waitForStylesheet)).then(() => {
-      if (!cancelled) setCssReady(true);
-    });
-
     ensureMaintenanceDateRangePicker();
+    // Fonts/icons are in index.html; page CSS is bundled via imports — do not block on third-party CDN
+    // (some networks/devices block or stall fonts.googleapis.com / cdnjs → blank page + "failed to load resource").
+    setCssReady(true);
 
     return () => {
       cancelled = true;

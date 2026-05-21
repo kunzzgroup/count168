@@ -83,7 +83,12 @@ export async function searchTransactionData({ dateFrom, dateTo, process, company
   const url = buildApiUrl(`api/transactions/maintenance_search_api.php?${params.toString()}`);
   let response;
   try {
-    response = await fetch(url, { credentials: "include", signal });
+    response = await fetch(url, {
+      credentials: "include",
+      signal,
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
   } catch (err) {
     rethrowIfAborted(err, signal);
     throw new Error(err?.message || "Search failed");

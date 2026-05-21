@@ -6,7 +6,10 @@
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
+if (extension_loaded('zlib') && !ini_get('zlib.output_compression')) {
+    ob_start('ob_gzhandler');
+}
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
