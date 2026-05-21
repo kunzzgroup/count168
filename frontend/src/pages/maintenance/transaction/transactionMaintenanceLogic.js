@@ -1,13 +1,15 @@
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { formatDmy, parseDdMmYyyyToYmd, parseYmd } from "../../../utils/dateUtils.js";
 
-/** Initial date window per request — keeps server work bounded. */
-const MAINTENANCE_CHUNK_DAYS = 7;
-const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 31;
+/** 宽日期兜底分片（后端已 SQL 分页，默认整段查询；仅超大范围才分片）。 */
+const MAINTENANCE_CHUNK_DAYS = 60;
+const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 400;
+const MAINTENANCE_PARALLEL_CHUNKS = 4;
 /** Page sizes tried in order when a response is still too large. */
-const MAINTENANCE_PAGE_SIZES = [2500, 1500, 1000, 500, 250];
-const MAINTENANCE_FETCH_RETRIES = 6;
-const MAINTENANCE_RETRY_BASE_MS = 400;
+const MAINTENANCE_PAGE_SIZES = [5000, 2500, 1500, 1000, 500];
+const MAINTENANCE_PARALLEL_PAGES = 4;
+const MAINTENANCE_FETCH_RETRIES = 4;
+const MAINTENANCE_RETRY_BASE_MS = 250;
 
 function isFetchAbortError(err, signal) {
   if (signal?.aborted) return true;
@@ -113,20 +115,38 @@ async function fetchMaintenanceDateRangeResilient({ dateFrom, dateTo, process, c
       ? splitMaintenanceDateRange(dateFrom, dateTo, MAINTENANCE_CHUNK_DAYS)
       : [{ dateFrom, dateTo }];
 
-  const merged = [];
-  for (const range of ranges) {
-    if (signal?.aborted) {
-      throw new DOMException("The operation was aborted.", "AbortError");
-    }
-    const part = await fetchMaintenanceRangeWithSplit({
-      dateFrom: range.dateFrom,
-      dateTo: range.dateTo,
+  if (ranges.length === 1) {
+    return fetchMaintenanceRangeWithSplit({
+      dateFrom: ranges[0].dateFrom,
+      dateTo: ranges[0].dateTo,
       process,
       companyId,
       category,
       signal,
     });
-    if (part.length) merged.push(...part);
+  }
+
+  const merged = [];
+  for (let i = 0; i < ranges.length; i += MAINTENANCE_PARALLEL_CHUNKS) {
+    if (signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+    const batch = ranges.slice(i, i + MAINTENANCE_PARALLEL_CHUNKS);
+    const parts = await Promise.all(
+      batch.map((range) =>
+        fetchMaintenanceRangeWithSplit({
+          dateFrom: range.dateFrom,
+          dateTo: range.dateTo,
+          process,
+          companyId,
+          category,
+          signal,
+        }),
+      ),
+    );
+    for (const part of parts) {
+      if (part.length) merged.push(...part);
+    }
   }
   return merged;
 }
@@ -160,17 +180,10 @@ async function fetchMaintenanceRangeWithSplit(params) {
 
 async function fetchAllPagesForRange(params, pageSizeIndex) {
   const pageSize = MAINTENANCE_PAGE_SIZES[Math.min(pageSizeIndex, MAINTENANCE_PAGE_SIZES.length - 1)];
-  const all = [];
-  let page = 1;
 
-  while (true) {
-    if (params.signal?.aborted) {
-      throw new DOMException("The operation was aborted.", "AbortError");
-    }
-
-    let result;
+  const fetchPage = async (page) => {
     try {
-      result = await fetchMaintenancePageWithRetries({ ...params, page, pageSize });
+      return await fetchMaintenancePageWithRetries({ ...params, page, pageSize });
     } catch (err) {
       rethrowIfAborted(err, params.signal);
       if (isMaintenanceTransferError(err) && pageSizeIndex < MAINTENANCE_PAGE_SIZES.length - 1) {
@@ -178,10 +191,35 @@ async function fetchAllPagesForRange(params, pageSizeIndex) {
       }
       throw err;
     }
+  };
 
-    if (result.data.length) all.push(...result.data);
-    if (!result.pagination?.has_more) break;
-    page += 1;
+  if (params.signal?.aborted) {
+    throw new DOMException("The operation was aborted.", "AbortError");
+  }
+
+  const first = await fetchPage(1);
+  const all = [...(first.data || [])];
+  const total = Number(first.pagination?.total ?? all.length);
+  const totalPages = total > 0 ? Math.ceil(total / pageSize) : 1;
+
+  if (totalPages <= 1 || !first.pagination?.has_more) {
+    return all;
+  }
+
+  const remainingPages = [];
+  for (let p = 2; p <= totalPages; p += 1) {
+    remainingPages.push(p);
+  }
+
+  for (let i = 0; i < remainingPages.length; i += MAINTENANCE_PARALLEL_PAGES) {
+    if (params.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+    const batch = remainingPages.slice(i, i + MAINTENANCE_PARALLEL_PAGES);
+    const results = await Promise.all(batch.map((page) => fetchPage(page)));
+    for (const result of results) {
+      if (result.data?.length) all.push(...result.data);
+    }
   }
 
   return all;

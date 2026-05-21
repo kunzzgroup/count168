@@ -100,46 +100,305 @@ function formatMaintenanceIdProductLikeDataSummary(array $row): string
     return $product;
 }
 
-/**
- * 运行时兜底：确保 data_capture_details.rate 至少支持 8 位小数。
- * 避免 Maintenance 页面读取到提交时已被 4 位精度截断的 rate。
- */
-function ensureMaintenanceRatePrecision(PDO $pdo): void
+/** 缓存 transactions.source_bank_process_id 列是否存在（避免每次 SHOW COLUMNS）。 */
+function maintenanceHasSourceBankCol(PDO $pdo): bool
 {
-    static $checked = false;
-    if ($checked) {
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $cached = false;
+    try {
+        $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+        $cached = $colStmt && $colStmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        /* ignore */
+    }
+    return $cached;
+}
+
+/** 将 UNION 查询的一行格式化为 API 输出结构。 */
+function maintenanceFormatUnionRow(array $row): array
+{
+    [$crVal, $drVal] = maintenanceSplitCrDr($row['amount'] ?? '0');
+    $dataType = (string)($row['data_type'] ?? 'transaction');
+    $isCapture = $dataType === 'datacapture';
+    $isDeleted = (int)($row['is_deleted'] ?? 0) === 1;
+
+    $rateDisplay = null;
+    $idProductDisplay = '-';
+    if ($isCapture) {
+        $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
+        $idProductDisplay = formatMaintenanceIdProductLikeDataSummary($row);
+    }
+
+    return [
+        'transaction_id' => $row['transaction_id'] ?? null,
+        'capture_id' => $row['capture_id'] ?? null,
+        'capture_detail_id' => $row['capture_detail_id'] ?? null,
+        'process' => $row['process_id'] ?? '-',
+        'process_id' => $row['process_id'] ?? null,
+        'id_product' => $idProductDisplay,
+        'account' => $row['account_id'] ?? '-',
+        'from_account' => $isCapture ? null : ($row['from_account'] ?? '-'),
+        'description' => $row['description'] ?? '-',
+        'remark' => $row['remark'] ?? '-',
+        'source' => $isCapture ? ($row['source_value'] ?? null) : null,
+        'percent' => ($isCapture && isset($row['source_percent']) && $row['source_percent'] !== '')
+            ? (string)$row['source_percent']
+            : null,
+        'currency' => !empty($row['currency_code']) ? $row['currency_code'] : '-',
+        'rate' => $rateDisplay,
+        'cr' => $crVal,
+        'dr' => $drVal,
+        'transaction_date' => $row['transaction_date'] ?? null,
+        'dts_created' => $row['dts_created'] ?? '',
+        'created_by' => $row['created_by'] ?? '-',
+        'is_deleted' => $isDeleted ? 1 : 0,
+        'deleted_by' => $row['deleted_by'] ?? null,
+        'dts_deleted' => $row['dts_deleted'] ?? null,
+        'data_type' => $dataType,
+    ];
+}
+
+/**
+ * 构建 Transaction 分支（UNION 子查询，无 ORDER/LIMIT）。
+ * @return array{sql: string, params: array}
+ */
+function maintenanceBuildTransactionUnionBranch(
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    string $category,
+    bool $is_bank_category,
+    bool $has_source_bank_col
+): array {
+    $where = ["t.company_id = ?", "t.transaction_date BETWEEN ? AND ?"];
+    $params = [$company_id, $date_from_db, $date_to_db];
+
+    if ($category !== '') {
+        if ($is_bank_category) {
+            if ($has_source_bank_col) {
+                $where[] = "t.source_bank_process_id IS NOT NULL AND t.source_bank_process_id != 0";
+            } else {
+                $where[] = "1 = 0";
+            }
+        } elseif ($has_source_bank_col) {
+            $where[] = "(t.source_bank_process_id IS NULL OR t.source_bank_process_id = 0)";
+        }
+    }
+
+    $where[] = "t.transaction_type NOT IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'ADJUSTMENT', 'WIN', 'LOSE')";
+    $whereSql = 'WHERE ' . implode(' AND ', $where);
+
+    $sql = "
+        SELECT
+            'transaction' AS data_type,
+            t.id AS transaction_id,
+            NULL AS capture_id,
+            NULL AS capture_detail_id,
+            NULL AS process_id,
+            a.account_id,
+            fa.account_id AS from_account,
+            t.description,
+            COALESCE(t.sms, '') AS remark,
+            COALESCE(c.code, '') AS currency_code,
+            COALESCE(t.amount, 0) AS amount,
+            t.transaction_date,
+            t.created_at AS sort_created_at,
+            DATE_FORMAT(t.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
+            COALESCE(u.login_id, o.owner_code) AS created_by,
+            0 AS is_deleted,
+            NULL AS deleted_by,
+            NULL AS dts_deleted,
+            NULL AS source_value,
+            NULL AS source_percent,
+            NULL AS rate,
+            NULL AS id_product,
+            NULL AS id_product_main,
+            NULL AS id_product_sub,
+            NULL AS product_type,
+            NULL AS description_main,
+            NULL AS description_sub,
+            NULL AS columns_value
+        FROM transactions t
+        INNER JOIN account a ON t.account_id = a.id
+        LEFT JOIN account fa ON t.from_account_id = fa.id
+        LEFT JOIN currency c ON t.currency_id = c.id
+        LEFT JOIN user u ON t.created_by = u.id
+        LEFT JOIN owner o ON t.created_by_owner = o.id
+        $whereSql
+    ";
+
+    return ['sql' => $sql, 'params' => $params];
+}
+
+/**
+ * 构建 Data Capture 分支（UNION 子查询）。
+ * @return array{sql: string, params: array}
+ */
+function maintenanceBuildCaptureUnionBranch(
+    PDO $pdo,
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    ?string $process
+): array {
+    $captureWhere = [
+        "dc.company_id = ?",
+        "dcd.company_id = ?",
+        "dc.capture_date BETWEEN ? AND ?",
+    ];
+    $captureParams = [$company_id, $company_id, $date_from_db, $date_to_db];
+
+    if ($process) {
+        $captureWhere[] = "p.process_id = ?";
+        $captureParams[] = $process;
+    }
+
+    $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere);
+
+    $sql = "
+        SELECT
+            'datacapture' AS data_type,
+            NULL AS transaction_id,
+            dc.id AS capture_id,
+            dcd.id AS capture_detail_id,
+            p.process_id,
+            a.account_id,
+            NULL AS from_account,
+            COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
+            COALESCE(dc.remark, '') AS remark,
+            c.code AS currency_code,
+            dcd.processed_amount AS amount,
+            dc.capture_date AS transaction_date,
+            dc.created_at AS sort_created_at,
+            DATE_FORMAT(dc.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
+            COALESCE(u.login_id, o.owner_code) AS created_by,
+            0 AS is_deleted,
+            NULL AS deleted_by,
+            NULL AS dts_deleted,
+            dcd.source_value,
+            dcd.source_percent,
+            dcd.rate,
+            dcd.id_product,
+            dcd.id_product_main,
+            dcd.id_product_sub,
+            dcd.product_type,
+            dcd.description_main,
+            dcd.description_sub,
+            dcd.columns_value
+        FROM data_capture_details dcd
+        INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+        INNER JOIN process p ON dc.process_id = p.id
+        INNER JOIN account a ON dcd.account_id = a.id
+        INNER JOIN currency c ON dcd.currency_id = c.id
+        LEFT JOIN description d ON p.description_id = d.id
+        LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
+        LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
+        $captureWhereSql
+    ";
+
+    return ['sql' => $sql, 'params' => $captureParams];
+}
+
+/**
+ * SQL 层分页：UNION + COUNT + ORDER BY + LIMIT，避免 PHP 全量加载与二次排序。
+ */
+function maintenanceSearchPaginatedFast(
+    PDO $pdo,
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    ?string $process,
+    string $category,
+    bool $is_bank_category,
+    int $page,
+    int $page_size
+): void {
+    $has_source_bank_col = maintenanceHasSourceBankCol($pdo);
+    $branches = [];
+    $params = [];
+
+    if (empty($process)) {
+        $tx = maintenanceBuildTransactionUnionBranch(
+            $company_id,
+            $date_from_db,
+            $date_to_db,
+            $category,
+            $is_bank_category,
+            $has_source_bank_col
+        );
+        $branches[] = $tx['sql'];
+        $params = array_merge($params, $tx['params']);
+    }
+
+    if (!$is_bank_category) {
+        try {
+            $cap = maintenanceBuildCaptureUnionBranch(
+                $pdo,
+                $company_id,
+                $date_from_db,
+                $date_to_db,
+                $process
+            );
+            $branches[] = $cap['sql'];
+            $params = array_merge($params, $cap['params']);
+        } catch (Exception $e) {
+            error_log('maintenance_search capture branch: ' . $e->getMessage());
+        }
+    }
+
+    if (count($branches) === 0) {
+        echo json_encode([
+            'success' => true,
+            'data' => [],
+            'pagination' => [
+                'page' => $page,
+                'page_size' => $page_size,
+                'total' => 0,
+                'has_more' => false,
+            ],
+        ], JSON_UNESCAPED_UNICODE);
         return;
     }
-    $checked = true;
 
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'rate'");
-        $column = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
-        if (!$column) {
-            return;
-        }
+    $unionSql = '(' . implode(') UNION ALL (', $branches) . ')';
+    $orderSql = 'transaction_date DESC, sort_created_at DESC, '
+        . 'IFNULL(capture_id, 0) DESC, IFNULL(capture_detail_id, 0) DESC, IFNULL(transaction_id, 0) DESC';
 
-        $type = strtolower((string)($column['Type'] ?? ''));
-        $needsUpgrade = false;
-        if (preg_match('/decimal\(\s*\d+\s*,\s*(\d+)\s*\)/i', $type, $matches)) {
-            $scale = (int)$matches[1];
-            $needsUpgrade = $scale < 8;
-        } elseif ($type !== '' && strpos($type, 'decimal') !== 0) {
-            $needsUpgrade = true;
-        }
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM ($unionSql) AS merged");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetchColumn();
 
-        if ($needsUpgrade) {
-            $pdo->exec("ALTER TABLE data_capture_details MODIFY COLUMN rate DECIMAL(25,8) NULL");
-        }
-    } catch (Exception $e) {
-        error_log('maintenance_search rate precision ensure warning: ' . $e->getMessage());
+    $offset = ($page - 1) * $page_size;
+    $dataStmt = $pdo->prepare(
+        "SELECT * FROM ($unionSql) AS merged ORDER BY $orderSql LIMIT " . (int)$page_size . ' OFFSET ' . (int)$offset
+    );
+    $dataStmt->execute($params);
+    $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $formatted = [];
+    $baseNo = $offset + 1;
+    foreach ($rows as $i => $row) {
+        $item = maintenanceFormatUnionRow($row);
+        $item['no'] = $baseNo + $i;
+        $formatted[] = $item;
     }
+
+    echo json_encode([
+        'success' => true,
+        'data' => $formatted,
+        'pagination' => [
+            'page' => $page,
+            'page_size' => $page_size,
+            'total' => $total,
+            'has_more' => ($offset + count($formatted)) < $total,
+        ],
+    ], JSON_UNESCAPED_UNICODE);
 }
 
 try {
-    // 确保 Rate 精度 schema 已升级
-    ensureMaintenanceRatePrecision($pdo);
-
     // 确定 company_id（支持 owner 指定，多公司切换）
     $company_id = null;
     if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
@@ -234,11 +493,24 @@ try {
         return;
     }
 
-    $has_source_bank_col = false;
-    try {
-        $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
-        $has_source_bank_col = $colStmt && $colStmt->rowCount() > 0;
-    } catch (PDOException $e) { /* ignore */ }
+    // 常用路径：无已删除记录 + 分页 → SQL 层 UNION 分页（避免全量加载）
+    if (!$includeDeleted && $page_size > 0) {
+        $page = $page > 0 ? $page : 1;
+        maintenanceSearchPaginatedFast(
+            $pdo,
+            $company_id,
+            $date_from_db,
+            $date_to_db,
+            $process,
+            $category,
+            $is_bank_category,
+            $page,
+            $page_size
+        );
+        return;
+    }
+
+    $has_source_bank_col = maintenanceHasSourceBankCol($pdo);
 
     $formatted = [];
     $no = 1;
