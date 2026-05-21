@@ -1790,6 +1790,47 @@ body.ec-auth-shell .informationmenu .submenu-item {
     }
 }
 
+/* Laptop (1281px–1440px): fluid sidebar — long labels (e.g. Transaction Payment) need wrap + breathing room */
+@media screen and (min-width: 1281px) and (max-width: 1440px) {
+    .informationmenu .informationmenu-section-title {
+        white-space: normal;
+        text-overflow: clip;
+        overflow: visible;
+        line-height: 1.3;
+        align-items: flex-start;
+    }
+
+    .informationmenu .sidebar-menu-label {
+        white-space: normal;
+        text-overflow: clip;
+        overflow: visible;
+        overflow-wrap: break-word;
+        word-break: normal;
+        line-height: 1.3;
+    }
+
+    .informationmenu-content > .informationmenu-section + .informationmenu-section {
+        margin-top: 4px;
+    }
+
+    body.ec-auth-shell .informationmenu .informationmenu-section-title {
+        white-space: normal !important;
+        text-overflow: clip !important;
+        overflow: visible !important;
+        align-items: flex-start !important;
+        line-height: 1.3 !important;
+        padding-top: 0.85rem !important;
+        padding-bottom: 0.85rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .sidebar-menu-label {
+        white-space: normal !important;
+        text-overflow: clip !important;
+        overflow: visible !important;
+        overflow-wrap: break-word !important;
+    }
+}
+
 /* 桌面端也使用变量，保证与侧栏宽度一致（非平板收起时等同原 clamp） */
 body.ec-auth-shell #root > :is(
     .container,
