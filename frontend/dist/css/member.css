@@ -627,7 +627,7 @@
     flex-direction: column;
     gap: 12px;
 }
-/* Account / Company / Currency — Win/Loss 左栏见上方 .member-dash-col-filters 规则 */
+/* Account / Company / Currency — Win/Loss 左栏见上方 .member-dash-col-filters 规则 ..*/
 .member-currency-section {
     display: flex !important;
     flex-direction: column;

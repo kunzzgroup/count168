@@ -82,19 +82,19 @@ function VirtualDataRow({ row, index }) {
       <WrapCell title={row.account || "-"}>{row.account || "-"}</WrapCell>
       <WrapCell title={row.description || "-"}>{row.description || "-"}</WrapCell>
       <WrapCell title={row.remark || "-"}>{row.remark || "-"}</WrapCell>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--center" title={row.percent || "-"}>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left" title={row.percent || "-"}>
         {row.percent || "-"}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-cell-currency maintenance-virtual-cell--center" title={row.currency || "-"}>
+      <div role="cell" className="maintenance-virtual-cell maintenance-cell-currency maintenance-virtual-cell--left" title={row.currency || "-"}>
         {row.currency || "-"}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right maintenance-virtual-cell--mono" title={row.rate || "-"}>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left" title={row.rate || "-"}>
         {row.rate || "-"}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right maintenance-virtual-cell--mono" title={formatAmount(row.cr)}>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left" title={formatAmount(row.cr)}>
         {formatAmount(row.cr)}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--right maintenance-virtual-cell--mono" title={formatAmount(row.dr)}>
+      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left" title={formatAmount(row.dr)}>
         {formatAmount(row.dr)}
       </div>
       <WrapCell title={row.created_by || "-"}>{row.created_by || "-"}</WrapCell>
