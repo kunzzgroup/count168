@@ -1284,6 +1284,7 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
 .bankprocess-maintenance-page-root .bankprocess-virtual-cell--description {
     padding-left: var(--bankprocess-col-description-padding-x);
     padding-right: var(--bankprocess-col-description-padding-x);
+    text-transform: uppercase;
 }
 
 .bankprocess-maintenance-page-root .bankprocess-virtual-cell-checkbox {
