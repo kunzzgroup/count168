@@ -411,7 +411,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
 @media screen and (max-height: 800px) {
 
     .modal-content,
-    .transaction-modal-content,
+    .transaction-modal-content:not(.transaction-history-modal),
     .notification-popup {
         max-height: 100% !important;
         display: flex;
