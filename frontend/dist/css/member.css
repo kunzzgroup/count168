@@ -2139,6 +2139,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     justify-content: flex-end;
     width: 100%;
     min-width: 0;
+    overflow: visible;
     padding: 7px 10px;
     min-height: 36px;
     background: #ffffff;
@@ -2188,9 +2189,12 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 
 .member-balance-matrix-amt {
     display: block;
-    width: 100%;
+    width: max-content;
+    max-width: 100%;
+    margin-inline-start: auto;
     text-align: right;
     white-space: nowrap;
+    overflow: visible;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
@@ -2237,7 +2241,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 /* 仅无矩阵时的 scroll 占位；有 ccy-fill / ccy-scroll 时由下方专用规则接管 */
 .member-winloss-page
     .member-dash-matrix-scroll:not(.member-dash-matrix-scroll--compact):not(:has(.member-balance-mini-matrix--ccy-fill)):not(:has(.member-balance-mini-matrix--ccy-scroll)) {
-    --member-wl-ccy-fill-col-w: 4.75rem;
+    --member-wl-ccy-fill-col-w: 6rem;
     width: 100%;
     max-width: 100%;
     display: block;
@@ -2285,8 +2289,9 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 
 .member-winloss-page .member-balance-mini-matrix--ccy-fill .member-balance-matrix-th,
 .member-winloss-page .member-balance-mini-matrix--ccy-fill .member-balance-matrix-cell {
-    min-width: var(--member-wl-ccy-fill-col-w, 4.75rem);
+    min-width: var(--member-wl-ccy-fill-col-w, 6rem);
     box-sizing: border-box;
+    overflow: visible;
 }
 
 /* ≥10 列：固定 px 列宽（=9 列时的单列宽）；未撑满时贴右，超出时由 scroll 横向滚动 */
@@ -2302,8 +2307,9 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 
 .member-winloss-page .member-balance-mini-matrix--ccy-scroll .member-balance-matrix-th,
 .member-winloss-page .member-balance-mini-matrix--ccy-scroll .member-balance-matrix-cell {
-    min-width: var(--member-wl-ccy-fill-col-w, 4.75rem);
+    min-width: var(--member-wl-ccy-fill-col-w, 6rem);
     box-sizing: border-box;
+    overflow: visible;
 }
 
 /* ≥12 列仅缩小字号/行高，列宽仍由 --member-wl-ccy-fill-col-w 锁定 */
