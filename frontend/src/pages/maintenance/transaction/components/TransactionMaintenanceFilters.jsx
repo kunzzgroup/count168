@@ -30,6 +30,7 @@ export default function TransactionMaintenanceFilters({
   companies,
   selectedGroup,
   onGroupClick,
+  onPickAllGroups,
   onSwitchCompany,
   m,
 }) {
@@ -57,7 +58,7 @@ export default function TransactionMaintenanceFilters({
       const cGid = comp.group_id != null ? normalize(comp.group_id) : "";
       const isC168 = normalize(comp.company_id) === "C168";
       if (selectedGroup) return cGid === selectedGroup || isC168;
-      return !cGid || isC168;
+      return true;
     });
   }, [dedupedCompanies, selectedGroup]);
 
@@ -118,7 +119,7 @@ export default function TransactionMaintenanceFilters({
             groupIds={snapGroupIds}
             groupFilterKind={selectedGroup ? "follow" : "all"}
             selectedGroupKey={selectedGroup}
-            onPickAllGroups={() => onGroupClick("")}
+            onPickAllGroups={onPickAllGroups}
             onPickGroup={(g) => onGroupClick(g)}
             companyButtons={visibleCompanies}
             companyId={companyId}

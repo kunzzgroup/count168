@@ -5,7 +5,7 @@ import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
+import { applySharedGroupClickWithCompanySwitch, persistDashboardGroupFilter } from "../../../utils/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/transaction.css";
@@ -516,22 +516,21 @@ export default function TransactionMaintenancePage() {
     setSwitchingCompany(true);
     try {
       const nextCompanyId = Number(c.id);
-      const [res, perms, procList] = await Promise.all([
-        updateSessionCompany(c.id),
-        fetchCompanyPermissions(c.company_id),
-        fetchProcesses(nextCompanyId),
-      ]);
+      const res = await updateSessionCompany(c.id);
 
-      // Legacy Redirect logic
       if (res.has_gambling === false) {
         navigate("/process-list", { replace: true });
         return;
       }
 
+      const perms = await fetchCompanyPermissions(c.company_id);
+
       if (isBankOnlyCategoryCompany(perms)) {
         navigate("/process-list", { replace: true });
         return;
       }
+
+      const procList = await fetchProcesses(nextCompanyId);
 
       const code = c.company_id || "";
       const saved = localStorage.getItem(`selectedPermission_${code}`);
@@ -546,20 +545,30 @@ export default function TransactionMaintenancePage() {
 
       setCompanyId(nextCompanyId);
       setCompanyCode(code);
-      
+
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
-      
+
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }), "success");
     } catch (err) {
+      const msg = String(err?.message || "");
+      if (msg.toLowerCase().includes("unauthorized permission category")) {
+        navigate("/process-list", { replace: true });
+        return;
+      }
       notify(err.message || t("switchFailed"), "error");
     } finally {
       setSwitchingCompany(false);
     }
   };
+
+  const handlePickAllGroups = useCallback(() => {
+    persistDashboardGroupFilter(null);
+    setSelectedGroup(null);
+  }, []);
 
   const handleGroupClick = async (gid) => {
     await applySharedGroupClickWithCompanySwitch({
@@ -616,6 +625,7 @@ export default function TransactionMaintenancePage() {
           companies={companies}
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
+          onPickAllGroups={handlePickAllGroups}
           onSwitchCompany={handleSwitchCompany}
           m={m}
         />
