@@ -131,6 +131,12 @@ export default function BankProcessListPage() {
     const toDmy = document.getElementById(b.dateToId)?.value?.trim() || "";
     setDateFrom(dmyToIso(fromDmy));
     setDateTo(dmyToIso(toDmy));
+    const clearBtn = document.getElementById("processListDateClearBtn");
+    if (clearBtn) {
+      const nextFrom = dmyToIso(fromDmy);
+      const nextTo = dmyToIso(toDmy);
+      clearBtn.style.display = nextFrom || nextTo ? "inline-flex" : "none";
+    }
   }, []);
   const [cssReady, setCssReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -525,6 +531,12 @@ export default function BankProcessListPage() {
       monthLabels: bpLocale.monthsShort,
     });
   }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
+
+  useEffect(() => {
+    const clearBtn = document.getElementById("processListDateClearBtn");
+    if (!clearBtn) return;
+    clearBtn.style.display = dateFrom || dateTo ? "inline-flex" : "none";
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     (async () => {
@@ -1641,12 +1653,20 @@ export default function BankProcessListPage() {
           <div className="action-buttons">
             <div className="bank-process-toolbar-main">
               <div className="action-controls-row bank-process-toolbar-primary" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <div className="process-list-date-filter process-list-date-filter--pill" id="processListDateFilter" style={{ display: "inline-flex" }}>
-                  <div className="date-range-picker" id="date-range-picker">
+                <div className="process-list-date-filter transaction-date-range-group" id="processListDateFilter" style={{ display: "inline-flex" }}>
+                  <div
+                    className="date-range-picker"
+                    id="date-range-picker"
+                    role="button"
+                    tabIndex={0}
+                    data-drp-hide-presets="true"
+                    aria-label={t("selectDateRange")}
+                  >
                     <i className="fas fa-calendar-alt" aria-hidden="true" />
                     {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
                     <span id="date-range-display" aria-live="polite" />
                     <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")} style={{ display: "none" }}>&times;</button>
+                    <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                   </div>
                   <input type="hidden" id="date_from" defaultValue="" />
                   <input type="hidden" id="date_to" defaultValue="" />
@@ -2082,29 +2102,33 @@ export default function BankProcessListPage() {
         onClose={closeAccountModal}
         t={tAccount}
       />
-      <div className="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
-            <select id="calendar-month-select" aria-label="Month">
-              {bpLocale.monthsShort.map((m, i) => (<option key={i} value={i}>{m}</option>))}
-            </select>
-            <select id="calendar-year-select" aria-label="Year" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
-        </div>
-        <div className="calendar-weekdays">
-          {bpLocale.weekdaysShort.map((d) => (
-            <div key={d} className="calendar-weekday">
-              {d}
+      <div className="calendar-popup calendar-popup--transaction-range calendar-popup--no-presets" id="calendar-popup" style={{ display: "none" }}>
+        <div className="transaction-calendar-panel">
+          <div className="calendar-header">
+            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
+            <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
+              <button type="button" id="calendar-month-select" className="calendar-month-trigger" aria-label="Month">
+                {bpLocale.monthsShort[new Date().getMonth()]}
+              </button>
+              <button type="button" id="calendar-year-select" className="calendar-year-trigger" aria-label="Year">
+                {String(new Date().getFullYear())}
+              </button>
             </div>
-          ))}
-        </div>
-        <div className="calendar-days" id="calendar-days" />
-        <div className="calendar-popup-clear-wrap" id="calendar-popup-clear-wrap" style={{ display: "none" }} aria-hidden="true">
-          <button type="button" className="calendar-popup-clear-btn" id="calendar-popup-clear-btn">
-            {t("clearDate")}
-          </button>
+            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
+          </div>
+          <div className="calendar-weekdays">
+            {bpLocale.weekdaysShort.map((d) => (
+              <div key={d} className="calendar-weekday">
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="calendar-days" id="calendar-days" />
+          <div className="calendar-popup-clear-wrap" id="calendar-popup-clear-wrap" style={{ display: "none" }} aria-hidden="true">
+            <button type="button" className="calendar-popup-clear-btn" id="calendar-popup-clear-btn">
+              {t("clearDate")}
+            </button>
+          </div>
         </div>
       </div>
       {toast ? (
