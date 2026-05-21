@@ -14,13 +14,10 @@
 }
 
 body.ownership-page {
-    background-color: #e9f1ff;
-    background-image:
-        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
-        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
-        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
-        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
-        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
+    font-family: var(--font-ui);
+    color: var(--color-page-fg);
+    background-color: var(--color-page-bg);
+    background-image: var(--app-shell-bg-image);
     background-blend-mode: screen, screen, multiply, screen, normal;
     min-height: 100vh;
     overflow-x: hidden;
@@ -39,7 +36,8 @@ body.ownership-page {
     width: 100%;
     min-height: 100vh;
     box-sizing: border-box;
-    color: var(--own-dark-text);
+    font-family: var(--font-ui);
+    color: var(--color-body-strong);
     display: flex;
     flex-direction: column;
 }
@@ -49,6 +47,7 @@ body.ownership-page {
     text-align: left;
     margin: 0;
     margin-top: var(--text-page-title-mt) !important;
+    margin-bottom: var(--text-page-title-mb);
     font-size: var(--text-page-title);
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-page-title);
@@ -86,11 +85,22 @@ body.ownership-page {
     flex-shrink: 0;
 }
 
-.own-gfb-label {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--own-dark-text);
+.own-company-name,
+.own-allocation-percentage,
+.own-allocation-label,
+.own-table-headers,
+.own-tab-btn,
+.own-gfb-label,
+.own-gfb-btn,
+.own-select-mode-btn,
+.own-bulk-count {
     font-family: var(--font-heading-page);
+}
+
+.own-gfb-label {
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
+    color: var(--own-dark-text);
     white-space: nowrap;
     min-width: 52px;
     text-align: right;
@@ -115,8 +125,8 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     border-radius: 999px;
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     color: var(--own-dark-text);
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -140,8 +150,8 @@ body.ownership-page {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
+    font-size: var(--own-text-caption);
+    font-weight: var(--font-weight-bold);
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
@@ -172,8 +182,8 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     border-radius: 999px;
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     color: var(--own-dark-text);
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -269,8 +279,8 @@ body.ownership-page {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    font-size: 22px;
-    font-weight: 800;
+    font-size: var(--own-text-card-title);
+    font-weight: var(--font-weight-bold);
     margin-bottom: 0;
     color: var(--own-dark-text);
     letter-spacing: 0.2px;
@@ -281,7 +291,7 @@ body.ownership-page {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 12px;
+    font-size: var(--own-text-caption);
     font-weight: 500;
     color: var(--own-gray-text);
     letter-spacing: 0.2px;
@@ -323,8 +333,8 @@ body.ownership-page {
 }
 
 .own-allocation-label {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-dark-text);
     margin-right: 16px;
     text-transform: uppercase;
@@ -332,15 +342,15 @@ body.ownership-page {
 }
 
 .own-allocation-percentage {
-    font-size: 28px;
+    font-size: var(--own-text-stat);
     /* Bigger dominant percent */
-    font-weight: 800;
+    font-weight: var(--font-weight-bold);
     color: var(--own-primary-blue);
     margin-right: 16px;
 }
 
 .own-allocation-remaining {
-    font-size: 12px;
+    font-size: var(--own-text-caption);
     color: var(--own-gray-text);
     font-weight: 500;
 }
@@ -378,8 +388,8 @@ body.ownership-page {
     color: var(--own-primary-blue);
     background: transparent;
     border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -434,9 +444,9 @@ body.ownership-page {
     grid-template-columns: 360px 1fr;
     /* Wider first column */
     padding: 16px 32px;
-    font-size: 13px;
+    font-size: var(--own-text-label);
     color: var(--own-gray-text);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -464,7 +474,7 @@ body.ownership-page {
     color: #cbd5e1;
     margin-right: 16px;
     cursor: grab;
-    font-size: 20px;
+    font-size: var(--own-text-card-title);
     line-height: 1;
     user-select: none;
     transition: color 0.2s;
@@ -493,9 +503,9 @@ body.ownership-page {
     /* Bigger padding */
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
-    font-size: 15px;
+    font-size: var(--own-text-control);
     /* Larger font */
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     color: var(--own-dark-text);
     outline: none;
     appearance: none;
@@ -525,8 +535,8 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
     text-align: right;
-    font-size: 16px;
-    font-weight: 700;
+    font-size: var(--own-text-control);
+    font-weight: var(--font-weight-bold);
     margin-right: 24px;
     outline: none;
     color: var(--own-dark-text);
@@ -584,7 +594,7 @@ body.ownership-page {
     width: 100%;
     display: flex;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: var(--own-text-caption);
     font-weight: 500;
     color: var(--own-gray-text);
 }
@@ -604,7 +614,7 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
     background-color: white;
-    font-size: 18px;
+    font-size: var(--own-text-control);
     font-weight: 500;
     color: var(--own-dark-text);
     cursor: pointer;
@@ -641,8 +651,8 @@ body.ownership-page {
     border: 2px dashed #bfdbfe;
     /* Cool dashed border */
     border-radius: 12px;
-    font-size: 15px;
-    font-weight: 700;
+    font-size: var(--own-text-control);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -677,16 +687,16 @@ body.ownership-page {
     color: var(--own-warning-text);
     padding: 8px 16px;
     border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-semibold);
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
 .own-unallocated-text {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-gray-text);
 }
 
@@ -700,8 +710,8 @@ body.ownership-page {
     padding: 10px 28px;
     /* Bigger buttons */
     border-radius: 24px;
-    font-size: 15px;
-    font-weight: 600;
+    font-size: var(--own-text-control);
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
     border: none;
     color: white;
@@ -824,13 +834,13 @@ body.ownership-page {
 }
 
 .own-partner-title {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-dark-text);
 }
 
 .own-partner-desc {
-    font-size: 12px;
+    font-size: var(--own-text-caption);
     color: var(--own-gray-text);
     margin-top: 6px;
 }
@@ -845,7 +855,7 @@ body.ownership-page {
     padding: 10px 14px;
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
-    font-size: 14px;
+    font-size: var(--own-text-body);
     width: 170px;
     outline: none;
     background: white;
@@ -865,10 +875,10 @@ body.ownership-page {
     border-radius: 8px;
     border: 1px solid var(--own-primary-blue);
     color: var(--own-primary-blue);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
     background: white;
-    font-size: 14px;
+    font-size: var(--own-text-body);
     transition: background-color 0.2s;
 }
 
@@ -906,7 +916,7 @@ body.ownership-page {
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    font-family: inherit;
+    font-family: var(--font-ui);
 }
 
 .own-modal-header {
@@ -917,9 +927,10 @@ body.ownership-page {
 
 .own-modal-title {
     margin: 0;
-    font-size: 16px;
-    color: #1e293b;
-    font-weight: 600;
+    font-size: var(--own-text-control);
+    font-family: var(--font-heading-page);
+    color: var(--color-ink-muted);
+    font-weight: var(--font-weight-semibold);
 }
 
 .own-modal-body {
@@ -928,7 +939,7 @@ body.ownership-page {
 
 .own-modal-desc {
     margin: 0 0 16px 0;
-    font-size: 14px;
+    font-size: var(--own-text-body);
     color: #64748b;
     line-height: 1.5;
 }
@@ -980,8 +991,8 @@ body.ownership-page {
 }
 
 .own-read-only-text {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--own-text-caption);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-gray-text);
     white-space: nowrap;
     line-height: 1;
@@ -1043,8 +1054,8 @@ body.ownership-page {
     align-items: center;
     padding: 2px 9px;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
+    font-size: var(--own-text-caption);
+    font-weight: var(--font-weight-bold);
     letter-spacing: 0.04em;
     background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
     color: #1d4ed8;
@@ -1068,8 +1079,8 @@ body.ownership-page {
     border: 1.5px solid #059669;
     background: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%);
     color: #065f46;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.18s ease;
@@ -1131,8 +1142,8 @@ body.ownership-page {
 /* Each group option inside dropdown */
 .own-group-option {
     padding: 10px 18px;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-semibold);
     color: #1e293b;
     cursor: pointer;
     transition: background 0.12s;
@@ -1155,8 +1166,8 @@ body.ownership-page {
     border: 1.5px solid #e11d48;
     background: linear-gradient(180deg, #ffe4e6 0%, #fecdd3 100%);
     color: #9f1239;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.18s ease;
@@ -1270,15 +1281,15 @@ body.ownership-page {
 }
 
 .own-bulk-count {
-    font-size: 22px;
-    font-weight: 800;
+    font-size: var(--own-text-card-title);
+    font-weight: var(--font-weight-bold);
     color: var(--own-primary-blue);
     line-height: 1;
 }
 
 .own-bulk-label {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-gray-text);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -1298,8 +1309,8 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     background: var(--own-gray-bg);
     color: var(--own-dark-text);
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-semibold);
     outline: none;
     cursor: pointer;
     min-width: 160px;
@@ -1329,8 +1340,8 @@ body.ownership-page {
     border: none;
     background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%);
     color: #fff;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     white-space: nowrap;
     box-shadow: 0 2px 6px rgba(59, 142, 246, 0.35);
@@ -1357,8 +1368,8 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     background: transparent;
     color: var(--own-gray-text);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.18s ease;
@@ -1377,8 +1388,8 @@ body.ownership-page {
     border: none;
     background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
     color: #fff;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     white-space: nowrap;
     box-shadow: 0 2px 6px rgba(225, 29, 72, 0.35);
@@ -1420,8 +1431,8 @@ body.ownership-page {
     border-radius: 999px;
     background: var(--own-gray-light);
     color: var(--own-dark-text);
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     transition: all 0.22s ease;
     white-space: nowrap;
@@ -1455,7 +1466,7 @@ body.ownership-page {
 
 /* Company list shown under group name in the card header */
 .ge-company-list {
-    font-size: 12px;
+    font-size: var(--own-text-caption);
     color: var(--own-gray-text);
     font-weight: 500;
     max-width: 220px;
@@ -1475,7 +1486,26 @@ body.ownership-page {
 .own-account-select option[value^="G_"] {
     background-color: #eef2ff;
     color: #4f46e5;
-    font-weight: 600;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* 平板：侧栏收起/展开时主区 padding 与全局 layout 同步 */
+@media (max-width: 1280px) {
+    body.ec-auth-shell.ownership-page .own-container {
+        padding-left: var(--layout-main-offset);
+        transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .own-account-select,
+    .own-percent-input,
+    .own-partner-input {
+        font-size: var(--own-text-body);
+    }
+
+    .own-table-headers {
+        font-size: var(--own-text-caption);
+    }
 }
 
 /* Group entry row visual indicator */
