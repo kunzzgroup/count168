@@ -2266,11 +2266,11 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     }
 }
 
-/* Modal Styles (align with userlist) */
+/* Modal Styles (align with userlist) — above fixed sidebar (.informationmenu z-index: 1000–1001) */
 .process-page .modal {
     display: none;
     position: fixed;
-    z-index: 1000;
+    z-index: 10050;
     left: 0;
     top: 0;
     width: 100%;
@@ -3621,7 +3621,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 .process-modal {
     display: none;
     position: fixed;
-    z-index: 1000;
+    z-index: 10050;
     left: 0;
     top: 0;
     width: 100%;

@@ -2628,12 +2628,12 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
 
 /* Add Account 弹窗优先级最高，在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
 #addAccountModal {
-    z-index: 10002 !important;
+    z-index: 10102 !important;
 }
 
 /* Add Profit Sharing 弹窗层级低于 Add Account，避免盖住 Add Account */
 #profitSharingModal {
-    z-index: 10000;
+    z-index: 10100;
 }
 
 /* Ensure account modal is on top of profit sharing modal */
@@ -2691,7 +2691,7 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
 #profitSharingModal .custom-select-dropdown {
     max-height: none !important;
     overflow: visible !important;
-    z-index: 10001;
+    z-index: 10101;
 }
 
 #profitSharingModal .custom-select-options {
