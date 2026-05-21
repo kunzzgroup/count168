@@ -1,21 +1,19 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-const distIndexHtml = resolve(process.cwd(), "dist", "index.html");
+/**
+ * Vite copies frontend/public/css → frontend/dist/css at build time.
+ * Keep those files in dist so production can serve /frontend/dist/css/* when only
+ * frontend/dist is deployed (Hostinger). Do not delete dist/css or rewrite links
+ * to /frontend/public/css/ — that path requires a separate public/ deploy.
+ */
 const distCssDir = resolve(process.cwd(), "dist", "css");
+const styleCss = resolve(distCssDir, "style.css");
 
-if (existsSync(distIndexHtml)) {
-  const html = readFileSync(distIndexHtml, "utf8");
-  const patched = html.replaceAll("/frontend/dist/css/", "/frontend/public/css/");
-  if (patched !== html) {
-    writeFileSync(distIndexHtml, patched, "utf8");
-    console.log("[cleanup] Rewrote dist/index.html CSS links to /frontend/public/css/.");
-  }
-}
-
-if (existsSync(distCssDir)) {
-  rmSync(distCssDir, { recursive: true, force: true });
-  console.log("[cleanup] Removed dist/css directory.");
+if (!existsSync(styleCss)) {
+  console.warn(
+    "[cleanup] WARNING: dist/css/style.css missing after build. Login/secondary-password styles will not load in production.",
+  );
 } else {
-  console.log("[cleanup] dist/css not found, nothing to remove.");
+  console.log("[cleanup] dist/css preserved for production (/frontend/dist/css/).");
 }
