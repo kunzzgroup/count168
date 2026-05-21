@@ -1309,3 +1309,5 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 .payment-maintenance-page-root .maintenance-virtual-cell--right .payment-cell-text {
     text-align: right;
 }
+
+@import url('./modal-close-unified.css');

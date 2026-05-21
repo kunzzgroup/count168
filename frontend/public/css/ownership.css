@@ -1677,3 +1677,4 @@ body.ownership-page {
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, transparent 100%);
 }
 
+@import url('./modal-close-unified.css');

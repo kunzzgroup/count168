@@ -3423,3 +3423,5 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
 .toggle-switch:has(input:disabled) {
     cursor: not-allowed;
 }
+
+@import url('./modal-close-unified.css');

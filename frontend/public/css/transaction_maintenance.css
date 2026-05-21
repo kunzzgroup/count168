@@ -1384,3 +1384,5 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     text-align: center;
     justify-content: center;
 }
+
+@import url('./modal-close-unified.css');

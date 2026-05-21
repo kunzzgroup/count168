@@ -4323,3 +4323,5 @@ body.domain-page .domain-confirm-modal-content .confirmDeleteBtn {
         gap: 4px;
     }
 }
+
+@import url('./modal-close-unified.css');

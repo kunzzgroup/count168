@@ -1998,3 +1998,5 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
         padding-right: var(--member-winloss-matrix-inline-gutter, 10px);
     }
 }
+
+@import url('./modal-close-unified.css');

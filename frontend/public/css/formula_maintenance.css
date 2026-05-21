@@ -1539,3 +1539,5 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     z-index: 10 !important;
     margin: 0 !important;
 }
+
+@import url('./modal-close-unified.css');

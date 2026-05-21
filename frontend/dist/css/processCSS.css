@@ -4899,3 +4899,5 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 #editModal #edit_dts_created span {
     font-size: clamp(12px, 0.86vw, 13px) !important;
 }
+
+@import url('./modal-close-unified.css');

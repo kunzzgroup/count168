@@ -356,9 +356,7 @@ export default function DeletedLogPage() {
         <div className="deleted-log-json-modal" role="dialog" aria-modal="true" aria-labelledby="deletedLogJsonTitle">
           <header>
             <strong id="deletedLogJsonTitle">Deleted data (JSON)</strong>
-            <button type="button" className="deleted-log-btn js-deleted-modal-close" aria-label="Close" onClick={closeOverlay}>
-              Close
-            </button>
+            <button type="button" className="account-close" aria-label="Close" onClick={closeOverlay} />
           </header>
           <pre id="deletedLogJsonPre">{jsonOverlayText}</pre>
         </div>

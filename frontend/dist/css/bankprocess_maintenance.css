@@ -1314,3 +1314,5 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
 .bankprocess-maintenance-page-root .maintenance-row-deleted .bankprocess-virtual-cell-checkbox {
     text-decoration: none;
 }
+
+@import url('./modal-close-unified.css');

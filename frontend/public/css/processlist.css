@@ -2859,3 +2859,5 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
 body.process-page .user-gc-inline-panel .user-gc-segment {
     transition: background 0.06s ease, color 0.06s ease, border-color 0.06s ease;
 }
+
+@import url('./modal-close-unified.css');

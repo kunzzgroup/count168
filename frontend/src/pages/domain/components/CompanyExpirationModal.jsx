@@ -34,21 +34,15 @@ export default function CompanyExpirationModal({ companies, onClose, lang = "en"
         }}
       >
         <div className="company-expiration-react-modal modal-content">
-          <span
-            className="close"
-            role="button"
-            tabIndex={0}
-            onClick={onClose}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onClose();
-              }
-            }}
-          >
-            &times;
-          </span>
-          <h2>{t("companyExpirationStatus")}</h2>
+          <div className="modal-header company-expiration-modal-header">
+            <h2>{t("companyExpirationStatus")}</h2>
+            <button
+              type="button"
+              className="account-close"
+              aria-label="Close"
+              onClick={onClose}
+            />
+          </div>
           <div className="modal-body company-expiration-modal-body">
             <div className="company-expiration-list">
               {rows.length === 0 ? (

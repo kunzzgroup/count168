@@ -3294,3 +3294,5 @@ body.transaction-page .transaction-add-section .transaction-account-inputs--to-o
     flex: 1 1 auto;
     max-width: none;
 }
+
+@import url('./modal-close-unified.css');
