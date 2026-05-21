@@ -119,6 +119,71 @@ body.account-page .account-table-wrapper {
     box-sizing: border-box;
 }
 
+/*
+ * Account List table（与 Games Process / Customer Report 同模式）
+ * 表头与数据行共用 grid 变量；minmax 保证 Role / Last Login 等列在 tablet 不过窄
+ */
+.account-list-table {
+    --account-list-grid-cols:
+        38px
+        minmax(108px, 1.15fr)
+        minmax(108px, 1.15fr)
+        minmax(80px, 0.72fr)
+        minmax(56px, 0.52fr)
+        minmax(72px, 0.68fr)
+        minmax(128px, 1.35fr)
+        minmax(72px, 0.95fr)
+        minmax(80px, 0.52fr);
+}
+
+.account-list-table .account-list-table-header,
+.account-list-table .account-list-row {
+    gap: 8px;
+    grid-template-columns: var(--account-list-grid-cols);
+}
+
+.account-list-table .account-list-table-header {
+    padding: var(--table-header-height);
+}
+
+.account-list-table .account-list-row {
+    padding: 0 22px;
+}
+
+.account-list-table .account-list-table-header .account-header-sortable {
+    overflow: visible;
+}
+
+.account-list-table .account-list-table-header .account-header-sortable > span:first-child {
+    overflow: visible;
+    text-overflow: clip;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.account-list-table .account-list-table-header .account-header-item:first-child,
+.account-list-table .account-list-row .account-card-item:first-child {
+    justify-content: center;
+    text-align: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.account-list-table .account-list-table-header .account-header-item:nth-child(4),
+.account-list-table .account-list-table-header .account-header-item:nth-child(5),
+.account-list-table .account-list-table-header .account-header-item:nth-child(6),
+.account-list-table .account-list-row .account-card-item:nth-child(4),
+.account-list-table .account-list-row .account-card-item:nth-child(5),
+.account-list-table .account-list-row .account-card-item:nth-child(6) {
+    justify-content: center;
+}
+
+.account-list-table .account-list-table-header .account-header-item:last-child,
+.account-list-table .account-list-row .account-card-item:last-child {
+    justify-content: center;
+}
+
 body.account-page:not(.account-page--show-all) .account-cards {
     flex: 1;
     width: 100%;
@@ -128,6 +193,14 @@ body.account-page:not(.account-page--show-all) .account-cards {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+}
+
+body.account-page:not(.account-page--show-all) .account-list-table .account-list-row {
+    flex: 0 1 auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    box-sizing: border-box;
 }
 
 body.account-page:not(.account-page--show-all) .account-card {

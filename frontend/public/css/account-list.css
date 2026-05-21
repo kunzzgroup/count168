@@ -1043,9 +1043,9 @@ body.account-page .search-container.userlist-search-bar .userlist-search-input {
         -webkit-overflow-scrolling: touch;
     }
 
-    body.account-page .account-table-header,
-    body.account-page .account-cards {
-        min-width: 880px;
+    body.account-page .account-list-table .account-list-table-header,
+    body.account-page .account-list-table .account-cards {
+        min-width: 1020px;
         width: 100%;
         box-sizing: border-box;
     }

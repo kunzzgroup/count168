@@ -312,11 +312,24 @@
     }
 
     /* ----------------------------------------------------
-       7. Account Grid Synchronization
+       7. Account List grid（专用变量，表头/行一致）
        ---------------------------------------------------- */
-    body.ec-auth-shell .account-table-header,
-    body.ec-auth-shell .account-card {
-        grid-template-columns: 0.5fr 1.4fr 1.4fr 0.8fr 0.6fr 0.8fr 2fr 1.2fr 0.45fr !important;
+    body.ec-auth-shell.account-page .account-list-table {
+        --account-list-grid-cols:
+            38px
+            minmax(108px, 1.15fr)
+            minmax(108px, 1.15fr)
+            minmax(80px, 0.72fr)
+            minmax(56px, 0.52fr)
+            minmax(72px, 0.68fr)
+            minmax(128px, 1.35fr)
+            minmax(72px, 0.95fr)
+            minmax(80px, 0.52fr);
+    }
+
+    body.ec-auth-shell.account-page .account-list-table-header .account-header-item,
+    body.ec-auth-shell.account-page .account-list-row .account-card-item {
+        padding: 0 !important;
     }
 
     /* User List only — 勿用通用 .table-header，否则会误伤 Process List（7 列）表头 */

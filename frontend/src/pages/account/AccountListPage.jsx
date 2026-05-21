@@ -1019,8 +1019,8 @@ export default function AccountListPage() {
             </div>
           </div>
 
-          <div className="account-table-wrapper">
-            <div className="account-table-header">
+          <div className="account-table-wrapper account-list-table">
+            <div className="account-table-header account-list-table-header">
               <div className="account-header-item">{t("no")}</div>
               {renderSortableHeader(t("account"), "account")}
               {renderSortableHeader(t("name"), "name")}
@@ -1036,7 +1036,7 @@ export default function AccountListPage() {
                 const alertOn = String(a.payment_alert) === "1";
                 const isInactive = String(a.status || "").toLowerCase() === "inactive";
                 return (
-                  <div className="account-card" key={a.id}>
+                  <div className="account-card account-list-row" key={a.id}>
                     <div className="account-card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
                     <div className="account-card-item">{toUpper(a.account_id)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
