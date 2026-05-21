@@ -889,7 +889,8 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     align-items: stretch;
     justify-content: flex-start;
     gap: 0;
-    padding: 0 12px 0 0;
+    /* 与右侧栏分割线留出统一内边距，避免 Date Range / Account / Currency 贴线 */
+    padding: 0 clamp(10px, 1.1vw, 14px) 0 0;
     margin: 0;
     border-right: 1px solid #d1dae6;
     border-bottom: none;
@@ -931,8 +932,10 @@ body.member-winloss-page .member-dash-col-filters .user-gc-inline-panel.member-w
     grid-template-columns: var(--member-winloss-label-w, 5.75rem) minmax(0, 1fr);
     column-gap: 10px;
     row-gap: 22px;
-    align-items: center;
-    padding: 0;
+    /* start：多行 Currency 时标签与首行（All 所在行）顶对齐；勿用 center 否则标签会相对整列垂直居中而偏低 */
+    align-items: start;
+    /* 勿用 padding:0 覆盖 .member-winloss-gc-panel 的顶内边距，否则 Account 会贴顶部分割线 */
+    padding: clamp(12px, 1.1vw, 16px) 0 0;
     width: 100%;
     min-width: 0;
     overflow: visible;
@@ -945,7 +948,7 @@ body.member-winloss-page #member_currency_filter {
     margin-top: 10px;
 }
 
-/* Account：与 Currency 相同 — 网格换行、列宽一致、竖线上下对齐 */
+/* Account：图 2 分段条 — 一排最多 7 格均分；超过 7 个时由 JSX 设为 repeat(7,…) 自动换行 */
 body.member-winloss-page #member_account_buttons.member-winloss-account-pills {
     flex-wrap: nowrap;
     overflow-x: visible;
@@ -955,34 +958,54 @@ body.member-winloss-page #member_account_buttons.member-winloss-account-pills {
 
 body.member-winloss-page #member_account_buttons .member-winloss-account-segments {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
+    grid-auto-flow: row;
     align-items: stretch;
     width: 100%;
     max-width: 100%;
-    row-gap: 16px;
+    min-width: 0;
     column-gap: 0;
-    overflow: visible;
+    row-gap: 0;
+    /* 与 .user-gc-segment-group 的圆角外框一致，并裁切每行末尾圆角 */
+    overflow: hidden;
 }
 
-/* 较长账户名在等宽格内省略；Account 比 Currency 更宽的格子与左右内边距 */
+/* 与图 2：圆角外框 + 竖分割线由 userlist 的 .user-gc-segment-group / .user-gc-segment 提供；此处收紧内边距以便 7 个并排可读 */
 body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding: 11px clamp(16px, 1.85vw, 28px);
+    padding: 10px 8px;
     box-sizing: border-box;
+    font-size: clamp(11px, 0.95vw, 13px) !important;
+}
+
+/* Account：每行最右一格（>7 户时为 7 列换行）右上/右下圆角，与整条白底条圆角一致；行尾去掉右边框以免直角竖线 */
+body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment:nth-child(7n) {
+    border-right: none;
+    border-top-right-radius: clamp(8px, 0.7vw, 10px);
+    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
+}
+
+body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment:last-child {
+    border-right: none;
+    border-top-right-radius: clamp(8px, 0.7vw, 10px);
+    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
 }
 
 body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment {
-    padding: 10px clamp(12px, 1.45vw, 22px);
+    padding: 10px clamp(6px, 0.85vw, 12px);
     box-sizing: border-box;
+    min-height: clamp(38px, 2.5vw, 42px);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Currency：多条独立 segment 带；每带 5 列对齐，带与带之间由父级 gap 分隔 */
+/* Currency：与满行 7 格同宽的一格，供未满行 flex 与满行 grid 对齐 */
 body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
     flex-direction: column;
     flex-wrap: nowrap;
-    align-items: stretch;
+    align-items: flex-start;
     align-self: stretch;
     overflow-x: auto;
     overflow-y: visible;
@@ -990,18 +1013,47 @@ body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills 
     max-width: 100%;
     min-width: 0;
     padding-bottom: 0;
+    --member-winloss-ccy-cell: calc(100% / 7);
 }
 
 body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(var(--member-winloss-filter-pill-cell-min, 5.25rem), 1fr));
     align-items: stretch;
-    width: 100%;
-    max-width: 100%;
-    min-width: min(100%, calc(5 * var(--member-winloss-filter-pill-cell-min, 5.25rem)));
+    min-width: 0;
+    box-sizing: border-box;
     row-gap: 0;
     column-gap: 0;
-    overflow: visible;
+    overflow: hidden;
+}
+
+/* 满 7 格：整栏均分，与变量一格同宽 */
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments--full {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    width: 100%;
+}
+
+/* 未满行：每钮宽度 = 满行单列宽，白底条随个数收拢，避免与首行格子大小不一 */
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments--partial {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    width: fit-content;
+    max-width: 100%;
+}
+
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments--partial .user-gc-segment {
+    flex: 0 0 var(--member-winloss-ccy-cell);
+    width: var(--member-winloss-ccy-cell);
+    max-width: var(--member-winloss-ccy-cell);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Currency：每段段尾右侧两角圆角（未满行时在最后一个币种处收弧，不铺满整栏） */
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment:last-child {
+    border-top-right-radius: clamp(8px, 0.7vw, 10px);
+    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
 }
 
 body.member-winloss-page .member-dash-col-filters .user-gc-inline-label {
@@ -1129,7 +1181,10 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     width: 100%;
     max-width: 100%;
     min-height: clamp(32px, 2.25vw, 36px) !important;
-    gap: clamp(8px, 0.7vw, 12px);
+    display: grid !important;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    column-gap: clamp(8px, 0.7vw, 12px);
     padding: clamp(4px, 0.3vw, 6px) clamp(8px, 0.75vw, 12px) clamp(4px, 0.3vw, 6px) 0 !important;
     border: none !important;
     border-radius: clamp(5px, 0.42vw, 7px) !important;
@@ -1149,6 +1204,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
+    justify-self: start;
     align-self: center !important;
     width: auto !important;
     height: auto !important;
@@ -1166,20 +1222,48 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 }
 
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-inner .transaction-date-range-group #date-range-display {
-    flex: 1 1 auto;
     min-width: 0;
+    justify-self: center;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
     color: #1f2937;
     font-size: var(--text-small, 13px);
     font-weight: 600;
     white-space: nowrap;
-    overflow: visible;
-    text-overflow: clip;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-inner .transaction-date-range-group .date-range-picker .transaction-date-range-chevron {
+    justify-self: end;
+    align-self: center;
+    margin-inline: 0 clamp(4px, 0.5vw, 8px) !important;
 }
 
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .customer-report-filter-group {
     margin: 0;
-    min-width: 0;
-    width: 100%;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* 覆盖 date-range-picker.css 中 .report-date-range-picker-container 的固定宽度，使 Date Range 拉满至左栏分割线 */
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container,
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container.report-outlined-anchor {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+
+body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container .report-outlined-shell {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
 }
 
 /* 中栏：Win/Loss 矩阵 — 与左右栏分割线留少量空隙；在网格行内纵向撑满 */
