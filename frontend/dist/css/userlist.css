@@ -214,7 +214,8 @@ body.maintenance-page .user-gc-inline-pills--segment-scroll,
 body.process-page .user-gc-inline-pills--segment-scroll,
 body.report-page .user-gc-inline-pills--segment-scroll,
 body.datacapture-page .user-gc-inline-pills--segment-scroll,
-body.member-winloss-page .user-gc-inline-pills--segment-scroll {
+body.member-winloss-page .user-gc-inline-pills--segment-scroll,
+body.transaction-page .user-gc-inline-pills--segment-scroll {
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 0;
