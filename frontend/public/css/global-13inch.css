@@ -325,19 +325,25 @@
         grid-template-columns: 0.5fr 1.6fr 1.8fr 2.5fr 1.8fr 1.2fr 1.8fr 1.5fr 0.8fr !important;
     }
 
-    /* Games Process List：表头/行 7 列 grid 与 processCSS 一致，避免 laptop/tablet 错位 */
-    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-table-header,
-    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-row {
-        gap: 8px !important;
-        grid-template-columns:
-            38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr) minmax(32px, 0.26fr) !important;
-    }
-
-    body.ec-auth-shell.process-page:not(.process-page--bank) .process-table-wrapper--select-col .games-process-table-header,
-    body.ec-auth-shell.process-page:not(.process-page--bank) .process-table-wrapper--select-col .games-process-row {
-        grid-template-columns:
-            38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr)
-            minmax(32px, 0.24fr) 48px !important;
+    /* Games Process List：列宽 CSS 变量与 processCSS 一致，避免 laptop/tablet 错位或表头截断 */
+    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-table {
+        --games-process-grid-cols:
+            38px
+            minmax(92px, 0.75fr)
+            minmax(0, 1fr)
+            minmax(72px, 0.24fr)
+            minmax(84px, 0.22fr)
+            minmax(96px, 0.88fr)
+            minmax(52px, 0.22fr);
+        --games-process-grid-cols-select:
+            38px
+            minmax(92px, 0.75fr)
+            minmax(0, 1fr)
+            minmax(72px, 0.24fr)
+            minmax(84px, 0.22fr)
+            minmax(96px, 0.82fr)
+            minmax(48px, 0.2fr)
+            48px;
     }
 
     body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-table-header .header-item,

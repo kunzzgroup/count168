@@ -2098,26 +2098,53 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
  * Games Process List table（Customer Report 模式）
  * 表头与数据行共用同一套 grid；专用 class 避免 global-13inch User List 9 列规则误伤
  */
+.process-page:not(.process-page--bank) .games-process-table {
+    --games-process-grid-cols:
+        38px
+        minmax(92px, 0.75fr)
+        minmax(0, 1fr)
+        minmax(72px, 0.24fr)
+        minmax(84px, 0.22fr)
+        minmax(96px, 0.88fr)
+        minmax(52px, 0.22fr);
+    --games-process-grid-cols-select:
+        38px
+        minmax(92px, 0.75fr)
+        minmax(0, 1fr)
+        minmax(72px, 0.24fr)
+        minmax(84px, 0.22fr)
+        minmax(96px, 0.82fr)
+        minmax(48px, 0.2fr)
+        48px;
+}
+
 .process-page:not(.process-page--bank) .games-process-table-header,
 .process-page:not(.process-page--bank) .games-process-row {
     gap: 8px;
-    grid-template-columns:
-        38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr) minmax(32px, 0.26fr);
+    grid-template-columns: var(--games-process-grid-cols);
 }
 
 .process-page:not(.process-page--bank) .games-process-table-header {
     padding: var(--table-header-height);
 }
 
+.process-page:not(.process-page--bank) .games-process-table-header .header-item.header-item--with-sort-icon {
+    overflow: visible;
+}
+
+.process-page:not(.process-page--bank) .games-process-table-header .header-item.header-item--with-sort-icon .header-item__label {
+    overflow: visible;
+    text-overflow: clip;
+    flex-shrink: 0;
+}
+
 .process-page:not(.process-page--bank) .games-process-row {
     padding: 0 22px;
 }
 
-.process-page:not(.process-page--bank) .process-table-wrapper--select-col .games-process-table-header,
-.process-page:not(.process-page--bank) .process-table-wrapper--select-col .games-process-row {
-    grid-template-columns:
-        38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr)
-        minmax(32px, 0.24fr) 48px;
+.process-page:not(.process-page--bank) .process-table-wrapper--select-col.games-process-table .games-process-table-header,
+.process-page:not(.process-page--bank) .process-table-wrapper--select-col.games-process-table .games-process-row {
+    grid-template-columns: var(--games-process-grid-cols-select);
 }
 
 .process-page:not(.process-page--bank) .games-process-row .card-item--action {
