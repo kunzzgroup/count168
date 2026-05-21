@@ -81,6 +81,7 @@ export default function TransactionMaintenancePage() {
   const [filtersReady, setFiltersReady] = useState(false);
   const [dateRangeReady, setDateRangeReady] = useState(false);
   const [searchDeferredReady, setSearchDeferredReady] = useState(false);
+  const [switchingCompany, setSwitchingCompany] = useState(false);
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -118,12 +119,12 @@ export default function TransactionMaintenancePage() {
         category: activePermission,
         signal,
       }),
-    enabled: listQueryEnabled && searchDeferredReady,
+    enabled: listQueryEnabled && searchDeferredReady && !switchingCompany,
     staleTime: 2 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
     retry: (failureCount, error) =>
-      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 1,
+      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 2,
   });
 
   const transactionData = transactionQuery.data ?? [];
@@ -134,6 +135,24 @@ export default function TransactionMaintenancePage() {
     (transactionQuery.isLoading || (transactionQuery.isFetching && listRowCount === 0));
   const lastToastKeyRef = useRef(null);
   const lastErrorMsgRef = useRef(null);
+  const lastErrorQueryKeyRef = useRef("");
+
+  const searchQueryKey = useMemo(
+    () =>
+      JSON.stringify([
+        companyId,
+        dateFrom,
+        dateTo,
+        selectedProcess || "",
+        activePermission || "",
+      ]),
+    [companyId, dateFrom, dateTo, selectedProcess, activePermission],
+  );
+
+  useEffect(() => {
+    lastErrorMsgRef.current = null;
+    lastErrorQueryKeyRef.current = "";
+  }, [searchQueryKey]);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -421,16 +440,29 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (!transactionQuery.isError || !transactionQuery.error) return;
+    if (transactionQuery.isFetching) return;
     if (transactionQuery.error?.name === "AbortError" || isCancelledError(transactionQuery.error)) return;
+    const errorKey = `${searchQueryKey}:${transactionQuery.errorUpdatedAt ?? ""}`;
+    if (lastErrorQueryKeyRef.current === errorKey) return;
     const msg = transactionQuery.error.message || t("searchFailed");
     if (lastErrorMsgRef.current === msg) return;
+    lastErrorQueryKeyRef.current = errorKey;
     lastErrorMsgRef.current = msg;
     notify(msg, "error");
-  }, [transactionQuery.isError, transactionQuery.error, notify, t]);
+  }, [
+    transactionQuery.isError,
+    transactionQuery.error,
+    transactionQuery.isFetching,
+    transactionQuery.errorUpdatedAt,
+    searchQueryKey,
+    notify,
+    t,
+  ]);
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
+    setSwitchingCompany(true);
     try {
       const [res, perms] = await Promise.all([
         updateSessionCompany(c.id),
@@ -469,6 +501,8 @@ export default function TransactionMaintenancePage() {
       notify(t("switchedTo", { company: c.company_id }), "success");
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
+    } finally {
+      setSwitchingCompany(false);
     }
   };
 

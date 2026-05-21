@@ -197,8 +197,19 @@ try {
         throw new Exception('日期范围是必填项');
     }
 
-    $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
-    $date_to_db   = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
+    $tsFrom = strtotime(str_replace('/', '-', $date_from));
+    $tsTo = strtotime(str_replace('/', '-', $date_to));
+    if ($tsFrom === false || $tsTo === false) {
+        throw new Exception('日期格式无效');
+    }
+
+    $date_from_db = date('Y-m-d', $tsFrom);
+    $date_to_db   = date('Y-m-d', $tsTo);
+    if ($date_from_db > $date_to_db) {
+        throw new Exception('开始日期不能晚于结束日期');
+    }
+
+    @set_time_limit(120);
 
     $catUpper = strtoupper($category);
     $is_bank_category = ($catUpper === 'BANK');

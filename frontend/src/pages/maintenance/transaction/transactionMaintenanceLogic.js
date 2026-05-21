@@ -1,5 +1,18 @@
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 
+function isFetchAbortError(err, signal) {
+  if (signal?.aborted) return true;
+  if (err?.name === "AbortError") return true;
+  return false;
+}
+
+/** Browsers sometimes throw TypeError("Failed to fetch") on abort — normalize for React Query. */
+function rethrowIfAborted(err, signal) {
+  if (!isFetchAbortError(err, signal)) return;
+  if (err?.name === "AbortError") throw err;
+  throw new DOMException("The operation was aborted.", "AbortError");
+}
+
 /**
  * Fetch permissions for a specific company
  */
@@ -72,9 +85,7 @@ export async function searchTransactionData({ dateFrom, dateTo, process, company
   try {
     response = await fetch(url, { credentials: "include", signal });
   } catch (err) {
-    if (err?.name === "AbortError" || signal?.aborted) {
-      throw err;
-    }
+    rethrowIfAborted(err, signal);
     throw new Error(err?.message || "Search failed");
   }
   let data;
