@@ -2377,6 +2377,12 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     font-family: var(--font-ui) !important;
 }
 
+.process-page .modal .custom-select-option.selected {
+    background-color: #e7f0ff;
+    color: #0D60FF;
+    font-weight: 600;
+}
+
 .process-page .modal .checkbox-container label {
     font-size: var(--text-medium) !important;
     font-family: var(--font-ui) !important;

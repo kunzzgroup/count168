@@ -57,7 +57,9 @@ export default function ProcessFormModal({
   const ro = Boolean(readOnly);
   const [copyOpen, setCopyOpen] = useState(false);
   const [copySearch, setCopySearch] = useState("");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
   const copyWrapRef = useRef(null);
+  const currencyWrapRef = useRef(null);
 
   const copyOptions = useMemo(() => sortedCopyFromOptions(form.existingProcesses), [form.existingProcesses]);
   const filteredCopy = useMemo(() => {
@@ -74,6 +76,7 @@ export default function ProcessFormModal({
   useEffect(() => {
     const onDoc = (e) => {
       if (!copyWrapRef.current?.contains(e.target)) setCopyOpen(false);
+      if (!currencyWrapRef.current?.contains(e.target)) setCurrencyOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -86,6 +89,7 @@ export default function ProcessFormModal({
 
   const placeholderBtn = t("selectProcessToCopyFrom");
   const selectedCopyRow = copyOptions.find((p) => String(p.process_id) === String(form.copy_from));
+  const selectedCurrency = currencies.find((c) => String(c.id) === String(form.currency_id));
 
   return (
     <div id={editMode ? "editModal" : "addModal"} className="modal" style={{ display: "block" }}>
@@ -333,19 +337,61 @@ export default function ProcessFormModal({
               <div className="form-row">
                 <div className="form-group">
                   <label>{t("currencyColumn")}</label>
-                  <select
-                    value={form.currency_id}
-                    disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, currency_id: e.target.value }))}
-                    required
-                  >
-                    <option value="">{t("selectCurrency")}</option>
-                    {currencies.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.code}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="custom-select-wrapper" ref={currencyWrapRef}>
+                    <button
+                      type="button"
+                      className={`custom-select-button${currencyOpen ? " open" : ""}`}
+                      disabled={ro}
+                      onClick={() => !ro && setCurrencyOpen((o) => !o)}
+                    >
+                      {selectedCurrency ? selectedCurrency.code : t("selectCurrency")}
+                    </button>
+                    {currencyOpen && (
+                      <div className="custom-select-dropdown" style={{ display: "block" }}>
+                        <div className="custom-select-options">
+                          <div
+                            className={`custom-select-option${!form.currency_id ? " selected" : ""}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              setForm((prev) => ({ ...prev, currency_id: "" }));
+                              setCurrencyOpen(false);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                setForm((prev) => ({ ...prev, currency_id: "" }));
+                                setCurrencyOpen(false);
+                              }
+                            }}
+                          >
+                            {t("selectCurrency")}
+                          </div>
+                          {currencies.map((c) => (
+                            <div
+                              key={c.id}
+                              className={`custom-select-option${
+                                String(c.id) === String(form.currency_id) ? " selected" : ""
+                              }`}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => {
+                                setForm((prev) => ({ ...prev, currency_id: String(c.id) }));
+                                setCurrencyOpen(false);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  setForm((prev) => ({ ...prev, currency_id: String(c.id) }));
+                                  setCurrencyOpen(false);
+                                }
+                              }}
+                            >
+                              {c.code}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
