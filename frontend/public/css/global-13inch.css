@@ -65,9 +65,14 @@
     body.ec-auth-shell.user-page #userModal .btn-cancel,
     body.ec-auth-shell.user-page #userModal .btn-secondary,
     body.ec-auth-shell.user-page #userModal .btn-account-control,
-    body.ec-auth-shell.user-page #userModal .btn-clearall {
+    body.ec-auth-shell.user-page #userModal .btn-clearall,
+    body.ec-auth-shell.account-page #account-addModal .account-btn-save,
+    body.ec-auth-shell.account-page #account-addModal .account-btn-cancel,
+    body.ec-auth-shell.account-page #account-editModal .account-btn-save,
+    body.ec-auth-shell.account-page #account-editModal .account-btn-cancel {
         font-size: var(--text-medium) !important;
         font-weight: var(--font-weight-semibold) !important;
+        padding: clamp(6px, 0.42vw, 8px) 20px !important;
     }
 
     .account-company-btn,

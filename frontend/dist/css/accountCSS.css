@@ -1877,17 +1877,41 @@ body.account-page #confirmDeleteModal .confirm-delete {
     background: #ffffff;
 }
 
+/* Footer Add/Save · Cancel：与 Create Currency / User List 弹窗同款（无扫光、无金属 inset） */
 #account-addModal .account-btn-save,
-#account-editModal .account-btn-save {
+#account-editModal .account-btn-save,
+#account-addModal .account-btn-cancel,
+#account-editModal .account-btn-cancel {
     min-width: var(--userlist-btn-add-width);
     width: auto;
-    padding: 8px 20px;
+    min-height: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
     font-size: var(--text-medium);
     font-weight: var(--font-weight-semibold);
     font-family: var(--font-heading-page);
     color: #ffffff;
     border: none;
     border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
+    position: static;
+    overflow: visible;
+}
+
+#account-addModal .account-btn-save::after,
+#account-editModal .account-btn-save::after,
+#account-addModal .account-btn-cancel::after,
+#account-editModal .account-btn-cancel::after {
+    display: none;
+    content: none;
+}
+
+#account-addModal .account-btn-save,
+#account-editModal .account-btn-save {
     background: var(--btn-add-gradient);
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
@@ -1900,26 +1924,24 @@ body.account-page #confirmDeleteModal .confirm-delete {
     transform: translateY(-1px);
 }
 
+#account-addModal .account-btn-save:active,
+#account-editModal .account-btn-save:active,
+#account-addModal .account-btn-cancel:active,
+#account-editModal .account-btn-cancel:active {
+    transform: translateY(0);
+}
+
 #account-addModal .account-btn-cancel,
 #account-editModal .account-btn-cancel {
-    min-width: var(--userlist-btn-add-width);
-    width: auto;
-    padding: 8px 20px;
-    font-size: var(--text-medium);
-    font-weight: var(--font-weight-semibold);
-    font-family: var(--font-heading-page);
-    color: #ffffff;
-    border: none;
-    border-radius: 6px;
-    background: linear-gradient(180deg, #AAB8C2 0%, #657786 100%);
-    box-shadow: 0 2px 4px rgba(101, 119, 134, 0.2);
+    background: var(--gradient-domain-muted-action);
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
 }
 
 #account-addModal .account-btn-cancel:hover,
 #account-editModal .account-btn-cancel:hover {
-    background: linear-gradient(180deg, #9ca9b4 0%, #5a6a78 100%);
+    background: var(--gradient-domain-muted-action-hover);
     color: #ffffff;
-    box-shadow: 0 4px 8px rgba(101, 119, 134, 0.3);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
     transform: translateY(-1px);
 }
 
