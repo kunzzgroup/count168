@@ -1037,15 +1037,14 @@ body.account-page .search-container.userlist-search-bar .userlist-search-input {
         transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* 主列表：窄屏横向滚动，避免 9 列被压扁 */
+    /* 主列表：窄屏横向滚动，表头/行共用 inner 宽度 */
     body.account-page .account-table-wrapper {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
 
-    body.account-page .account-list-table .account-list-table-header,
-    body.account-page .account-list-table .account-cards {
-        min-width: 1020px;
+    body.account-page .account-list-table-inner {
+        min-width: max(100%, 980px);
         width: 100%;
         box-sizing: border-box;
     }
@@ -1055,10 +1054,19 @@ body.account-page .search-container.userlist-search-bar .userlist-search-input {
         overflow-y: auto !important;
     }
 
-    body.account-page .action-buttons {
+    body.account-page .account-toolbar-top-row {
         flex-wrap: wrap;
-        align-items: flex-start;
         row-gap: 10px;
+    }
+
+    body.account-page .account-toolbar-primary {
+        flex: 1 1 240px;
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    body.account-page .action-buttons {
+        row-gap: 0;
     }
 
     body.account-page .user-toolbar-actions-right {

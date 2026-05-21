@@ -64,7 +64,7 @@ body.account-page:not(.account-page--show-all) .content > .account-page-title {
 }
 
 body.account-page .action-buttons-container {
-    margin-top: 20px;
+    margin-top: 12px;
     background-color: #ffffff;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -79,10 +79,44 @@ body.account-page .action-buttons-container {
 body.account-page .action-buttons {
     padding: 10px 20px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
     flex: 0 0 auto;
+}
+
+body.account-page .account-toolbar-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(8px, 0.75vw, 12px);
+    flex-wrap: nowrap;
+    width: 100%;
+    min-width: 0;
+}
+
+body.account-page .account-toolbar-title {
+    flex: 0 0 auto;
+    margin: 0 !important;
+    margin-top: 0 !important;
+    white-space: nowrap;
+}
+
+body.account-page .account-toolbar-primary {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+}
+
+body.account-page .account-toolbar-top-row .user-toolbar-actions-right {
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+body.account-page .account-toolbar-primary .search-container.userlist-search-bar {
+    width: clamp(150px, 17vw, 240px);
+    flex: 0 1 auto;
+    min-width: 0;
 }
 
 body.account-page .action-controls-row {
@@ -124,22 +158,34 @@ body.account-page .account-table-wrapper {
  * 表头与数据行共用 grid 变量；minmax 保证 Role / Last Login 等列在 tablet 不过窄
  */
 .account-list-table {
+    width: 100%;
     --account-list-grid-cols:
         38px
-        minmax(108px, 1.15fr)
-        minmax(108px, 1.15fr)
-        minmax(80px, 0.72fr)
-        minmax(56px, 0.52fr)
-        minmax(72px, 0.68fr)
-        minmax(128px, 1.35fr)
-        minmax(72px, 0.95fr)
-        minmax(80px, 0.52fr);
+        minmax(120px, 1.5fr)
+        minmax(120px, 1.5fr)
+        minmax(84px, 0.7fr)
+        minmax(52px, 0.42fr)
+        minmax(72px, 0.55fr)
+        minmax(130px, 1fr)
+        minmax(60px, 1.2fr)
+        minmax(92px, 0.55fr);
+}
+
+.account-list-table-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
 }
 
 .account-list-table .account-list-table-header,
 .account-list-table .account-list-row {
     gap: 8px;
     grid-template-columns: var(--account-list-grid-cols);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .account-list-table .account-list-table-header {

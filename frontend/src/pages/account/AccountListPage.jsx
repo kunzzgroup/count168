@@ -882,10 +882,11 @@ export default function AccountListPage() {
     <>
       <div className="container">
         <div className="content">
-          <h1 className="account-page-title">{t("accountList")}</h1>
           <div className="action-buttons-container">
             <div className="action-buttons">
-              <div className="action-controls-row">
+              <div className="account-toolbar-top-row">
+                <h1 className="account-page-title account-toolbar-title">{t("accountList")}</h1>
+                <div className="action-controls-row account-toolbar-primary">
                 <div className="search-container userlist-search-bar">
                   <span className="userlist-search-bar__icon" aria-hidden="true">
                     <svg fill="currentColor" viewBox="0 0 24 24">
@@ -945,25 +946,26 @@ export default function AccountListPage() {
                     <span className="user-filter-chip__label">{t("showAll")}</span>
                   </button>
                 </div>
-              </div>
-              <div className="user-toolbar-actions-right">
-                <button type="button" className="btn btn-currency-setting" disabled={accountMutationsBlocked} onClick={openCurrencySetting}>
-                  {t("currencySetting")}
-                </button>
-                <button type="button" className="btn btn-add" disabled={accountMutationsBlocked} onClick={openAdd}>
-                  <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                  {t("addAccount")}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-delete"
-                  disabled={!selectedDeleteIds.size || accountMutationsBlocked}
-                  onClick={() => setConfirmDeleteOpen(true)}
-                >
-                  {t("deleteWithCount", { count: selectedDeleteIds.size })}
-                </button>
+                </div>
+                <div className="user-toolbar-actions-right">
+                  <button type="button" className="btn btn-currency-setting" disabled={accountMutationsBlocked} onClick={openCurrencySetting}>
+                    {t("currencySetting")}
+                  </button>
+                  <button type="button" className="btn btn-add" disabled={accountMutationsBlocked} onClick={openAdd}>
+                    <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                    {t("addAccount")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-delete"
+                    disabled={!selectedDeleteIds.size || accountMutationsBlocked}
+                    onClick={() => setConfirmDeleteOpen(true)}
+                  >
+                    {t("deleteWithCount", { count: selectedDeleteIds.size })}
+                  </button>
+                </div>
               </div>
             </div>
             <div className="user-gc-inline-panel">
@@ -1020,6 +1022,7 @@ export default function AccountListPage() {
           </div>
 
           <div className="account-table-wrapper account-list-table">
+            <div className="account-list-table-inner">
             <div className="account-table-header account-list-table-header">
               <div className="account-header-item">{t("no")}</div>
               {renderSortableHeader(t("account"), "account")}
@@ -1057,6 +1060,7 @@ export default function AccountListPage() {
                   </div>
                 );
               })}
+            </div>
             </div>
           </div>
           {!showAll && (
