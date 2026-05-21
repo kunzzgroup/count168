@@ -14,7 +14,8 @@ function readCookie(name) {
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "ec_sidebar_collapsed";
 /** iPad Air 11" (M2) landscape Safari ≈ 1180px; use 1200px to include that viewport. */
-const TABLET_MEDIA_QUERY = "(max-width: 1200px)";
+/** Galaxy Tab S7 横屏约 1280px，需纳入平板侧栏逻辑 */
+const TABLET_MEDIA_QUERY = "(max-width: 1280px)";
 
 const AVATAR_MAP = {
   male1: assetUrl("images/avatar1.png"),
