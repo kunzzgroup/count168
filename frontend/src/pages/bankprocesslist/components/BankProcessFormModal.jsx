@@ -130,7 +130,7 @@ export default function BankProcessFormModal({
                           </select>
                         )}
                         {!editMode ? (
-                          <button type="button" className="bank-add-btn" title={t("addNewBank")} disabled={!form.country} onClick={onOpenBankModal}>+</button>
+                          <button type="button" className="bank-add-btn" title={t("addNewBank")} onClick={onOpenBankModal}>+</button>
                         ) : null}
                       </div>
                     </div>
