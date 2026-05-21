@@ -138,7 +138,7 @@ export default function MemberPage() {
     formatPaymentHistoryMoney,
   } = useMemberWinLoss({ showNotification, lang });
 
-  /** Currency 多段：每段最多 7 格（含 All），每满一行新开一条 segment 白底条，列仍按 7 列对齐 */
+  /** Currency 多段：每段最多 8 格（含 All），每满一行新开一条 segment 白底条，列仍按 8 列对齐 */
   const currencyFilterBands = useMemo(() => {
     const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
     const showAllBtn = codes.length === 0 || codes.length > 1;

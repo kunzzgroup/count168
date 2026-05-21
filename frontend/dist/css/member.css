@@ -1122,7 +1122,9 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 
 .member-winloss-page .member-dash-col-filters .member-winloss-date-field {
     flex: 0 0 auto;
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
+    align-self: flex-start;
     min-width: 0;
     overflow: visible;
 }
@@ -1216,16 +1218,17 @@ body.member-winloss-page #member_account_buttons .member-winloss-account-segment
 }
 
 body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment {
-    padding: 10px 8px;
+    padding: 5px 8px;
     box-sizing: border-box;
-    min-height: clamp(38px, 2.5vw, 42px);
+    min-height: clamp(28px, 1.85vw, 32px);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: clamp(11px, 0.95vw, 13px) !important;
+    line-height: 1.25;
 }
 
-/* Currency：每段宽度 = (格数/7)×整栏宽，列均分后与 Account / 首行竖线对齐 */
+/* Currency：每段宽度 = (格数/8)×整栏宽，列均分后与 Account / 首行竖线对齐 */
 body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
     flex-direction: column;
     flex-wrap: nowrap;
@@ -1233,7 +1236,7 @@ body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills 
     align-self: stretch;
     overflow-x: auto;
     overflow-y: visible;
-    gap: 10px;
+    gap: 6px;
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -1251,8 +1254,15 @@ body.member-winloss-page #member_currency_buttons .member-winloss-currency-segme
     overflow: hidden;
 }
 
-/* Currency：每段段尾右侧两角圆角（未满行时在最后一个币种处收弧，不铺满整栏） */
+/* Currency：满行 8 格时行尾圆角；未满行时在最后一个币种处收弧 */
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment:nth-child(8n) {
+    border-right: none;
+    border-top-right-radius: clamp(8px, 0.7vw, 10px);
+    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
+}
+
 body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment:last-child {
+    border-right: none;
     border-top-right-radius: clamp(8px, 0.7vw, 10px);
     border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
 }
@@ -1310,13 +1320,17 @@ body.member-winloss-page .member-dash-col-filters .user-gc-inline-label {
 
 /* Date Range — 与 Capture Maintenance 同款（outlined 外框 + 内嵌白底条，非 Transaction 蓝块日历） */
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field {
-    width: 100%;
+    --member-winloss-date-range-w: clamp(316px, 22vw, 336px);
+    width: fit-content;
+    max-width: 100%;
     min-width: 0;
+    align-self: flex-start;
 }
 
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-anchor {
     gap: 0;
-    width: 100%;
+    width: var(--member-winloss-date-range-w);
+    max-width: 100%;
 }
 
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-shell {
@@ -1447,14 +1461,14 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .customer-report-filter-group {
     margin: 0;
     min-width: 0 !important;
-    width: 100% !important;
+    width: var(--member-winloss-date-range-w, clamp(316px, 22vw, 336px)) !important;
     max-width: 100% !important;
 }
 
-/* 覆盖 date-range-picker.css 中 .report-date-range-picker-container 的固定宽度，使 Date Range 拉满至左栏分割线 */
+/* 与 transaction-range 日历弹窗同宽（date-range-picker.css / maintenanceDateRangePicker） */
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container,
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container.report-outlined-anchor {
-    width: 100% !important;
+    width: var(--member-winloss-date-range-w, clamp(316px, 22vw, 336px)) !important;
     min-width: 0 !important;
     max-width: 100% !important;
     box-sizing: border-box;

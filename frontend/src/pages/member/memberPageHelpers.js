@@ -7,7 +7,7 @@ export const MINI_GRID_SHELL_ROWS = 5;
 export const WINLOSS_MINI_MATRIX_ACCOUNT_SCROLL_THRESHOLD = 5;
 
 /** Win/Loss Currency：每条 segment 白底带最多按钮数（含第一段的「All」占位），多出的自动再开新带 */
-export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS = 7;
+export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS = 8;
 
 /** Win/Loss 矩阵：<10 列 1fr 铺满；≥10 列时每列宽 = 9 列铺满时的单列宽，向右延伸并可横向滚动 */
 export const WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD = 10;
