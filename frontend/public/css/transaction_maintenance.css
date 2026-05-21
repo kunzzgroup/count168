@@ -1219,15 +1219,18 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     line-height: var(--transaction-list-cell-line-height);
 }
 
-.transaction-maintenance-page-root .maintenance-virtual-table {
+.transaction-maintenance-page-root .maintenance-virtual-table,
+.transaction-maintenance-page-root .transaction-virtual-table {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
 }
 
-.maintenance-virtual-table-inner {
+.transaction-maintenance-page-root .maintenance-virtual-table-inner,
+.transaction-maintenance-page-root .transaction-virtual-table-inner {
+    min-width: 1280px;
     width: 100%;
     box-sizing: border-box;
-    border-collapse: separate;
 }
 
 .maintenance-virtual-table--refreshing .maintenance-virtual-scroll {
@@ -1235,7 +1238,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     transition: opacity 0.15s ease;
 }
 
-.maintenance-virtual-thead {
+.transaction-maintenance-page-root .maintenance-virtual-thead {
     position: sticky;
     top: 0;
     z-index: 3;
@@ -1256,17 +1259,36 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     min-height: clamp(120px, 22vh, 280px);
 }
 
-.maintenance-virtual-head-row,
-.maintenance-virtual-data-row {
+.transaction-maintenance-page-root .transaction-virtual-head-row,
+.transaction-maintenance-page-root .transaction-virtual-data-row {
     display: grid;
     grid-template-columns:
-        minmax(36px, 3.3fr) minmax(96px, 8.5fr) minmax(56px, 9fr) minmax(64px, 10fr) minmax(68px, 11fr) minmax(80px, 12fr) minmax(55px, 8fr) minmax(40px, 5fr) minmax(40px, 5fr) minmax(48px, 6fr) minmax(52px, 6fr) minmax(52px, 6fr) minmax(56px, 6fr);
+        minmax(36px, 3.3fr) minmax(96px, 8.5fr) minmax(56px, 9fr) minmax(72px, 10fr) minmax(68px, 11fr) minmax(80px, 12fr) minmax(55px, 8fr) minmax(52px, 5fr) minmax(62px, 5fr) minmax(48px, 6fr) minmax(52px, 6fr) minmax(52px, 6fr) minmax(72px, 6fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
 }
 
-.maintenance-virtual-th {
+/* No. + Created At: narrower padding, less gap between them */
+.transaction-maintenance-page-root .transaction-virtual-head-row .maintenance-virtual-th:nth-child(1),
+.transaction-maintenance-page-root .transaction-virtual-head-row .maintenance-virtual-th:nth-child(2),
+.transaction-maintenance-page-root .transaction-virtual-data-row .maintenance-virtual-cell:nth-child(1),
+.transaction-maintenance-page-root .transaction-virtual-data-row .maintenance-virtual-cell:nth-child(2) {
+    padding-left: clamp(6px, 0.45vw, 10px);
+    padding-right: clamp(6px, 0.45vw, 10px);
+}
+
+.transaction-maintenance-page-root .transaction-virtual-head-row .maintenance-virtual-th:nth-child(1),
+.transaction-maintenance-page-root .transaction-virtual-data-row .maintenance-virtual-cell:nth-child(1) {
+    padding-right: clamp(2px, 0.2vw, 5px);
+}
+
+.transaction-maintenance-page-root .transaction-virtual-head-row .maintenance-virtual-th:nth-child(2),
+.transaction-maintenance-page-root .transaction-virtual-data-row .maintenance-virtual-cell:nth-child(2) {
+    padding-left: clamp(2px, 0.2vw, 5px);
+}
+
+.transaction-maintenance-page-root .maintenance-virtual-th {
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     color: #ffffff;
     font-weight: bold;
@@ -1278,24 +1300,30 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
+    white-space: normal;
+    line-height: 1.25;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+    hyphens: auto;
 }
 
-.maintenance-virtual-th:first-child {
+.transaction-maintenance-page-root .maintenance-virtual-th:first-child {
     border-top-left-radius: 8px;
 }
 
-.maintenance-virtual-th:last-child {
+.transaction-maintenance-page-root .maintenance-virtual-th:last-child {
     border-top-right-radius: 8px;
 }
 
-.maintenance-virtual-scroll {
+.transaction-maintenance-page-root .maintenance-virtual-scroll {
     max-height: min(72vh, 900px);
     overflow: auto;
     border-radius: 8px;
     background: #fff;
 }
 
-.maintenance-virtual-row-wrap {
+.transaction-maintenance-page-root .maintenance-virtual-row-wrap {
     box-sizing: border-box;
     overflow: visible;
 }
@@ -1306,22 +1334,22 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     align-items: stretch;
 }
 
-.maintenance-virtual-data-row {
+.transaction-maintenance-page-root .maintenance-virtual-data-row {
     background: #ffffff;
     box-shadow: none;
     transition: background-color 0.15s ease;
 }
 
-.maintenance-virtual-data-row--stripe {
+.transaction-maintenance-page-root .maintenance-virtual-data-row--stripe {
     background: #cceeff99;
 }
 
-.maintenance-virtual-data-row:hover {
+.transaction-maintenance-page-root .maintenance-virtual-data-row:hover {
     box-shadow: none;
     transform: none;
 }
 
-.maintenance-virtual-cell {
+.transaction-maintenance-page-root .maintenance-virtual-cell {
     font-size: var(--text-medium);
     font-weight: bold;
     color: #374151;
@@ -1361,27 +1389,65 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     text-overflow: clip;
 }
 
-.maintenance-virtual-cell--left {
+.transaction-maintenance-page-root .maintenance-virtual-cell--left {
     justify-content: flex-start;
     text-align: left;
 }
 
-.maintenance-virtual-cell--right {
+.transaction-maintenance-page-root .maintenance-virtual-cell--right {
     justify-content: flex-end;
     text-align: right;
 }
 
-.maintenance-virtual-cell--mono {
+.transaction-maintenance-page-root .maintenance-virtual-cell--mono {
     font-variant-numeric: tabular-nums;
 }
 
-.maintenance-virtual-cell--center {
+.transaction-maintenance-page-root .maintenance-virtual-cell--center {
     justify-content: center;
     text-align: center;
 }
 
-.maintenance-virtual-data-row .maintenance-cell-currency {
+.transaction-maintenance-page-root .maintenance-virtual-data-row .maintenance-cell-currency {
     text-align: center;
     justify-content: center;
+}
+
+/* Laptop: tighter padding, smaller header text */
+@media (max-width: 1400px) {
+    .transaction-maintenance-page-root {
+        --transaction-list-cell-padding-x: clamp(6px, 0.65vw, 12px);
+    }
+
+    .transaction-maintenance-page-root .maintenance-virtual-th {
+        font-size: clamp(10px, 0.78vw, 13px);
+        padding: clamp(4px, 0.45vw, 7px) clamp(6px, 0.65vw, 12px);
+    }
+
+    .transaction-maintenance-page-root .maintenance-virtual-cell {
+        font-size: clamp(10px, 0.78vw, 13px);
+    }
+}
+
+/* Tablet: enable horizontal scroll with compact layout */
+@media (max-width: 1024px) {
+    .transaction-maintenance-page-root .transaction-virtual-table-inner,
+    .transaction-maintenance-page-root .maintenance-virtual-table-inner {
+        min-width: 1180px;
+    }
+
+    .transaction-maintenance-page-root {
+        --transaction-list-cell-padding-y: clamp(3px, 0.45vw, 6px);
+        --transaction-list-cell-padding-x: clamp(5px, 0.55vw, 10px);
+        --transaction-list-cell-min-height: clamp(32px, 2.2vw, 42px);
+    }
+
+    .transaction-maintenance-page-root .maintenance-virtual-scroll {
+        max-height: min(68vh, 820px);
+    }
+
+    .transaction-maintenance-page-root .maintenance-virtual-th {
+        min-height: clamp(28px, 1.9vw, 34px);
+    }
 }
 

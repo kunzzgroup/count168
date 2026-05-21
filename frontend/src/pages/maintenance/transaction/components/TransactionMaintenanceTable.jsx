@@ -30,7 +30,7 @@ const HEADER_LABELS = (m) => [
 function VirtualTableHeader({ m }) {
   return (
     <div className="maintenance-virtual-thead" role="rowgroup">
-      <div className="maintenance-virtual-head-row" role="row">
+      <div className="maintenance-virtual-head-row transaction-virtual-head-row" role="row">
         {HEADER_LABELS(m).map((label) => (
           <div key={label} role="columnheader" className="maintenance-virtual-th">
             {label}
@@ -169,8 +169,8 @@ export default function TransactionMaintenanceTable({
   if (rows.length === 0 && (showSkeleton || statusMessage)) {
     const label = statusMessage || m.loading;
     return (
-      <div className="maintenance-list-container maintenance-virtual-table" style={{ display: "block" }}>
-        <div className="maintenance-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
+      <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table" style={{ display: "block" }}>
+        <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
           <TopLoadingBar label={label} />
           <div className="maintenance-virtual-scroll" tabIndex={0}>
             <VirtualTableHeader m={m} />
@@ -196,8 +196,8 @@ export default function TransactionMaintenanceTable({
   const showBlueBar = showSkeleton || Boolean(isPlaceholderData);
 
   return (
-    <div className="maintenance-list-container maintenance-virtual-table" style={{ display: "block" }}>
-      <div className="maintenance-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
+    <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table" style={{ display: "block" }}>
+      <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
         {showBlueBar ? <TopLoadingBar label={m.loading} /> : null}
         <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
           <VirtualTableHeader m={m} />
