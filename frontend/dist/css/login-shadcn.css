@@ -341,59 +341,6 @@ button.sc-login-lang-seg.active {
   font-weight: 400;
 }
 
-.sc-login-input:-webkit-autofill,
-.sc-login-input:-webkit-autofill:hover,
-.sc-login-input:-webkit-autofill:focus {
-  -webkit-text-fill-color: var(--login-text);
-  caret-color: var(--login-text);
-  transition: background-color 99999s ease-out 0s;
-  box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.9) inset;
-}
-
-.sc-login-suggest-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 5;
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-  box-sizing: border-box;
-  background: var(--login-suggest-bg);
-  border: 1px solid var(--login-suggest-border);
-  border-radius: var(--login-suggest-radius);
-  box-shadow: var(--login-suggest-shadow);
-  max-height: var(--login-suggest-max-height);
-  overflow-y: auto;
-  font-family: var(--font-ui);
-  font-size: var(--text-base);
-}
-
-.sc-login-suggest-option {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px 14px;
-  border: 0;
-  border-radius: calc(var(--login-suggest-radius) - 2px);
-  background: transparent;
-  color: var(--login-suggest-text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-out-soft);
-}
-
-.sc-login-suggest-option:hover,
-.sc-login-suggest-option.is-active {
-  background: var(--login-suggest-hover-bg);
-}
-
-.sc-login-suggest-option.is-active {
-  background: var(--login-suggest-active-bg);
-}
-
 .sc-login-options {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
