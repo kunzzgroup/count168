@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient, keepPreviousData, isCancelledError } from "@tanstack/react-query";
+import { useQuery, keepPreviousData, isCancelledError } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
@@ -18,7 +18,6 @@ import {
   fetchCompanyPermissions,
   fetchProcesses,
   isBankOnlyCategoryCompany,
-  normalizeMaintenanceProcessFilter,
   searchTransactionData,
   updateSessionCompany,
 } from "./transactionMaintenanceLogic.js";
@@ -49,7 +48,6 @@ function consumeNoDataToastDedupeKey(key) {
 
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
@@ -92,11 +90,6 @@ export default function TransactionMaintenancePage() {
   /** Boot already loaded process/permission meta — skip duplicate meta effect on first paint. */
   const skipMetaAfterBootRef = useRef(false);
 
-  const processFilter = useMemo(
-    () => normalizeMaintenanceProcessFilter(selectedProcess),
-    [selectedProcess],
-  );
-
   const listQueryEnabled = Boolean(
     !bootLoading &&
     filtersReady &&
@@ -108,31 +101,23 @@ export default function TransactionMaintenancePage() {
     (permissions.length === 0 || activePermission),
   );
 
-  const maintenanceQueryKey = useMemo(
-    () => [
+  const transactionQuery = useQuery({
+    queryKey: [
       "transaction-maintenance",
       companyId,
       dateFrom,
       dateTo,
-      processFilter,
+      selectedProcess || "",
       activePermission || "",
     ],
-    [companyId, dateFrom, dateTo, processFilter, activePermission],
-  );
-
-  const transactionQuery = useQuery({
-    queryKey: maintenanceQueryKey,
     queryFn: ({ signal }) =>
       searchTransactionData({
         dateFrom,
         dateTo,
-        process: processFilter,
+        process: selectedProcess,
         companyId,
         category: activePermission,
         signal,
-        onFirstPage: (rows) => {
-          queryClient.setQueryData(maintenanceQueryKey, rows);
-        },
       }),
     enabled: listQueryEnabled && searchDeferredReady && !switchingCompany,
     staleTime: 2 * 60 * 1000,
@@ -158,10 +143,10 @@ export default function TransactionMaintenancePage() {
         companyId,
         dateFrom,
         dateTo,
-        processFilter,
+        selectedProcess || "",
         activePermission || "",
       ]),
-    [companyId, dateFrom, dateTo, processFilter, activePermission],
+    [companyId, dateFrom, dateTo, selectedProcess, activePermission],
   );
 
   useEffect(() => {
@@ -389,11 +374,6 @@ export default function TransactionMaintenancePage() {
         const procList = await fetchProcesses(cid);
         if (cancelled) return;
         setProcesses(procList);
-        setSelectedProcess((prev) => {
-          const filter = normalizeMaintenanceProcessFilter(prev);
-          if (!filter) return "";
-          return procList.some((p) => String(p.process_name) === filter) ? filter : "";
-        });
 
         const cached = switchPermsCacheRef.current;
         let permList;
@@ -477,11 +457,9 @@ export default function TransactionMaintenancePage() {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
     setSwitchingCompany(true);
     try {
-      const nextCompanyId = Number(c.id);
-      const [res, perms, procList] = await Promise.all([
+      const [res, perms] = await Promise.all([
         updateSessionCompany(c.id),
         fetchCompanyPermissions(c.company_id),
-        fetchProcesses(nextCompanyId),
       ]);
 
       // Legacy Redirect logic
@@ -503,10 +481,8 @@ export default function TransactionMaintenancePage() {
       skipMetaAfterBootRef.current = true;
       setActivePermission(nextActive);
       setPermissions(perms);
-      setProcesses(procList);
-      setSelectedProcess("");
 
-      setCompanyId(nextCompanyId);
+      setCompanyId(Number(c.id));
       setCompanyCode(code);
       
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
