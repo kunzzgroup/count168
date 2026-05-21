@@ -222,7 +222,7 @@ export default function MemberPage() {
         setWlFiltersSyncPx(null);
         return;
       }
-      setWlFiltersSyncPx(Math.ceil(wlFiltersColRef.current.getBoundingClientRect().height));
+      setWlFiltersSyncPx(Math.ceil(wlFiltersColRef.current.scrollHeight));
     };
     update();
     let ro;
@@ -237,7 +237,19 @@ export default function MemberPage() {
       window.removeEventListener("resize", update);
       ro?.disconnect();
     };
-  }, [showMiniRail, lang, companies, linkedAccounts, currencyFilterBands, dateFrom, dateTo, companyId, viewAccountId]);
+  }, [
+    showMiniRail,
+    lang,
+    companies,
+    linkedAccounts,
+    currencyFilterBands,
+    dateFrom,
+    dateTo,
+    companyId,
+    viewAccountId,
+    miniGridDisplayCurrencies.length,
+    selectedCurrencies.length,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -432,7 +444,7 @@ export default function MemberPage() {
         <div className="transaction-main-content member-winloss-dash">
           <div className="transaction-search-section member-dash-unified-bar">
             <div
-              className={`member-dash-columns${showMiniRail ? " member-dash-columns--three-col" : " member-dash-columns--no-mini-rail"}${wlFiltersSyncPx != null ? " member-dash-columns--wl-sync-h" : ""}`}
+              className={`member-dash-columns${showMiniRail ? " member-dash-columns--three-col" : " member-dash-columns--no-mini-rail"}${showMiniRail && miniGridDisplayCurrencies.length === 1 ? " member-dash-columns--single-ccy-rail" : ""}${wlFiltersSyncPx != null ? " member-dash-columns--wl-sync-h" : ""}`}
               style={wlFiltersSyncPx != null ? { ["--member-winloss-filters-h"]: `${wlFiltersSyncPx}px` } : undefined}
             >
               <div className="member-dash-col member-dash-col-filters" ref={wlFiltersColRef}>
