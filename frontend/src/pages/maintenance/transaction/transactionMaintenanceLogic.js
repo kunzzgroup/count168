@@ -7,7 +7,8 @@ const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 400;
 const MAINTENANCE_PARALLEL_CHUNKS = 4;
 /** Page sizes tried in order when a response is still too large. */
 const MAINTENANCE_PAGE_SIZES = [5000, 2500, 1500, 1000, 500];
-const MAINTENANCE_PARALLEL_PAGES = 4;
+/** 防止超大结果集无限拉页（约 5000×40 行上限）。 */
+const MAINTENANCE_MAX_PAGES = 40;
 const MAINTENANCE_FETCH_RETRIES = 4;
 const MAINTENANCE_RETRY_BASE_MS = 250;
 
@@ -108,7 +109,24 @@ export function normalizeMaintenanceProcessFilter(process) {
   return raw;
 }
 
-export async function searchTransactionData({ dateFrom, dateTo, process, companyId, category, signal }) {
+function finalizeMaintenanceRows(rows) {
+  const merged = [...rows];
+  merged.sort(compareMaintenanceRows);
+  merged.forEach((row, index) => {
+    row.no = index + 1;
+  });
+  return merged;
+}
+
+export async function searchTransactionData({
+  dateFrom,
+  dateTo,
+  process,
+  companyId,
+  category,
+  signal,
+  onFirstPage,
+}) {
   const processFilter = normalizeMaintenanceProcessFilter(process);
   const merged = await fetchMaintenanceDateRangeResilient({
     dateFrom,
@@ -117,15 +135,24 @@ export async function searchTransactionData({ dateFrom, dateTo, process, company
     companyId,
     category,
     signal,
+    onFirstPage: (partial) => {
+      if (typeof onFirstPage === "function" && partial.length) {
+        onFirstPage(finalizeMaintenanceRows(partial));
+      }
+    },
   });
-  merged.sort(compareMaintenanceRows);
-  merged.forEach((row, index) => {
-    row.no = index + 1;
-  });
-  return merged;
+  return finalizeMaintenanceRows(merged);
 }
 
-async function fetchMaintenanceDateRangeResilient({ dateFrom, dateTo, process, companyId, category, signal }) {
+async function fetchMaintenanceDateRangeResilient({
+  dateFrom,
+  dateTo,
+  process,
+  companyId,
+  category,
+  signal,
+  onFirstPage,
+}) {
   const daySpan = maintenanceDateSpanDays(dateFrom, dateTo);
   const ranges =
     daySpan > MAINTENANCE_CHUNK_THRESHOLD_DAYS
@@ -140,6 +167,7 @@ async function fetchMaintenanceDateRangeResilient({ dateFrom, dateTo, process, c
       companyId,
       category,
       signal,
+      onFirstPage,
     });
   }
 
@@ -158,6 +186,7 @@ async function fetchMaintenanceDateRangeResilient({ dateFrom, dateTo, process, c
           companyId,
           category,
           signal,
+          onFirstPage: i === 0 ? onFirstPage : undefined,
         }),
       ),
     );
@@ -169,25 +198,27 @@ async function fetchMaintenanceDateRangeResilient({ dateFrom, dateTo, process, c
 }
 
 async function fetchMaintenanceRangeWithSplit(params) {
+  const { onFirstPage, ...rest } = params;
   try {
-    return await fetchAllPagesForRange(params, 0);
+    return await fetchAllPagesForRange(rest, 0, onFirstPage);
   } catch (err) {
     rethrowIfAborted(err, params.signal);
     if (!isMaintenanceTransferError(err)) throw err;
 
     const daySpan = maintenanceDateSpanDays(params.dateFrom, params.dateTo);
     if (daySpan <= 1) {
-      return fetchAllPagesForRange(params, MAINTENANCE_PAGE_SIZES.length - 1);
+      return fetchAllPagesForRange(rest, MAINTENANCE_PAGE_SIZES.length - 1, onFirstPage);
     }
 
     const [leftRange, rightRange] = splitMaintenanceDateRangeHalf(params.dateFrom, params.dateTo);
     const left = await fetchMaintenanceRangeWithSplit({
-      ...params,
+      ...rest,
       dateFrom: leftRange.dateFrom,
       dateTo: leftRange.dateTo,
+      onFirstPage,
     });
     const right = await fetchMaintenanceRangeWithSplit({
-      ...params,
+      ...rest,
       dateFrom: rightRange.dateFrom,
       dateTo: rightRange.dateTo,
     });
@@ -195,7 +226,7 @@ async function fetchMaintenanceRangeWithSplit(params) {
   }
 }
 
-async function fetchAllPagesForRange(params, pageSizeIndex) {
+async function fetchAllPagesForRange(params, pageSizeIndex, onFirstPage) {
   const pageSize = MAINTENANCE_PAGE_SIZES[Math.min(pageSizeIndex, MAINTENANCE_PAGE_SIZES.length - 1)];
 
   const fetchPage = async (page) => {
@@ -204,7 +235,7 @@ async function fetchAllPagesForRange(params, pageSizeIndex) {
     } catch (err) {
       rethrowIfAborted(err, params.signal);
       if (isMaintenanceTransferError(err) && pageSizeIndex < MAINTENANCE_PAGE_SIZES.length - 1) {
-        return fetchAllPagesForRange(params, pageSizeIndex + 1);
+        return fetchAllPagesForRange(params, pageSizeIndex + 1, onFirstPage);
       }
       throw err;
     }
@@ -214,29 +245,20 @@ async function fetchAllPagesForRange(params, pageSizeIndex) {
     throw new DOMException("The operation was aborted.", "AbortError");
   }
 
-  const first = await fetchPage(1);
-  const all = [...(first.data || [])];
-  const total = Number(first.pagination?.total ?? all.length);
-  const totalPages = total > 0 ? Math.ceil(total / pageSize) : 1;
+  const all = [];
+  let page = 1;
 
-  if (totalPages <= 1 || !first.pagination?.has_more) {
-    return all;
-  }
-
-  const remainingPages = [];
-  for (let p = 2; p <= totalPages; p += 1) {
-    remainingPages.push(p);
-  }
-
-  for (let i = 0; i < remainingPages.length; i += MAINTENANCE_PARALLEL_PAGES) {
+  while (page <= MAINTENANCE_MAX_PAGES) {
     if (params.signal?.aborted) {
       throw new DOMException("The operation was aborted.", "AbortError");
     }
-    const batch = remainingPages.slice(i, i + MAINTENANCE_PARALLEL_PAGES);
-    const results = await Promise.all(batch.map((page) => fetchPage(page)));
-    for (const result of results) {
-      if (result.data?.length) all.push(...result.data);
+    const result = await fetchPage(page);
+    if (result.data?.length) all.push(...result.data);
+    if (page === 1 && typeof onFirstPage === "function" && all.length) {
+      onFirstPage(all);
     }
+    if (!result.pagination?.has_more) break;
+    page += 1;
   }
 
   return all;

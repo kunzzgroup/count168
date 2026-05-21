@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, keepPreviousData, isCancelledError } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData, isCancelledError } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
@@ -49,6 +49,7 @@ function consumeNoDataToastDedupeKey(key) {
 
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
@@ -107,8 +108,8 @@ export default function TransactionMaintenancePage() {
     (permissions.length === 0 || activePermission),
   );
 
-  const transactionQuery = useQuery({
-    queryKey: [
+  const maintenanceQueryKey = useMemo(
+    () => [
       "transaction-maintenance",
       companyId,
       dateFrom,
@@ -116,6 +117,11 @@ export default function TransactionMaintenancePage() {
       processFilter,
       activePermission || "",
     ],
+    [companyId, dateFrom, dateTo, processFilter, activePermission],
+  );
+
+  const transactionQuery = useQuery({
+    queryKey: maintenanceQueryKey,
     queryFn: ({ signal }) =>
       searchTransactionData({
         dateFrom,
@@ -124,6 +130,9 @@ export default function TransactionMaintenancePage() {
         companyId,
         category: activePermission,
         signal,
+        onFirstPage: (rows) => {
+          queryClient.setQueryData(maintenanceQueryKey, rows);
+        },
       }),
     enabled: listQueryEnabled && searchDeferredReady && !switchingCompany,
     staleTime: 2 * 60 * 1000,

@@ -367,16 +367,18 @@ function maintenanceSearchPaginatedFast(
     $orderSql = 'transaction_date DESC, sort_created_at DESC, '
         . 'IFNULL(capture_id, 0) DESC, IFNULL(capture_detail_id, 0) DESC, IFNULL(transaction_id, 0) DESC';
 
-    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM ($unionSql) AS merged");
-    $countStmt->execute($params);
-    $total = (int)$countStmt->fetchColumn();
-
+    // 不做 COUNT(*)（大日期范围下极慢会导致前端一直 Loading）；多取 1 条判断 has_more
     $offset = ($page - 1) * $page_size;
+    $fetchLimit = $page_size + 1;
     $dataStmt = $pdo->prepare(
-        "SELECT * FROM ($unionSql) AS merged ORDER BY $orderSql LIMIT " . (int)$page_size . ' OFFSET ' . (int)$offset
+        "SELECT * FROM ($unionSql) AS merged ORDER BY $orderSql LIMIT " . (int)$fetchLimit . ' OFFSET ' . (int)$offset
     );
     $dataStmt->execute($params);
     $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+    $hasMore = count($rows) > $page_size;
+    if ($hasMore) {
+        $rows = array_slice($rows, 0, $page_size);
+    }
 
     $formatted = [];
     $baseNo = $offset + 1;
@@ -386,14 +388,17 @@ function maintenanceSearchPaginatedFast(
         $formatted[] = $item;
     }
 
+    $returned = count($formatted);
+    $totalHint = $hasMore ? -1 : ($offset + $returned);
+
     echo json_encode([
         'success' => true,
         'data' => $formatted,
         'pagination' => [
             'page' => $page,
             'page_size' => $page_size,
-            'total' => $total,
-            'has_more' => ($offset + count($formatted)) < $total,
+            'total' => $totalHint,
+            'has_more' => $hasMore,
         ],
     ], JSON_UNESCAPED_UNICODE);
 }
