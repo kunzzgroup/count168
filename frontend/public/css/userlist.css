@@ -1398,6 +1398,12 @@ label.user-modal-col-title.acc-proc-label {
     color: #334155;
 }
 
+/* 权限摘要：按词换行，避免 Transaction Payment 等被 break-all 截断 */
+#userModal .permission-field-group .user-modal-company-summary-text {
+    word-break: normal;
+    overflow-wrap: break-word;
+}
+
 @media (max-width: 1200px) {
     #userModal .sidebar-permissions-section {
         display: none;
