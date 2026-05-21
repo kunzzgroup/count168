@@ -58,6 +58,9 @@ export const MAINTENANCE_I18N = {
     pleaseSelectDateRange: "Please select date range",
     noBankProcessTransactions: "No bank process transactions found",
     searchFailed: "Search failed",
+    export: "Export",
+    exportSuccess: "Exported {n} record(s)",
+    exportFailed: "Export failed",
 
     pageTitleDataCapture: "Maintenance - Data Capture",
     pageTitleFormula: "Maintenance - Formula",
@@ -170,6 +173,9 @@ export const MAINTENANCE_I18N = {
     pleaseSelectDateRange: "请选择日期范围",
     noBankProcessTransactions: "未找到银行流程交易",
     searchFailed: "搜索失败",
+    export: "导出",
+    exportSuccess: "已导出 {n} 条记录",
+    exportFailed: "导出失败",
 
     pageTitleDataCapture: "维护 - 数据采集",
     pageTitleFormula: "维护 - 公式",

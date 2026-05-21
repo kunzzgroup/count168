@@ -140,3 +140,34 @@ body.maintenance-page .maintenance-delete-btn:disabled {
     box-shadow: none;
     opacity: 1;
 }
+
+body.maintenance-page .maintenance-export-btn {
+    background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+    color: #fff;
+    font-family: var(--font-ui);
+    width: auto;
+    min-width: clamp(72px, 5.5vw, 110px);
+    padding: clamp(3px, 0.31vw, 6px) clamp(14px, 1.04vw, 22px);
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: bold;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    box-shadow: 0 2px 4px rgba(13, 96, 255, 0.3);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+body.maintenance-page .maintenance-export-btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+body.maintenance-page .maintenance-export-btn:disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 1px solid #d0d7de;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 1;
+}

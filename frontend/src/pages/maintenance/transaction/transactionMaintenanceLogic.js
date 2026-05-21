@@ -1,4 +1,5 @@
 import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { downloadCsvFile } from "../shared/maintenanceTableExport.js";
 
 /**
  * Fetch permissions for a specific company
@@ -115,4 +116,59 @@ export function formatAmount(value) {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+}
+
+function cellOrDash(value) {
+  const s = value == null ? "" : String(value).trim();
+  return s === "" ? "-" : s;
+}
+
+export function buildTransactionMaintenanceCsvRows(data, m) {
+  const headers = [
+    m.tblNo,
+    m.tblCreatedAt,
+    m.tblProcess,
+    m.tblIdProduct,
+    m.tblAccount,
+    m.tblDescription,
+    m.tblRemark,
+    m.tblPercent,
+    m.tblCurrency,
+    m.tblRate,
+    m.tblCr,
+    m.tblDr,
+    m.tblSubmitter,
+  ];
+  const rows = (Array.isArray(data) ? data : []).map((row, index) => [
+    String(row.no || index + 1),
+    cellOrDash(row.dts_created),
+    cellOrDash(row.process),
+    cellOrDash(row.id_product),
+    cellOrDash(row.account),
+    cellOrDash(row.description),
+    cellOrDash(row.remark),
+    cellOrDash(row.percent),
+    cellOrDash(row.currency),
+    cellOrDash(row.rate),
+    formatAmount(row.cr),
+    formatAmount(row.dr),
+    cellOrDash(row.created_by),
+  ]);
+  return { headers, rows };
+}
+
+export function exportTransactionMaintenanceCsv({ data, m, companyCode, dateFrom, dateTo }) {
+  const { headers, rows } = buildTransactionMaintenanceCsvRows(data, m);
+  if (!rows.length) {
+    throw new Error(m.noDataAdjustSearch);
+  }
+  const safeCompany = String(companyCode || "company").replace(/[^\w.-]+/g, "_");
+  const safeFrom = String(dateFrom || "").replace(/\//g, "-");
+  const safeTo = String(dateTo || "").replace(/\//g, "-");
+  downloadCsvFile({
+    filename: `transaction_maintenance_${safeCompany}_${safeFrom}_${safeTo}.csv`,
+    headers,
+    rows,
+  });
+  return rows.length;
 }
