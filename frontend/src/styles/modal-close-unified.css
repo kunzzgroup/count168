@@ -54,10 +54,29 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  position: relative;
   transition: color 0.2s, background-color 0.2s, border-color 0.2s;
   transform: none !important;
   z-index: 2;
+}
+
+/* Flex-header dismiss buttons need a positioning context for pseudo X */
+.edit-modal-close,
+.transaction-modal-close,
+.delete-dialog-close,
+.user-modal-company-picker-close,
+.user-modal-permission-picker-close,
+.modal-close-btn {
+  position: relative;
+}
+
+/* Account modal close: anchor to .account-modal-content, aligned with title row */
+.account-modal-header .account-close,
+#account-addModal .account-close,
+#account-editModal .account-close,
+#linkAccountModal .account-close {
+  position: absolute !important;
+  right: 3rem !important;
+  top: 2.5rem !important;
 }
 
 :is(
@@ -215,9 +234,8 @@
   outline: none;
 }
 
-/* Absolute placement — header / modal shell */
+/* Absolute placement — header / modal shell (not account-modal-header: close aligns to modal content) */
 :is(
-  .account-modal-header,
   .modal-header,
   .modal-header-bar,
   .country-selection-modal-header,
@@ -231,7 +249,6 @@
   position: relative;
 }
 
-.account-modal-header .account-close,
 .modal-header .close,
 .modal-header-bar .close,
 .country-selection-modal-header .close,
@@ -244,14 +261,6 @@
   position: absolute !important;
   right: var(--modal-close-inset-x) !important;
   top: var(--modal-close-inset-y) !important;
-}
-
-/* Account modals: align X with form content edge (Add Account reference) */
-#account-addModal .account-close,
-#account-editModal .account-close,
-#linkAccountModal .account-close {
-  right: 3rem !important;
-  top: 2.5rem !important;
 }
 
 @media (max-width: 768px) {
