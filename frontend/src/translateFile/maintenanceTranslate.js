@@ -58,6 +58,8 @@ export const MAINTENANCE_I18N = {
     pleaseSelectDateRange: "Please select date range",
     noBankProcessTransactions: "No bank process transactions found",
     searchFailed: "Search failed",
+    searchRangeTooLarge:
+      "This date range returns too much data. Narrow the dates or select a Process, then try again.",
 
     pageTitleDataCapture: "Maintenance - Data Capture",
     pageTitleFormula: "Maintenance - Formula",
@@ -170,6 +172,7 @@ export const MAINTENANCE_I18N = {
     pleaseSelectDateRange: "请选择日期范围",
     noBankProcessTransactions: "未找到银行流程交易",
     searchFailed: "搜索失败",
+    searchRangeTooLarge: "该日期段数据量过大，请缩小日期范围或选择 Process 后再试。",
 
     pageTitleDataCapture: "维护 - 数据采集",
     pageTitleFormula: "维护 - 公式",

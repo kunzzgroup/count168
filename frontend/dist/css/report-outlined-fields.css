@@ -203,6 +203,63 @@ body.maintenance-page .report-outlined-shell:has(.maintenance-select:focus-visib
     color: #3b82f6;
 }
 
+/* Maintenance: search inside outlined shell — border on shell only (match date-range-picker) */
+body.maintenance-page .customer-report-filters .report-outlined-inner .search-container.maintenance-search-container,
+body.maintenance-page .customer-report-filters .report-outlined-inner .search-input-container.formula-search-input-container {
+    width: 100%;
+    min-width: 0;
+    position: relative;
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .search-container.maintenance-search-container .search-icon,
+body.maintenance-page .customer-report-filters .report-outlined-inner .search-input-container .search-icon {
+    left: clamp(6px, 0.4vw, 8px);
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .search-input,
+body.maintenance-page .customer-report-filters .report-outlined-inner .maintenance-search-input {
+    width: 100% !important;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin: 0;
+    border: none !important;
+    border-radius: inherit;
+    box-shadow: none !important;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    min-height: clamp(32px, 2.25vw, 36px);
+    padding: clamp(4px, 0.3vw, 6px) clamp(8px, 0.6vw, 12px) clamp(4px, 0.3vw, 6px) clamp(28px, 2vw, 34px) !important;
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: 600;
+    font-family: var(--font-heading-page);
+    color: #000;
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .search-input:focus,
+body.maintenance-page .customer-report-filters .report-outlined-inner .maintenance-search-input:focus,
+body.maintenance-page .customer-report-filters .report-outlined-inner .search-input:focus-visible,
+body.maintenance-page .customer-report-filters .report-outlined-inner .maintenance-search-input:focus-visible {
+    outline: none;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent;
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-shell:has(.search-input:focus-visible),
+body.maintenance-page .customer-report-filters .report-outlined-shell:has(.maintenance-search-input:focus-visible) {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-shell:has(.search-input:focus-visible) .report-outlined-label,
+body.maintenance-page .customer-report-filters .report-outlined-shell:has(.maintenance-search-input:focus-visible) .report-outlined-label {
+    color: #3b82f6;
+}
+
 /* Transaction: border belongs to shell; strip inner category button chrome */
 body.transaction-page .report-outlined-inner .category-dropdown-button {
     border: none !important;

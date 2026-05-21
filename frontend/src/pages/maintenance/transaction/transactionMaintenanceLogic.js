@@ -1,9 +1,13 @@
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { formatDmy, parseDdMmYyyyToYmd, parseYmd } from "../../../utils/dateUtils.js";
 
-/** Wider ranges are split so each response stays small (avoids HTTP/2 protocol errors on Hostinger). */
-const MAINTENANCE_CHUNK_DAYS = 31;
-const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 45;
+/** Initial date window per request — keeps server work bounded. */
+const MAINTENANCE_CHUNK_DAYS = 7;
+const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 31;
+/** Page sizes tried in order when a response is still too large. */
+const MAINTENANCE_PAGE_SIZES = [2500, 1500, 1000, 500, 250];
+const MAINTENANCE_FETCH_RETRIES = 6;
+const MAINTENANCE_RETRY_BASE_MS = 400;
 
 function isFetchAbortError(err, signal) {
   if (signal?.aborted) return true;
@@ -11,11 +15,31 @@ function isFetchAbortError(err, signal) {
   return false;
 }
 
-/** Browsers sometimes throw TypeError("Failed to fetch") on abort — normalize for React Query. */
 function rethrowIfAborted(err, signal) {
   if (!isFetchAbortError(err, signal)) return;
   if (err?.name === "AbortError") throw err;
   throw new DOMException("The operation was aborted.", "AbortError");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isMaintenanceTransferError(err) {
+  const msg = String(err?.message || "").toLowerCase();
+  return (
+    msg.includes("failed to fetch") ||
+    msg.includes("networkerror") ||
+    msg.includes("network error") ||
+    msg.includes("load failed") ||
+    msg.includes("http2") ||
+    msg.includes("search failed (502)") ||
+    msg.includes("search failed (503)") ||
+    msg.includes("search failed (504)") ||
+    msg.includes("search failed (413)") ||
+    msg.includes("search failed (524)") ||
+    msg.includes("search failed (520)")
+  );
 }
 
 /**
@@ -40,9 +64,6 @@ export async function fetchCompanyPermissions(companyCode) {
   return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
 }
 
-/**
- * Check if the company only has Bank permissions (legacy redirect rule)
- */
 export function isBankOnlyCategoryCompany(permissions) {
   if (!Array.isArray(permissions) || permissions.length === 0) return false;
   const hasBank = permissions.includes('Bank');
@@ -50,16 +71,13 @@ export function isBankOnlyCategoryCompany(permissions) {
   return hasBank && !hasGames;
 }
 
-/**
- * Fetch process list for a specific company
- */
 export async function fetchProcesses(companyId) {
   const params = new URLSearchParams();
   if (companyId) {
     params.append("company_id", companyId);
   }
   const url = buildApiUrl(`api/processes/processlist_api.php?${params.toString()}`);
-  
+
   const response = await fetch(url, { credentials: "include" });
   const data = await response.json();
   if (!data.success) {
@@ -69,23 +87,40 @@ export async function fetchProcesses(companyId) {
 }
 
 /**
- * Search transaction data (auto-splits wide date ranges into smaller API calls).
+ * Search transaction maintenance data.
+ * Automatically: splits wide date ranges → paginates each slice → retries → splits again on failure.
  */
 export async function searchTransactionData({ dateFrom, dateTo, process, companyId, category, signal }) {
-  const daySpan = maintenanceDateSpanDays(dateFrom, dateTo);
-  if (daySpan <= MAINTENANCE_CHUNK_THRESHOLD_DAYS) {
-    return searchTransactionMaintenanceOnce({ dateFrom, dateTo, process, companyId, category, signal });
-  }
+  const merged = await fetchMaintenanceDateRangeResilient({
+    dateFrom,
+    dateTo,
+    process,
+    companyId,
+    category,
+    signal,
+  });
+  merged.sort(compareMaintenanceRows);
+  merged.forEach((row, index) => {
+    row.no = index + 1;
+  });
+  return merged;
+}
 
-  const chunks = splitMaintenanceDateRange(dateFrom, dateTo, MAINTENANCE_CHUNK_DAYS);
+async function fetchMaintenanceDateRangeResilient({ dateFrom, dateTo, process, companyId, category, signal }) {
+  const daySpan = maintenanceDateSpanDays(dateFrom, dateTo);
+  const ranges =
+    daySpan > MAINTENANCE_CHUNK_THRESHOLD_DAYS
+      ? splitMaintenanceDateRange(dateFrom, dateTo, MAINTENANCE_CHUNK_DAYS)
+      : [{ dateFrom, dateTo }];
+
   const merged = [];
-  for (const chunk of chunks) {
+  for (const range of ranges) {
     if (signal?.aborted) {
       throw new DOMException("The operation was aborted.", "AbortError");
     }
-    const part = await searchTransactionMaintenanceOnce({
-      dateFrom: chunk.dateFrom,
-      dateTo: chunk.dateTo,
+    const part = await fetchMaintenanceRangeWithSplit({
+      dateFrom: range.dateFrom,
+      dateTo: range.dateTo,
       process,
       companyId,
       category,
@@ -93,12 +128,93 @@ export async function searchTransactionData({ dateFrom, dateTo, process, company
     });
     if (part.length) merged.push(...part);
   }
-
-  merged.sort(compareMaintenanceRows);
-  merged.forEach((row, index) => {
-    row.no = index + 1;
-  });
   return merged;
+}
+
+async function fetchMaintenanceRangeWithSplit(params) {
+  try {
+    return await fetchAllPagesForRange(params, 0);
+  } catch (err) {
+    rethrowIfAborted(err, params.signal);
+    if (!isMaintenanceTransferError(err)) throw err;
+
+    const daySpan = maintenanceDateSpanDays(params.dateFrom, params.dateTo);
+    if (daySpan <= 1) {
+      return fetchAllPagesForRange(params, MAINTENANCE_PAGE_SIZES.length - 1);
+    }
+
+    const [leftRange, rightRange] = splitMaintenanceDateRangeHalf(params.dateFrom, params.dateTo);
+    const left = await fetchMaintenanceRangeWithSplit({
+      ...params,
+      dateFrom: leftRange.dateFrom,
+      dateTo: leftRange.dateTo,
+    });
+    const right = await fetchMaintenanceRangeWithSplit({
+      ...params,
+      dateFrom: rightRange.dateFrom,
+      dateTo: rightRange.dateTo,
+    });
+    return left.concat(right);
+  }
+}
+
+async function fetchAllPagesForRange(params, pageSizeIndex) {
+  const pageSize = MAINTENANCE_PAGE_SIZES[Math.min(pageSizeIndex, MAINTENANCE_PAGE_SIZES.length - 1)];
+  const all = [];
+  let page = 1;
+
+  while (true) {
+    if (params.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+
+    let result;
+    try {
+      result = await fetchMaintenancePageWithRetries({ ...params, page, pageSize });
+    } catch (err) {
+      rethrowIfAborted(err, params.signal);
+      if (isMaintenanceTransferError(err) && pageSizeIndex < MAINTENANCE_PAGE_SIZES.length - 1) {
+        return fetchAllPagesForRange(params, pageSizeIndex + 1);
+      }
+      throw err;
+    }
+
+    if (result.data.length) all.push(...result.data);
+    if (!result.pagination?.has_more) break;
+    page += 1;
+  }
+
+  return all;
+}
+
+async function fetchMaintenancePageWithRetries(params) {
+  let lastErr;
+  for (let attempt = 0; attempt < MAINTENANCE_FETCH_RETRIES; attempt += 1) {
+    try {
+      return await searchTransactionMaintenanceOnce(params);
+    } catch (err) {
+      lastErr = err;
+      rethrowIfAborted(err, params.signal);
+      if (!isMaintenanceTransferError(err)) throw err;
+      if (attempt < MAINTENANCE_FETCH_RETRIES - 1) {
+        await sleep(MAINTENANCE_RETRY_BASE_MS * (attempt + 1));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+function splitMaintenanceDateRangeHalf(dateFrom, dateTo) {
+  const start = parseMaintenanceDmyDate(dateFrom);
+  const totalDays = maintenanceDateSpanDays(dateFrom, dateTo);
+  const mid = new Date(start);
+  mid.setDate(mid.getDate() + Math.floor(totalDays / 2) - 1);
+  const rightStart = new Date(mid);
+  rightStart.setDate(rightStart.getDate() + 1);
+  return [
+    { dateFrom, dateTo: formatDmy(mid) },
+    { dateFrom: formatDmy(rightStart), dateTo },
+  ];
 }
 
 function maintenanceDateSpanDays(dateFrom, dateTo) {
@@ -158,20 +274,25 @@ function compareMaintenanceRows(a, b) {
   return Number(b.transaction_id ?? 0) - Number(a.transaction_id ?? 0);
 }
 
-async function searchTransactionMaintenanceOnce({ dateFrom, dateTo, process, companyId, category, signal }) {
+async function searchTransactionMaintenanceOnce({
+  dateFrom,
+  dateTo,
+  process,
+  companyId,
+  category,
+  signal,
+  page = 1,
+  pageSize = MAINTENANCE_PAGE_SIZES[0],
+}) {
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);
   params.append("date_to", dateTo);
-  if (process) {
-    params.append("process", process);
-  }
-  if (companyId) {
-    params.append("company_id", companyId);
-  }
-  if (category) {
-    params.append("category", category);
-  }
-  
+  params.append("page", String(page));
+  params.append("page_size", String(pageSize));
+  if (process) params.append("process", process);
+  if (companyId) params.append("company_id", companyId);
+  if (category) params.append("category", category);
+
   const url = buildApiUrl(`api/transactions/maintenance_search_api.php?${params.toString()}`);
   let response;
   try {
@@ -185,6 +306,7 @@ async function searchTransactionMaintenanceOnce({ dateFrom, dateTo, process, com
     rethrowIfAborted(err, signal);
     throw new Error(err?.message || "Search failed");
   }
+
   let data;
   try {
     data = await response.json();
@@ -195,12 +317,18 @@ async function searchTransactionMaintenanceOnce({ dateFrom, dateTo, process, com
   if (!response.ok || !data.success) {
     throw new Error(data.error || data.message || "Search failed");
   }
-  return data.data || [];
+
+  const rows = Array.isArray(data.data) ? data.data : [];
+  const pagination = data.pagination ?? {
+    page,
+    page_size: pageSize,
+    total: rows.length,
+    has_more: false,
+  };
+
+  return { data: rows, pagination };
 }
 
-/**
- * Update session company
- */
 export async function updateSessionCompany(companyId) {
   const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`), {
     credentials: "include",
@@ -212,15 +340,12 @@ export async function updateSessionCompany(companyId) {
   return result.data;
 }
 
-/**
- * Format currency with 2 decimal places and thousands separator
- */
 export function formatAmount(value) {
-    if (value === null || value === undefined || value === '') return '-';
-    const val = parseFloat(value);
-    if (isNaN(val)) return '-';
-    return val.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+  if (value === null || value === undefined || value === '') return '-';
+  const val = parseFloat(value);
+  if (isNaN(val)) return '-';
+  return val.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }

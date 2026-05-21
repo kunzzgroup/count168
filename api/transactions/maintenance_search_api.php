@@ -10,8 +10,8 @@ header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
-@ini_set('memory_limit', '512M');
-@set_time_limit(300);
+@ini_set('memory_limit', '768M');
+@set_time_limit(600);
 
 /**
  * 统一 Rate 显示：最多 8 位小数，不补尾零（与 Data Summary / Payment History 一致）
@@ -178,6 +178,13 @@ try {
     $date_to   = $_GET['date_to']   ?? null;
     $process   = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string)$_GET['process']) : null; // process.process_id（如 SPORT）或 "SPORT (SPORT)" 或 process 表 id（数字）
     $category  = trim($_GET['category'] ?? $_GET['permission'] ?? ''); // Games|Bank|Loan|Rate|Money，按 category 只显示该部分数据
+
+    // 分页：前端传 page + page_size 时分页返回，避免单次 JSON 过大触发 HTTP/2 断连
+    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 0;
+    $page_size = isset($_GET['page_size']) ? (int)$_GET['page_size'] : 0;
+    if ($page_size > 0) {
+        $page_size = min(5000, max(200, $page_size));
+    }
 
     // 统一 process 为 process_id（代码）：前端可能传 "SPORT (SPORT)" 或数字 id
     if ($process !== null && $process !== '') {
@@ -690,11 +697,27 @@ try {
     }
     unset($result);
 
-    // 返回
-    echo json_encode([
-        'success' => true,
-        'data' => $formatted
-    ], JSON_UNESCAPED_UNICODE);
+    if ($page_size > 0) {
+        $page = $page > 0 ? $page : 1;
+        $total = count($formatted);
+        $offset = ($page - 1) * $page_size;
+        $slice = array_slice($formatted, $offset, $page_size);
+        echo json_encode([
+            'success' => true,
+            'data' => $slice,
+            'pagination' => [
+                'page' => $page,
+                'page_size' => $page_size,
+                'total' => $total,
+                'has_more' => ($offset + count($slice)) < $total,
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+    } else {
+        echo json_encode([
+            'success' => true,
+            'data' => $formatted,
+        ], JSON_UNESCAPED_UNICODE);
+    }
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode([

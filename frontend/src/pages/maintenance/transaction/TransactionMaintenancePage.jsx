@@ -124,7 +124,7 @@ export default function TransactionMaintenancePage() {
     gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
     retry: (failureCount, error) =>
-      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 2,
+      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 4,
   });
 
   const transactionData = transactionQuery.data ?? [];
