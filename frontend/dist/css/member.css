@@ -1021,6 +1021,8 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     --member-wl-matrix-scroll-ccy-threshold: 10;
     /* 矩阵右缘与 Total 分割线之间的留白 */
     --member-winloss-matrix-divider-gap: 10px;
+    /* 左栏 Account/Currency 选项条与竖分割线之间的留白 */
+    --member-winloss-filters-divider-gap: 4px;
 }
 
 .member-winloss-page .member-dash-columns--three-col:has(.member-balance-mini-matrix--many-ccy) {
@@ -1182,8 +1184,8 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     align-items: stretch;
     justify-content: flex-start;
     gap: 0;
-    /* 与右侧栏分割线留出统一内边距，避免 Date Range / Account / Currency 贴线 */
-    padding: 0 clamp(10px, 1.1vw, 14px) 0 0;
+    /* 与右侧竖分割线留出少量间距，避免选项贴线 */
+    padding: 0 var(--member-winloss-filters-divider-gap, 4px) 0 0;
     margin: 0;
     border-right: 1px solid #d1dae6;
     border-bottom: none;
@@ -1248,7 +1250,7 @@ body.member-winloss-page #member_currency_filter {
 /* Account / Currency：标签右对齐 + 与选项条统一间距（display:contents 行无法用 row gap） */
 body.member-winloss-page #member_account_filter > .user-gc-inline-label,
 body.member-winloss-page #member_currency_filter > .user-gc-inline-label {
-    padding-right: clamp(10px, 1vw, 14px);
+    padding-right: clamp(6px, 0.65vw, 10px);
     text-align: right;
 }
 
@@ -1265,9 +1267,17 @@ body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills 
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    padding-right: clamp(6px, 0.6vw, 10px);
+    padding-right: var(--member-winloss-filters-divider-gap, 4px);
     padding-bottom: 0;
     box-sizing: border-box;
+}
+
+/* 每行 segment 左对齐；换行后与首行 All 等同列起点对齐 */
+body.member-winloss-page #member_account_buttons .member-winloss-account-segments,
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments {
+    margin-inline-start: 0;
+    align-self: flex-start;
+    max-width: 100%;
 }
 
 body.member-winloss-page #member_account_buttons .member-winloss-account-segments {
