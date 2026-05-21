@@ -15,6 +15,7 @@ import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 import MemberMiniGrid, { MemberMiniGridTotals } from "./MemberMiniGrid.jsx";
+import MemberMoneyCell from "./MemberMoneyCell.jsx";
 import MemberLinkedFilterModal from "./MemberLinkedFilterModal.jsx";
 import { computeTableTotals, WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
@@ -646,9 +647,15 @@ export default function MemberPage() {
                               <td className="transaction-history-col-product">{row.is_bank_process_transaction ? row.card_owner || "-" : row.product || "-"}</td>
                               <td className="transaction-history-col-currency">{row.currency || "-"}</td>
                               <td className="transaction-history-col-rate">{row.rate || "-"}</td>
-                              <td className="transaction-history-col-winloss">{formatPaymentHistoryMoney(row.win_loss)}</td>
-                              <td className="transaction-history-col-crdr">{formatPaymentHistoryMoney(row.cr_dr)}</td>
-                              <td className="transaction-history-col-balance">{formatPaymentHistoryMoney(row.balance)}</td>
+                              <td className="transaction-history-col-winloss">
+                                <MemberMoneyCell value={row.win_loss} formatMoney={formatPaymentHistoryMoney} pill />
+                              </td>
+                              <td className="transaction-history-col-crdr">
+                                <MemberMoneyCell value={row.cr_dr} formatMoney={formatPaymentHistoryMoney} />
+                              </td>
+                              <td className="transaction-history-col-balance">
+                                <MemberMoneyCell value={row.balance} formatMoney={formatPaymentHistoryMoney} />
+                              </td>
                               <td className="transaction-history-col-description">{formatMemberRowDescription(lang, row)}</td>
                               <td className="transaction-history-col-remark text-uppercase">{String(row.remark || row.sms || "-").toUpperCase()}</td>
                             </tr>
@@ -661,9 +668,15 @@ export default function MemberPage() {
                           <td className="transaction-history-col-product">-</td>
                           <td className="transaction-history-col-currency">-</td>
                           <td className="transaction-history-col-rate">-</td>
-                          <td className="transaction-history-col-winloss">{formatPaymentHistoryMoney(totalWinLoss.toString())}</td>
-                          <td className="transaction-history-col-crdr">{formatPaymentHistoryMoney(totalCrDr.toString())}</td>
-                          <td className="transaction-history-col-balance">{formatPaymentHistoryMoney(closingBalance.toString())}</td>
+                          <td className="transaction-history-col-winloss">
+                            <MemberMoneyCell value={totalWinLoss.toString()} formatMoney={formatPaymentHistoryMoney} pill />
+                          </td>
+                          <td className="transaction-history-col-crdr">
+                            <MemberMoneyCell value={totalCrDr.toString()} formatMoney={formatPaymentHistoryMoney} />
+                          </td>
+                          <td className="transaction-history-col-balance">
+                            <MemberMoneyCell value={closingBalance.toString()} formatMoney={formatPaymentHistoryMoney} pill />
+                          </td>
                           <td className="transaction-history-col-description">-</td>
                           <td className="transaction-history-col-remark">-</td>
                         </tr>
