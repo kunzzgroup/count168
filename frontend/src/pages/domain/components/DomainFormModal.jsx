@@ -482,7 +482,7 @@ export default function DomainFormModal({
         <div className="domain-form-modal-panel relative mx-auto my-[1.5%] flex w-[96%] max-w-[1100px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
           <div className="dfm-header flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
             <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
-            <button className="flex h-9 w-9 items-center justify-center rounded-full border-0 bg-transparent text-[26px] text-black transition-colors hover:bg-gray-200" onClick={onClose}>&times;</button>
+            <button type="button" className="account-close" onClick={onClose} aria-label="Close" />
           </div>
           <form className="domain-form-modal-form flex flex-col bg-white" onSubmit={handleSubmit}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />

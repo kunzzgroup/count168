@@ -1,12 +1,12 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { bankProcessFrequencyNormalized } from "../bankProcessHelpers.js";
+import { BankFormDateField } from "./bankProcessFormFields.jsx";
 
 export default function ResendModal({
   resendTarget,
   resendDayStart,
-  setResendDayStart,
   resendDayEnd,
-  setResendDayEnd,
   resendFrequency,
   setResendFrequency,
   resendInlineError,
@@ -20,7 +20,8 @@ export default function ResendModal({
   const hasDayEnd = !!String(resendDayEnd || "").trim();
 
   return (
-    <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={processModalBackdropStyle}>
       <div className="process-confirm-modal-content bank-resend-modal-content">
         <div className="bank-resend-modal-hero">
           <div className="process-confirm-icon-container bank-resend-modal-icon-wrap">
@@ -42,35 +43,26 @@ export default function ResendModal({
             </p>
           </div>
           <div className="bank-resend-schedule-grid">
-            <div className="bank-resend-field">
-              <label className="bank-resend-field__label" htmlFor="bank_resend_day_start">{t("dayStart")}</label>
-              <input
-                id="bank_resend_day_start"
-                className={`bank-resend-control${resendInlineError ? " bank-resend-control--error" : ""}`}
-                type="date"
-                autoComplete="off"
-                value={resendDayStart}
-                onChange={(e) => {
-                  setResendInlineError("");
-                  setResendDayStart(e.target.value);
-                }}
-              />
-            </div>
-            <div className="bank-resend-field">
-              <label className="bank-resend-field__label" htmlFor="bank_resend_day_end">{t("dayEnd")}</label>
-              <input
-                id="bank_resend_day_end"
-                className="bank-resend-control"
-                type="date"
-                autoComplete="off"
-                min={isOnce ? undefined : (resendDayStart || undefined)}
-                disabled={isOnce}
-                title={isOnce ? t("dayEndNotUsedWhenOnce") : undefined}
-                style={isOnce ? { opacity: 0.55 } : undefined}
-                value={resendDayEnd}
-                onChange={(e) => setResendDayEnd(e.target.value)}
-              />
-            </div>
+            <BankFormDateField
+              fieldKey="bank_resend_day_start"
+              htmlFor="bank_resend_day_start"
+              label={t("dayStart")}
+              value={resendDayStart}
+              placeholder={t("pickDate")}
+              clearLabel={t("clearDate")}
+              className={`bank-resend-datepicker-field${resendInlineError ? " bank-resend-datepicker-field--error" : ""}`}
+            />
+            <BankFormDateField
+              fieldKey="bank_resend_day_end"
+              htmlFor="bank_resend_day_end"
+              label={t("dayEnd")}
+              value={resendDayEnd}
+              disabled={isOnce}
+              minYmd={isOnce ? undefined : (resendDayStart || undefined)}
+              placeholder={t("pickDate")}
+              clearLabel={t("clearDate")}
+              className={isOnce ? "bank-resend-day-end-field--muted" : ""}
+            />
             <div className="bank-resend-field bank-resend-field--full">
               <label className="bank-resend-field__label" htmlFor="bank_resend_frequency">{t("frequency")}</label>
               <select
@@ -108,5 +100,6 @@ export default function ResendModal({
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

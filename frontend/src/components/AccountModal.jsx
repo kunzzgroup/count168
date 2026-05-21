@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { accountModalOverlayZIndex } from "./ProcessModalPortal.jsx";
 
 function upper(v) {
   return String(v || "").toUpperCase();
@@ -34,6 +35,8 @@ export default function AccountModal({
   t,
   /** When nested above other modals (e.g. Domain Company Settings at 2147483001) */
   overlayZIndex,
+  /** Render on document.body so z-index is not trapped inside #root .container (default: true) */
+  portalToBody = true,
 }) {
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
@@ -66,11 +69,15 @@ export default function AccountModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [companyPickerOpen]);
 
-  const companyRows = useMemo(
-    () =>
-      Array.isArray(companies) ? companies.filter((c) => c?.company_id && String(c.company_id).trim() !== "") : [],
-    [companies]
-  );
+  const companyRows = useMemo(() => {
+    if (!Array.isArray(companies)) return [];
+    return companies
+      .map((c) => ({
+        ...c,
+        company_id: c?.company_id ?? c?.company_code ?? c?.companyId ?? c?.code ?? "",
+      }))
+      .filter((c) => String(c.company_id || "").trim() !== "");
+  }, [companies]);
 
   const selectedCompanyLabels = useMemo(() => {
     const set = new Set(selectedCompanyIds.map(Number));
@@ -165,6 +172,8 @@ export default function AccountModal({
 
   return (
     <>
+    {(() => {
+      const modalNode = (
     <div
       id={modalId}
       className="account-modal"
@@ -172,15 +181,13 @@ export default function AccountModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        ...(overlayZIndex != null ? { zIndex: overlayZIndex } : {}),
+        zIndex: overlayZIndex ?? accountModalOverlayZIndex,
       }}
     >
       <div className="account-modal-content">
         <div className="account-modal-header">
           <h2>{title}</h2>
-          <span className="account-close" onClick={onClose} role="presentation">
-            &times;
-          </span>
+          <span className="account-close" onClick={onClose} role="button" tabIndex={0} aria-label="Close" onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose(); } }} />
         </div>
         <div className="account-modal-body">
           <form className="account-form" onSubmit={onSubmit}>
@@ -382,6 +389,12 @@ export default function AccountModal({
         </div>
       </div>
     </div>
+      );
+      if (portalToBody && typeof document !== "undefined" && document.body) {
+        return createPortal(modalNode, document.body);
+      }
+      return modalNode;
+    })()}
     {companyPickerOpen
       ? createPortal(
           <div className="user-modal-company-picker-root user-modal-company-picker-root--above-modals">

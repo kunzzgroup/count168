@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../transactionFormat.js";
 
 export default function TransactionHistoryModal({
@@ -20,10 +21,23 @@ export default function TransactionHistoryModal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [history.open, setHistory]);
 
+  // Portal to body: `.transaction-container` has transform (premiumEntrance), which breaks
+  // `position: fixed` and centers the modal against the full page height instead of the viewport.
+  useEffect(() => {
+    if (!history.open) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [history.open]);
+
   const closeModal = () => setHistory((h) => ({ ...h, open: false }));
 
-  return (
-    <div id="historyModal" className="transaction-modal" style={{ display: history.open ? "flex" : "none" }}>
+  if (!history.open) return null;
+
+  const modal = (
+    <div id="historyModal" className="transaction-modal" style={{ display: "flex" }}>
       <div className="transaction-modal-content transaction-history-modal">
         <div className="transaction-modal-header">
           <h3 id="modal_title">{history.title}</h3>
@@ -115,4 +129,7 @@ export default function TransactionHistoryModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined" || !document.body) return null;
+  return createPortal(modal, document.body);
 }

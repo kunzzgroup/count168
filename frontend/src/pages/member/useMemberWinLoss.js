@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiUrl } from "../../utils/apiUrl.js";
+import { getMemberText, translateMemberApiMessage } from "../../translateFile/memberTranslate.js";
 import { MoneyDecimal } from "../../utils/moneyDecimal.js";
 import {
   MINI_GRID_SHELL_CCY,
   accountHoldsMiniGridCurrency,
+  applyCurrencyToggle,
   applyDefaultWLGridSelection,
   formatPaymentHistoryMoney,
   getAvailableCurrencies,
@@ -81,7 +83,14 @@ function mapBatchCurrencies(data, currencySortOrderRef) {
   return map;
 }
 
-export function useMemberWinLoss({ showNotification }) {
+export function useMemberWinLoss({ showNotification, lang }) {
+  const t = useCallback((key, params) => getMemberText(lang, key, params), [lang]);
+  const notifyApi = useCallback(
+    (message, type, fallbackKey, params = {}) => {
+      showNotification(translateMemberApiMessage(lang, message, fallbackKey, params), type);
+    },
+    [lang, showNotification],
+  );
   const [loginRootAccountId, setLoginRootAccountId] = useState(0);
   const [viewAccountId, setViewAccountId] = useState(0);
   const [companyId, setCompanyId] = useState(0);
@@ -268,6 +277,17 @@ export function useMemberWinLoss({ showNotification }) {
 
   const showMiniRail = linkedAccounts.length > 0 && miniGridCurrencies.length > 0;
 
+  const miniGridDisplayCurrencies = useMemo(() => {
+    if (miniGridShell) return MINI_GRID_SHELL_CCY;
+    if (miniGridCurrencies.length > 0) return miniGridCurrencies;
+    if (availableCurrencies.length > 0) {
+      return isAllSelected
+        ? availableCurrencies
+        : availableCurrencies.filter((c) => selectedCurrencies.includes(c));
+    }
+    return MINI_GRID_SHELL_CCY;
+  }, [miniGridShell, miniGridCurrencies, availableCurrencies, isAllSelected, selectedCurrencies]);
+
   const miniGridAccounts = useMemo(
     () =>
       getOrderedMiniGridAccounts(
@@ -319,8 +339,8 @@ export function useMemberWinLoss({ showNotification }) {
         setMiniGridTotals(new Map());
         setMiniGridHint(
           orderUpper.length > 1
-            ? "No accounts in the grid hold any of these currencies."
-            : `No accounts in the grid hold ${orderUpper[0]}.`,
+            ? t("noAccountsHoldCurrencies")
+            : t("noAccountsHoldCurrency", { currency: orderUpper[0] }),
         );
         return;
       }
@@ -345,7 +365,7 @@ export function useMemberWinLoss({ showNotification }) {
               signal,
             });
             const json = await parseJsonResponse(await res.text());
-            if (!json?.success) throw new Error(json?.error || "Could not load history");
+            if (!json?.success) throw new Error(json?.error || t("couldNotLoadHistory"));
             const wanted = new Set(orderUpper);
             const byCur = memberHistoryClosingBalancesForAllCurrencies(json.data?.history ?? [], wanted);
             return { id, byCurMap: byCur };
@@ -379,10 +399,10 @@ export function useMemberWinLoss({ showNotification }) {
         if (seq !== searchSeqRef.current) return;
         setMiniGridBalances(new Map());
         setMiniGridTotals(new Map());
-        setMiniGridHint(e?.message || "Could not load grid.");
+        setMiniGridHint(translateMemberApiMessage(lang, e?.message, "couldNotLoadGrid"));
       }
     },
-    [linkedAccounts, wlGridSelectedIds, linkedAccountCurrenciesMap, linkedCurrenciesLoaded],
+    [linkedAccounts, wlGridSelectedIds, linkedAccountCurrenciesMap, linkedCurrenciesLoaded, lang, t],
   );
 
   const fetchMemberHistory = useCallback(
@@ -392,16 +412,14 @@ export function useMemberWinLoss({ showNotification }) {
       historyAbortRef.current = new AbortController();
       const signal = historyAbortRef.current.signal;
 
-      const useAll = selectionOverride?.isAllSelected ?? isAllSelected;
-      const useSelected = selectionOverride?.selectedCurrencies ?? selectedCurrencies;
-      let targetCurrencies = useAll ? availableCurrencies : [...useSelected];
+      let useAll = selectionOverride?.isAllSelected ?? isAllSelected;
+      let useSelected = selectionOverride?.selectedCurrencies ?? selectedCurrencies;
+      if (!useAll && (!useSelected?.length) && availableCurrencies.length > 0) {
+        useAll = true;
+        useSelected = [];
+      }
+      const targetCurrencies = useAll ? availableCurrencies : [...useSelected];
       if (!targetCurrencies.length) {
-        if (availableCurrencies.length > 0) {
-          setHistoryRows([]);
-          setMiniGridBalances(new Map());
-          setMiniGridTotals(new Map());
-          return;
-        }
         const params = new URLSearchParams({
           account_id: String(viewAccountId),
           date_from: dateFrom,
@@ -418,16 +436,16 @@ export function useMemberWinLoss({ showNotification }) {
           if (seq !== searchSeqRef.current) return;
           if (!json?.success) {
             setHistoryRows([]);
-            showNotification(json?.error || "No data in the selected date range.", "info");
+            notifyApi(json?.error, "info", "noDataInRange");
             return;
           }
           setHistoryRows(Array.isArray(json.data?.history) ? json.data.history : []);
-          showNotification("Query completed", "success");
+          showNotification(t("queryCompleted"), "success");
         } catch (e) {
           if (e?.name === "AbortError") return;
           if (seq !== searchSeqRef.current) return;
           setHistoryRows([]);
-          showNotification(e?.message || "No data in the selected date range.", "info");
+          notifyApi(e?.message, "info", "noDataInRange");
         }
         const gridCur = getMemberMiniGridCurrencies(availableCurrencies, useAll, useSelected);
         await refreshMiniGrid(seq, gridCur, dateFrom, dateTo, viewAccountId, companyId);
@@ -451,15 +469,15 @@ export function useMemberWinLoss({ showNotification }) {
         });
         const json = await parseJsonResponse(await res.text());
         if (seq !== searchSeqRef.current) return;
-        if (!json?.success) throw new Error(json?.error || "Query failed");
+        if (!json?.success) throw new Error(json?.error || t("queryFailed"));
         const history = json.data?.history || [];
         setHistoryRows(history);
-        showNotification("Query completed", "success");
+        showNotification(t("queryCompleted"), "success");
       } catch (e) {
         if (e?.name === "AbortError") return;
         if (seq !== searchSeqRef.current) return;
         setHistoryRows([]);
-        showNotification(e?.message || "Query failed", "error");
+        notifyApi(e?.message, "error", "queryFailed");
       }
       const gridCur = getMemberMiniGridCurrencies(availableCurrencies, useAll, useSelected);
       await refreshMiniGrid(seq, gridCur, dateFrom, dateTo, viewAccountId, companyId);
@@ -474,6 +492,8 @@ export function useMemberWinLoss({ showNotification }) {
       availableCurrencies,
       refreshMiniGrid,
       showNotification,
+      notifyApi,
+      t,
     ],
   );
 
@@ -498,7 +518,7 @@ export function useMemberWinLoss({ showNotification }) {
         });
         const json = await parseJsonResponse(await res.text());
         if (seq !== searchSeqRef.current) return false;
-        if (!json?.success) throw new Error(json?.error || "Failed to load currency summary");
+        if (!json?.success) throw new Error(json?.error || t("failedLoadCurrencySummary"));
         const rows = [...(json.data?.left_table || []), ...(json.data?.right_table || [])].filter(
           (r) => Number(r.account_db_id) === Number(viewAccountId),
         );
@@ -525,11 +545,11 @@ export function useMemberWinLoss({ showNotification }) {
         if (seq !== searchSeqRef.current) return false;
         setCurrencySummary([]);
         currencySortOrderRef.current = {};
-        showNotification(e?.message || "Failed to load currency data", "error");
+        notifyApi(e?.message, "error", "failedLoadCurrencyData");
         return false;
       }
     },
-    [viewAccountId, companyId, dateFrom, dateTo, showNotification],
+    [viewAccountId, companyId, dateFrom, dateTo, notifyApi, t],
   );
 
   const performMemberSearch = useCallback(async () => {
@@ -576,20 +596,20 @@ export function useMemberWinLoss({ showNotification }) {
           credentials: "include",
         });
         const json = await parseJsonResponse(await res.text());
-        if (!json?.success) throw new Error(json?.error || "Failed to switch company");
+        if (!json?.success) throw new Error(json?.error || t("failedSwitchCompany"));
         if (typeof window.updateSidebarDataCaptureVisibility === "function" && json?.data) {
           window.updateSidebarDataCaptureVisibility(json.data.has_gambling, json.data.has_bank);
         }
         setCompanyId(Number(nextCompanyId));
-        showNotification(`Switched to company ${companyLabel || nextCompanyId}`, "success");
+        showNotification(t("switchedToCompany", { label: companyLabel || nextCompanyId }), "success");
         await reloadLinkedChain(loginRootAccountId, Number(nextCompanyId));
         await loadOwnedCurrencies(viewAccountId, Number(nextCompanyId));
         await performMemberSearch();
       } catch (e) {
-        showNotification(e?.message || "Failed to switch company", "error");
+        notifyApi(e?.message, "error", "failedSwitchCompany");
       }
     },
-    [companyId, loginRootAccountId, viewAccountId, reloadLinkedChain, loadOwnedCurrencies, performMemberSearch, showNotification],
+    [companyId, loginRootAccountId, viewAccountId, reloadLinkedChain, loadOwnedCurrencies, performMemberSearch, notifyApi, showNotification, t],
   );
 
   const switchAccount = useCallback(
@@ -600,18 +620,21 @@ export function useMemberWinLoss({ showNotification }) {
           credentials: "include",
         });
         const json = await parseJsonResponse(await res.text());
-        if (!json?.success) throw new Error(json?.message || "Switch failed");
+        if (!json?.success) throw new Error(json?.message || t("switchFailed"));
         const payload = json.data || json;
         const newId = Number(payload.account_id) || Number(nextAccountId);
         setViewAccountId(newId);
-        showNotification(`Switched to account ${payload.account_code || code || name || newId}`, "success");
+        showNotification(
+          t("switchedToAccount", { label: payload.account_code || code || name || newId }),
+          "success",
+        );
         await loadOwnedCurrencies(newId, companyId);
         await performMemberSearch();
       } catch (e) {
-        showNotification(e?.message || "Failed to switch account", "error");
+        notifyApi(e?.message, "error", "failedSwitchAccount");
       }
     },
-    [viewAccountId, companyId, loadOwnedCurrencies, performMemberSearch, showNotification],
+    [viewAccountId, companyId, loadOwnedCurrencies, performMemberSearch, notifyApi, showNotification, t],
   );
 
   const persistCurrencyOrder = useCallback(
@@ -628,14 +651,14 @@ export function useMemberWinLoss({ showNotification }) {
           setCurrencyOrder(Array.isArray(json?.data?.order) ? json.data.order : nextOrder);
           setIsAllSelected(true);
           setSelectedCurrencies([]);
-          showNotification("货币顺序已保存", "success");
+          showNotification(t("currencyOrderSaved"), "success");
           await fetchMemberHistory();
         }
       } catch {
-        showNotification("保存顺序失败", "error");
+        showNotification(t("saveOrderFailed"), "error");
       }
     },
-    [fetchMemberHistory, showNotification],
+    [fetchMemberHistory, showNotification, t],
   );
 
   const applyWlGridSelection = useCallback(
@@ -677,14 +700,12 @@ export function useMemberWinLoss({ showNotification }) {
 
   const onCurrencyToggle = useCallback(
     (code) => {
-      const nextSelected = selectedCurrencies.includes(code)
-        ? selectedCurrencies.filter((c) => c !== code)
-        : [...selectedCurrencies, code];
-      setIsAllSelected(false);
-      setSelectedCurrencies(nextSelected);
-      fetchMemberHistory(searchSeqRef.current, { isAllSelected: false, selectedCurrencies: nextSelected });
+      const next = applyCurrencyToggle(availableCurrencies, isAllSelected, selectedCurrencies, code);
+      setIsAllSelected(next.isAllSelected);
+      setSelectedCurrencies(next.selectedCurrencies);
+      fetchMemberHistory(searchSeqRef.current, next);
     },
-    [selectedCurrencies, fetchMemberHistory],
+    [availableCurrencies, isAllSelected, selectedCurrencies, fetchMemberHistory],
   );
 
   useEffect(() => {
@@ -702,9 +723,21 @@ export function useMemberWinLoss({ showNotification }) {
       wlGridSelectedIds,
       linkedAccounts,
     );
-    setIsAllSelected(sanitized.isAllSelected);
-    setSelectedCurrencies(sanitized.selectedCurrencies);
-  }, [availableCurrencies, linkedCurrenciesLoaded, wlGridSelectedIds, linkedAccounts]);
+    setIsAllSelected((prev) => (prev === sanitized.isAllSelected ? prev : sanitized.isAllSelected));
+    setSelectedCurrencies((prev) => {
+      const next = sanitized.selectedCurrencies;
+      if (prev.length === next.length && prev.every((c, i) => c === next[i])) return prev;
+      return next;
+    });
+  }, [
+    availableCurrencies,
+    linkedCurrenciesLoaded,
+    linkedAccountCurrenciesMap,
+    wlGridSelectedIds,
+    linkedAccounts,
+    isAllSelected,
+    selectedCurrencies,
+  ]);
 
   useEffect(() => {
     if (loginRootAccountId && companyId) {
@@ -746,6 +779,7 @@ export function useMemberWinLoss({ showNotification }) {
     selectedCurrencies,
     availableCurrencies,
     miniGridCurrencies,
+    miniGridDisplayCurrencies,
     miniGridShell,
     miniGridBalances,
     miniGridTotals,

@@ -1,7 +1,158 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { accountModalOverlayZIndex, portalToDocumentBody } from "../../../components/ProcessModalPortal.jsx";
 import { toUpper } from "../accountLogic.js";
 
-export default function CurrencySettingModal({
+const confirmModalZIndex = accountModalOverlayZIndex + 50;
+
+export function AccountConfirmModal({ open, message, onConfirm, onClose, t }) {
+  if (!open) return null;
+  return portalToDocumentBody(
+    <div id="confirmDeleteModal" className="account-modal" role="dialog" aria-modal="true" style={{ zIndex: confirmModalZIndex }}>
+      <div className="account-confirm-modal-content">
+        <div className="account-confirm-icon-container">
+          <svg className="account-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h2 className="account-confirm-title">{t("confirmDelete")}</h2>
+        <p id="confirmDeleteMessage" className="account-confirm-message">
+          {message || t("actionCannotUndone")}
+        </p>
+        <div className="account-confirm-actions">
+          <button type="button" className="btn btn-cancel confirm-cancel" onClick={onClose}>
+            {t("cancel")}
+          </button>
+          <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
+            {t("delete")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LinkAccountModal({
+  open,
+  accounts,
+  currentAccountId,
+  selectedIds,
+  setSelectedIds,
+  linkType,
+  setLinkType,
+  searchTerm,
+  setSearchTerm,
+  onSave,
+  onClose,
+  t,
+}) {
+  if (!open) return null;
+
+  const rows = useMemo(() => {
+    const q = String(searchTerm || "").trim().toLowerCase();
+    return (accounts || [])
+      .filter((a) => Number(a.id) !== Number(currentAccountId))
+      .filter((a) => {
+        if (!q) return true;
+        const text = `${a.account_id || ""} ${a.name || ""}`.toLowerCase();
+        return text.includes(q);
+      });
+  }, [accounts, currentAccountId, searchTerm]);
+
+  return portalToDocumentBody(
+    <div id="linkAccountModal" className="account-modal" style={{ display: "block", zIndex: accountModalOverlayZIndex }}>
+      <div className="account-modal-content">
+        <div className="account-modal-header">
+          <h2>{t("linkAccountTitle")}</h2>
+          <span className="account-close" onClick={onClose} role="button" tabIndex={0} aria-label={t("close")} />
+        </div>
+        <div className="link-account-fixed-area">
+          <div className="link-account-toolbar-row">
+            <div className="link-type-pills">
+              <label className="link-type-pill">
+                <input
+                  type="radio"
+                  name="linkType"
+                  value="bidirectional"
+                  checked={linkType === "bidirectional"}
+                  onChange={() => setLinkType("bidirectional")}
+                  className="link-type-radio"
+                />
+                <span className="link-type-pill-check">&#10003;</span>
+                <span className="link-type-pill-text">{t("bidirectional")}</span>
+              </label>
+              <label className="link-type-pill">
+                <input
+                  type="radio"
+                  name="linkType"
+                  value="unidirectional"
+                  checked={linkType === "unidirectional"}
+                  onChange={() => setLinkType("unidirectional")}
+                  className="link-type-radio"
+                />
+                <span className="link-type-pill-check">&#10003;</span>
+                <span className="link-type-pill-text">{t("unidirectional")}</span>
+              </label>
+            </div>
+            <div className="search-container userlist-search-bar link-account-toolbar-search">
+              <span className="userlist-search-bar__icon" aria-hidden="true">
+                <svg fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                className="search-input userlist-search-input"
+                placeholder={t("searchAccount")}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="link-type-desc">
+            {linkType === "bidirectional"
+              ? t("bidirectionalDesc")
+              : t("unidirectionalDesc")}
+          </p>
+        </div>
+        <div className="account-modal-body link-account-modal-body">
+          <div className="link-account-list">
+            {rows.map((acc) => {
+              const id = Number(acc.id);
+              const checked = selectedIds.has(id);
+              return (
+                <label key={id} className={`link-account-item ${checked ? "selected" : ""}`}>
+                  <input
+                    type="checkbox"
+                    className="link-account-checkbox"
+                    checked={checked}
+                    onChange={(e) =>
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(id);
+                        else next.delete(id);
+                        return next;
+                      })
+                    }
+                  />
+                  <span>{toUpper(acc.account_id)}</span>
+                </label>
+              );
+            })}
+            {rows.length === 0 && (
+              <div className="currency-toggle-note">{t("noAccountsToLink")}</div>
+            )}
+          </div>
+        </div>
+        <div className="account-form-actions link-account-form-actions">
+          <button type="button" className="btn btn-add" onClick={onSave}>{t("save")}</button>
+          <button type="button" className="btn btn-currency-setting" onClick={onClose}>{t("cancel")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function CurrencySettingModal({
   open,
   onClose,
   currencies,
@@ -58,10 +209,9 @@ export default function CurrencySettingModal({
     return matchesQ && matchesRole;
   });
 
-  return (
-    <div id="currencySettingModal" className="currency-fullscreen-modal" style={{ display: "block" }}>
+  return portalToDocumentBody(
+    <div id="currencySettingModal" className="currency-fullscreen-modal" style={{ display: "block", zIndex: accountModalOverlayZIndex }}>
       <div className="currency-fullscreen-modal-content">
-        {/* Top Header Bar */}
         <div className="currency-fullscreen-modal-header-bar">
           <h2>{t("currencySetting")}</h2>
           <button type="button" className="currency-btn-back" onClick={onClose}>
@@ -72,13 +222,11 @@ export default function CurrencySettingModal({
           </button>
         </div>
 
-        {/* Body */}
         <div className="currency-fullscreen-modal-body">
-          {/* Left Panel: Currency Management */}
           <div className="currency-left-panel">
             <div className="currency-setting-add-row-stacked">
               <label>{t("addCurrency")}</label>
-              <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+              <div className="currency-setting-add-actions">
                 <input
                   type="text"
                   className="currency-setting-input"
@@ -124,7 +272,6 @@ export default function CurrencySettingModal({
             </div>
           </div>
 
-          {/* Right Panel: Accounts — match User modal account-grid / process cards */}
           <div className="currency-right-panel">
             <div className="currency-setting-filter-row">
               <div className="currency-setting-filter-left">
@@ -236,7 +383,6 @@ export default function CurrencySettingModal({
           </div>
         </div>
 
-        {/* Fixed Bottom Bar */}
         <div className="currency-fullscreen-bottom-bar">
           <button
             type="button"
@@ -255,4 +401,3 @@ export default function CurrencySettingModal({
     </div>
   );
 }
-

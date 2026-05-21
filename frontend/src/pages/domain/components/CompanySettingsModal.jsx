@@ -306,20 +306,15 @@ export default function CompanySettingsModal({
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <div className="company-settings-react-modal modal-content company-settings-modal-content--split relative mx-auto mt-[2%] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
-        <span
-          className="close"
-          role="button"
-          tabIndex={0}
-          aria-label={isZh ? "关闭" : "Close"}
-          onClick={onClose}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault()
-              onClose()
-            }
-          }}
-        >&times;</span>
-        <h2 className="m-0 w-full border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)] text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">{t("companySettings")}</h2>
+        <div className="modal-header company-settings-modal-header border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)]">
+          <h2 className="m-0 text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">{t("companySettings")}</h2>
+          <button
+            type="button"
+            className="account-close"
+            aria-label={isZh ? "关闭" : "Close"}
+            onClick={onClose}
+          />
+        </div>
         <div className="company-settings-modal-body">
           <div className="company-settings-split">
             {/* ── Left: General ── */}

@@ -8,6 +8,7 @@ export const SECONDARY_VERIFY_I18N = {
     digitsSix: "Please enter exactly 6 digits",
     genericError: "An error occurred. Please try again.",
     switchLang: "Switch language",
+    backToLogin: "Back to login",
   },
   zh: {
     title: "二级密码验证",
@@ -18,5 +19,6 @@ export const SECONDARY_VERIFY_I18N = {
     digitsSix: "请输入完整的 6 位数字",
     genericError: "发生错误，请稍后重试。",
     switchLang: "切换语言",
+    backToLogin: "返回登录",
   },
 }

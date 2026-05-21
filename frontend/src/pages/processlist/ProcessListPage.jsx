@@ -870,6 +870,10 @@ export default function ProcessListPage() {
       notify(t("needAtLeastOneDescription"), "danger");
       return;
     }
+    if (!form.currency_id) {
+      notify(t("selectCurrency"), "danger");
+      return;
+    }
 
     if (!editMode) {
       if (!form.is_multi_process && (!form.process_name || !String(form.process_name).trim())) {

@@ -1,6 +1,5 @@
 import React from "react";
 import { assetUrl } from "../../../utils/apiUrl.js";
-import { GAMES_PROCESS_GRID_COLUMNS, GAMES_PROCESS_GRID_COLUMNS_WITH_SELECT } from "../processListHelpers.js";
 
 function upperCell(val) {
   if (val == null || val === "") return "";
@@ -40,10 +39,6 @@ export default function ProcessTable({
   const allDeletableSelected =
     deletableRows.length > 0 && deletableRows.every((r) => selectedIds.has(r.id));
 
-  const gridCols = showSelectColumn ? GAMES_PROCESS_GRID_COLUMNS_WITH_SELECT : GAMES_PROCESS_GRID_COLUMNS;
-  const headerStyle = { gridTemplateColumns: gridCols };
-  const rowStyle = { gridTemplateColumns: gridCols };
-
   const sortableHeader = (label, columnKey) => (
     <div
       className="header-item gambling-header header-item--with-sort-icon header-sortable"
@@ -64,11 +59,11 @@ export default function ProcessTable({
 
   return (
     <div
-      className={`process-table-wrapper${showSelectColumn ? " process-table-wrapper--select-col" : ""}`}
+      className={`process-table-wrapper games-process-table${showSelectColumn ? " process-table-wrapper--select-col" : ""}`}
       id="processTableWrapper"
       style={showAll ? { overflow: "visible" } : undefined}
     >
-      <div className="table-header" id="tableHeader" style={headerStyle}>
+      <div className="table-header games-process-table-header" id="tableHeader">
         <div className="header-item gambling-header">
           <span className="header-item__label">{t("noColumn")}</span>
         </div>
@@ -121,13 +116,13 @@ export default function ProcessTable({
         {!tableLoading &&
           pageRows.map((row, idx) => (
             <div
-              className="process-card"
+              className="process-card games-process-row"
               key={row.id}
               data-id={row.id}
               style={
                 showAll
-                  ? { flex: "none", minHeight: 26, alignItems: "center", ...rowStyle }
-                  : rowStyle
+                  ? { flex: "none", minHeight: 26, alignItems: "center" }
+                  : undefined
               }
             >
               <div className="card-item">

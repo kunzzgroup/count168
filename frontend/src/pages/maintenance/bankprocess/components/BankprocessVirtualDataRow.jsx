@@ -47,8 +47,11 @@ const BankprocessVirtualDataRow = memo(function BankprocessVirtualDataRow({
       >
         {amountDisplay}
       </div>
-      <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left bankprocess-virtual-cell--wrap bankprocess-virtual-cell--description">
-        <span className="bankprocess-cell-clamp-2">{row.description || "-"}</span>
+      <div
+        role="cell"
+        className="maintenance-virtual-cell maintenance-virtual-cell--left bankprocess-virtual-cell--wrap bankprocess-virtual-cell--description text-uppercase"
+      >
+        <span className="bankprocess-cell-clamp-2">{toUpperDisplay(row.description)}</span>
       </div>
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left bankprocess-virtual-cell--wrap text-uppercase">
         <span className="bankprocess-cell-clamp-2">{toUpperDisplay(row.remark)}</span>

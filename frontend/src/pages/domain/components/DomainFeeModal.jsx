@@ -78,13 +78,10 @@ export default function DomainFeeModal({ onClose, onFeeSaved, lang = "en" }) {
         }}
       >
         <div className="domain-fee-react-modal modal-content">
-        <span className="close" role="button" tabIndex={0} onClick={onClose} onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            onClose()
-          }
-        }}>&times;</span>
-        <h2>{t("price")}</h2>
+        <div className="modal-header domain-fee-modal-header">
+          <h2>{t("price")}</h2>
+          <button type="button" className="account-close" onClick={onClose} aria-label="Close" />
+        </div>
         <div className="modal-body">
           <p className="domain-fee-description">
             {t("priceDescription")}

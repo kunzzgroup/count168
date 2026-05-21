@@ -1,14 +1,22 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/dataCaptureRoundStorage.js";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
+import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
+import { applyLoginLang } from "../utils/useLoginLang.js";
+import "../../public/css/modal-close-unified.css";
 
 function readCookie(name) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : "";
 }
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "ec_sidebar_collapsed";
+/** iPad Air 11" (M2) landscape Safari ≈ 1180px; use 1200px to include that viewport. */
+/** Galaxy Tab S7 横屏约 1280px，需纳入平板侧栏逻辑 */
+const TABLET_MEDIA_QUERY = "(max-width: 1280px)";
 
 const AVATAR_MAP = {
   male1: assetUrl("images/avatar1.png"),
@@ -56,19 +64,26 @@ export default function AuthenticatedLayout() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
-  const sidebarLangThumbRef = useRef(null);
-  const prevSidebarLangRef = useRef(lang);
+  const [isTabletViewport, setIsTabletViewport] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(TABLET_MEDIA_QUERY).matches : false
+  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1"
+  );
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
+  const sidebarIconOnly = isTabletViewport && sidebarCollapsed;
+  const sidebarTabletExpanded = isTabletViewport && !sidebarCollapsed;
 
-  /* useLayoutEffect: before paint — body.bg uses display:flex and centers #root (login shell); leaving it for one frame breaks full-width hit targets on Domain, etc. */
+  /* Only switch off login shell after session is confirmed for dashboard — avoids bg/layout flash when redirecting to secondary password. */
   useLayoutEffect(() => {
+    if (loading || !me) return undefined;
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page", "ec-auth-shell");
     return () => {
       document.body.classList.remove("dashboard-page", "ec-auth-shell");
       document.body.classList.add("bg");
     };
-  }, []);
+  }, [loading, me]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -89,40 +104,52 @@ export default function AuthenticatedLayout() {
   }, [lang]);
 
   useEffect(() => {
-    const thumb = sidebarLangThumbRef.current;
-    const prevLang = prevSidebarLangRef.current;
-    if (!thumb || prevLang === lang) return;
+    const mq = window.matchMedia(TABLET_MEDIA_QUERY);
+    const onChange = () => setIsTabletViewport(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion) {
-      prevSidebarLangRef.current = lang;
+  useEffect(() => {
+    document.body.classList.toggle("sidebar-collapsed", sidebarIconOnly);
+    document.body.classList.toggle("sidebar-tablet-expanded", sidebarTabletExpanded);
+    const t = window.setTimeout(() => {
+      window.dispatchEvent(new Event("ec:sidebar-layout-changed"));
+    }, 280);
+    return () => {
+      window.clearTimeout(t);
+      document.body.classList.remove("sidebar-collapsed", "sidebar-tablet-expanded");
+    };
+  }, [sidebarIconOnly, sidebarTabletExpanded]);
+
+  const collapseSidebar = useCallback(() => {
+    setSidebarCollapsed(true);
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "1");
+  }, []);
+
+  const expandSidebar = useCallback(() => {
+    setSidebarCollapsed(false);
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "0");
+  }, []);
+
+  const onHamburgerClick = (e) => {
+    e.stopPropagation();
+    if (sidebarCollapsed) expandSidebar();
+  };
+
+  const path = location.pathname;
+  const prevPathRef = useRef(path);
+  useEffect(() => {
+    if (!isTabletViewport || sidebarCollapsed) {
+      prevPathRef.current = path;
       return;
     }
+    if (prevPathRef.current !== path) collapseSidebar();
+    prevPathRef.current = path;
+  }, [path, isTabletViewport, sidebarCollapsed, collapseSidebar]);
 
-    const fromX = prevLang === "zh" ? "100%" : "0%";
-    const toX = lang === "zh" ? "100%" : "0%";
-    const overshootX = lang === "zh" ? "112%" : "-12%";
-    const reboundX1 = lang === "zh" ? "97%" : "3%";
-    const reboundX2 = lang === "zh" ? "101.2%" : "-1.2%";
-
-    thumb.animate(
-      [
-        { transform: `translateX(${fromX}) scaleX(1) scaleY(1)` },
-        { transform: `translateX(${overshootX}) scaleX(1.1) scaleY(0.9)`, offset: 0.46 },
-        { transform: `translateX(${reboundX1}) scaleX(0.95) scaleY(1.05)`, offset: 0.68 },
-        { transform: `translateX(${reboundX2}) scaleX(1.03) scaleY(0.97)`, offset: 0.86 },
-        { transform: `translateX(${toX}) scaleX(0.99) scaleY(1.01)`, offset: 0.94 },
-        { transform: `translateX(${toX}) scaleX(1) scaleY(1)` },
-      ],
-      {
-        duration: 980,
-        easing: "cubic-bezier(0.34, 1.72, 0.64, 1)",
-        fill: "none",
-      }
-    );
-
-    prevSidebarLangRef.current = lang;
-  }, [lang]);
+  const sidebarMenuTitle = (label) => (sidebarIconOnly ? label : undefined);
 
   useEffect(() => {
     (async () => {
@@ -139,7 +166,11 @@ export default function AuthenticatedLayout() {
           return;
         }
         if (u.needs_owner_secondary) {
-          window.location.assign(new URL("/owner-secondary-password", window.location.origin).href);
+          navigate("/owner-secondary-password", { replace: true });
+          return;
+        }
+        if (u.needs_user_secondary) {
+          navigate("/user-secondary-password", { replace: true });
           return;
         }
         setMe(u);
@@ -254,13 +285,11 @@ export default function AuthenticatedLayout() {
       navigate("/login", { replace: true });
     }
   };
-  const path = location.pathname;
   const isProcessPage = path === "/process-list" || path === "/bank-process-list";
   const applyLanguage = (nextLang) => {
     const normalized = nextLang === "zh" ? "zh" : "en";
     setLang(normalized);
-    localStorage.setItem("login_lang", normalized);
-    window.dispatchEvent(new CustomEvent("eazycount:language-updated", { detail: { lang: normalized } }));
+    applyLoginLang(normalized);
   };
   const openHoverSubmenu = (section, el) => {
     if (!el) return;
@@ -280,10 +309,30 @@ export default function AuthenticatedLayout() {
 
   return (
     <>
-      <div className="informationmenu-overlay" style={{ display: "none" }} aria-hidden="true" />
-      <div className="informationmenu">
+      <div
+        className={`informationmenu-overlay sidebar-dismiss-overlay${sidebarTabletExpanded ? " show" : ""}`}
+        onClick={collapseSidebar}
+        aria-hidden={!sidebarTabletExpanded}
+      />
+      <div className={`informationmenu${sidebarIconOnly ? " is-collapsed" : ""}`} onClick={(e) => e.stopPropagation()}>
         <div className="informationmenu-header">
           <div className="header-logo-section">
+            {isTabletViewport && sidebarCollapsed && (
+              <button
+                type="button"
+                className="sidebar-hamburger-toggle"
+                onClick={onHamburgerClick}
+                aria-label={i18n.sidebarExpand}
+                aria-expanded={false}
+                title={i18n.sidebarExpand}
+              >
+                <span className="sidebar-hamburger-box" aria-hidden="true">
+                  <span className="sidebar-hamburger-line" />
+                  <span className="sidebar-hamburger-line" />
+                  <span className="sidebar-hamburger-line" />
+                </span>
+              </button>
+            )}
             <img src={assetUrl("images/count_whitelogo.png")} alt="EAZYCOUNT" className="header-logo" />
             <div className="notification-bell" title={i18n.notifications} onClick={toggleNotifications}>
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -326,72 +375,48 @@ export default function AuthenticatedLayout() {
               <div className="user-role">{roleLabel || i18n.user}</div>
             </div>
           </div>
-          <div className="sidebar-lang-switch-wrap">
-            <div
-              className={`sidebar-lang-switch ${lang === "zh" ? "is-zh" : "is-en"}`}
-              role="group"
-              aria-label={i18n.switchLanguage}
-            >
-              <span ref={sidebarLangThumbRef} className="sidebar-lang-thumb" />
-              <button
-                type="button"
-                className={`sidebar-lang-option${lang === "en" ? " active" : ""}`}
-                onClick={() => applyLanguage("en")}
-                aria-pressed={lang === "en"}
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                className={`sidebar-lang-option${lang === "zh" ? " active" : ""}`}
-                onClick={() => applyLanguage("zh")}
-                aria-pressed={lang === "zh"}
-              >
-                中
-              </button>
-            </div>
-          </div>
+          <SidebarLangSwitch lang={lang} onLanguageChange={applyLanguage} ariaLabel={i18n.switchLanguage} />
         </div>
 
         <div className="informationmenu-content">
           <div className="content-separator" />
           {canAccess("home") && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} onClick={() => navigate("/dashboard")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarHome)} onClick={() => navigate("/dashboard")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                 </svg>
-                {i18n.sidebarHome}
+                <span className="sidebar-menu-label">{i18n.sidebarHome}</span>
               </div>
             </div>
           )}
           {me?.has_c168_domain_page_access && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} onClick={() => navigate("/domain")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarDomain)} onClick={() => navigate("/domain")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
                 </svg>
-                {i18n.sidebarDomain}
+                <span className="sidebar-menu-label">{i18n.sidebarDomain}</span>
               </div>
             </div>
           )}
           {me?.has_c168_domain_page_access && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} onClick={() => navigate("/announcement")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarAnnouncement)} onClick={() => navigate("/announcement")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
                 </svg>
-                {i18n.sidebarAnnouncement}
+                <span className="sidebar-menu-label">{i18n.sidebarAnnouncement}</span>
               </div>
             </div>
           )}
           {canAccess("admin") && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} onClick={() => navigate("/userlist")} role="presentation">
+              <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarAdmin)} onClick={() => navigate("/userlist")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                 </svg>
-                {i18n.sidebarAdmin}
+                <span className="sidebar-menu-label">{i18n.sidebarAdmin}</span>
               </div>
             </div>
           )}
@@ -400,25 +425,27 @@ export default function AuthenticatedLayout() {
               <div className="informationmenu-section">
                 <div
                   className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
+                  title={sidebarMenuTitle(i18n.sidebarAccount)}
                   onClick={() => navigate("/account-list")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                   </svg>
-                  {i18n.sidebarAccount}
+                  <span className="sidebar-menu-label">{i18n.sidebarAccount}</span>
                 </div>
               </div>
               <div className="informationmenu-section">
                 <div
                   className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
+                  title={sidebarMenuTitle(i18n.sidebarOwnership)}
                   onClick={() => navigate("/ownership")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
                   </svg>
-                  {i18n.sidebarOwnership}
+                  <span className="sidebar-menu-label">{i18n.sidebarOwnership}</span>
                 </div>
               </div>
             </>
@@ -427,13 +454,14 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`}
+                title={sidebarMenuTitle(i18n.sidebarProcess)}
                 onClick={() => navigate(processSpaPath)}
                 role="presentation"
               >
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                 </svg>
-                {i18n.sidebarProcess}
+                <span className="sidebar-menu-label">{i18n.sidebarProcess}</span>
               </div>
             </div>
           )}
@@ -441,6 +469,7 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`}
+                title={sidebarMenuTitle(i18n.sidebarDataCapture)}
                 onClick={() => {
                   if (path === "/datacapturesummary") {
                     clearDataCaptureRoundLocalStorage();
@@ -452,7 +481,7 @@ export default function AuthenticatedLayout() {
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
                 </svg>
-                {i18n.sidebarDataCapture}
+                <span className="sidebar-menu-label">{i18n.sidebarDataCapture}</span>
               </div>
             </div>
           )}
@@ -460,13 +489,14 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
+                title={sidebarMenuTitle(i18n.sidebarTransactionPayment)}
                 onClick={() => navigate("/transaction")}
                 role="presentation"
               >
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
                 </svg>
-                {i18n.sidebarTransactionPayment}
+                <span className="sidebar-menu-label">{i18n.sidebarTransactionPayment}</span>
               </div>
             </div>
           )}
@@ -477,13 +507,14 @@ export default function AuthenticatedLayout() {
                   ref={reportTitleRef}
                   className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain-report") ? "active" : ""}`}
                   data-section="report"
+                  title={sidebarMenuTitle(i18n.sidebarReport)}
                   onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
                   </svg>
-                  {i18n.sidebarReport}
+                  <span className="sidebar-menu-label">{i18n.sidebarReport}</span>
                   <span className="section-arrow">▶</span>
                 </div>
                 <div
@@ -535,13 +566,14 @@ export default function AuthenticatedLayout() {
                   ref={maintenanceTitleRef}
                   className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance", "/bankprocess-maintenance"].includes(path)) ? "active" : ""}`}
                   data-section="maintenance"
+                  title={sidebarMenuTitle(i18n.sidebarMaintenance)}
                   onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
                   </svg>
-                  {i18n.sidebarMaintenance}
+                  <span className="sidebar-menu-label">{i18n.sidebarMaintenance}</span>
                   <span className="section-arrow">▶</span>
                 </div>
                 <div
@@ -637,8 +669,21 @@ export default function AuthenticatedLayout() {
               <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>{me?.expiration_hint || "-"}</span>
             </div>
           </div>
-          <button type="button" className="btn logout-btn" onClick={() => setShowLogoutConfirm(true)}>
-            {i18n.logout}
+          <button
+            type="button"
+            className="btn logout-btn"
+            title={sidebarMenuTitle(i18n.logout)}
+            onClick={() => setShowLogoutConfirm(true)}
+          >
+            {sidebarIconOnly ? (
+              <svg className="logout-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points="16 17 21 12 16 7" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="21" y1="12" x2="9" y2="12" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              i18n.logout
+            )}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/partnershipAuditReadOnly.js";
@@ -30,6 +31,7 @@ import {
 // Components
 import UserModal from "./components/UserModal.jsx";
 import UserConfirmModal from "./components/UserConfirmModal.jsx";
+import { processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
 import { getUserListText, translateUserListApiMessage } from "../../translateFile/userListTranslate.js";
 
 function roleBadgeClass(role) {
@@ -692,7 +694,14 @@ export default function UserListPage() {
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
     let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: form.email.trim().toLowerCase(), role: form.role, status: form.status };
     if (form.password.trim()) payload.password = form.password;
-    if (isC168Company && form.secondary_password.trim()) { if (!/^\d{6}$/.test(form.secondary_password.trim())) { notify(t("secondaryPasswordMustBe6Digits"), "danger"); return; } payload.secondary_password = form.secondary_password.trim(); }
+    const allowSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
+    if (allowSecondaryPassword && form.secondary_password.trim()) {
+      if (!/^\d{6}$/.test(form.secondary_password.trim())) {
+        notify(t("secondaryPasswordMustBe6Digits"), "danger");
+        return;
+      }
+      payload.secondary_password = form.secondary_password.trim();
+    }
     const roleForReadOnly = normRole(form.role) || normRole(editingRow?.role);
     if (roleForReadOnly && roleHasReadOnlyToggle(roleForReadOnly) && canInteractWithReadOnlyToggle(currentUserRole, roleForReadOnly)) {
       payload.read_only = form.read_only ? 1 : 0;
@@ -884,8 +893,9 @@ export default function UserListPage() {
               </div>
             </div>
           </div>
-          <div className={`user-table-wrapper${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
-            <div className="table-header">
+          <div className={`user-table-wrapper user-list-table${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
+            <div className="user-list-table-inner">
+            <div className="table-header user-list-table-header">
               <div
                 className="header-item header-item--with-sort-icon header-sortable"
                 role="button"
@@ -1042,7 +1052,7 @@ export default function UserListPage() {
                 const del = getDeleteCheckboxState(r, caps);
                 const editReady = caps.canEditDelete && modalAccessReady && editReadyIds.has(Number(r.id));
                 return (
-                  <div key={`${r.id}-${r.is_owner_shadow ? "o" : "u"}`} className={`user-card show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}>
+                  <div key={`${r.id}-${r.is_owner_shadow ? "o" : "u"}`} className={`user-card user-list-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}>
                     <div className="card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
                     <div className="card-item">{r.login_id}</div>
                     <div className="card-item">{r.name}</div>
@@ -1080,6 +1090,7 @@ export default function UserListPage() {
               })
               )}
             </div>
+            </div>
           </div>
           {!showAll && (
             <div className="pagination-container">
@@ -1090,7 +1101,20 @@ export default function UserListPage() {
           )}
         </div>
       </div>
-      {toast && <div id="accountNotificationContainer" className="account-notification-container"><div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div></div>}
+      {toast && typeof document !== "undefined" && document.body
+        ? createPortal(
+            <div
+              id="accountNotificationContainer"
+              className="account-notification-container"
+              style={{
+                zIndex: modalOpen || confirmOpen ? processNotificationAboveAccountZIndex : processNotificationZIndex,
+              }}
+            >
+              <div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div>
+            </div>,
+            document.body
+          )
+        : null}
       <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={userMutationsBlocked} t={t} />
       <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} confirmDisabled={userMutationsBlocked} t={t} />
     </>

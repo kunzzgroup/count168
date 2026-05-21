@@ -27,9 +27,12 @@ export default function CaptureMaintenanceFilters({
   setDateTo,
   today,
   companyId,
-  companies,
+  groupFilterKind,
+  snapGroupIds,
+  visibleCompanies,
   selectedGroup,
   onGroupClick,
+  onPickAllGroups,
   onSwitchCompany,
   onDelete,
   canDelete,
@@ -37,17 +40,6 @@ export default function CaptureMaintenanceFilters({
   setConfirmDelete,
   m,
 }) {
-  const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
-  const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-
-  const visibleCompanies = useMemo(() => {
-    return snapCompanies.filter((comp) => {
-      const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-      if (selectedGroup) return cGid === selectedGroup;
-      return !cGid;
-    });
-  }, [snapCompanies, selectedGroup]);
-
   const periodPresets = useMemo(
     () => QUICK_RANGE_KEYS.map((key) => ({ key, label: m[key] || key })),
     [m],
@@ -114,9 +106,9 @@ export default function CaptureMaintenanceFilters({
         <div className="maintenance-filter-left-full">
           <ReportGcFilterPanel
             groupIds={snapGroupIds}
-            groupFilterKind={selectedGroup ? "follow" : "all"}
+            groupFilterKind={groupFilterKind}
             selectedGroupKey={selectedGroup}
-            onPickAllGroups={() => onGroupClick("")}
+            onPickAllGroups={onPickAllGroups}
             onPickGroup={(g) => onGroupClick(g)}
             companyButtons={visibleCompanies}
             companyId={companyId}

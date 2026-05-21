@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, keepPreviousData, isCancelledError } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData, isCancelledError } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
+import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
+import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/transaction.css";
@@ -18,8 +18,11 @@ import {
   fetchCompanyPermissions,
   fetchProcesses,
   isBankOnlyCategoryCompany,
+  normalizeMaintenanceProcessFilter,
   searchTransactionData,
   updateSessionCompany,
+  isMaintenanceRecoverableError,
+  getMaintenanceSearchUserMessage,
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
@@ -48,6 +51,7 @@ function consumeNoDataToastDedupeKey(key) {
 
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
@@ -81,6 +85,8 @@ export default function TransactionMaintenancePage() {
   const [filtersReady, setFiltersReady] = useState(false);
   const [dateRangeReady, setDateRangeReady] = useState(false);
   const [searchDeferredReady, setSearchDeferredReady] = useState(false);
+  const [switchingCompany, setSwitchingCompany] = useState(false);
+  const followGroupRef = useRef(() => {});
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -88,6 +94,23 @@ export default function TransactionMaintenancePage() {
   const switchPermsCacheRef = useRef(null);
   /** Boot already loaded process/permission meta — skip duplicate meta effect on first paint. */
   const skipMetaAfterBootRef = useRef(false);
+
+  const processFilter = useMemo(
+    () => normalizeMaintenanceProcessFilter(selectedProcess),
+    [selectedProcess],
+  );
+
+  const maintenanceQueryKey = useMemo(
+    () => [
+      "transaction-maintenance",
+      companyId,
+      dateFrom,
+      dateTo,
+      processFilter,
+      activePermission || "",
+    ],
+    [companyId, dateFrom, dateTo, processFilter, activePermission],
+  );
 
   const listQueryEnabled = Boolean(
     !bootLoading &&
@@ -101,39 +124,110 @@ export default function TransactionMaintenancePage() {
   );
 
   const transactionQuery = useQuery({
-    queryKey: [
-      "transaction-maintenance",
-      companyId,
-      dateFrom,
-      dateTo,
-      selectedProcess || "",
-      activePermission || "",
-    ],
+    queryKey: maintenanceQueryKey,
     queryFn: ({ signal }) =>
       searchTransactionData({
         dateFrom,
         dateTo,
-        process: selectedProcess,
+        process: processFilter,
         companyId,
         category: activePermission,
         signal,
+        onFirstPage: (rows) => {
+          queryClient.setQueryData(maintenanceQueryKey, rows);
+        },
       }),
-    enabled: listQueryEnabled && searchDeferredReady,
+    enabled: listQueryEnabled && searchDeferredReady && !switchingCompany,
     staleTime: 2 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
     retry: (failureCount, error) =>
-      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 1,
+      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 5,
+    retryDelay: (attempt) => Math.min(2500, 500 * (attempt + 1)),
   });
 
   const transactionData = transactionQuery.data ?? [];
   const listRowCount = transactionData.length;
-  /** 无上一屏数据且请求中：仅显示简洁 Loading 文案（不显示骨架行） */
+  const searchRecoverable =
+    transactionQuery.isError &&
+    listRowCount === 0 &&
+    isMaintenanceRecoverableError(transactionQuery.error);
+  /** 无数据：加载中或可恢复错误 — 显示 Loading，不出现 Search failed */
   const showListSkeleton =
     listQueryEnabled &&
-    (transactionQuery.isLoading || (transactionQuery.isFetching && listRowCount === 0));
+    listRowCount === 0 &&
+    (transactionQuery.isLoading ||
+      transactionQuery.isFetching ||
+      (searchRecoverable && !recoverableExhausted));
+  const recoverableRetryRef = useRef(0);
+  const [recoverableExhausted, setRecoverableExhausted] = useState(false);
   const lastToastKeyRef = useRef(null);
-  const lastErrorMsgRef = useRef(null);
+
+  const searchQueryKey = useMemo(
+    () =>
+      JSON.stringify([
+        companyId,
+        dateFrom,
+        dateTo,
+        processFilter,
+        activePermission || "",
+      ]),
+    [companyId, dateFrom, dateTo, processFilter, activePermission],
+  );
+
+  useEffect(() => {
+    recoverableRetryRef.current = 0;
+    setRecoverableExhausted(false);
+  }, [searchQueryKey]);
+
+  useEffect(() => {
+    if (!listQueryEnabled || !searchRecoverable || transactionQuery.isFetching) return;
+    if (recoverableRetryRef.current >= 10) {
+      setRecoverableExhausted(true);
+      return;
+    }
+
+    const delay = Math.min(4000, 700 * (recoverableRetryRef.current + 1));
+    const timer = window.setTimeout(() => {
+      recoverableRetryRef.current += 1;
+      transactionQuery.refetch({ cancelRefetch: false });
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [
+    listQueryEnabled,
+    searchRecoverable,
+    recoverableExhausted,
+    transactionQuery.isFetching,
+    transactionQuery.errorUpdatedAt,
+    searchQueryKey,
+    transactionQuery,
+  ]);
+
+  useEffect(() => {
+    if (transactionQuery.isSuccess) {
+      recoverableRetryRef.current = 0;
+      setRecoverableExhausted(false);
+    }
+  }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt]);
+
+  const listStatusMessage = useMemo(() => {
+    if (showListSkeleton) return t("searchRetrying");
+    if (recoverableExhausted) return t("searchRetryHint");
+    if (transactionQuery.isError && listRowCount === 0) {
+      return getMaintenanceSearchUserMessage(transactionQuery.error, {
+        loadingMessage: t("searchRetrying"),
+        narrowRangeMessage: t("searchRetryHint"),
+      });
+    }
+    return "";
+  }, [
+    showListSkeleton,
+    recoverableExhausted,
+    transactionQuery.isError,
+    transactionQuery.error,
+    listRowCount,
+    t,
+  ]);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -181,17 +275,10 @@ export default function TransactionMaintenancePage() {
     let cancelled = false;
 
     removeOtherMaintenanceStylesheets("transaction_maintenance.css");
-
-    const links = [
-      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap",
-      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-    ];
-
-    Promise.all(links.map(waitForStylesheet)).then(() => {
-      if (!cancelled) setCssReady(true);
-    });
-
     ensureMaintenanceDateRangePicker();
+    // Fonts/icons are in index.html; page CSS is bundled via imports — do not block on third-party CDN
+    // (some networks/devices block or stall fonts.googleapis.com / cdnjs → blank page + "failed to load resource").
+    setCssReady(true);
 
     return () => {
       cancelled = true;
@@ -362,6 +449,11 @@ export default function TransactionMaintenancePage() {
         const procList = await fetchProcesses(cid);
         if (cancelled) return;
         setProcesses(procList);
+        setSelectedProcess((prev) => {
+          const filter = normalizeMaintenanceProcessFilter(prev);
+          if (!filter) return "";
+          return procList.some((p) => String(p.process_name) === filter) ? filter : "";
+        });
 
         const cached = switchPermsCacheRef.current;
         let permList;
@@ -419,34 +511,27 @@ export default function TransactionMaintenancePage() {
     t,
   ]);
 
-  useEffect(() => {
-    if (!transactionQuery.isError || !transactionQuery.error) return;
-    if (transactionQuery.error?.name === "AbortError" || isCancelledError(transactionQuery.error)) return;
-    const msg = transactionQuery.error.message || t("searchFailed");
-    if (lastErrorMsgRef.current === msg) return;
-    lastErrorMsgRef.current = msg;
-    notify(msg, "error");
-  }, [transactionQuery.isError, transactionQuery.error, notify, t]);
-
   // -- Handlers --
-  const handleSwitchCompany = async (c) => {
+  const handleSwitchCompany = useCallback(async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
+    setSwitchingCompany(true);
     try {
-      const [res, perms] = await Promise.all([
-        updateSessionCompany(c.id),
-        fetchCompanyPermissions(c.company_id),
-      ]);
+      const nextCompanyId = Number(c.id);
+      const res = await updateSessionCompany(c.id);
 
-      // Legacy Redirect logic
       if (res.has_gambling === false) {
         navigate("/process-list", { replace: true });
         return;
       }
 
+      const perms = await fetchCompanyPermissions(c.company_id);
+
       if (isBankOnlyCategoryCompany(perms)) {
         navigate("/process-list", { replace: true });
         return;
       }
+
+      const procList = await fetchProcesses(nextCompanyId);
 
       const code = c.company_id || "";
       const saved = localStorage.getItem(`selectedPermission_${code}`);
@@ -456,32 +541,50 @@ export default function TransactionMaintenancePage() {
       skipMetaAfterBootRef.current = true;
       setActivePermission(nextActive);
       setPermissions(perms);
+      setProcesses(procList);
+      setSelectedProcess("");
 
-      setCompanyId(Number(c.id));
+      setCompanyId(nextCompanyId);
       setCompanyCode(code);
-      
+
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
-      
+
+      followGroupRef.current();
+
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }), "success");
     } catch (err) {
+      const msg = String(err?.message || "");
+      if (msg.toLowerCase().includes("unauthorized permission category")) {
+        navigate("/process-list", { replace: true });
+        return;
+      }
       notify(err.message || t("switchFailed"), "error");
+    } finally {
+      setSwitchingCompany(false);
     }
-  };
+  }, [companyId, navigate, notify, t]);
 
-  const handleGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-    });
-  };
+  const {
+    groupFilterKind,
+    snapGroupIds,
+    visibleCompanies,
+    handlePickAllGroups,
+    handleGroupClick,
+    followCurrentCompanyGroup,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: handleSwitchCompany,
+    switchingCompany,
+  });
+
+  followGroupRef.current = followCurrentCompanyGroup;
 
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
@@ -525,8 +628,12 @@ export default function TransactionMaintenancePage() {
           today={todayDmy}
           companyId={companyId}
           companies={companies}
+          groupFilterKind={groupFilterKind}
+          snapGroupIds={snapGroupIds}
+          visibleCompanies={visibleCompanies}
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
+          onPickAllGroups={handlePickAllGroups}
           onSwitchCompany={handleSwitchCompany}
           m={m}
         />
@@ -534,9 +641,8 @@ export default function TransactionMaintenancePage() {
         <TransactionMaintenanceTable
           data={transactionData}
           showSkeleton={showListSkeleton}
+          statusMessage={listStatusMessage}
           isPlaceholderData={transactionQuery.isPlaceholderData}
-          isError={transactionQuery.isError}
-          error={transactionQuery.error}
           m={m}
         />
       </div>

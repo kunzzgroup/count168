@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../components/ProcessModalPortal.jsx";
 import { fetchDescriptionCatalog, postAddDescription, postDeleteDescription } from "./dataCaptureApi.js";
 import { pushDataCaptureNotification } from "./dataCaptureNotify.js";
 
@@ -144,14 +145,16 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
     onConfirm(pendingNames);
   }, [onConfirm, pendingNames]);
 
+  if (!open) return null;
+
   return (
+    <ProcessModalPortal>
     <div
       id="descriptionSelectionModal"
-      className={`modal${open ? " show" : ""}`.trim()}
-      style={{ display: open ? "block" : "none" }}
+      className="modal show"
+      style={processModalBackdropStyle}
       role="dialog"
-      aria-modal={open}
-      aria-hidden={!open}
+      aria-modal
       aria-labelledby="dc-desc-modal-title"
     >
       <div className="modal-content description-selection-modal">
@@ -243,17 +246,17 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
               </div>
             </div>
           </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={handleConfirm}>
-              Confirm
-            </button>
-            <button type="button" className="btn btn-cancel" onClick={onClose}>
-              Cancel
-            </button>
-          </div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={handleConfirm}>
+            Confirm
+          </button>
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

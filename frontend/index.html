@@ -6,14 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <title>EazyCount</title>
     <!--
-      Static shell (no Vite): login / forgot-password / legacy login markup.
-      NOT the same file as /src/index.css (Tailwind). Public /css/index.css = marquee + misc.
-      SPA dashboard shell lives in src/styles/app-shell.css → bundled by main.jsx.
+      Login / secondary-password / reset-password shell styles (public/css → dist/css on build).
+      Dev: %BASE_URL% = /  → /css/style.css
+      Prod: %BASE_URL% = /frontend/dist/  → /frontend/dist/css/style.css
     -->
-    <link rel="stylesheet" href="/frontend/public/css/style.css?v=20260213-font-weight-semibold" />
-    <link rel="stylesheet" href="/frontend/public/css/index.css" />
-    <link rel="stylesheet" href="/frontend/public/css/reset-password.css" />
-    <link rel="stylesheet" href="/frontend/public/css/login-shadcn.css?v=20260212-login-text-base" />
+    <link rel="stylesheet" href="%BASE_URL%css/style.css?v=20260521-secondary-verify" />
+    <link rel="stylesheet" href="%BASE_URL%css/index.css" />
+    <link rel="stylesheet" href="%BASE_URL%css/reset-password.css" />
+    <link rel="stylesheet" href="%BASE_URL%css/login-shadcn.css?v=20260212-login-text-base" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

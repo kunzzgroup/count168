@@ -311,14 +311,19 @@ try {
             $_SESSION['company_id'] = $owner['company_numeric_id']; // 使用数字 ID
             $_SESSION['company_code'] = $owner['company_code']; // 保存字符串编码供显示用
             $_SESSION['last_activity'] = time();
+            unset($_SESSION['secondary_password_verified']);
 
             // 处理Remember Me (Owner也支持记住我功能)
             $remember_me = isset($_POST['remember_me']) ? $_POST['remember_me'] : false;
             if ($remember_me) {
                 // Owner 的 remember me 可以存在 session 或另外处理
             }
-            
-            echo json_encode(['status' => 'success', 'redirect' => '/dashboard']);
+
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => '/owner-secondary-password',
+                'user_type' => 'owner',
+            ]);
         } else {
             if ($owner_password_match && $owner_has_expired) {
                 echo json_encode(['status' => 'error', 'message' => 'Company or Group has expired.']);

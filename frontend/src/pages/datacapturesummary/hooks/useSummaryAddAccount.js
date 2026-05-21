@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import {
   DEFAULT_FORM,
@@ -349,7 +350,7 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
       onSubmit: submitAddAccount,
       onClose: closeAddAccount,
       t,
-      overlayZIndex: 10001,
+      overlayZIndex: accountModalOverlayZIndex,
     },
   };
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import OwnAccountSelect from "./OwnAccountSelect.jsx";
 
 function applySliderBg(sliderEl, value) {
   if (!sliderEl) return;
@@ -120,27 +121,13 @@ export default function AccountEditorRow({
       >
         ⋮⋮
       </div>
-      <select
-        className="own-account-select"
+      <OwnAccountSelect
         value={row.account_id}
+        accounts={accounts}
         disabled={readOnlyMode}
-        onChange={(e) => onUpdate(idx, "account_id", e.target.value)}
-      >
-        <option value="">{t("selectAccountPlaceholder")}</option>
-        {accounts.map((acc) => {
-          const mainStr = parseInt(acc.is_main_owner, 10) === 1 ? t("mainOwnerSuffix") : "";
-          const accountType = String(acc.type || "").toLowerCase();
-          const label =
-            accountType === "group"
-              ? `${acc.account_name}${mainStr}`
-              : `${acc.account_name} (${acc.name})${mainStr}`;
-          return (
-            <option key={String(acc.id)} value={acc.id}>
-              {label}
-            </option>
-          );
-        })}
-      </select>
+        t={t}
+        onChange={(id) => onUpdate(idx, "account_id", id)}
+      />
       <div className="own-ownership-input-group">
         <input
           type="text"
@@ -172,7 +159,7 @@ export default function AccountEditorRow({
         </div>
       </div>
       <div className="own-row-actions">
-        <div className="own-read-only-badge" style={{ display: "flex", visibility: showRo ? "visible" : "hidden" }}>
+        <div className="own-read-only-badge" style={{ display: showRo ? "flex" : "none" }}>
             <span className="own-read-only-text">{t("readOnly")}</span>
           <label className="own-ro-toggle">
             <input

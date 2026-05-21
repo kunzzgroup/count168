@@ -1,5 +1,9 @@
 /** API_RETURN & 4.RETURN paste. */
-import { parseApiReturnFormat, parseApiReturnTableFormat } from "./dataCaptureApiReturnParsers.js";
+import {
+  isReturnFormulaLikeCell,
+  parseApiReturnFormat,
+  parseApiReturnTableFormat,
+} from "./dataCaptureApiReturnParsers.js";
 
 
 import { ensurePasteGrid, parseGenericHtmlTable } from "./dataCapturePasteGridUtils.js";
@@ -497,25 +501,6 @@ export function handle4ReturnPaste(e, pastedData) {
             return tokens;
         }
 
-        // 4.RETURN 专用：判断某个单元格是否像“公式列”
-        // 目的：
-        // - 避免把 Content（含字母、括号、-、数字）误判为公式，导致真正 Formula 列不被拆分
-        // - 只对纯数字/运算符组成的表达式进行拆分
-        function isReturnFormulaCell(raw) {
-            if (raw === null || raw === undefined) return false;
-            const s = String(raw).trim();
-            if (!s) return false;
-            // 内容列/备注列通常含字母，直接排除
-            if (/[A-Za-z]/.test(s)) return false;
-            // 纯数字（包括 0.06、-104.14）不是公式
-            const numericOnly = s.replace(/,/g, '');
-            if (/^-?\d+(?:\.\d+)?$/.test(numericOnly)) return false;
-            // 必须同时包含数字与至少一个运算符/括号/方括号
-            if (!/\d/.test(s)) return false;
-            if (!/[+\-*/()[\]]/.test(s)) return false;
-            return true;
-        }
-
         // 4.RETURN：一行内已由 Tab 分列后的单元格数组（就地修改）：去尾冒号、按需展开公式列
         function processReturnRowTabCells(cells, lineNo) {
             const lineTag = `Line ${lineNo}`;
@@ -532,7 +517,7 @@ export function handle4ReturnPaste(e, pastedData) {
                     continue;
                 }
 
-                const hasFormula = isReturnFormulaCell(cell);
+                const hasFormula = isReturnFormulaLikeCell(cell);
 
                 if (hasFormula) {
                     console.log(`4.RETURN: ${lineTag}, Column ${colIndex} contains formula:`, cell);
@@ -673,7 +658,7 @@ export function handle4ReturnPaste(e, pastedData) {
 
                                     // 检查是否包含公式特征：括号和运算符
                                     // 公式应该包含括号或运算符，并且不是简单的数字或日期
-                                    const isFormula = isReturnFormulaCell(cell);
+                                    const isFormula = isReturnFormulaLikeCell(cell);
 
                                     if (isFormula) {
                                         console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} contains formula:`, cell);
@@ -857,28 +842,9 @@ export function handle4ReturnPaste(e, pastedData) {
                             }
                         }
 
-                        // 检查所有列，找到包含公式的列
-                        let hasFormula = false;
-                        for (let colIndex = 0; colIndex < columns.length; colIndex++) {
-                            const cell = columns[colIndex] || '';
+                        processReturnRowTabCells(columns, 1);
 
-                            // 检查是否包含公式特征：括号和运算符
-                            const isFormula = isReturnFormulaCell(cell);
-
-                            if (isFormula) {
-                                hasFormula = true;
-                                // 解析公式列（支持 .11 / [1] 等 RETURN 特殊写法）
-                                const numbers = extractReturnTokens(cell);
-                                if (numbers.length > 0) {
-                                    // 用数字替换公式列
-                                    columns.splice(colIndex, 1, ...numbers);
-                                }
-                                // 处理完一个公式列后，跳出循环（一次只处理一个公式列）
-                                break;
-                            }
-                        }
-
-                        if (hasFormula || columns.length > 0) {
+                        if (columns.length > 0) {
                             apiReturnParsed = {
                                 columns: columns,
                                 columnCount: columns.length

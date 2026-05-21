@@ -32,8 +32,28 @@ export function removeOtherMaintenanceStylesheets(keepFileName) {
  * 等待样式表可用；支持 href 与 DOM 中已存在 link 的绝对/相对 URL 不一致的情况。
  * @param {string} href - 传给 <link href> 的地址（一般为 assetUrl(...)）
  */
-export function waitForStylesheet(href) {
+const STYLESHEET_WAIT_MS = 4000;
+
+export function waitForStylesheet(href, { timeoutMs = STYLESHEET_WAIT_MS } = {}) {
   return new Promise((resolve) => {
+    let settled = false;
+    const finish = (el) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        if (el) el.dataset.loaded = "1";
+      } catch {
+        /* ignore */
+      }
+      resolve(el ?? null);
+    };
+
+    const timer =
+      timeoutMs > 0
+        ? setTimeout(() => finish(null), timeoutMs)
+        : null;
+
     const file = href.split("/").pop() || href;
 
     const findExisting = () =>
@@ -42,34 +62,25 @@ export function waitForStylesheet(href) {
         return h === href || h.endsWith(file) || h.includes(file);
       });
 
-    const markLoaded = (el) => {
-      try {
-        el.dataset.loaded = "1";
-      } catch {
-        /* ignore */
-      }
-      resolve(el);
-    };
-
     const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`) || findExisting();
 
     if (existing) {
       document.head.appendChild(existing);
-      if (existing.dataset.loaded === "1") return resolve(existing);
+      if (existing.dataset.loaded === "1") return finish(existing);
       try {
-        if (existing.sheet != null) return markLoaded(existing);
+        if (existing.sheet != null) return finish(existing);
       } catch {
         /* ignore */
       }
       const onLoad = () => {
         existing.removeEventListener("load", onLoad);
         existing.removeEventListener("error", onError);
-        markLoaded(existing);
+        finish(existing);
       };
       const onError = () => {
         existing.removeEventListener("load", onLoad);
         existing.removeEventListener("error", onError);
-        resolve(existing);
+        finish(existing);
       };
       existing.addEventListener("load", onLoad, { once: true });
       existing.addEventListener("error", onError, { once: true });
@@ -79,8 +90,8 @@ export function waitForStylesheet(href) {
     const l = document.createElement("link");
     l.rel = "stylesheet";
     l.href = href;
-    l.onload = () => markLoaded(l);
-    l.onerror = () => resolve(l);
+    l.onload = () => finish(l);
+    l.onerror = () => finish(l);
     document.head.appendChild(l);
   });
 }

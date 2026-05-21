@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import AccountModal from "../../components/AccountModal.jsx";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
@@ -40,11 +41,13 @@ import {
   BANK_PICK_ACCOUNT_ROLES,
   filterBankPickAccounts,
   sortBankProcessTableRows,
+  accountingDuePeriodType,
 } from "./bankProcessHelpers.js";
 import { dedupeCompanyRowsForSwitcher } from "../processlist/processListHelpers.js";
 import { prefetchGamesProcessListPayload } from "../processlist/processRoutePrefetch.js";
 import ProcessDeleteConfirmModal from "../processlist/components/ProcessDeleteConfirmModal.jsx";
 import AddProcessIcon from "../processlist/components/AddProcessIcon.jsx";
+import { accountModalOverlayZIndex, processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
 
 // Component imports
 import BankProcessTable from "./components/BankProcessTable.jsx";
@@ -52,20 +55,9 @@ import BankProcessFormModal from "./components/BankProcessFormModal.jsx";
 import CountrySelectionModal from "./components/CountrySelectionModal.jsx";
 import BankSelectionModal from "./components/BankSelectionModal.jsx";
 import ProfitSharingModal from "./components/ProfitSharingModal.jsx";
-import BankNoteModal from "./components/BankNoteModal.jsx";
-import BankRemarkModal from "./components/BankRemarkModal.jsx";
+import { BankNoteModal, BankRemarkModal } from "./components/bankProcessTextModals.jsx";
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
-
-/** Matches legacy processlist.js / bank_process_list.js Accounting Due row period_types. */
-function accountingDuePeriodType(r) {
-  if (r.is_once_one_off) return "once_one_off";
-  if (r.is_manual_inactive) return "manual_inactive";
-  if (r.is_resend_consolidated_range) return "resend_consolidated_range";
-  if (r.is_partial_first_month) return "partial_first_month";
-  if (r.is_day_end_tail) return "day_end_tail";
-  return "monthly";
-}
 
 export default function BankProcessListPage() {
   const navigate = useNavigate();
@@ -117,9 +109,26 @@ export default function BankProcessListPage() {
       });
       return;
     }
+    if (fromId === "bank_resend_day_start_drp_from") {
+      setResendInlineError("");
+      setResendDayStart(iso);
+      return;
+    }
+    if (fromId === "bank_resend_day_end_drp_from") {
+      const minYmd = document.getElementById("bank_resend_day_end_drp_from")?.dataset?.minYmd || "";
+      if (minYmd && iso && iso < minYmd) return;
+      setResendDayEnd(iso);
+      return;
+    }
     const toDmy = document.getElementById(b.dateToId)?.value?.trim() || "";
     setDateFrom(dmyToIso(fromDmy));
     setDateTo(dmyToIso(toDmy));
+    const clearBtn = document.getElementById("processListDateClearBtn");
+    if (clearBtn) {
+      const nextFrom = dmyToIso(fromDmy);
+      const nextTo = dmyToIso(toDmy);
+      clearBtn.style.display = nextFrom || nextTo ? "inline-flex" : "none";
+    }
   }, []);
   const [cssReady, setCssReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -206,7 +215,15 @@ export default function BankProcessListPage() {
   const listAbortRef = useRef(null);
   const skipNextBankFetchRef = useRef(false);
   const bankDatePickerInitRef = useRef(false);
-  const bankContractEndHintRef = useRef(null);
+  const contractSyncKeysRef = useRef({ day_start: "", contract: "", frequency: "" });
+
+  const seedContractSyncKeys = useCallback((f) => {
+    contractSyncKeysRef.current = {
+      day_start: String(f?.day_start || "").trim(),
+      contract: String(f?.contract || "").trim(),
+      frequency: String(f?.day_start_frequency || "1st_of_every_month").trim(),
+    };
+  }, []);
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -499,10 +516,10 @@ export default function BankProcessListPage() {
   }, [loading, cssReady, bpLocale.monthsShort, t, handleDatePickerChange]);
 
   useEffect(() => {
-    if (!modalOpen) return;
+    if (!modalOpen && !resendModalOpen) return;
     ensureMaintenanceDateRangePicker();
     window.MaintenanceDateRangePicker?.bindPickers?.();
-  }, [modalOpen]);
+  }, [modalOpen, resendModalOpen]);
 
   /* Keep date-range chip wording in sync when login/UI language changes (picker caches placeholder internally). */
   useEffect(() => {
@@ -514,6 +531,12 @@ export default function BankProcessListPage() {
       monthLabels: bpLocale.monthsShort,
     });
   }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
+
+  useEffect(() => {
+    const clearBtn = document.getElementById("processListDateClearBtn");
+    if (!clearBtn) return;
+    clearBtn.style.display = dateFrom || dateTo ? "inline-flex" : "none";
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     (async () => {
@@ -764,43 +787,39 @@ export default function BankProcessListPage() {
     setForm((prev) => ({ ...prev, day_start_frequency: "1st_of_every_month" }));
   }, [modalOpen, form.day_end, form.day_start_frequency]);
 
-  // Auto calculate Day end (legacy autoCalculateBankDayEnd skips Frequency = Once)
+  // Contract / Day start / Frequency 变化时自动填 Day end；用户手动改 Day end 不会被覆盖（不监听 day_end）
   useEffect(() => {
-    if (!modalOpen) return;
-    if (bankProcessFrequencyNormalized(form.day_start_frequency) === "once") {
-      bankContractEndHintRef.current = null;
+    if (!modalOpen) {
+      contractSyncKeysRef.current = { day_start: "", contract: "", frequency: "" };
       return;
     }
+    if (bankProcessFrequencyNormalized(form.day_start_frequency) === "once") return;
+
     const start = String(form.day_start || "").trim();
-    const currentEnd = String(form.day_end || "").trim();
     const contract = String(form.contract || "").trim();
     const frequency = String(form.day_start_frequency || "1st_of_every_month").trim();
 
-    if (!start) {
-      bankContractEndHintRef.current = null;
-      return;
-    }
+    const prev = contractSyncKeysRef.current;
+    const keysChanged =
+      prev.day_start !== start || prev.contract !== contract || prev.frequency !== frequency;
+    contractSyncKeysRef.current = { day_start: start, contract, frequency };
+
+    if (!keysChanged || !start) return;
 
     const term = parseBankContractTermMonths(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
 
     if (!calculated) {
-      bankContractEndHintRef.current = null;
-      if (currentEnd && currentEnd < start) {
-        setForm((prev) => ({ ...prev, day_end: start }));
-      }
+      setForm((prevForm) => {
+        const cur = String(prevForm.day_end || "").trim();
+        if (cur && cur < start) return { ...prevForm, day_end: start };
+        return prevForm;
+      });
       return;
     }
 
-    const prevContractEnd = bankContractEndHintRef.current;
-    if (currentEnd && currentEnd < calculated) {
-      setForm((prev) => ({ ...prev, day_end: calculated }));
-    } else if (prevContractEnd && currentEnd && calculated < prevContractEnd && currentEnd <= prevContractEnd && currentEnd > calculated) {
-      setForm((prev) => ({ ...prev, day_end: calculated }));
-    }
-
-    bankContractEndHintRef.current = calculated;
-  }, [modalOpen, form.day_start, form.contract, form.day_start_frequency, form.day_end]);
+    setForm((prevForm) => (prevForm.day_end === calculated ? prevForm : { ...prevForm, day_end: calculated }));
+  }, [modalOpen, form.day_start, form.contract, form.day_start_frequency]);
 
   useEffect(() => {
     return () => {
@@ -999,6 +1018,7 @@ export default function BankProcessListPage() {
   const openAdd = () => {
     setEditMode(false);
     resetForm();
+    seedContractSyncKeys(EMPTY_BANK_FORM);
     setCountryModalOpen(false);
     setBankModalOpen(false);
     setProfitShareModalOpen(false);
@@ -1229,8 +1249,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success || !json.data) return notify(apiMsg(json, "failedLoadBankProcess"), "danger");
       const d = json.data;
-      setEditMode(true);
-      setForm({
+      const nextForm = {
         id: String(d.id || ""),
         country: d.country || "", bank: d.bank || "", type: d.type || "", name: d.name || "",
         card_merchant_id: d.card_merchant_id ? String(d.card_merchant_id) : "",
@@ -1246,7 +1265,10 @@ export default function BankProcessListPage() {
         day_end: d.day_end ? String(d.day_end).slice(0, 10) : "",
         day_start_frequency: bankProcessFrequencyNormalized(d.day_start_frequency),
         status: d.status || "active", remark: d.remark || "", sop: d.sop || "",
-      });
+      };
+      seedContractSyncKeys(nextForm);
+      setEditMode(true);
+      setForm(nextForm);
       setModalOpen(true);
     } catch { notify(t("failedLoadBankProcess"), "danger"); }
   };
@@ -1264,6 +1286,16 @@ export default function BankProcessListPage() {
     if (!isOnceSubmit && !String(form.contract || "").trim()) {
       notify(t("contractRequiredUnlessOnce"), "danger");
       return;
+    }
+    if (!editMode) {
+      if (!String(form.country || "").trim()) {
+        notify(t("selectCountry"), "danger");
+        return;
+      }
+      if (!String(form.type || "").trim()) {
+        notify(t("selectType"), "danger");
+        return;
+      }
     }
     const hasDayEnd = !!dayEnd && !isOnceSubmit;
     let normalizedFreq;
@@ -1628,32 +1660,51 @@ export default function BankProcessListPage() {
         </div>
         <div className="action-buttons-container">
           <div className="action-buttons">
-            <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div className="process-list-date-filter process-list-date-filter--pill" id="processListDateFilter" style={{ display: "inline-flex" }}>
-                <div className="date-range-picker" id="date-range-picker">
-                  <i className="fas fa-calendar-alt" aria-hidden="true" />
-                  {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
-                  <span id="date-range-display" aria-live="polite" />
-                  <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")} style={{ display: "none" }}>&times;</button>
+            <div className="bank-process-toolbar-main">
+              <div className="bank-process-toolbar-top-row">
+                <div className="action-controls-row bank-process-toolbar-primary" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div className="process-list-date-filter transaction-date-range-group" id="processListDateFilter" style={{ display: "inline-flex" }}>
+                    <div
+                      className="date-range-picker"
+                      id="date-range-picker"
+                      role="button"
+                      tabIndex={0}
+                      data-drp-hide-presets="true"
+                      aria-label={t("selectDateRange")}
+                    >
+                      <i className="fas fa-calendar-alt" aria-hidden="true" />
+                      {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
+                      <span id="date-range-display" aria-live="polite" />
+                      <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")} style={{ display: "none" }}>&times;</button>
+                      <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+                    </div>
+                    <input type="hidden" id="date_from" defaultValue="" />
+                    <input type="hidden" id="date_to" defaultValue="" />
+                  </div>
+                  <div className="search-container userlist-search-bar">
+                    <span className="userlist-search-bar__icon" aria-hidden="true">
+                      <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      className="search-input userlist-search-input"
+                      placeholder={t("search")}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <input type="hidden" id="date_from" defaultValue="" />
-                <input type="hidden" id="date_to" defaultValue="" />
+                <div className="user-toolbar-actions-right" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                  <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
+                  <button type="button" className="btn btn-add" onClick={openAdd}>
+                    <AddProcessIcon />
+                    {t("addProcess")}
+                  </button>
+                </div>
               </div>
-              <div className="search-container userlist-search-bar">
-                <span className="userlist-search-bar__icon" aria-hidden="true">
-                  <svg fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                  </svg>
-                </span>
-                <input
-                  type="text"
-                  className="search-input userlist-search-input"
-                  placeholder={t("search")}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="userlist-filter-chips" role="group">
+              <div className="userlist-filter-chips userlist-filter-chips--bank-process" role="group">
                 <button
                   type="button"
                   className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
@@ -1699,8 +1750,6 @@ export default function BankProcessListPage() {
                   </span>
                   <span className="user-filter-chip__label">{t("showAll")}</span>
                 </button>
-              </div>
-              <div className="userlist-filter-chips" role="group">
                 <button
                   type="button"
                   className={`user-filter-chip${showOfficial ? " is-selected" : ""}`}
@@ -1765,13 +1814,6 @@ export default function BankProcessListPage() {
                   <span className="user-filter-chip__label">{t("showBlock")}</span>
                 </button>
               </div>
-            </div>
-            <div className="user-toolbar-actions-right" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-              <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
-              <button type="button" className="btn btn-add" onClick={openAdd}>
-                <AddProcessIcon />
-                {t("addProcess")}
-              </button>
             </div>
           </div>
           <div className="user-gc-inline-panel">
@@ -2029,8 +2071,8 @@ export default function BankProcessListPage() {
 
       {resendModalOpen && (
         <ResendModal
-          resendTarget={resendTarget} resendDayStart={resendDayStart} setResendDayStart={setResendDayStart}
-          resendDayEnd={resendDayEnd} setResendDayEnd={setResendDayEnd} resendFrequency={resendFrequency} setResendFrequency={setResendFrequency}
+          resendTarget={resendTarget} resendDayStart={resendDayStart}
+          resendDayEnd={resendDayEnd} resendFrequency={resendFrequency} setResendFrequency={setResendFrequency}
           resendInlineError={resendInlineError} setResendInlineError={setResendInlineError}
           onResend={resendAccountingDue} onClose={() => setResendModalOpen(false)}
           t={t}
@@ -2052,6 +2094,8 @@ export default function BankProcessListPage() {
 
       <AccountModal
         open={addAccountModalOpen}
+        portalToBody
+        overlayZIndex={accountModalOverlayZIndex}
         title={accountModalIsEditMode ? tAccount("editAccount") : tAccount("addAccount")}
         isEditMode={accountModalIsEditMode}
         form={accountModalForm}
@@ -2071,42 +2115,50 @@ export default function BankProcessListPage() {
         onClose={closeAccountModal}
         t={tAccount}
       />
-      <div className="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
-            <select id="calendar-month-select" aria-label="Month">
-              {bpLocale.monthsShort.map((m, i) => (<option key={i} value={i}>{m}</option>))}
-            </select>
-            <select id="calendar-year-select" aria-label="Year" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
-        </div>
-        <div className="calendar-weekdays">
-          {bpLocale.weekdaysShort.map((d) => (
-            <div key={d} className="calendar-weekday">
-              {d}
+      <div className="calendar-popup calendar-popup--transaction-range calendar-popup--no-presets" id="calendar-popup" style={{ display: "none" }}>
+        <div className="transaction-calendar-panel">
+          <div className="calendar-header">
+            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
+            <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
+              <button type="button" id="calendar-month-select" className="calendar-month-trigger" aria-label="Month">
+                {bpLocale.monthsShort[new Date().getMonth()]}
+              </button>
+              <button type="button" id="calendar-year-select" className="calendar-year-trigger" aria-label="Year">
+                {String(new Date().getFullYear())}
+              </button>
             </div>
-          ))}
-        </div>
-        <div className="calendar-days" id="calendar-days" />
-        <div className="calendar-popup-clear-wrap" id="calendar-popup-clear-wrap" style={{ display: "none" }} aria-hidden="true">
-          <button type="button" className="calendar-popup-clear-btn" id="calendar-popup-clear-btn">
-            {t("clearDate")}
-          </button>
+            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
+          </div>
+          <div className="calendar-weekdays">
+            {bpLocale.weekdaysShort.map((d) => (
+              <div key={d} className="calendar-weekday">
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="calendar-days" id="calendar-days" />
+          <div className="calendar-popup-clear-wrap" id="calendar-popup-clear-wrap" style={{ display: "none" }} aria-hidden="true">
+            <button type="button" className="calendar-popup-clear-btn" id="calendar-popup-clear-btn">
+              {t("clearDate")}
+            </button>
+          </div>
         </div>
       </div>
-      {toast ? (
-        <div
-          className={`process-notification-container${addAccountModalOpen ? " process-notification-container--above-account-modal" : ""}`}
-        >
-          <div className={`process-notification process-notification-${toast.type === "danger" ? "danger" : (toast.type === "warning" ? "warning" : "success")} show`}>
-            {toast.message}
-          </div>
-        </div>
-      ) : null}
+      {toast && typeof document !== "undefined" && document.body
+        ? createPortal(
+            <div
+              className="process-notification-container"
+              style={{
+                zIndex: addAccountModalOpen ? processNotificationAboveAccountZIndex : processNotificationZIndex,
+              }}
+            >
+              <div className={`process-notification process-notification-${toast.type === "danger" ? "danger" : (toast.type === "warning" ? "warning" : "success")} show`}>
+                {toast.message}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
-
-//abc

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
@@ -14,42 +15,21 @@ import {
   PAGE_SIZE,
   DEFAULT_FORM,
   getOrderedRoles,
+  normalizeCompanyRow,
+  isVirtualGroupLinkCompanyRow,
+  buildAccountsFetchKey,
+  buildAccountsUrl,
 } from "./accountLogic.js";
 
 // Components
 import AccountModal from "../../components/AccountModal.jsx";
-import AccountConfirmModal from "./components/AccountConfirmModal.jsx";
-import CurrencySettingModal from "./components/CurrencySettingModal.jsx";
-import LinkAccountModal from "./components/LinkAccountModal.jsx";
+import { processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
+import {
+  AccountConfirmModal,
+  CurrencySettingModal,
+  LinkAccountModal,
+} from "./components/accountModals.jsx";
 import { getAccountText, translateAccountApiMessage } from "../../translateFile/accountTranslate.js";
-
-function normalizeCompanyRow(row) {
-  if (!row || typeof row !== "object") return row;
-  return {
-    ...row,
-    group_id: row.group_id ?? row.groupId ?? row.group ?? null,
-    company_id: row.company_id ?? row.companyId ?? row.code ?? "",
-  };
-}
-
-/** 与 User List 一致：隐藏集团分润/合并产生的虚拟公司行 */
-function isVirtualGroupLinkCompanyRow(c) {
-  const ls = c?.link_source_group ?? c?.linkSourceGroup;
-  return ls != null && String(ls).trim() !== "";
-}
-
-function buildAccountsFetchKey(companyId, searchTerm, showInactive, showAll) {
-  return `${companyId || ""}|${String(searchTerm || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
-}
-
-function buildAccountsUrl(companyId, searchTerm, showInactive, showAll) {
-  const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
-  url.searchParams.set("company_id", String(companyId));
-  if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
-  if (showInactive) url.searchParams.set("showInactive", "1");
-  if (showAll) url.searchParams.set("showAll", "1");
-  return url;
-}
 
 export default function AccountListPage() {
   const navigate = useNavigate();
@@ -885,7 +865,8 @@ export default function AccountListPage() {
           <h1 className="account-page-title">{t("accountList")}</h1>
           <div className="action-buttons-container">
             <div className="action-buttons">
-              <div className="action-controls-row">
+              <div className="account-toolbar-top-row">
+                <div className="action-controls-row account-toolbar-primary">
                 <div className="search-container userlist-search-bar">
                   <span className="userlist-search-bar__icon" aria-hidden="true">
                     <svg fill="currentColor" viewBox="0 0 24 24">
@@ -945,25 +926,26 @@ export default function AccountListPage() {
                     <span className="user-filter-chip__label">{t("showAll")}</span>
                   </button>
                 </div>
-              </div>
-              <div className="user-toolbar-actions-right">
-                <button type="button" className="btn btn-currency-setting" disabled={accountMutationsBlocked} onClick={openCurrencySetting}>
-                  {t("currencySetting")}
-                </button>
-                <button type="button" className="btn btn-add" disabled={accountMutationsBlocked} onClick={openAdd}>
-                  <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                  {t("addAccount")}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-delete"
-                  disabled={!selectedDeleteIds.size || accountMutationsBlocked}
-                  onClick={() => setConfirmDeleteOpen(true)}
-                >
-                  {t("deleteWithCount", { count: selectedDeleteIds.size })}
-                </button>
+                </div>
+                <div className="user-toolbar-actions-right">
+                  <button type="button" className="btn btn-currency-setting" disabled={accountMutationsBlocked} onClick={openCurrencySetting}>
+                    {t("currencySetting")}
+                  </button>
+                  <button type="button" className="btn btn-add" disabled={accountMutationsBlocked} onClick={openAdd}>
+                    <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                    {t("addAccount")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-delete"
+                    disabled={!selectedDeleteIds.size || accountMutationsBlocked}
+                    onClick={() => setConfirmDeleteOpen(true)}
+                  >
+                    {t("deleteWithCount", { count: selectedDeleteIds.size })}
+                  </button>
+                </div>
               </div>
             </div>
             <div className="user-gc-inline-panel">
@@ -1019,8 +1001,9 @@ export default function AccountListPage() {
             </div>
           </div>
 
-          <div className="account-table-wrapper">
-            <div className="account-table-header">
+          <div className="account-table-wrapper account-list-table">
+            <div className="account-list-table-inner">
+            <div className="account-table-header account-list-table-header">
               <div className="account-header-item">{t("no")}</div>
               {renderSortableHeader(t("account"), "account")}
               {renderSortableHeader(t("name"), "name")}
@@ -1036,7 +1019,7 @@ export default function AccountListPage() {
                 const alertOn = String(a.payment_alert) === "1";
                 const isInactive = String(a.status || "").toLowerCase() === "inactive";
                 return (
-                  <div className="account-card" key={a.id}>
+                  <div className="account-card account-list-row" key={a.id}>
                     <div className="account-card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
                     <div className="account-card-item">{toUpper(a.account_id)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
@@ -1058,6 +1041,7 @@ export default function AccountListPage() {
                 );
               })}
             </div>
+            </div>
           </div>
           {!showAll && (
             <div className="account-pagination-container">
@@ -1069,7 +1053,23 @@ export default function AccountListPage() {
         </div>
       </div>
 
-      {toast && <div id="accountNotificationContainer" className="account-notification-container"><div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div></div>}
+      {toast && typeof document !== "undefined" && document.body
+        ? createPortal(
+            <div
+              id="accountNotificationContainer"
+              className="account-notification-container"
+              style={{
+                zIndex:
+                  addModalOpen || editModalOpen || linkModalOpen || confirmDeleteOpen || currencySettingOpen
+                    ? processNotificationAboveAccountZIndex
+                    : processNotificationZIndex,
+              }}
+            >
+              <div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div>
+            </div>,
+            document.body
+          )
+        : null}
 
       <AccountModal
         open={addModalOpen || editModalOpen}

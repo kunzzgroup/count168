@@ -1,4 +1,5 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { sanitizeCapitalLettersOnly } from "../../../utils/sanitizeCapitalLettersOnly.js";
 
 export default function BankSelectionModal({
@@ -23,7 +24,8 @@ export default function BankSelectionModal({
   const availableBanks = (banksList || []).filter((b) => !selectedBankChips.includes(b));
 
   return (
-    <div id="bankSelectionModal" className="modal bank-selection-modal-wrap" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id="bankSelectionModal" className="modal bank-selection-modal-wrap" style={processModalBackdropStyle}>
       <div className="modal-content bank-selection-modal">
         <div className="modal-header bank-selection-modal-header">
           <h2>{t("selectOrAddBank")}</h2>
@@ -135,5 +137,6 @@ export default function BankSelectionModal({
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

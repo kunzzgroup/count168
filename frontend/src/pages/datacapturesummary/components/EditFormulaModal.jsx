@@ -55,6 +55,7 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
         <div id="editFormulaForm" className="edit-formula-form-container">
           <div className="form-header">
             <h3 id="edit-formula-title">Edit Formula</h3>
+            <button type="button" className="account-close" onClick={onClose} aria-label="Close" />
           </div>
           <div className="form-content">
             <div className="form-layout">

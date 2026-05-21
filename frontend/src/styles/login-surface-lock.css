@@ -10,7 +10,8 @@
  *   on `100%` (scrollbar appearance can change the percentage base and look like "撐開").
  */
 @media (min-width: 480px) {
-  body.bg #root .sc-login-column {
+  body.bg #root .sc-login-column,
+  body.bg #root .login-container {
     width: 430px !important;
     max-width: 430px !important;
     min-width: 0 !important;
@@ -18,10 +19,16 @@
     margin-right: auto !important;
     box-sizing: border-box !important;
   }
+
+  body.bg #root .login-container .login-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 @media (max-width: 479.98px) {
-  body.bg #root .sc-login-column {
+  body.bg #root .sc-login-column,
+  body.bg #root .login-container {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;

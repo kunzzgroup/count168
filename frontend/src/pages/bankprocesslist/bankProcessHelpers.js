@@ -108,13 +108,14 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
   return fallback;
 }
 
-/** Bank 列表列宽：每列 min 容纳「表头文案 + 排序图标」，避免 No / Country 等被截断 */
+/**
+ * Bank 列表 grid（与 processCSS.css --bank-virtual-grid-columns* 一致，供测试/文档引用）。
+ * 小屏：外层 .bank-virtual-table 横向滚动 + inner min-width，对齐 payment-maintenance 虚拟表。
+ */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "minmax(52px,0.1fr) minmax(96px,0.34fr) minmax(80px,0.2fr) minmax(68px,0.3fr) minmax(64px,0.24fr) minmax(100px,0.72fr) minmax(96px,0.5fr) minmax(76px,0.4fr) minmax(80px,0.42fr) minmax(64px,0.22fr) minmax(64px,0.22fr) minmax(68px,0.22fr) minmax(108px,0.44fr) minmax(76px,0.36fr) minmax(88px,0.3fr)";
+  "minmax(40px,2fr) minmax(84px,6fr) minmax(84px,4fr) minmax(56px,5fr) minmax(68px,5fr) minmax(96px,7fr) minmax(88px,6fr) minmax(92px,5fr) minmax(80px,5.5fr) minmax(56px,4fr) minmax(56px,4fr) minmax(56px,4fr) minmax(96px,7fr) minmax(64px,4.5fr) minmax(72px,5fr)";
 
-/** Action 与批量勾选分两列（与 User List / Games Process 一致） */
-export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT =
-  "minmax(52px,0.1fr) minmax(96px,0.34fr) minmax(80px,0.2fr) minmax(68px,0.3fr) minmax(64px,0.24fr) minmax(100px,0.72fr) minmax(96px,0.5fr) minmax(76px,0.4fr) minmax(80px,0.42fr) minmax(64px,0.22fr) minmax(64px,0.22fr) minmax(68px,0.22fr) minmax(108px,0.44fr) minmax(76px,0.36fr) minmax(88px,0.28fr) 48px";
+export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT = `${BANK_GRID_TEMPLATE_COLUMNS} minmax(48px,48px)`;
 
 export function normalizeRows(data) {
   if (!Array.isArray(data)) return [];
@@ -548,6 +549,17 @@ export const addCalendarMonthsToYmd = (ymd, months) => {
   return `${y}-${mo}-${day}`;
 };
 
+export const subtractOneDayFromYmd = (ymd) => {
+  if (!ymd) return null;
+  const head = String(ymd).trim().substring(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(head)) return null;
+  const p = head.split("-").map(Number);
+  const d = new Date(p[0], p[1] - 1, p[2]);
+  if (isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 export const billingContractExclusiveEndYmdFirstOfMonthJs = (startYmd, termMonths) => {
   if (!startYmd || termMonths < 1) return null;
   const p = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -567,9 +579,31 @@ export const billingContractExclusiveEndYmdFirstOfMonthJs = (startYmd, termMonth
   return `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
 };
 
+/**
+ * Bank 表单 Day end 自动填（与 bank_process_list.js 一致，不参与入账）。
+ * 起租日 1 号：起租 + N 月（如 5/1 + 1M → 6/1）。
+ * 起租日非 1 号：起租 + N 月再减 1 天（如 4/15 + 1M → 5/14），不用 1 号锚点。
+ */
 export const contractBillingEndYmdForBankForm = (startYmd, termMonths, frequency) => {
   if (!startYmd || termMonths == null || termMonths < 1) return null;
   if (frequency === "once") return null;
-  if (frequency === 'monthly') return addCalendarMonthsToYmd(startYmd, termMonths);
-  return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+  const head = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!head) return null;
+  const startDay = parseInt(head[3], 10);
+  if (startDay === 1) {
+    return addCalendarMonthsToYmd(startYmd, termMonths);
+  }
+  const exclusiveCal = addCalendarMonthsToYmd(startYmd, termMonths);
+  if (!exclusiveCal) return null;
+  return subtractOneDayFromYmd(exclusiveCal) || null;
 };
+
+/** Matches legacy processlist.js / bank_process_list.js Accounting Due row period_types. */
+export function accountingDuePeriodType(r) {
+  if (r.is_once_one_off) return "once_one_off";
+  if (r.is_manual_inactive) return "manual_inactive";
+  if (r.is_resend_consolidated_range) return "resend_consolidated_range";
+  if (r.is_partial_first_month) return "partial_first_month";
+  if (r.is_day_end_tail) return "day_end_tail";
+  return "monthly";
+}

@@ -1,4 +1,5 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { sanitizeCapitalLettersOnly } from "../../../utils/sanitizeCapitalLettersOnly.js";
 
 function TrashRemoveIcon() {
@@ -32,7 +33,8 @@ export default function CountrySelectionModal({
   const availableCountries = (countriesList || []).filter((c) => !selectedCountryChips.includes(c));
 
   return (
-    <div id="countrySelectionModal" className="modal country-selection-modal-wrap" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id="countrySelectionModal" className="modal country-selection-modal-wrap" style={processModalBackdropStyle}>
       <div className="modal-content country-selection-modal">
         <div className="modal-header country-selection-modal-header">
           <h2>{t("selectOrAddCountry")}</h2>
@@ -146,5 +148,6 @@ export default function CountrySelectionModal({
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

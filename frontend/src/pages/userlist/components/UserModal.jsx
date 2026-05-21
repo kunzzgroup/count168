@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
 
 /** Inline so first paint is 3-column even if extracted CSS applies one frame late */
 const modalBodyStyle = {
@@ -22,6 +23,105 @@ const userModalCardStyle = {
   overflow: "hidden",
   width: "100%",
 };
+
+function getPermissionLabel(key, t) {
+  if (key === "home") return t("permHome");
+  if (key === "admin") return t("permAdmin");
+  if (key === "ownership") return t("permOwnership");
+  if (key === "datacapture") return t("dataCapture");
+  if (key === "payment") return t("transactionPayment");
+  if (key === "report") return t("permReport");
+  if (key === "maintenance") return t("permMaintenance");
+  if (key === "account") return t("account");
+  if (key === "process") return t("process");
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+/** Large screens: inline checklist; laptop/tablet: same UI inside permission picker modal */
+function PermissionChecklist({ className, permissionsLocked, permDisabledMap, permSelected, setPermSelected, t }) {
+  return (
+    <div className={className}>
+      {PERMISSION_KEYS.map((key) => (
+        <div key={key} className="permission-item" style={{ opacity: permDisabledMap[key] ? 0.6 : 1 }}>
+          <label className="permission-label">
+            <input
+              type="checkbox"
+              className="permission-checkbox"
+              disabled={permissionsLocked || permDisabledMap[key]}
+              checked={permSelected.has(key)}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setPermSelected((prev) => {
+                  const n = new Set(prev);
+                  if (on) n.add(key);
+                  else n.delete(key);
+                  return n;
+                });
+              }}
+            />
+            <span className="permission-name">
+              <svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d={PERMISSION_ICONS[key]} />
+              </svg>
+              {getPermissionLabel(key, t)}
+            </span>
+          </label>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PermissionBulkActions({ className, permissionsLocked, permDisabledMap, setPermSelected, t }) {
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        className="btn-secondary btn-select-all"
+        disabled={permissionsLocked}
+        onClick={() => {
+          const n = new Set();
+          PERMISSION_KEYS.forEach((k) => {
+            if (!permDisabledMap[k]) n.add(k);
+          });
+          setPermSelected(n);
+        }}
+      >
+        {t("selectAll")}
+      </button>
+      <button type="button" className="btn-clearall" disabled={permissionsLocked} onClick={() => setPermSelected(new Set())}>
+        {t("clearAll")}
+      </button>
+    </div>
+  );
+}
+
+function ReadOnlyToggleInline({ readOnlyToggleCanInteract, pageReadOnlyLock, form, setForm, t }) {
+  return (
+    <span
+      className="read-only-toggle-inline read-only-toggle-after-title"
+      style={{
+        opacity: readOnlyToggleCanInteract && !pageReadOnlyLock ? 1 : 0.6,
+      }}
+    >
+      <span className="read-only-label">{t("readOnly")}</span>
+      <label
+        className="toggle-switch"
+        style={{
+          cursor: readOnlyToggleCanInteract && !pageReadOnlyLock ? "pointer" : "not-allowed",
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={form.read_only}
+          disabled={!readOnlyToggleCanInteract || pageReadOnlyLock}
+          onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))}
+        />
+        <span className="toggle-slider" />
+      </label>
+    </span>
+  );
+}
 
 const userModalColStyle = {
   flex: "1 1 0%",
@@ -77,6 +177,7 @@ export default function UserModal({
   const accountGridRef = useRef(null);
   const processGridRef = useRef(null);
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
+  const [permissionPickerOpen, setPermissionPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
   const [bulkSelectionSettling, setBulkSelectionSettling] = useState(false);
   const bulkSelectionTimerRef = useRef(null);
@@ -162,6 +263,7 @@ export default function UserModal({
   useEffect(() => {
     if (!open) {
       setCompanyPickerOpen(false);
+      setPermissionPickerOpen(false);
       setCompanySearchQuery("");
     }
   }, [open]);
@@ -177,6 +279,26 @@ export default function UserModal({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [companyPickerOpen]);
+
+  useEffect(() => {
+    if (!permissionPickerOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setPermissionPickerOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [permissionPickerOpen]);
+
+  useEffect(() => {
+    if (!permissionPickerOpen) return undefined;
+    const mq = window.matchMedia("(min-width: 1201px)");
+    const closeIfDesktop = () => {
+      if (mq.matches) setPermissionPickerOpen(false);
+    };
+    closeIfDesktop();
+    mq.addEventListener("change", closeIfDesktop);
+    return () => mq.removeEventListener("change", closeIfDesktop);
+  }, [permissionPickerOpen]);
 
   const accountIdList = useMemo(() => modalAccounts.map((x) => Number(x.id)), [modalAccounts]);
   const processIdList = useMemo(() => modalProcesses.map((x) => Number(x.id)), [modalProcesses]);
@@ -199,6 +321,11 @@ export default function UserModal({
     return modalCompanies.filter((c) => String(c.company_id || "").toUpperCase().includes(q));
   }, [modalCompanies, companySearchQuery]);
 
+  const selectedPermissionLabels = useMemo(
+    () => PERMISSION_KEYS.filter((k) => permSelected.has(k)).map((k) => getPermissionLabel(k, t)),
+    [permSelected, t]
+  );
+
   const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
   const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
   const pageReadOnlyLock = Boolean(sessionMutationsBlocked) || isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only);
@@ -206,12 +333,15 @@ export default function UserModal({
   useEffect(() => {
     if (!open || !pageReadOnlyLock) return;
     setCompanyPickerOpen(false);
+    setPermissionPickerOpen(false);
     setCompanySearchQuery("");
   }, [open, pageReadOnlyLock]);
 
-  return (
-    <>
-    <div id="userModal" className="modal" style={{ display: open ? "block" : "none" }} aria-hidden={!open}>
+  const permissionsLocked = fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
+  const showSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
+
+  const userModalShell = (
+    <div id="userModal" className="modal" style={{ display: open ? "block" : "none", zIndex: accountModalOverlayZIndex }} aria-hidden={!open}>
       <div className={`modal-content user-modal-content${isEditMode ? " edit-mode" : ""}`}>
         <div className="modal-header-bar">
           <h2 id="modalTitle">{isEditMode ? (editingRow?.is_owner_shadow ? t("editOwner") : t("editUser")) : t("addUser")}</h2>
@@ -240,14 +370,14 @@ export default function UserModal({
                     />
                   </div>
                 </div>
-                {isC168Company ? (
+                {showSecondaryPassword ? (
                   <div className="form-group user-info-field password-row-container password-row-container--split">
                     <div className="password-field-wrapper">
                       <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
                       <input id="password" type="password" disabled={pageReadOnlyLock} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
                     </div>
                     <div className="password-field-wrapper">
-                      <label htmlFor="secondary_password">{t("secondaryPassword6Digits")}</label>
+                      <label htmlFor="secondary_password">{t("secondaryPassword")}</label>
                       <input
                         id="secondary_password"
                         type="password"
@@ -336,97 +466,69 @@ export default function UserModal({
                     </div>
                   </div>
                 )}
+                <div className="user-modal-permissions-compact">
+                  <div className="form-group user-info-field company-field-group permission-field-group">
+                    <div className="user-modal-company-heading-row">
+                      <label id="user-modal-permission-trigger-label" htmlFor="user-modal-permission-open-btn" className="permission-field-label">
+                        <span className="permission-field-label-text">{t("permissions")}</span>
+                        {readOnlyToggleVisible ? (
+                          <ReadOnlyToggleInline
+                            readOnlyToggleCanInteract={readOnlyToggleCanInteract}
+                            pageReadOnlyLock={pageReadOnlyLock}
+                            form={form}
+                            setForm={setForm}
+                            t={t}
+                          />
+                        ) : null}
+                      </label>
+                      <button
+                        id="user-modal-permission-open-btn"
+                        type="button"
+                        className="user-modal-company-open-btn"
+                        disabled={permissionsLocked}
+                        onClick={() => setPermissionPickerOpen(true)}
+                      >
+                        {t("selectPermissions")}
+                      </button>
+                    </div>
+                    <div className="user-modal-company-summary" aria-labelledby="user-modal-permission-trigger-label">
+                      {selectedPermissionLabels.length ? (
+                        <span className="user-modal-company-summary-text">{selectedPermissionLabels.join(", ")}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="sidebar-permissions-section">
-                <h3 className="sidebar-permissions-title user-modal-permissions-title">
-                  {t("permissions")}
-                  {readOnlyToggleVisible ? (
-                    <span
-                      className="read-only-toggle-inline read-only-toggle-after-title"
-                      style={{
-                        opacity: readOnlyToggleCanInteract && !pageReadOnlyLock ? 1 : 0.6,
-                      }}
-                    >
-                      <span className="read-only-label">{t("readOnly")}</span>
-                      <label
-                        className="toggle-switch"
-                        style={{
-                          cursor: readOnlyToggleCanInteract && !pageReadOnlyLock ? "pointer" : "not-allowed",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={form.read_only}
-                          disabled={!readOnlyToggleCanInteract || pageReadOnlyLock}
-                          onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))}
-                        />
-                        <span className="toggle-slider" />
-                      </label>
-                    </span>
-                  ) : null}
-                </h3>
-                <div className="permissions-container">
-                  {PERMISSION_KEYS.map((key) => (
-                    <div key={key} className="permission-item" style={{ opacity: permDisabledMap[key] ? 0.6 : 1 }}>
-                      <label className="permission-label">
-                        <input
-                          type="checkbox"
-                          className="permission-checkbox"
-                          disabled={fieldLocks.sidebar || permDisabledMap[key] || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
-                          checked={permSelected.has(key)}
-                          onChange={(e) => {
-                            const on = e.target.checked;
-                            setPermSelected((prev) => {
-                              const n = new Set(prev);
-                              if (on) n.add(key); else n.delete(key);
-                              return n;
-                            });
-                          }}
-                        />
-                        <span className="permission-name">
-                          <svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d={PERMISSION_ICONS[key]} /></svg>
-                          {key === "home"
-                            ? t("permHome")
-                            : key === "admin"
-                              ? t("permAdmin")
-                              : key === "ownership"
-                                ? t("permOwnership")
-                                : key === "datacapture"
-                                  ? t("dataCapture")
-                                  : key === "payment"
-                                    ? t("transactionPayment")
-                                    : key === "report"
-                                      ? t("permReport")
-                                      : key === "maintenance"
-                                        ? t("permMaintenance")
-                                        : key === "account"
-                                          ? t("account")
-                                          : key === "process"
-                                            ? t("process")
-                                            : key.charAt(0).toUpperCase() + key.slice(1)}
-                        </span>
-                      </label>
-                    </div>
-                  ))}
-                </div>
-                <div className="permissions-actions user-modal-col-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary btn-select-all"
-                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
-                    onClick={() => {
-                      const n = new Set();
-                      PERMISSION_KEYS.forEach(k => { if (!permDisabledMap[k]) n.add(k); });
-                      setPermSelected(n);
-                    }}
-                  >{t("selectAll")}</button>
-                  <button
-                    type="button"
-                    className="btn-clearall"
-                    disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock}
-                    onClick={() => setPermSelected(new Set())}
-                  >{t("clearAll")}</button>
+                <div className="user-modal-permissions-inline">
+                  <h3 className="sidebar-permissions-title user-modal-permissions-title">
+                    {t("permissions")}
+                    {readOnlyToggleVisible ? (
+                      <ReadOnlyToggleInline
+                        readOnlyToggleCanInteract={readOnlyToggleCanInteract}
+                        pageReadOnlyLock={pageReadOnlyLock}
+                        form={form}
+                        setForm={setForm}
+                        t={t}
+                      />
+                    ) : null}
+                  </h3>
+                  <PermissionChecklist
+                    className="permissions-container"
+                    permissionsLocked={permissionsLocked}
+                    permDisabledMap={permDisabledMap}
+                    permSelected={permSelected}
+                    setPermSelected={setPermSelected}
+                    t={t}
+                  />
+                  <PermissionBulkActions
+                    className="permissions-actions user-modal-col-actions"
+                    permissionsLocked={permissionsLocked}
+                    permDisabledMap={permDisabledMap}
+                    setPermSelected={setPermSelected}
+                    t={t}
+                  />
                 </div>
               </div>
               </form>
@@ -500,6 +602,13 @@ export default function UserModal({
         </div>
       </div>
     </div>
+  );
+
+  return (
+    <>
+    {typeof document !== "undefined" && document.body
+      ? createPortal(userModalShell, document.body)
+      : userModalShell}
     {companyPickerOpen && (currentUserRole === "admin" || currentUserRole === "owner")
       ? createPortal(
           <div className="user-modal-company-picker-root">
@@ -589,6 +698,86 @@ export default function UserModal({
                   }}
                 >
                   {t("companyPickerDone")}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+    {permissionPickerOpen
+      ? createPortal(
+          <div className="user-modal-permission-picker-root">
+            <button
+              type="button"
+              className="user-modal-permission-picker-backdrop"
+              aria-label={t("cancel")}
+              onClick={() => setPermissionPickerOpen(false)}
+            />
+            <div
+              className="user-modal-permission-picker"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="user-modal-permission-picker-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="user-modal-permission-picker-header">
+                <span id="user-modal-permission-picker-title">{t("permissionPickerTitle")}</span>
+                <button
+                  type="button"
+                  className="user-modal-permission-picker-close"
+                  aria-label={t("cancel")}
+                  onClick={() => setPermissionPickerOpen(false)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="user-modal-permission-picker-body">
+                <section className="user-modal-permission-picker-sidebar">
+                  <div className="user-modal-permission-picker-sidebar-head">
+                    <span className="user-modal-permission-picker-section-label">{t("permissions")}</span>
+                    <div className="user-modal-permission-picker-sidebar-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary btn-select-all"
+                        disabled={permissionsLocked}
+                        onClick={() => {
+                          const n = new Set();
+                          PERMISSION_KEYS.forEach((k) => {
+                            if (!permDisabledMap[k]) n.add(k);
+                          });
+                          setPermSelected(n);
+                        }}
+                      >
+                        {t("selectAll")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-clearall"
+                        disabled={permissionsLocked}
+                        onClick={() => setPermSelected(new Set())}
+                      >
+                        {t("clearAll")}
+                      </button>
+                    </div>
+                  </div>
+                  <PermissionChecklist
+                    className="permissions-container user-modal-permission-picker-perms"
+                    permissionsLocked={permissionsLocked}
+                    permDisabledMap={permDisabledMap}
+                    permSelected={permSelected}
+                    setPermSelected={setPermSelected}
+                    t={t}
+                  />
+                </section>
+              </div>
+              <div className="user-modal-permission-picker-footer">
+                <button
+                  type="button"
+                  className="user-modal-permission-picker-done"
+                  onClick={() => setPermissionPickerOpen(false)}
+                >
+                  {t("permissionPickerDone")}
                 </button>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { formatBankProcessContractLabel } from "../bankProcessHelpers.js";
 
 export default function AccountingDueModal({
@@ -19,7 +20,8 @@ export default function AccountingDueModal({
   const deleteAllChecked = accountingRows.length > 0 && accountingRows.every((r) => accountingDeleteSelected.has(Number(r.id)));
 
   return (
-    <div id="processAccountingDueModal" className="modal" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id="processAccountingDueModal" className="modal" style={processModalBackdropStyle}>
       <div className="modal-content accounting-due-modal-content">
         <div className="modal-header">
           <h2>
@@ -108,5 +110,6 @@ export default function AccountingDueModal({
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }
