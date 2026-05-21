@@ -172,8 +172,8 @@ export default function TransactionMaintenanceTable({
       <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table" style={{ display: "block" }}>
         <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
           <TopLoadingBar label={label} />
-          <div className="maintenance-virtual-scroll" tabIndex={0}>
-            <VirtualTableHeader m={m} />
+          <VirtualTableHeader m={m} />
+          <div className="maintenance-virtual-scroll maintenance-virtual-scroll--body" tabIndex={0}>
             <div className="maintenance-virtual-empty-loading" aria-hidden />
           </div>
         </div>
@@ -199,8 +199,8 @@ export default function TransactionMaintenanceTable({
     <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table" style={{ display: "block" }}>
       <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
         {showBlueBar ? <TopLoadingBar label={m.loading} /> : null}
-        <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
-          <VirtualTableHeader m={m} />
+        <VirtualTableHeader m={m} />
+        <div ref={scrollRef} className="maintenance-virtual-scroll maintenance-virtual-scroll--body" tabIndex={0}>
           {rows.length > 0 ? (
             <div className="maintenance-virtual-spacer" style={{ height: totalH, position: "relative", width: "100%" }}>
               {vItems.map((virtualRow) => {
