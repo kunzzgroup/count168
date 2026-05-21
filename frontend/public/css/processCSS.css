@@ -1880,7 +1880,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 .process-page .btn-cancel {
-    background: linear-gradient(180deg, #AAB8C2 0%, #657786 100%);
+    background: var(--gradient-domain-muted-action);
     color: #ffffff;
     font-family: var(--font-heading-page);
     min-width: var(--userlist-btn-add-width);
@@ -1890,8 +1890,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(101, 119, 134, 0.2);
-    --sweep-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
     cursor: pointer;
     white-space: nowrap;
     display: inline-flex;
@@ -1899,13 +1898,11 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     justify-content: center;
     gap: clamp(5px, 0.42vw, 8px);
     text-align: center;
-    position: relative;
-    overflow: hidden;
 }
 
 .process-page .btn-cancel:hover {
-    background: linear-gradient(180deg, #9ca9b4 0%, #5a6a78 100%);
-    box-shadow: 0 4px 8px rgba(101, 119, 134, 0.3);
+    background: var(--gradient-domain-muted-action-hover);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
     transform: translateY(-1px);
 }
 
@@ -3320,12 +3317,21 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 
 .process-page .description-selection-modal .modal-footer .btn,
 .description-selection-modal .modal-footer .btn {
-    min-width: 100px;
-    min-height: 2rem;
-    padding: 0.38rem 0.85rem;
-    font-size: 0.76rem;
-    line-height: 1;
-    border-radius: 0.35rem;
+    font-family: var(--font-heading-page);
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    min-height: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    line-height: 1.2;
+    border-radius: 6px;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    white-space: nowrap;
 }
 
 .process-page .no-descriptions {
@@ -3638,47 +3644,34 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 .process-btn-cancel {
-    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
+    background: var(--gradient-domain-muted-action);
     color: white;
     font-family: var(--font-heading-page);
-    width: clamp(5rem, 6.25vw, 7.5rem);
-    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
-    font-size: var(--text-h3);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
     border: none;
-    border-radius: 0.375rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(88, 88, 88, 0.3);
-    --sweep-color: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
     cursor: pointer;
-    position: relative;
-    overflow: hidden;
-}
-
-.process-btn-cancel::after {
-    content: "";
-    position: absolute;
-    top: -20%;
-    bottom: -20%;
-    left: -30%;
-    right: -30%;
-    background: linear-gradient(120deg,
-            rgba(255, 255, 255, 0) 0%,
-            rgba(100, 116, 139, 0.24) 20%,
-            rgba(255, 255, 255, 0.35) 50%,
-            rgba(100, 116, 139, 0.24) 80%,
-            rgba(255, 255, 255, 0) 100%);
-    transform: translateX(-120%);
-    transition: transform 600ms ease;
-    pointer-events: none;
-}
-
-.process-btn-cancel:hover::after {
-    transform: translateX(120%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
+    white-space: nowrap;
 }
 
 .process-btn-cancel:hover {
-    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
-    box-shadow: 0 0.25rem 0.5rem rgba(84, 84, 84, 0.4);
-    transform: translateY(-0.0625rem);
+    background: var(--gradient-domain-muted-action-hover);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
+    transform: translateY(-1px);
+}
+
+.process-btn-cancel:active {
+    transform: translateY(0);
 }
 
 .process-btn-delete {
@@ -4291,14 +4284,69 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 .process-page #addModal .add-actions .btn-cancel,
 .process-page #editModal .add-actions .btn-save,
 .process-page #editModal .add-actions .btn-cancel {
-    min-height: unset;
+    min-height: auto;
 }
 
+/* Add/Edit Process modal footer — 与顶栏 Add Process / User List 弹窗同款 */
 #addModal .add-actions .btn-save,
 #addModal .add-actions .btn-cancel,
 #editModal .add-actions .btn-save,
 #editModal .add-actions .btn-cancel {
-    min-height: unset !important;
+    font-family: var(--font-heading-page) !important;
+    font-size: var(--text-medium) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    min-width: var(--userlist-btn-add-width) !important;
+    width: auto !important;
+    min-height: auto !important;
+    padding: clamp(6px, 0.42vw, 8px) 20px !important;
+    border: none !important;
+    border-radius: 6px !important;
+    cursor: pointer;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 0.42vw, 8px);
+    text-align: center;
+    white-space: nowrap;
+    position: static;
+    overflow: visible;
+}
+
+#addModal .add-actions .btn-save,
+#editModal .add-actions .btn-save {
+    background: var(--btn-add-gradient) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+}
+
+#addModal .add-actions .btn-save:hover,
+#editModal .add-actions .btn-save:hover {
+    background: var(--btn-add-gradient-hover) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4) !important;
+}
+
+#addModal .add-actions .btn-save:active,
+#editModal .add-actions .btn-save:active,
+#addModal .add-actions .btn-cancel:active,
+#editModal .add-actions .btn-cancel:active {
+    transform: translateY(0);
+}
+
+#addModal .add-actions .btn-cancel,
+#editModal .add-actions .btn-cancel {
+    background: var(--gradient-domain-muted-action) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3) !important;
+}
+
+#addModal .add-actions .btn-cancel:hover,
+#editModal .add-actions .btn-cancel:hover {
+    background: var(--gradient-domain-muted-action-hover) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4) !important;
 }
 
 /* Hard fallback: ensure Add Process modal stays readable even if parent wrapper class changes */
@@ -4446,16 +4494,6 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     min-height: 8.25rem !important;
     max-height: 8.25rem !important;
     resize: none !important;
-}
-
-#addModal .add-actions .btn-save,
-#addModal .add-actions .btn-cancel,
-#editModal .add-actions .btn-save,
-#editModal .add-actions .btn-cancel {
-    font-size: var(--text-medium) !important;
-    font-family: var(--font-heading-page) !important;
-    font-weight: var(--font-weight-semibold) !important;
-    min-height: unset !important;
 }
 
 /* Final lock: keep Edit Process layout same as Add Process */
@@ -4719,12 +4757,19 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 }
 
 .modal-content.description-selection-modal .modal-footer .btn {
-    min-width: 92px !important;
-    min-height: 34px !important;
-    height: 34px !important;
-    padding: 0 12px !important;
-    font-size: 13px !important;
-    border-radius: 5px !important;
+    font-family: var(--font-heading-page) !important;
+    font-size: var(--text-medium) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    min-width: var(--userlist-btn-add-width) !important;
+    width: auto !important;
+    min-height: auto !important;
+    height: auto !important;
+    padding: clamp(6px, 0.42vw, 8px) 20px !important;
+    border-radius: 6px !important;
+    border: none !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Bank list: pagination anchored bottom-right of main column (matches reference layout) */

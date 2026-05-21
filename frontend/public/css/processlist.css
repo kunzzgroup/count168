@@ -1530,14 +1530,14 @@
 }
 
 .process-page #addBankModal .bank-actions .btn-cancel {
-    background: linear-gradient(180deg, #aab8c2 0%, #657786 100%);
+    background: var(--gradient-domain-muted-action);
     color: #ffffff;
-    box-shadow: 0 2px 4px rgba(101, 119, 134, 0.2);
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
 }
 
 .process-page #addBankModal .bank-actions .btn-cancel:hover {
-    background: linear-gradient(180deg, #9ca9b4 0%, #5a6a78 100%);
-    box-shadow: 0 4px 8px rgba(101, 119, 134, 0.3);
+    background: var(--gradient-domain-muted-action-hover);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
     transform: translateY(-1px);
 }
 
