@@ -733,13 +733,14 @@
     background-color: #eef4ff !important;
     color: #1e3a5f;
 }
-.member-winloss-table .transaction-table-row.transaction-summary-total td {
-    background-color: #475569 !important;
-    color: #f8fafc !important;
+.member-winloss-table tfoot .transaction-table-row.transaction-summary-total td {
+    background-color: #eef4ff !important;
+    color: #0f172a !important;
     font-weight: 700;
     padding-top: 9px;
     padding-bottom: 9px;
-    border-color: #334155;
+    border-color: #e2e8f0;
+    border-top-color: #d6e3f2;
 }
 .member-winloss-table .transaction-table-row.transaction-summary-total td.transaction-summary-total-label {
     text-align: left;
@@ -886,106 +887,6 @@
 .member-amount-pill__icon {
     flex-shrink: 0;
 }
-/*
- * 合计行金额样式（背景 #475569 不变）— 改 tr 的 modifier 即可切换：
- *   --amt-inline     默认：细箭头 + 柔和文字（与右侧 Total 面板一致）
- *   --amt-pill-soft  半透明圆角胶囊
- *   --amt-stripe     左侧色条 + 文字
- *   --amt-dot        圆点指示 + 文字
- */
-.member-winloss-table .transaction-summary-total .member-summary-amount {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 5px;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-.member-winloss-table .transaction-summary-total .member-summary-amount__arrow {
-    flex-shrink: 0;
-    font-size: 8px;
-    line-height: 1;
-    opacity: 0.72;
-}
-.member-winloss-table .transaction-summary-total .member-summary-amount--gain .member-summary-amount__arrow {
-    color: #4ade80;
-}
-.member-winloss-table .transaction-summary-total .member-summary-amount--gain .member-summary-amount__figure {
-    color: #bbf7d0;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-}
-.member-winloss-table .transaction-summary-total .member-summary-amount--loss .member-summary-amount__arrow {
-    color: #f87171;
-}
-.member-winloss-table .transaction-summary-total .member-summary-amount--loss .member-summary-amount__figure {
-    color: #fecaca;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-}
-.member-winloss-table .transaction-summary-total .member-summary-amount--zero {
-    color: #cbd5e1;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-}
-.member-winloss-table .transaction-summary-total .member-summary-amount--na {
-    color: #94a3b8;
-    font-weight: 400;
-}
-
-/* 方案 B：半透明胶囊（tr 加 transaction-summary-total--amt-pill-soft） */
-.member-winloss-table .transaction-summary-total--amt-pill-soft .member-summary-amount {
-    padding: 3px 10px;
-    border-radius: 999px;
-}
-.member-winloss-table .transaction-summary-total--amt-pill-soft .member-summary-amount--gain {
-    background-color: rgba(34, 197, 94, 0.18);
-    border: 1px solid rgba(110, 231, 183, 0.35);
-}
-.member-winloss-table .transaction-summary-total--amt-pill-soft .member-summary-amount--loss {
-    background-color: rgba(239, 68, 68, 0.18);
-    border: 1px solid rgba(252, 165, 165, 0.32);
-}
-
-/* 方案 C：左侧色条（tr 加 transaction-summary-total--amt-stripe） */
-.member-winloss-table .transaction-summary-total--amt-stripe .member-summary-amount {
-    padding: 2px 0 2px 10px;
-    border-left: 3px solid transparent;
-    border-radius: 2px;
-}
-.member-winloss-table .transaction-summary-total--amt-stripe .member-summary-amount--gain {
-    border-left-color: #4ade80;
-    background-color: rgba(34, 197, 94, 0.08);
-}
-.member-winloss-table .transaction-summary-total--amt-stripe .member-summary-amount--loss {
-    border-left-color: #f87171;
-    background-color: rgba(239, 68, 68, 0.08);
-}
-
-/* 方案 D：圆点指示（tr 加 transaction-summary-total--amt-dot） */
-.member-winloss-table .transaction-summary-total--amt-dot .member-summary-amount {
-    gap: 7px;
-}
-.member-winloss-table .transaction-summary-total--amt-dot .member-summary-amount__arrow {
-    display: none;
-}
-.member-winloss-table .transaction-summary-total--amt-dot .member-summary-amount--gain::before,
-.member-winloss-table .transaction-summary-total--amt-dot .member-summary-amount--loss::before {
-    content: "";
-    flex-shrink: 0;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-}
-.member-winloss-table .transaction-summary-total--amt-dot .member-summary-amount--gain::before {
-    background-color: #4ade80;
-    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.25);
-}
-.member-winloss-table .transaction-summary-total--amt-dot .member-summary-amount--loss::before {
-    background-color: #f87171;
-    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.22);
-}
-
 .text-uppercase {
     text-transform: uppercase;
 }
@@ -1282,8 +1183,10 @@ body.member-winloss-page .member-dash-col-filters .user-gc-inline-panel.member-w
     width: 100%;
     min-width: 0;
     overflow: visible;
-    /* Currency 网格：列宽下限（Account 单独加宽） */
+    /* Currency 网格：列宽下限 */
     --member-winloss-filter-pill-cell-min: 5.25rem;
+    /* Account 每格最小宽，避免长户名贴边；7 格总宽超出时可横向滚动 */
+    --member-winloss-account-pill-min: 5.5rem;
 }
 
 /* Account 与 Currency 之间再拉开一些，Currency 整块下移 */
@@ -1291,55 +1194,80 @@ body.member-winloss-page #member_currency_filter {
     margin-top: 10px;
 }
 
-/* Currency 标签与选项条：避免「Currency:」贴住 All / 币种按钮（display:contents 行无法用 row gap） */
+/* Account / Currency：标签右对齐 + 与选项条统一间距（display:contents 行无法用 row gap） */
+body.member-winloss-page #member_account_filter > .user-gc-inline-label,
 body.member-winloss-page #member_currency_filter > .user-gc-inline-label {
     padding-right: clamp(10px, 1vw, 14px);
-}
-body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
-    margin-left: clamp(4px, 0.75vw, 8px);
+    text-align: right;
 }
 
-/* Account：图 2 分段条 — 一排最多 7 格均分；超过 7 个时由 JSX 设为 repeat(7,…) 自动换行 */
-body.member-winloss-page #member_account_buttons.member-winloss-account-pills {
+body.member-winloss-page #member_account_buttons.member-winloss-account-pills,
+body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
+    margin-left: clamp(4px, 0.75vw, 8px);
+    flex-direction: column;
     flex-wrap: nowrap;
-    overflow-x: visible;
-    gap: 0;
+    align-items: stretch;
+    align-self: stretch;
+    overflow-x: auto;
+    overflow-y: visible;
+    gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-right: clamp(6px, 0.6vw, 10px);
     padding-bottom: 0;
+    box-sizing: border-box;
 }
 
 body.member-winloss-page #member_account_buttons .member-winloss-account-segments {
     display: grid;
-    grid-auto-flow: row;
+    /* grid-template-columns / width 由 JSX 按 band.length 设置 */
     align-items: stretch;
+    min-width: 0;
     max-width: 100%;
-    min-width: 0;
-    column-gap: 0;
-    row-gap: 0;
-    /* 与 .user-gc-segment-group 的圆角外框一致，并裁切每行末尾圆角 */
-    overflow: hidden;
-}
-
-/* 与图 2：圆角外框 + 竖分割线由 userlist 的 .user-gc-segment-group / .user-gc-segment 提供；此处收紧内边距以便 7 个并排可读 */
-body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 10px 8px;
     box-sizing: border-box;
-    font-size: var(--text-medium) !important;
+    row-gap: 0;
+    column-gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
-/* Account：每行最右一格（>7 户时为 7 列换行）右上/右下圆角，与整条白底条圆角一致；行尾去掉右边框以免直角竖线 */
-body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment:nth-child(7n) {
-    border-right: none;
-    border-top-right-radius: clamp(8px, 0.7vw, 10px);
-    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments {
+    display: grid;
+    align-items: stretch;
+    min-width: 0;
+    box-sizing: border-box;
+    row-gap: 0;
+    column-gap: 0;
+    overflow: hidden;
 }
 
-body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment:last-child {
-    border-right: none;
-    border-top-right-radius: clamp(8px, 0.7vw, 10px);
-    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
+body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment,
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment {
+    font-weight: var(--font-weight-semibold) !important;
+}
+
+body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment {
+    padding: 5px clamp(8px, 0.85vw, 12px);
+    box-sizing: border-box;
+    min-height: clamp(28px, 1.85vw, 32px);
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+    font-size: var(--text-small) !important;
+    line-height: 1.3;
+    align-items: center;
+    justify-content: center;
+}
+
+body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment .member-winloss-account-pill-label {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-weight: inherit;
+    white-space: nowrap;
+    overflow: visible;
 }
 
 body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment {
@@ -1354,30 +1282,17 @@ body.member-winloss-page #member_currency_buttons .member-winloss-currency-segme
     align-items: center;
 }
 
-/* Currency：每段宽度 = (格数/8)×整栏宽，列均分后与 Account / 首行竖线对齐 */
-body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: stretch;
-    align-self: stretch;
-    overflow-x: auto;
-    overflow-y: visible;
-    gap: 6px;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    padding-bottom: 0;
+/* Account：每行最右一格（满 7 列换行）右上/右下圆角，与整条白底条圆角一致；行尾去掉右边框以免直角竖线 */
+body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment:nth-child(7n) {
+    border-right: none;
+    border-top-right-radius: clamp(8px, 0.7vw, 10px);
+    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
 }
 
-body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments {
-    display: grid;
-    /* grid-template-columns / width 由 JSX 按 band.length 设置 */
-    align-items: stretch;
-    min-width: 0;
-    box-sizing: border-box;
-    row-gap: 0;
-    column-gap: 0;
-    overflow: hidden;
+body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment:last-child {
+    border-right: none;
+    border-top-right-radius: clamp(8px, 0.7vw, 10px);
+    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
 }
 
 /* Currency：满行 8 格时行尾圆角；未满行时在最后一个币种处收弧 */
@@ -1401,6 +1316,7 @@ body.member-winloss-page .member-dash-col-filters .user-gc-inline-label {
     text-overflow: clip;
     white-space: nowrap;
     font-size: var(--text-base);
+    text-align: right;
 }
 
 .member-winloss-page .member-dash-filter-trigger {
