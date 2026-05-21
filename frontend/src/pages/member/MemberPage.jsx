@@ -138,7 +138,7 @@ export default function MemberPage() {
     formatPaymentHistoryMoney,
   } = useMemberWinLoss({ showNotification, lang });
 
-  /** Currency 多段：每段最多 7 格（含 All），每满一行新开一条 segment 白底条，列仍按 7 列对齐 */
+  /** Currency 多段：每段最多 8 格（含 All），每满一行新开一条 segment 白底条，列仍按 8 列对齐 */
   const currencyFilterBands = useMemo(() => {
     const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
     const showAllBtn = codes.length === 0 || codes.length > 1;
@@ -633,12 +633,21 @@ export default function MemberPage() {
                 return (
                   <div className="member-currency-table-wrapper" key={currency}>
                     <h3 className="member-currency-table-title">{t("currencyTitle", { currency })}</h3>
-                    <table className="transaction-table member-winloss-table">
+                    <table className="transaction-table member-winloss-table member-winloss-table--by-currency">
+                      <colgroup>
+                        <col className="transaction-history-col-date" />
+                        <col className="transaction-history-col-product" />
+                        <col className="transaction-history-col-rate" />
+                        <col className="transaction-history-col-winloss" />
+                        <col className="transaction-history-col-crdr" />
+                        <col className="transaction-history-col-balance" />
+                        <col className="transaction-history-col-description" />
+                        <col className="transaction-history-col-remark" />
+                      </colgroup>
                       <thead>
                         <tr className="transaction-table-header">
                           <th className="transaction-history-col-date">{t("colDate")}</th>
                           <th className="transaction-history-col-product">{t("colIdProduct")}</th>
-                          <th className="transaction-history-col-currency">{t("colCurrency")}</th>
                           <th className="transaction-history-col-rate">{t("colRate")}</th>
                           <th className="transaction-history-col-winloss">{t("colWinLoss")}</th>
                           <th className="transaction-history-col-crdr">{t("colCrDr")}</th>
@@ -649,16 +658,15 @@ export default function MemberPage() {
                       </thead>
                       <tbody>
                         {rows.length === 0 ? (
-                          <tr className="transaction-table-row"><td colSpan={9} style={{ textAlign: "center" }}>{t("noData")}</td></tr>
+                          <tr className="transaction-table-row"><td colSpan={8} style={{ textAlign: "center" }}>{t("noData")}</td></tr>
                         ) : (
                           rows.map((row, idx) => (
                             <tr className={`transaction-table-row ${row.row_type === "bf" ? "member-bf-row" : ""}`} key={`${currency}-${idx}`}>
                               <td className="transaction-history-col-date">{row.date || "-"}</td>
                               <td className="transaction-history-col-product">{row.is_bank_process_transaction ? row.card_owner || "-" : row.product || "-"}</td>
-                              <td className="transaction-history-col-currency">{row.currency || "-"}</td>
                               <td className="transaction-history-col-rate">{row.rate || "-"}</td>
                               <td className="transaction-history-col-winloss">
-                                <MemberMoneyCell value={row.win_loss} formatMoney={formatPaymentHistoryMoney} pill />
+                                <MemberMoneyCell value={row.win_loss} formatMoney={formatPaymentHistoryMoney} />
                               </td>
                               <td className="transaction-history-col-crdr">
                                 <MemberMoneyCell value={row.cr_dr} formatMoney={formatPaymentHistoryMoney} />
@@ -674,10 +682,9 @@ export default function MemberPage() {
                       </tbody>
                       <tfoot>
                         <tr className="transaction-table-row transaction-summary-total">
-                          <td className="transaction-summary-total-label">{t("totalRow", { currency })}</td>
-                          <td className="transaction-history-col-product">-</td>
-                          <td className="transaction-history-col-currency">-</td>
-                          <td className="transaction-history-col-rate">-</td>
+                          <td className="transaction-summary-total-label" colSpan={3}>
+                            {t("totalRow", { currency })}
+                          </td>
                           <td className="transaction-history-col-winloss">
                             <MemberMoneyCell value={totalWinLoss.toString()} formatMoney={formatPaymentHistoryMoney} pill />
                           </td>
@@ -687,8 +694,7 @@ export default function MemberPage() {
                           <td className="transaction-history-col-balance">
                             <MemberMoneyCell value={closingBalance.toString()} formatMoney={formatPaymentHistoryMoney} pill />
                           </td>
-                          <td className="transaction-history-col-description">-</td>
-                          <td className="transaction-history-col-remark">-</td>
+                          <td className="transaction-history-col-description" colSpan={2} />
                         </tr>
                       </tfoot>
                     </table>
