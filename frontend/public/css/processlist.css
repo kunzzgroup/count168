@@ -2246,8 +2246,10 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
     align-items: center;
 }
 
-.select-with-add .bank-select {
+.select-with-add .bank-select,
+.select-with-add .custom-select-wrapper {
     flex: 1;
+    min-width: 0;
 }
 
 .bank-add-btn {
@@ -2607,6 +2609,21 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
 .bank-modal .custom-select-no-results {
     font-size: var(--text-small) !important;
     font-family: var(--font-ui) !important;
+}
+
+#addBankModal .custom-select-option.selected,
+#profitSharingModal .custom-select-option.selected,
+.bank-modal .custom-select-option.selected {
+    background-color: #e7f0ff;
+    color: #0D60FF;
+    font-weight: 600;
+}
+
+#addBankModal .custom-select-option--disabled,
+.bank-modal .custom-select-option--disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 /* Add Account 弹窗优先级最高，在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */

@@ -1288,6 +1288,16 @@ export default function BankProcessListPage() {
       notify(t("contractRequiredUnlessOnce"), "danger");
       return;
     }
+    if (!editMode) {
+      if (!String(form.country || "").trim()) {
+        notify(t("selectCountry"), "danger");
+        return;
+      }
+      if (!String(form.type || "").trim()) {
+        notify(t("selectType"), "danger");
+        return;
+      }
+    }
     const hasDayEnd = !!dayEnd && !isOnceSubmit;
     let normalizedFreq;
     if (isOnceSubmit) normalizedFreq = "once";

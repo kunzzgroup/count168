@@ -1,5 +1,6 @@
 import React from "react";
 import BankSearchableAccountPick from "./BankSearchableAccountPick.jsx";
+import BankSimpleSelect from "./BankSimpleSelect.jsx";
 import BankFormDateField from "./BankFormDateField.jsx";
 import {
   parseProfitSharingToRows,
@@ -89,19 +90,13 @@ export default function BankProcessFormModal({
                         {editMode ? (
                           <input id="bank_country" readOnly className="bank-input" value={form.country} />
                         ) : (
-                          <select
+                          <BankSimpleSelect
                             id="bank_country"
-                            name="country"
-                            className="bank-select"
                             value={form.country}
-                            required
-                            onChange={(ev) => setForm((prev) => ({ ...prev, country: ev.target.value, bank: "" }))}
-                          >
-                            <option value="">{t("selectCountry")}</option>
-                            {countriesList.map((c) => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
+                            placeholder={t("selectCountry")}
+                            options={countriesList.map((c) => ({ value: c, label: c }))}
+                            onChange={(v) => setForm((prev) => ({ ...prev, country: v, bank: "" }))}
+                          />
                         )}
                         {!editMode ? (
                           <button type="button" className="bank-add-btn" title={t("addNewCountry")} onClick={onOpenCountryModal}>+</button>
@@ -179,12 +174,17 @@ export default function BankProcessFormModal({
                       {editMode ? (
                         <input id="bank_type" readOnly className="bank-input" value={form.type} />
                       ) : (
-                        <select id="bank_type" name="type" className="bank-select" value={form.type} required onChange={(ev) => setForm((prev) => ({ ...prev, type: ev.target.value }))}>
-                          <option value="">{t("selectType")}</option>
-                          <option value="PERSONAL">{t("personal")}</option>
-                          <option value="ENTERPRISE">{t("enterprise")}</option>
-                          <option value="BUSINESS">{t("business")}</option>
-                        </select>
+                        <BankSimpleSelect
+                          id="bank_type"
+                          value={form.type}
+                          placeholder={t("selectType")}
+                          options={[
+                            { value: "PERSONAL", label: t("personal") },
+                            { value: "ENTERPRISE", label: t("enterprise") },
+                            { value: "BUSINESS", label: t("business") },
+                          ]}
+                          onChange={(v) => setForm((prev) => ({ ...prev, type: v }))}
+                        />
                       )}
                     </div>
                     <div className="form-group">
@@ -302,13 +302,16 @@ export default function BankProcessFormModal({
                 <div className="bank-form-cell bank-form-cell-left">
                   <div className="form-group bank-day-start-frequency-wrap" style={{ marginBottom: 20 }}>
                     <label htmlFor="bank_day_start_frequency">{t("frequency")}</label>
-                    <select
+                    <BankSimpleSelect
                       id="bank_day_start_frequency"
-                      name="day_start_frequency"
-                      className="bank-input bank-select"
                       value={bankProcessFrequencyNormalized(form.day_start_frequency)}
-                      onChange={(ev) => {
-                        const next = ev.target.value;
+                      includeEmptyOption={false}
+                      options={[
+                        { value: "1st_of_every_month", label: t("firstOfEveryMonth") },
+                        { value: "monthly", label: t("monthly"), disabled: hasDayEnd },
+                        { value: "once", label: t("onceFrequency") },
+                      ]}
+                      onChange={(next) => {
                         setForm((prev) => {
                           const prevNorm = bankProcessFrequencyNormalized(prev.day_start_frequency);
                           if (next === "once" && prevNorm !== "once") {
@@ -317,11 +320,7 @@ export default function BankProcessFormModal({
                           return { ...prev, day_start_frequency: next };
                         });
                       }}
-                    >
-                      <option value="1st_of_every_month">{t("firstOfEveryMonth")}</option>
-                      <option value="monthly" disabled={hasDayEnd}>{t("monthly")}</option>
-                      <option value="once">{t("onceFrequency")}</option>
-                    </select>
+                    />
                   </div>
                   <input type="hidden" name="profit_sharing" value={form.profit_sharing} />
                   <div className="bank-profit-sharing-container form-group">
@@ -368,22 +367,17 @@ export default function BankProcessFormModal({
                   <div className="form-row bank-row-two-cols">
                     <div className="form-group">
                       <label htmlFor="bank_contract">{t("contract")}</label>
-                      <select
+                      <BankSimpleSelect
                         id="bank_contract"
-                        name="contract"
-                        className="bank-select"
                         value={form.contract}
-                        onChange={(ev) => setForm((prev) => ({ ...prev, contract: ev.target.value }))}
-                        required={!isOnce}
+                        placeholder={t("contract")}
                         disabled={isOnce}
-                      >
-                        <option value="">{t("contract")}</option>
-                        {BANK_PROCESS_CONTRACT_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {formatBankProcessContractLabel(lang, opt.value)}
-                          </option>
-                        ))}
-                      </select>
+                        options={BANK_PROCESS_CONTRACT_OPTIONS.map((opt) => ({
+                          value: opt.value,
+                          label: formatBankProcessContractLabel(lang, opt.value),
+                        }))}
+                        onChange={(v) => setForm((prev) => ({ ...prev, contract: v }))}
+                      />
                     </div>
                     <div className="form-group">
                       <label htmlFor="bank_insurance">{t("insurance")}</label>
