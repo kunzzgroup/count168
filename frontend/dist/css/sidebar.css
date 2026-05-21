@@ -350,7 +350,7 @@
     transform: translateX(-100%);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
     .informationmenu {
         width: var(--layout-sidebar-width);
         height: 100vh;
@@ -894,7 +894,7 @@
     box-sizing: border-box;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
     .sidebar-lang-switch {
         width: 108px;
         height: 32px;
@@ -1348,7 +1348,7 @@
 }
 
 /* Final size lock: AuthenticatedLayout sets body.ec-auth-shell (stable across routes).
-   Use clamp so small viewports match legacy .informationmenu + max-width:1200px (≈150px), not forced desktop width. */
+   Use clamp so small viewports match legacy .informationmenu + max-width:1280px (≈150px), not forced desktop width. */
 body.ec-auth-shell .informationmenu {
     width: var(--layout-sidebar-width) !important;
 }
@@ -1411,8 +1411,8 @@ body.ec-auth-shell .informationmenu .submenu-item {
     font-size: var(--sidebar-menu-font, 1.6rem) !important;
 }
 
-/* Narrow screens: keep shell visually aligned with base .informationmenu @media (max-width: 1200px) */
-@media (max-width: 1200px) {
+/* Narrow screens: keep shell visually aligned with base .informationmenu @media (max-width: 1280px) */
+@media (max-width: 1280px) {
     body.ec-auth-shell .informationmenu {
         width: var(--layout-sidebar-width) !important;
     }
@@ -1562,7 +1562,7 @@ body.ec-auth-shell .informationmenu .submenu-item {
     min-width: 0;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
     /* 平板侧栏展开：点击主内容区遮罩收起（无 ✕ 动画） */
     .informationmenu-overlay.sidebar-dismiss-overlay.show {
         opacity: 1;
@@ -1593,14 +1593,35 @@ body.ec-auth-shell .informationmenu .submenu-item {
         text-overflow: clip;
         overflow: visible;
         line-height: 1.25;
+        align-items: flex-start;
         font-size: 13px;
         padding-top: 10px;
         padding-bottom: 10px;
     }
 
+    .informationmenu:not(.is-collapsed) .sidebar-menu-label {
+        white-space: normal;
+        text-overflow: clip;
+        overflow: visible;
+        overflow-wrap: break-word;
+        word-break: normal;
+        line-height: 1.25;
+    }
+
     body.ec-auth-shell .informationmenu:not(.is-collapsed) .informationmenu-section-title {
         font-size: 1.25rem !important;
         padding: 0.85rem 1rem !important;
+        white-space: normal !important;
+        text-overflow: clip !important;
+        overflow: visible !important;
+        align-items: flex-start !important;
+    }
+
+    body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-menu-label {
+        white-space: normal !important;
+        text-overflow: clip !important;
+        overflow: visible !important;
+        overflow-wrap: break-word !important;
     }
 
     /* Icon-only collapsed sidebar */
@@ -1728,7 +1749,7 @@ body.ec-auth-shell .informationmenu .submenu-item {
         height: 20px;
     }
 
-    /* 主内容区：随侧栏宽（展开 15rem / 收起 4.5rem）自动贴合 — 所有 Authenticated 页面 */
+    /* 主内容区：随侧栏宽（展开 16.5rem / 收起 4.5rem）自动贴合 — 所有 Authenticated 页面 */
     body.ec-auth-shell .informationmenu {
         transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }

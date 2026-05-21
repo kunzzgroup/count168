@@ -14,13 +14,10 @@
 }
 
 body.ownership-page {
-    background-color: #e9f1ff;
-    background-image:
-        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
-        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
-        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
-        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
-        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
+    font-family: var(--font-ui);
+    color: var(--color-page-fg);
+    background-color: var(--color-page-bg);
+    background-image: var(--app-shell-bg-image);
     background-blend-mode: screen, screen, multiply, screen, normal;
     min-height: 100vh;
     overflow-x: hidden;
@@ -39,7 +36,8 @@ body.ownership-page {
     width: 100%;
     min-height: 100vh;
     box-sizing: border-box;
-    color: var(--own-dark-text);
+    font-family: var(--font-ui);
+    color: var(--color-body-strong);
     display: flex;
     flex-direction: column;
 }
@@ -49,6 +47,7 @@ body.ownership-page {
     text-align: left;
     margin: 0;
     margin-top: var(--text-page-title-mt) !important;
+    margin-bottom: var(--text-page-title-mb);
     font-size: var(--text-page-title);
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-page-title);
@@ -86,11 +85,22 @@ body.ownership-page {
     flex-shrink: 0;
 }
 
-.own-gfb-label {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--own-dark-text);
+.own-company-name,
+.own-allocation-percentage,
+.own-allocation-label,
+.own-table-headers,
+.own-tab-btn,
+.own-gfb-label,
+.own-gfb-btn,
+.own-select-mode-btn,
+.own-bulk-count {
     font-family: var(--font-heading-page);
+}
+
+.own-gfb-label {
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
+    color: var(--own-dark-text);
     white-space: nowrap;
     min-width: 52px;
     text-align: right;
@@ -115,8 +125,8 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     border-radius: 999px;
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     color: var(--own-dark-text);
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -140,8 +150,8 @@ body.ownership-page {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
+    font-size: var(--own-text-caption);
+    font-weight: var(--font-weight-bold);
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
@@ -172,8 +182,8 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     border-radius: 999px;
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     color: var(--own-dark-text);
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -269,8 +279,8 @@ body.ownership-page {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    font-size: 22px;
-    font-weight: 800;
+    font-size: var(--own-text-card-title);
+    font-weight: var(--font-weight-bold);
     margin-bottom: 0;
     color: var(--own-dark-text);
     letter-spacing: 0.2px;
@@ -281,7 +291,7 @@ body.ownership-page {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 12px;
+    font-size: var(--own-text-caption);
     font-weight: 500;
     color: var(--own-gray-text);
     letter-spacing: 0.2px;
@@ -323,8 +333,8 @@ body.ownership-page {
 }
 
 .own-allocation-label {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-dark-text);
     margin-right: 16px;
     text-transform: uppercase;
@@ -332,15 +342,15 @@ body.ownership-page {
 }
 
 .own-allocation-percentage {
-    font-size: 28px;
+    font-size: var(--own-text-stat);
     /* Bigger dominant percent */
-    font-weight: 800;
+    font-weight: var(--font-weight-bold);
     color: var(--own-primary-blue);
     margin-right: 16px;
 }
 
 .own-allocation-remaining {
-    font-size: 12px;
+    font-size: var(--own-text-caption);
     color: var(--own-gray-text);
     font-weight: 500;
 }
@@ -378,8 +388,8 @@ body.ownership-page {
     color: var(--own-primary-blue);
     background: transparent;
     border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -434,25 +444,24 @@ body.ownership-page {
     grid-template-columns: 360px 1fr;
     /* Wider first column */
     padding: 16px 32px;
-    font-size: 13px;
+    font-size: var(--own-text-label);
     color: var(--own-gray-text);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .own-account-row {
+    --own-control-h: clamp(3.6rem, 3.35rem + 0.35vw, 4.4rem);
     display: flex;
     align-items: center;
-    padding: 16px 24px;
-    /* Bigger padding */
+    padding: 12px 24px 14px;
     border: 1px solid var(--own-gray-border);
     border-radius: 12px;
-    /* Bigger radius */
     margin: 0 32px 16px 32px;
-    /* More side margin */
     background-color: white;
     transition: box-shadow 0.2s, border-color 0.2s;
+    min-width: 0;
 }
 
 .own-account-row:hover {
@@ -464,8 +473,10 @@ body.ownership-page {
     color: #cbd5e1;
     margin-right: 16px;
     cursor: grab;
-    font-size: 20px;
+    font-size: 2rem;
     line-height: 1;
+    flex-shrink: 0;
+    align-self: center;
     user-select: none;
     transition: color 0.2s;
 }
@@ -486,47 +497,166 @@ body.ownership-page {
     z-index: 10;
 }
 
-.own-account-select {
+/* 自定义账户下拉：与触发器等宽、边框连贯（避免原生 select 在平板上的错位） */
+.own-account-select-wrap {
+    position: relative;
     flex: 0 0 300px;
-    /* Wider select */
-    padding: 12px 16px;
-    /* Bigger padding */
-    border: 1px solid var(--own-gray-border);
-    border-radius: 8px;
-    font-size: 15px;
-    /* Larger font */
-    font-weight: 600;
-    color: var(--own-dark-text);
-    outline: none;
-    appearance: none;
-    background: url('data:image/svg+xml;utf8,<svg fill="none" stroke="%2364748b" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>') no-repeat right 16px center;
-    background-size: 16px;
-    background-color: var(--own-gray-bg);
+    min-width: 0;
     margin-right: 32px;
-    transition: border-color 0.2s, background-color 0.2s;
+    z-index: 20;
 }
 
-.own-account-select:focus {
+.own-account-row:focus-within .own-account-select-wrap {
+    z-index: 50;
+}
+
+.own-account-select-trigger {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: var(--own-control-h);
+    box-sizing: border-box;
+    padding: 10px 40px 10px 16px;
+    line-height: 1.25;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 8px;
+    font-family: var(--font-ui);
+    font-size: var(--own-text-select);
+    font-weight: var(--font-weight-semibold);
+    color: var(--own-dark-text);
+    text-align: left;
+    cursor: pointer;
+    background-color: var(--own-gray-bg);
+    background-image: url('data:image/svg+xml;utf8,<svg fill="none" stroke="%2364748b" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>');
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 16px;
+    transition: border-color 0.2s, background-color 0.2s, border-radius 0.15s ease, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.own-account-select-trigger-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+}
+
+.own-account-select-trigger:hover:not(:disabled) {
+    border-color: #cbd5e1;
+    background-color: #fff;
+}
+
+.own-account-select-trigger:focus-visible {
+    outline: none;
     border-color: var(--own-primary-blue);
-    background-color: white;
+    background-color: #fff;
     box-shadow: 0 0 0 3px rgba(59, 142, 246, 0.1);
+}
+
+.own-account-select-trigger.is-open,
+.own-account-select-trigger.is-open:focus-visible {
+    border-color: var(--own-primary-blue);
+    background-color: #fff;
+    border-radius: 8px 8px 0 0;
+    border-bottom-color: transparent;
+    box-shadow: none;
+}
+
+.own-account-select-trigger:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.own-account-select-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: #fff;
+    border: 1px solid var(--own-primary-blue);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    max-height: min(280px, 45vh);
+    overflow-x: hidden;
+    overflow-y: auto;
+    z-index: 100;
+    -webkit-overflow-scrolling: touch;
+}
+
+.own-account-select-option {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 16px;
+    border: none;
+    border-bottom: 1px solid var(--own-gray-border);
+    background: #fff;
+    font-family: var(--font-ui);
+    font-size: var(--own-text-select);
+    font-weight: var(--font-weight-semibold);
+    color: var(--own-dark-text);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.own-account-select-option:first-child:not(.is-selected) {
+    font-size: var(--own-text-caption);
+    font-weight: var(--font-weight-semibold);
+    color: var(--own-gray-text);
+    text-align: center;
+}
+
+.own-account-select-option:last-child {
+    border-bottom: none;
+}
+
+.own-account-select-option:hover {
+    background: var(--own-gray-bg);
+}
+
+.own-account-select-option.is-selected {
+    background: var(--own-primary-blue);
+    color: #fff;
+}
+
+.own-account-select-option.is-selected:hover {
+    background: var(--own-primary-blue-hover);
+}
+
+.own-account-select-option.is-group:not(.is-selected) {
+    background: #eef2ff;
+    color: #4f46e5;
 }
 
 .own-ownership-input-group {
     display: flex;
     align-items: center;
     flex: 1;
+    min-width: 0;
 }
 
 .own-percent-input {
     width: 75px;
-    /* Wider input */
+    flex-shrink: 0;
+    min-height: var(--own-control-h);
+    box-sizing: border-box;
     padding: 10px 12px;
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
     text-align: right;
-    font-size: 16px;
-    font-weight: 700;
+    font-size: var(--own-text-select);
+    line-height: 1.25;
+    font-weight: var(--font-weight-bold);
     margin-right: 24px;
     outline: none;
     color: var(--own-dark-text);
@@ -542,10 +672,13 @@ body.ownership-page {
 /* Custom Slider */
 .own-slider-container {
     flex: 1;
-    position: relative;
+    min-width: 72px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
     margin-right: 32px;
+    box-sizing: border-box;
 }
 
 .own-slider {
@@ -579,22 +712,23 @@ body.ownership-page {
 }
 
 .own-slider-labels {
-    position: absolute;
-    top: 16px;
-    width: 100%;
     display: flex;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: var(--own-text-caption);
     font-weight: 500;
+    line-height: 1.2;
     color: var(--own-gray-text);
+    pointer-events: none;
 }
 
 /* Action Buttons Row */
 .own-row-actions {
     display: flex;
+    align-items: center;
     gap: 12px;
-    /* Nicer gap */
+    flex-shrink: 0;
     margin-left: auto;
+    align-self: center;
 }
 
 .own-btn-square {
@@ -604,7 +738,7 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
     background-color: white;
-    font-size: 18px;
+    font-size: var(--own-text-control);
     font-weight: 500;
     color: var(--own-dark-text);
     cursor: pointer;
@@ -641,8 +775,8 @@ body.ownership-page {
     border: 2px dashed #bfdbfe;
     /* Cool dashed border */
     border-radius: 12px;
-    font-size: 15px;
-    font-weight: 700;
+    font-size: var(--own-text-control);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -677,16 +811,16 @@ body.ownership-page {
     color: var(--own-warning-text);
     padding: 8px 16px;
     border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-semibold);
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
 .own-unallocated-text {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-gray-text);
 }
 
@@ -700,8 +834,8 @@ body.ownership-page {
     padding: 10px 28px;
     /* Bigger buttons */
     border-radius: 24px;
-    font-size: 15px;
-    font-weight: 600;
+    font-size: var(--own-text-control);
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
     border: none;
     color: white;
@@ -824,13 +958,13 @@ body.ownership-page {
 }
 
 .own-partner-title {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-dark-text);
 }
 
 .own-partner-desc {
-    font-size: 12px;
+    font-size: var(--own-text-caption);
     color: var(--own-gray-text);
     margin-top: 6px;
 }
@@ -845,7 +979,7 @@ body.ownership-page {
     padding: 10px 14px;
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
-    font-size: 14px;
+    font-size: var(--own-text-body);
     width: 170px;
     outline: none;
     background: white;
@@ -865,10 +999,10 @@ body.ownership-page {
     border-radius: 8px;
     border: 1px solid var(--own-primary-blue);
     color: var(--own-primary-blue);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
     background: white;
-    font-size: 14px;
+    font-size: var(--own-text-body);
     transition: background-color 0.2s;
 }
 
@@ -906,7 +1040,7 @@ body.ownership-page {
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    font-family: inherit;
+    font-family: var(--font-ui);
 }
 
 .own-modal-header {
@@ -917,9 +1051,10 @@ body.ownership-page {
 
 .own-modal-title {
     margin: 0;
-    font-size: 16px;
-    color: #1e293b;
-    font-weight: 600;
+    font-size: var(--own-text-control);
+    font-family: var(--font-heading-page);
+    color: var(--color-ink-muted);
+    font-weight: var(--font-weight-semibold);
 }
 
 .own-modal-body {
@@ -928,7 +1063,7 @@ body.ownership-page {
 
 .own-modal-desc {
     margin: 0 0 16px 0;
-    font-size: 14px;
+    font-size: var(--own-text-body);
     color: #64748b;
     line-height: 1.5;
 }
@@ -980,8 +1115,8 @@ body.ownership-page {
 }
 
 .own-read-only-text {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--own-text-caption);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-gray-text);
     white-space: nowrap;
     line-height: 1;
@@ -1043,8 +1178,8 @@ body.ownership-page {
     align-items: center;
     padding: 2px 9px;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
+    font-size: var(--own-text-caption);
+    font-weight: var(--font-weight-bold);
     letter-spacing: 0.04em;
     background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
     color: #1d4ed8;
@@ -1068,8 +1203,8 @@ body.ownership-page {
     border: 1.5px solid #059669;
     background: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%);
     color: #065f46;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.18s ease;
@@ -1131,8 +1266,8 @@ body.ownership-page {
 /* Each group option inside dropdown */
 .own-group-option {
     padding: 10px 18px;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-semibold);
     color: #1e293b;
     cursor: pointer;
     transition: background 0.12s;
@@ -1155,8 +1290,8 @@ body.ownership-page {
     border: 1.5px solid #e11d48;
     background: linear-gradient(180deg, #ffe4e6 0%, #fecdd3 100%);
     color: #9f1239;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.18s ease;
@@ -1270,15 +1405,15 @@ body.ownership-page {
 }
 
 .own-bulk-count {
-    font-size: 22px;
-    font-weight: 800;
+    font-size: var(--own-text-card-title);
+    font-weight: var(--font-weight-bold);
     color: var(--own-primary-blue);
     line-height: 1;
 }
 
 .own-bulk-label {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-semibold);
     color: var(--own-gray-text);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -1298,8 +1433,8 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     background: var(--own-gray-bg);
     color: var(--own-dark-text);
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--own-text-select);
+    font-weight: var(--font-weight-semibold);
     outline: none;
     cursor: pointer;
     min-width: 160px;
@@ -1329,8 +1464,8 @@ body.ownership-page {
     border: none;
     background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%);
     color: #fff;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     white-space: nowrap;
     box-shadow: 0 2px 6px rgba(59, 142, 246, 0.35);
@@ -1357,8 +1492,8 @@ body.ownership-page {
     border: 1px solid var(--own-gray-border);
     background: transparent;
     color: var(--own-gray-text);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.18s ease;
@@ -1377,8 +1512,8 @@ body.ownership-page {
     border: none;
     background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
     color: #fff;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--own-text-body);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     white-space: nowrap;
     box-shadow: 0 2px 6px rgba(225, 29, 72, 0.35);
@@ -1420,8 +1555,8 @@ body.ownership-page {
     border-radius: 999px;
     background: var(--own-gray-light);
     color: var(--own-dark-text);
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--own-text-label);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     transition: all 0.22s ease;
     white-space: nowrap;
@@ -1455,7 +1590,7 @@ body.ownership-page {
 
 /* Company list shown under group name in the card header */
 .ge-company-list {
-    font-size: 12px;
+    font-size: var(--own-text-caption);
     color: var(--own-gray-text);
     font-weight: 500;
     max-width: 220px;
@@ -1471,11 +1606,69 @@ body.ownership-page {
     width: 100%;
 }
 
-/* Group ID entries in Account Ownership dropdown */
-.own-account-select option[value^="G_"] {
-    background-color: #eef2ff;
-    color: #4f46e5;
-    font-weight: 600;
+/* 平板：侧栏收起/展开时主区 padding 与全局 layout 同步 */
+@media (max-width: 1280px) {
+    body.ec-auth-shell.ownership-page .own-container {
+        padding-left: var(--layout-main-offset);
+        transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .own-account-row {
+        --own-control-h: clamp(3.4rem, 3.2rem + 0.25vw, 4rem);
+        padding: 10px 16px 12px;
+        margin-left: 16px;
+        margin-right: 16px;
+        gap: 10px;
+    }
+
+    .own-drag-handle {
+        margin-right: 8px;
+    }
+
+    /* 保持固定列宽，勿 flex-grow（否则会挤占滑杆区并拉大与删除钮间距） */
+    .own-account-select-wrap {
+        flex: 0 0 clamp(200px, 38vw, 300px);
+        max-width: min(300px, 42%);
+        margin-right: 12px;
+    }
+
+    .own-account-select-trigger {
+        padding: 8px 36px 8px 12px;
+        font-size: var(--own-text-select);
+    }
+
+    .own-account-select-option {
+        padding: 8px 12px;
+        font-size: var(--own-text-select);
+    }
+
+    .own-account-select-option:first-child:not(.is-selected) {
+        font-size: var(--own-text-caption);
+    }
+
+    .own-percent-input {
+        width: 68px;
+        margin-right: 12px;
+        padding: 8px 10px;
+        font-size: var(--own-text-select);
+    }
+
+    .own-slider-container {
+        margin-right: 12px;
+        min-width: 56px;
+        gap: 4px;
+    }
+
+    .own-partner-input {
+        font-size: var(--own-text-body);
+    }
+
+    .own-table-headers {
+        grid-template-columns: clamp(200px, 38vw, 360px) 1fr;
+        padding-left: 16px;
+        padding-right: 16px;
+        font-size: var(--own-text-caption);
+    }
 }
 
 /* Group entry row visual indicator */

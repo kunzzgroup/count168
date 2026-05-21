@@ -159,7 +159,7 @@ export default function AccountEditorRow({
         </div>
       </div>
       <div className="own-row-actions">
-        <div className="own-read-only-badge" style={{ display: "flex", visibility: showRo ? "visible" : "hidden" }}>
+        <div className="own-read-only-badge" style={{ display: showRo ? "flex" : "none" }}>
             <span className="own-read-only-text">{t("readOnly")}</span>
           <label className="own-ro-toggle">
             <input
