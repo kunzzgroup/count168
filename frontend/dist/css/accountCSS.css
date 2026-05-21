@@ -3202,3 +3202,21 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     }
 }
 
+/* Portaled modals on body — escape #root .container stacking (sidebar ~10000) */
+body > .account-modal,
+body > #linkAccountModal,
+body > #confirmDeleteModal,
+body > #currencySettingModal,
+body > #userModal.modal {
+    z-index: 20050;
+}
+
+body > #confirmModal.modal,
+body > #confirmDeleteModal.account-modal {
+    z-index: 20100;
+}
+
+body > .account-notification-container {
+    z-index: 10100;
+}
+

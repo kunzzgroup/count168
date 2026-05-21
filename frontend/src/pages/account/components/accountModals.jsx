@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { accountModalOverlayZIndex, portalToDocumentBody } from "../../../components/ProcessModalPortal.jsx";
 import { toUpper } from "../accountLogic.js";
+
+const confirmModalZIndex = accountModalOverlayZIndex + 50;
 
 export function AccountConfirmModal({ open, message, onConfirm, onClose, t }) {
   if (!open) return null;
-  return (
-    <div id="confirmDeleteModal" className="account-modal" role="dialog" aria-modal="true">
+  return portalToDocumentBody(
+    <div id="confirmDeleteModal" className="account-modal" role="dialog" aria-modal="true" style={{ zIndex: confirmModalZIndex }}>
       <div className="account-confirm-modal-content">
         <div className="account-confirm-icon-container">
           <svg className="account-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -55,8 +58,8 @@ export function LinkAccountModal({
       });
   }, [accounts, currentAccountId, searchTerm]);
 
-  return (
-    <div id="linkAccountModal" className="account-modal" style={{ display: "block" }}>
+  return portalToDocumentBody(
+    <div id="linkAccountModal" className="account-modal" style={{ display: "block", zIndex: accountModalOverlayZIndex }}>
       <div className="account-modal-content">
         <div className="account-modal-header">
           <h2>{t("linkAccountTitle")}</h2>
@@ -206,8 +209,8 @@ export function CurrencySettingModal({
     return matchesQ && matchesRole;
   });
 
-  return (
-    <div id="currencySettingModal" className="currency-fullscreen-modal" style={{ display: "block" }}>
+  return portalToDocumentBody(
+    <div id="currencySettingModal" className="currency-fullscreen-modal" style={{ display: "block", zIndex: accountModalOverlayZIndex }}>
       <div className="currency-fullscreen-modal-content">
         <div className="currency-fullscreen-modal-header-bar">
           <h2>{t("currencySetting")}</h2>

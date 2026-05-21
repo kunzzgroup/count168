@@ -28,6 +28,12 @@ export const processNotificationZIndex = 10100;
 /** Toast above Add Account modal and company picker. */
 export const processNotificationAboveAccountZIndex = 26000;
 
+/** Portal any modal/overlay node to document.body (escapes #root .container stacking). */
+export function portalToDocumentBody(node) {
+  if (typeof document === "undefined" || !document.body) return null;
+  return createPortal(node, document.body);
+}
+
 /** Resolve portal dropdown z-index from the nearest open process/bank modal. */
 export function getProcessModalDropdownZIndex(fromEl) {
   if (!fromEl?.closest) return processModalDropdownZIndex;

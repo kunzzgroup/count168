@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
@@ -22,6 +23,7 @@ import {
 
 // Components
 import AccountModal from "../../components/AccountModal.jsx";
+import { processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
 import {
   AccountConfirmModal,
   CurrencySettingModal,
@@ -1051,7 +1053,23 @@ export default function AccountListPage() {
         </div>
       </div>
 
-      {toast && <div id="accountNotificationContainer" className="account-notification-container"><div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div></div>}
+      {toast && typeof document !== "undefined" && document.body
+        ? createPortal(
+            <div
+              id="accountNotificationContainer"
+              className="account-notification-container"
+              style={{
+                zIndex:
+                  addModalOpen || editModalOpen || linkModalOpen || confirmDeleteOpen || currencySettingOpen
+                    ? processNotificationAboveAccountZIndex
+                    : processNotificationZIndex,
+              }}
+            >
+              <div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div>
+            </div>,
+            document.body
+          )
+        : null}
 
       <AccountModal
         open={addModalOpen || editModalOpen}

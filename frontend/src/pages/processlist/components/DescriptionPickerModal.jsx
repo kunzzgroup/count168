@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 
 export default function DescriptionPickerModal({
   descriptions,
@@ -52,7 +53,8 @@ export default function DescriptionPickerModal({
   };
 
   return (
-    <div className="modal" style={{ display: "block", zIndex: 10050 }} role="dialog" aria-modal="true">
+    <ProcessModalPortal>
+    <div className="modal" style={{ ...processModalBackdropStyle, zIndex: 10100 }} role="dialog" aria-modal="true">
       <div className="modal-content description-selection-modal">
         <div className="modal-header">
           <h2>{t("selectOrAddDescription")}</h2>
@@ -171,5 +173,6 @@ export default function DescriptionPickerModal({
         </div>
       )}
     </div>
+    </ProcessModalPortal>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { accountModalOverlayZIndex } from "./ProcessModalPortal.jsx";
 
 function upper(v) {
   return String(v || "").toUpperCase();
@@ -34,8 +35,8 @@ export default function AccountModal({
   t,
   /** When nested above other modals (e.g. Domain Company Settings at 2147483001) */
   overlayZIndex,
-  /** Render on document.body so z-index is not trapped inside #root .container */
-  portalToBody = false,
+  /** Render on document.body so z-index is not trapped inside #root .container (default: true) */
+  portalToBody = true,
 }) {
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
@@ -180,7 +181,7 @@ export default function AccountModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        ...(overlayZIndex != null ? { zIndex: overlayZIndex } : {}),
+        zIndex: overlayZIndex ?? accountModalOverlayZIndex,
       }}
     >
       <div className="account-modal-content">

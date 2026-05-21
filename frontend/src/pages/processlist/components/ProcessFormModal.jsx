@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 
 const DAY_NAME_MAP = {
   "MON": "dayMonday",
@@ -92,7 +93,8 @@ export default function ProcessFormModal({
   const selectedCurrency = currencies.find((c) => String(c.id) === String(form.currency_id));
 
   return (
-    <div id={editMode ? "editModal" : "addModal"} className="modal" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id={editMode ? "editModal" : "addModal"} className="modal" style={processModalBackdropStyle}>
       <div className="modal-content">
         <div className="modal-header">
           <h2>{editMode ? t("editProcess") : t("addProcess")}</h2>
@@ -586,5 +588,6 @@ export default function ProcessFormModal({
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }
