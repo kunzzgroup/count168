@@ -1661,8 +1661,8 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     line-height: 1.1;
 }
 
-.process-page:not(.process-page--bank) .process-card .card-item:nth-child(5),
-.process-page:not(.process-page--bank) .table-header .header-item:nth-child(5) {
+.process-page:not(.process-page--bank) .games-process-row .card-item:nth-child(5),
+.process-page:not(.process-page--bank) .games-process-table-header .header-item:nth-child(5) {
     justify-content: flex-start;
     text-align: center;
 }
@@ -2094,31 +2094,39 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     box-sizing: border-box;
 }
 
-/* No. column: fixed compact width and center alignment */
-.process-page:not(.process-page--bank) .table-header,
-.process-page:not(.process-page--bank) .process-card {
-    /* 表头/行 gap 统一为 8px（原先表头 15px、行 8px 会导致列与蓝条下内容纵向错开） */
+/*
+ * Games Process List table（Customer Report 模式）
+ * 表头与数据行共用同一套 grid；专用 class 避免 global-13inch User List 9 列规则误伤
+ */
+.process-page:not(.process-page--bank) .games-process-table-header,
+.process-page:not(.process-page--bank) .games-process-row {
     gap: 8px;
-    /* Status/Currency 用 minmax 限制过宽；Day Use 仍占主要弹性空间 */
     grid-template-columns:
-        38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr) minmax(32px, 0.26fr) !important;
+        38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr) minmax(32px, 0.26fr);
 }
 
-/* Show Inactive / Show All：Action 与批量勾选分两列（与 User List 勾选列对齐） */
-.process-page:not(.process-page--bank) .process-table-wrapper--select-col .table-header,
-.process-page:not(.process-page--bank) .process-table-wrapper--select-col .process-card {
+.process-page:not(.process-page--bank) .games-process-table-header {
+    padding: var(--table-header-height);
+}
+
+.process-page:not(.process-page--bank) .games-process-row {
+    padding: 0 22px;
+}
+
+.process-page:not(.process-page--bank) .process-table-wrapper--select-col .games-process-table-header,
+.process-page:not(.process-page--bank) .process-table-wrapper--select-col .games-process-row {
     grid-template-columns:
         38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr)
-        minmax(32px, 0.24fr) 48px !important;
+        minmax(32px, 0.24fr) 48px;
 }
 
-.process-page:not(.process-page--bank) .process-card .card-item--action {
+.process-page:not(.process-page--bank) .games-process-row .card-item--action {
     justify-content: center;
     padding-left: 0 !important;
     padding-right: 0 !important;
 }
 
-.process-page:not(.process-page--bank) .process-table-wrapper--select-col .table-header .header-item--select {
+.process-page:not(.process-page--bank) .process-table-wrapper--select-col .games-process-table-header .header-item--select {
     justify-content: start;
     align-items: center;
     min-width: 0;
@@ -2126,7 +2134,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     box-sizing: border-box;
 }
 
-.process-page:not(.process-page--bank) .process-card .card-item--select {
+.process-page:not(.process-page--bank) .games-process-row .card-item--select {
     justify-content: start;
     align-items: center;
     min-width: 0;
@@ -2134,8 +2142,8 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     box-sizing: border-box;
 }
 
-.process-page:not(.process-page--bank) .table-header .header-item--select input[type="checkbox"],
-.process-page:not(.process-page--bank) .process-card .card-item--select input[type="checkbox"] {
+.process-page:not(.process-page--bank) .games-process-table-header .header-item--select input[type="checkbox"],
+.process-page:not(.process-page--bank) .games-process-row .card-item--select input[type="checkbox"] {
     width: 16px;
     height: 16px;
     margin: 0;
@@ -2143,20 +2151,20 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     cursor: pointer;
 }
 
-.process-page:not(.process-page--bank) .card-item--action .btn.btn-edit.edit-btn {
+.process-page:not(.process-page--bank) .games-process-row .card-item--action .btn.btn-edit.edit-btn {
     background: transparent;
     border: transparent;
     box-shadow: none;
 }
 
-.process-page:not(.process-page--bank) .card-item--action .btn.btn-edit.edit-btn:hover {
+.process-page:not(.process-page--bank) .games-process-row .card-item--action .btn.btn-edit.edit-btn:hover {
     background: transparent;
     box-shadow: none;
     transform: none;
 }
 
-.process-page:not(.process-page--bank) .table-header .header-item:first-child,
-.process-page:not(.process-page--bank) .process-card .card-item:first-child {
+.process-page:not(.process-page--bank) .games-process-table-header .header-item:first-child,
+.process-page:not(.process-page--bank) .games-process-row .card-item:first-child {
     justify-content: center;
     text-align: center;
     padding-left: 0 !important;

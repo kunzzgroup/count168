@@ -1,11 +1,5 @@
 export const PAGE_SIZE = 20;
 
-/** Matches js/processlist.js Games table grid (inline fallback; non-bank layout overridden in processCSS.css) */
-export const GAMES_PROCESS_GRID_COLUMNS = "0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr";
-/** Last column split: Action + 48px select (aligned with User List bulk-delete column) */
-export const GAMES_PROCESS_GRID_COLUMNS_WITH_SELECT =
-  "0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr minmax(0, 0.2fr) 48px";
-
 export const EMPTY_FORM = {
   id: "",
   process_name: "",

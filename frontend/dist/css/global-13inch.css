@@ -319,9 +319,30 @@
         grid-template-columns: 0.5fr 1.4fr 1.4fr 0.8fr 0.6fr 0.8fr 2fr 1.2fr 0.45fr !important;
     }
 
-    body.ec-auth-shell .table-header:not(.bank-virtual-head-row),
+    /* User List only — 勿用通用 .table-header，否则会误伤 Process List（7 列）表头 */
+    body.ec-auth-shell.user-page .table-header,
     body.ec-auth-shell .user-card {
         grid-template-columns: 0.5fr 1.6fr 1.8fr 2.5fr 1.8fr 1.2fr 1.8fr 1.5fr 0.8fr !important;
+    }
+
+    /* Games Process List：表头/行 7 列 grid 与 processCSS 一致，避免 laptop/tablet 错位 */
+    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-table-header,
+    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-row {
+        gap: 8px !important;
+        grid-template-columns:
+            38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr) minmax(32px, 0.26fr) !important;
+    }
+
+    body.ec-auth-shell.process-page:not(.process-page--bank) .process-table-wrapper--select-col .games-process-table-header,
+    body.ec-auth-shell.process-page:not(.process-page--bank) .process-table-wrapper--select-col .games-process-row {
+        grid-template-columns:
+            38px minmax(0, 0.82fr) minmax(0, 1fr) minmax(68px, 0.26fr) minmax(44px, 0.22fr) minmax(0, 1fr)
+            minmax(32px, 0.24fr) 48px !important;
+    }
+
+    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-table-header .header-item,
+    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-row .card-item {
+        padding: 0 !important;
     }
 
     /* ----------------------------------------------------
