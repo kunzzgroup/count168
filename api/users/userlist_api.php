@@ -11,7 +11,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
-const USERLIST_API_BUILD = '20260522-5';
+const USERLIST_API_BUILD = '20260522-6';
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
@@ -80,16 +80,66 @@ function normalizeCompanyIdList(array $ids): array {
 }
 
 function assertCompanyIdsExist(PDO $pdo, array $companyIds): void {
+    $missing = userlistFindMissingCompanyIds($pdo, $companyIds);
+    if (!empty($missing)) {
+        throw new RuntimeException('One or more selected companies are invalid: ' . implode(', ', $missing));
+    }
+}
+
+/** 返回 company 表中不存在的 id（用于保存前校验） */
+function userlistFindMissingCompanyIds(PDO $pdo, array $companyIds): array {
     $companyIds = normalizeCompanyIdList($companyIds);
     if (empty($companyIds)) {
-        return;
+        return [];
     }
     $placeholders = str_repeat('?,', count($companyIds) - 1) . '?';
     $stmt = $pdo->prepare("SELECT id FROM company WHERE id IN ($placeholders)");
     $stmt->execute($companyIds);
-    $validCompanies = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    if (count($validCompanies) !== count($companyIds)) {
-        throw new RuntimeException('One or more selected companies are invalid');
+    $found = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    $foundSet = array_fill_keys($found, true);
+    $missing = [];
+    foreach ($companyIds as $cid) {
+        if (!isset($foundSet[$cid])) {
+            $missing[] = $cid;
+        }
+    }
+    return $missing;
+}
+
+/** 仅保留 company 表真实存在的 id，保持原顺序 */
+function userlistResolveCompanyIdsForMap(PDO $pdo, array $companyIds): array {
+    $companyIds = normalizeCompanyIdList($companyIds);
+    if (empty($companyIds)) {
+        return [];
+    }
+    $missing = userlistFindMissingCompanyIds($pdo, $companyIds);
+    if (!empty($missing)) {
+        throw new RuntimeException('One or more selected companies are invalid: ' . implode(', ', $missing));
+    }
+    return $companyIds;
+}
+
+/** 增量更新 user_company_map，避免 DELETE 全量后 INSERT 无效 id */
+function userlistSyncUserCompanyMap(PDO $pdo, int $userId, array $companyIds): void {
+    $targetIds = userlistResolveCompanyIdsForMap($pdo, $companyIds);
+    $stmt = $pdo->prepare('SELECT company_id FROM user_company_map WHERE user_id = ?');
+    $stmt->execute([$userId]);
+    $currentIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    $targetSet = array_fill_keys($targetIds, true);
+    $currentSet = array_fill_keys($currentIds, true);
+
+    $delStmt = $pdo->prepare('DELETE FROM user_company_map WHERE user_id = ? AND company_id = ?');
+    foreach ($currentIds as $cid) {
+        if (!isset($targetSet[$cid])) {
+            $delStmt->execute([$userId, $cid]);
+        }
+    }
+
+    $insStmt = $pdo->prepare('INSERT INTO user_company_map (user_id, company_id) VALUES (?, ?)');
+    foreach ($targetIds as $cid) {
+        if (!isset($currentSet[$cid])) {
+            $insStmt->execute([$userId, $cid]);
+        }
     }
 }
 
@@ -182,6 +232,9 @@ function userlistSendDbErrorResponse(Throwable $e, string $stage): void {
         $data['sqlstate'] = $e->errorInfo[0] ?? null;
         $data['driver_code'] = $e->errorInfo[1] ?? null;
         $data['detail'] = $e->errorInfo[2] ?? $e->getMessage();
+    }
+    if (!empty($GLOBALS['userlist_last_company_ids'])) {
+        $data['company_ids'] = $GLOBALS['userlist_last_company_ids'];
     }
     sendResponse(false, userlistFriendlyDbError($e), $data);
 }
@@ -446,6 +499,7 @@ try {
             } catch (RuntimeException $e) {
                 sendResponse(false, $e->getMessage());
             }
+            $company_ids = userlistResolveCompanyIdsForMap($pdo, $company_ids);
             
             // 使用第一个 company_id 作为主 company_id（用于兼容性）
             $primary_company_id = $company_ids[0];
@@ -550,7 +604,7 @@ try {
                 // 在 user_company_map 中创建所有关联
                 $mapStmt = $pdo->prepare("INSERT INTO user_company_map (user_id, company_id) VALUES (?, ?)");
                 foreach ($company_ids as $company_id) {
-                    $mapResult = $mapStmt->execute([$newUserId, $company_id]);
+                    $mapResult = $mapStmt->execute([$newUserId, (int) $company_id]);
                     if (!$mapResult) {
                         $mapErrorInfo = $mapStmt->errorInfo();
                         error_log("Failed to create user_company_map - SQL Error: " . print_r($mapErrorInfo, true));
@@ -857,19 +911,11 @@ try {
                     $input['company_ids'] = normalizeCompanyIdList($input['company_ids']);
                 }
                 if (isset($input['company_ids']) && is_array($input['company_ids']) && count($input['company_ids']) > 0) {
-                    assertCompanyIdsExist($pdo, $input['company_ids']);
-                    
+                    $GLOBALS['userlist_last_company_ids'] = $input['company_ids'];
                     if ($belongsToCurrentCompany && !in_array((int) $current_company_id, array_map('intval', $input['company_ids']), true)) {
                         $will_lose_access = true;
                     }
-                    
-                    $stmt = $pdo->prepare("DELETE FROM user_company_map WHERE user_id = ?");
-                    $stmt->execute([(int) $input['id']]);
-                    
-                    $mapStmt = $pdo->prepare("INSERT INTO user_company_map (user_id, company_id) VALUES (?, ?)");
-                    foreach ($input['company_ids'] as $company_id) {
-                        $mapStmt->execute([(int) $input['id'], (int) $company_id]);
-                    }
+                    userlistSyncUserCompanyMap($pdo, (int) $input['id'], $input['company_ids']);
                 }
                 
                 // 保存 Account 和 Process 权限到 user_company_permissions 表（按当前公司）
