@@ -2,7 +2,7 @@
 session_start();
 // session_write_close() 将在 session 写入（回填 company_code）完成后调用
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
 header('Content-Type: application/json');

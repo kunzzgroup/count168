@@ -10,7 +10,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../get_companies_helper.php';
-require_once __DIR__ . '/../../includes/deleted_log.php';
+require_once __DIR__ . '/../deleted_log/deleted_log.php';
 
 /**
  * 标准 JSON 响应

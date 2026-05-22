@@ -1,5 +1,5 @@
 /**
- * Pure helpers mirroring legacy `js/shared_company_filter.js` + PHP `includes/company_filter.php` behaviour.
+ * Pure helpers mirroring legacy `js/shared_company_filter.js` + PHP `api/company/company_filter.php` (SSR, unused by SPA).
  * React pages should use these for session key `dashboard_group_filter` and group/company visibility logic.
  */
 
