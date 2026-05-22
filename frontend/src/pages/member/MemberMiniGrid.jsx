@@ -8,6 +8,7 @@ import {
   MEMBER_AMOUNT_NA_MARK,
   miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
+  WINLOSS_MATRIX_FILL_CCY_COLS,
   WINLOSS_MATRIX_MIN_CCY_COL_WIDTH,
   WINLOSS_MATRIX_ROWHEAD_COL_WIDTH,
   WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD,
@@ -191,14 +192,32 @@ export default function MemberMiniGrid({
       };
       const rowheadPx = parseRem(WINLOSS_MATRIX_ROWHEAD_COL_WIDTH, 5.75);
       const minColPx = parseRem(WINLOSS_MATRIX_MIN_CCY_COL_WIDTH, 6);
-      /* 按实际币种列数均分中栏；不低于最小列宽，避免 1300px 等窄屏裁切金额 */
-      const fitColPx = (innerW - rowheadPx) / Math.max(ncu, 1);
-      const colPx = Math.max(minColPx, fitColPx);
-      const colW = `${colPx}px`;
+      /* 单列宽 = 中栏按 9 列铺满时的宽度；表总宽 = 行头 + ncu×列宽，贴右向左扩展，不随 ncu 拉伸整栏 */
+      const fitColPx = (innerW - rowheadPx) / WINLOSS_MATRIX_FILL_CCY_COLS;
+      let colPx = Math.max(minColPx, fitColPx);
 
-      scroll.style.setProperty("--member-wl-ccy-fill-col-w", colW);
-      grid.style.setProperty("--member-wl-ccy-fill-col-w", colW);
-      grid.style.gridTemplateColumns = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content) repeat(${ncu}, minmax(${colW}, max-content))`;
+      const measureContentColPx = () => {
+        let maxPx = 0;
+        grid.querySelectorAll(".member-balance-matrix-th, .member-balance-matrix-cell").forEach((el) => {
+          const w = el.scrollWidth;
+          if (w > maxPx) maxPx = w;
+        });
+        return maxPx;
+      };
+
+      const applyColumns = (px) => {
+        const colW = `${px}px`;
+        scroll.style.setProperty("--member-wl-ccy-fill-col-w", colW);
+        grid.style.setProperty("--member-wl-ccy-fill-col-w", colW);
+        grid.style.gridTemplateColumns = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content) repeat(${ncu}, minmax(${colW}, max-content))`;
+      };
+
+      applyColumns(colPx);
+      const contentPx = measureContentColPx();
+      if (contentPx > colPx) {
+        colPx = contentPx;
+        applyColumns(colPx);
+      }
     };
 
     syncColWidth();
@@ -214,7 +233,7 @@ export default function MemberMiniGrid({
       grid.style.removeProperty("--member-wl-ccy-fill-col-w");
       grid.style.removeProperty("grid-template-columns");
     };
-  }, [ncu, orderUpper.join("|"), listOrdered.length]);
+  }, [ncu, orderUpper.join("|"), listOrdered.length, balanceMap?.size, shellMode]);
 
   return (
     <>
