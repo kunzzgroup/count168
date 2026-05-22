@@ -1231,7 +1231,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-row.is-active {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(15, 23, 42, 0.04);
+    padding-left: 5px;
 }
 
 .dashboard-summary-currency-dot {
@@ -1248,7 +1249,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-row.is-active .dashboard-summary-currency-code {
-    color: #4338ca;
+    color: #111827;
 }
 
 .dashboard-summary-currency-amount {

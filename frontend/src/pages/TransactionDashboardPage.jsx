@@ -234,31 +234,46 @@ function computeKpiMetrics(dashboardData, selectedGroup) {
 
 const DASHBOARD_PROFIT_COLOR = "#3b82f6";
 const DASHBOARD_EARNINGS_COLOR = "#f59e0b";
-/** 圆环同色系：份额越大颜色越深（参考 monochromatic donut） */
-const DASHBOARD_CURRENCY_PIE_PALETTE = [
-  "#4338ca",
-  "#4f46e5",
-  "#6366f1",
-  "#818cf8",
-  "#a5b4fc",
-  "#c7d2fe",
-  "#ddd6fe",
-  "#e0e7ff",
-];
+/** 各币种固定色：圆环与右侧列表一致，便于对照 */
+const DASHBOARD_CURRENCY_COLORS = {
+  MYR: "#2563eb",
+  SGD: "#0891b2",
+  USD: "#16a34a",
+  EUR: "#7c3aed",
+  IDR: "#ea580c",
+  CNY: "#dc2626",
+  HKD: "#db2777",
+  THB: "#ca8a04",
+  GBP: "#4f46e5",
+  JPY: "#be185d",
+  AUD: "#0d9488",
+  VND: "#c2410c",
+  PHP: "#9333ea",
+  KRW: "#1d4ed8",
+  TWD: "#059669",
+  INR: "#0ea5e9",
+  BND: "#65a30d",
+  CAD: "#0369a1",
+  NZD: "#15803d",
+};
+const DASHBOARD_CURRENCY_FALLBACK_PALETTE = ["#6366f1", "#14b8a6", "#f59e0b", "#64748b", "#a855f7", "#84cc16"];
+
+function getCurrencyColor(code, fallbackIndex = 0) {
+  const key = String(code || "").toUpperCase();
+  if (DASHBOARD_CURRENCY_COLORS[key]) return DASHBOARD_CURRENCY_COLORS[key];
+  return DASHBOARD_CURRENCY_FALLBACK_PALETTE[fallbackIndex % DASHBOARD_CURRENCY_FALLBACK_PALETTE.length];
+}
 
 function buildEarningsPieSlices(rows) {
   return rows
-    .map((row) => ({
+    .map((row, index) => ({
       code: row.code,
       earnings: row.earnings,
       value: Math.abs(row.earnings),
+      fill: getCurrencyColor(row.code, index),
     }))
     .filter((row) => row.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .map((row, index) => ({
-      ...row,
-      fill: DASHBOARD_CURRENCY_PIE_PALETTE[Math.min(index, DASHBOARD_CURRENCY_PIE_PALETTE.length - 1)],
-    }));
+    .sort((a, b) => b.value - a.value);
 }
 
 function renderCurrencyPieLabel(props) {
@@ -962,11 +977,11 @@ export default function TransactionDashboardPage() {
 
   const currencyPieFillByCode = useMemo(() => {
     const map = {};
-    earningsPieSlices.forEach((slice) => {
-      map[slice.code] = slice.fill;
+    earningsCurrencyRows.forEach((row, index) => {
+      map[row.code] = getCurrencyColor(row.code, index);
     });
     return map;
-  }, [earningsPieSlices]);
+  }, [earningsCurrencyRows]);
 
   const summaryEarningsLoading = loading || earningsByCurrencyLoading;
 
@@ -1378,11 +1393,18 @@ export default function TransactionDashboardPage() {
                       key={row.code}
                       role="listitem"
                       className={`dashboard-summary-currency-row${row.code === currencyCode ? " is-active" : ""}`}
+                      style={
+                        row.code === currencyCode
+                          ? {
+                              borderLeft: `3px solid ${currencyPieFillByCode[row.code] || getCurrencyColor(row.code, index)}`,
+                            }
+                          : undefined
+                      }
                     >
                       <span
                         className="dashboard-summary-currency-dot"
                         style={{
-                          backgroundColor: currencyPieFillByCode[row.code] || "#e0e7ff",
+                          backgroundColor: currencyPieFillByCode[row.code] || getCurrencyColor(row.code, index),
                         }}
                         aria-hidden="true"
                       />
