@@ -2681,65 +2681,6 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     border-top: 1px solid #e2e8f0;
 }
 
-/* Tablet：Currency 自动换行，不横滑；仅左栏增高，不挤占矩阵/Total 列宽 */
-@media (max-width: 1280px) {
-    .member-winloss-page .member-dash-columns--three-col .member-dash-col-filters {
-        min-width: 0;
-        overflow: hidden;
-        align-self: flex-start;
-    }
-
-    body.member-winloss-page #member_currency_filter {
-        min-width: 0;
-        max-width: 100%;
-    }
-
-    body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills--tablet-wrap {
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        align-content: flex-start;
-        align-self: stretch;
-        overflow-x: hidden;
-        overflow-y: visible;
-        gap: 8px;
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-        padding-bottom: 0;
-    }
-
-    body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments--tablet-wrap {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: stretch;
-        gap: 8px;
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-        border: none;
-        border-radius: 0;
-        background: transparent;
-        box-shadow: none;
-        overflow: visible;
-    }
-
-    body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments--tablet-wrap .user-gc-segment {
-        flex: 0 0 auto;
-        min-width: max-content;
-        padding: 8px clamp(10px, 1.2vw, 16px);
-        font-size: var(--text-medium) !important;
-        overflow: visible;
-        text-overflow: clip;
-        border: 1px solid var(--color-border, #e5e7eb);
-        border-radius: 10px;
-        background: var(--color-surface, #ffffff);
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-    }
-
-}
-
 @media (max-width: 1180px) {
     .member-dash-columns {
         grid-template-columns: minmax(0, 1fr);

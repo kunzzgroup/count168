@@ -27,7 +27,6 @@ import {
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW,
   WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ,
   WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS,
-  WINLOSS_CURRENCY_TABLET_MQ,
 } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 import { useMemberPageShell } from "./useMemberPageShell.js";
@@ -41,7 +40,6 @@ export default function MemberPage() {
   const wlFiltersColRef = useRef(null);
   const [wlFiltersSyncPx, setWlFiltersSyncPx] = useState(null);
   const [accountNarrowViewport, setAccountNarrowViewport] = useState(false);
-  const [currencyTabletViewport, setCurrencyTabletViewport] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
   const showNotification = useCallback((message, type = "info") => {
@@ -154,33 +152,22 @@ export default function MemberPage() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  useEffect(() => {
-    const mq = window.matchMedia(WINLOSS_CURRENCY_TABLET_MQ);
-    const update = () => setCurrencyTabletViewport(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-
-  /** Currency：桌面多段 8 列网格；Tablet 单段内自动换行（不横滑，仅增高左栏） */
+  /** Currency 多段：每段最多 8 格（含 All），每满一行新开一条 segment 白底条，列仍按 8 列对齐 */
   const currencyFilterBands = useMemo(() => {
     const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
     const showAllBtn = codes.length === 0 || codes.length > 1;
+    const maxPerBand = WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS;
 
     const cells = [];
     if (showAllBtn) cells.push({ type: "all" });
     codes.forEach((c) => cells.push({ type: "code", code: c }));
 
-    if (currencyTabletViewport) {
-      return cells.length ? [cells] : [];
-    }
-
     const bands = [];
-    for (let i = 0; i < cells.length; i += WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS) {
-      bands.push(cells.slice(i, i + WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS));
+    for (let i = 0; i < cells.length; i += maxPerBand) {
+      bands.push(cells.slice(i, i + maxPerBand));
     }
     return bands;
-  }, [availableCurrencies, currencyTabletViewport]);
+  }, [availableCurrencies]);
 
   const handleWinLossCurrencyCodeDrop = useCallback(
     (e) => {
@@ -417,7 +404,7 @@ export default function MemberPage() {
               <div className="user-gc-inline-row" id="member_currency_filter">
                 <span className="user-gc-inline-label">{t("currency")}</span>
                 <div
-                  className={`user-gc-inline-pills member-winloss-currency-pills${currencyTabletViewport ? " member-winloss-currency-pills--tablet-wrap" : ""}`}
+                  className="user-gc-inline-pills member-winloss-currency-pills"
                   id="member_currency_buttons"
                   role="group"
                   aria-label={t("ariaCurrency")}
@@ -425,15 +412,11 @@ export default function MemberPage() {
                   {currencyFilterBands.map((band, segIdx) => (
                     <div
                       key={`member-ccy-band-${segIdx}`}
-                      className={`user-gc-segment-group${currencyTabletViewport ? " member-winloss-currency-segments--tablet-wrap" : " member-winloss-currency-segments"}`}
-                      style={
-                        currencyTabletViewport
-                          ? undefined
-                          : {
-                              width: `${(band.length / WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS) * 100}%`,
-                              gridTemplateColumns: `repeat(${band.length}, minmax(0, 1fr))`,
-                            }
-                      }
+                      className="user-gc-segment-group member-winloss-currency-segments"
+                      style={{
+                        width: `${(band.length / WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS) * 100}%`,
+                        gridTemplateColumns: `repeat(${band.length}, minmax(0, 1fr))`,
+                      }}
                     >
                       {band.map((cell) =>
                         cell.type === "all" ? (
