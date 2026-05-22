@@ -1,4 +1,4 @@
-import ProcessSelect from "./ProcessSelect.jsx";
+import ProcessSelect from "../../shared/ProcessSelect.jsx";
 import ReportGcFilterPanel from "../../../report/components/ReportGcFilterPanel.jsx";
 
 export default function FormulaMaintenanceFilters({
