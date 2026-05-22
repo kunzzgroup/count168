@@ -148,7 +148,7 @@ export async function searchTransactions({
 
   const base = `api/transactions/search_api.php?${params.toString()}`;
   const withDebug = appendTxSearchWlDebugToPath(base);
-  const url = buildApiUrl(`${withDebug}&_t=${Date.now()}`);
+  const url = buildApiUrl(withDebug);
 
   const res = await fetch(url, {
     credentials: "include",

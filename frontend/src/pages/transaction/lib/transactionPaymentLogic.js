@@ -466,6 +466,23 @@ export function countDisplayedRows(rawSearchData, searchState, txType) {
   return (norm.leftRows?.length || 0) + (norm.rightRows?.length || 0);
 }
 
+/** Read cached transaction list payload from sessionStorage (same format as saveTxListToSession). */
+export function readTxListFromSessionStorage(sessionKey) {
+  if (!sessionKey) return null;
+  try {
+    const raw = sessionStorage.getItem(sessionKey);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (!o?.data || (o.v !== 1 && o.v !== 2)) return null;
+    const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || "0", 10) || 0;
+    const savedAt = o.v === 2 && typeof o.savedAt === "number" ? o.savedAt : 0;
+    if (invalidateTs > savedAt) return null;
+    return sanitizeSearchApiData(o.data);
+  } catch {
+    return null;
+  }
+}
+
 export function buildTxListSessionKey({
   companyId,
   dateFrom,
