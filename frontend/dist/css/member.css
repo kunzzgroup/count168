@@ -1036,13 +1036,13 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     min-width: var(--member-wl-filters-col-w);
 }
 
-/* 中栏：随白卡内容宽；与 Total 之间留白由 Total 的 margin-auto 吸收 */
+/* 中栏：占满筛选与 Total 之间区域；白卡贴右，币种增多时向左扩展（与改版前一致） */
 .member-winloss-page .member-dash-columns--three-col .member-dash-col-matrix {
-    flex: 0 1 auto;
-    align-items: stretch;
+    flex: 1 1 auto;
+    align-items: flex-end;
     min-width: 0;
-    width: max-content;
-    max-width: calc(100% - var(--member-wl-filters-col-w) - var(--member-dash-total-col-min, 12.5rem) - var(--member-winloss-matrix-divider-gap, 10px));
+    width: auto;
+    max-width: none;
     overflow: hidden;
     padding-right: var(--member-winloss-matrix-divider-gap, 10px);
     display: flex;
@@ -1054,14 +1054,22 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     width: var(--member-dash-total-col-min, 12.5rem);
     min-width: var(--member-dash-total-col-min, 12.5rem);
     max-width: var(--member-dash-total-col-min, 12.5rem);
-    margin-inline-start: auto;
+    margin-inline-start: 0;
     align-items: stretch;
     align-self: flex-start;
 }
 
+.member-winloss-page .member-dash-columns--three-col .member-dash-rail-toolbar {
+    align-self: flex-end;
+    width: max-content;
+    max-width: 100%;
+}
+
 .member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap {
     flex: 0 1 auto;
-    align-items: flex-start;
+    align-items: flex-end;
+    align-self: flex-end;
+    margin-inline-start: auto;
     width: max-content;
     max-width: 100%;
 }
@@ -1070,32 +1078,39 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     flex: 0 1 auto;
     width: max-content;
     max-width: 100%;
-    align-self: flex-start;
+    align-self: flex-end;
+    margin-inline-start: auto;
     box-sizing: border-box;
 }
 
-/* 单币种紧凑表：白卡紧贴两列内容 */
-.member-winloss-page .member-dash-columns--single-ccy-rail .member-dash-col-matrix {
-    max-width: min(100%, calc(100% - var(--member-wl-filters-col-w) - var(--member-dash-total-col-min, 12.5rem)));
+.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-scroll .member-balance-mini-matrix--ccy-fill,
+.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-scroll .member-balance-mini-matrix--ccy-scroll {
+    margin-inline-start: auto;
 }
 
+/* 单币种紧凑表：仍贴 Total 左侧，向左增宽 */
 .member-winloss-page .member-dash-columns--single-ccy-rail .member-dash-rail-matrix,
 .member-winloss-page .member-dash-columns--single-ccy-rail .member-dash-matrix-center-wrap,
 .member-winloss-page .member-dash-columns--single-ccy-rail .member-dash-matrix-scroll--compact {
     width: max-content;
     max-width: 100%;
+    margin-inline-start: auto;
+}
+
+.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll) {
+    align-items: stretch;
+    align-self: flex-end;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .member-winloss-page .member-dash-columns--three-col .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-scroll) {
     width: 100%;
     max-width: 100%;
     min-width: 0;
-}
-
-.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll) {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
+    align-self: flex-end;
+    margin-inline-start: auto;
 }
 
 /* 宽屏：由 JS 写入 --member-winloss-filters-h（= 左侧筛选含 Currency 整块高度），中/右栏不超出该高度，底与左栏对齐，内部滚动 */
@@ -1109,6 +1124,10 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
+    }
+
+    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix {
+        align-items: flex-end;
     }
 
     /* 覆盖 ccy-fill 的 max-content / flex:0 — 否则父级 overflow:hidden 会裁切且无法出现纵向滚动条 */
