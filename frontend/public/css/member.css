@@ -2681,6 +2681,59 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     border-top: 1px solid #e2e8f0;
 }
 
+/* Tablet：Currency 与 Transaction / Account 等 — 单行 user-gc-segment-group 横滑 */
+@media (max-width: 1280px) {
+    body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: visible;
+        gap: 0;
+        padding-bottom: 2px;
+        -webkit-overflow-scrolling: touch;
+        align-items: stretch;
+    }
+
+    body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills.user-gc-inline-pills--segment-scroll {
+        flex-wrap: nowrap;
+    }
+
+    body.member-winloss-page #member_currency_buttons .user-gc-segment-group {
+        flex-shrink: 0;
+    }
+
+    body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments {
+        display: inline-flex;
+        flex-direction: row;
+        flex-shrink: 0;
+        width: auto !important;
+        max-width: none !important;
+        grid-template-columns: none !important;
+        overflow: visible;
+    }
+
+    body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment,
+    body.member-winloss-page #member_currency_buttons .user-gc-segment-group .user-gc-segment {
+        min-width: max-content;
+        padding: 8px clamp(10px, 1.2vw, 18px);
+        font-size: var(--text-medium) !important;
+        overflow: visible;
+        text-overflow: clip;
+    }
+
+    body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment:nth-child(8n) {
+        border-right: 1px solid var(--color-border, #e5e7eb);
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment:last-child {
+        border-right: none;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+}
+
 @media (max-width: 1180px) {
     .member-dash-columns {
         grid-template-columns: minmax(0, 1fr);
