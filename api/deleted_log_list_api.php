@@ -4,8 +4,8 @@
  */
 header('Content-Type: application/json; charset=utf-8');
 
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../session_check.php';
+require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/session_check.php';
 require_once __DIR__ . '/deleted_log/deleted_log.php';
 require_once __DIR__ . '/deleted_log/deleted_log_display.php';
 require_once __DIR__ . '/deleted_log/deleted_log_entry_sources.php';

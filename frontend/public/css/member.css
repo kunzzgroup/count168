@@ -893,7 +893,6 @@
 
 /* =============================================================================
    Member Win/Loss dashboard — filters (left) + balance matrix rail (right)
-   See member-winloss-react-guidelines.md
    ============================================================================= */
 .member-winloss-page .member-winloss-dash {
     overflow-x: visible;

@@ -17,7 +17,7 @@ session_start();
 header('Content-Type: application/json');
 
 try {
-    require_once __DIR__ . '/../../config.php';
+    require_once __DIR__ . '/../../includes/config.php';
     require_once __DIR__ . '/../includes/money_decimal.php';
 } catch (Throwable $e) {
     http_response_code(500);

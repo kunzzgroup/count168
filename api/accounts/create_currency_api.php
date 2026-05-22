@@ -4,7 +4,7 @@
  * 路径: api/accounts/create_currency_api.php
  */
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 if (session_status() === PHP_SESSION_NONE) {
