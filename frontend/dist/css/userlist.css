@@ -1048,6 +1048,7 @@ body.ec-auth-shell.user-page #confirmModal .confirm-delete:disabled:hover {
     top: 0;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     background: rgba(240, 244, 250, 0.98);
     overflow: hidden;
 }
@@ -1058,15 +1059,18 @@ body.ec-auth-shell.user-page #confirmModal .confirm-delete:disabled:hover {
     top: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important;
 }
 
 #userModal .user-modal-content {
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh;
     max-width: none !important;
-    max-height: none !important;
     margin: 0 !important;
     border-radius: 0 !important;
+    box-sizing: border-box;
 }
 
 /* Modal content: fills the full modal area */
@@ -1894,8 +1898,12 @@ label.user-modal-col-title.acc-proc-label {
     align-items: center;
     gap: clamp(12px, 1.04vw, 20px);
     padding: clamp(10px, 0.83vw, 14px) clamp(16px, 1.35vw, 28px);
+    padding-bottom: calc(clamp(10px, 0.83vw, 14px) + env(safe-area-inset-bottom, 0px));
     background: #ffffff;
     border-top: 1px solid #e2e8f0;
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
 }
 
 @media (max-width: 1024px) {
@@ -1903,6 +1911,7 @@ label.user-modal-col-title.acc-proc-label {
         left: 0;
         width: 100vw;
         height: 100vh;
+        height: 100dvh;
     }
 }
 
@@ -3395,8 +3404,13 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     /* 1024px：左侧 Permissions + Select All/Clear All 稳定在底线上方 */
     #userModal .user-modal-content .modal-body,
     .modal-content.edit-mode .modal-body {
-        max-height: min(calc(100vh - 130px), 86vh);
+        max-height: min(calc(100dvh - 130px), 86dvh);
         padding-bottom: clamp(52px, 5vw, 72px);
+    }
+
+    /* Tablet：Save/Cancel 避开浏览器底栏 */
+    body.user-page #userModal .user-modal-footer {
+        padding-bottom: calc(clamp(12px, 1vw, 16px) + env(safe-area-inset-bottom, 0px) + 12px);
     }
 
     #userModal .user-modal-content .user-info-panel,
