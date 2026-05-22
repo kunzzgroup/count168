@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { mergeGroupData } from "../../../utils/dashboard/dashboardMerge.js";
@@ -28,7 +29,8 @@ import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
 import { companiesInGroupList, sortIds } from "../lib/dashboardEarnings.js";
 
 export function useDashboardPage({ i18n, dateFrom, dateTo }) {
-  const [me, setMe] = useState(null);
+  const { me: layoutMe } = useOutletContext() ?? {};
+  const [me, setMe] = useState(layoutMe ?? null);
   const [loadError, setLoadError] = useState("");
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
@@ -60,16 +62,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const bootstrap = useCallback(async (signal) => {
     setLoadError("");
     try {
-      const res = await fetch(buildApiUrl("api/session/current_user_api.php"), {
-        credentials: "include",
-        signal,
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success || !json.data) {
-        setLoadError(i18n.failedToLoadDashboard);
-        return;
+      let u = layoutMe ?? null;
+      if (!u) {
+        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), {
+          credentials: "include",
+          signal,
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data) {
+          setLoadError(json?.message || json?.error || i18n.failedToLoadDashboard);
+          return;
+        }
+        u = json.data;
       }
-      const u = json.data;
       setMe(u);
 
       const cr = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
@@ -80,6 +85,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!cr.ok || !cj.success || !Array.isArray(cj.data)) {
         setCompanies([]);
         setCompanyId(u.company_id);
+        setLoadError(cj?.message || cj?.error || i18n.failedToLoadDashboard);
         return;
       }
       setCompanies(cj.data);
@@ -113,9 +119,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setCompanyId(cid ? parseInt(cid, 10) : null);
     } catch (err) {
       if (err?.name === "AbortError") return;
-      setLoadError(i18n.failedToLoadDashboard);
+      setLoadError(err?.message || i18n.failedToLoadDashboard);
     }
-  }, [i18n.failedToLoadDashboard]);
+  }, [layoutMe, i18n.failedToLoadDashboard]);
 
   useEffect(() => {
     const controller = new AbortController();
