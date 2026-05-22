@@ -18,7 +18,7 @@ import {
 import {
   registerSummarySubTemplatePopulate,
   unregisterSummarySubTemplatePopulate,
-} from "../summarySubTemplatePopulate.js";
+} from "../table/summarySubTemplatePopulate.js";
 
 /** Register React formula utilities for legacy datacapturesummary.js (Strangler). */
 export function registerSummaryFormulaEngineShims() {

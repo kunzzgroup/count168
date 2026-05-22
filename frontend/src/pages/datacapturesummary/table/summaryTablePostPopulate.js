@@ -1,5 +1,5 @@
-import { pushSummaryNotification } from "./summaryNotify.js";
-import { stripSummarySuccessParamFromUrl } from "./summaryStorage.js";
+import { pushSummaryNotification } from "../lib/summaryNotify.js";
+import { stripSummarySuccessParamFromUrl } from "../lib/summaryStorage.js";
 
 const PREPOPULATE_READY_TIMEOUT_MS = 8000;
 const PREPOPULATE_POLL_MS = 40;

@@ -5,7 +5,7 @@
 import {
   getSummaryProductValuesFromCell,
   normalizeSummaryIdProductText,
-} from "./summaryIdProductUtils.js";
+} from "../lib/summaryIdProductUtils.js";
 
 /** Collect main rows whose id_product matches parent (exact first). */
 export function collectMainRowsForParent(parentIdProduct, { matchMode = "exact" } = {}) {

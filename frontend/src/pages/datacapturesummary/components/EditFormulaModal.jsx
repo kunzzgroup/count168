@@ -1,4 +1,4 @@
-import { EDIT_FORMULA_INPUT_METHODS, CALCULATOR_KEYPAD } from "../editFormulaConstants.js";
+import { EDIT_FORMULA_INPUT_METHODS, CALCULATOR_KEYPAD } from "../formula/editFormulaConstants.js";
 
 function CalcButton({ value, action, className = "" }) {
   const isOperator = ["/", "*", "-", "+"].includes(value);

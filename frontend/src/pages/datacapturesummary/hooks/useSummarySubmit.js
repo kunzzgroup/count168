@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { readCaptureSessionFromStorage } from "../summaryStorage.js";
-import { validateSummarySubmitTotal } from "../summarySubmitValidation.js";
-import { prepareSummarySubmitCollection } from "../summarySubmitRowCollection.js";
-import { executeSummarySubmit } from "../summarySubmitExecution.js";
-import { pushSummaryNotification } from "../summaryNotify.js";
+import { readCaptureSessionFromStorage } from "../lib/summaryStorage.js";
+import { validateSummarySubmitTotal } from "../submit/summarySubmitValidation.js";
+import { prepareSummarySubmitCollection } from "../submit/summarySubmitRowCollection.js";
+import { executeSummarySubmit } from "../submit/summarySubmitExecution.js";
+import { pushSummaryNotification } from "../lib/summaryNotify.js";
 
 /**
  * Phase 7: React-owned Summary Submit orchestration.

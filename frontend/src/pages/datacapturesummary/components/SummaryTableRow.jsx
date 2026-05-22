@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useRef } from "react";
-import { bindSummaryRowLegacyHandlers } from "../summaryTablePostPopulate.js";
+import { bindSummaryRowLegacyHandlers } from "../table/summaryTablePostPopulate.js";
 
 function SummaryTableRowInner({
   rowKey,
