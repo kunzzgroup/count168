@@ -112,10 +112,13 @@ function formatSignedChange(value) {
   return body;
 }
 
-/** 按天模式：≤14 天全显示；更长区间自动跳日，避免 X 轴重叠 */
-function resolveDailyChartXAxisTicks(dayCount) {
+/** 按天模式：≤14 天全显示；跨 2 个自然月每隔 2 天；更长区间按宽度跳日 */
+function resolveDailyChartXAxisTicks(dayCount, monthSpan) {
   if (dayCount <= 14) {
     return { interval: 0, minTickGap: 0 };
+  }
+  if (monthSpan === 2) {
+    return { interval: 1, minTickGap: 0 };
   }
   return { interval: "preserveStartEnd", minTickGap: 36 };
 }
@@ -795,20 +798,25 @@ export default function TransactionDashboardPage() {
     [dashboardData, dateFrom, dateTo, i18n.locale]
   );
 
+  const chartMonthSpanCount = useMemo(
+    () => chartMonthSpan(dateFrom, dateTo),
+    [dateFrom, dateTo]
+  );
+
   const chartXAxisLayout = useMemo(() => {
     const n = chartRows.length;
     const compact = !chartAggregateByMonth && n > 14;
     const marginBottom = compact ? 22 : 20;
     const tickSkip = chartAggregateByMonth
       ? { interval: 0, minTickGap: 0 }
-      : resolveDailyChartXAxisTicks(n);
+      : resolveDailyChartXAxisTicks(n, chartMonthSpanCount);
     return {
       ...tickSkip,
       tick: makeDashboardChartXTick(compact),
       height: marginBottom,
       marginBottom,
     };
-  }, [chartRows.length, chartAggregateByMonth]);
+  }, [chartRows.length, chartAggregateByMonth, chartMonthSpanCount]);
 
   const kpiFooter = useMemo(() => {
     const cur = currencyCode || "—";
