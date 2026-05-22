@@ -4,7 +4,7 @@ import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { saveUserCurrencyOrder } from "../transaction/lib/transactionApi.js";
-import { isBankCategoryCompany } from "../bankprocesslist/bankProcessHelpers.js";
+import { isBankCategoryCompany } from "../bankprocesslist/lib/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";

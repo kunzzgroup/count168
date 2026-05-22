@@ -8,7 +8,7 @@ import {
   bankProcessContractBadgeKey,
   formatBankMoneyFixed2,
   isValidBankMoneyInput,
-} from "../bankProcessHelpers.js";
+} from "../lib/bankProcessHelpers.js";
 import BankProcessStatusControl from "./BankProcessStatusControl.jsx";
 
 function formatBankMoneyCell(value) {

@@ -1,6 +1,6 @@
 import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
-import { bankProcessFrequencyNormalized } from "../bankProcessHelpers.js";
+import { bankProcessFrequencyNormalized } from "../lib/bankProcessHelpers.js";
 import { BankFormDateField } from "./bankProcessFormFields.jsx";
 
 export default function ResendModal({

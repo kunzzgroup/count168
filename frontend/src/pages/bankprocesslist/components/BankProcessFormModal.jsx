@@ -16,7 +16,7 @@ import {
   formatBankAccountDisplay,
   formatBankMoneyFixed2,
   sanitizeBankMoneyTyping,
-} from "../bankProcessHelpers.js";
+} from "../lib/bankProcessHelpers.js";
 
 export default function BankProcessFormModal({
   editMode,
