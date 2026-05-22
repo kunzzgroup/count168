@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Area,
@@ -13,7 +13,11 @@ import { buildApiUrl } from "../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { mergeGroupData } from "../utils/dashboardMerge.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
-import ReportDatePicker from "./report/common/ReportDatePicker.jsx";
+import { formatDmy, parseDdMmYyyyToYmd } from "../utils/dateUtils.js";
+import {
+  bindMaintenanceCalendarDismissListeners,
+  ensureMaintenanceDateRangePicker,
+} from "../utils/maintenanceDateRangePicker.js";
 import "../../public/css/userlist.css";
 import "../../public/css/transaction.css";
 import "../../public/css/report-outlined-fields.css";
@@ -48,6 +52,11 @@ function eachDateInRange(startYmd, endYmd) {
 function formatDisplayDate(ymd) {
   const d = parseYmd(ymd);
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+function ymdToDmy(ymd) {
+  const d = parseYmd(ymd);
+  return d ? formatDmy(d) : "";
 }
 
 function formatCurrency(value) {
@@ -144,6 +153,93 @@ export default function TransactionDashboardPage() {
   const [dateFrom, setDateFrom] = useState(defaultStart);
   const [dateTo, setDateTo] = useState(defaultEnd);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
+  const dashDatePickerReadyRef = useRef(false);
+
+  const effectiveDateRangeText = useMemo(
+    () => `${ymdToDmy(dateFrom)} - ${ymdToDmy(dateTo)}`,
+    [dateFrom, dateTo]
+  );
+
+  const periodPresets = useMemo(
+    () => [
+      ["today", i18n.today],
+      ["yesterday", i18n.yesterday],
+      ["thisWeek", i18n.thisWeek],
+      ["lastWeek", i18n.lastWeek],
+      ["thisMonth", i18n.thisMonth],
+      ["lastMonth", i18n.lastMonth],
+      ["thisYear", i18n.thisYear],
+      ["lastYear", i18n.lastYear],
+    ],
+    [i18n]
+  );
+
+  useEffect(() => {
+    document.body.classList.add("transaction-page");
+    return () => document.body.classList.remove("transaction-page");
+  }, []);
+
+  useEffect(() => {
+    bindMaintenanceCalendarDismissListeners();
+  }, []);
+
+  useEffect(() => {
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: i18n.selectDateRange,
+      selectEndDateHint: i18n.selectEndDate,
+      monthLabels: i18n.monthLabels,
+    });
+  }, [i18n]);
+
+  useEffect(() => {
+    const df = document.getElementById("date_from");
+    const dt = document.getElementById("date_to");
+    if (!df || !dt) return;
+    const f = ymdToDmy(dateFrom);
+    const t = ymdToDmy(dateTo);
+    if (df.value !== f) df.value = f;
+    if (dt.value !== t) dt.value = t;
+    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (!me) return undefined;
+    let cancelled = false;
+    ensureMaintenanceDateRangePicker();
+    const initPicker = () => {
+      if (cancelled || dashDatePickerReadyRef.current) return;
+      if (!window.MaintenanceDateRangePicker?.init) return;
+      if (!document.getElementById("calendar-popup")) return;
+      window.MaintenanceDateRangePicker.init({
+        allowEmpty: false,
+        placeholder: i18n.selectDateRange,
+        selectEndDateHint: i18n.selectEndDate,
+        onChange: () => {
+          const fromDmy =
+            window.MaintenanceDateRangePicker.getDateFrom?.() ||
+            document.getElementById("date_from")?.value ||
+            "";
+          const toDmy =
+            window.MaintenanceDateRangePicker.getDateTo?.() ||
+            document.getElementById("date_to")?.value ||
+            "";
+          const from = parseDdMmYyyyToYmd(fromDmy);
+          const to = parseDdMmYyyyToYmd(toDmy);
+          if (from && to) {
+            setDateFrom(from);
+            setDateTo(to);
+          }
+        },
+      });
+      dashDatePickerReadyRef.current = true;
+      window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
+    };
+    initPicker();
+    return () => {
+      cancelled = true;
+      dashDatePickerReadyRef.current = false;
+    };
+  }, [me, i18n.selectDateRange, i18n.selectEndDate]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -162,25 +258,6 @@ export default function TransactionDashboardPage() {
       window.removeEventListener("eazycount:language-updated", onLangUpdated);
     };
   }, []);
-
-  const handleDateRangeChange = useCallback((from, to) => {
-    setDateFrom(from);
-    setDateTo(to);
-  }, []);
-
-  const periodPresets = useMemo(
-    () => [
-      { key: "today", label: i18n.today },
-      { key: "yesterday", label: i18n.yesterday },
-      { key: "thisWeek", label: i18n.thisWeek },
-      { key: "lastWeek", label: i18n.lastWeek },
-      { key: "thisMonth", label: i18n.thisMonth },
-      { key: "lastMonth", label: i18n.lastMonth },
-      { key: "thisYear", label: i18n.thisYear },
-      { key: "lastYear", label: i18n.lastYear },
-    ],
-    [i18n]
-  );
 
   const bootstrap = useCallback(async () => {
     setLoadError("");
@@ -573,24 +650,40 @@ export default function TransactionDashboardPage() {
               <span className="dashboard-filter-panel__title">{i18n.filterSection}</span>
             </div>
             <div className="dashboard-card-body dashboard-filter-panel__body">
-              <ReportDatePicker
-                dateFrom={dateFrom}
-                dateTo={dateTo}
-                onRangeChange={handleDateRangeChange}
-                containerClass="dashboard-filter-date-field"
-                label={i18n.captureDate}
-                placeholder={i18n.selectDateRange}
-                selectEndDateHint={i18n.selectEndDate}
-                outlinedFloatingLabel
-                captureDateStyle
-                periodPresets={periodPresets}
-                periodShortcutsAria={i18n.periodShortcutsAria}
-                monthLabels={i18n.monthLabels}
-                weekdaysShort={i18n.weekdaysShort}
-              />
+              <div className="transaction-search-section dashboard-filter-txn-section">
+                <div className="transaction-category-date-row">
+                  <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
+                    <div className="report-outlined-shell">
+                      <span
+                        className="report-outlined-label report-outlined-label--txn-capture-date"
+                        id="dashboard-capture-date-outlined-label"
+                      >
+                        {i18n.captureDate}
+                      </span>
+                      <div className="report-outlined-inner">
+                        <div className="transaction-date-range-group">
+                          <div
+                            className="date-range-picker"
+                            id="date-range-picker"
+                            role="button"
+                            tabIndex={0}
+                            aria-labelledby="dashboard-capture-date-outlined-label"
+                          >
+                            <i className="fas fa-calendar-alt" />
+                            <span id="date-range-display">{effectiveDateRangeText}</span>
+                            <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+                          </div>
+                          <input type="hidden" id="date_from" readOnly />
+                          <input type="hidden" id="date_to" readOnly />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-              {(groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0) && (
-                <div className="user-gc-inline-panel dashboard-filter-gc-panel">
+                {(groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0) && (
+                  <div className="transaction-bottom-filters">
+                    <div className="user-gc-inline-panel">
                   {groupIds.length > 0 && (
                     <div className="user-gc-inline-row">
                       <span className="user-gc-inline-label">{i18n.groupId}</span>
@@ -665,8 +758,10 @@ export default function TransactionDashboardPage() {
                       </div>
                     </div>
                   )}
-                </div>
-              )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -815,6 +910,66 @@ export default function TransactionDashboardPage() {
               </ResponsiveContainer>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style={{ display: "none" }}>
+        <div className="transaction-calendar-presets" aria-label={i18n.periodShortcutsAria}>
+          {periodPresets.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className="transaction-calendar-preset"
+              data-period-key={key}
+              aria-pressed="false"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.selectQuickRange?.(key);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="transaction-calendar-panel">
+          <div className="calendar-header">
+            <button
+              type="button"
+              className="calendar-nav-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.changeMonth?.(-1);
+              }}
+            >
+              <i className="fas fa-chevron-left" />
+            </button>
+            <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
+              <button type="button" id="calendar-month-select" className="calendar-month-trigger" aria-label="Month">
+                {i18n.monthLabels[parseYmd(dateFrom)?.getMonth() ?? new Date().getMonth()]}
+              </button>
+              <button type="button" id="calendar-year-select" className="calendar-year-trigger" aria-label="Year">
+                {parseYmd(dateFrom)?.getFullYear() ?? new Date().getFullYear()}
+              </button>
+            </div>
+            <button
+              type="button"
+              className="calendar-nav-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.changeMonth?.(1);
+              }}
+            >
+              <i className="fas fa-chevron-right" />
+            </button>
+          </div>
+          <div className="calendar-weekdays">
+            {i18n.weekdaysShort.map((d) => (
+              <div key={d} className="calendar-weekday">
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="calendar-days" id="calendar-days" />
         </div>
       </div>
     </>
