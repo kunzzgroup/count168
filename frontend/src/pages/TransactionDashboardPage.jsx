@@ -648,7 +648,8 @@ export default function TransactionDashboardPage() {
         <div id="app" className="dashboard-content">
           <div className="dashboard-card dashboard-filter-panel action-buttons-container">
             <div className="dashboard-filter-date-row">
-              <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
+              <span className="user-gc-inline-label">{i18n.dateRange}</span>
+              <div className="dashboard-filter-date-field report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
                 <div className="report-outlined-shell report-outlined-shell--no-label">
                   <div className="report-outlined-inner">
                     <div className="transaction-date-range-group">

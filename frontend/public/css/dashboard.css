@@ -385,12 +385,21 @@ body.dashboard-page {
     --dashboard-date-range-w: clamp(316px, 22vw, 336px);
 }
 
-/* 日期行：与 User List 顶栏 .action-buttons 同 padding */
+/* 日期行：与 user-gc-inline-panel 同款 label 列 + 日期条 */
 body.dashboard-page .dashboard-filter-date-row {
+    display: grid;
+    grid-template-columns: var(--user-gc-inline-label-w, 9rem) auto;
+    column-gap: 14px;
+    align-items: center;
     padding: 10px 20px;
     margin: 0;
 }
 
+body.dashboard-page .dashboard-filter-date-row .user-gc-inline-label {
+    justify-self: stretch;
+}
+
+body.dashboard-page .dashboard-filter-date-row .dashboard-filter-date-field,
 body.dashboard-page .dashboard-filter-date-row .report-outlined-anchor,
 body.dashboard-page .dashboard-filter-date-row .transaction-outlined-field-col--date {
     flex: 0 0 auto;
@@ -398,6 +407,7 @@ body.dashboard-page .dashboard-filter-date-row .transaction-outlined-field-col--
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
+    justify-self: start;
 }
 
 body.dashboard-page .dashboard-filter-date-row .report-outlined-shell.report-outlined-shell--no-label {
