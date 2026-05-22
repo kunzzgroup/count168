@@ -1126,15 +1126,26 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     width: 100%;
     min-width: 0;
     min-height: clamp(140px, 12vw, 180px);
-    height: auto;
-    max-height: none;
-    flex-shrink: 0;
-    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: visible;
     user-select: none;
+}
+
+.dashboard-summary-pie-chart-shell {
+    position: relative;
+    width: 100%;
+    height: clamp(168px, 15vw, 180px);
+    max-width: 100%;
+    flex-shrink: 0;
+}
+
+.dashboard-summary-pie-wrap .recharts-responsive-container,
+.dashboard-summary-pie-chart-shell .recharts-responsive-container {
+    width: 100% !important;
+    height: 100% !important;
+    overflow: visible !important;
 }
 
 .dashboard-summary-hero-block {
@@ -1270,40 +1281,47 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     }
 }
 
-.dashboard-summary-pie-wrap .recharts-pie-sector {
+.dashboard-summary-pie-wrap .recharts-pie-sector,
+.dashboard-summary-pie-chart-shell .recharts-pie-sector {
     outline: none;
     cursor: default;
     transition: opacity var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
 }
 
-.dashboard-summary-pie-wrap .recharts-responsive-container {
-    width: 100% !important;
-    height: 100% !important;
-    min-height: 168px;
-    overflow: visible !important;
-}
-
 .dashboard-summary-pie-wrap .recharts-responsive-container,
+.dashboard-summary-pie-chart-shell .recharts-responsive-container,
 .dashboard-summary-pie-wrap .recharts-wrapper,
+.dashboard-summary-pie-chart-shell .recharts-wrapper,
 .dashboard-summary-pie-wrap .recharts-surface,
-.dashboard-summary-pie-wrap svg {
+.dashboard-summary-pie-chart-shell .recharts-surface,
+.dashboard-summary-pie-wrap svg,
+.dashboard-summary-pie-chart-shell svg {
     outline: none !important;
     border: none !important;
     overflow: visible !important;
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container:focus,
+.dashboard-summary-pie-chart-shell .recharts-responsive-container:focus,
 .dashboard-summary-pie-wrap .recharts-wrapper:focus,
+.dashboard-summary-pie-chart-shell .recharts-wrapper:focus,
 .dashboard-summary-pie-wrap svg:focus,
+.dashboard-summary-pie-chart-shell svg:focus,
 .dashboard-summary-pie-wrap svg:focus-visible,
+.dashboard-summary-pie-chart-shell svg:focus-visible,
 .dashboard-summary-pie-wrap path:focus,
+.dashboard-summary-pie-chart-shell path:focus,
 .dashboard-summary-pie-wrap path:focus-visible,
+.dashboard-summary-pie-chart-shell path:focus-visible,
 .dashboard-summary-pie-wrap .recharts-pie-sector:focus,
-.dashboard-summary-pie-wrap .recharts-pie-sector:focus-visible {
+.dashboard-summary-pie-chart-shell .recharts-pie-sector:focus,
+.dashboard-summary-pie-wrap .recharts-pie-sector:focus-visible,
+.dashboard-summary-pie-chart-shell .recharts-pie-sector:focus-visible {
     outline: none !important;
 }
 
-.dashboard-summary-pie-wrap .recharts-tooltip-wrapper {
+.dashboard-summary-pie-wrap .recharts-tooltip-wrapper,
+.dashboard-summary-pie-chart-shell .recharts-tooltip-wrapper {
     display: none !important;
 }
 
@@ -1412,6 +1430,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-list {
+    --breakdown-cols: 10px 2.25rem minmax(0, 1fr) 3.35rem;
     grid-column: 2;
     grid-row: 1;
     flex: 1;
@@ -1429,35 +1448,64 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-currency-list-head {
     padding: 0 8px 6px;
     margin: 0;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--color-surface, #ffffff);
+    border-bottom: 1px solid var(--color-border-slate, #e2e8f0);
+}
+
+.dashboard-summary-currency-head-title {
+    display: block;
+    padding-bottom: 4px;
     font-size: var(--text-tiny, clamp(11px, 0.78vw, 13px));
     font-weight: 500;
     color: var(--color-muted-fg, #6b7280);
     font-family: var(--font-heading-page);
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    flex-shrink: 0;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: var(--color-surface, #ffffff);
+}
+
+.dashboard-summary-currency-list-cols {
+    display: grid;
+    grid-template-columns: var(--breakdown-cols);
+    column-gap: 8px;
+    padding: 0;
+}
+
+.dashboard-summary-currency-list-cols span {
+    font-size: var(--text-tiny, clamp(10px, 0.65vw, 10px));
+    font-weight: 600;
+    color: var(--color-text-caption, #94a3b8);
+    font-family: var(--font-heading-page);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.dashboard-summary-currency-list-cols span:nth-child(1),
+.dashboard-summary-currency-list-cols span:nth-child(2) {
+    visibility: hidden;
 }
 
 .dashboard-summary-currency-list-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding-right: 2px;
+    padding: 4px 2px 0 0;
     display: flex;
     flex-direction: column;
-    gap: clamp(2px, 0.25vw, 4px);
+    gap: 2px;
 }
 
 .dashboard-summary-currency-row {
     display: grid;
-    grid-template-columns: 8px 36px minmax(0, 1fr);
+    grid-template-columns: var(--breakdown-cols);
     align-items: center;
     column-gap: 8px;
-    padding: 5px 8px;
+    padding: 6px 8px;
     border-radius: var(--radius-panel, 8px);
     font-family: var(--font-heading-page);
     border-left: none;
@@ -1483,6 +1531,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
+    justify-self: center;
 }
 
 .dashboard-summary-currency-code {
@@ -1493,20 +1542,14 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     white-space: nowrap;
 }
 
-.dashboard-summary-currency-values {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: clamp(6px, 0.55vw, 10px);
-    min-width: 0;
-}
-
 .dashboard-summary-currency-amount-col {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+    justify-content: center;
     gap: 1px;
     min-width: 0;
+    text-align: right;
 }
 
 .dashboard-summary-currency-amount {
@@ -1515,6 +1558,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     color: var(--color-text-ink-strong, #111827);
     white-space: nowrap;
     line-height: 1.25;
+    font-variant-numeric: tabular-nums;
 }
 
 .dashboard-summary-currency-converted {
@@ -1524,20 +1568,18 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-family: var(--font-heading-page);
     white-space: nowrap;
     line-height: 1.15;
+    font-variant-numeric: tabular-nums;
 }
 
 .dashboard-summary-currency-rate {
-    flex: 0 0 auto;
     font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
     font-weight: 600;
     color: var(--color-text-caption, #64748b);
     font-family: var(--font-heading-page);
-    min-width: 2.75rem;
-    padding-left: clamp(6px, 0.55vw, 10px);
     text-align: right;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-    border-left: 1px solid var(--color-border-slate, #e2e8f0);
+    justify-self: end;
 }
 
 .dashboard-summary-rate-footnote {

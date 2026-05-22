@@ -1607,12 +1607,12 @@ export default function TransactionDashboardPage() {
                     </div>
                   </div>
                   <div
-                    ref={pieWrapRef}
                     className="dashboard-summary-pie-wrap"
                     aria-hidden={summaryEarningsLoading}
                     onMouseLeave={() => setHoveredPieSector(null)}
                   >
-                  <ResponsiveContainer width="100%" height={DASHBOARD_EARNINGS_PIE_HEIGHT}>
+                    <div ref={pieWrapRef} className="dashboard-summary-pie-chart-shell">
+                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <Pie
                         key={currencyCode || "pie"}
@@ -1677,11 +1677,18 @@ export default function TransactionDashboardPage() {
                       </div>
                     </div>
                   )}
-                </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="dashboard-summary-currency-list">
-                  <div className="dashboard-summary-currency-list-head" aria-hidden="true">
-                    <span>{i18n.currencyBreakdown}</span>
+                  <div className="dashboard-summary-currency-list-head">
+                    <span className="dashboard-summary-currency-head-title">{i18n.currencyBreakdown}</span>
+                    <div className="dashboard-summary-currency-list-cols" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span>{i18n.breakdownAmount}</span>
+                      <span>{useConvertedEarnings ? i18n.breakdownRate : i18n.breakdownShare}</span>
+                    </div>
                   </div>
                   <div className="dashboard-summary-currency-list-body" role="list">
                   {earningsCurrencyRows.map((row, index) => {
@@ -1723,33 +1730,31 @@ export default function TransactionDashboardPage() {
                         aria-hidden="true"
                       />
                       <span className="dashboard-summary-currency-code">{row.code}</span>
-                      <div className="dashboard-summary-currency-values">
-                        <div className="dashboard-summary-currency-amount-col">
-                          <span className="dashboard-summary-currency-amount">
-                            {summaryEarningsLoading ? "…" : formatCurrency(row.earnings)}
-                          </span>
-                          {useConvertedEarnings &&
-                            row.earningsConverted != null &&
-                            String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
-                              <span className="dashboard-summary-currency-converted">
-                                {formatI18nTemplate(i18n.convertedApprox, {
-                                  amount: formatCurrency(row.earningsConverted),
-                                  code: currencyCode,
-                                })}
-                              </span>
-                            )}
-                        </div>
-                        <span
-                          className="dashboard-summary-currency-rate"
-                          title={unitRateTitle}
-                        >
-                          {summaryEarningsLoading
-                            ? ""
-                            : useConvertedEarnings
-                              ? unitRateLabel
-                              : `${sharePct.toFixed(1)}%`}
+                      <div className="dashboard-summary-currency-amount-col">
+                        <span className="dashboard-summary-currency-amount">
+                          {summaryEarningsLoading ? "…" : formatCurrency(row.earnings)}
                         </span>
+                        {useConvertedEarnings &&
+                          row.earningsConverted != null &&
+                          String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
+                            <span className="dashboard-summary-currency-converted">
+                              {formatI18nTemplate(i18n.convertedApprox, {
+                                amount: formatCurrency(row.earningsConverted),
+                                code: currencyCode,
+                              })}
+                            </span>
+                          )}
                       </div>
+                      <span
+                        className="dashboard-summary-currency-rate"
+                        title={unitRateTitle}
+                      >
+                        {summaryEarningsLoading
+                          ? ""
+                          : useConvertedEarnings
+                            ? unitRateLabel
+                            : `${sharePct.toFixed(1)}%`}
+                      </span>
                     </div>
                     );
                   })}
