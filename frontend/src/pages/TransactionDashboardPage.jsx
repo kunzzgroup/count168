@@ -16,6 +16,12 @@ import {
 import { buildApiUrl } from "../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { mergeGroupData } from "../utils/dashboardMerge.js";
+import {
+  convertToBaseAmount,
+  fetchFrankfurterRates,
+  resolveFrankfurterDate,
+  sumConvertedEarnings,
+} from "../utils/frankfurterRates.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 import { formatDmy, parseDdMmYyyyToYmd } from "../utils/dateUtils.js";
 import {
@@ -264,16 +270,26 @@ function getCurrencyColor(code, fallbackIndex = 0) {
   return DASHBOARD_CURRENCY_FALLBACK_PALETTE[fallbackIndex % DASHBOARD_CURRENCY_FALLBACK_PALETTE.length];
 }
 
-function buildEarningsPieSlices(rows) {
+function buildEarningsPieSlices(rows, { useConverted = false } = {}) {
   return rows
-    .map((row, index) => ({
-      code: row.code,
-      earnings: row.earnings,
-      value: Math.abs(row.earnings),
-      fill: getCurrencyColor(row.code, index),
-    }))
+    .map((row, index) => {
+      const earnings =
+        useConverted && row.earningsConverted != null ? row.earningsConverted : row.earnings;
+      return {
+        code: row.code,
+        earnings,
+        value: Math.abs(earnings),
+        fill: getCurrencyColor(row.code, index),
+      };
+    })
     .filter((row) => row.value > 0)
     .sort((a, b) => b.value - a.value);
+}
+
+function formatI18nTemplate(template, vars) {
+  return String(template || "").replace(/\{(\w+)\}/g, (_, key) =>
+    vars[key] != null ? String(vars[key]) : ""
+  );
 }
 
 function renderCurrencyPieLabel(props) {
@@ -319,7 +335,18 @@ const KPI_CARD_ICONS = {
   earnings: "fas fa-hand-holding-dollar",
 };
 
-function DashboardKpiCard({ variant, label, value, loading, id, tone, compare, compareLabel, fallbackFoot }) {
+function DashboardKpiCard({
+  variant,
+  label,
+  value,
+  loading,
+  id,
+  tone,
+  compare,
+  compareLabel,
+  fallbackFoot,
+  footNote,
+}) {
   const showCompare = compare && !loading;
   const badgeUp = compare?.pct >= 0;
   const deltaUp = compare?.isUp;
@@ -353,6 +380,7 @@ function DashboardKpiCard({ variant, label, value, loading, id, tone, compare, c
         ) : (
           <span className="kpi-card-foot-muted">{fallbackFoot}</span>
         )}
+        {footNote ? <span className="kpi-card-foot-note">{footNote}</span> : null}
       </div>
     </div>
   );
@@ -481,6 +509,9 @@ export default function TransactionDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [earningsByCurrency, setEarningsByCurrency] = useState([]);
   const [earningsByCurrencyLoading, setEarningsByCurrencyLoading] = useState(false);
+  const [exchangeRates, setExchangeRates] = useState({ rates: {}, date: null, unsupported: [] });
+  const [exchangeRatesLoading, setExchangeRatesLoading] = useState(false);
+  const [exchangeRatesError, setExchangeRatesError] = useState("");
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const [companyAccessModal, setCompanyAccessModal] = useState({ open: false, message: "" });
@@ -824,14 +855,23 @@ export default function TransactionDashboardPage() {
     }
     setEarningsByCurrencyLoading(true);
     try {
+      const prevRange = previousPeriodRange(dateFrom, dateTo);
       const rows = await Promise.all(
         currencies.map(async (code) => {
           try {
-            const data = await loadMergedDashboard(dateFrom, dateTo, code);
-            const metrics = computeKpiMetrics(data, selectedGroup);
-            return { code, earnings: metrics?.earnings ?? 0 };
+            const [current, previous] = await Promise.all([
+              loadMergedDashboard(dateFrom, dateTo, code),
+              loadMergedDashboard(prevRange.from, prevRange.to, code).catch(() => null),
+            ]);
+            const metrics = computeKpiMetrics(current, selectedGroup);
+            const prevMetrics = previous ? computeKpiMetrics(previous, selectedGroup) : null;
+            return {
+              code,
+              earnings: metrics?.earnings ?? 0,
+              earningsPrev: prevMetrics?.earnings ?? 0,
+            };
           } catch {
-            return { code, earnings: 0 };
+            return { code, earnings: 0, earningsPrev: 0 };
           }
         })
       );
@@ -840,6 +880,44 @@ export default function TransactionDashboardPage() {
       setEarningsByCurrencyLoading(false);
     }
   }, [companyId, currencies, dateFrom, dateTo, loadMergedDashboard, selectedGroup]);
+
+  useEffect(() => {
+    if (!currencyCode || currencies.length <= 1) {
+      setExchangeRates({ rates: { [currencyCode]: 1 }, date: null, unsupported: [] });
+      setExchangeRatesError("");
+      setExchangeRatesLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const rateDate = resolveFrankfurterDate(dateTo);
+
+    (async () => {
+      setExchangeRatesLoading(true);
+      setExchangeRatesError("");
+      try {
+        const { rates, date, unsupported } = await fetchFrankfurterRates(
+          currencyCode,
+          currencies,
+          rateDate
+        );
+        if (!cancelled) {
+          setExchangeRates({ rates, date, unsupported });
+        }
+      } catch {
+        if (!cancelled) {
+          setExchangeRates({ rates: { [currencyCode]: 1 }, date: null, unsupported: currencies });
+          setExchangeRatesError("failed");
+        }
+      } finally {
+        if (!cancelled) setExchangeRatesLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currencyCode, currencies, dateTo]);
 
   const loadDashboard = useCallback(async () => {
     if (!companyId) return;
@@ -966,13 +1044,113 @@ export default function TransactionDashboardPage() {
   }, [i18n, kpi.showEarnings]);
 
   const earningsCurrencyRows = useMemo(() => {
-    if (earningsByCurrency.length) return earningsByCurrency;
-    return currencies.map((code) => ({ code, earnings: code === currencyCode ? kpi.earnings : 0 }));
-  }, [earningsByCurrency, currencies, currencyCode, kpi.earnings]);
+    const baseRows = earningsByCurrency.length
+      ? earningsByCurrency
+      : currencies.map((code) => ({
+          code,
+          earnings: code === currencyCode ? kpi.earnings : 0,
+          earningsPrev: 0,
+        }));
+
+    const base = String(currencyCode || "").toUpperCase();
+    const rates = exchangeRates.rates || {};
+    const canConvert = currencies.length > 1 && !exchangeRatesError && Object.keys(rates).length > 0;
+
+    return baseRows.map((row) => {
+      const earningsConverted = canConvert
+        ? convertToBaseAmount(row.earnings, row.code, base, rates)
+        : null;
+      const earningsPrevConverted = canConvert
+        ? convertToBaseAmount(row.earningsPrev, row.code, base, rates)
+        : null;
+      return {
+        ...row,
+        earningsConverted,
+        earningsPrevConverted,
+      };
+    });
+  }, [
+    earningsByCurrency,
+    currencies,
+    currencyCode,
+    kpi.earnings,
+    exchangeRates.rates,
+    exchangeRatesError,
+  ]);
+
+  const useConvertedEarnings = useMemo(
+    () => currencies.length > 1 && !exchangeRatesError && !exchangeRatesLoading,
+    [currencies.length, exchangeRatesError, exchangeRatesLoading]
+  );
+
+  const convertedEarningsTotal = useMemo(() => {
+    if (!useConvertedEarnings) return null;
+    return sumConvertedEarnings(earningsCurrencyRows, currencyCode, exchangeRates.rates).total;
+  }, [useConvertedEarnings, earningsCurrencyRows, currencyCode, exchangeRates.rates]);
+
+  const convertedEarningsPrevTotal = useMemo(() => {
+    if (!useConvertedEarnings) return null;
+    const prevRows = earningsCurrencyRows.map((row) => ({
+      code: row.code,
+      earnings: row.earningsPrev ?? 0,
+    }));
+    return sumConvertedEarnings(prevRows, currencyCode, exchangeRates.rates).total;
+  }, [useConvertedEarnings, earningsCurrencyRows, currencyCode, exchangeRates.rates]);
+
+  const displayEarningsValue = useMemo(() => {
+    if (useConvertedEarnings && convertedEarningsTotal != null) {
+      return convertedEarningsTotal;
+    }
+    return kpi.earnings;
+  }, [useConvertedEarnings, convertedEarningsTotal, kpi.earnings]);
+
+  const convertedEarningsCompare = useMemo(() => {
+    if (!useConvertedEarnings || convertedEarningsTotal == null || convertedEarningsPrevTotal == null) {
+      return kpi.comparisons?.earnings ?? null;
+    }
+    return buildKpiCompare(convertedEarningsTotal, convertedEarningsPrevTotal);
+  }, [
+    useConvertedEarnings,
+    convertedEarningsTotal,
+    convertedEarningsPrevTotal,
+    kpi.comparisons?.earnings,
+  ]);
+
+  const earningsKpiFootNote = useMemo(() => {
+    if (!useConvertedEarnings || currencies.length <= 1) return "";
+    return i18n.earningsIncludesConversion;
+  }, [useConvertedEarnings, currencies.length, i18n.earningsIncludesConversion]);
+
+  const rateFootnoteText = useMemo(() => {
+    if (currencies.length <= 1) return "";
+    if (exchangeRatesLoading) return i18n.rateLoading;
+    if (exchangeRatesError) return i18n.rateUnavailable;
+    const foreignCodes = currencies
+      .map((c) => String(c).toUpperCase())
+      .filter((c) => c !== String(currencyCode).toUpperCase());
+    if (!foreignCodes.length) return "";
+    const dateLabel = exchangeRates.date || "—";
+    let text = formatI18nTemplate(i18n.rateFootnote, {
+      codes: foreignCodes.join(", "),
+      date: dateLabel,
+    });
+    if (exchangeRates.unsupported?.length) {
+      text += ` · ${i18n.rateUnavailable}`;
+    }
+    return text;
+  }, [
+    currencies,
+    currencyCode,
+    exchangeRatesLoading,
+    exchangeRatesError,
+    exchangeRates.date,
+    exchangeRates.unsupported,
+    i18n,
+  ]);
 
   const earningsPieSlices = useMemo(
-    () => buildEarningsPieSlices(earningsCurrencyRows),
-    [earningsCurrencyRows]
+    () => buildEarningsPieSlices(earningsCurrencyRows, { useConverted: useConvertedEarnings }),
+    [earningsCurrencyRows, useConvertedEarnings]
   );
 
   const currencyPieFillByCode = useMemo(() => {
@@ -983,7 +1161,7 @@ export default function TransactionDashboardPage() {
     return map;
   }, [earningsCurrencyRows]);
 
-  const summaryEarningsLoading = loading || earningsByCurrencyLoading;
+  const summaryEarningsLoading = loading || earningsByCurrencyLoading || exchangeRatesLoading;
 
   const handlePickGroup = useCallback(
     async (gid) => {
@@ -1214,11 +1392,12 @@ export default function TransactionDashboardPage() {
               <DashboardKpiCard
                 variant="earnings"
                 label={i18n.earnings}
-                value={formatCurrency(kpi.earnings)}
-                compare={kpi.comparisons?.earnings}
+                value={formatCurrency(displayEarningsValue)}
+                compare={convertedEarningsCompare}
                 compareLabel={kpiCompareLabel}
                 fallbackFoot={kpiFooter}
-                loading={loading}
+                footNote={earningsKpiFootNote}
+                loading={loading || earningsByCurrencyLoading || (currencies.length > 1 && exchangeRatesLoading)}
                 id="earnings-card-wrapper"
               />
             )}
@@ -1323,27 +1502,27 @@ export default function TransactionDashboardPage() {
                     {currencyCode ? ` · ${currencyCode}` : ""}
                   </span>
                   <div className="dashboard-summary-hero-value">
-                    {summaryEarningsLoading ? "…" : formatCurrency(kpi.earnings)}
+                    {summaryEarningsLoading ? "…" : formatCurrency(displayEarningsValue)}
                   </div>
                 </div>
-                {!summaryEarningsLoading && kpi.comparisons?.earnings && (
+                {!summaryEarningsLoading && convertedEarningsCompare && (
                   <span
-                    className={`kpi-card-badge${kpi.comparisons.earnings.pct >= 0 ? " is-up" : " is-down"}`}
+                    className={`kpi-card-badge${convertedEarningsCompare.pct >= 0 ? " is-up" : " is-down"}`}
                   >
                     <i
-                      className={`fas fa-arrow-${kpi.comparisons.earnings.pct >= 0 ? "up" : "down"}`}
+                      className={`fas fa-arrow-${convertedEarningsCompare.pct >= 0 ? "up" : "down"}`}
                       aria-hidden="true"
                     />
-                    {Math.abs(kpi.comparisons.earnings.pct).toFixed(1)}%
+                    {Math.abs(convertedEarningsCompare.pct).toFixed(1)}%
                   </span>
                 )}
               </div>
-              {!summaryEarningsLoading && kpi.comparisons?.earnings && (
+              {!summaryEarningsLoading && convertedEarningsCompare && (
                 <div className="dashboard-summary-compare">
                   <span
-                    className={`kpi-card-delta${kpi.comparisons.earnings.isUp ? " is-up" : " is-down"}`}
+                    className={`kpi-card-delta${convertedEarningsCompare.isUp ? " is-up" : " is-down"}`}
                   >
-                    {formatSignedChange(kpi.comparisons.earnings.delta)}
+                    {formatSignedChange(convertedEarningsCompare.delta)}
                   </span>
                   <span className="kpi-card-foot-muted">{kpiCompareLabel}</span>
                 </div>
@@ -1405,13 +1584,34 @@ export default function TransactionDashboardPage() {
                         aria-hidden="true"
                       />
                       <span className="dashboard-summary-currency-code">{row.code}</span>
-                      <span className="dashboard-summary-currency-amount">
-                        {summaryEarningsLoading ? "…" : formatCurrency(row.earnings)}
-                      </span>
+                      <div className="dashboard-summary-currency-amount-col">
+                        <span className="dashboard-summary-currency-amount">
+                          {summaryEarningsLoading ? "…" : formatCurrency(row.earnings)}
+                        </span>
+                        {useConvertedEarnings &&
+                          row.earningsConverted != null &&
+                          String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
+                            <span className="dashboard-summary-currency-converted">
+                              {formatI18nTemplate(i18n.convertedApprox, {
+                                amount: formatCurrency(row.earningsConverted),
+                                code: currencyCode,
+                              })}
+                            </span>
+                          )}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
+              {currencies.length > 1 && rateFootnoteText && (
+                <p
+                  className={`dashboard-summary-rate-footnote${
+                    exchangeRatesError || exchangeRates.unsupported?.length ? " is-warn" : ""
+                  }${exchangeRatesLoading ? " is-muted" : ""}`}
+                >
+                  {rateFootnoteText}
+                </p>
+              )}
             </div>
           </div>
         </div>
