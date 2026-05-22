@@ -27,6 +27,12 @@ export function useTransactionDateRange({
     const t = dateTo || todayDmy;
     if (df.value !== f) df.value = f;
     if (dt.value !== t) dt.value = t;
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.({
+      dateFromId: "date_from",
+      dateToId: "date_to",
+      displayId: "date-range-display",
+    });
   }, [dateFrom, dateTo, todayDmy]);
 
   /** Load shared date-range-picker (same as transaction.php) + init Capture Date popup. */
@@ -60,6 +66,11 @@ export function useTransactionDateRange({
           }
           /* 搜索由 useTransactionSearch 在 dateFrom/dateTo 写入 state 后的 effect 触发，避免 queueMicrotask 读到旧 effectiveDate */
         },
+      });
+      window.MaintenanceDateRangePicker.refreshInputsDisplay?.({
+        dateFromId: "date_from",
+        dateToId: "date_to",
+        displayId: "date-range-display",
       });
       txDateRangePickerReadyRef.current = true;
     })();

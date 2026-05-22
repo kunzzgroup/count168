@@ -118,6 +118,12 @@ export function ensureMaintenanceDateRangePicker() {
     return `${day}/${month}/${year}`;
   }
 
+  function formatRangeDisplayText(fromText, toText) {
+    if (!fromText) return config.placeholder || "Select date range";
+    if (!toText || fromText === toText) return fromText;
+    return `${fromText} - ${toText}`;
+  }
+
   function updateDateRangeDisplay(displayIdOverride) {
     const display = document.getElementById(displayIdOverride || activeRangeBinding.displayId);
     if (!display) return;
@@ -125,7 +131,7 @@ export function ensureMaintenanceDateRangePicker() {
       const a = formatDateDisplay(calendarStartDate);
       const b = formatDateDisplay(calendarEndDate);
       display.textContent =
-        activeRangeBinding.collapseSingleDisplay && a === b ? a : `${a} - ${b}`;
+        activeRangeBinding.collapseSingleDisplay && a === b ? a : formatRangeDisplayText(a, b);
     } else if (calendarStartDate) {
       const hint = config.selectEndDateHint || "Select end date";
       display.textContent = `${formatDateDisplay(calendarStartDate)} - ${hint}`;
@@ -184,9 +190,9 @@ export function ensureMaintenanceDateRangePicker() {
     if (fd && td) {
       const a = formatDateDisplay(fd);
       const c = formatDateDisplay(td);
-      display.textContent = collapse && fv === tv ? a : `${a} - ${c}`;
+      display.textContent = collapse && fv === tv ? a : formatRangeDisplayText(a, c);
     } else if (fd) {
-      display.textContent = `${formatDateDisplay(fd)} - ${formatDateDisplay(fd)}`;
+      display.textContent = formatDateDisplay(fd);
     } else {
       display.textContent = config.placeholder || "Select date range";
     }
