@@ -378,6 +378,16 @@ body.dashboard-page {
     gap: clamp(10px, 1vw, 16px);
 }
 
+/* Group / Company / Currency：与 User List 共用 user-gc-*（见 userlist.css） */
+body.dashboard-page .dashboard-filter-gc-panel.user-gc-inline-panel {
+    border-top: none;
+    padding: clamp(8px, 0.8vw, 12px) clamp(14px, 1.2vw, 20px) 6px;
+}
+
+body.dashboard-page .dashboard-filter-panel__body > .dashboard-filter-toolbar__date {
+    padding: 0 clamp(14px, 1.2vw, 20px) clamp(12px, 1vw, 16px);
+}
+
 /* 篩選列：併排觸發器 + 下拉（參考稿：藥丸摘要 + 雙欄 / 幣種網格） */
 .dashboard-filter-toolbar {
     display: flex;
