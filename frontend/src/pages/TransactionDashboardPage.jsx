@@ -112,9 +112,9 @@ function formatSignedChange(value) {
   return body;
 }
 
-/** 按天模式：≤14 天全显示；跨 2 个自然月每隔 2 天；更长区间按宽度跳日 */
+/** 按天模式：1 个自然月每天；2 个月隔 2 天；≤14 天每天；更长区间按宽度跳日 */
 function resolveDailyChartXAxisTicks(dayCount, monthSpan) {
-  if (dayCount <= 14) {
+  if (monthSpan === 1 || dayCount <= 14) {
     return { interval: 0, minTickGap: 0 };
   }
   if (monthSpan === 2) {
