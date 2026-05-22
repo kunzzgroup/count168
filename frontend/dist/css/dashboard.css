@@ -354,7 +354,7 @@ body.dashboard-page {
 .dashboard-filter-panel {
     padding: 0;
     overflow: visible;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 /* 与 User List .action-buttons-container 同款白卡 */
@@ -365,6 +365,7 @@ body.dashboard-page .dashboard-filter-panel.action-buttons-container {
     border-radius: 10px;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    margin-bottom: 0;
 }
 
 .dashboard-filter-panel__head {
@@ -779,7 +780,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: clamp(8px, 0.9vw, 14px);
+    --dashboard-section-gap: clamp(12px, 1.5vw, 20px);
+    gap: var(--dashboard-section-gap);
 }
 
 .dashboard-card {
