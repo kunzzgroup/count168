@@ -645,37 +645,34 @@ export default function TransactionDashboardPage() {
         )}
 
         <div id="app" className="dashboard-content">
-          <div className="dashboard-card dashboard-filter-panel">
-            <div className="dashboard-card-body dashboard-filter-panel__body">
-              <div className="transaction-search-section dashboard-filter-txn-section">
-                <div className="transaction-category-date-row">
-                  <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
-                    <div className="report-outlined-shell report-outlined-shell--no-label">
-                      <div className="report-outlined-inner">
-                        <div className="transaction-date-range-group">
-                          <div
-                            className="date-range-picker"
-                            id="date-range-picker"
-                            role="button"
-                            tabIndex={0}
-                            aria-label={i18n.selectDateRange}
-                          >
-                            <i className="fas fa-calendar-alt" />
-                            <span id="date-range-display">{effectiveDateRangeText}</span>
-                            <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
-                          </div>
-                          <input type="hidden" id="date_from" readOnly />
-                          <input type="hidden" id="date_to" readOnly />
-                        </div>
+          <div className="dashboard-card dashboard-filter-panel action-buttons-container">
+            <div className="dashboard-filter-date-row">
+              <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
+                <div className="report-outlined-shell report-outlined-shell--no-label">
+                  <div className="report-outlined-inner">
+                    <div className="transaction-date-range-group">
+                      <div
+                        className="date-range-picker"
+                        id="date-range-picker"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={i18n.selectDateRange}
+                      >
+                        <i className="fas fa-calendar-alt" />
+                        <span id="date-range-display">{effectiveDateRangeText}</span>
+                        <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                       </div>
+                      <input type="hidden" id="date_from" readOnly />
+                      <input type="hidden" id="date_to" readOnly />
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                {(groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0) && (
-                  <div className="transaction-bottom-filters">
-                    <div className="user-gc-inline-panel">
-                  {groupIds.length > 0 && (
+            {(groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0) && (
+              <div className="user-gc-inline-panel">
+                {groupIds.length > 0 && (
                     <div className="user-gc-inline-row">
                       <span className="user-gc-inline-label">{i18n.groupId}</span>
                       <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
@@ -748,12 +745,9 @@ export default function TransactionDashboardPage() {
                         </div>
                       </div>
                     </div>
-                  )}
-                    </div>
-                  </div>
                 )}
               </div>
-            </div>
+            )}
           </div>
 
           <div
