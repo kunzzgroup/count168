@@ -1357,9 +1357,10 @@ label.user-modal-col-title.acc-proc-label {
     pointer-events: none;
 }
 
-/* Above Add Account on bank process (.process-page .account-modal z-index: 20000) */
-.user-modal-company-picker-root--above-modals {
-    z-index: 25000;
+/* Above Add Account / User modal (20050); below validation toast (26000). */
+.user-modal-company-picker-root--above-modals,
+.user-modal-permission-picker-root--above-modals {
+    z-index: 25500;
 }
 
 .user-modal-company-picker-backdrop {

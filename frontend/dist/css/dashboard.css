@@ -1442,13 +1442,19 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
         font-size: 14px;
     }
 
+    .dashboard-panels-row,
     .dashboard-chart-section {
         flex: 1;
         min-height: 0;
         overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        padding: 8px 10px 12px;
+    }
+
+    .dashboard-panel-card {
+        padding: 10px 12px;
+    }
+
+    .dashboard-panel-chart-body {
+        min-height: 160px;
     }
 
     .dashboard-chart-header {

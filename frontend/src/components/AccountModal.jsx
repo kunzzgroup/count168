@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { accountModalOverlayZIndex } from "./ProcessModalPortal.jsx";
+import { accountModalOverlayZIndex, accountCompanyPickerZIndex } from "./ProcessModalPortal.jsx";
 
 function upper(v) {
   return String(v || "").toUpperCase();
@@ -397,7 +397,10 @@ export default function AccountModal({
     })()}
     {companyPickerOpen
       ? createPortal(
-          <div className="user-modal-company-picker-root user-modal-company-picker-root--above-modals">
+          <div
+            className="user-modal-company-picker-root user-modal-company-picker-root--above-modals"
+            style={{ zIndex: accountCompanyPickerZIndex }}
+          >
             <button
               type="button"
               className="user-modal-company-picker-backdrop"
