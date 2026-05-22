@@ -133,5 +133,6 @@ export function formatFrankfurterUnitRate(fromCode, baseCode, rates) {
   if (abs >= 100) return unitRate.toFixed(3);
   if (abs >= 1) return unitRate.toFixed(4);
   if (abs >= 0.01) return unitRate.toFixed(4);
-  return unitRate.toFixed(6);
+  if (abs >= 0.0001) return unitRate.toFixed(5);
+  return unitRate.toExponential(2);
 }

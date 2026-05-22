@@ -1430,7 +1430,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-list {
-    --breakdown-cols: 10px 2.25rem minmax(0, 1fr) 3.35rem;
+    --breakdown-cols: 10px 2rem minmax(0, 1fr) minmax(4.75rem, 5.25rem);
     grid-column: 2;
     grid-row: 1;
     flex: 1;
@@ -1470,7 +1470,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-currency-list-cols {
     display: grid;
     grid-template-columns: var(--breakdown-cols);
-    column-gap: 8px;
+    column-gap: 10px;
     padding: 0;
 }
 
@@ -1504,7 +1504,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     display: grid;
     grid-template-columns: var(--breakdown-cols);
     align-items: center;
-    column-gap: 8px;
+    column-gap: 10px;
     padding: 6px 8px;
     border-radius: var(--radius-panel, 8px);
     font-family: var(--font-heading-page);
@@ -1549,6 +1549,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     justify-content: center;
     gap: 1px;
     min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     text-align: right;
 }
 
@@ -1559,6 +1561,9 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     white-space: nowrap;
     line-height: 1.25;
     font-variant-numeric: tabular-nums;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dashboard-summary-currency-converted {
@@ -1569,17 +1574,23 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     white-space: nowrap;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dashboard-summary-currency-rate {
-    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
     font-weight: 600;
     color: var(--color-text-caption, #64748b);
     font-family: var(--font-heading-page);
     text-align: right;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-    justify-self: end;
+    justify-self: stretch;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dashboard-summary-rate-footnote {
