@@ -2,6 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useOutletContext } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import {
+  buildDashboardCacheKey,
+  getDashboardCache,
+  patchDashboardCache,
+  setDashboardCache,
+} from "../../../utils/dashboard/dashboardCache.js";
 import { mergeGroupData } from "../../../utils/dashboard/dashboardMerge.js";
 import {
   convertToBaseAmount,
@@ -49,10 +55,28 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const [exchangeRatesError, setExchangeRatesError] = useState("");
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
   const [companyAccessModal, setCompanyAccessModal] = useState({ open: false, message: "" });
+  /** Matches `dashboardScopeKey` when `dashboardData` reflects the active filter scope. */
+  const [displayScopeKey, setDisplayScopeKey] = useState("");
 
   const currencyCodeRef = useRef(currencyCode);
   const earningsFetchGenRef = useRef(0);
   const dashboardFetchGenRef = useRef(0);
+
+  const dashboardScopeKey = useMemo(
+    () =>
+      companyId
+        ? buildDashboardCacheKey({
+            companyId,
+            dateFrom,
+            dateTo,
+            currencyCode,
+            selectedGroup,
+            groupAllMode,
+            mergedSubsetIds,
+          })
+        : "",
+    [companyId, dateFrom, dateTo, currencyCode, selectedGroup, groupAllMode, mergedSubsetIds]
+  );
 
   useLayoutEffect(() => {
     document.body.classList.add("transaction-page");
@@ -140,49 +164,60 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [companies]
   );
 
-  const switchCompany = async (id, options = {}) => {
+  const applyCompanySelection = useCallback((id, options = {}) => {
     const clearSubset = options.clearSubset !== false;
     const clearGroupAll = options.clearGroupAll !== false;
-    const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`), {
-      credentials: "include",
-    });
-    const j = await res.json();
-    if (!res.ok || !j.success) {
-      const reason = String(j?.data?.reason || "").toLowerCase();
-      const msg = String(j?.message || j?.error || "");
-      const lower = msg.toLowerCase();
-      const shouldShowModal =
-        reason === "expired" ||
-        reason === "no_set" ||
-        lower.includes("company has expired") ||
-        lower.includes("group has expired") ||
-        lower.includes("company expiration date is not set") ||
-        lower.includes("date is not set");
-      if (shouldShowModal) {
-        const modalMessage =
-          reason === "expired"
-            ? "This company since login has expired. Please contact the Customer Service."
-            : reason === "no_set"
-              ? "Please contact the Customer Service to set the expiration date."
-              : lower.includes("not set")
-                ? "Please contact the Customer Service to set the expiration date."
-                : "This company since login has expired. Please contact the Customer Service.";
-        setCompanyAccessModal({ open: true, message: modalMessage });
-        setLoadError(modalMessage);
-      } else {
-        setLoadError(j.message || j.error || i18n.couldNotSwitchCompany);
-      }
-      return false;
-    }
-    if (typeof window.updateSidebarDataCaptureVisibility === "function" && j?.data) {
-      window.updateSidebarDataCaptureVisibility(j.data.has_gambling, j.data.has_bank);
-    }
     setCompanyId(parseInt(id, 10));
     if (clearGroupAll) setGroupAllMode(false);
     if (clearSubset) setMergedSubsetIds(null);
-    notifyCompanySessionUpdated();
-    return true;
-  };
+  }, []);
+
+  const syncCompanySession = useCallback(
+    async (id) => {
+      try {
+        const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`), {
+          credentials: "include",
+        });
+        const j = await res.json();
+        if (!res.ok || !j.success) {
+          const reason = String(j?.data?.reason || "").toLowerCase();
+          const msg = String(j?.message || j?.error || "");
+          const lower = msg.toLowerCase();
+          const shouldShowModal =
+            reason === "expired" ||
+            reason === "no_set" ||
+            lower.includes("company has expired") ||
+            lower.includes("group has expired") ||
+            lower.includes("company expiration date is not set") ||
+            lower.includes("date is not set");
+          if (shouldShowModal) {
+            const modalMessage =
+              reason === "expired"
+                ? "This company since login has expired. Please contact the Customer Service."
+                : reason === "no_set"
+                  ? "Please contact the Customer Service to set the expiration date."
+                  : lower.includes("not set")
+                    ? "Please contact the Customer Service to set the expiration date."
+                    : "This company since login has expired. Please contact the Customer Service.";
+            setCompanyAccessModal({ open: true, message: modalMessage });
+            setLoadError(modalMessage);
+          } else {
+            setLoadError(j.message || j.error || i18n.couldNotSwitchCompany);
+          }
+          return false;
+        }
+        if (typeof window.updateSidebarDataCaptureVisibility === "function" && j?.data) {
+          window.updateSidebarDataCaptureVisibility(j.data.has_gambling, j.data.has_bank);
+        }
+        notifyCompanySessionUpdated();
+        return true;
+      } catch {
+        setLoadError(i18n.couldNotSwitchCompany);
+        return false;
+      }
+    },
+    [i18n.couldNotSwitchCompany]
+  );
 
   const loadCurrencies = useCallback(async () => {
     if (!companyId) return;
@@ -291,34 +326,47 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       return;
     }
 
+    const cacheKey = dashboardScopeKey;
+    const cached = cacheKey ? getDashboardCache(cacheKey) : null;
+    const cachedEarnings = cached?.earnings;
     const gen = ++earningsFetchGenRef.current;
     setEarningsByCurrencyLoading(true);
-    setEarningsByCurrency(currencies.map((code) => ({ code, earnings: null })));
+    setEarningsByCurrency(
+      currencies.map((code) => {
+        const hit = cachedEarnings?.find((r) => r.code === code);
+        return { code, earnings: hit?.earnings ?? null };
+      })
+    );
 
-    await Promise.all(
+    const rows = await Promise.all(
       currencies.map(async (code) => {
         try {
           const current = await loadMergedDashboard(dateFrom, dateTo, code);
-          if (gen !== earningsFetchGenRef.current) return;
+          if (gen !== earningsFetchGenRef.current) return null;
           const metrics = computeKpiMetrics(current, selectedGroup);
-          setEarningsByCurrency((prev) =>
-            prev.map((row) =>
-              row.code === code ? { ...row, earnings: metrics?.earnings ?? 0 } : row
-            )
-          );
+          return { code, earnings: metrics?.earnings ?? 0 };
         } catch {
-          if (gen !== earningsFetchGenRef.current) return;
-          setEarningsByCurrency((prev) =>
-            prev.map((row) => (row.code === code ? { ...row, earnings: 0 } : row))
-          );
+          if (gen !== earningsFetchGenRef.current) return null;
+          return { code, earnings: 0 };
         }
       })
     );
 
     if (gen === earningsFetchGenRef.current) {
+      const next = rows.filter(Boolean);
+      setEarningsByCurrency(next);
       setEarningsByCurrencyLoading(false);
+      if (cacheKey && next.length) patchDashboardCache(cacheKey, { earnings: next });
     }
-  }, [companyId, currencies, dateFrom, dateTo, loadMergedDashboard, selectedGroup]);
+  }, [
+    companyId,
+    currencies,
+    dateFrom,
+    dateTo,
+    loadMergedDashboard,
+    selectedGroup,
+    dashboardScopeKey,
+  ]);
 
   useEffect(() => {
     if (!dashboardData || !currencyCode || currencies.length <= 1) return;
@@ -382,42 +430,64 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [currencyCode, currencies, dateTo]);
 
   const loadDashboard = useCallback(async () => {
-    if (!companyId) return;
+    if (!companyId || !dashboardScopeKey) return;
     const gen = ++dashboardFetchGenRef.current;
+    const cacheKey = dashboardScopeKey;
+    const cached = getDashboardCache(cacheKey);
     setLoadError("");
-    setLoading(true);
+
+    if (cached?.current) {
+      setDashboardData(cached.current);
+      setDashboardDataPrev(cached.previous ?? null);
+      setDisplayScopeKey(cacheKey);
+      if (cached.earnings?.length) setEarningsByCurrency(cached.earnings);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
 
     try {
-      const prevRange = previousPeriodRange(dateFrom, dateTo);
-      const [current, previous] = await Promise.all([
-        loadMergedDashboard(dateFrom, dateTo, currencyCode),
-        loadMergedDashboard(prevRange.from, prevRange.to, currencyCode).catch(() => null),
-      ]);
+      const current = await loadMergedDashboard(dateFrom, dateTo, currencyCode);
       if (gen !== dashboardFetchGenRef.current) return;
       setDashboardData(current);
+      setDisplayScopeKey(cacheKey);
+      setLoading(false);
+      patchDashboardCache(cacheKey, { current, previous: cached?.previous ?? null });
+
+      const prevRange = previousPeriodRange(dateFrom, dateTo);
+      const previous = await loadMergedDashboard(prevRange.from, prevRange.to, currencyCode).catch(() => null);
+      if (gen !== dashboardFetchGenRef.current) return;
       setDashboardDataPrev(previous);
+      patchDashboardCache(cacheKey, { current, previous });
     } catch (e) {
       if (gen !== dashboardFetchGenRef.current) return;
       setLoadError(e.message || i18n.failedToLoadDashboard);
-      setDashboardData(null);
-      setDashboardDataPrev(null);
+      if (!cached?.current) {
+        setDashboardData(null);
+        setDashboardDataPrev(null);
+      }
     } finally {
       if (gen === dashboardFetchGenRef.current) setLoading(false);
     }
-  }, [companyId, dateFrom, dateTo, currencyCode, loadMergedDashboard, i18n]);
+  }, [
+    companyId,
+    dateFrom,
+    dateTo,
+    currencyCode,
+    loadMergedDashboard,
+    i18n,
+    dashboardScopeKey,
+  ]);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
 
   useEffect(() => {
-    setDashboardData(null);
-    setDashboardDataPrev(null);
-  }, [companyId, dateFrom, dateTo]);
-
-  useEffect(() => {
-    loadEarningsByCurrency();
-  }, [loadEarningsByCurrency]);
+    if (loading || !dashboardData || currencies.length <= 1) return undefined;
+    const timer = window.setTimeout(() => loadEarningsByCurrency(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loading, dashboardData, currencies.length, loadEarningsByCurrency]);
 
   const kpiCompareLabel = useMemo(
     () => (isFullCalendarMonth(dateFrom, dateTo) ? i18n.thanLastMonth : i18n.thanPreviousPeriod),
@@ -617,26 +687,31 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     i18n,
   ]);
 
-  const summaryEarningsLoading = loading && !dashboardData;
+  const scopeDataPending =
+    Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
+  const summaryEarningsLoading = scopeDataPending || (loading && !dashboardData);
+  const kpiLoading = summaryEarningsLoading;
 
   const handlePickGroup = useCallback(
-    async (gid) => {
+    (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g || g === selectedGroup) return;
       const list = companiesInGroupList(companies, g);
       const allIds = sortIds(list.map((c) => parseInt(c.id, 10)));
       if (!allIds.length) return;
+      const prevId = companyId;
       setSelectedGroup(g);
       sessionStorage.setItem("dashboard_group_filter", g);
-      setGroupAllMode(false);
-      setMergedSubsetIds(null);
-      await switchCompany(allIds[0], { clearGroupAll: true, clearSubset: true });
+      applyCompanySelection(allIds[0], { clearGroupAll: true, clearSubset: true });
+      void syncCompanySession(allIds[0]).then((ok) => {
+        if (!ok && prevId != null) applyCompanySelection(prevId, { clearGroupAll: true, clearSubset: true });
+      });
     },
-    [companies, selectedGroup]
+    [companies, selectedGroup, companyId, applyCompanySelection, syncCompanySession]
   );
 
   const handlePickCompany = useCallback(
-    async (c) => {
+    (c) => {
       const id = parseInt(c.id, 10);
       const gid = c.group_id ? String(c.group_id).toUpperCase() : null;
       const isActive =
@@ -646,6 +721,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         (!gid || gid === selectedGroup);
       if (isActive) return;
 
+      const prevId = companyId;
       if (gid) {
         setSelectedGroup(gid);
         sessionStorage.setItem("dashboard_group_filter", gid);
@@ -653,25 +729,48 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setSelectedGroup(null);
         sessionStorage.removeItem("dashboard_group_filter");
       }
-      setGroupAllMode(false);
-      setMergedSubsetIds(null);
-      await switchCompany(id);
+      applyCompanySelection(id);
+      void syncCompanySession(id).then((ok) => {
+        if (!ok && prevId != null) {
+          const prevCo = companies.find((x) => parseInt(x.id, 10) === parseInt(prevId, 10));
+          if (prevCo?.group_id) {
+            setSelectedGroup(String(prevCo.group_id).toUpperCase());
+            sessionStorage.setItem("dashboard_group_filter", String(prevCo.group_id).toUpperCase());
+          }
+          applyCompanySelection(prevId);
+        }
+      });
     },
-    [companyId, selectedGroup, groupAllMode, mergedSubsetIds]
+    [
+      companyId,
+      selectedGroup,
+      groupAllMode,
+      mergedSubsetIds,
+      companies,
+      applyCompanySelection,
+      syncCompanySession,
+    ]
   );
 
-  const handlePickAllInGroup = useCallback(async () => {
+  const handlePickAllInGroup = useCallback(() => {
     if (!selectedGroup) return;
     const list = companiesInGroupList(companies, selectedGroup);
     const allIds = sortIds(list.map((c) => parseInt(c.id, 10)));
     if (allIds.length <= 1) {
-      if (list[0]) await handlePickCompany(list[0]);
+      if (list[0]) handlePickCompany(list[0]);
       return;
     }
+    const prevId = companyId;
     setGroupAllMode(true);
     setMergedSubsetIds(null);
-    await switchCompany(allIds[0], { clearGroupAll: false, clearSubset: true });
-  }, [selectedGroup, companies, handlePickCompany]);
+    applyCompanySelection(allIds[0], { clearGroupAll: false, clearSubset: true });
+    void syncCompanySession(allIds[0]).then((ok) => {
+      if (!ok && prevId != null) {
+        setGroupAllMode(false);
+        applyCompanySelection(prevId, { clearGroupAll: false, clearSubset: true });
+      }
+    });
+  }, [selectedGroup, companies, handlePickCompany, companyId, applyCompanySelection, syncCompanySession]);
 
   const toggleChartSeries = useCallback((idx) => {
     setChartVisible((v) => {
@@ -699,7 +798,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     currencies,
     currencyCode,
     setCurrencyCode,
-    loading,
+    loading: kpiLoading,
     dashboardData,
     kpi,
     kpiCompareLabel,
