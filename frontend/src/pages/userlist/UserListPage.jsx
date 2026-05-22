@@ -733,7 +733,15 @@ export default function UserListPage() {
     }
     try {
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(payload) });
-      const json = await res.json(); if (!json.success) { notifyApi(json.message, "saveFailed", "danger"); return; }
+      const json = await res.json();
+      if (!json.success) {
+        if (json.data) console.error("userlist save failed", json.data);
+        const dbg = json.data?.stage && json.data?.detail
+          ? ` [${json.data.stage}] ${json.data.detail}`
+          : (json.data?._build ? ` (build ${json.data._build})` : "");
+        notifyApi((json.message || "") + dbg, "saveFailed", "danger");
+        return;
+      }
       if (isEditMode && form.id) {
         editUserDetailCacheRef.current.delete(String(form.id));
         setEditReadyIds((prev) => {
