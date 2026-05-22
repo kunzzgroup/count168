@@ -4,6 +4,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Customized,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -72,6 +73,48 @@ function formatSignedChange(value) {
   if (n > 0) return `+${body}`;
   if (n < 0) return `-${body}`;
   return body;
+}
+
+/** X 轴日期贴 SVG 底边；底线与标签同一水平带（Recharts 默认轴线在留白区顶部会悬空） */
+function makeDashboardChartXTick(marginBottom, dense) {
+  return function DashboardChartXTick({ x, y, payload }) {
+    if (x == null || y == null || payload?.value == null) return null;
+    const labelY = y + marginBottom - (dense ? 8 : 12);
+    if (dense) {
+      return (
+        <text
+          x={x}
+          y={labelY}
+          fill="#94a3b8"
+          fontSize={9}
+          textAnchor="end"
+          transform={`rotate(-40, ${x}, ${labelY})`}
+        >
+          {payload.value}
+        </text>
+      );
+    }
+    return (
+      <text x={x} y={labelY} fill="#94a3b8" fontSize={11} textAnchor="middle">
+        {payload.value}
+      </text>
+    );
+  };
+}
+
+function DashboardChartBottomAxisLine({ offset, width, height, marginBottom }) {
+  if (!height || !width || marginBottom == null) return null;
+  const axisY = height - 6;
+  return (
+    <line
+      x1={offset?.left ?? 0}
+      y1={axisY}
+      x2={width - (offset?.right ?? 0)}
+      y2={axisY}
+      stroke="#cbd5e1"
+      strokeWidth={1}
+    />
+  );
 }
 
 function previousPeriodRange(fromYmd, toYmd) {
@@ -673,19 +716,14 @@ export default function TransactionDashboardPage() {
   const chartXAxisLayout = useMemo(() => {
     const n = chartRows.length;
     const dense = n > 14;
-    const axisBand = dense ? 44 : 28;
+    const marginBottom = dense ? 34 : 20;
     return {
       interval: n <= 45 ? 0 : "preserveStartEnd",
       minTickGap: n <= 45 ? 0 : 8,
-      tick: {
-        fontSize: dense ? 9 : 11,
-        fill: "#94a3b8",
-        ...(dense
-          ? { angle: -40, textAnchor: "end", dy: axisBand - 6 }
-          : { dy: 4 }),
-      },
-      height: axisBand,
-      marginBottom: axisBand,
+      tick: makeDashboardChartXTick(marginBottom, dense),
+      height: marginBottom,
+      marginBottom,
+      dense,
     };
   }, [chartRows.length]);
 
@@ -1029,13 +1067,22 @@ export default function TransactionDashboardPage() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <Customized
+                      component={(props) => (
+                        <DashboardChartBottomAxisLine
+                          {...props}
+                          marginBottom={chartXAxisLayout.marginBottom}
+                        />
+                      )}
+                    />
                     <XAxis
                       dataKey="label"
                       interval={chartXAxisLayout.interval}
                       minTickGap={chartXAxisLayout.minTickGap}
                       tick={chartXAxisLayout.tick}
                       height={chartXAxisLayout.height}
-                      stroke="#94a3b8"
+                      axisLine={false}
+                      tickLine={false}
                     />
                     <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => formatCurrency(v)} width={72} />
                     <Tooltip
