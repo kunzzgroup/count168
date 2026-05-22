@@ -1081,29 +1081,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-panel-card--summary {
-    gap: clamp(12px, 1vw, 16px);
-}
-
-.dashboard-summary-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-.dashboard-summary-label {
-    font-size: clamp(13px, 0.95vw, 15px);
-    font-weight: 500;
-    color: #6b7280;
-    font-family: var(--font-heading-page);
-}
-
-.dashboard-summary-foot-muted {
-    font-size: clamp(11px, 0.8vw, 13px);
-    color: #9ca3af;
-    font-weight: 500;
-    white-space: nowrap;
+    gap: clamp(8px, 0.65vw, 12px);
+    padding: clamp(14px, 1.1vw, 18px) clamp(16px, 1.2vw, 20px);
 }
 
 .dashboard-summary-hero {
@@ -1111,6 +1090,13 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     align-items: center;
     flex-wrap: wrap;
     gap: 8px 10px;
+}
+
+.dashboard-summary-hero--compact {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    flex-shrink: 0;
 }
 
 .dashboard-summary-hero-block {
@@ -1121,19 +1107,22 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-hero-caption {
-    font-size: clamp(12px, 0.85vw, 14px);
+    font-size: var(--text-tiny, clamp(11px, 0.78vw, 13px));
     font-weight: 500;
-    color: #6b7280;
+    color: var(--color-muted-fg, #6b7280);
     font-family: var(--font-heading-page);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
 }
 
 .dashboard-summary-hero-value {
-    font-size: clamp(26px, 2vw, 36px);
+    font-size: clamp(24px, 1.85vw, 32px);
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text-ink-strong, #111827);
     font-family: var(--font-heading-page);
     line-height: 1.1;
     letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
 }
 
 .dashboard-summary-compare {
@@ -1191,18 +1180,18 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .dashboard-summary-earnings-panel {
     display: flex;
-    align-items: stretch;
-    gap: clamp(10px, 1vw, 16px);
+    align-items: flex-start;
+    gap: clamp(8px, 0.85vw, 14px);
     flex: 1;
     min-height: 0;
-    margin-top: auto;
 }
 
 .dashboard-summary-pie-wrap {
-    flex: 0 0 46%;
-    min-width: 140px;
-    min-height: 160px;
-    max-height: 210px;
+    flex: 0 0 42%;
+    min-width: 120px;
+    min-height: 140px;
+    max-height: 180px;
+    align-self: center;
     user-select: none;
 }
 
@@ -1264,28 +1253,32 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: clamp(6px, 0.55vw, 10px);
+    justify-content: flex-start;
+    gap: clamp(4px, 0.4vw, 6px);
     overflow-y: auto;
-    max-height: 200px;
+    max-height: none;
     padding-right: 2px;
 }
 
 .dashboard-summary-currency-row {
     display: grid;
-    grid-template-columns: 10px 1fr auto;
+    grid-template-columns: 8px 1fr auto;
     align-items: center;
-    gap: 8px;
-    padding: 6px 8px 6px 8px;
+    gap: 8px 10px;
+    padding: 7px 8px;
     border-radius: var(--radius-panel, 8px);
     font-family: var(--font-heading-page);
-    border-left: 3px solid transparent;
+    border-left: none;
+    background: transparent;
     transition: background-color var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
 }
 
 .dashboard-summary-currency-row.is-active {
-    background: transparent;
-    border-left-color: var(--currency-accent, var(--color-primary-strong, #2563eb));
+    background: var(--color-surface-subtle, #f8fafc);
+}
+
+.dashboard-summary-currency-row.is-active .dashboard-summary-currency-dot {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--currency-accent, var(--color-primary-strong, #2563eb)) 35%, transparent);
 }
 
 .dashboard-summary-currency-row.is-active .dashboard-summary-currency-code {
@@ -1301,9 +1294,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-code {
-    font-size: clamp(12px, 0.85vw, 14px);
+    font-size: clamp(12px, 0.82vw, 13px);
     font-weight: 600;
-    color: #374151;
+    color: var(--color-text-label, #374151);
+    letter-spacing: 0.03em;
 }
 
 .dashboard-summary-currency-amount-col {
@@ -1331,15 +1325,15 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-rate-footnote {
-    margin-top: clamp(6px, 0.55vw, 10px);
-    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.65vw, 10px);
-    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
+    margin-top: 0;
+    padding: 5px 8px;
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
     font-weight: 400;
-    color: var(--color-primary-deep-text, #1d4ed8);
+    color: var(--color-text-caption, #64748b);
     font-family: var(--font-ui);
     line-height: 1.35;
-    background: var(--color-surface-info-soft, #eff6ff);
-    border: 1px solid var(--color-border-blue-light, #93c5fd);
+    background: var(--color-surface-slate-100, #f1f5f9);
+    border: 1px solid var(--color-border-slate, #e2e8f0);
     border-radius: var(--radius-panel, 8px);
     flex-shrink: 0;
 }

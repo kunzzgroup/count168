@@ -1510,38 +1510,15 @@ export default function TransactionDashboardPage() {
             </div>
 
             <div className="dashboard-panel-card dashboard-panel-card--summary">
-              <div className="dashboard-summary-hero">
-                <div className="dashboard-summary-hero-block">
-                  <span className="dashboard-summary-hero-caption">
-                    {i18n.earnings}
-                    {currencyCode ? ` · ${currencyCode}` : ""}
-                  </span>
-                  <div className="dashboard-summary-hero-value">
-                    {summaryEarningsLoading ? "…" : formatCurrency(displayEarningsValue)}
-                  </div>
+              <div className="dashboard-summary-hero dashboard-summary-hero--compact">
+                <span className="dashboard-summary-hero-caption">
+                  {i18n.earnings}
+                  {currencyCode ? ` · ${currencyCode}` : ""}
+                </span>
+                <div className="dashboard-summary-hero-value">
+                  {summaryEarningsLoading ? "…" : formatCurrency(displayEarningsValue)}
                 </div>
-                {!summaryEarningsLoading && convertedEarningsCompare && (
-                  <span
-                    className={`kpi-card-badge${convertedEarningsCompare.pct >= 0 ? " is-up" : " is-down"}`}
-                  >
-                    <i
-                      className={`fas fa-arrow-${convertedEarningsCompare.pct >= 0 ? "up" : "down"}`}
-                      aria-hidden="true"
-                    />
-                    {Math.abs(convertedEarningsCompare.pct).toFixed(1)}%
-                  </span>
-                )}
               </div>
-              {!summaryEarningsLoading && convertedEarningsCompare && (
-                <div className="dashboard-summary-compare">
-                  <span
-                    className={`kpi-card-delta${convertedEarningsCompare.isUp ? " is-up" : " is-down"}`}
-                  >
-                    {formatSignedChange(convertedEarningsCompare.delta)}
-                  </span>
-                  <span className="kpi-card-foot-muted">{kpiCompareLabel}</span>
-                </div>
-              )}
               <div className="dashboard-summary-earnings-panel">
                 <div className="dashboard-summary-pie-wrap" aria-hidden={summaryEarningsLoading}>
                   <ResponsiveContainer width="100%" height="100%">
