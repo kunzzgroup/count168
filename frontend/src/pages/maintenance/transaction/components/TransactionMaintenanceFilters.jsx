@@ -6,7 +6,7 @@ import {
   parseDmy,
 } from "../../shared/maintenanceDateHelpers.js";
 import ReportDatePicker from "../../../report/common/ReportDatePicker.jsx";
-import ReportGcFilterPanel from "../../../report/components/ReportGcFilterPanel.jsx";
+import ReportGcFilterPanel from "../../../report/shared/ReportGcFilterPanel.jsx";
 
 export default function TransactionMaintenanceFilters({
   processes,

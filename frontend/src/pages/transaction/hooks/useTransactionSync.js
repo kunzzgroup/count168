@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { TX_LIST_INVALIDATE_LS_KEY, TX_DATA_CHANGED_EVENT, buildTxListSessionKey } from "../transactionPaymentLogic.js";
+import { TX_LIST_INVALIDATE_LS_KEY, TX_DATA_CHANGED_EVENT, buildTxListSessionKey } from "../lib/transactionPaymentLogic.js";
 
 export function useTransactionSync({
   filterSnapshot,

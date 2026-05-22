@@ -17,10 +17,10 @@ import {
   getCategories,
   getCompanyCurrencies,
   getUserCurrencyOrder,
-} from "../transactionApi.js";
+  transactionQueryKeys,
+} from "../lib/transactionApi.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../../utils/partnershipAuditReadOnly.js";
-import { transactionQueryKeys } from "../transactionQueryKeys.js";
-import { orderCurrencyRows, readTransactionCurrencyFilterState } from "../transactionPaymentLogic.js";
+import { orderCurrencyRows, readTransactionCurrencyFilterState } from "../lib/transactionPaymentLogic.js";
 
 export function useTransactionData({
   todayDmy,

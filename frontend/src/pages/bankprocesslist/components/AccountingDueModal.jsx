@@ -1,6 +1,6 @@
 import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
-import { formatBankProcessContractLabel } from "../bankProcessHelpers.js";
+import { formatBankProcessContractLabel } from "../lib/bankProcessHelpers.js";
 
 export default function AccountingDueModal({
   accountingRows,

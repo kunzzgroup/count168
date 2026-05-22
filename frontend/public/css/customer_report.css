@@ -316,7 +316,7 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
 }
 
 .customer-report-card-item {
-    font-size: clamp(12px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: bold;
     color: #374151;
     display: flex;

@@ -1340,7 +1340,7 @@ body.member-winloss-page #member_account_buttons .member-winloss-account-segment
     padding: 5px clamp(8px, 0.85vw, 12px);
     box-sizing: border-box;
     min-height: clamp(28px, 1.85vw, 32px);
-    width: 100%;
+    width: auto;
     min-width: max-content;
     overflow: visible;
     font-size: var(--text-small) !important;

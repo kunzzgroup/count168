@@ -1,7 +1,7 @@
 import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { BankSearchableAccountPick } from "./bankProcessFormFields.jsx";
-import { formatBankMoneyFixed2, sanitizeBankMoneyTyping } from "../bankProcessHelpers.js";
+import { formatBankMoneyFixed2, sanitizeBankMoneyTyping } from "../lib/bankProcessHelpers.js";
 
 export default function ProfitSharingModal({
   profitShareRows,

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../transactionFormat.js";
+import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../lib/transactionFormat.js";
 
 export default function TransactionHistoryModal({
   history,

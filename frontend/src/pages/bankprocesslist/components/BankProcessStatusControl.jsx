@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { translateBankProcessApiMessage } from "../../../translateFile/bankProcessTranslate.js";
-import { deriveBankProcessUiStatus, normalizeBankIssueFlag, normalizeBankProcessStatus } from "../bankProcessHelpers.js";
+import { deriveBankProcessUiStatus, normalizeBankIssueFlag, normalizeBankProcessStatus } from "../lib/bankProcessHelpers.js";
 
 const STATUS_LABEL_KEYS = {
   ACTIVE: "statusActive",
