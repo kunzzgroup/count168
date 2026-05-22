@@ -101,12 +101,7 @@ export default function BankProcessListPage() {
     if (fromId === "bank_day_end_drp_from") {
       const minYmd = document.getElementById("bank_day_end_drp_from")?.dataset?.minYmd || "";
       if (minYmd && iso && iso < minYmd) return;
-      setForm((prev) => {
-        const hasEnd = !!iso;
-        let freq = bankProcessFrequencyNormalized(prev.day_start_frequency);
-        if (hasEnd && freq !== "once") freq = "1st_of_every_month";
-        return { ...prev, day_end: iso, day_start_frequency: freq };
-      });
+      setForm((prev) => ({ ...prev, day_end: iso }));
       return;
     }
     if (fromId === "bank_resend_day_start_drp_from") {
@@ -777,16 +772,6 @@ export default function BankProcessListPage() {
     });
   }, [modalOpen, form.cost, form.price, form.profit_sharing]);
 
-  // Legacy updateBankFrequencyOptions: when Day end exists (and not Once), force 1st_of_every_month (not monthly).
-  useEffect(() => {
-    if (!modalOpen) return;
-    const hasDayEnd = !!String(form.day_end || "").trim();
-    if (!hasDayEnd) return;
-    if (bankProcessFrequencyNormalized(form.day_start_frequency) === "once") return;
-    if (String(form.day_start_frequency || "") !== "monthly") return;
-    setForm((prev) => ({ ...prev, day_start_frequency: "1st_of_every_month" }));
-  }, [modalOpen, form.day_end, form.day_start_frequency]);
-
   // Contract / Day start / Frequency 变化时自动填 Day end；用户手动改 Day end 不会被覆盖（不监听 day_end）
   useEffect(() => {
     if (!modalOpen) {
@@ -1297,10 +1282,8 @@ export default function BankProcessListPage() {
         return;
       }
     }
-    const hasDayEnd = !!dayEnd && !isOnceSubmit;
     let normalizedFreq;
     if (isOnceSubmit) normalizedFreq = "once";
-    else if (hasDayEnd) normalizedFreq = "1st_of_every_month";
     else if (rawFreq === "monthly") normalizedFreq = "monthly";
     else normalizedFreq = "1st_of_every_month";
     const moneyNormalized = {
@@ -1400,7 +1383,7 @@ export default function BankProcessListPage() {
     const fq = bankProcessFrequencyNormalized(resendFrequency);
     const dayEndTrim = fq === "once" ? "" : String(resendDayEnd || "").trim();
     const normalizedResendFrequency =
-      fq === "once" ? "once" : (dayEndTrim ? "1st_of_every_month" : fq === "monthly" ? "monthly" : "1st_of_every_month");
+      fq === "once" ? "once" : (fq === "monthly" ? "monthly" : "1st_of_every_month");
     try {
       const res = await fetch(buildApiUrl("api/bankprocess_maintenance/resend_accounting_due_api.php"), {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
