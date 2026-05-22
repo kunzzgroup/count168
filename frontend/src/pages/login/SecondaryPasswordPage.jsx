@@ -5,7 +5,27 @@ import { buildApiUrl } from "../../utils/apiUrl.js";
 import SecondaryVerifyBackButton from "./SecondaryVerifyBackButton.jsx";
 import { useAuthBackground } from "./useAuthBackground.js";
 
-export default function UserSecondaryPasswordPage() {
+const VARIANT_CONFIG = {
+  owner: {
+    expectedUserType: "owner",
+    verifyApi: "api/session/verify_owner_secondary_password_api.php",
+    shouldRedirectToDashboard(user) {
+      return !user.needs_owner_secondary;
+    },
+    returnAfterWrongUserType: true,
+  },
+  user: {
+    expectedUserType: "user",
+    verifyApi: "api/session/verify_user_secondary_password_api.php",
+    shouldRedirectToDashboard() {
+      return false;
+    },
+    returnAfterWrongUserType: false,
+  },
+};
+
+export default function SecondaryPasswordPage({ variant }) {
+  const config = VARIANT_CONFIG[variant];
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const [lang, setLang] = useState(() => localStorage.getItem("login_lang") || "en");
@@ -39,8 +59,12 @@ export default function UserSecondaryPasswordPage() {
           return;
         }
         const user = json.data;
-        if (String(user.user_type || "").toLowerCase() !== "user") {
+        if (String(user.user_type || "").toLowerCase() !== config.expectedUserType) {
           if (!cancelled) navigate("/login", { replace: true });
+          if (config.returnAfterWrongUserType) return;
+        }
+        if (config.shouldRedirectToDashboard(user)) {
+          if (!cancelled) navigate("/dashboard", { replace: true });
         }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
@@ -49,7 +73,7 @@ export default function UserSecondaryPasswordPage() {
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [navigate, config]);
 
   const onChange = (e) => {
     const numericOnly = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
@@ -91,7 +115,7 @@ export default function UserSecondaryPasswordPage() {
     try {
       const formData = new FormData();
       formData.append("secondary_password", value);
-      const res = await fetch(buildApiUrl("api/session/verify_user_secondary_password_api.php"), {
+      const res = await fetch(buildApiUrl(config.verifyApi), {
         method: "POST",
         body: formData,
         credentials: "include",
