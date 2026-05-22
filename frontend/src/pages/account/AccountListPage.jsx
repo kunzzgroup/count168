@@ -198,8 +198,27 @@ export default function AccountListPage() {
         setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 
         const url = new URL(window.location.href);
-        const cid = url.searchParams.get("company_id") || meJson.data.company_id || rows[0]?.id;
-        const initialCompanyId = cid ? Number(cid) : null;
+        const queryCompany = url.searchParams.get("company_id");
+        let initialCompanyId = queryCompany || meJson.data.company_id || rows[0]?.id || null;
+        initialCompanyId = initialCompanyId ? Number(initialCompanyId) : null;
+
+        if (queryCompany && initialCompanyId && Number(initialCompanyId) !== Number(meJson.data.company_id)) {
+          try {
+            const syncRes = await fetch(
+              buildApiUrl(`api/session/update_company_session_api.php?company_id=${initialCompanyId}`),
+              { credentials: "include" }
+            );
+            const syncJson = await syncRes.json();
+            if (!syncJson.success) {
+              initialCompanyId = meJson.data.company_id ? Number(meJson.data.company_id) : initialCompanyId;
+            } else {
+              notifyCompanySessionUpdated();
+            }
+          } catch {
+            initialCompanyId = meJson.data.company_id ? Number(meJson.data.company_id) : initialCompanyId;
+          }
+        }
+
         const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
         const initialShowAll = url.searchParams.get("showAll") === "1";
@@ -388,13 +407,14 @@ export default function AccountListPage() {
       return;
     }
     try {
-      const fd = new FormData(); fd.append("id", id);
+      const fd = new FormData();
+      fd.append("id", id);
+      if (companyId) fd.append("company_id", String(companyId));
       const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (json.success) {
-        const next = json.data?.newPaymentAlert ?? json.newPaymentAlert;
-        setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, payment_alert: next } : a));
-      }
+      if (!json.success) return notifyApi(json.message, "toggleFailed", "danger");
+      const next = json.data?.newPaymentAlert ?? json.newPaymentAlert;
+      setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, payment_alert: next } : a));
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
@@ -404,19 +424,20 @@ export default function AccountListPage() {
       return;
     }
     try {
-      const fd = new FormData(); fd.append("id", id);
+      const fd = new FormData();
+      fd.append("id", id);
+      if (companyId) fd.append("company_id", String(companyId));
       const res = await fetch(buildApiUrl("api/accounts/toggle_account_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (json.success) {
-        const next = json.newStatus || json.data?.newStatus;
-        setAccounts(prev => {
-          const updated = prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a);
-          if (showInactive) return updated.filter(a => String(a.status || "").toLowerCase() === "inactive");
-          if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
-          return updated;
-        });
-        void fetchAccounts();
-      }
+      if (!json.success) return notifyApi(json.message, "toggleFailed", "danger");
+      const next = json.newStatus || json.data?.newStatus;
+      setAccounts(prev => {
+        const updated = prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a);
+        if (showInactive) return updated.filter(a => String(a.status || "").toLowerCase() === "inactive");
+        if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
+        return updated;
+      });
+      void fetchAccounts();
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
@@ -478,11 +499,11 @@ export default function AccountListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
+    const accountPk = Number(id);
+    if (!Number.isFinite(accountPk) || accountPk <= 0) {
+      return notify(t("errorLoadingAccount"), "danger");
+    }
     try {
-      const accountPk = Number(id);
-      if (!Number.isFinite(accountPk) || accountPk <= 0) {
-        return notify(t("errorLoadingAccount"), "danger");
-      }
       const detailUrl = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
       detailUrl.searchParams.set("account_id", String(accountPk));
       if (companyId) detailUrl.searchParams.set("company_id", String(companyId));
@@ -504,7 +525,7 @@ export default function AccountListPage() {
       setIsEditMode(true);
       setHiddenCurrencyIds([]);
       setForm({ id: d.id, account_id: toUpper(d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
-      await loadSelectionMeta(id, true);
+      await loadSelectionMeta(accountPk, true);
       setEditModalOpen(true);
     } catch { notify(t("errorLoadingAccount"), "danger"); }
   };

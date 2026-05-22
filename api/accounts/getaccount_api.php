@@ -54,24 +54,18 @@ try {
     }
     validateCompanyAccess($pdo, $company_id);
 
-    // Prefer account_id (matches other account APIs). Keep id for backward compatibility.
-    // Some hosts strip GET ?id= via WAF; POST toggles on this page use id in body and still work.
+    // Use account_id (not id) — Hostinger WAF may strip GET ?id=
     $account_id = 0;
     if (isset($_GET['account_id']) && $_GET['account_id'] !== '') {
         $account_id = (int)$_GET['account_id'];
     } elseif (isset($_GET['id']) && $_GET['id'] !== '') {
         $account_id = (int)$_GET['id'];
     }
-    if (isset($_POST['account_id']) && $_POST['account_id'] !== '' && !$account_id) {
-        $account_id = (int)$_POST['account_id'];
-    } elseif (isset($_POST['id']) && $_POST['id'] !== '' && !$account_id) {
-        $account_id = (int)$_POST['id'];
-    }
 
     if (!$account_id) {
         throw new Exception('Account ID is required');
     }
-    
+
     $sql = "SELECT 
                 a.id,
                 a.account_id,
@@ -92,15 +86,15 @@ try {
             WHERE a.id = ? AND ac.company_id = ?";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$account_id, $company_id]);
-    
+
     $account = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if (!$account) {
         $debug_info = [];
         $check_stmt = $pdo->prepare("SELECT id FROM account WHERE id = ?");
         $check_stmt->execute([$account_id]);
         $account_exists = $check_stmt->fetchColumn();
-        
+
         if ($account_exists) {
             $ac_stmt = $pdo->prepare("SELECT company_id FROM account_company WHERE account_id = ?");
             $ac_stmt->execute([$account_id]);
@@ -114,14 +108,14 @@ try {
             $debug_info[] = "账户不存在";
         }
         $debug_info[] = "当前公司ID: " . $company_id;
-        
+
         $error_msg = 'Account not found';
         if (!empty($debug_info)) {
             $error_msg .= ' (' . implode('; ', $debug_info) . ')';
         }
         throw new Exception($error_msg);
     }
-    
+
     $sql_currencies = "SELECT 
                         ac.currency_id,
                         c.code AS currency_code
@@ -129,19 +123,19 @@ try {
                     INNER JOIN currency c ON ac.currency_id = c.id
                     WHERE ac.account_id = ?
                     ORDER BY ac.created_at ASC";
-    
+
     $stmt_currencies = $pdo->prepare($sql_currencies);
     $stmt_currencies->execute([$account_id]);
     $account_currencies = $stmt_currencies->fetchAll(PDO::FETCH_ASSOC);
-    
+
     $account['account_currencies'] = $account_currencies;
     $account['account_id'] = formatAccountIdForDisplay((string)($account['account_id'] ?? ''));
-    
+
     echo json_encode([
         'success' => true,
         'data' => $account
     ]);
-    
+
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode([

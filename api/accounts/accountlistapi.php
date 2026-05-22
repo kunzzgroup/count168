@@ -183,6 +183,7 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $out = [];
     foreach ($rows as $row) {
+        $row['id'] = (int)($row['id'] ?? 0);
         $createdSource = strtolower(trim((string)($row['created_source'] ?? '')));
         if ($createdSource === 'domain_auto' || shouldFormatAsCompanyId((string)($row['account_id'] ?? ''))) {
             $row['account_id'] = formatDomainAutoDisplayAccountId((string)($row['account_id'] ?? ''));
