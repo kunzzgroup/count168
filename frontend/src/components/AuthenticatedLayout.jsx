@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
+import AppBootLoading from "./AppBootLoading.jsx";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
 import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
@@ -153,8 +154,13 @@ export default function AuthenticatedLayout() {
 
   useEffect(() => {
     (async () => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 25000);
       try {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), {
+          credentials: "include",
+          signal: controller.signal,
+        });
         const json = await res.json();
         if (!res.ok || !json.success || !json.data) {
           navigate("/login", { replace: true });
@@ -174,9 +180,15 @@ export default function AuthenticatedLayout() {
           return;
         }
         setMe(u);
-      } catch {
-        navigate("/login", { replace: true });
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          navigate("/login", { replace: true });
+        } else {
+          console.warn("Session check timed out");
+          navigate("/login", { replace: true });
+        }
       } finally {
+        window.clearTimeout(timeoutId);
         setLoading(false);
       }
     })();
@@ -304,7 +316,7 @@ export default function AuthenticatedLayout() {
     setHoverSection(section);
   };
 
-  if (loading) return null;
+  if (loading) return <AppBootLoading label={lang === "zh" ? "正在加载…" : "Loading…"} />;
   if (!me) return <Navigate to="/login" replace />;
 
   return (

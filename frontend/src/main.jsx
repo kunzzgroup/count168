@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App.jsx";
+import AppErrorBoundary from "./components/AppErrorBoundary.jsx";
 /* 1) Tailwind  2) tokens + dashboard — app-shell.css  3) login width lock (must be last) */
 import "./index.css";
 import "./styles/app-shell.css";
@@ -23,7 +24,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>
