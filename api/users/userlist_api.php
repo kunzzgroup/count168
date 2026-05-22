@@ -91,6 +91,61 @@ function assertCompanyIdsExist(PDO $pdo, array $companyIds): void {
     }
 }
 
+function encodeUserCompanyPermPayload($value): ?string {
+    if (!isset($value)) {
+        return null;
+    }
+    if (!is_array($value)) {
+        return null;
+    }
+    return count($value) > 0 ? json_encode($value) : json_encode([]);
+}
+
+function upsertUserCompanyPermissions(PDO $pdo, int $userId, int $companyId, ?string $accountPerms, ?string $processPerms): void {
+    if ($accountPerms === null && $processPerms === null) {
+        return;
+    }
+    $existingAccount = null;
+    $existingProcess = null;
+    if ($accountPerms === null || $processPerms === null) {
+        $stmt = $pdo->prepare('SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?');
+        $stmt->execute([$userId, $companyId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $existingAccount = $row['account_permissions'];
+            $existingProcess = $row['process_permissions'];
+        }
+    }
+    $stmt = $pdo->prepare('
+        INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions)
+        VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            account_permissions = VALUES(account_permissions),
+            process_permissions = VALUES(process_permissions)
+    ');
+    $stmt->execute([
+        $userId,
+        $companyId,
+        $accountPerms ?? $existingAccount,
+        $processPerms ?? $existingProcess,
+    ]);
+}
+
+function loadUserWithCompanyPermissions(PDO $pdo, int $userId, int $companyId): array {
+    $stmt = $pdo->prepare('SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?');
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$user) {
+        return ['id' => $userId];
+    }
+    $stmt = $pdo->prepare('SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?');
+    $stmt->execute([$userId, $companyId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $user['account_permissions'] = $row['account_permissions'] ?? null;
+    $user['process_permissions'] = $row['process_permissions'] ?? null;
+    return $user;
+}
+
 // 获取当前登录用户（你需要根据你的登录系统调整这个逻辑）
 function getCurrentUser() {
     // 这里你需要根据你的登录系统来获取当前用户
@@ -677,9 +732,16 @@ try {
                 $updateValues[] = (int)$input['read_only'];
             }
 
-            // 添加权限字段到更新列表（系统级权限仍然存储在 user 表）
-            $updateFields[] = "permissions = ?";
-            $updateValues[] = isset($input['permissions']) ? json_encode($input['permissions']) : null;
+            // 添加权限字段到更新列表（仅当前端显式提交时更新，避免误清空）
+            if (array_key_exists('permissions', $input)) {
+                $updateFields[] = "permissions = ?";
+                $permJson = null;
+                if ($input['permissions'] !== null && is_array($input['permissions'])) {
+                    $encoded = json_encode($input['permissions']);
+                    $permJson = $encoded === false ? null : $encoded;
+                }
+                $updateValues[] = $permJson;
+            }
             
             // Account 和 Process 权限不再更新到 user 表，而是更新到 user_company_permissions 表
             // 这些字段保留在 $input 中，稍后在事务中处理
@@ -702,6 +764,8 @@ try {
             
             // 添加 WHERE 条件的参数
             $updateValues[] = $input['id'];
+            
+            $will_lose_access = false;
             
             // 开始事务
             $pdo->beginTransaction();
@@ -731,7 +795,6 @@ try {
                     
                     // 检查移除后用户是否还属于当前公司（用于提示）
                     // 允许移除当前公司的关联，但会在响应中标记
-                    $will_lose_access = false;
                     if ($belongsToCurrentCompany && !in_array($current_company_id, $input['company_ids'])) {
                         $will_lose_access = true;
                     }
@@ -751,104 +814,41 @@ try {
                 }
                 
                 // 保存 Account 和 Process 权限到 user_company_permissions 表（按当前公司）
-                // 只有当提供了 account_permissions 或 process_permissions 时才更新
                 if (isset($input['account_permissions']) || isset($input['process_permissions'])) {
-                    // 准备权限值
-                    $accountPerms = null;
-                    $processPerms = null;
-                    
-                    if (isset($input['account_permissions'])) {
-                        if (is_array($input['account_permissions']) && count($input['account_permissions']) > 0) {
-                            $accountPerms = json_encode($input['account_permissions']);
-                        } else {
-                            // 空数组 [] 表示已设置但为空（不选任何账户）
-                            $accountPerms = json_encode([]);
-                        }
-                    }
-                    
-                    if (isset($input['process_permissions'])) {
-                        if (is_array($input['process_permissions']) && count($input['process_permissions']) > 0) {
-                            $processPerms = json_encode($input['process_permissions']);
-                        } else {
-                            // 空数组 [] 表示已设置但为空（不选任何流程）
-                            $processPerms = json_encode([]);
-                        }
-                    }
-                    
-                    // 使用 INSERT ... ON DUPLICATE KEY UPDATE 来更新或插入
-                    $stmt = $pdo->prepare("
-                        INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions) 
-                        VALUES (?, ?, ?, ?)
-                        ON DUPLICATE KEY UPDATE 
-                            account_permissions = IF(? IS NOT NULL, VALUES(account_permissions), account_permissions),
-                            process_permissions = IF(? IS NOT NULL, VALUES(process_permissions), process_permissions),
-                            updated_at = CURRENT_TIMESTAMP
-                    ");
-                    $stmt->execute([
-                        $input['id'], 
-                        $current_company_id, 
-                        $accountPerms, 
-                        $processPerms,
-                        $accountPerms, // 用于条件判断
-                        $processPerms  // 用于条件判断
-                    ]);
+                    upsertUserCompanyPermissions(
+                        $pdo,
+                        (int) $input['id'],
+                        (int) $current_company_id,
+                        encodeUserCompanyPermPayload($input['account_permissions'] ?? null),
+                        encodeUserCompanyPermPayload($input['process_permissions'] ?? null)
+                    );
                 }
                 
                 // 提交事务
                 $pdo->commit();
-                
-                // 获取更新后的用户信息，包括当前公司的权限
-                $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?");
-                $stmt->execute([$input['id']]);
-                $updatedUser = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                // 获取当前公司的权限（从 user_company_permissions 表）
-                $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
-                $stmt->execute([$input['id'], $current_company_id]);
-                $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if ($companyPermissions) {
-                    $updatedUser['account_permissions'] = $companyPermissions['account_permissions'];
-                    $updatedUser['process_permissions'] = $companyPermissions['process_permissions'];
-                } else {
-                    // 如果公司特定的权限不存在，使用 user 表中的全局权限作为后备
-                    $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user WHERE id = ?");
-                    $stmt->execute([$input['id']]);
-                    $userPerms = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($userPerms) {
-                        $updatedUser['account_permissions'] = $userPerms['account_permissions'];
-                        $updatedUser['process_permissions'] = $userPerms['process_permissions'];
-                    } else {
-                        $updatedUser['account_permissions'] = null;
-                        $updatedUser['process_permissions'] = null;
-                    }
-                }
-                
-                $message = 'User updated successfully';
-                if ($will_lose_access) {
-                    $message .= '。注意：移除后用户将不再属于当前公司，如需继续操作请切换到用户所属的其他公司';
-                }
-                
-                // 在响应中添加 will_lose_access 标志
-                $responseData = $updatedUser;
-                if (isset($responseData)) {
-                    $responseData = array_merge((array)$responseData, ['will_lose_access' => $will_lose_access]);
-                } else {
-                    $responseData = ['will_lose_access' => $will_lose_access];
-                }
-                
-                sendResponse(true, $message, $responseData);
             } catch (PDOException $e) {
-                $pdo->rollBack();
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 error_log("Update user PDO error: " . $e->getMessage());
                 error_log("SQL State: " . $e->getCode());
                 error_log("Error Info: " . print_r($e->errorInfo, true));
                 sendResponse(false, userlistFriendlyDbError($e));
             } catch (Exception $e) {
-                $pdo->rollBack();
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 error_log("Update user error: " . $e->getMessage());
                 sendResponse(false, userlistFriendlyDbError($e));
             }
+
+            $updatedUser = loadUserWithCompanyPermissions($pdo, (int) $input['id'], (int) $current_company_id);
+            $message = 'User updated successfully';
+            if ($will_lose_access) {
+                $message .= '。注意：移除后用户将不再属于当前公司，如需继续操作请切换到用户所属的其他公司';
+            }
+            $responseData = array_merge($updatedUser, ['will_lose_access' => $will_lose_access]);
+            sendResponse(true, $message, $responseData);
             break;
             
         case 'delete':
