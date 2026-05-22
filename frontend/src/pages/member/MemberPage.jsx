@@ -162,7 +162,7 @@ export default function MemberPage() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  /** Currency：桌面多段 8 列网格；Tablet 单条 segment 横滑（与 Transaction / Account 等一致） */
+  /** Currency：桌面多段 8 列网格；Tablet 单段内自动换行（不横滑，仅增高左栏） */
   const currencyFilterBands = useMemo(() => {
     const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
     const showAllBtn = codes.length === 0 || codes.length > 1;
@@ -417,7 +417,7 @@ export default function MemberPage() {
               <div className="user-gc-inline-row" id="member_currency_filter">
                 <span className="user-gc-inline-label">{t("currency")}</span>
                 <div
-                  className={`user-gc-inline-pills member-winloss-currency-pills${currencyTabletViewport ? " user-gc-inline-pills--segment-scroll" : ""}`}
+                  className={`user-gc-inline-pills member-winloss-currency-pills${currencyTabletViewport ? " member-winloss-currency-pills--tablet-wrap" : ""}`}
                   id="member_currency_buttons"
                   role="group"
                   aria-label={t("ariaCurrency")}
@@ -425,7 +425,7 @@ export default function MemberPage() {
                   {currencyFilterBands.map((band, segIdx) => (
                     <div
                       key={`member-ccy-band-${segIdx}`}
-                      className={`user-gc-segment-group${currencyTabletViewport ? "" : " member-winloss-currency-segments"}`}
+                      className={`user-gc-segment-group${currencyTabletViewport ? " member-winloss-currency-segments--tablet-wrap" : " member-winloss-currency-segments"}`}
                       style={
                         currencyTabletViewport
                           ? undefined
