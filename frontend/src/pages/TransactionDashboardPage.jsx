@@ -1562,16 +1562,16 @@ export default function TransactionDashboardPage() {
             </div>
 
             <div className="dashboard-panel-card dashboard-panel-card--summary">
-              <div className="dashboard-summary-hero dashboard-summary-hero--compact">
-                <span className="dashboard-summary-hero-caption">
-                  {i18n.earnings}
-                  {currencyCode ? ` · ${currencyCode}` : ""}
-                </span>
-                <div className="dashboard-summary-hero-value">
-                  {summaryEarningsLoading ? "…" : formatCurrency(displayEarningsValue)}
+              <div className="dashboard-summary-layout">
+                <div className="dashboard-summary-hero dashboard-summary-hero--compact">
+                  <span className="dashboard-summary-hero-caption">
+                    {i18n.earnings}
+                    {currencyCode ? ` · ${currencyCode}` : ""}
+                  </span>
+                  <div className="dashboard-summary-hero-value">
+                    {summaryEarningsLoading ? "…" : formatCurrency(displayEarningsValue)}
+                  </div>
                 </div>
-              </div>
-              <div className="dashboard-summary-earnings-panel">
                 <div
                   ref={pieWrapRef}
                   className="dashboard-summary-pie-wrap"

@@ -1093,7 +1093,19 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     gap: 8px 10px;
 }
 
+.dashboard-summary-layout {
+    display: grid;
+    grid-template-columns: minmax(130px, 46%) minmax(0, 1fr);
+    grid-template-rows: auto minmax(168px, auto);
+    gap: clamp(4px, 0.4vw, 8px) clamp(8px, 0.85vw, 14px);
+    flex: 1;
+    min-height: 0;
+    align-items: start;
+}
+
 .dashboard-summary-hero--compact {
+    grid-column: 1;
+    grid-row: 1;
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
@@ -1179,19 +1191,12 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     transition: width 0.35s ease;
 }
 
-.dashboard-summary-earnings-panel {
-    display: flex;
-    align-items: stretch;
-    gap: clamp(8px, 0.85vw, 14px);
-    flex: 1;
-    min-height: clamp(168px, 15vw, 210px);
-    overflow: visible;
-}
-
 .dashboard-summary-pie-wrap {
-    flex: 0 0 46%;
-    width: 46%;
-    min-width: 130px;
+    grid-column: 1;
+    grid-row: 2;
+    flex: none;
+    width: 100%;
+    min-width: 0;
     height: clamp(168px, 15vw, 210px);
     min-height: 168px;
     flex-shrink: 0;
@@ -1383,24 +1388,29 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-list {
+    grid-column: 2;
+    grid-row: 1 / span 2;
     flex: 1;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     gap: clamp(3px, 0.35vw, 5px);
     overflow-y: auto;
-    max-height: none;
+    max-height: 100%;
     padding-right: 2px;
+    align-self: stretch;
 }
 
 .dashboard-summary-currency-list-head {
     padding: 0 8px 2px;
-    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
-    font-weight: 600;
+    margin: 0;
+    font-size: var(--text-tiny, clamp(11px, 0.78vw, 13px));
+    font-weight: 500;
     color: var(--color-muted-fg, #6b7280);
     font-family: var(--font-heading-page);
-    letter-spacing: 0.06em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
 }
 
