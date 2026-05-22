@@ -186,10 +186,8 @@ export default function AuthenticatedLayout() {
         if (cancelled || err?.name === "AbortError") return;
         navigate("/login", { replace: true });
       } finally {
-        if (!cancelled) {
-          window.clearTimeout(timeoutId);
-          setLoading(false);
-        }
+        window.clearTimeout(timeoutId);
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
@@ -746,7 +744,7 @@ export default function AuthenticatedLayout() {
         i18n={i18n}
       />
 
-      <Outlet />
+      <Outlet context={{ me }} />
     </>
   );
 }
