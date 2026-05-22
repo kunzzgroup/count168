@@ -344,11 +344,12 @@ function polarToCartesian(cx, cy, radius, angleDeg) {
   };
 }
 
-/** Anchor tooltip outside the sector arc, clamped inside the chart shell. */
+/** Place tooltip outside the donut ring; keep clear of center badge and shell edges. */
 function computeSectorTooltipPosition(sector, shellWidth, shellHeight) {
   const cx = sector?.cx;
   const cy = sector?.cy;
   const outerRadius = sector?.outerRadius;
+  const innerRadius = sector?.innerRadius;
   const midAngle = sector?.midAngle;
   if (cx == null || cy == null || outerRadius == null || midAngle == null) {
     return null;
@@ -357,26 +358,33 @@ function computeSectorTooltipPosition(sector, shellWidth, shellHeight) {
     return null;
   }
 
-  const estW = 112;
-  const estH = 88;
-  const pad = 8;
-  const anchor = polarToCartesian(cx, cy, outerRadius + 8, midAngle);
-  const lift = polarToCartesian(0, 0, 24, midAngle);
-  let left = anchor.x + lift.x;
-  let top = anchor.y + lift.y;
+  const innerR = innerRadius ?? outerRadius * 0.58;
+  const estW = 108;
+  const estH = 82;
+  const pad = 6;
+  const halfDiag = Math.hypot(estW, estH) / 2;
+  const minRadialFromCenter = innerR + halfDiag + 14;
 
-  let placeAbove = top <= cy;
-  if (placeAbove && top - estH < pad) placeAbove = false;
-  if (!placeAbove && top + estH > shellHeight - pad) placeAbove = true;
+  let radial = outerRadius + 42;
+  let left = cx;
+  let top = cy;
 
-  left = Math.max(estW / 2 + pad, Math.min(shellWidth - estW / 2 - pad, left));
-  if (placeAbove) {
-    top = Math.max(estH + pad, Math.min(shellHeight - pad, top));
-  } else {
-    top = Math.max(pad, Math.min(shellHeight - estH - pad, top));
+  for (let i = 0; i < 14; i += 1) {
+    const pt = polarToCartesian(cx, cy, radial, midAngle);
+    left = pt.x;
+    top = pt.y;
+    const dist = Math.hypot(left - cx, top - cy);
+    const fitsX = left - estW / 2 >= pad && left + estW / 2 <= shellWidth - pad;
+    const fitsY = top - estH / 2 >= pad && top + estH / 2 <= shellHeight - pad;
+    const clearsCenter = dist >= minRadialFromCenter;
+    if (fitsX && fitsY && clearsCenter) break;
+    radial += 12;
   }
 
-  return { left, top, placeAbove };
+  left = Math.max(estW / 2 + pad, Math.min(shellWidth - estW / 2 - pad, left));
+  top = Math.max(estH / 2 + pad, Math.min(shellHeight - estH / 2 - pad, top));
+
+  return { left, top, placeAbove: top <= cy, radial: true };
 }
 
 function computePieCenterMetrics(slices, selectedCode) {
@@ -1294,6 +1302,7 @@ export default function TransactionDashboardPage() {
       slice,
       cx: sectorData.cx,
       cy: sectorData.cy,
+      innerRadius: sectorData.innerRadius,
       outerRadius: sectorData.outerRadius,
       midAngle: sectorData.midAngle,
     });
@@ -1317,6 +1326,7 @@ export default function TransactionDashboardPage() {
       left: pos.left + pieShellLayout.left,
       top: pos.top + pieShellLayout.top,
       placeAbove: pos.placeAbove,
+      radial: pos.radial,
     };
   }, [hoveredPieSector, earningsPieSlices, pieShellLayout]);
 
@@ -1705,7 +1715,7 @@ export default function TransactionDashboardPage() {
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
-                  {!summaryEarningsLoading && earningsPieSlices.length > 0 && (
+                  {!summaryEarningsLoading && earningsPieSlices.length > 0 && !hoveredPieTooltip && (
                     <div
                       key={currencyCode || "center"}
                       className="dashboard-summary-pie-center"
@@ -1720,7 +1730,9 @@ export default function TransactionDashboardPage() {
                     </div>
                   {hoveredPieTooltip && (
                     <div
-                      className={`dashboard-summary-pie-tooltip-anchor${hoveredPieTooltip.placeAbove ? "" : " is-below"}`}
+                      className={`dashboard-summary-pie-tooltip-anchor${
+                        hoveredPieTooltip.radial ? " is-radial" : hoveredPieTooltip.placeAbove ? "" : " is-below"
+                      }`}
                       style={{
                         left: hoveredPieTooltip.left,
                         top: hoveredPieTooltip.top,

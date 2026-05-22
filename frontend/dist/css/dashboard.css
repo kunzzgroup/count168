@@ -1337,9 +1337,18 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     animation: dashboard-pie-tooltip-anchor-in 0.18s var(--ease-out-soft, ease) both;
 }
 
+.dashboard-summary-pie-tooltip-anchor.is-radial {
+    transform: translate(-50%, -50%);
+    animation-name: dashboard-pie-tooltip-anchor-radial-in;
+}
+
 .dashboard-summary-pie-tooltip-anchor.is-below {
     transform: translate(-50%, 6px);
     animation-name: dashboard-pie-tooltip-anchor-below-in;
+}
+
+.dashboard-summary-pie-tooltip-anchor.is-radial .dashboard-summary-pie-tooltip-arrow {
+    display: none;
 }
 
 .dashboard-summary-pie-tooltip-stack {
@@ -1391,6 +1400,17 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     to {
         opacity: 1;
         transform: translate(-50%, calc(-100% - 6px));
+    }
+}
+
+@keyframes dashboard-pie-tooltip-anchor-radial-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
     }
 }
 
