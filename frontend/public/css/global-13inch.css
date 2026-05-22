@@ -632,12 +632,11 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
    Global Layout Unlock (Destroy nested scrolls, use Native Window Scroll)
    ========================================================================== */
     /* 1. Unlock the main bounding containers so they stretch infinitely downwards */
-    html,
+    html:not(:has(body.datacapture-page)),
     body.user-page,
     body.transaction-page,
-    body.datacapture-page,
-    body.dashboard-page,
-    body.ec-auth-shell {
+    body.dashboard-page:not(.datacapture-page),
+    body.ec-auth-shell:not(.datacapture-page) {
         height: auto !important;
         min-height: 100vh !important;
         max-height: none !important;
@@ -645,18 +644,11 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         overflow-x: hidden !important;
     }
 
-    body.datacapture-page #root {
-        height: auto !important;
-        min-height: 100vh !important;
-        max-height: none !important;
-        overflow: visible !important;
-    }
-
-    body.ec-auth-shell .container,
-    body.ec-auth-shell .content,
-    body.ec-auth-shell .transaction-container,
-    body.ec-auth-shell .datacapture-container,
-    body.ec-auth-shell .dashboard-container {
+    body.ec-auth-shell:not(.datacapture-page) .container,
+    body.ec-auth-shell:not(.datacapture-page) .content,
+    body.ec-auth-shell:not(.datacapture-page) .transaction-container,
+    body.ec-auth-shell:not(.datacapture-page) .datacapture-container,
+    body.ec-auth-shell:not(.datacapture-page) .dashboard-container {
         height: auto !important;
         min-height: 100vh !important;
         max-height: none !important;
@@ -723,6 +715,35 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     body.ec-auth-shell {
         background-attachment: fixed !important;
         background-size: cover !important;
+    }
+
+    /* Data Capture: one-page layout on laptop widths (internal scroll in submitted list + table) */
+    html:has(body.datacapture-page) {
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    body.dashboard-page.datacapture-page {
+        height: 100vh !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body.datacapture-page #root {
+        height: 100% !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body.datacapture-page .container {
+        height: 100vh !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
     }
 
 }

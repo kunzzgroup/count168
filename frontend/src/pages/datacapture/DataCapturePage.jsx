@@ -14,9 +14,9 @@ import {
   sortedUniqueGroupIds,
 } from "../../utils/company/sharedCompanyFilter.js";
 
-import "../../../public/css/datacapture.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
+import "../../../public/css/datacapture.css";
 
 import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
 import {
@@ -507,15 +507,8 @@ export default function DataCapturePage() {
   return (
     <DataCaptureErrorBoundary key={companyId ?? "none"}>
       <div className="container" key={companyId ?? "none"}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 20,
-        }}
-      >
-        <h1 style={{ margin: 0 }}>Data Capture</h1>
+      <div className="dc-page-toolbar">
+        <h1>Data Capture</h1>
 
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div
