@@ -74,18 +74,29 @@ try {
     }
     toggleAlertValidateCompanyAccess($pdo, $companyId);
 
-    $id = (int)($_POST['id'] ?? 0);
-    if ($id <= 0) {
+    $accountPk = (int)($_POST['account_id'] ?? $_POST['id'] ?? 0);
+    $accountCode = trim((string)($_POST['account_code'] ?? ''));
+    if ($accountPk <= 0 && $accountCode !== '') {
+        $lookup = $pdo->prepare("
+            SELECT a.id FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE ac.company_id = ? AND UPPER(TRIM(a.account_id)) = UPPER(?)
+            LIMIT 1
+        ");
+        $lookup->execute([$companyId, $accountCode]);
+        $accountPk = (int)$lookup->fetchColumn();
+    }
+    if ($accountPk <= 0) {
         api_error('无效的账户ID', 400);
         exit;
     }
-    $current = getAccountPaymentAlert($pdo, $id, $companyId);
+    $current = getAccountPaymentAlert($pdo, $accountPk, $companyId);
     if (!$current) {
         api_error('无权限操作此账户', 403);
         exit;
     }
     $newPaymentAlert = $current['payment_alert'] == 1 ? 0 : 1;
-    updateAccountPaymentAlert($pdo, $newPaymentAlert, $id);
+    updateAccountPaymentAlert($pdo, $newPaymentAlert, $accountPk);
     api_success(['newPaymentAlert' => $newPaymentAlert], 'Payment alert 更新成功');
 } catch (Exception $e) {
     api_error($e->getMessage(), 400);

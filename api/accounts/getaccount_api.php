@@ -61,6 +61,17 @@ try {
     } elseif (isset($_GET['id']) && $_GET['id'] !== '') {
         $account_id = (int)$_GET['id'];
     }
+    $account_code = trim((string)($_GET['account_code'] ?? ''));
+    if ($account_id <= 0 && $account_code !== '') {
+        $lookup = $pdo->prepare("
+            SELECT a.id FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE ac.company_id = ? AND UPPER(TRIM(a.account_id)) = UPPER(?)
+            LIMIT 1
+        ");
+        $lookup->execute([$company_id, $account_code]);
+        $account_id = (int)$lookup->fetchColumn();
+    }
 
     if (!$account_id) {
         throw new Exception('Account ID is required');

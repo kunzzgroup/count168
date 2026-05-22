@@ -324,7 +324,7 @@ export default function AccountListPage() {
           if (sortColumn === "status") return account.status;
           if (sortColumn === "lastLogin") return account.last_login;
           if (sortColumn === "remark") return account.remark;
-          return account.account_id;
+          return account.display_account_id ?? account.account_id;
         };
         base = String(getValue(a) || "").localeCompare(String(getValue(b) || ""), undefined, { numeric: true, sensitivity: "base" });
       }
@@ -401,38 +401,61 @@ export default function AccountListPage() {
     if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
   }, [showInactive, showAll]);
 
-  const togglePaymentAlert = async (id) => {
+  const accountRowPk = (row) => {
+    const pk = Number(row?.id);
+    return Number.isFinite(pk) && pk > 0 ? pk : 0;
+  };
+
+  const accountRowLabel = (row) => toUpper(row?.display_account_id ?? row?.account_id ?? row?.name ?? "");
+
+  const togglePaymentAlert = async (row) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
+    const pk = accountRowPk(row);
+    const accountCode = String(row?.account_id || "").trim();
+    if (!pk && !accountCode) return notify(t("toggleFailed"), "danger");
     try {
       const fd = new FormData();
-      fd.append("id", id);
+      if (pk) fd.append("account_id", String(pk));
+      if (accountCode) fd.append("account_code", accountCode);
       if (companyId) fd.append("company_id", String(companyId));
       const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "toggleFailed", "danger");
       const next = json.data?.newPaymentAlert ?? json.newPaymentAlert;
-      setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, payment_alert: next } : a));
+      setAccounts(prev => prev.map(a => {
+        if (pk && accountRowPk(a) === pk) return { ...a, payment_alert: next };
+        if (accountCode && String(a.account_id || "").trim().toUpperCase() === accountCode.toUpperCase()) return { ...a, payment_alert: next };
+        return a;
+      }));
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
-  const toggleAccountStatus = async (id) => {
+  const toggleAccountStatus = async (row) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
+    const pk = accountRowPk(row);
+    const accountCode = String(row?.account_id || "").trim();
+    if (!pk && !accountCode) return notify(t("toggleFailed"), "danger");
     try {
       const fd = new FormData();
-      fd.append("id", id);
+      if (pk) fd.append("account_id", String(pk));
+      if (accountCode) fd.append("account_code", accountCode);
       if (companyId) fd.append("company_id", String(companyId));
       const res = await fetch(buildApiUrl("api/accounts/toggle_account_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "toggleFailed", "danger");
       const next = json.newStatus || json.data?.newStatus;
       setAccounts(prev => {
-        const updated = prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a);
+        const updated = prev.map(a => {
+          if (pk && accountRowPk(a) === pk) return { ...a, status: next };
+          if (accountCode && String(a.account_id || "").trim().toUpperCase() === accountCode.toUpperCase()) return { ...a, status: next };
+          return a;
+        });
         if (showInactive) return updated.filter(a => String(a.status || "").toLowerCase() === "inactive");
         if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
         return updated;
@@ -494,18 +517,20 @@ export default function AccountListPage() {
     setSettingInitial(new Set());
   };
 
-  const openEdit = async (id) => {
+  const openEdit = async (row) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    const accountPk = Number(id);
-    if (!Number.isFinite(accountPk) || accountPk <= 0) {
+    const accountPk = accountRowPk(typeof row === "object" ? row : { id: row });
+    const accountCode = typeof row === "object" ? String(row?.account_id || "").trim() : "";
+    if (!accountPk && !accountCode) {
       return notify(t("errorLoadingAccount"), "danger");
     }
     try {
       const detailUrl = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
-      detailUrl.searchParams.set("account_id", String(accountPk));
+      if (accountPk) detailUrl.searchParams.set("account_id", String(accountPk));
+      if (accountCode) detailUrl.searchParams.set("account_code", accountCode);
       if (companyId) detailUrl.searchParams.set("company_id", String(companyId));
       detailUrl.searchParams.set("_", String(Date.now()));
       const res = await fetch(detailUrl.toString(), {
@@ -522,10 +547,11 @@ export default function AccountListPage() {
       }
       if (!json.success) return notifyApi(json.message || json.error, "failedToLoadAccount", "danger");
       const d = json.data;
+      const resolvedPk = Number(d.id) > 0 ? Number(d.id) : accountPk;
       setIsEditMode(true);
       setHiddenCurrencyIds([]);
       setForm({ id: d.id, account_id: toUpper(d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
-      await loadSelectionMeta(accountPk, true);
+      await loadSelectionMeta(resolvedPk, true);
       setEditModalOpen(true);
     } catch { notify(t("errorLoadingAccount"), "danger"); }
   };
@@ -1046,16 +1072,16 @@ export default function AccountListPage() {
                 return (
                   <div className="account-card account-list-row" key={a.id}>
                     <div className="account-card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
-                    <div className="account-card-item">{toUpper(a.account_id)}</div>
+                    <div className="account-card-item">{accountRowLabel(a)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
                     <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{toUpper(a.role) === "UPLINE" ? t("supplier") : toUpper(a.role)}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => togglePaymentAlert(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{alertOn ? "ON" : "OFF"}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{toUpper(a.status)}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => togglePaymentAlert(a)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{alertOn ? "ON" : "OFF"}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{toUpper(a.status)}</span></div>
                     <div className="account-card-item">{toUpper(a.last_login)}</div>
                     <div className="account-card-item">{toUpper(a.remark)}</div>
                     <div className="account-card-item">
-                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
-                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
+                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
+                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(accountRowPk(a))} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         </svg>

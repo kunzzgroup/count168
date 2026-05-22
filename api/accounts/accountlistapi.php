@@ -184,9 +184,12 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
     $out = [];
     foreach ($rows as $row) {
         $row['id'] = (int)($row['id'] ?? 0);
+        $rawAccountId = (string)($row['account_id'] ?? '');
         $createdSource = strtolower(trim((string)($row['created_source'] ?? '')));
-        if ($createdSource === 'domain_auto' || shouldFormatAsCompanyId((string)($row['account_id'] ?? ''))) {
-            $row['account_id'] = formatDomainAutoDisplayAccountId((string)($row['account_id'] ?? ''));
+        if ($createdSource === 'domain_auto' || shouldFormatAsCompanyId($rawAccountId)) {
+            $row['display_account_id'] = formatDomainAutoDisplayAccountId($rawAccountId);
+        } else {
+            $row['display_account_id'] = $rawAccountId;
         }
         if ($row['alert_amount'] !== null && $row['alert_amount'] !== '') {
             $row['alert_amount'] = money_out($row['alert_amount']);
