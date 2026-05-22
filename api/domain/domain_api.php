@@ -1758,11 +1758,13 @@ function domainApiValidateGroupCompanyIdMutualExclusivity(array $rows): ?string
 }
 
 /**
- * 同一笔保存里，company_id / group_id 汇入同一全局命名空间后不得出现两次（否则会写入多行同名代码）。
+ * 同一笔保存里：company_id 不得重复；无 company_id 的「仅组」占位行其 group_id 不得重复。
+ * 多家公司可共用同一 group_id（正常分组），不计为重复。
  */
 function domainApiValidateCompanyGroupCodesUniqueWithinPayload(array $rows): ?string
 {
-    $seen = [];
+    $seenCompany = [];
+    $seenGroupOnly = [];
     foreach ($rows as $row) {
         if (!is_array($row)) {
             continue;
@@ -1770,14 +1772,18 @@ function domainApiValidateCompanyGroupCodesUniqueWithinPayload(array $rows): ?st
         $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
         $gidRaw = $row['group_id'] ?? null;
         $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
-        foreach ([$cid, $gid] as $token) {
-            if ($token === '') {
-                continue;
+        if ($cid !== '') {
+            if (isset($seenCompany[$cid])) {
+                return 'Duplicate Company ID in this form: "' . $cid . '". Each Company ID must be unique.';
             }
-            if (isset($seen[$token])) {
-                return 'Duplicate ID in this form: "' . $token . '". Each Company ID and Group ID must be unique system-wide.';
+            $seenCompany[$cid] = true;
+            continue;
+        }
+        if ($gid !== '') {
+            if (isset($seenGroupOnly[$gid])) {
+                return 'Duplicate group-only entry in this form: "' . $gid . '".';
             }
-            $seen[$token] = true;
+            $seenGroupOnly[$gid] = true;
         }
     }
     return null;
