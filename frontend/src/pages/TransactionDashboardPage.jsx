@@ -20,6 +20,7 @@ import {
   convertToBaseAmount,
   fetchFrankfurterRates,
   formatFrankfurterUnitRate,
+  peekFrankfurterRatesCache,
   resolveFrankfurterDate,
   sumConvertedEarnings,
 } from "../utils/dashboard/frankfurterRates.js";
@@ -274,6 +275,7 @@ function getCurrencyColor(code, fallbackIndex = 0) {
 
 function buildEarningsPieSlices(rows, { useConverted = false } = {}) {
   return rows
+    .filter((row) => row.earnings != null)
     .map((row, index) => {
       const originalEarnings = row.earnings;
       const earnings =
@@ -605,6 +607,9 @@ export default function TransactionDashboardPage() {
   const dashDatePickerReadyRef = useRef(false);
   const pieAreaRef = useRef(null);
   const pieShellRef = useRef(null);
+  const currencyCodeRef = useRef(currencyCode);
+  const earningsFetchGenRef = useRef(0);
+  const dashboardFetchGenRef = useRef(0);
   const [pieShellLayout, setPieShellLayout] = useState({
     left: 0,
     top: 0,
@@ -878,6 +883,10 @@ export default function TransactionDashboardPage() {
     loadCurrencies();
   }, [loadCurrencies]);
 
+  useEffect(() => {
+    currencyCodeRef.current = currencyCode;
+  }, [currencyCode]);
+
   const fetchDashboardPayload = useCallback(
     async (cid, rangeFrom, rangeTo, currencyOverride) => {
       const q = new URLSearchParams({
@@ -885,7 +894,7 @@ export default function TransactionDashboardPage() {
         date_to: rangeTo,
         company_id: String(cid),
       });
-      const cur = currencyOverride ?? currencyCode;
+      const cur = currencyOverride ?? currencyCodeRef.current;
       if (cur) q.append("currency", cur);
       if (selectedGroup) q.append("view_group", selectedGroup);
       const res = await fetch(buildApiUrl(`${DASHBOARD_API}?${q}`), { credentials: "include" });
@@ -907,7 +916,7 @@ export default function TransactionDashboardPage() {
       const linkMultiplier = Number.isFinite(pct) && pct >= 0 ? pct / 100 : 1;
       return linkMultiplier !== 1 ? { ...json.data, _link_multiplier: linkMultiplier } : json.data;
     },
-    [currencyCode, selectedGroup, companies, i18n]
+    [selectedGroup, companies, i18n]
   );
 
   const loadMergedDashboard = useCallback(
@@ -937,37 +946,54 @@ export default function TransactionDashboardPage() {
   );
 
   const loadEarningsByCurrency = useCallback(async () => {
-    if (!companyId || !currencies.length) {
+    if (!companyId || currencies.length <= 1) {
       setEarningsByCurrency([]);
+      setEarningsByCurrencyLoading(false);
       return;
     }
+
+    const gen = ++earningsFetchGenRef.current;
     setEarningsByCurrencyLoading(true);
-    try {
-      const prevRange = previousPeriodRange(dateFrom, dateTo);
-      const rows = await Promise.all(
-        currencies.map(async (code) => {
-          try {
-            const [current, previous] = await Promise.all([
-              loadMergedDashboard(dateFrom, dateTo, code),
-              loadMergedDashboard(prevRange.from, prevRange.to, code).catch(() => null),
-            ]);
-            const metrics = computeKpiMetrics(current, selectedGroup);
-            const prevMetrics = previous ? computeKpiMetrics(previous, selectedGroup) : null;
-            return {
-              code,
-              earnings: metrics?.earnings ?? 0,
-              earningsPrev: prevMetrics?.earnings ?? 0,
-            };
-          } catch {
-            return { code, earnings: 0, earningsPrev: 0 };
-          }
-        })
-      );
-      setEarningsByCurrency(rows);
-    } finally {
+    setEarningsByCurrency(currencies.map((code) => ({ code, earnings: null })));
+
+    await Promise.all(
+      currencies.map(async (code) => {
+        try {
+          const current = await loadMergedDashboard(dateFrom, dateTo, code);
+          if (gen !== earningsFetchGenRef.current) return;
+          const metrics = computeKpiMetrics(current, selectedGroup);
+          setEarningsByCurrency((prev) =>
+            prev.map((row) =>
+              row.code === code ? { ...row, earnings: metrics?.earnings ?? 0 } : row
+            )
+          );
+        } catch {
+          if (gen !== earningsFetchGenRef.current) return;
+          setEarningsByCurrency((prev) =>
+            prev.map((row) => (row.code === code ? { ...row, earnings: 0 } : row))
+          );
+        }
+      })
+    );
+
+    if (gen === earningsFetchGenRef.current) {
       setEarningsByCurrencyLoading(false);
     }
   }, [companyId, currencies, dateFrom, dateTo, loadMergedDashboard, selectedGroup]);
+
+  useEffect(() => {
+    if (!dashboardData || !currencyCode || currencies.length <= 1) return;
+    const metrics = computeKpiMetrics(dashboardData, selectedGroup);
+    setEarningsByCurrency((prev) => {
+      const base =
+        prev.length === currencies.length
+          ? prev
+          : currencies.map((code) => ({ code, earnings: null }));
+      return base.map((row) =>
+        row.code === currencyCode ? { ...row, earnings: metrics?.earnings ?? 0 } : row
+      );
+    });
+  }, [dashboardData, currencyCode, selectedGroup, currencies]);
 
   useEffect(() => {
     if (!currencyCode || currencies.length <= 1) {
@@ -979,10 +1005,18 @@ export default function TransactionDashboardPage() {
 
     let cancelled = false;
     const rateDate = resolveFrankfurterDate(dateTo);
+    const cached = peekFrankfurterRatesCache(currencyCode, currencies, rateDate);
 
-    (async () => {
+    if (cached) {
+      setExchangeRates({ rates: cached.rates, date: cached.date, unsupported: cached.unsupported });
+      setExchangeRatesError("");
+      setExchangeRatesLoading(false);
+    } else {
       setExchangeRatesLoading(true);
       setExchangeRatesError("");
+    }
+
+    (async () => {
       try {
         const { rates, date, unsupported } = await fetchFrankfurterRates(
           currencyCode,
@@ -991,6 +1025,7 @@ export default function TransactionDashboardPage() {
         );
         if (!cancelled) {
           setExchangeRates({ rates, date, unsupported });
+          setExchangeRatesError("");
         }
       } catch {
         if (!cancelled) {
@@ -1009,30 +1044,37 @@ export default function TransactionDashboardPage() {
 
   const loadDashboard = useCallback(async () => {
     if (!companyId) return;
-    setLoading(true);
+    const gen = ++dashboardFetchGenRef.current;
     setLoadError("");
-    setDashboardDataPrev(null);
+    setLoading(true);
 
     try {
       const prevRange = previousPeriodRange(dateFrom, dateTo);
       const [current, previous] = await Promise.all([
-        loadMergedDashboard(dateFrom, dateTo),
-        loadMergedDashboard(prevRange.from, prevRange.to).catch(() => null),
+        loadMergedDashboard(dateFrom, dateTo, currencyCode),
+        loadMergedDashboard(prevRange.from, prevRange.to, currencyCode).catch(() => null),
       ]);
+      if (gen !== dashboardFetchGenRef.current) return;
       setDashboardData(current);
       setDashboardDataPrev(previous);
     } catch (e) {
+      if (gen !== dashboardFetchGenRef.current) return;
       setLoadError(e.message || i18n.failedToLoadDashboard);
       setDashboardData(null);
       setDashboardDataPrev(null);
     } finally {
-      setLoading(false);
+      if (gen === dashboardFetchGenRef.current) setLoading(false);
     }
-  }, [companyId, dateFrom, dateTo, loadMergedDashboard, i18n]);
+  }, [companyId, dateFrom, dateTo, currencyCode, loadMergedDashboard, i18n]);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  useEffect(() => {
+    setDashboardData(null);
+    setDashboardDataPrev(null);
+  }, [companyId, dateFrom, dateTo]);
 
   useEffect(() => {
     loadEarningsByCurrency();
@@ -1136,25 +1178,25 @@ export default function TransactionDashboardPage() {
       ? earningsByCurrency
       : currencies.map((code) => ({
           code,
-          earnings: code === currencyCode ? kpi.earnings : 0,
-          earningsPrev: 0,
+          earnings: code === currencyCode && dashboardData ? kpi.earnings : null,
         }));
 
     const base = String(currencyCode || "").toUpperCase();
     const rates = exchangeRates.rates || {};
-    const canConvert = currencies.length > 1 && !exchangeRatesError && Object.keys(rates).length > 0;
+    const canConvert =
+      currencies.length > 1 &&
+      !exchangeRatesError &&
+      Object.keys(rates).length > 0 &&
+      !exchangeRatesLoading;
 
     return baseRows.map((row) => {
-      const earningsConverted = canConvert
-        ? convertToBaseAmount(row.earnings, row.code, base, rates)
-        : null;
-      const earningsPrevConverted = canConvert
-        ? convertToBaseAmount(row.earningsPrev, row.code, base, rates)
-        : null;
+      const earningsConverted =
+        canConvert && row.earnings != null
+          ? convertToBaseAmount(row.earnings, row.code, base, rates)
+          : null;
       return {
         ...row,
         earningsConverted,
-        earningsPrevConverted,
       };
     });
   }, [
@@ -1162,13 +1204,34 @@ export default function TransactionDashboardPage() {
     currencies,
     currencyCode,
     kpi.earnings,
+    dashboardData,
     exchangeRates.rates,
     exchangeRatesError,
+    exchangeRatesLoading,
   ]);
 
+  const allCurrencyEarningsReady = useMemo(
+    () =>
+      currencies.length <= 1 ||
+      (earningsCurrencyRows.length === currencies.length &&
+        earningsCurrencyRows.every((row) => row.earnings != null)),
+    [currencies.length, earningsCurrencyRows]
+  );
+
   const useConvertedEarnings = useMemo(
-    () => currencies.length > 1 && !exchangeRatesError && !exchangeRatesLoading,
-    [currencies.length, exchangeRatesError, exchangeRatesLoading]
+    () =>
+      currencies.length > 1 &&
+      !exchangeRatesError &&
+      !exchangeRatesLoading &&
+      Object.keys(exchangeRates.rates || {}).length > 0 &&
+      allCurrencyEarningsReady,
+    [
+      currencies.length,
+      exchangeRatesError,
+      exchangeRatesLoading,
+      exchangeRates.rates,
+      allCurrencyEarningsReady,
+    ]
   );
 
   const convertedEarningsTotal = useMemo(() => {
@@ -1224,10 +1287,10 @@ export default function TransactionDashboardPage() {
     if (useConvertedEarnings && convertedEarningsTotal != null) {
       return Math.abs(convertedEarningsTotal);
     }
-    return earningsCurrencyRows.reduce(
-      (sum, row) => sum + Math.abs(parseFloat(row.earnings) || 0),
-      0
-    );
+    return earningsCurrencyRows.reduce((sum, row) => {
+      if (row.earnings == null) return sum;
+      return sum + Math.abs(parseFloat(row.earnings) || 0);
+    }, 0);
   }, [useConvertedEarnings, convertedEarningsTotal, earningsCurrencyRows]);
 
   const pieCenterMetrics = useMemo(
@@ -1243,7 +1306,17 @@ export default function TransactionDashboardPage() {
     return map;
   }, [earningsCurrencyRows]);
 
-  const summaryEarningsLoading = loading || earningsByCurrencyLoading || exchangeRatesLoading;
+  const summaryEarningsLoading = loading && !dashboardData;
+  const summaryPieReady = earningsPieSlices.length > 0 && !summaryEarningsLoading;
+
+  const isRowEarningsLoading = useCallback(
+    (code) => {
+      if (currencies.length <= 1) return summaryEarningsLoading;
+      const row = earningsCurrencyRows.find((r) => r.code === code);
+      return row?.earnings == null;
+    },
+    [currencies.length, earningsCurrencyRows, summaryEarningsLoading]
+  );
 
   useEffect(() => {
     setHoveredPieSector(null);
@@ -1272,7 +1345,7 @@ export default function TransactionDashboardPage() {
       observer?.disconnect();
       window.removeEventListener("resize", syncLayout);
     };
-  }, [summaryEarningsLoading, earningsPieSlices.length, currencyCode]);
+  }, [summaryPieReady, earningsPieSlices.length, currencyCode]);
 
   const handlePieSectorEnter = useCallback((sectorData, index) => {
     const slice = earningsPieSlices[index];
@@ -1513,7 +1586,7 @@ export default function TransactionDashboardPage() {
               compare={kpi.comparisons?.profit}
               compareLabel={kpiCompareLabel}
               fallbackFoot={kpiFooter}
-              loading={loading}
+              loading={loading && !dashboardData}
             />
             <DashboardKpiCard
               variant="expense"
@@ -1522,7 +1595,7 @@ export default function TransactionDashboardPage() {
               compare={kpi.comparisons?.expenses}
               compareLabel={kpiCompareLabel}
               fallbackFoot={kpiFooter}
-              loading={loading}
+              loading={loading && !dashboardData}
             />
             <DashboardKpiCard
               variant="net"
@@ -1531,7 +1604,7 @@ export default function TransactionDashboardPage() {
               compare={kpi.comparisons?.netProfit}
               compareLabel={kpiCompareLabel}
               fallbackFoot={kpiFooter}
-              loading={loading}
+              loading={loading && !dashboardData}
               tone={kpi.netProfit >= 0 ? "positive" : "negative"}
             />
             {kpi.showEarnings && (
@@ -1542,7 +1615,7 @@ export default function TransactionDashboardPage() {
                 compare={kpi.comparisons?.earnings}
                 compareLabel={kpiCompareLabel}
                 fallbackFoot={kpiFooter}
-                loading={loading}
+                loading={loading && !dashboardData}
                 id="earnings-card-wrapper"
               />
             )}
@@ -1657,7 +1730,7 @@ export default function TransactionDashboardPage() {
                   <div
                     ref={pieAreaRef}
                     className="dashboard-summary-pie-wrap"
-                    aria-hidden={summaryEarningsLoading}
+                    aria-hidden={summaryEarningsLoading && !earningsPieSlices.length}
                     onMouseLeave={() => setHoveredPieSector(null)}
                   >
                     <div ref={pieShellRef} className="dashboard-summary-pie-chart-shell">
@@ -1681,9 +1754,9 @@ export default function TransactionDashboardPage() {
                         strokeWidth={2}
                         label={false}
                         activeShape={false}
-                        isAnimationActive={!summaryEarningsLoading}
+                        isAnimationActive={summaryPieReady && !earningsByCurrencyLoading}
                         animationBegin={0}
-                        animationDuration={480}
+                        animationDuration={320}
                         animationEasing="ease-out"
                         onMouseEnter={handlePieSectorEnter}
                         onMouseLeave={() => setHoveredPieSector(null)}
@@ -1739,14 +1812,16 @@ export default function TransactionDashboardPage() {
                   </div>
                   <div className="dashboard-summary-currency-list-body" role="list">
                   {earningsCurrencyRows.map((row, index) => {
+                    const rowLoading = isRowEarningsLoading(row.code);
                     const sharePct = computeCurrencySharePct(
                       row,
                       earningsShareTotal,
                       useConvertedEarnings
                     );
-                    const unitRateLabel = useConvertedEarnings
-                      ? formatFrankfurterUnitRate(row.code, currencyCode, exchangeRates.rates)
-                      : null;
+                    const unitRateLabel =
+                      !rowLoading && useConvertedEarnings
+                        ? formatFrankfurterUnitRate(row.code, currencyCode, exchangeRates.rates)
+                        : null;
                     const unitRateTitle =
                       unitRateLabel && unitRateLabel !== "—"
                         ? formatI18nTemplate(i18n.rateOneUnit, {
@@ -1781,9 +1856,10 @@ export default function TransactionDashboardPage() {
                       </div>
                       <div className="dashboard-summary-currency-amount-col">
                         <span className="dashboard-summary-currency-amount">
-                          {summaryEarningsLoading ? "…" : formatCurrency(row.earnings)}
+                          {rowLoading ? "…" : formatCurrency(row.earnings ?? 0)}
                         </span>
                         {useConvertedEarnings &&
+                          !rowLoading &&
                           row.earningsConverted != null &&
                           String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
                             <span className="dashboard-summary-currency-converted">
@@ -1798,7 +1874,7 @@ export default function TransactionDashboardPage() {
                         className="dashboard-summary-currency-rate"
                         title={unitRateTitle}
                       >
-                        {summaryEarningsLoading
+                        {rowLoading
                           ? ""
                           : useConvertedEarnings
                             ? unitRateLabel

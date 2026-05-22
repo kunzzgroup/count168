@@ -74,6 +74,28 @@ export async function fetchFrankfurterRates(base, quoteCodes, dateYmd = null) {
   return { rates, date, unsupported };
 }
 
+/** Return cached Frankfurter rates synchronously, or null if missing/expired. */
+export function peekFrankfurterRatesCache(base, quoteCodes, dateYmd = null) {
+  const baseCode = String(base || "").trim().toUpperCase();
+  const quotes = [...new Set(
+    (quoteCodes || [])
+      .map((c) => String(c || "").trim().toUpperCase())
+      .filter((c) => c && c !== baseCode)
+  )];
+  if (!baseCode) return null;
+  if (!quotes.length) {
+    return { rates: { [baseCode]: 1 }, date: dateYmd, unsupported: [] };
+  }
+  const key = cacheKey(baseCode, quotes, dateYmd);
+  const cached = rateCache.get(key);
+  if (!cached || cached.expires <= Date.now()) return null;
+  return {
+    rates: cached.rates,
+    date: cached.date,
+    unsupported: cached.unsupported || [],
+  };
+}
+
 /**
  * Convert amount from `fromCode` into `baseCode` using base→quote rates.
  * rate[fromCode] = how many fromCode per 1 baseCode → amount_in_base = amount / rate
