@@ -11,7 +11,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
-const USERLIST_API_BUILD = '20260522-4';
+const USERLIST_API_BUILD = '20260522-5';
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
@@ -798,12 +798,12 @@ try {
                 $updateValues[] = (int)$input['read_only'];
             }
 
-            // permissions 必须写入合法 JSON（user 表有 json_valid CHECK）
+            // permissions 必须写入合法 JSON 字符串（user 表有 json_valid CHECK；勿用 CAST(? AS JSON)，MariaDB 会语法错误）
             $permJson = userlistResolvePermissionsJsonForUpdate($pdo, (int) $input['id'], $input);
             if ($permJson === null) {
                 $updateFields[] = 'permissions = NULL';
             } else {
-                $updateFields[] = 'permissions = CAST(? AS JSON)';
+                $updateFields[] = 'permissions = ?';
                 $updateValues[] = $permJson;
             }
             
