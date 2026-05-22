@@ -42,6 +42,7 @@ import { useDataCaptureGridHeader } from "./hooks/useDataCaptureGridHeader.js";
 import { useDataCaptureLegacyChrome } from "./hooks/useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
+import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmittedPanelHeight.js";
 
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
@@ -161,6 +162,8 @@ export default function DataCapturePage() {
   const form = useDataCaptureFormEngine(companyId);
 
   const { submittedItems } = useDataCaptureSubmittedList(companyId, form.captureDate);
+
+  const { topSectionRef, formColumnRef } = useDataCaptureSubmittedPanelHeight();
 
   const { permissions, selectedPermission, selectPermission, showPermissionFilter } =
     useDataCaptureCategoryPermissions(companyCode);
@@ -540,8 +543,8 @@ export default function DataCapturePage() {
         </div>
       ) : null}
 
-      <div className="top-section">
-        <div className="form-column">
+      <div className="top-section" ref={topSectionRef}>
+        <div className="form-column" ref={formColumnRef}>
           <div className="form-container">
             <form
               id="dataCaptureForm"

@@ -199,14 +199,12 @@ body.datacapture-page .top-section .form-column {
     min-height: auto;
 }
 
-/*
- * Submitted column: height:0 + stretch so grid row height = form only (list scrolls inside).
- * See https://stackoverflow.com/questions/43311943/prevent-content-from-expanding-grid-items
- */
+/* Height synced from form column via --dc-form-band-height (see useDataCaptureSubmittedPanelHeight) */
 body.datacapture-page .top-section .submitted-column {
     min-height: 0;
-    height: 0;
-    align-self: stretch;
+    height: var(--dc-form-band-height, auto);
+    max-height: var(--dc-form-band-height, min(42dvh, 400px));
+    align-self: start;
     overflow: hidden;
 }
 
@@ -247,6 +245,10 @@ body.datacapture-page .submitted-list {
 
     body.datacapture-page .top-section .submitted-column {
         height: auto;
+        max-height: none;
+    }
+
+    body.datacapture-page .submitted-list {
         max-height: min(42dvh, 400px);
     }
 }
