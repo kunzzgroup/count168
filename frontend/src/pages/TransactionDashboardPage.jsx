@@ -293,16 +293,42 @@ function formatI18nTemplate(template, vars) {
   );
 }
 
-function EarningsPieTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const item = payload[0]?.payload;
-  if (!item?.code) return null;
+function EarningsPieSectorTooltip({ slice }) {
+  if (!slice?.code) return null;
   return (
-    <div className="dashboard-summary-pie-tooltip">
-      <div className="dashboard-summary-pie-tooltip-label">{item.code}</div>
-      <div className="dashboard-summary-pie-tooltip-value">{formatCurrency(item.earnings ?? 0)}</div>
+    <div className="dashboard-summary-pie-tooltip dashboard-summary-pie-tooltip--sector">
+      <div className="dashboard-summary-pie-tooltip-label">{slice.code}</div>
+      <div className="dashboard-summary-pie-tooltip-value">{formatCurrency(slice.earnings ?? 0)}</div>
     </div>
   );
+}
+
+/** Place tooltip near the outer edge of the hovered pie sector (Recharts startAngle=0, clockwise). */
+function computeSectorTooltipPosition(index, slices, width, height) {
+  const total = slices.reduce((sum, row) => sum + (row.value || 0), 0);
+  if (total <= 0 || index < 0 || index >= slices.length || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  const margin = 4;
+  const innerW = Math.max(0, width - margin * 2);
+  const innerH = Math.max(0, height - margin * 2);
+  const cx = margin + innerW / 2;
+  const cy = margin + innerH / 2;
+  const outerR = (Math.min(innerW, innerH) / 2) * 0.78;
+  const tooltipR = outerR + 20;
+
+  let angleDeg = 0;
+  for (let i = 0; i < index; i += 1) {
+    angleDeg += ((slices[i].value || 0) / total) * 360;
+  }
+  angleDeg += ((slices[index].value || 0) / total) * 360 * 0.5;
+
+  const rad = (Math.PI / 180) * angleDeg;
+  return {
+    left: cx + tooltipR * Math.cos(-rad),
+    top: cy + tooltipR * Math.sin(-rad),
+  };
 }
 
 function computePieCenterMetrics(slices, selectedCode) {
@@ -521,6 +547,8 @@ export default function TransactionDashboardPage() {
   const [dateTo, setDateTo] = useState(defaultEnd);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
   const dashDatePickerReadyRef = useRef(false);
+  const pieWrapRef = useRef(null);
+  const [hoveredPieIndex, setHoveredPieIndex] = useState(null);
 
   const effectiveDateRangeText = useMemo(
     () => `${ymdToDmy(dateFrom)} - ${ymdToDmy(dateTo)}`,
@@ -1175,6 +1203,24 @@ export default function TransactionDashboardPage() {
 
   const summaryEarningsLoading = loading || earningsByCurrencyLoading || exchangeRatesLoading;
 
+  useEffect(() => {
+    setHoveredPieIndex(null);
+  }, [currencyCode, earningsPieSlices]);
+
+  const hoveredPieTooltip = useMemo(() => {
+    if (hoveredPieIndex == null || !pieWrapRef.current) return null;
+    const slice = earningsPieSlices[hoveredPieIndex];
+    if (!slice) return null;
+    const pos = computeSectorTooltipPosition(
+      hoveredPieIndex,
+      earningsPieSlices,
+      pieWrapRef.current.clientWidth,
+      pieWrapRef.current.clientHeight
+    );
+    if (!pos) return null;
+    return { slice, left: pos.left, top: pos.top };
+  }, [hoveredPieIndex, earningsPieSlices]);
+
   const handlePickGroup = useCallback(
     async (gid) => {
       const g = String(gid || "").trim().toUpperCase();
@@ -1517,7 +1563,12 @@ export default function TransactionDashboardPage() {
                 </div>
               </div>
               <div className="dashboard-summary-earnings-panel">
-                <div className="dashboard-summary-pie-wrap" aria-hidden={summaryEarningsLoading}>
+                <div
+                  ref={pieWrapRef}
+                  className="dashboard-summary-pie-wrap"
+                  aria-hidden={summaryEarningsLoading}
+                  onMouseLeave={() => setHoveredPieIndex(null)}
+                >
                   <ResponsiveContainer width="100%" height={DASHBOARD_EARNINGS_PIE_HEIGHT}>
                     <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <Pie
@@ -1542,6 +1593,8 @@ export default function TransactionDashboardPage() {
                         animationBegin={0}
                         animationDuration={480}
                         animationEasing="ease-out"
+                        onMouseEnter={(_, index) => setHoveredPieIndex(index)}
+                        onMouseLeave={() => setHoveredPieIndex(null)}
                       >
                         {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
                           (entry, index) => (
@@ -1549,9 +1602,19 @@ export default function TransactionDashboardPage() {
                           )
                         )}
                       </Pie>
-                      <Tooltip content={<EarningsPieTooltip />} cursor={false} allowEscapeViewBox />
                     </PieChart>
                   </ResponsiveContainer>
+                  {hoveredPieTooltip && (
+                    <div
+                      className="dashboard-summary-pie-tooltip-anchor"
+                      style={{
+                        left: hoveredPieTooltip.left,
+                        top: hoveredPieTooltip.top,
+                      }}
+                    >
+                      <EarningsPieSectorTooltip slice={hoveredPieTooltip.slice} />
+                    </div>
+                  )}
                   {!summaryEarningsLoading && earningsPieSlices.length > 0 && (
                     <div
                       key={currencyCode || "center"}

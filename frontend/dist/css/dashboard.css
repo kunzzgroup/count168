@@ -1291,15 +1291,15 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-pie-wrap .recharts-tooltip-wrapper {
-    position: absolute !important;
-    left: auto !important;
-    top: auto !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    transform: none !important;
-    z-index: 4 !important;
-    outline: none !important;
+    display: none !important;
+}
+
+.dashboard-summary-pie-tooltip-anchor {
+    position: absolute;
+    z-index: 4;
     pointer-events: none;
+    transform: translate(-50%, -50%);
+    animation: dashboard-pie-tooltip-in 0.18s var(--ease-out-soft, ease) both;
 }
 
 .dashboard-summary-pie-tooltip {
@@ -1312,7 +1312,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
     color: var(--color-body-strong, #1f2937);
     line-height: 1.35;
-    animation: dashboard-pie-tooltip-in 0.2s var(--ease-out-soft, ease) both;
+    white-space: nowrap;
 }
 
 @keyframes dashboard-pie-tooltip-in {
