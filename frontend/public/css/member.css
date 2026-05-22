@@ -1153,6 +1153,12 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
         -webkit-overflow-scrolling: touch;
     }
 
+    /* 宽屏同步高度时 scroll 仍铺满中栏，矩阵表宽随币种列数收缩并贴右 */
+    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix .member-dash-matrix-scroll .member-balance-mini-matrix--ccy-fill,
+    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix .member-dash-matrix-scroll .member-balance-mini-matrix--ccy-scroll {
+        margin-inline-start: auto;
+    }
+
     .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-total .member-dash-rail-total {
         flex: 1 1 auto;
         min-height: 0;
