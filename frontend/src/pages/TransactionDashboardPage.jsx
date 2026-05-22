@@ -670,6 +670,21 @@ export default function TransactionDashboardPage() {
     [dashboardData, dateFrom, dateTo]
   );
 
+  const chartXAxisLayout = useMemo(() => {
+    const n = chartRows.length;
+    const dense = n > 14;
+    return {
+      interval: n <= 45 ? 0 : "preserveStartEnd",
+      minTickGap: n <= 45 ? 0 : 8,
+      tick: {
+        fontSize: dense ? 9 : 11,
+        ...(dense ? { angle: -40, textAnchor: "end" } : {}),
+      },
+      height: dense ? 46 : 30,
+      marginBottom: dense ? 32 : 8,
+    };
+  }, [chartRows.length]);
+
   const kpiFooter = useMemo(() => {
     const cur = currencyCode || "—";
     const from = parseYmd(dateFrom);
@@ -987,7 +1002,10 @@ export default function TransactionDashboardPage() {
               </div>
               <div className="dashboard-panel-chart-body">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartRows} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                  <AreaChart
+                    data={chartRows}
+                    margin={{ top: 8, right: 16, left: 0, bottom: chartXAxisLayout.marginBottom }}
+                  >
                     <defs>
                       <linearGradient id="gProfit" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="rgba(34,197,94,0.35)" />
@@ -1007,7 +1025,14 @@ export default function TransactionDashboardPage() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                    <XAxis
+                      dataKey="label"
+                      interval={chartXAxisLayout.interval}
+                      minTickGap={chartXAxisLayout.minTickGap}
+                      tick={chartXAxisLayout.tick}
+                      height={chartXAxisLayout.height}
+                      stroke="#94a3b8"
+                    />
                     <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => formatCurrency(v)} width={72} />
                     <Tooltip
                       formatter={(value) => formatCurrency(value)}
