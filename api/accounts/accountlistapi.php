@@ -4,6 +4,7 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/account_zero_id_repair.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
@@ -184,6 +185,15 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
     $out = [];
     foreach ($rows as $row) {
         $row['id'] = (int)($row['id'] ?? 0);
+        if ($row['id'] <= 0) {
+            $rawAccountId = trim((string)($row['account_id'] ?? ''));
+            if ($rawAccountId !== '') {
+                $repairedId = repairAccountZeroPrimaryKey($pdo, $rawAccountId, $company_id);
+                if ($repairedId > 0) {
+                    $row['id'] = $repairedId;
+                }
+            }
+        }
         $rawAccountId = (string)($row['account_id'] ?? '');
         $createdSource = strtolower(trim((string)($row['created_source'] ?? '')));
         if ($createdSource === 'domain_auto' || shouldFormatAsCompanyId($rawAccountId)) {
