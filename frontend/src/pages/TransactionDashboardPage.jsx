@@ -293,12 +293,15 @@ function formatI18nTemplate(template, vars) {
   );
 }
 
-function EarningsPieSectorTooltip({ slice }) {
+function EarningsPieSectorTooltip({ slice, placeAbove = true }) {
   if (!slice?.code) return null;
   return (
-    <div className="dashboard-summary-pie-tooltip dashboard-summary-pie-tooltip--sector">
-      <div className="dashboard-summary-pie-tooltip-label">{slice.code}</div>
-      <div className="dashboard-summary-pie-tooltip-value">{formatCurrency(slice.earnings ?? 0)}</div>
+    <div className={`dashboard-summary-pie-tooltip-stack${placeAbove ? "" : " is-below"}`}>
+      <div className="dashboard-summary-pie-tooltip dashboard-summary-pie-tooltip--sector">
+        <div className="dashboard-summary-pie-tooltip-label">{slice.code}</div>
+        <div className="dashboard-summary-pie-tooltip-value">{formatCurrency(slice.earnings ?? 0)}</div>
+      </div>
+      <div className="dashboard-summary-pie-tooltip-arrow" aria-hidden="true" />
     </div>
   );
 }
@@ -323,8 +326,8 @@ function computeSectorTooltipPosition(sector) {
     return null;
   }
 
-  const point = polarToCartesian(cx, cy, outerRadius + 18, midAngle);
-  return { left: point.x, top: point.y };
+  const point = polarToCartesian(cx, cy, outerRadius, midAngle);
+  return { left: point.x, top: point.y, placeAbove: point.y <= cy };
 }
 
 function computePieCenterMetrics(slices, selectedCode) {
@@ -1219,7 +1222,12 @@ export default function TransactionDashboardPage() {
     if (!hoveredPieSector) return null;
     const pos = computeSectorTooltipPosition(hoveredPieSector);
     if (!pos) return null;
-    return { slice: hoveredPieSector.slice, left: pos.left, top: pos.top };
+    return {
+      slice: hoveredPieSector.slice,
+      left: pos.left,
+      top: pos.top,
+      placeAbove: pos.placeAbove,
+    };
   }, [hoveredPieSector]);
 
   const handlePickGroup = useCallback(
@@ -1607,13 +1615,16 @@ export default function TransactionDashboardPage() {
                   </ResponsiveContainer>
                   {hoveredPieTooltip && (
                     <div
-                      className="dashboard-summary-pie-tooltip-anchor"
+                      className={`dashboard-summary-pie-tooltip-anchor${hoveredPieTooltip.placeAbove ? "" : " is-below"}`}
                       style={{
                         left: hoveredPieTooltip.left,
                         top: hoveredPieTooltip.top,
                       }}
                     >
-                      <EarningsPieSectorTooltip slice={hoveredPieTooltip.slice} />
+                      <EarningsPieSectorTooltip
+                        slice={hoveredPieTooltip.slice}
+                        placeAbove={hoveredPieTooltip.placeAbove}
+                      />
                     </div>
                   )}
                   {!summaryEarningsLoading && earningsPieSlices.length > 0 && (
