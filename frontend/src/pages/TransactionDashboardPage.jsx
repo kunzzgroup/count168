@@ -306,13 +306,18 @@ function EarningsPieTooltip({ active, payload }) {
   );
 }
 
-function makePieCenterLabel(slices) {
+function makePieCenterLabel(slices, selectedCode) {
   return function PieCenterLabelContent({ viewBox }) {
     if (!viewBox?.cx || !viewBox?.cy || !slices?.length) return null;
     const total = slices.reduce((sum, row) => sum + (row.value || 0), 0);
     if (total <= 0) return null;
-    const top = slices[0];
-    const pct = ((top.value / total) * 100).toFixed(0);
+    const selected = String(selectedCode || "").toUpperCase();
+    const match = slices.find((row) => String(row.code || "").toUpperCase() === selected);
+    const focus = match || slices[0];
+    const code = selected || focus.code;
+    const pct = match
+      ? ((match.value / total) * 100).toFixed(0)
+      : ((focus.value / total) * 100).toFixed(0);
     const cx = viewBox.cx;
     const cy = viewBox.cy;
     return (
@@ -339,7 +344,7 @@ function makePieCenterLabel(slices) {
           fontWeight={600}
           fontFamily="var(--font-heading-page, Inter, sans-serif)"
         >
-          {top.code}
+          {code}
         </text>
       </g>
     );
@@ -1191,8 +1196,8 @@ export default function TransactionDashboardPage() {
   }, [useConvertedEarnings, convertedEarningsTotal, earningsCurrencyRows]);
 
   const pieCenterLabel = useMemo(
-    () => makePieCenterLabel(earningsPieSlices),
-    [earningsPieSlices]
+    () => makePieCenterLabel(earningsPieSlices, currencyCode),
+    [earningsPieSlices, currencyCode]
   );
 
   const currencyPieFillByCode = useMemo(() => {
