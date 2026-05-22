@@ -1176,35 +1176,14 @@ export default function TransactionDashboardPage() {
     return sumConvertedEarnings(earningsCurrencyRows, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRows, currencyCode, exchangeRates.rates]);
 
-  const convertedEarningsPrevTotal = useMemo(() => {
-    if (!useConvertedEarnings) return null;
-    const prevRows = earningsCurrencyRows.map((row) => ({
-      code: row.code,
-      earnings: row.earningsPrev ?? 0,
-    }));
-    return sumConvertedEarnings(prevRows, currencyCode, exchangeRates.rates).total;
-  }, [useConvertedEarnings, earningsCurrencyRows, currencyCode, exchangeRates.rates]);
-
-  const displayEarningsValue = useMemo(() => {
+  const summaryEarningsValue = useMemo(() => {
     if (useConvertedEarnings && convertedEarningsTotal != null) {
       return convertedEarningsTotal;
     }
     return kpi.earnings;
   }, [useConvertedEarnings, convertedEarningsTotal, kpi.earnings]);
 
-  const convertedEarningsCompare = useMemo(() => {
-    if (!useConvertedEarnings || convertedEarningsTotal == null || convertedEarningsPrevTotal == null) {
-      return kpi.comparisons?.earnings ?? null;
-    }
-    return buildKpiCompare(convertedEarningsTotal, convertedEarningsPrevTotal);
-  }, [
-    useConvertedEarnings,
-    convertedEarningsTotal,
-    convertedEarningsPrevTotal,
-    kpi.comparisons?.earnings,
-  ]);
-
-  const earningsKpiFootNote = useMemo(() => {
+  const summaryConversionNote = useMemo(() => {
     if (!useConvertedEarnings || currencies.length <= 1) return "";
     return i18n.earningsIncludesConversion;
   }, [useConvertedEarnings, currencies.length, i18n.earningsIncludesConversion]);
@@ -1559,12 +1538,11 @@ export default function TransactionDashboardPage() {
               <DashboardKpiCard
                 variant="earnings"
                 label={i18n.earnings}
-                value={formatCurrency(displayEarningsValue)}
-                compare={convertedEarningsCompare}
+                value={formatCurrency(kpi.earnings)}
+                compare={kpi.comparisons?.earnings}
                 compareLabel={kpiCompareLabel}
                 fallbackFoot={kpiFooter}
-                footNote={earningsKpiFootNote}
-                loading={loading || earningsByCurrencyLoading || (currencies.length > 1 && exchangeRatesLoading)}
+                loading={loading}
                 id="earnings-card-wrapper"
               />
             )}
@@ -1670,8 +1648,11 @@ export default function TransactionDashboardPage() {
                       {currencyCode ? ` · ${currencyCode}` : ""}
                     </span>
                     <div className="dashboard-summary-hero-value">
-                      {summaryEarningsLoading ? "…" : formatCurrency(displayEarningsValue)}
+                      {summaryEarningsLoading ? "…" : formatCurrency(summaryEarningsValue)}
                     </div>
+                    {summaryConversionNote && (
+                      <span className="dashboard-summary-hero-conversion-note">{summaryConversionNote}</span>
+                    )}
                   </div>
                   <div
                     ref={pieAreaRef}
