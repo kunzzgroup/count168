@@ -8,7 +8,6 @@ import {
   Customized,
   Pie,
   PieChart,
-  Label,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -306,49 +305,15 @@ function EarningsPieTooltip({ active, payload }) {
   );
 }
 
-function makePieCenterLabel(slices, selectedCode) {
-  return function PieCenterLabelContent({ viewBox }) {
-    if (!viewBox?.cx || !viewBox?.cy || !slices?.length) return null;
-    const total = slices.reduce((sum, row) => sum + (row.value || 0), 0);
-    if (total <= 0) return null;
-    const selected = String(selectedCode || "").toUpperCase();
-    const match = slices.find((row) => String(row.code || "").toUpperCase() === selected);
-    const focus = match || slices[0];
-    const code = selected || focus.code;
-    const pct = match
-      ? ((match.value / total) * 100).toFixed(0)
-      : ((focus.value / total) * 100).toFixed(0);
-    const cx = viewBox.cx;
-    const cy = viewBox.cy;
-    return (
-      <g aria-hidden="true">
-        <text
-          x={cx}
-          y={cy - 4}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="var(--color-text-ink-strong, #111827)"
-          fontSize={20}
-          fontWeight={700}
-          fontFamily="var(--font-heading-page, Inter, sans-serif)"
-        >
-          {pct}%
-        </text>
-        <text
-          x={cx}
-          y={cy + 14}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="var(--color-text-caption, #64748b)"
-          fontSize={11}
-          fontWeight={600}
-          fontFamily="var(--font-heading-page, Inter, sans-serif)"
-        >
-          {code}
-        </text>
-      </g>
-    );
-  };
+function computePieCenterMetrics(slices, selectedCode) {
+  const total = (slices || []).reduce((sum, row) => sum + (row.value || 0), 0);
+  const selected = String(selectedCode || "").toUpperCase();
+  if (total <= 0) {
+    return { pct: "0", code: selected || "—" };
+  }
+  const match = (slices || []).find((row) => String(row.code || "").toUpperCase() === selected);
+  const pct = match ? ((match.value / total) * 100).toFixed(0) : "0";
+  return { pct, code: selected || match?.code || "—" };
 }
 
 function computeCurrencySharePct(row, total, useConverted) {
@@ -1195,8 +1160,8 @@ export default function TransactionDashboardPage() {
     );
   }, [useConvertedEarnings, convertedEarningsTotal, earningsCurrencyRows]);
 
-  const pieCenterLabel = useMemo(
-    () => makePieCenterLabel(earningsPieSlices, currencyCode),
+  const pieCenterMetrics = useMemo(
+    () => computePieCenterMetrics(earningsPieSlices, currencyCode),
     [earningsPieSlices, currencyCode]
   );
 
@@ -1556,6 +1521,7 @@ export default function TransactionDashboardPage() {
                   <ResponsiveContainer width="100%" height={DASHBOARD_EARNINGS_PIE_HEIGHT}>
                     <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <Pie
+                        key={currencyCode || "pie"}
                         data={
                           earningsPieSlices.length
                             ? earningsPieSlices
@@ -1572,20 +1538,30 @@ export default function TransactionDashboardPage() {
                         strokeWidth={2}
                         label={false}
                         activeShape={false}
-                        isAnimationActive={false}
+                        isAnimationActive={!summaryEarningsLoading}
+                        animationBegin={0}
+                        animationDuration={480}
+                        animationEasing="ease-out"
                       >
                         {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
                           (entry, index) => (
                             <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={2} />
                           )
                         )}
-                        {earningsPieSlices.length > 0 && (
-                          <Label content={pieCenterLabel} position="center" />
-                        )}
                       </Pie>
                       <Tooltip content={<EarningsPieTooltip />} cursor={false} />
                     </PieChart>
                   </ResponsiveContainer>
+                  {!summaryEarningsLoading && earningsPieSlices.length > 0 && (
+                    <div
+                      key={currencyCode || "center"}
+                      className="dashboard-summary-pie-center"
+                      aria-hidden="true"
+                    >
+                      <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
+                      <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="dashboard-summary-currency-list" role="list">
                   <div className="dashboard-summary-currency-list-head" aria-hidden="true">

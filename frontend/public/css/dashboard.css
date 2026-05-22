@@ -1195,11 +1195,58 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     height: clamp(168px, 15vw, 210px);
     min-height: 168px;
     flex-shrink: 0;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: visible;
     user-select: none;
+}
+
+.dashboard-summary-pie-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    pointer-events: none;
+    animation: dashboard-pie-center-in 0.48s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+
+.dashboard-summary-pie-center-pct {
+    font-size: clamp(18px, 1.35vw, 22px);
+    font-weight: 700;
+    color: var(--color-text-ink-strong, #111827);
+    font-family: var(--font-heading-page);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-summary-pie-center-code {
+    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
+    font-weight: 600;
+    color: var(--color-text-caption, #64748b);
+    font-family: var(--font-heading-page);
+    letter-spacing: 0.04em;
+}
+
+@keyframes dashboard-pie-center-in {
+    from {
+        opacity: 0;
+        transform: scale(0.88);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.dashboard-summary-pie-wrap .recharts-pie-sector {
+    outline: none;
+    cursor: default;
+    transition: opacity var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container {
@@ -1227,11 +1274,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-pie-wrap .recharts-pie-sector:focus,
 .dashboard-summary-pie-wrap .recharts-pie-sector:focus-visible {
     outline: none !important;
-}
-
-.dashboard-summary-pie-wrap .recharts-pie-sector {
-    outline: none;
-    cursor: default;
 }
 
 .dashboard-summary-pie-wrap .recharts-tooltip-wrapper {
