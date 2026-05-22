@@ -50,6 +50,43 @@ function eachDateInRange(startYmd, endYmd) {
   return out;
 }
 
+function chartMonthSpan(startYmd, endYmd) {
+  const start = parseYmd(startYmd);
+  const end = parseYmd(endYmd);
+  if (!start || !end) return 0;
+  return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+}
+
+function shouldAggregateChartByMonth(startYmd, endYmd) {
+  return chartMonthSpan(startYmd, endYmd) >= 3;
+}
+
+function eachMonthInRange(startYmd, endYmd) {
+  const start = parseYmd(startYmd);
+  const end = parseYmd(endYmd);
+  const months = [];
+  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+  while (cur <= endMonth) {
+    months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 });
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return months;
+}
+
+function formatChartMonthLabel(year, month, locale = "en-US") {
+  return new Date(year, month - 1, 1).toLocaleDateString(locale, { month: "short", year: "numeric" });
+}
+
+function formatChartTooltipLabel(dateKey, locale = "en-US") {
+  if (!dateKey) return "";
+  if (/^\d{4}-\d{2}$/.test(dateKey)) {
+    const [y, m] = dateKey.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: "long", year: "numeric" });
+  }
+  return formatDisplayDate(dateKey);
+}
+
 function formatDisplayDate(ymd) {
   const d = parseYmd(ymd);
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
@@ -249,9 +286,24 @@ function sortIds(ids) {
 }
 
 
-function buildChartRows(data, startYmd, endYmd) {
-  if (!data?.daily_data) return [];
-  const dailyData = data.daily_data;
+function buildChartMetricRow(date, label, dailyData, earningsMultiplier) {
+  const profitDelta = parseFloat(dailyData.profit?.[date] || 0) || 0;
+  const expensesDelta = parseFloat(dailyData.expenses?.[date] || 0) || 0;
+  const displayProfit = profitDelta;
+  const displayExpenses = expensesDelta > 0 ? -expensesDelta : expensesDelta;
+  const netProfit = displayProfit + displayExpenses;
+  const earnings = netProfit * earningsMultiplier;
+  return {
+    date,
+    label,
+    profit: displayProfit,
+    expenses: displayExpenses,
+    netProfit,
+    earnings,
+  };
+}
+
+function resolveChartEarningsMultiplier(data) {
   const ownershipPercentage = parseFloat(data?.ownership_percentage) || 0;
   const groupEquityPercentage = parseFloat(data?.group_equity_percentage) || 0;
   const groupAccountPercentage = parseFloat(data?.group_account_percentage) || 0;
@@ -259,45 +311,64 @@ function buildChartRows(data, startYmd, endYmd) {
   const linkMul = parseFloat(data?._link_multiplier || 0) || 0;
   const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
   const directPct = ownershipPercentage / 100;
-  let earningsMultiplier;
   if (hasLinkOwnership) {
     const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
-    earningsMultiplier = linkMul * viewerGroupShare;
-  } else if (directPct > 0) {
-    earningsMultiplier = directPct;
-  } else if (hasGroupOwnership) {
-    earningsMultiplier = (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
-  } else {
-    earningsMultiplier = 0;
+    return linkMul * viewerGroupShare;
+  }
+  if (directPct > 0) return directPct;
+  if (hasGroupOwnership) {
+    return (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
+  }
+  return 0;
+}
+
+function buildChartRows(data, startYmd, endYmd, locale = "en-US") {
+  if (!data?.daily_data) return [];
+  const dailyData = data.daily_data;
+  const earningsMultiplier = resolveChartEarningsMultiplier(data);
+  const rangeStart = parseYmd(startYmd);
+  const rangeEnd = parseYmd(endYmd);
+
+  if (shouldAggregateChartByMonth(startYmd, endYmd)) {
+    return eachMonthInRange(startYmd, endYmd).map(({ year, month }) => {
+      const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+      const lastDay = new Date(year, month, 0).getDate();
+      let profitSum = 0;
+      let expensesSum = 0;
+      for (let day = 1; day <= lastDay; day += 1) {
+        const dateStr = `${monthKey}-${String(day).padStart(2, "0")}`;
+        const dateObj = parseYmd(dateStr);
+        if (dateObj < rangeStart || dateObj > rangeEnd) continue;
+        profitSum += parseFloat(dailyData.profit?.[dateStr] || 0) || 0;
+        expensesSum += parseFloat(dailyData.expenses?.[dateStr] || 0) || 0;
+      }
+      const displayProfit = profitSum;
+      const displayExpenses = expensesSum > 0 ? -expensesSum : expensesSum;
+      const netProfit = displayProfit + displayExpenses;
+      const earnings = netProfit * earningsMultiplier;
+      return {
+        date: monthKey,
+        label: formatChartMonthLabel(year, month, locale),
+        profit: displayProfit,
+        expenses: displayExpenses,
+        netProfit,
+        earnings,
+      };
+    });
   }
 
   const dates = eachDateInRange(startYmd, endYmd);
-  const rangeStart = parseYmd(startYmd);
-  const rangeEnd = parseYmd(endYmd);
   const sameCalendarMonth =
     rangeStart &&
     rangeEnd &&
     rangeStart.getFullYear() === rangeEnd.getFullYear() &&
     rangeStart.getMonth() === rangeEnd.getMonth();
   return dates.map((date) => {
-    const profitDelta = parseFloat(dailyData.profit?.[date] || 0) || 0;
-    const expensesDelta = parseFloat(dailyData.expenses?.[date] || 0) || 0;
-    const displayProfit = profitDelta;
-    const displayExpenses = expensesDelta > 0 ? -expensesDelta : expensesDelta;
-    const netProfit = displayProfit + displayExpenses;
-    const earnings = netProfit * earningsMultiplier;
     const d = parseYmd(date);
     const label = sameCalendarMonth
       ? String(d.getDate())
       : `${d.getDate()}/${d.getMonth() + 1}`;
-    return {
-      date,
-      label,
-      profit: displayProfit,
-      expenses: displayExpenses,
-      netProfit,
-      earnings,
-    };
+    return buildChartMetricRow(date, label, dailyData, earningsMultiplier);
   });
 }
 
@@ -706,23 +777,28 @@ export default function TransactionDashboardPage() {
     return { ...current, comparisons };
   }, [dashboardData, dashboardDataPrev, selectedGroup]);
 
+  const chartAggregateByMonth = useMemo(
+    () => shouldAggregateChartByMonth(dateFrom, dateTo),
+    [dateFrom, dateTo]
+  );
+
   const chartRows = useMemo(
-    () => (dashboardData ? buildChartRows(dashboardData, dateFrom, dateTo) : []),
-    [dashboardData, dateFrom, dateTo]
+    () => (dashboardData ? buildChartRows(dashboardData, dateFrom, dateTo, i18n.locale) : []),
+    [dashboardData, dateFrom, dateTo, i18n.locale]
   );
 
   const chartXAxisLayout = useMemo(() => {
     const n = chartRows.length;
-    const compact = n > 14;
+    const compact = !chartAggregateByMonth && n > 14;
     const marginBottom = compact ? 22 : 20;
     return {
-      interval: n <= 62 ? 0 : "preserveStartEnd",
-      minTickGap: n <= 62 ? 0 : 6,
+      interval: chartAggregateByMonth || n <= 62 ? 0 : "preserveStartEnd",
+      minTickGap: chartAggregateByMonth || n <= 62 ? 0 : 6,
       tick: makeDashboardChartXTick(compact),
       height: marginBottom,
       marginBottom,
     };
-  }, [chartRows.length]);
+  }, [chartRows.length, chartAggregateByMonth]);
 
   const kpiFooter = useMemo(() => {
     const cur = currencyCode || "—";
@@ -1080,7 +1156,7 @@ export default function TransactionDashboardPage() {
                       formatter={(value) => formatCurrency(value)}
                       labelFormatter={(_, items) => {
                         const d = items?.[0]?.payload?.date;
-                        return d ? formatDisplayDate(d) : "";
+                        return formatChartTooltipLabel(d, i18n.locale);
                       }}
                     />
                     {chartSeries.map(
