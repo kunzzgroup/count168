@@ -18,32 +18,30 @@ import "../../../public/css/datacapture.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
 
-import { formatSubmittedProcessDateTime } from "./dataCaptureApi.js";
+import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
 import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
   syncDataCaptureCompanySession,
-} from "./dataCaptureCompanyAccess.js";
-import DataCaptureContextMenus from "./DataCaptureContextMenus.jsx";
-import DataCaptureDeleteDialog from "./DataCaptureDeleteDialog.jsx";
-import DataCaptureTableSection from "./DataCaptureTableSection.jsx";
-import DescriptionSelectionModal from "./DescriptionSelectionModal.jsx";
-import ProcessNotificationContainer from "./ProcessNotificationContainer.jsx";
-import { useDataCaptureCategoryPermissions } from "./useDataCaptureCategoryPermissions.js";
-import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
-import { useDataCaptureGrid } from "./useDataCaptureGrid.js";
-import { useDataCaptureGridChrome } from "./useDataCaptureGridChrome.js";
-import { useDataCaptureGridInteraction } from "./useDataCaptureGridInteraction.js";
-import { useDataCapturePaste } from "./useDataCapturePaste.js";
-import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
-import { useDataCaptureFormatPaste } from "./useDataCaptureFormatPaste.js";
-import { useDataCaptureFormatDisplay } from "./useDataCaptureFormatDisplay.js";
-import { useDataCaptureSpaInit } from "./useDataCaptureSpaInit.js";
-import { useDataCaptureGlobalShims } from "./useDataCaptureGlobalShims.js";
-import { useDataCaptureGridHeader } from "./useDataCaptureGridHeader.js";
-import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
-import { useDataCaptureSubmitReset } from "./useDataCaptureSubmitReset.js";
-import { useDataCaptureSubmittedList } from "./useDataCaptureSubmittedList.js";
+} from "./lib/dataCaptureCompanyAccess.js";
+import DataCaptureContextMenus from "./components/DataCaptureContextMenus.jsx";
+import DataCaptureDeleteDialog from "./components/DataCaptureDeleteDialog.jsx";
+import DataCaptureTableSection from "./components/DataCaptureTableSection.jsx";
+import DescriptionSelectionModal from "./components/DescriptionSelectionModal.jsx";
+import ProcessNotificationContainer from "./components/ProcessNotificationContainer.jsx";
+import { useDataCaptureCategoryPermissions } from "./hooks/useDataCaptureCategoryPermissions.js";
+import { useDataCaptureFormEngine } from "./hooks/useDataCaptureFormEngine.js";
+import { useDataCaptureGrid } from "./hooks/useDataCaptureGrid.js";
+import { useDataCaptureGridInteraction } from "./hooks/useDataCaptureGridInteraction.js";
+import { useDataCapturePaste } from "./hooks/useDataCapturePaste.js";
+import { useDataCaptureCaptureType } from "./hooks/useDataCaptureCaptureType.js";
+import { useDataCaptureFormatPaste } from "./hooks/useDataCaptureFormatPaste.js";
+import { useDataCaptureFormatDisplay } from "./hooks/useDataCaptureFormatDisplay.js";
+import { useDataCaptureGlobalShims } from "./hooks/useDataCaptureGlobalShims.js";
+import { useDataCaptureGridHeader } from "./hooks/useDataCaptureGridHeader.js";
+import { useDataCaptureLegacyChrome } from "./hooks/useDataCaptureLegacyChrome.js";
+import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
+import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
 
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
@@ -185,13 +183,35 @@ export default function DataCapturePage() {
   const submitReset = useDataCaptureSubmitReset({ companyId, form, captureType });
 
   useDataCaptureGrid(scriptsReady);
-  useDataCaptureGridChrome(scriptsReady);
   useDataCaptureGridInteraction(scriptsReady);
   useDataCapturePaste();
   useDataCaptureFormatPaste();
   useDataCaptureFormatDisplay();
-  useDataCaptureSpaInit();
   useDataCaptureGlobalShims();
+
+  useEffect(() => {
+    if (!scriptsReady) return;
+
+    const pageReadyTimer = setTimeout(() => {
+      document.body.classList.add("page-ready");
+    }, 50);
+
+    const updateMenuPosition = () => {
+      if (typeof window.updateActiveContextMenuPosition === "function") {
+        window.updateActiveContextMenuPosition();
+      }
+    };
+
+    const scrollContainer = document.querySelector(".excel-table-container");
+    scrollContainer?.addEventListener("scroll", updateMenuPosition, { passive: true });
+    window.addEventListener("resize", updateMenuPosition);
+
+    return () => {
+      clearTimeout(pageReadyTimer);
+      scrollContainer?.removeEventListener("scroll", updateMenuPosition);
+      window.removeEventListener("resize", updateMenuPosition);
+    };
+  }, [scriptsReady]);
   useDataCaptureGridHeader();
 
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);

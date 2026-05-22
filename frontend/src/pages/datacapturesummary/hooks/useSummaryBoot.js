@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
-} from "../../datacapture/dataCaptureCompanyAccess.js";
+} from "../../datacapture/lib/dataCaptureCompanyAccess.js";
 import { fetchSummarySessionUser } from "../summaryApi.js";
 import { summaryQueryKeys } from "../summaryQueryKeys.js";
 
