@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
-import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
   TX_LIST_INVALIDATE_LS_KEY,
@@ -14,8 +13,12 @@ import {
   readTransactionCurrencyFilterState,
   sortByRole,
   sanitizeSearchApiData,
-} from "../transactionPaymentLogic.js";
-import { searchTransactions as searchTransactionsApi, saveUserCurrencyOrder } from "../transactionApi.js";
+} from "../lib/transactionPaymentLogic.js";
+import {
+  searchTransactions as searchTransactionsApi,
+  saveUserCurrencyOrder,
+  transactionQueryKeys,
+} from "../lib/transactionApi.js";
 
 export function useTransactionSearch({
   filterSnapshot,

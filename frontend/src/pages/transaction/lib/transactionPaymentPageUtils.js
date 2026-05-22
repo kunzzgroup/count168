@@ -1,4 +1,4 @@
-export { injectStylesheet } from "../../utils/injectStylesheet.js";
+export { injectStylesheet } from "../../../utils/injectStylesheet.js";
 
 /** dd/mm/yyyy -> Date (local). */
 export function parseDmyToDate(value) {

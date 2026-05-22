@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { readTransactionCurrencyFilterState } from "../transactionPaymentLogic.js";
+import { readTransactionCurrencyFilterState } from "../lib/transactionPaymentLogic.js";
 
 export function useTransactionInitialization({
   loading,

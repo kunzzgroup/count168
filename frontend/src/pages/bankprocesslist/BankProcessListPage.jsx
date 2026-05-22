@@ -6,7 +6,7 @@ import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js
 import { ensureMaintenanceDateRangePicker } from "../../utils/maintenanceDateRangePicker.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../utils/sanitizeCapitalLettersOnly.js";
-import { saveUserCurrencyOrder } from "../transaction/transactionApi.js";
+import { saveUserCurrencyOrder } from "../transaction/lib/transactionApi.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";

@@ -1,4 +1,4 @@
-import { formatPaymentHistoryMoneyHalfUp, toUpperDisplay } from "../transactionFormat.js";
+import { formatPaymentHistoryMoneyHalfUp, toUpperDisplay } from "../lib/transactionFormat.js";
 
 export default function TransactionTablesSection({
   tablesVisible,

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
-import { saveUserCurrencyOrder } from "../transaction/transactionApi.js";
+import { saveUserCurrencyOrder } from "../transaction/lib/transactionApi.js";
 import { isBankCategoryCompany } from "../bankprocesslist/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";

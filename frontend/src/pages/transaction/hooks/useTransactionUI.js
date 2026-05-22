@@ -1,12 +1,12 @@
 import { useState, useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import {
   getHistory,
   loadContraInbox,
   approveContra as approveContraApi,
   rejectContra as rejectContraApi,
-} from "../transactionApi.js";
+  transactionQueryKeys,
+} from "../lib/transactionApi.js";
 
 export function useTransactionUI() {
   const queryClient = useQueryClient();
