@@ -1430,7 +1430,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-list {
-    --breakdown-cols: 10px 2rem minmax(0, 1fr) minmax(4.75rem, 5.25rem);
+    --breakdown-cols: minmax(3.75rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.25rem);
     grid-column: 2;
     grid-row: 1;
     flex: 1;
@@ -1446,6 +1446,9 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-list-head {
+    display: grid;
+    grid-template-columns: var(--breakdown-cols);
+    column-gap: 10px;
     padding: 0 8px 6px;
     margin: 0;
     flex-shrink: 0;
@@ -1456,38 +1459,18 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     border-bottom: 1px solid var(--color-border-slate, #e2e8f0);
 }
 
-.dashboard-summary-currency-head-title {
-    display: block;
-    padding-bottom: 4px;
+.dashboard-summary-currency-list-head span {
     font-size: var(--text-tiny, clamp(11px, 0.78vw, 13px));
     font-weight: 500;
     color: var(--color-muted-fg, #6b7280);
     font-family: var(--font-heading-page);
     letter-spacing: 0.02em;
     text-transform: uppercase;
-}
-
-.dashboard-summary-currency-list-cols {
-    display: grid;
-    grid-template-columns: var(--breakdown-cols);
-    column-gap: 10px;
-    padding: 0;
-}
-
-.dashboard-summary-currency-list-cols span {
-    font-size: var(--text-tiny, clamp(10px, 0.65vw, 10px));
-    font-weight: 600;
-    color: var(--color-text-caption, #94a3b8);
-    font-family: var(--font-heading-page);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    text-align: right;
     white-space: nowrap;
 }
 
-.dashboard-summary-currency-list-cols span:nth-child(1),
-.dashboard-summary-currency-list-cols span:nth-child(2) {
-    visibility: hidden;
+.dashboard-summary-currency-list-head span:not(:first-child) {
+    text-align: right;
 }
 
 .dashboard-summary-currency-list-body {
@@ -1531,7 +1514,13 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
-    justify-self: center;
+}
+
+.dashboard-summary-currency-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
 }
 
 .dashboard-summary-currency-code {

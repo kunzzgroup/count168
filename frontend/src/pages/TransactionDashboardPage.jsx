@@ -1680,15 +1680,11 @@ export default function TransactionDashboardPage() {
                     </div>
                   </div>
                 </div>
-                <div className="dashboard-summary-currency-list">
-                  <div className="dashboard-summary-currency-list-head">
-                    <span className="dashboard-summary-currency-head-title">{i18n.currencyBreakdown}</span>
-                    <div className="dashboard-summary-currency-list-cols" aria-hidden="true">
-                      <span />
-                      <span />
-                      <span>{i18n.breakdownAmount}</span>
-                      <span>{useConvertedEarnings ? i18n.breakdownRate : i18n.breakdownShare}</span>
-                    </div>
+                <div className="dashboard-summary-currency-list" aria-label={i18n.currencyBreakdown}>
+                  <div className="dashboard-summary-currency-list-head" aria-hidden="true">
+                    <span>{i18n.breakdownCurrency}</span>
+                    <span>{i18n.breakdownAmount}</span>
+                    <span>{useConvertedEarnings ? i18n.breakdownRate : i18n.breakdownShare}</span>
                   </div>
                   <div className="dashboard-summary-currency-list-body" role="list">
                   {earningsCurrencyRows.map((row, index) => {
@@ -1722,14 +1718,16 @@ export default function TransactionDashboardPage() {
                           : undefined
                       }
                     >
-                      <span
-                        className="dashboard-summary-currency-dot"
-                        style={{
-                          backgroundColor: currencyPieFillByCode[row.code] || getCurrencyColor(row.code, index),
-                        }}
-                        aria-hidden="true"
-                      />
-                      <span className="dashboard-summary-currency-code">{row.code}</span>
+                      <div className="dashboard-summary-currency-label">
+                        <span
+                          className="dashboard-summary-currency-dot"
+                          style={{
+                            backgroundColor: currencyPieFillByCode[row.code] || getCurrencyColor(row.code, index),
+                          }}
+                          aria-hidden="true"
+                        />
+                        <span className="dashboard-summary-currency-code">{row.code}</span>
+                      </div>
                       <div className="dashboard-summary-currency-amount-col">
                         <span className="dashboard-summary-currency-amount">
                           {summaryEarningsLoading ? "…" : formatCurrency(row.earnings)}
