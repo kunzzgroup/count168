@@ -133,11 +133,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const res = await fetch("/api/session/current_user_api.php", {
           credentials: "include",
           cache: "no-store",
+          signal: controller.signal,
         });
         const json = await res.json();
         if (cancelled || !res.ok || !json?.success || !json?.data) return;
@@ -157,12 +159,14 @@ export default function LoginPage() {
           return;
         }
         navigate("/dashboard", { replace: true });
-      } catch {
+      } catch (err) {
+        if (err?.name === "AbortError") return;
         // stay on login page when not authenticated
       }
     })();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [navigate]);
 
