@@ -4,6 +4,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Customized,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -49,6 +50,43 @@ function eachDateInRange(startYmd, endYmd) {
   return out;
 }
 
+function chartMonthSpan(startYmd, endYmd) {
+  const start = parseYmd(startYmd);
+  const end = parseYmd(endYmd);
+  if (!start || !end) return 0;
+  return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+}
+
+function shouldAggregateChartByMonth(startYmd, endYmd) {
+  return chartMonthSpan(startYmd, endYmd) >= 3;
+}
+
+function eachMonthInRange(startYmd, endYmd) {
+  const start = parseYmd(startYmd);
+  const end = parseYmd(endYmd);
+  const months = [];
+  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+  while (cur <= endMonth) {
+    months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 });
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return months;
+}
+
+function formatChartMonthLabel(year, month, locale = "en-US") {
+  return new Date(year, month - 1, 1).toLocaleDateString(locale, { month: "short", year: "numeric" });
+}
+
+function formatChartTooltipLabel(dateKey, locale = "en-US") {
+  if (!dateKey) return "";
+  if (/^\d{4}-\d{2}$/.test(dateKey)) {
+    const [y, m] = dateKey.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: "long", year: "numeric" });
+  }
+  return formatDisplayDate(dateKey);
+}
+
 function formatDisplayDate(ymd) {
   const d = parseYmd(ymd);
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
@@ -72,6 +110,42 @@ function formatSignedChange(value) {
   if (n > 0) return `+${body}`;
   if (n < 0) return `-${body}`;
   return body;
+}
+
+/** 按天模式：≤14 天全显示；更长区间自动跳日，避免 X 轴重叠 */
+function resolveDailyChartXAxisTicks(dayCount) {
+  if (dayCount <= 14) {
+    return { interval: 0, minTickGap: 0 };
+  }
+  return { interval: "preserveStartEnd", minTickGap: 36 };
+}
+
+function makeDashboardChartXTick(compact) {
+  return function DashboardChartXTick({ x, y, payload }) {
+    if (x == null || y == null || payload?.value == null) return null;
+    const labelY = y + (compact ? 8 : 10);
+    const fontSize = compact ? 10 : 11;
+    return (
+      <text x={x} y={labelY} fill="#94a3b8" fontSize={fontSize} textAnchor="middle">
+        {payload.value}
+      </text>
+    );
+  };
+}
+
+function DashboardChartBaseline({ offset, width, height }) {
+  if (!height || !width || offset?.bottom == null) return null;
+  const axisY = height - offset.bottom;
+  return (
+    <line
+      x1={offset?.left ?? 0}
+      y1={axisY}
+      x2={width - (offset?.right ?? 0)}
+      y2={axisY}
+      stroke="#94a3b8"
+      strokeWidth={1}
+    />
+  );
 }
 
 function previousPeriodRange(fromYmd, toYmd) {
@@ -152,6 +226,8 @@ function computeKpiMetrics(dashboardData, selectedGroup) {
   };
 }
 
+const DASHBOARD_PROFIT_COLOR = "#3b82f6";
+
 const KPI_CARD_ICONS = {
   profit: "fas fa-dollar-sign",
   expense: "fas fa-arrow-trend-down",
@@ -218,9 +294,24 @@ function sortIds(ids) {
 }
 
 
-function buildChartRows(data, startYmd, endYmd) {
-  if (!data?.daily_data) return [];
-  const dailyData = data.daily_data;
+function buildChartMetricRow(date, label, dailyData, earningsMultiplier) {
+  const profitDelta = parseFloat(dailyData.profit?.[date] || 0) || 0;
+  const expensesDelta = parseFloat(dailyData.expenses?.[date] || 0) || 0;
+  const displayProfit = profitDelta;
+  const displayExpenses = expensesDelta > 0 ? -expensesDelta : expensesDelta;
+  const netProfit = displayProfit + displayExpenses;
+  const earnings = netProfit * earningsMultiplier;
+  return {
+    date,
+    label,
+    profit: displayProfit,
+    expenses: displayExpenses,
+    netProfit,
+    earnings,
+  };
+}
+
+function resolveChartEarningsMultiplier(data) {
   const ownershipPercentage = parseFloat(data?.ownership_percentage) || 0;
   const groupEquityPercentage = parseFloat(data?.group_equity_percentage) || 0;
   const groupAccountPercentage = parseFloat(data?.group_account_percentage) || 0;
@@ -228,35 +319,64 @@ function buildChartRows(data, startYmd, endYmd) {
   const linkMul = parseFloat(data?._link_multiplier || 0) || 0;
   const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
   const directPct = ownershipPercentage / 100;
-  let earningsMultiplier;
   if (hasLinkOwnership) {
     const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
-    earningsMultiplier = linkMul * viewerGroupShare;
-  } else if (directPct > 0) {
-    earningsMultiplier = directPct;
-  } else if (hasGroupOwnership) {
-    earningsMultiplier = (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
-  } else {
-    earningsMultiplier = 0;
+    return linkMul * viewerGroupShare;
+  }
+  if (directPct > 0) return directPct;
+  if (hasGroupOwnership) {
+    return (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
+  }
+  return 0;
+}
+
+function buildChartRows(data, startYmd, endYmd, locale = "en-US") {
+  if (!data?.daily_data) return [];
+  const dailyData = data.daily_data;
+  const earningsMultiplier = resolveChartEarningsMultiplier(data);
+  const rangeStart = parseYmd(startYmd);
+  const rangeEnd = parseYmd(endYmd);
+
+  if (shouldAggregateChartByMonth(startYmd, endYmd)) {
+    return eachMonthInRange(startYmd, endYmd).map(({ year, month }) => {
+      const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+      const lastDay = new Date(year, month, 0).getDate();
+      let profitSum = 0;
+      let expensesSum = 0;
+      for (let day = 1; day <= lastDay; day += 1) {
+        const dateStr = `${monthKey}-${String(day).padStart(2, "0")}`;
+        const dateObj = parseYmd(dateStr);
+        if (dateObj < rangeStart || dateObj > rangeEnd) continue;
+        profitSum += parseFloat(dailyData.profit?.[dateStr] || 0) || 0;
+        expensesSum += parseFloat(dailyData.expenses?.[dateStr] || 0) || 0;
+      }
+      const displayProfit = profitSum;
+      const displayExpenses = expensesSum > 0 ? -expensesSum : expensesSum;
+      const netProfit = displayProfit + displayExpenses;
+      const earnings = netProfit * earningsMultiplier;
+      return {
+        date: monthKey,
+        label: formatChartMonthLabel(year, month, locale),
+        profit: displayProfit,
+        expenses: displayExpenses,
+        netProfit,
+        earnings,
+      };
+    });
   }
 
   const dates = eachDateInRange(startYmd, endYmd);
+  const sameCalendarMonth =
+    rangeStart &&
+    rangeEnd &&
+    rangeStart.getFullYear() === rangeEnd.getFullYear() &&
+    rangeStart.getMonth() === rangeEnd.getMonth();
   return dates.map((date) => {
-    const profitDelta = parseFloat(dailyData.profit?.[date] || 0) || 0;
-    const expensesDelta = parseFloat(dailyData.expenses?.[date] || 0) || 0;
-    const displayProfit = profitDelta;
-    const displayExpenses = expensesDelta > 0 ? -expensesDelta : expensesDelta;
-    const netProfit = displayProfit + displayExpenses;
-    const earnings = netProfit * earningsMultiplier;
-    const label = `${parseYmd(date).getDate()}/${parseYmd(date).getMonth() + 1}`;
-    return {
-      date,
-      label,
-      profit: displayProfit,
-      expenses: displayExpenses,
-      netProfit,
-      earnings,
-    };
+    const d = parseYmd(date);
+    const label = sameCalendarMonth
+      ? String(d.getDate())
+      : `${d.getDate()}/${d.getMonth() + 1}`;
+    return buildChartMetricRow(date, label, dailyData, earningsMultiplier);
   });
 }
 
@@ -665,29 +785,30 @@ export default function TransactionDashboardPage() {
     return { ...current, comparisons };
   }, [dashboardData, dashboardDataPrev, selectedGroup]);
 
+  const chartAggregateByMonth = useMemo(
+    () => shouldAggregateChartByMonth(dateFrom, dateTo),
+    [dateFrom, dateTo]
+  );
+
   const chartRows = useMemo(
-    () => (dashboardData ? buildChartRows(dashboardData, dateFrom, dateTo) : []),
-    [dashboardData, dateFrom, dateTo]
+    () => (dashboardData ? buildChartRows(dashboardData, dateFrom, dateTo, i18n.locale) : []),
+    [dashboardData, dateFrom, dateTo, i18n.locale]
   );
 
   const chartXAxisLayout = useMemo(() => {
     const n = chartRows.length;
-    const dense = n > 14;
-    const axisBand = dense ? 44 : 28;
+    const compact = !chartAggregateByMonth && n > 14;
+    const marginBottom = compact ? 22 : 20;
+    const tickSkip = chartAggregateByMonth
+      ? { interval: 0, minTickGap: 0 }
+      : resolveDailyChartXAxisTicks(n);
     return {
-      interval: n <= 45 ? 0 : "preserveStartEnd",
-      minTickGap: n <= 45 ? 0 : 8,
-      tick: {
-        fontSize: dense ? 9 : 11,
-        fill: "#94a3b8",
-        ...(dense
-          ? { angle: -40, textAnchor: "end", dy: axisBand - 6 }
-          : { dy: 4 }),
-      },
-      height: axisBand,
-      marginBottom: axisBand,
+      ...tickSkip,
+      tick: makeDashboardChartXTick(compact),
+      height: marginBottom,
+      marginBottom,
     };
-  }, [chartRows.length]);
+  }, [chartRows.length, chartAggregateByMonth]);
 
   const kpiFooter = useMemo(() => {
     const cur = currencyCode || "—";
@@ -714,7 +835,7 @@ export default function TransactionDashboardPage() {
 
   const chartSeries = useMemo(() => {
     const series = [
-      { idx: 0, label: i18n.profit, color: "#22c55e", dataKey: "profit", fill: "url(#gProfit)" },
+      { idx: 0, label: i18n.profit, color: DASHBOARD_PROFIT_COLOR, dataKey: "profit", fill: "url(#gProfit)" },
       { idx: 1, label: i18n.expenses, color: "#ef4444", dataKey: "expenses", fill: "url(#gExp)" },
       { idx: 2, label: i18n.netProfitChart, color: "#10b981", dataKey: "netProfit", fill: "url(#gNet)" },
     ];
@@ -726,7 +847,7 @@ export default function TransactionDashboardPage() {
 
   const summaryBreakdownBars = useMemo(() => {
     const rows = [
-      { label: i18n.profit, value: Math.abs(kpi.profit || 0), color: "#22c55e" },
+      { label: i18n.profit, value: Math.abs(kpi.profit || 0), color: DASHBOARD_PROFIT_COLOR },
       { label: i18n.expenses, value: Math.abs(kpi.expenses || 0), color: "#ef4444" },
       { label: i18n.netProfitChart, value: Math.abs(kpi.netProfit || 0), color: "#10b981" },
     ];
@@ -979,7 +1100,7 @@ export default function TransactionDashboardPage() {
           <div className="dashboard-panels-row">
             <div className="dashboard-panel-card dashboard-panel-card--chart">
               <div className="dashboard-panel-head">
-                <h3 className="dashboard-panel-title">{i18n.statistics}</h3>
+                <h3 className="dashboard-panel-title">{i18n.trendChart}</h3>
                 <div className="dashboard-panel-legend" role="group" aria-label={i18n.trendChart}>
                   {chartSeries.map((s) => (
                     <button
@@ -1012,8 +1133,8 @@ export default function TransactionDashboardPage() {
                   >
                     <defs>
                       <linearGradient id="gProfit" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgba(34,197,94,0.35)" />
-                        <stop offset="100%" stopColor="rgba(34,197,94,0.02)" />
+                        <stop offset="0%" stopColor="rgba(59,130,246,0.35)" />
+                        <stop offset="100%" stopColor="rgba(59,130,246,0.02)" />
                       </linearGradient>
                       <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="rgba(239,68,68,0.35)" />
@@ -1029,20 +1150,23 @@ export default function TransactionDashboardPage() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <Customized component={DashboardChartBaseline} />
                     <XAxis
                       dataKey="label"
                       interval={chartXAxisLayout.interval}
                       minTickGap={chartXAxisLayout.minTickGap}
                       tick={chartXAxisLayout.tick}
                       height={chartXAxisLayout.height}
-                      stroke="#94a3b8"
+                      tickMargin={0}
+                      axisLine={false}
+                      tickLine={false}
                     />
                     <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => formatCurrency(v)} width={72} />
                     <Tooltip
                       formatter={(value) => formatCurrency(value)}
                       labelFormatter={(_, items) => {
                         const d = items?.[0]?.payload?.date;
-                        return d ? formatDisplayDate(d) : "";
+                        return formatChartTooltipLabel(d, i18n.locale);
                       }}
                     />
                     {chartSeries.map(

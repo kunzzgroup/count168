@@ -952,6 +952,14 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-weight: 500;
 }
 
+.dashboard-kpi-card--profit .kpi-card-head-icon {
+    color: #3b82f6;
+}
+
+.dashboard-kpi-card--expense .kpi-card-head-icon {
+    color: #ef4444;
+}
+
 .dashboard-kpi-card--positive .kpi-card-head-icon {
     color: #22c55e;
 }
@@ -1068,7 +1076,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-panel-card--chart {
-    padding-bottom: clamp(12px, 1vw, 16px);
+    padding-bottom: clamp(6px, 0.5vw, 10px);
 }
 
 .dashboard-panel-card--summary {
