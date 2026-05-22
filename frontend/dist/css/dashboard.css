@@ -400,6 +400,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .transaction-catego
     max-width: 100%;
 }
 
+body.dashboard-page.transaction-page .dashboard-filter-panel .report-outlined-shell.report-outlined-shell--no-label {
+    margin-top: 0;
+}
+
 body.dashboard-page.transaction-page .dashboard-filter-panel .transaction-date-range-group {
     min-width: 0;
     width: 100%;

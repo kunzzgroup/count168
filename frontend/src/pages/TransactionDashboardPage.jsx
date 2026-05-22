@@ -646,20 +646,11 @@ export default function TransactionDashboardPage() {
 
         <div id="app" className="dashboard-content">
           <div className="dashboard-card dashboard-filter-panel">
-            <div className="dashboard-filter-panel__head">
-              <span className="dashboard-filter-panel__title">{i18n.filterSection}</span>
-            </div>
             <div className="dashboard-card-body dashboard-filter-panel__body">
               <div className="transaction-search-section dashboard-filter-txn-section">
                 <div className="transaction-category-date-row">
                   <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
-                    <div className="report-outlined-shell">
-                      <span
-                        className="report-outlined-label report-outlined-label--txn-capture-date"
-                        id="dashboard-capture-date-outlined-label"
-                      >
-                        {i18n.captureDate}
-                      </span>
+                    <div className="report-outlined-shell report-outlined-shell--no-label">
                       <div className="report-outlined-inner">
                         <div className="transaction-date-range-group">
                           <div
@@ -667,7 +658,7 @@ export default function TransactionDashboardPage() {
                             id="date-range-picker"
                             role="button"
                             tabIndex={0}
-                            aria-labelledby="dashboard-capture-date-outlined-label"
+                            aria-label={i18n.selectDateRange}
                           >
                             <i className="fas fa-calendar-alt" />
                             <span id="date-range-display">{effectiveDateRangeText}</span>
