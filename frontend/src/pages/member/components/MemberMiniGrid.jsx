@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { MoneyDecimal } from "../../utils/moneyDecimal.js";
+import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
 
 import {
   accountHoldsMiniGridCurrency,
@@ -12,7 +12,7 @@ import {
   WINLOSS_MATRIX_MIN_CCY_COL_WIDTH,
   WINLOSS_MATRIX_ROWHEAD_COL_WIDTH,
   WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD,
-} from "./memberPageHelpers.js";
+} from "../memberPageHelpers.js";
 
 function totalRowToneClass(tone) {
   if (tone === "pos") return "gain";
