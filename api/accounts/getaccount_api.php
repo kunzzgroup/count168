@@ -54,8 +54,20 @@ try {
     }
     validateCompanyAccess($pdo, $company_id);
 
-    $account_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-    
+    // Prefer account_id (matches other account APIs). Keep id for backward compatibility.
+    // Some hosts strip GET ?id= via WAF; POST toggles on this page use id in body and still work.
+    $account_id = 0;
+    if (isset($_GET['account_id']) && $_GET['account_id'] !== '') {
+        $account_id = (int)$_GET['account_id'];
+    } elseif (isset($_GET['id']) && $_GET['id'] !== '') {
+        $account_id = (int)$_GET['id'];
+    }
+    if (isset($_POST['account_id']) && $_POST['account_id'] !== '' && !$account_id) {
+        $account_id = (int)$_POST['account_id'];
+    } elseif (isset($_POST['id']) && $_POST['id'] !== '' && !$account_id) {
+        $account_id = (int)$_POST['id'];
+    }
+
     if (!$account_id) {
         throw new Exception('Account ID is required');
     }

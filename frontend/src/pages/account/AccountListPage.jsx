@@ -479,8 +479,12 @@ export default function AccountListPage() {
       return;
     }
     try {
+      const accountPk = Number(id);
+      if (!Number.isFinite(accountPk) || accountPk <= 0) {
+        return notify(t("errorLoadingAccount"), "danger");
+      }
       const detailUrl = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
-      detailUrl.searchParams.set("id", String(id));
+      detailUrl.searchParams.set("account_id", String(accountPk));
       if (companyId) detailUrl.searchParams.set("company_id", String(companyId));
       detailUrl.searchParams.set("_", String(Date.now()));
       const res = await fetch(detailUrl.toString(), {

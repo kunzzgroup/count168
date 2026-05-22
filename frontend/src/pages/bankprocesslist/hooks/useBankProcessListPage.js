@@ -275,7 +275,7 @@ export function useBankProcessListPage() {
 
   const fetchAccountDetailJson = useCallback(async (accountId) => {
     const url = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
-    url.searchParams.set("id", String(accountId));
+    url.searchParams.set("account_id", String(accountId));
     if (companyId) url.searchParams.set("company_id", String(companyId));
     url.searchParams.set("_", String(Date.now()));
     const res = await fetch(url.toString(), {
