@@ -66,6 +66,31 @@ function formatCurrency(value) {
   });
 }
 
+const KPI_CARD_ICONS = {
+  profit: "fas fa-dollar-sign",
+  expense: "fas fa-arrow-trend-down",
+  net: "fas fa-chart-line",
+  earnings: "fas fa-hand-holding-dollar",
+};
+
+function DashboardKpiCard({ variant, label, value, footer, loading, id, tone }) {
+  return (
+    <div
+      id={id}
+      className={`dashboard-kpi-card dashboard-kpi-card--${variant}${tone ? ` dashboard-kpi-card--${tone}` : ""}`}
+    >
+      <div className="kpi-card-head">
+        <i className={`kpi-card-head-icon ${KPI_CARD_ICONS[variant] || "far fa-chart-bar"}`} aria-hidden="true" />
+        <span className="kpi-card-head-label">{label}</span>
+      </div>
+      <div className="kpi-card-main">
+        <div className="kpi-card-value">{loading ? "…" : value}</div>
+      </div>
+      <div className="kpi-card-foot">{footer}</div>
+    </div>
+  );
+}
+
 function companiesInGroupList(companies, gid) {
   if (!gid) {
     return companies.filter(
@@ -755,60 +780,37 @@ export default function TransactionDashboardPage() {
           <div
             className={`dashboard-kpi-grid${kpi.showEarnings ? " dashboard-kpi-grid--with-earnings" : ""}`}
           >
-            <div className="dashboard-kpi-card dashboard-kpi-card--profit">
-              <div className="kpi-icon kpi-icon--boxed kpi-icon--profit">
-                <i className="fas fa-dollar-sign" />
-              </div>
-              <div className="kpi-text">
-                <div className="kpi-label">{i18n.profit}</div>
-                <div className="kpi-value kpi-value--profit">{loading ? "…" : formatCurrency(kpi.profit)}</div>
-                <div className="kpi-footer">{kpiFooter}</div>
-              </div>
-            </div>
-            <div className="dashboard-kpi-card dashboard-kpi-card--expense">
-              <div className="kpi-icon kpi-icon--boxed kpi-icon--expense">
-                <i className="fas fa-arrow-down" />
-              </div>
-              <div className="kpi-text">
-                <div className="kpi-label">{i18n.expenses}</div>
-                <div className="kpi-value kpi-value--expense">{loading ? "…" : formatCurrency(kpi.expenses)}</div>
-                <div className="kpi-footer">{kpiFooter}</div>
-              </div>
-            </div>
-            <div
-              className={`dashboard-kpi-card dashboard-kpi-card--net${
-                kpi.netProfit >= 0 ? " is-positive" : " is-negative"
-              }`}
-            >
-              <div
-                className={`kpi-icon kpi-icon--boxed ${kpi.netProfit >= 0 ? "kpi-icon--net-pos" : "kpi-icon--net-neg"}`}
-              >
-                <i className="fas fa-chart-line" />
-              </div>
-              <div className="kpi-text">
-                <div className="kpi-label">{i18n.netProfit}</div>
-                <div
-                  className={`kpi-value ${kpi.netProfit >= 0 ? "kpi-value--net-pos" : "kpi-value--net-neg"}`}
-                >
-                  {loading ? "…" : formatCurrency(kpi.netProfit)}
-                </div>
-                <div className="kpi-footer">{kpiFooter}</div>
-              </div>
-            </div>
-
+            <DashboardKpiCard
+              variant="profit"
+              label={i18n.profit}
+              value={formatCurrency(kpi.profit)}
+              footer={kpiFooter}
+              loading={loading}
+            />
+            <DashboardKpiCard
+              variant="expense"
+              label={i18n.expenses}
+              value={formatCurrency(kpi.expenses)}
+              footer={kpiFooter}
+              loading={loading}
+            />
+            <DashboardKpiCard
+              variant="net"
+              label={i18n.netProfit}
+              value={formatCurrency(kpi.netProfit)}
+              footer={kpiFooter}
+              loading={loading}
+              tone={kpi.netProfit >= 0 ? "positive" : "negative"}
+            />
             {kpi.showEarnings && (
-              <div className="dashboard-kpi-card dashboard-kpi-card--earnings" id="earnings-card-wrapper">
-                <div className="kpi-icon kpi-icon--boxed kpi-icon--earnings">
-                  <i className="fas fa-hand-holding-usd" />
-                </div>
-                <div className="kpi-text">
-                  <div className="kpi-label">{i18n.earnings}</div>
-                  <div className="kpi-value kpi-value--earnings" id="earnings-value">
-                    {loading ? "…" : formatCurrency(kpi.earnings)}
-                  </div>
-                  <div className="kpi-footer">{kpiFooter}</div>
-                </div>
-              </div>
+              <DashboardKpiCard
+                variant="earnings"
+                label={i18n.earnings}
+                value={formatCurrency(kpi.earnings)}
+                footer={kpiFooter}
+                loading={loading}
+                id="earnings-card-wrapper"
+              />
             )}
           </div>
 
