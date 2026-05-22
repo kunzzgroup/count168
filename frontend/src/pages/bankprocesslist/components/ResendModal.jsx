@@ -17,8 +17,6 @@ export default function ResendModal({
 }) {
   const fq = bankProcessFrequencyNormalized(resendFrequency);
   const isOnce = fq === "once";
-  const hasDayEnd = !!String(resendDayEnd || "").trim();
-
   return (
     <ProcessModalPortal>
     <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={processModalBackdropStyle}>
@@ -72,7 +70,7 @@ export default function ResendModal({
                 onChange={(e) => setResendFrequency(e.target.value)}
               >
                 <option value="1st_of_every_month">{t("firstOfEveryMonth")}</option>
-                <option value="monthly" disabled={hasDayEnd && !isOnce}>{t("monthly")}</option>
+                <option value="monthly">{t("monthly")}</option>
                 <option value="once">{t("onceFrequency")}</option>
               </select>
             </div>

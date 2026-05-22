@@ -35,7 +35,6 @@ export default function BankProcessFormModal({
   lang,
   t,
 }) {
-  const hasDayEnd = !!String(form.day_end || "").trim();
   const dayStart = String(form.day_start || "").trim();
   const contract = String(form.contract || "").trim();
   const frequency = bankProcessFrequencyNormalized(form.day_start_frequency);
@@ -312,7 +311,7 @@ export default function BankProcessFormModal({
                       includeEmptyOption={false}
                       options={[
                         { value: "1st_of_every_month", label: t("firstOfEveryMonth") },
-                        { value: "monthly", label: t("monthly"), disabled: hasDayEnd },
+                        { value: "monthly", label: t("monthly") },
                         { value: "once", label: t("onceFrequency") },
                       ]}
                       onChange={(next) => {
