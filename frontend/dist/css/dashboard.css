@@ -1065,18 +1065,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     flex: 1;
     min-height: 260px;
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
 }
 
-.dashboard-panel-card--chart .dashboard-panel-chart-body .recharts-responsive-container {
-    flex: 1;
-    min-height: 0;
-}
-
-.dashboard-panel-card--chart .dashboard-panel-chart-body .recharts-wrapper {
-    margin-bottom: 0 !important;
+.dashboard-panel-card--chart {
+    padding-bottom: clamp(12px, 1vw, 16px);
 }
 
 .dashboard-panel-card--summary {
