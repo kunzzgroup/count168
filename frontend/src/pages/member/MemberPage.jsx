@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl } from "../../utils/apiUrl.js";
-import { applyLoginLang, useLoginLang } from "../../utils/useLoginLang.js";
-import { MAINTENANCE_I18N } from "../../translateFile/maintenanceTranslate.js";
-import { formatMemberRowDescription, getMemberText } from "../../translateFile/memberTranslate.js";
+import { assetUrl } from "../../utils/core/apiUrl.js";
+import { applyLoginLang, useLoginLang } from "../../utils/i18n/useLoginLang.js";
+import { MAINTENANCE_I18N } from "../../translateFile/pages/maintenanceTranslate.js";
+import { formatMemberRowDescription, getMemberText } from "../../translateFile/pages/memberTranslate.js";
 import SidebarLangSwitch from "../../components/SidebarLangSwitch.jsx";
 import ReportDatePicker from "../report/common/ReportDatePicker.jsx";
 import {

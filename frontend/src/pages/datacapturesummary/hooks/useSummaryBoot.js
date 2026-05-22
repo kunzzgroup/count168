@@ -5,8 +5,8 @@ import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
 } from "../../datacapture/lib/dataCaptureCompanyAccess.js";
-import { fetchSummarySessionUser } from "../summaryApi.js";
-import { summaryQueryKeys } from "../summaryQueryKeys.js";
+import { fetchSummarySessionUser } from "../lib/summaryApi.js";
+import { summaryQueryKeys } from "../lib/summaryQueryKeys.js";
 
 /**
  * Session boot for Summary SPA — mirrors Data Capture access rules.

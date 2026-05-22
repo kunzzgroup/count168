@@ -66,7 +66,7 @@ function parseGenericHtmlTable(htmlString, startCell) {
 }
 `;
 
-const moneyUtils = `import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
+const moneyUtils = `import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 
 export function formatNumberToTwoDecimals(value) {
   if (value === null || value === undefined) return value;

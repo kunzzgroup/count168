@@ -1,3 +1,5 @@
+import { createGetText } from "../shared/i18nHelpers.js";
+
 export const TRANSACTION_I18N = {
   en: {
     transactionList: "Transaction List",
@@ -225,10 +227,4 @@ export const TRANSACTION_I18N = {
   },
 };
 
-export function getTransactionText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
-  const dict = TRANSACTION_I18N[locale] || TRANSACTION_I18N.en;
-  const fallback = TRANSACTION_I18N.en;
-  let template = dict[key] ?? fallback[key] ?? key;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
-}
+export const getTransactionText = createGetText(TRANSACTION_I18N);

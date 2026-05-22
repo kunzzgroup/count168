@@ -2,8 +2,8 @@ import { useEffect, useMemo } from "react";
 import {
   bindMaintenanceCalendarDismissListeners,
   ensureMaintenanceDateRangePicker,
-} from "../../../utils/maintenanceDateRangePicker.js";
-import { formatDmy, parseYmd } from "../../../utils/dateUtils.js";
+} from "../../../utils/date/dateRangePicker.js";
+import { formatDmy, parseYmd } from "../../../utils/date/dateUtils.js";
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

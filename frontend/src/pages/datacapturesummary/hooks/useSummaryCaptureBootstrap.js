@@ -1,16 +1,16 @@
 import { useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchSummaryServerState } from "../summaryApi.js";
-import { summaryQueryKeys } from "../summaryQueryKeys.js";
+import { fetchSummaryServerState } from "../lib/summaryApi.js";
+import { summaryQueryKeys } from "../lib/summaryQueryKeys.js";
 import {
   applyTransformationsToTableData,
   parseSummaryProcessMeta,
-} from "../summaryTransform.js";
+} from "../lib/summaryTransform.js";
 import {
   clearStaleCaptureIdForFreshRound,
   isSummaryFreshFromCapture,
   readCaptureSessionFromStorage,
-} from "../summaryStorage.js";
+} from "../lib/summaryStorage.js";
 
 /**
  * Phase 1: React owns capture-session read + server state prefetch.

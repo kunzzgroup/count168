@@ -1,5 +1,5 @@
 /** Confirm delete modal — pure React replacement */
-import { getDomainText } from "../../../translateFile/domainTranslate.js";
+import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 
 export default function DomainConfirmModal({ message, onConfirm, onClose, lang = "en" }) {

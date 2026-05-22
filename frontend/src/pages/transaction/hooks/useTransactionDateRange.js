@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import "../../../../public/css/date-range-picker.css";
 
 export function useTransactionDateRange({

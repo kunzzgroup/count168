@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/deleted-log.css";
 

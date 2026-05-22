@@ -1,5 +1,5 @@
 import { parseBalanceValue } from "./transactionFormat.js";
-import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
+import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 
 export const TRANSACTION_CURRENCY_FILTER_KEY_PREFIX = "transaction_currency_filter_v1_";
 export const TX_LIST_SESSION_PREFIX = "count168_txlist_v1_";

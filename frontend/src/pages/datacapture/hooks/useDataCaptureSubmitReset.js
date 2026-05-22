@@ -13,7 +13,7 @@ import {
 } from "../lib/dataCaptureFormRules.js";
 import { fetchProcessDetail } from "../lib/dataCaptureApi.js";
 import { convertTableFormatOnSubmit } from "../lib/dataCaptureConvertTableOnSubmit.js";
-import { buildSpaPath } from "../../../utils/apiUrl.js";
+import { buildSpaPath } from "../../../utils/core/apiUrl.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 
 function buildProcessCapturePayload(form, captureType, currencies) {

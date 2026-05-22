@@ -1,3 +1,5 @@
+import { createGetText } from "../shared/i18nHelpers.js";
+
 export const ANNOUNCEMENT_I18N = {
   en: {
     loadAnnouncementsFailed: "Failed to load announcements: {message}",
@@ -89,8 +91,4 @@ export const ANNOUNCEMENT_I18N = {
   },
 };
 
-export function getAnnouncementText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
-  const template = ANNOUNCEMENT_I18N[locale][key] ?? ANNOUNCEMENT_I18N.en[key] ?? key;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
-}
+export const getAnnouncementText = createGetText(ANNOUNCEMENT_I18N);

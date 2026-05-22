@@ -7,8 +7,8 @@ import {
   runLegacyRateBatchSubmit,
   runLegacyRateSelectAll,
   saveSummaryRefreshState,
-} from "../summaryPageActions.js";
-import { requestSummaryDeleteConfirmation } from "../summaryDeleteFlow.js";
+} from "../lib/summaryPageActions.js";
+import { requestSummaryDeleteConfirmation } from "../lib/summaryDeleteFlow.js";
 import { useSummarySubmit } from "./useSummarySubmit.js";
 
 /**

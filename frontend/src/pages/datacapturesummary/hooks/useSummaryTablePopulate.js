@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
-import { buildColumnAEntries } from "../summaryColumnAData.js";
+import { buildColumnAEntries } from "../table/summaryColumnAData.js";
 import {
   runSummaryTablePostPopulate,
   showSummarySuccessNotificationIfNeeded,
   summaryTableNeedsTemplatePopulate,
   waitForSummaryPopulateIdle,
   waitForSummaryPrePopulateReady,
-} from "../summaryTablePostPopulate.js";
+} from "../table/summaryTablePostPopulate.js";
 import {
   removeLegacySummaryEmptyStateDom,
   showSummaryTableChrome,

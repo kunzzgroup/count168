@@ -1,3 +1,5 @@
+import { createGetText } from "../shared/i18nHelpers.js";
+
 export const DOMAIN_I18N = {
   en: {
     pleaseEnterCompanyId: "Please enter a company ID",
@@ -354,8 +356,4 @@ export const DOMAIN_I18N = {
   },
 };
 
-export function getDomainText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
-  const template = DOMAIN_I18N[locale][key] ?? DOMAIN_I18N.en[key] ?? key;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
-}
+export const getDomainText = createGetText(DOMAIN_I18N);

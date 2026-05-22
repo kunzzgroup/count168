@@ -1,3 +1,5 @@
+import { interpolate, toLocale } from "../shared/i18nHelpers.js";
+
 export const BANK_PROCESS_I18N = {
   en: {
     bankProcessList: "Bank Process List",
@@ -573,12 +575,12 @@ export function translateBankProcessApiMessage(lang, payload, fallback = "") {
 }
 
 export function getBankProcessLocale(lang) {
-  return BANK_PROCESS_I18N[lang === "zh" ? "zh" : "en"] ?? BANK_PROCESS_I18N.en;
+  return BANK_PROCESS_I18N[toLocale(lang)] ?? BANK_PROCESS_I18N.en;
 }
 
 export function getBankProcessText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
+  const locale = toLocale(lang);
   const template = BANK_PROCESS_I18N[locale][key] ?? BANK_PROCESS_I18N.en[key] ?? key;
   if (typeof template !== "string") return template;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
+  return interpolate(template, params);
 }

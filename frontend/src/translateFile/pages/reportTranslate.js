@@ -1,3 +1,5 @@
+import { createGetText } from "../shared/i18nHelpers.js";
+
 export const REPORT_I18N = {
   en: {
     customerReportTitle: "Customer Report",
@@ -123,8 +125,4 @@ export const REPORT_I18N = {
   },
 };
 
-export function getReportText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
-  const template = REPORT_I18N[locale][key] ?? REPORT_I18N.en[key] ?? key;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
-}
+export const getReportText = createGetText(REPORT_I18N);

@@ -24,4 +24,4 @@ Routes: `/customer-report`, `/domain-report` (see `App.jsx`).
 - Customer CSS: `frontend/public/css/customer_report.css`
 - Domain CSS: `frontend/public/css/domain_report.css`
 - Shared report fields: `report-outlined-fields.css`
-- Translations: `frontend/src/translateFile/reportTranslate.js`
+- Translations: `frontend/src/translateFile/pages/reportTranslate.js`

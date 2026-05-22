@@ -34,5 +34,5 @@ Route: `/transaction-maintenance` — `pages/maintenance/transaction/` (separate
 ## Styles & i18n
 
 - CSS: `frontend/public/css/transaction.css`, `report-outlined-fields.css`, `userlist.css`
-- Translations: `frontend/src/translateFile/transactionTranslate.js`
+- Translations: `frontend/src/translateFile/pages/transactionTranslate.js`
 - Legacy reference: `js/transaction.js`

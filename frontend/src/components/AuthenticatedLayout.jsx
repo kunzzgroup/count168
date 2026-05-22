@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
-import { clearDataCaptureRoundLocalStorage } from "../utils/dataCaptureRoundStorage.js";
+import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
+import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
-import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
-import { applyLoginLang } from "../utils/useLoginLang.js";
+import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
+import { applyLoginLang } from "../utils/i18n/useLoginLang.js";
 import "../../public/css/modal-close-unified.css";
 
 function readCookie(name) {

@@ -1,3 +1,5 @@
+import { createGetText, toLocale } from "../shared/i18nHelpers.js";
+
 export const MAINTENANCE_I18N = {
   en: {
     category: "Category:",
@@ -275,16 +277,10 @@ const INPUT_METHOD_LABEL_KEYS = {
   },
 };
 
-export function getMaintenanceText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
-  const dict = MAINTENANCE_I18N[locale] || MAINTENANCE_I18N.en;
-  const fallback = MAINTENANCE_I18N.en;
-  let template = dict[key] ?? fallback[key] ?? key;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
-}
+export const getMaintenanceText = createGetText(MAINTENANCE_I18N);
 
 export function getFormulaInputMethodOptions(lang) {
-  const locale = lang === "zh" ? "zh" : "en";
+  const locale = toLocale(lang);
   const labels = INPUT_METHOD_LABEL_KEYS[locale];
   return INPUT_METHOD_META.map(({ value, key }) => ({
     value,

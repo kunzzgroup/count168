@@ -1,8 +1,8 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../../utils/sharedCompanyFilter.js";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../../utils/company/sharedCompanyFilter.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
 import "../../../../public/css/userlist.css";
@@ -17,8 +17,8 @@ import {
   fetchCurrencies,
   isBankOnlyCategoryCompany,
 } from "../shared/reportCompanyApi.js";
-import { formatYmd } from "../../../utils/dateUtils.js";
-import { getReportText, REPORT_I18N } from "../../../translateFile/reportTranslate.js";
+import { formatYmd } from "../../../utils/date/dateUtils.js";
+import { getReportText, REPORT_I18N } from "../../../translateFile/pages/reportTranslate.js";
 import CustomerReportFilters from "./CustomerReportFilters.jsx";
 import CustomerReportTable from "./CustomerReportTable.jsx";
 import { useReportGcSwitcher } from "../shared/useReportGcSwitcher.js";

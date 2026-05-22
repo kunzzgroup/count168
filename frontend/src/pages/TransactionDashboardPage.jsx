@@ -13,21 +13,21 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { buildApiUrl } from "../utils/apiUrl.js";
-import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
-import { mergeGroupData } from "../utils/dashboardMerge.js";
+import { buildApiUrl } from "../utils/core/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../utils/company/companySessionEvents.js";
+import { mergeGroupData } from "../utils/dashboard/dashboardMerge.js";
 import {
   convertToBaseAmount,
   fetchFrankfurterRates,
   resolveFrankfurterDate,
   sumConvertedEarnings,
-} from "../utils/frankfurterRates.js";
-import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
-import { formatDmy, parseDdMmYyyyToYmd } from "../utils/dateUtils.js";
+} from "../utils/dashboard/frankfurterRates.js";
+import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
+import { formatDmy, parseDdMmYyyyToYmd } from "../utils/date/dateUtils.js";
 import {
   bindMaintenanceCalendarDismissListeners,
   ensureMaintenanceDateRangePicker,
-} from "../utils/maintenanceDateRangePicker.js";
+} from "../utils/date/dateRangePicker.js";
 import "../../public/css/userlist.css";
 import "../../public/css/transaction.css";
 import "../../public/css/report-outlined-fields.css";

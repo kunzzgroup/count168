@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toUpperDisplay } from "../formulaMaintenanceLogic.js";
-import { assetUrl } from "../../../../utils/apiUrl.js";
+import { assetUrl } from "../../../../utils/core/apiUrl.js";
 import FormulaVirtualRows from "./FormulaVirtualRows.jsx";
 
 const ROW_HEIGHT = 56;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 
 const PERMISSION_OPTIONS = [
   "home",

@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { toUpperDisplay } from "../formulaMaintenanceLogic.js";
-import { assetUrl } from "../../../../utils/apiUrl.js";
+import { assetUrl } from "../../../../utils/core/apiUrl.js";
 
 const FormulaVirtualDataRow = memo(function FormulaVirtualDataRow({
   row,

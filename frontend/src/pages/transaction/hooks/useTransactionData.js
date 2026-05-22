@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   dedupeOwnerCompaniesByCode,
   filterCompaniesWithDisplayId,
@@ -11,7 +11,7 @@ import {
   persistDashboardGroupFilter,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
-} from "../../../utils/sharedCompanyFilter.js";
+} from "../../../utils/company/sharedCompanyFilter.js";
 import {
   getAccounts,
   getCategories,
@@ -19,7 +19,7 @@ import {
   getUserCurrencyOrder,
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
-import { isPartnershipAuditReadOnlyLocked } from "../../../utils/partnershipAuditReadOnly.js";
+import { isPartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
 import { orderCurrencyRows, readTransactionCurrencyFilterState } from "../lib/transactionPaymentLogic.js";
 
 export function useTransactionData({

@@ -1,4 +1,4 @@
-import { assetUrl } from "../../../utils/apiUrl.js";
+import { assetUrl } from "../../../utils/core/apiUrl.js";
 
 export default function SummarySubmitBar({
   submitting = false,

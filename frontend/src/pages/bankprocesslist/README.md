@@ -28,5 +28,5 @@ Route: `/bankprocess-maintenance` — `pages/maintenance/bankprocess/` (separate
 ## Styles & i18n
 
 - CSS: `frontend/public/css/processCSS.css`, `processlist.css`, `accountCSS.css`, `account-list.css`, `userlist.css`, `date-range-picker.css`
-- Translations: `frontend/src/translateFile/bankProcessTranslate.js`
+- Translations: `frontend/src/translateFile/pages/bankProcessTranslate.js`
 - Legacy reference: `js/bank_process_list.js`

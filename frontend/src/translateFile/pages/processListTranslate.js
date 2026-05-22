@@ -1,3 +1,5 @@
+import { createGetText } from "../shared/i18nHelpers.js";
+
 export const PROCESS_LIST_I18N = {
   en: {
     pageTitle: "Process List",
@@ -239,8 +241,4 @@ export const PROCESS_LIST_I18N = {
   },
 };
 
-export function getProcessListText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
-  const template = PROCESS_LIST_I18N[locale][key] ?? PROCESS_LIST_I18N.en[key] ?? key;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
-}
+export const getProcessListText = createGetText(PROCESS_LIST_I18N);

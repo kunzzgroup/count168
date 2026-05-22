@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { SUMMARY_NOTIFICATION_AUTO_HIDE_MS } from "../summarySubmitConstants.js";
-import { normalizeSummaryNotificationArgs } from "../summaryNotificationNormalize.js";
+import { SUMMARY_NOTIFICATION_AUTO_HIDE_MS } from "../submit/summarySubmitConstants.js";
+import { normalizeSummaryNotificationArgs } from "../lib/summaryNotificationNormalize.js";
 
 const EMPTY_NOTIFICATION = {
   open: false,

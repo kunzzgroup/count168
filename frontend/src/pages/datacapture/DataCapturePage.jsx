@@ -1,8 +1,8 @@
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
-import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
+import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import {
   applySharedGroupClickWithCompanySwitch,
   dedupeOwnerCompaniesByCode,
@@ -12,7 +12,7 @@ import {
   persistDashboardGroupFilter,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
-} from "../../utils/sharedCompanyFilter.js";
+} from "../../utils/company/sharedCompanyFilter.js";
 
 import "../../../public/css/datacapture.css";
 import "../../../public/css/userlist.css";

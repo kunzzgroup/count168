@@ -1,4 +1,4 @@
-import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
+import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 
 export const PAGE_SIZE = 20;
 

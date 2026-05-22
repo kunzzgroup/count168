@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { getApiMessage, isApiConflict, isApiSuccess } from "../shared/ownershipHelpers.js";
 import {
   applyOwnershipRowFieldUpdate,

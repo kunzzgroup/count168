@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 
 export function AnnouncementPanel({ t, announcements, onEdit, onDelete }) {
   const [form, setForm] = useState({ title: "", content: "" });

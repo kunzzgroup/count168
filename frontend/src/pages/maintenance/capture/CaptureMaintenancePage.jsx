@@ -7,11 +7,11 @@ import "../../../../public/css/transaction.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/capture_maintenance.css";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
-import { formatYmd } from "../../../utils/dateUtils.js";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
+import { formatYmd } from "../../../utils/date/dateUtils.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
   fetchCompanyPermissions,
@@ -20,8 +20,8 @@ import {
   deleteCaptureItems,
   updateSessionCompany,
 } from "./captureMaintenanceLogic.js";
-import { useLoginLang } from "../../../utils/useLoginLang.js";
-import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
+import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";

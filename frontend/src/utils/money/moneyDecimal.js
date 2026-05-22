@@ -1,6 +1,6 @@
 /**
  * ES module parity with legacy `js/money-decimal.js` (window.MoneyDecimal).
- * Import from React/Vite: `import { MoneyDecimal, formatThousands } from '../../utils/moneyDecimal.js'`.
+ * Import from React/Vite: `import { MoneyDecimal, formatThousands } from '../../utils/money/moneyDecimal.js'`.
  */
 import Decimal from "./decimalEngine.js";
 

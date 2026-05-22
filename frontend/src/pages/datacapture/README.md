@@ -2,7 +2,7 @@
 
 Route: `/datacapture` (see `App.jsx`). Entry: `DataCapturePage.jsx`.
 
-Related: `/datacapturesummary` — `pages/datacapturesummary/` (submit/summary flow).
+Related: `/datacapturesummary` — `pages/datacapturesummary/` (see `datacapturesummary/README.md`).
 
 ## Where to change what
 

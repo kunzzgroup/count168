@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../../utils/sanitizeCapitalLettersOnly.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../../utils/input/sanitizeCapitalLettersOnly.js";
 import { saveUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
 import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../../account/accountLogic.js";
-import { getAccountText } from "../../../translateFile/accountTranslate.js";
-import { getBankProcessLocale, getBankProcessText, translateBankProcessApiMessage } from "../../../translateFile/bankProcessTranslate.js";
+import { getAccountText } from "../../../translateFile/pages/accountTranslate.js";
+import { getBankProcessLocale, getBankProcessText, translateBankProcessApiMessage } from "../../../translateFile/pages/bankProcessTranslate.js";
 // Helper imports
 import {
   PAGE_SIZE,

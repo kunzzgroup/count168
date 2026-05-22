@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/domain.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
@@ -19,7 +19,7 @@ import DomainConfirmModal from "./components/DomainConfirmModal.jsx";
 import DomainFeeModal from "./components/DomainFeeModal.jsx";
 import CompanyExpirationModal from "./components/CompanyExpirationModal.jsx";
 import DomainFormModal from "./components/DomainFormModal.jsx";
-import { getDomainText } from "../../translateFile/domainTranslate.js";
+import { getDomainText } from "../../translateFile/pages/domainTranslate.js";
 
 export default function DomainPage() {
   const navigate = useNavigate();

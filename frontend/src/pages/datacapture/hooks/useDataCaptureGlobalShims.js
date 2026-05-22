@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { unsetWindowProperty } from "../../../utils/unsetWindowProperty.js";
+import { unsetWindowProperty } from "../../../utils/core/unsetWindowProperty.js";
 import { initDataCaptureSpaPage } from "../lib/dataCaptureSpaInit.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 

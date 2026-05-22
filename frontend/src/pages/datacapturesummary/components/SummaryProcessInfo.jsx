@@ -1,7 +1,7 @@
 import {
   formatSummaryProcessCurrency,
   formatSummaryProcessDescriptions,
-} from "../summaryTransform.js";
+} from "../lib/summaryTransform.js";
 
 /**
  * Process metadata bar — React-owned (Phase 1).

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AccountModal from "../../../components/AccountModal.jsx";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
-import { getAccountText } from "../../../translateFile/accountTranslate.js";
+import { getAccountText } from "../../../translateFile/pages/accountTranslate.js";
 import { DEFAULT_FORM, toUpper, normalizeAlertAmount, getOrderedRoles } from "../../account/accountLogic.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 
