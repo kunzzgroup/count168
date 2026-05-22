@@ -144,6 +144,11 @@ export default function TransactionPaymentPage() {
     };
   }, []);
 
+  /** Re-apply after stale passive cleanups (e.g. Home dashboard useEffect unmount) that run after our layout effect. */
+  useEffect(() => {
+    document.body.classList.add("transaction-page");
+  }, []);
+
   /** Runs after previous route's `useEffect` cleanup (User/Account used to re-add `bg`). `body.bg::before` blocks clicks site-wide. */
   useEffect(() => {
     document.body.classList.remove("bg");

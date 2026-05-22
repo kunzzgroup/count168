@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Area,
@@ -174,7 +174,8 @@ export default function TransactionDashboardPage() {
     [i18n]
   );
 
-  useEffect(() => {
+  /* useLayoutEffect: passive cleanup from other routes must not run after child mount and strip transaction-page (React #310 / SPA nav flash). */
+  useLayoutEffect(() => {
     document.body.classList.add("transaction-page");
     return () => document.body.classList.remove("transaction-page");
   }, []);
