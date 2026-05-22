@@ -75,11 +75,17 @@ function formatSignedChange(value) {
   return body;
 }
 
-/** X 轴日期贴 SVG 底边；底线与标签同一水平带（Recharts 默认轴线在留白区顶部会悬空） */
+/** 日期在底、X 轴基线紧贴日期上方（同一留白带，避免线与标签脱节） */
+function dashboardChartXAxisPositions(y, marginBottom, dense) {
+  const labelY = y + marginBottom - (dense ? 6 : 10);
+  const axisY = labelY - (dense ? 11 : 5);
+  return { labelY, axisY };
+}
+
 function makeDashboardChartXTick(marginBottom, dense) {
   return function DashboardChartXTick({ x, y, payload }) {
     if (x == null || y == null || payload?.value == null) return null;
-    const labelY = y + marginBottom - (dense ? 8 : 12);
+    const { labelY } = dashboardChartXAxisPositions(y, marginBottom, dense);
     if (dense) {
       return (
         <text
@@ -102,9 +108,10 @@ function makeDashboardChartXTick(marginBottom, dense) {
   };
 }
 
-function DashboardChartBottomAxisLine({ offset, width, height, marginBottom }) {
+function DashboardChartBottomAxisLine({ offset, width, height, marginBottom, dense }) {
   if (!height || !width || marginBottom == null) return null;
-  const axisY = height - 6;
+  const bandTop = height - marginBottom;
+  const { axisY } = dashboardChartXAxisPositions(bandTop, marginBottom, dense);
   return (
     <line
       x1={offset?.left ?? 0}
@@ -716,7 +723,7 @@ export default function TransactionDashboardPage() {
   const chartXAxisLayout = useMemo(() => {
     const n = chartRows.length;
     const dense = n > 14;
-    const marginBottom = dense ? 34 : 20;
+    const marginBottom = dense ? 30 : 18;
     return {
       interval: n <= 45 ? 0 : "preserveStartEnd",
       minTickGap: n <= 45 ? 0 : 8,
@@ -1072,6 +1079,7 @@ export default function TransactionDashboardPage() {
                         <DashboardChartBottomAxisLine
                           {...props}
                           marginBottom={chartXAxisLayout.marginBottom}
+                          dense={chartXAxisLayout.dense}
                         />
                       )}
                     />
