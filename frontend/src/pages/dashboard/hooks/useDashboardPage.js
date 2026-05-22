@@ -61,6 +61,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const currencyCodeRef = useRef(currencyCode);
   const earningsFetchGenRef = useRef(0);
   const dashboardFetchGenRef = useRef(0);
+  const companySwitchGenRef = useRef(0);
+  const currencyLoadGenRef = useRef(0);
+  /** @type {React.MutableRefObject<Map<number, string[]>>} */
+  const currenciesByCompanyRef = useRef(new Map());
 
   const dashboardScopeKey = useMemo(
     () =>
@@ -219,22 +223,34 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [i18n.couldNotSwitchCompany]
   );
 
+  const applyCurrencyCodes = useCallback((codes, cid) => {
+    setCurrencies(codes);
+    setCurrencyCode((prev) => (prev && codes.includes(prev) ? prev : codes[0] || ""));
+    if (cid != null && codes.length) currenciesByCompanyRef.current.set(cid, codes);
+  }, []);
+
   const loadCurrencies = useCallback(async () => {
     if (!companyId) return;
+    const cid = parseInt(companyId, 10);
+    const gen = ++currencyLoadGenRef.current;
+
+    const cached = currenciesByCompanyRef.current.get(cid);
+    if (cached?.length) applyCurrencyCodes(cached, cid);
+
     try {
       const [curRes, ordRes] = await Promise.all([
-        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${companyId}`), {
+        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`), {
           credentials: "include",
         }),
         fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), {
           credentials: "include",
         }).catch(() => null),
       ]);
+      if (gen !== currencyLoadGenRef.current) return;
+
       const curJson = await curRes.json();
-      if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
-        setCurrencies([]);
-        return;
-      }
+      if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) return;
+
       let codes = curJson.data.map((r) => String(r.code).toUpperCase());
       if (ordRes) {
         const ordJson = await ordRes.json();
@@ -246,12 +262,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           codes = [...ordered, ...rest];
         }
       }
-      setCurrencies(codes);
-      setCurrencyCode((prev) => (prev && codes.includes(prev) ? prev : codes[0] || ""));
+      if (gen !== currencyLoadGenRef.current) return;
+      applyCurrencyCodes(codes, cid);
     } catch {
-      setCurrencies([]);
+      /* Keep visible currencies on error; stale-while-revalidate avoids flicker. */
     }
-  }, [companyId]);
+  }, [companyId, applyCurrencyCodes]);
 
   useEffect(() => {
     loadCurrencies();
@@ -699,11 +715,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const list = companiesInGroupList(companies, g);
       const allIds = sortIds(list.map((c) => parseInt(c.id, 10)));
       if (!allIds.length) return;
+      const switchGen = ++companySwitchGenRef.current;
       const prevId = companyId;
       setSelectedGroup(g);
       sessionStorage.setItem("dashboard_group_filter", g);
       applyCompanySelection(allIds[0], { clearGroupAll: true, clearSubset: true });
       void syncCompanySession(allIds[0]).then((ok) => {
+        if (switchGen !== companySwitchGenRef.current) return;
         if (!ok && prevId != null) applyCompanySelection(prevId, { clearGroupAll: true, clearSubset: true });
       });
     },
@@ -721,6 +739,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         (!gid || gid === selectedGroup);
       if (isActive) return;
 
+      const switchGen = ++companySwitchGenRef.current;
       const prevId = companyId;
       if (gid) {
         setSelectedGroup(gid);
@@ -731,6 +750,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       applyCompanySelection(id);
       void syncCompanySession(id).then((ok) => {
+        if (switchGen !== companySwitchGenRef.current) return;
         if (!ok && prevId != null) {
           const prevCo = companies.find((x) => parseInt(x.id, 10) === parseInt(prevId, 10));
           if (prevCo?.group_id) {
@@ -760,11 +780,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (list[0]) handlePickCompany(list[0]);
       return;
     }
+    const switchGen = ++companySwitchGenRef.current;
     const prevId = companyId;
     setGroupAllMode(true);
     setMergedSubsetIds(null);
     applyCompanySelection(allIds[0], { clearGroupAll: false, clearSubset: true });
     void syncCompanySession(allIds[0]).then((ok) => {
+      if (switchGen !== companySwitchGenRef.current) return;
       if (!ok && prevId != null) {
         setGroupAllMode(false);
         applyCompanySelection(prevId, { clearGroupAll: false, clearSubset: true });
