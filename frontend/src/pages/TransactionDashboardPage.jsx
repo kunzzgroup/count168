@@ -306,23 +306,26 @@ function EarningsPieTooltip({ active, payload }) {
 
 function renderCurrencyPieLabel(props) {
   const { cx, cy, midAngle, outerRadius, percent, payload } = props;
-  if (!payload?.code || percent < 0.06) return null;
+  if (!payload?.code) return null;
   const RADIAN = Math.PI / 180;
   const sin = Math.sin(-RADIAN * midAngle);
   const cos = Math.cos(-RADIAN * midAngle);
+  const leaderExtra = percent < 0.08 ? 22 : 16;
+  const labelExtra = percent < 0.08 ? 14 : 10;
   const sx = cx + (outerRadius + 2) * cos;
   const sy = cy + (outerRadius + 2) * sin;
-  const mx = cx + (outerRadius + 16) * cos;
-  const my = cy + (outerRadius + 16) * sin;
-  const ex = mx + (cos >= 0 ? 1 : -1) * 10;
+  const mx = cx + (outerRadius + leaderExtra) * cos;
+  const my = cy + (outerRadius + leaderExtra) * sin;
+  const ex = mx + (cos >= 0 ? 1 : -1) * labelExtra;
   const ey = my;
   const textAnchor = cos >= 0 ? "start" : "end";
   const tx = ex + (cos >= 0 ? 4 : -4);
+  const fontSize = percent < 0.08 ? 9 : 10;
   return (
     <g>
       <path
         d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
-        stroke="#cbd5e1"
+        stroke="var(--color-border-slate, #cbd5e1)"
         fill="none"
         strokeWidth={1}
       />
@@ -330,8 +333,8 @@ function renderCurrencyPieLabel(props) {
         x={tx}
         y={ey}
         textAnchor={textAnchor}
-        fill="#94a3b8"
-        fontSize={10}
+        fill="var(--color-text-caption, #64748b)"
+        fontSize={fontSize}
         dominantBaseline="central"
       >
         {payload.code}
