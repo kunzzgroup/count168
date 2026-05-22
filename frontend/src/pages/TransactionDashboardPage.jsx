@@ -673,15 +673,19 @@ export default function TransactionDashboardPage() {
   const chartXAxisLayout = useMemo(() => {
     const n = chartRows.length;
     const dense = n > 14;
+    const axisBand = dense ? 44 : 28;
     return {
       interval: n <= 45 ? 0 : "preserveStartEnd",
       minTickGap: n <= 45 ? 0 : 8,
       tick: {
         fontSize: dense ? 9 : 11,
-        ...(dense ? { angle: -40, textAnchor: "end" } : {}),
+        fill: "#94a3b8",
+        ...(dense
+          ? { angle: -40, textAnchor: "end", dy: axisBand - 6 }
+          : { dy: 4 }),
       },
-      height: dense ? 46 : 30,
-      marginBottom: dense ? 32 : 8,
+      height: axisBand,
+      marginBottom: axisBand,
     };
   }, [chartRows.length]);
 

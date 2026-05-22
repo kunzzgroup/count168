@@ -1067,6 +1067,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     width: 100%;
 }
 
+.dashboard-panel-card--chart {
+    padding-bottom: clamp(12px, 1vw, 16px);
+}
+
 .dashboard-panel-card--summary {
     gap: clamp(12px, 1vw, 16px);
 }
