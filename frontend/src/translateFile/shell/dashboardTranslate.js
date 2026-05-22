@@ -87,6 +87,7 @@ export const DASHBOARD_I18N = {
     rateLoading: "Loading rates…",
     rateSourceLabel: "Frankfurter",
     currencyBreakdown: "Breakdown",
+    rateOneUnit: "1 {from} = {rate} {base}",
   },
   zh: {
     transactionDashboard: "交易仪表板",
@@ -176,5 +177,6 @@ export const DASHBOARD_I18N = {
     rateLoading: "加载汇率中…",
     rateSourceLabel: "Frankfurter",
     currencyBreakdown: "构成",
+    rateOneUnit: "1 {from} = {rate} {base}",
   },
 };

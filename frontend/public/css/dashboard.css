@@ -1393,6 +1393,14 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-variant-numeric: tabular-nums;
 }
 
+.dashboard-summary-pie-tooltip-pct {
+    margin-top: 2px;
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
+    font-weight: 600;
+    color: var(--color-text-caption, #64748b);
+    font-variant-numeric: tabular-nums;
+}
+
 .dashboard-summary-currency-list {
     grid-column: 2;
     grid-row: 1;
@@ -1402,15 +1410,14 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    gap: clamp(3px, 0.35vw, 5px);
-    overflow-y: auto;
+    gap: 0;
+    overflow: hidden;
     max-height: 100%;
-    padding-right: 2px;
     align-self: stretch;
 }
 
 .dashboard-summary-currency-list-head {
-    padding: 0 8px 2px;
+    padding: 0 8px 6px;
     margin: 0;
     font-size: var(--text-tiny, clamp(11px, 0.78vw, 13px));
     font-weight: 500;
@@ -1418,6 +1425,21 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-family: var(--font-heading-page);
     letter-spacing: 0.02em;
     text-transform: uppercase;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--color-surface, #ffffff);
+}
+
+.dashboard-summary-currency-list-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3px, 0.35vw, 5px);
 }
 
 .dashboard-summary-currency-row {
@@ -1484,12 +1506,12 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     line-height: 1.2;
 }
 
-.dashboard-summary-currency-share {
+.dashboard-summary-currency-rate {
     font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
     font-weight: 600;
     color: var(--color-text-caption, #64748b);
     font-family: var(--font-heading-page);
-    min-width: 38px;
+    min-width: 44px;
     text-align: right;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;

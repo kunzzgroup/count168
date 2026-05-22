@@ -112,3 +112,26 @@ export function resolveFrankfurterDate(endYmd) {
   if (Number.isNaN(end.getTime()) || end > today) return null;
   return endYmd;
 }
+
+/** How many `baseCode` units equal 1 `fromCode` unit (Frankfurter base→quote rates). */
+export function frankfurterUnitRate(fromCode, baseCode, rates) {
+  const from = String(fromCode || "").trim().toUpperCase();
+  const base = String(baseCode || "").trim().toUpperCase();
+  if (!from || !base) return null;
+  if (from === base) return 1;
+  const rate = rates?.[from];
+  if (!rate || rate <= 0) return null;
+  return 1 / rate;
+}
+
+export function formatFrankfurterUnitRate(fromCode, baseCode, rates) {
+  const unitRate = frankfurterUnitRate(fromCode, baseCode, rates);
+  if (unitRate == null) return "—";
+  if (unitRate === 1) return "1";
+  const abs = Math.abs(unitRate);
+  if (abs >= 1000) return unitRate.toFixed(2);
+  if (abs >= 100) return unitRate.toFixed(3);
+  if (abs >= 1) return unitRate.toFixed(4);
+  if (abs >= 0.01) return unitRate.toFixed(4);
+  return unitRate.toFixed(6);
+}

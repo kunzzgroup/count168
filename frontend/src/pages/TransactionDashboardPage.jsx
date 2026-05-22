@@ -19,6 +19,7 @@ import { mergeGroupData } from "../utils/dashboard/dashboardMerge.js";
 import {
   convertToBaseAmount,
   fetchFrankfurterRates,
+  formatFrankfurterUnitRate,
   resolveFrankfurterDate,
   sumConvertedEarnings,
 } from "../utils/dashboard/frankfurterRates.js";
@@ -293,13 +294,16 @@ function formatI18nTemplate(template, vars) {
   );
 }
 
-function EarningsPieSectorTooltip({ slice, placeAbove = true }) {
+function EarningsPieSectorTooltip({ slice, sharePct, placeAbove = true }) {
   if (!slice?.code) return null;
   return (
     <div className={`dashboard-summary-pie-tooltip-stack${placeAbove ? "" : " is-below"}`}>
       <div className="dashboard-summary-pie-tooltip dashboard-summary-pie-tooltip--sector">
         <div className="dashboard-summary-pie-tooltip-label">{slice.code}</div>
         <div className="dashboard-summary-pie-tooltip-value">{formatCurrency(slice.earnings ?? 0)}</div>
+        {sharePct != null && (
+          <div className="dashboard-summary-pie-tooltip-pct">{sharePct.toFixed(1)}%</div>
+        )}
       </div>
       <div className="dashboard-summary-pie-tooltip-arrow" aria-hidden="true" />
     </div>
@@ -1222,13 +1226,18 @@ export default function TransactionDashboardPage() {
     if (!hoveredPieSector) return null;
     const pos = computeSectorTooltipPosition(hoveredPieSector);
     if (!pos) return null;
+    const slice = hoveredPieSector.slice;
+    const total = earningsPieSlices.reduce((sum, row) => sum + (row.value || 0), 0);
+    const sharePct =
+      total > 0 && slice?.value != null ? (slice.value / total) * 100 : null;
     return {
-      slice: hoveredPieSector.slice,
+      slice,
+      sharePct,
       left: pos.left,
       top: pos.top,
       placeAbove: pos.placeAbove,
     };
-  }, [hoveredPieSector]);
+  }, [hoveredPieSector, earningsPieSlices]);
 
   const handlePickGroup = useCallback(
     async (gid) => {
@@ -1623,6 +1632,7 @@ export default function TransactionDashboardPage() {
                     >
                       <EarningsPieSectorTooltip
                         slice={hoveredPieTooltip.slice}
+                        sharePct={hoveredPieTooltip.sharePct}
                         placeAbove={hoveredPieTooltip.placeAbove}
                       />
                     </div>
@@ -1640,16 +1650,28 @@ export default function TransactionDashboardPage() {
                     </div>
                   )}
                 </div>
-                <div className="dashboard-summary-currency-list" role="list">
+                <div className="dashboard-summary-currency-list">
                   <div className="dashboard-summary-currency-list-head" aria-hidden="true">
                     <span>{i18n.currencyBreakdown}</span>
                   </div>
+                  <div className="dashboard-summary-currency-list-body" role="list">
                   {earningsCurrencyRows.map((row, index) => {
                     const sharePct = computeCurrencySharePct(
                       row,
                       earningsShareTotal,
                       useConvertedEarnings
                     );
+                    const unitRateLabel = useConvertedEarnings
+                      ? formatFrankfurterUnitRate(row.code, currencyCode, exchangeRates.rates)
+                      : null;
+                    const unitRateTitle =
+                      unitRateLabel && unitRateLabel !== "—"
+                        ? formatI18nTemplate(i18n.rateOneUnit, {
+                            from: row.code,
+                            rate: unitRateLabel,
+                            base: currencyCode,
+                          })
+                        : undefined;
                     return (
                     <div
                       key={row.code}
@@ -1687,12 +1709,20 @@ export default function TransactionDashboardPage() {
                             </span>
                           )}
                       </div>
-                      <span className="dashboard-summary-currency-share">
-                        {summaryEarningsLoading ? "" : `${sharePct.toFixed(1)}%`}
+                      <span
+                        className="dashboard-summary-currency-rate"
+                        title={unitRateTitle}
+                      >
+                        {summaryEarningsLoading
+                          ? ""
+                          : useConvertedEarnings
+                            ? unitRateLabel
+                            : `${sharePct.toFixed(1)}%`}
                       </span>
                     </div>
                     );
                   })}
+                  </div>
                 </div>
               </div>
               {currencies.length > 1 && rateFootnoteText && (
