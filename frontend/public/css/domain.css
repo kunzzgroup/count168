@@ -2947,26 +2947,30 @@ body.domain-page .user-modal-company-picker-root--above-modals {
     transform: translateY(-1px);
 }
 
-/* Checkbox styles */
-.domain-checkbox {
+/* Checkbox styles — 删除多选；勿在 var() 后误加 ff，否则边框/底色无效会“看不见” */
+body.domain-page .domain-react-page .domain-checkbox {
     appearance: none;
     -webkit-appearance: none;
     display: inline-block;
+    flex-shrink: 0;
     margin-left: clamp(10px, 0.73vw, 14px);
-    width: clamp(10px, 0.83vw, 16px);
-    height: clamp(10px, 0.83vw, 16px);
-    border: 2px solid var(--color-dfm-assign-ref-grid)ff;
+    width: clamp(16px, 1.04vw, 20px);
+    height: clamp(16px, 1.04vw, 20px);
+    min-width: 16px;
+    min-height: 16px;
+    border: 2px solid var(--color-dfm-assign-ref-grid);
     border-radius: 3px;
     cursor: pointer;
     position: relative;
-    background-color: white;
+    background-color: #fff;
+    vertical-align: middle;
 }
 
-.domain-checkbox:checked {
-    background-color: var(--color-dfm-assign-ref-grid)ff;
+body.domain-page .domain-react-page .domain-checkbox:checked {
+    background-color: var(--color-dfm-assign-ref-grid);
 }
 
-.domain-checkbox:checked::after {
+body.domain-page .domain-react-page .domain-checkbox:checked::after {
     content: '✓';
     position: absolute;
     color: white;
@@ -2975,6 +2979,15 @@ body.domain-page .user-modal-company-picker-root--above-modals {
     top: 40%;
     left: 50%;
     transform: translate(-50%, -50%);
+}
+
+body.domain-page .domain-react-page .domain-action-cell {
+    display: flex;
+    align-items: center;
+    overflow: visible;
+    white-space: normal;
+    gap: 8px;
+    justify-content: flex-start;
 }
 
 #cancelDeleteBtn {
