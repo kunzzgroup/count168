@@ -1572,21 +1572,22 @@ export default function TransactionDashboardPage() {
 
             <div className="dashboard-panel-card dashboard-panel-card--summary">
               <div className="dashboard-summary-layout">
-                <div className="dashboard-summary-hero dashboard-summary-hero--compact">
-                  <span className="dashboard-summary-hero-caption">
-                    {i18n.earnings}
-                    {currencyCode ? ` · ${currencyCode}` : ""}
-                  </span>
-                  <div className="dashboard-summary-hero-value">
-                    {summaryEarningsLoading ? "…" : formatCurrency(displayEarningsValue)}
+                <div className="dashboard-summary-left-col">
+                  <div className="dashboard-summary-hero dashboard-summary-hero--compact">
+                    <span className="dashboard-summary-hero-caption">
+                      {i18n.earnings}
+                      {currencyCode ? ` · ${currencyCode}` : ""}
+                    </span>
+                    <div className="dashboard-summary-hero-value">
+                      {summaryEarningsLoading ? "…" : formatCurrency(displayEarningsValue)}
+                    </div>
                   </div>
-                </div>
-                <div
-                  ref={pieWrapRef}
-                  className="dashboard-summary-pie-wrap"
-                  aria-hidden={summaryEarningsLoading}
-                  onMouseLeave={() => setHoveredPieSector(null)}
-                >
+                  <div
+                    ref={pieWrapRef}
+                    className="dashboard-summary-pie-wrap"
+                    aria-hidden={summaryEarningsLoading}
+                    onMouseLeave={() => setHoveredPieSector(null)}
+                  >
                   <ResponsiveContainer width="100%" height={DASHBOARD_EARNINGS_PIE_HEIGHT}>
                     <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <Pie
@@ -1649,6 +1650,7 @@ export default function TransactionDashboardPage() {
                       </div>
                     </div>
                   )}
+                </div>
                 </div>
                 <div className="dashboard-summary-currency-list">
                   <div className="dashboard-summary-currency-list-head" aria-hidden="true">
