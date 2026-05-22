@@ -120,7 +120,8 @@ export function ensureMaintenanceDateRangePicker() {
 
   function formatRangeDisplayText(fromText, toText) {
     if (!fromText) return config.placeholder || "Select date range";
-    if (!toText || fromText === toText) return fromText;
+    if (!toText) return fromText;
+    /* Capture Date / report filters: always show full range (legacy transaction.php behaviour). */
     return `${fromText} - ${toText}`;
   }
 
