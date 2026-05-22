@@ -10,8 +10,11 @@ export function useDataCaptureSubmittedPanelHeight() {
     const formCol = formColumnRef.current;
     if (!top || !formCol) return;
 
+    const formCard = () => formCol.querySelector(".form-container");
+
     const apply = () => {
-      const h = Math.round(formCol.getBoundingClientRect().height);
+      const el = formCard() || formCol;
+      const h = Math.round(el.getBoundingClientRect().height);
       if (h > 0) {
         top.style.setProperty("--dc-form-band-height", `${h}px`);
       } else {
@@ -22,6 +25,8 @@ export function useDataCaptureSubmittedPanelHeight() {
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(formCol);
+    const card = formCard();
+    if (card) ro.observe(card);
     window.addEventListener("resize", apply);
     return () => {
       ro.disconnect();
