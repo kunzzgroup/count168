@@ -105,30 +105,29 @@ function upsertUserCompanyPermissions(PDO $pdo, int $userId, int $companyId, ?st
     if ($accountPerms === null && $processPerms === null) {
         return;
     }
+    if (!userlistHasUserCompanyPermissionsTable($pdo)) {
+        return;
+    }
     $existingAccount = null;
     $existingProcess = null;
-    if ($accountPerms === null || $processPerms === null) {
-        $stmt = $pdo->prepare('SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?');
-        $stmt->execute([$userId, $companyId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $existingAccount = $row['account_permissions'];
-            $existingProcess = $row['process_permissions'];
-        }
+    $existingId = null;
+    $stmt = $pdo->prepare('SELECT id, account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ? LIMIT 1');
+    $stmt->execute([$userId, $companyId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        $existingId = (int) $row['id'];
+        $existingAccount = $row['account_permissions'];
+        $existingProcess = $row['process_permissions'];
     }
-    $stmt = $pdo->prepare('
-        INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions)
-        VALUES (?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-            account_permissions = VALUES(account_permissions),
-            process_permissions = VALUES(process_permissions)
-    ');
-    $stmt->execute([
-        $userId,
-        $companyId,
-        $accountPerms ?? $existingAccount,
-        $processPerms ?? $existingProcess,
-    ]);
+    $finalAccount = $accountPerms ?? $existingAccount;
+    $finalProcess = $processPerms ?? $existingProcess;
+    if ($existingId !== null) {
+        $stmt = $pdo->prepare('UPDATE user_company_permissions SET account_permissions = ?, process_permissions = ? WHERE id = ?');
+        $stmt->execute([$finalAccount, $finalProcess, $existingId]);
+        return;
+    }
+    $stmt = $pdo->prepare('INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$userId, $companyId, $finalAccount, $finalProcess]);
 }
 
 function loadUserWithCompanyPermissions(PDO $pdo, int $userId, int $companyId): array {
@@ -138,12 +137,54 @@ function loadUserWithCompanyPermissions(PDO $pdo, int $userId, int $companyId): 
     if (!$user) {
         return ['id' => $userId];
     }
+    if (!userlistHasUserCompanyPermissionsTable($pdo)) {
+        $user['account_permissions'] = null;
+        $user['process_permissions'] = null;
+        return $user;
+    }
     $stmt = $pdo->prepare('SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?');
     $stmt->execute([$userId, $companyId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     $user['account_permissions'] = $row['account_permissions'] ?? null;
     $user['process_permissions'] = $row['process_permissions'] ?? null;
     return $user;
+}
+
+function userlistHasUserCompanyPermissionsTable(PDO $pdo): bool {
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    try {
+        $cached = $pdo->query("SHOW TABLES LIKE 'user_company_permissions'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $cached = false;
+    }
+    return $cached;
+}
+
+/** 确保 user.permissions 写入合法 JSON，避免 json_valid CHECK 导致 UPDATE 整行失败 */
+function userlistResolvePermissionsJsonForUpdate(PDO $pdo, int $userId, array $input): ?string {
+    if (array_key_exists('permissions', $input)) {
+        if ($input['permissions'] === null) {
+            return null;
+        }
+        if (is_array($input['permissions'])) {
+            $encoded = json_encode(array_values($input['permissions']), JSON_UNESCAPED_UNICODE);
+            return $encoded === false ? '[]' : $encoded;
+        }
+    }
+    $stmt = $pdo->prepare('SELECT permissions FROM user WHERE id = ? LIMIT 1');
+    $stmt->execute([$userId]);
+    $existing = $stmt->fetchColumn();
+    if ($existing === false || $existing === null || trim((string) $existing) === '') {
+        return null;
+    }
+    json_decode((string) $existing, true);
+    if (json_last_error() === JSON_ERROR_NONE) {
+        return (string) $existing;
+    }
+    return '[]';
 }
 
 // 获取当前登录用户（你需要根据你的登录系统调整这个逻辑）
@@ -232,6 +273,12 @@ function userlistFriendlyDbError(Throwable $e): string
     }
     if ($e instanceof PDOException) {
         error_log('userlist_api PDO: ' . $raw);
+        if (stripos($raw, 'json_valid') !== false || (stripos($raw, 'permissions') !== false && stripos($raw, 'CONSTRAINT') !== false)) {
+            return 'Invalid permissions data';
+        }
+        if (stripos($raw, 'user_company_permissions') !== false) {
+            return 'Could not save account/process permissions';
+        }
         return 'Could not save changes. Please try again.';
     }
     $prefixes = ['Failed to create user: ', 'Failed to create company association: ', 'Failed to update user: '];
@@ -732,16 +779,9 @@ try {
                 $updateValues[] = (int)$input['read_only'];
             }
 
-            // 添加权限字段到更新列表（仅当前端显式提交时更新，避免误清空）
-            if (array_key_exists('permissions', $input)) {
-                $updateFields[] = "permissions = ?";
-                $permJson = null;
-                if ($input['permissions'] !== null && is_array($input['permissions'])) {
-                    $encoded = json_encode($input['permissions']);
-                    $permJson = $encoded === false ? null : $encoded;
-                }
-                $updateValues[] = $permJson;
-            }
+            // permissions 必须写入合法 JSON（user 表有 json_valid CHECK，非法值会导致任意字段 UPDATE 失败）
+            $updateFields[] = "permissions = ?";
+            $updateValues[] = userlistResolvePermissionsJsonForUpdate($pdo, (int) $input['id'], $input);
             
             // Account 和 Process 权限不再更新到 user 表，而是更新到 user_company_permissions 表
             // 这些字段保留在 $input 中，稍后在事务中处理
