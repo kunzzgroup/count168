@@ -1,5 +1,5 @@
 import React from "react";
-import AccountEditorRow from "./AccountEditorRow.jsx";
+import AccountEditorRow from "../../shared/components/AccountEditorRow.jsx";
 import GePartnerSection from "./GePartnerSection.jsx";
 
 export default function GroupEarningCard({
