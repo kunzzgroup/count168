@@ -234,20 +234,67 @@ function computeKpiMetrics(dashboardData, selectedGroup) {
 
 const DASHBOARD_PROFIT_COLOR = "#3b82f6";
 const DASHBOARD_EARNINGS_COLOR = "#f59e0b";
+/** 圆环同色系：份额越大颜色越深（参考 monochromatic donut） */
 const DASHBOARD_CURRENCY_PIE_PALETTE = [
-  "#3b82f6",
-  "#22c55e",
-  "#8b5cf6",
-  "#06b6d4",
-  "#ec4899",
-  "#64748b",
-  "#f97316",
-  "#14b8a6",
+  "#4338ca",
+  "#4f46e5",
+  "#6366f1",
+  "#818cf8",
+  "#a5b4fc",
+  "#c7d2fe",
+  "#ddd6fe",
+  "#e0e7ff",
 ];
 
-function currencyPieColor(code, index, activeCode) {
-  if (code === activeCode) return DASHBOARD_EARNINGS_COLOR;
-  return DASHBOARD_CURRENCY_PIE_PALETTE[index % DASHBOARD_CURRENCY_PIE_PALETTE.length];
+function buildEarningsPieSlices(rows) {
+  return rows
+    .map((row) => ({
+      code: row.code,
+      earnings: row.earnings,
+      value: Math.abs(row.earnings),
+    }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .map((row, index) => ({
+      ...row,
+      fill: DASHBOARD_CURRENCY_PIE_PALETTE[Math.min(index, DASHBOARD_CURRENCY_PIE_PALETTE.length - 1)],
+    }));
+}
+
+function renderCurrencyPieLabel(props) {
+  const { cx, cy, midAngle, outerRadius, percent, payload } = props;
+  if (!payload?.code || percent < 0.06) return null;
+  const RADIAN = Math.PI / 180;
+  const sin = Math.sin(-RADIAN * midAngle);
+  const cos = Math.cos(-RADIAN * midAngle);
+  const sx = cx + (outerRadius + 2) * cos;
+  const sy = cy + (outerRadius + 2) * sin;
+  const mx = cx + (outerRadius + 16) * cos;
+  const my = cy + (outerRadius + 16) * sin;
+  const ex = mx + (cos >= 0 ? 1 : -1) * 10;
+  const ey = my;
+  const textAnchor = cos >= 0 ? "start" : "end";
+  const tx = ex + (cos >= 0 ? 4 : -4);
+  return (
+    <g>
+      <path
+        d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
+        stroke="#cbd5e1"
+        fill="none"
+        strokeWidth={1}
+      />
+      <text
+        x={tx}
+        y={ey}
+        textAnchor={textAnchor}
+        fill="#94a3b8"
+        fontSize={10}
+        dominantBaseline="central"
+      >
+        {payload.code}
+      </text>
+    </g>
+  );
 }
 
 const KPI_CARD_ICONS = {
@@ -908,16 +955,18 @@ export default function TransactionDashboardPage() {
     return currencies.map((code) => ({ code, earnings: code === currencyCode ? kpi.earnings : 0 }));
   }, [earningsByCurrency, currencies, currencyCode, kpi.earnings]);
 
-  const earningsPieSlices = useMemo(() => {
-    return earningsCurrencyRows
-      .map((row, index) => ({
-        code: row.code,
-        earnings: row.earnings,
-        value: Math.abs(row.earnings),
-        fill: currencyPieColor(row.code, index, currencyCode),
-      }))
-      .filter((row) => row.value > 0);
-  }, [earningsCurrencyRows, currencyCode]);
+  const earningsPieSlices = useMemo(
+    () => buildEarningsPieSlices(earningsCurrencyRows),
+    [earningsCurrencyRows]
+  );
+
+  const currencyPieFillByCode = useMemo(() => {
+    const map = {};
+    earningsPieSlices.forEach((slice) => {
+      map[slice.code] = slice.fill;
+    });
+    return map;
+  }, [earningsPieSlices]);
 
   const summaryEarningsLoading = loading || earningsByCurrencyLoading;
 
@@ -1291,30 +1340,28 @@ export default function TransactionDashboardPage() {
               <div className="dashboard-summary-earnings-panel">
                 <div className="dashboard-summary-pie-wrap" aria-hidden={summaryEarningsLoading}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
+                    <PieChart margin={{ top: 6, right: 8, bottom: 6, left: 8 }}>
                       <Pie
                         data={
                           earningsPieSlices.length
                             ? earningsPieSlices
-                            : [{ code: "—", earnings: 0, value: 1, fill: "#f1f5f9" }]
+                            : [{ code: "—", earnings: 0, value: 1, fill: "#e0e7ff" }]
                         }
                         dataKey="value"
                         nameKey="code"
                         cx="50%"
                         cy="50%"
-                        outerRadius="88%"
-                        paddingAngle={earningsPieSlices.length > 1 ? 2 : 0}
+                        innerRadius="58%"
+                        outerRadius="82%"
+                        paddingAngle={earningsPieSlices.length > 1 ? 3 : 0}
                         stroke="#fff"
-                        strokeWidth={2}
+                        strokeWidth={3}
+                        labelLine={false}
+                        label={earningsPieSlices.length ? renderCurrencyPieLabel : false}
                       >
-                        {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#f1f5f9" }]).map(
+                        {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
                           (entry, index) => (
-                            <Cell
-                              key={entry.code || index}
-                              fill={entry.fill}
-                              stroke={entry.code === currencyCode ? DASHBOARD_EARNINGS_COLOR : "#fff"}
-                              strokeWidth={entry.code === currencyCode ? 3 : 2}
-                            />
+                            <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={3} />
                           )
                         )}
                       </Pie>
@@ -1334,7 +1381,9 @@ export default function TransactionDashboardPage() {
                     >
                       <span
                         className="dashboard-summary-currency-dot"
-                        style={{ backgroundColor: currencyPieColor(row.code, index, currencyCode) }}
+                        style={{
+                          backgroundColor: currencyPieFillByCode[row.code] || "#e0e7ff",
+                        }}
                         aria-hidden="true"
                       />
                       <span className="dashboard-summary-currency-code">{row.code}</span>
