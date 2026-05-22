@@ -22,7 +22,6 @@ export default function TransactionSearchSection({
   categories,
   onCategoryAllChange,
   toggleCategoryValue,
-  effectiveDateRangeText,
   searchState,
   setSearchState,
   fs,
@@ -162,7 +161,8 @@ export default function TransactionSearchSection({
                   aria-labelledby="transaction-capture-date-outlined-label"
                 >
                   <i className="fas fa-calendar-alt" />
-                  <span id="date-range-display">{effectiveDateRangeText}</span>
+                  {/* Text driven by MaintenanceDateRangePicker — React children would fight DOM updates. */}
+                  <span id="date-range-display" aria-live="polite" />
                   <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                 </div>
                 <input type="hidden" id="date_from" readOnly />

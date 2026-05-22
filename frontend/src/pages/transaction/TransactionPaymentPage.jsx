@@ -237,9 +237,6 @@ export default function TransactionPaymentPage() {
         ) : null}
         <div className="transaction-main-content">
           <TransactionSearchSection
-            dateFrom={search.dateFrom}
-            dateTo={search.dateTo}
-            effectiveDateRangeText={search.effectiveDateRangeText}
             categoryOpen={search.categoryOpen}
             toggleCategory={search.toggleCategory}
             categories={data.categories}
