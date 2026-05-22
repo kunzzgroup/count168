@@ -378,8 +378,7 @@ export default function MemberPage() {
                         key={`member-acc-band-${segIdx}`}
                         className="user-gc-segment-group member-winloss-account-segments"
                         style={{
-                          width:
-                            band.length >= accountMaxPerBand ? "100%" : "fit-content",
+                          width: `${(band.length / accountMaxPerBand) * 100}%`,
                           maxWidth: "100%",
                           gridTemplateColumns: `repeat(${band.length}, minmax(max-content, 1fr))`,
                         }}
