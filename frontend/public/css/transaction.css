@@ -3216,7 +3216,7 @@ body.transaction-page .transaction-search-section .report-outlined-inner .transa
     width: 100%;
     max-width: 100%;
     min-height: clamp(38px, 2.45vw, 40px) !important;
-    padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
+    padding: clamp(4px, 0.35vw, 6px) clamp(8px, 0.75vw, 12px) clamp(4px, 0.35vw, 6px) clamp(8px, 0.65vw, 10px);
     border-radius: clamp(5px, 0.42vw, 7px);
     background: #ffffff !important;
     box-shadow: none !important;
@@ -3231,15 +3231,23 @@ body.transaction-page .transaction-search-section .report-outlined-inner .transa
     box-shadow: none !important;
 }
 
-/* Capture Date floating label: align with text area, not over the calendar tile (avoids white “notch” on blue icon) */
-body.transaction-page .transaction-search-section .report-outlined-label--txn-capture-date {
-    left: clamp(46px, 3.35vw, 58px);
+/* Capture Date: label sits above date text (after calendar tile), not over the blue icon */
+body.transaction-page .transaction-search-section .transaction-category-date-row .report-outlined-label--txn-capture-date {
+    left: calc(
+        clamp(8px, 0.65vw, 10px) + clamp(28px, 2vw, 34px) + clamp(6px, 0.45vw, 8px)
+    );
 }
 
 body.transaction-page .transaction-search-section .transaction-outlined-field-col--date .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+    align-self: center;
+    width: clamp(28px, 2vw, 34px);
+    height: clamp(28px, 2vw, 34px);
+    min-height: 0;
+    margin: 0;
+    flex: 0 0 auto;
     position: relative;
-    z-index: 5;
-    border-radius: clamp(5px, 0.42vw, 7px) 0 0 clamp(5px, 0.42vw, 7px);
+    z-index: 1;
+    border-radius: clamp(5px, 0.42vw, 7px);
     box-shadow: none !important;
 }
 
