@@ -1298,7 +1298,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     position: absolute;
     z-index: 4;
     pointer-events: none;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, calc(-100% - 6px));
     animation: dashboard-pie-tooltip-in 0.18s var(--ease-out-soft, ease) both;
 }
 

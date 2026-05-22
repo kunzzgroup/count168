@@ -303,32 +303,28 @@ function EarningsPieSectorTooltip({ slice }) {
   );
 }
 
-/** Place tooltip near the outer edge of the hovered pie sector (Recharts startAngle=0, clockwise). */
-function computeSectorTooltipPosition(index, slices, width, height) {
-  const total = slices.reduce((sum, row) => sum + (row.value || 0), 0);
-  if (total <= 0 || index < 0 || index >= slices.length || width <= 0 || height <= 0) {
+const PIE_RADIAN = Math.PI / 180;
+
+/** Same polar→cartesian mapping as Recharts (startAngle=0, clockwise). */
+function polarToCartesian(cx, cy, radius, angleDeg) {
+  return {
+    x: cx + Math.cos(-PIE_RADIAN * angleDeg) * radius,
+    y: cy + Math.sin(-PIE_RADIAN * angleDeg) * radius,
+  };
+}
+
+/** Anchor tooltip on the outer-arc midpoint using Recharts sector geometry. */
+function computeSectorTooltipPosition(sector) {
+  const cx = sector?.cx;
+  const cy = sector?.cy;
+  const outerRadius = sector?.outerRadius;
+  const midAngle = sector?.midAngle;
+  if (cx == null || cy == null || outerRadius == null || midAngle == null) {
     return null;
   }
 
-  const margin = 4;
-  const innerW = Math.max(0, width - margin * 2);
-  const innerH = Math.max(0, height - margin * 2);
-  const cx = margin + innerW / 2;
-  const cy = margin + innerH / 2;
-  const outerR = (Math.min(innerW, innerH) / 2) * 0.78;
-  const tooltipR = outerR + 20;
-
-  let angleDeg = 0;
-  for (let i = 0; i < index; i += 1) {
-    angleDeg += ((slices[i].value || 0) / total) * 360;
-  }
-  angleDeg += ((slices[index].value || 0) / total) * 360 * 0.5;
-
-  const rad = (Math.PI / 180) * angleDeg;
-  return {
-    left: cx + tooltipR * Math.cos(-rad),
-    top: cy + tooltipR * Math.sin(-rad),
-  };
+  const point = polarToCartesian(cx, cy, outerRadius + 18, midAngle);
+  return { left: point.x, top: point.y };
 }
 
 function computePieCenterMetrics(slices, selectedCode) {
@@ -548,7 +544,7 @@ export default function TransactionDashboardPage() {
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
   const dashDatePickerReadyRef = useRef(false);
   const pieWrapRef = useRef(null);
-  const [hoveredPieIndex, setHoveredPieIndex] = useState(null);
+  const [hoveredPieSector, setHoveredPieSector] = useState(null);
 
   const effectiveDateRangeText = useMemo(
     () => `${ymdToDmy(dateFrom)} - ${ymdToDmy(dateTo)}`,
@@ -1204,22 +1200,27 @@ export default function TransactionDashboardPage() {
   const summaryEarningsLoading = loading || earningsByCurrencyLoading || exchangeRatesLoading;
 
   useEffect(() => {
-    setHoveredPieIndex(null);
+    setHoveredPieSector(null);
   }, [currencyCode, earningsPieSlices]);
 
+  const handlePieSectorEnter = useCallback((sectorData, index) => {
+    const slice = earningsPieSlices[index];
+    if (!slice || sectorData?.midAngle == null) return;
+    setHoveredPieSector({
+      slice,
+      cx: sectorData.cx,
+      cy: sectorData.cy,
+      outerRadius: sectorData.outerRadius,
+      midAngle: sectorData.midAngle,
+    });
+  }, [earningsPieSlices]);
+
   const hoveredPieTooltip = useMemo(() => {
-    if (hoveredPieIndex == null || !pieWrapRef.current) return null;
-    const slice = earningsPieSlices[hoveredPieIndex];
-    if (!slice) return null;
-    const pos = computeSectorTooltipPosition(
-      hoveredPieIndex,
-      earningsPieSlices,
-      pieWrapRef.current.clientWidth,
-      pieWrapRef.current.clientHeight
-    );
+    if (!hoveredPieSector) return null;
+    const pos = computeSectorTooltipPosition(hoveredPieSector);
     if (!pos) return null;
-    return { slice, left: pos.left, top: pos.top };
-  }, [hoveredPieIndex, earningsPieSlices]);
+    return { slice: hoveredPieSector.slice, left: pos.left, top: pos.top };
+  }, [hoveredPieSector]);
 
   const handlePickGroup = useCallback(
     async (gid) => {
@@ -1567,7 +1568,7 @@ export default function TransactionDashboardPage() {
                   ref={pieWrapRef}
                   className="dashboard-summary-pie-wrap"
                   aria-hidden={summaryEarningsLoading}
-                  onMouseLeave={() => setHoveredPieIndex(null)}
+                  onMouseLeave={() => setHoveredPieSector(null)}
                 >
                   <ResponsiveContainer width="100%" height={DASHBOARD_EARNINGS_PIE_HEIGHT}>
                     <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
@@ -1593,8 +1594,8 @@ export default function TransactionDashboardPage() {
                         animationBegin={0}
                         animationDuration={480}
                         animationEasing="ease-out"
-                        onMouseEnter={(_, index) => setHoveredPieIndex(index)}
-                        onMouseLeave={() => setHoveredPieIndex(null)}
+                        onMouseEnter={handlePieSectorEnter}
+                        onMouseLeave={() => setHoveredPieSector(null)}
                       >
                         {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
                           (entry, index) => (
