@@ -39,6 +39,75 @@ function toggleAlertValidateCompanyAccess(PDO $pdo, int $company_id): void {
     }
 }
 
+function alertFormatDomainAutoDisplayAccountId(string $rawAccountId): string {
+    $rawAccountId = trim($rawAccountId);
+    if ($rawAccountId === '') {
+        return $rawAccountId;
+    }
+    if (strpos($rawAccountId, '_') !== false) {
+        $parts = explode('_', $rawAccountId);
+        $count = count($parts);
+        if ($count >= 3) {
+            $last = trim((string)$parts[count($parts) - 1]);
+            $prev = trim((string)$parts[count($parts) - 2]);
+            if ($last !== '' && ctype_digit($last) && $prev !== '') {
+                return $prev;
+            }
+        }
+        if ($count >= 2) {
+            $last = trim((string)$parts[$count - 1]);
+            if ($last !== '') {
+                return $last;
+            }
+        }
+    }
+    return $rawAccountId;
+}
+
+function alertResolveAccountPk(PDO $pdo, int $companyId, int $numericPk, string $accountCode, string $displayCode): int {
+    if ($numericPk > 0) {
+        $stmt = $pdo->prepare("SELECT a.id FROM account a INNER JOIN account_company ac ON a.id = ac.account_id WHERE a.id = ? AND ac.company_id = ? LIMIT 1");
+        $stmt->execute([$numericPk, $companyId]);
+        $found = (int)$stmt->fetchColumn();
+        if ($found > 0) {
+            return $found;
+        }
+    }
+    $needles = [];
+    foreach ([$accountCode, $displayCode] as $code) {
+        $code = strtoupper(trim($code));
+        if ($code !== '') {
+            $needles[$code] = true;
+        }
+    }
+    if (empty($needles)) {
+        return 0;
+    }
+    foreach (array_keys($needles) as $needle) {
+        $stmt = $pdo->prepare("SELECT a.id FROM account a INNER JOIN account_company ac ON a.id = ac.account_id WHERE ac.company_id = ? AND UPPER(TRIM(a.account_id)) = ? LIMIT 1");
+        $stmt->execute([$companyId, $needle]);
+        $found = (int)$stmt->fetchColumn();
+        if ($found > 0) {
+            return $found;
+        }
+    }
+    $stmt = $pdo->prepare("SELECT a.id, a.account_id FROM account a INNER JOIN account_company ac ON a.id = ac.account_id WHERE ac.company_id = ?");
+    $stmt->execute([$companyId]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $raw = strtoupper(trim((string)($row['account_id'] ?? '')));
+        if ($raw === '') {
+            continue;
+        }
+        $display = strtoupper(trim(alertFormatDomainAutoDisplayAccountId((string)$row['account_id'])));
+        foreach (array_keys($needles) as $needle) {
+            if ($raw === $needle || $display === $needle) {
+                return (int)$row['id'];
+            }
+        }
+    }
+    return 0;
+}
+
 function getAccountPaymentAlert(PDO $pdo, int $accountId, int $companyId): ?array {
     $stmt = $pdo->prepare("
         SELECT a.payment_alert FROM account a
@@ -74,18 +143,13 @@ try {
     }
     toggleAlertValidateCompanyAccess($pdo, $companyId);
 
-    $accountPk = (int)($_POST['account_id'] ?? $_POST['id'] ?? 0);
-    $accountCode = trim((string)($_POST['account_code'] ?? ''));
-    if ($accountPk <= 0 && $accountCode !== '') {
-        $lookup = $pdo->prepare("
-            SELECT a.id FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE ac.company_id = ? AND UPPER(TRIM(a.account_id)) = UPPER(?)
-            LIMIT 1
-        ");
-        $lookup->execute([$companyId, $accountCode]);
-        $accountPk = (int)$lookup->fetchColumn();
-    }
+    $accountPk = alertResolveAccountPk(
+        $pdo,
+        $companyId,
+        (int)($_POST['account_id'] ?? $_POST['id'] ?? 0),
+        trim((string)($_POST['account_code'] ?? '')),
+        trim((string)($_POST['display_account_code'] ?? ''))
+    );
     if ($accountPk <= 0) {
         api_error('无效的账户ID', 400);
         exit;

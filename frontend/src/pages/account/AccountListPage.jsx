@@ -408,28 +408,44 @@ export default function AccountListPage() {
 
   const accountRowLabel = (row) => toUpper(row?.display_account_id ?? row?.account_id ?? row?.name ?? "");
 
+  const appendAccountActionFields = (fd, row) => {
+    const pk = accountRowPk(row);
+    const rawCode = String(row?.account_id || "").trim();
+    const displayCode = String(row?.display_account_id || rawCode || "").trim();
+    if (pk) fd.append("account_id", String(pk));
+    if (rawCode) fd.append("account_code", rawCode);
+    if (displayCode) fd.append("display_account_code", displayCode);
+    if (companyId) fd.append("company_id", String(companyId));
+  };
+
+  const accountRowMatches = (a, row) => {
+    const pk = accountRowPk(row);
+    if (pk && accountRowPk(a) === pk) return true;
+    const rawCode = String(row?.account_id || "").trim().toUpperCase();
+    const displayCode = String(row?.display_account_id || rawCode || "").trim().toUpperCase();
+    const aRaw = String(a?.account_id || "").trim().toUpperCase();
+    const aDisplay = String(a?.display_account_id || aRaw || "").trim().toUpperCase();
+    return (rawCode && (aRaw === rawCode || aDisplay === rawCode))
+      || (displayCode && (aRaw === displayCode || aDisplay === displayCode));
+  };
+
   const togglePaymentAlert = async (row) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
     const pk = accountRowPk(row);
-    const accountCode = String(row?.account_id || "").trim();
-    if (!pk && !accountCode) return notify(t("toggleFailed"), "danger");
+    const rawCode = String(row?.account_id || "").trim();
+    const displayCode = String(row?.display_account_id || rawCode || "").trim();
+    if (!pk && !rawCode && !displayCode) return notify(t("toggleFailed"), "danger");
     try {
       const fd = new FormData();
-      if (pk) fd.append("account_id", String(pk));
-      if (accountCode) fd.append("account_code", accountCode);
-      if (companyId) fd.append("company_id", String(companyId));
+      appendAccountActionFields(fd, row);
       const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "toggleFailed", "danger");
       const next = json.data?.newPaymentAlert ?? json.newPaymentAlert;
-      setAccounts(prev => prev.map(a => {
-        if (pk && accountRowPk(a) === pk) return { ...a, payment_alert: next };
-        if (accountCode && String(a.account_id || "").trim().toUpperCase() === accountCode.toUpperCase()) return { ...a, payment_alert: next };
-        return a;
-      }));
+      setAccounts(prev => prev.map(a => accountRowMatches(a, row) ? { ...a, payment_alert: next } : a));
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
@@ -439,23 +455,18 @@ export default function AccountListPage() {
       return;
     }
     const pk = accountRowPk(row);
-    const accountCode = String(row?.account_id || "").trim();
-    if (!pk && !accountCode) return notify(t("toggleFailed"), "danger");
+    const rawCode = String(row?.account_id || "").trim();
+    const displayCode = String(row?.display_account_id || rawCode || "").trim();
+    if (!pk && !rawCode && !displayCode) return notify(t("toggleFailed"), "danger");
     try {
       const fd = new FormData();
-      if (pk) fd.append("account_id", String(pk));
-      if (accountCode) fd.append("account_code", accountCode);
-      if (companyId) fd.append("company_id", String(companyId));
+      appendAccountActionFields(fd, row);
       const res = await fetch(buildApiUrl("api/accounts/toggle_account_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "toggleFailed", "danger");
       const next = json.newStatus || json.data?.newStatus;
       setAccounts(prev => {
-        const updated = prev.map(a => {
-          if (pk && accountRowPk(a) === pk) return { ...a, status: next };
-          if (accountCode && String(a.account_id || "").trim().toUpperCase() === accountCode.toUpperCase()) return { ...a, status: next };
-          return a;
-        });
+        const updated = prev.map(a => accountRowMatches(a, row) ? { ...a, status: next } : a);
         if (showInactive) return updated.filter(a => String(a.status || "").toLowerCase() === "inactive");
         if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
         return updated;
@@ -523,17 +534,17 @@ export default function AccountListPage() {
       return;
     }
     const accountPk = accountRowPk(typeof row === "object" ? row : { id: row });
-    const accountCode = typeof row === "object" ? String(row?.account_id || "").trim() : "";
-    if (!accountPk && !accountCode) {
+    const rawCode = typeof row === "object" ? String(row?.account_id || "").trim() : "";
+    const displayCode = typeof row === "object" ? String(row?.display_account_id || rawCode || "").trim() : "";
+    if (!accountPk && !rawCode && !displayCode) {
       return notify(t("errorLoadingAccount"), "danger");
     }
     try {
-      const detailUrl = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
-      if (accountPk) detailUrl.searchParams.set("account_id", String(accountPk));
-      if (accountCode) detailUrl.searchParams.set("account_code", accountCode);
-      if (companyId) detailUrl.searchParams.set("company_id", String(companyId));
-      detailUrl.searchParams.set("_", String(Date.now()));
-      const res = await fetch(detailUrl.toString(), {
+      const fd = new FormData();
+      appendAccountActionFields(fd, typeof row === "object" ? row : { id: row, account_id: rawCode, display_account_id: displayCode });
+      const res = await fetch(buildApiUrl("api/accounts/getaccount_api.php"), {
+        method: "POST",
+        body: fd,
         credentials: "include",
         cache: "no-store",
         headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
@@ -550,7 +561,7 @@ export default function AccountListPage() {
       const resolvedPk = Number(d.id) > 0 ? Number(d.id) : accountPk;
       setIsEditMode(true);
       setHiddenCurrencyIds([]);
-      setForm({ id: d.id, account_id: toUpper(d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
+      setForm({ id: d.id, account_id: toUpper(d.display_account_id ?? d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
       await loadSelectionMeta(resolvedPk, true);
       setEditModalOpen(true);
     } catch { notify(t("errorLoadingAccount"), "danger"); }
