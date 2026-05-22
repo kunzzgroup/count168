@@ -4,7 +4,10 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Cell,
   Customized,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -112,9 +115,9 @@ function formatSignedChange(value) {
   return body;
 }
 
-/** 按天模式：≤14 天全显示；跨 2 个自然月每隔 2 天；更长区间按宽度跳日 */
+/** 按天模式：1 个自然月每天；2 个月隔 2 天；≤14 天每天；更长区间按宽度跳日 */
 function resolveDailyChartXAxisTicks(dayCount, monthSpan) {
-  if (dayCount <= 14) {
+  if (monthSpan === 1 || dayCount <= 14) {
     return { interval: 0, minTickGap: 0 };
   }
   if (monthSpan === 2) {
@@ -230,6 +233,84 @@ function computeKpiMetrics(dashboardData, selectedGroup) {
 }
 
 const DASHBOARD_PROFIT_COLOR = "#3b82f6";
+const DASHBOARD_EARNINGS_COLOR = "#f59e0b";
+/** 各币种固定色：圆环与右侧列表一致，便于对照 */
+const DASHBOARD_CURRENCY_COLORS = {
+  MYR: "#2563eb",
+  SGD: "#0891b2",
+  USD: "#16a34a",
+  EUR: "#7c3aed",
+  IDR: "#ea580c",
+  CNY: "#dc2626",
+  HKD: "#db2777",
+  THB: "#ca8a04",
+  GBP: "#4f46e5",
+  JPY: "#be185d",
+  AUD: "#0d9488",
+  VND: "#c2410c",
+  PHP: "#9333ea",
+  KRW: "#1d4ed8",
+  TWD: "#059669",
+  INR: "#0ea5e9",
+  BND: "#65a30d",
+  CAD: "#0369a1",
+  NZD: "#15803d",
+};
+const DASHBOARD_CURRENCY_FALLBACK_PALETTE = ["#6366f1", "#14b8a6", "#f59e0b", "#64748b", "#a855f7", "#84cc16"];
+
+function getCurrencyColor(code, fallbackIndex = 0) {
+  const key = String(code || "").toUpperCase();
+  if (DASHBOARD_CURRENCY_COLORS[key]) return DASHBOARD_CURRENCY_COLORS[key];
+  return DASHBOARD_CURRENCY_FALLBACK_PALETTE[fallbackIndex % DASHBOARD_CURRENCY_FALLBACK_PALETTE.length];
+}
+
+function buildEarningsPieSlices(rows) {
+  return rows
+    .map((row, index) => ({
+      code: row.code,
+      earnings: row.earnings,
+      value: Math.abs(row.earnings),
+      fill: getCurrencyColor(row.code, index),
+    }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value);
+}
+
+function renderCurrencyPieLabel(props) {
+  const { cx, cy, midAngle, outerRadius, percent, payload } = props;
+  if (!payload?.code || percent < 0.06) return null;
+  const RADIAN = Math.PI / 180;
+  const sin = Math.sin(-RADIAN * midAngle);
+  const cos = Math.cos(-RADIAN * midAngle);
+  const sx = cx + (outerRadius + 2) * cos;
+  const sy = cy + (outerRadius + 2) * sin;
+  const mx = cx + (outerRadius + 16) * cos;
+  const my = cy + (outerRadius + 16) * sin;
+  const ex = mx + (cos >= 0 ? 1 : -1) * 10;
+  const ey = my;
+  const textAnchor = cos >= 0 ? "start" : "end";
+  const tx = ex + (cos >= 0 ? 4 : -4);
+  return (
+    <g>
+      <path
+        d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
+        stroke="#cbd5e1"
+        fill="none"
+        strokeWidth={1}
+      />
+      <text
+        x={tx}
+        y={ey}
+        textAnchor={textAnchor}
+        fill="#94a3b8"
+        fontSize={10}
+        dominantBaseline="central"
+      >
+        {payload.code}
+      </text>
+    </g>
+  );
+}
 
 const KPI_CARD_ICONS = {
   profit: "fas fa-dollar-sign",
@@ -398,6 +479,8 @@ export default function TransactionDashboardPage() {
   const [dashboardData, setDashboardData] = useState(null);
   const [dashboardDataPrev, setDashboardDataPrev] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [earningsByCurrency, setEarningsByCurrency] = useState([]);
+  const [earningsByCurrencyLoading, setEarningsByCurrencyLoading] = useState(false);
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const [companyAccessModal, setCompanyAccessModal] = useState({ open: false, message: "" });
@@ -676,41 +759,40 @@ export default function TransactionDashboardPage() {
     loadCurrencies();
   }, [loadCurrencies]);
 
-  const fetchDashboardPayload = async (cid, rangeFrom = dateFrom, rangeTo = dateTo) => {
-    const q = new URLSearchParams({
-      date_from: rangeFrom,
-      date_to: rangeTo,
-      company_id: String(cid),
-    });
-    if (currencyCode) q.append("currency", currencyCode);
-    if (selectedGroup) q.append("view_group", selectedGroup);
-    const res = await fetch(buildApiUrl(`${DASHBOARD_API}?${q}`), { credentials: "include" });
-    const json = await res.json();
-    if (!res.ok || !json.success || !json.data) {
-      throw new Error(json.message || json.error || i18n.dashboardApiError);
-    }
-    if (!selectedGroup) return json.data;
-    const gf = String(selectedGroup).toUpperCase();
-    const row = companies.find(
-      (c) =>
-        parseInt(c.id, 10) === parseInt(cid, 10) &&
-        c.group_id &&
-        String(c.group_id).toUpperCase() === gf
-    );
-    const pct = row && row.link_percentage !== undefined && row.link_percentage !== null
-      ? parseFloat(row.link_percentage)
-      : NaN;
-    const linkMultiplier = Number.isFinite(pct) && pct >= 0 ? pct / 100 : 1;
-    return linkMultiplier !== 1 ? { ...json.data, _link_multiplier: linkMultiplier } : json.data;
-  };
+  const fetchDashboardPayload = useCallback(
+    async (cid, rangeFrom, rangeTo, currencyOverride) => {
+      const q = new URLSearchParams({
+        date_from: rangeFrom,
+        date_to: rangeTo,
+        company_id: String(cid),
+      });
+      const cur = currencyOverride ?? currencyCode;
+      if (cur) q.append("currency", cur);
+      if (selectedGroup) q.append("view_group", selectedGroup);
+      const res = await fetch(buildApiUrl(`${DASHBOARD_API}?${q}`), { credentials: "include" });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.data) {
+        throw new Error(json.message || json.error || i18n.dashboardApiError);
+      }
+      if (!selectedGroup) return json.data;
+      const gf = String(selectedGroup).toUpperCase();
+      const row = companies.find(
+        (c) =>
+          parseInt(c.id, 10) === parseInt(cid, 10) &&
+          c.group_id &&
+          String(c.group_id).toUpperCase() === gf
+      );
+      const pct = row && row.link_percentage !== undefined && row.link_percentage !== null
+        ? parseFloat(row.link_percentage)
+        : NaN;
+      const linkMultiplier = Number.isFinite(pct) && pct >= 0 ? pct / 100 : 1;
+      return linkMultiplier !== 1 ? { ...json.data, _link_multiplier: linkMultiplier } : json.data;
+    },
+    [currencyCode, selectedGroup, companies, i18n]
+  );
 
-  const loadDashboard = useCallback(async () => {
-    if (!companyId) return;
-    setLoading(true);
-    setLoadError("");
-    setDashboardDataPrev(null);
-
-    const loadMerged = async (rangeFrom, rangeTo) => {
+  const loadMergedDashboard = useCallback(
+    async (rangeFrom, rangeTo, currencyOverride) => {
       if (groupAllMode && selectedGroup) {
         const groupCompanies = companies.filter(
           (c) =>
@@ -719,21 +801,57 @@ export default function TransactionDashboardPage() {
             c.company_id &&
             String(c.company_id).trim() !== ""
         );
-        const results = await Promise.all(groupCompanies.map((c) => fetchDashboardPayload(c.id, rangeFrom, rangeTo)));
+        const results = await Promise.all(
+          groupCompanies.map((c) => fetchDashboardPayload(c.id, rangeFrom, rangeTo, currencyOverride))
+        );
         return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
       }
       if (mergedSubsetIds && mergedSubsetIds.length > 1) {
-        const results = await Promise.all(mergedSubsetIds.map((cid) => fetchDashboardPayload(cid, rangeFrom, rangeTo)));
+        const results = await Promise.all(
+          mergedSubsetIds.map((cid) => fetchDashboardPayload(cid, rangeFrom, rangeTo, currencyOverride))
+        );
         return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
       }
-      return fetchDashboardPayload(companyId, rangeFrom, rangeTo);
-    };
+      return fetchDashboardPayload(companyId, rangeFrom, rangeTo, currencyOverride);
+    },
+    [companyId, groupAllMode, selectedGroup, mergedSubsetIds, companies, fetchDashboardPayload]
+  );
+
+  const loadEarningsByCurrency = useCallback(async () => {
+    if (!companyId || !currencies.length) {
+      setEarningsByCurrency([]);
+      return;
+    }
+    setEarningsByCurrencyLoading(true);
+    try {
+      const rows = await Promise.all(
+        currencies.map(async (code) => {
+          try {
+            const data = await loadMergedDashboard(dateFrom, dateTo, code);
+            const metrics = computeKpiMetrics(data, selectedGroup);
+            return { code, earnings: metrics?.earnings ?? 0 };
+          } catch {
+            return { code, earnings: 0 };
+          }
+        })
+      );
+      setEarningsByCurrency(rows);
+    } finally {
+      setEarningsByCurrencyLoading(false);
+    }
+  }, [companyId, currencies, dateFrom, dateTo, loadMergedDashboard, selectedGroup]);
+
+  const loadDashboard = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(true);
+    setLoadError("");
+    setDashboardDataPrev(null);
 
     try {
       const prevRange = previousPeriodRange(dateFrom, dateTo);
       const [current, previous] = await Promise.all([
-        loadMerged(dateFrom, dateTo),
-        loadMerged(prevRange.from, prevRange.to).catch(() => null),
+        loadMergedDashboard(dateFrom, dateTo),
+        loadMergedDashboard(prevRange.from, prevRange.to).catch(() => null),
       ]);
       setDashboardData(current);
       setDashboardDataPrev(previous);
@@ -744,21 +862,15 @@ export default function TransactionDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [
-    companyId,
-    currencyCode,
-    dateFrom,
-    dateTo,
-    groupAllMode,
-    selectedGroup,
-    mergedSubsetIds,
-    companies,
-    i18n,
-  ]);
+  }, [companyId, dateFrom, dateTo, loadMergedDashboard, i18n]);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  useEffect(() => {
+    loadEarningsByCurrency();
+  }, [loadEarningsByCurrency]);
 
   const kpiCompareLabel = useMemo(
     () => (isFullCalendarMonth(dateFrom, dateTo) ? i18n.thanLastMonth : i18n.thanPreviousPeriod),
@@ -853,18 +965,25 @@ export default function TransactionDashboardPage() {
     return series;
   }, [i18n, kpi.showEarnings]);
 
-  const summaryBreakdownBars = useMemo(() => {
-    const rows = [
-      { label: i18n.profit, value: Math.abs(kpi.profit || 0), color: DASHBOARD_PROFIT_COLOR },
-      { label: i18n.expenses, value: Math.abs(kpi.expenses || 0), color: "#ef4444" },
-      { label: i18n.netProfitChart, value: Math.abs(kpi.netProfit || 0), color: "#10b981" },
-    ];
-    if (kpi.showEarnings) {
-      rows.push({ label: i18n.earnings, value: Math.abs(kpi.earnings || 0), color: "#f59e0b" });
-    }
-    const max = Math.max(...rows.map((r) => r.value), 1);
-    return rows.map((r) => ({ ...r, pct: Math.min(100, (r.value / max) * 100) }));
-  }, [i18n, kpi]);
+  const earningsCurrencyRows = useMemo(() => {
+    if (earningsByCurrency.length) return earningsByCurrency;
+    return currencies.map((code) => ({ code, earnings: code === currencyCode ? kpi.earnings : 0 }));
+  }, [earningsByCurrency, currencies, currencyCode, kpi.earnings]);
+
+  const earningsPieSlices = useMemo(
+    () => buildEarningsPieSlices(earningsCurrencyRows),
+    [earningsCurrencyRows]
+  );
+
+  const currencyPieFillByCode = useMemo(() => {
+    const map = {};
+    earningsCurrencyRows.forEach((row, index) => {
+      map[row.code] = getCurrencyColor(row.code, index);
+    });
+    return map;
+  }, [earningsCurrencyRows]);
+
+  const summaryEarningsLoading = loading || earningsByCurrencyLoading;
 
   const handlePickGroup = useCallback(
     async (gid) => {
@@ -1197,49 +1316,101 @@ export default function TransactionDashboardPage() {
             </div>
 
             <div className="dashboard-panel-card dashboard-panel-card--summary">
-              <div className="dashboard-summary-head">
-                <span className="dashboard-summary-label">{i18n.periodSummary}</span>
-                <span className="dashboard-summary-foot-muted">{kpiFooter}</span>
-              </div>
               <div className="dashboard-summary-hero">
-                <div className="dashboard-summary-hero-value">{loading ? "…" : formatCurrency(kpi.netProfit)}</div>
-                {!loading && kpi.comparisons?.netProfit && (
+                <div className="dashboard-summary-hero-block">
+                  <span className="dashboard-summary-hero-caption">
+                    {i18n.earnings}
+                    {currencyCode ? ` · ${currencyCode}` : ""}
+                  </span>
+                  <div className="dashboard-summary-hero-value">
+                    {summaryEarningsLoading ? "…" : formatCurrency(kpi.earnings)}
+                  </div>
+                </div>
+                {!summaryEarningsLoading && kpi.comparisons?.earnings && (
                   <span
-                    className={`kpi-card-badge${kpi.comparisons.netProfit.pct >= 0 ? " is-up" : " is-down"}`}
+                    className={`kpi-card-badge${kpi.comparisons.earnings.pct >= 0 ? " is-up" : " is-down"}`}
                   >
                     <i
-                      className={`fas fa-arrow-${kpi.comparisons.netProfit.pct >= 0 ? "up" : "down"}`}
+                      className={`fas fa-arrow-${kpi.comparisons.earnings.pct >= 0 ? "up" : "down"}`}
                       aria-hidden="true"
                     />
-                    {Math.abs(kpi.comparisons.netProfit.pct).toFixed(1)}%
+                    {Math.abs(kpi.comparisons.earnings.pct).toFixed(1)}%
                   </span>
                 )}
               </div>
-              {!loading && kpi.comparisons?.netProfit && (
+              {!summaryEarningsLoading && kpi.comparisons?.earnings && (
                 <div className="dashboard-summary-compare">
                   <span
-                    className={`kpi-card-delta${kpi.comparisons.netProfit.isUp ? " is-up" : " is-down"}`}
+                    className={`kpi-card-delta${kpi.comparisons.earnings.isUp ? " is-up" : " is-down"}`}
                   >
-                    {formatSignedChange(kpi.comparisons.netProfit.delta)}
+                    {formatSignedChange(kpi.comparisons.earnings.delta)}
                   </span>
                   <span className="kpi-card-foot-muted">{kpiCompareLabel}</span>
                 </div>
               )}
-              <div className="dashboard-summary-bars">
-                {summaryBreakdownBars.map((row) => (
-                  <div key={row.label} className="dashboard-summary-bar-row">
-                    <div className="dashboard-summary-bar-meta">
-                      <span className="dashboard-summary-bar-label">{row.label}</span>
-                      <span className="dashboard-summary-bar-value">{formatCurrency(row.value)}</span>
-                    </div>
-                    <div className="dashboard-summary-bar-track">
-                      <div
-                        className="dashboard-summary-bar-fill"
-                        style={{ width: `${row.pct}%`, backgroundColor: row.color }}
+              <div className="dashboard-summary-earnings-panel">
+                <div className="dashboard-summary-pie-wrap" aria-hidden={summaryEarningsLoading}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart margin={{ top: 6, right: 8, bottom: 6, left: 8 }}>
+                      <Pie
+                        data={
+                          earningsPieSlices.length
+                            ? earningsPieSlices
+                            : [{ code: "—", earnings: 0, value: 1, fill: "#e0e7ff" }]
+                        }
+                        dataKey="value"
+                        nameKey="code"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="58%"
+                        outerRadius="82%"
+                        paddingAngle={earningsPieSlices.length > 1 ? 3 : 0}
+                        stroke="#fff"
+                        strokeWidth={3}
+                        labelLine={false}
+                        label={earningsPieSlices.length ? renderCurrencyPieLabel : false}
+                      >
+                        {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
+                          (entry, index) => (
+                            <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={3} />
+                          )
+                        )}
+                      </Pie>
+                      <Tooltip
+                        formatter={(_, __, item) => formatCurrency(item?.payload?.earnings ?? 0)}
+                        labelFormatter={(label) => String(label || "")}
                       />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="dashboard-summary-currency-list" role="list">
+                  {earningsCurrencyRows.map((row, index) => (
+                    <div
+                      key={row.code}
+                      role="listitem"
+                      className={`dashboard-summary-currency-row${row.code === currencyCode ? " is-active" : ""}`}
+                      style={
+                        row.code === currencyCode
+                          ? {
+                              borderLeft: `3px solid ${currencyPieFillByCode[row.code] || getCurrencyColor(row.code, index)}`,
+                            }
+                          : undefined
+                      }
+                    >
+                      <span
+                        className="dashboard-summary-currency-dot"
+                        style={{
+                          backgroundColor: currencyPieFillByCode[row.code] || getCurrencyColor(row.code, index),
+                        }}
+                        aria-hidden="true"
+                      />
+                      <span className="dashboard-summary-currency-code">{row.code}</span>
+                      <span className="dashboard-summary-currency-amount">
+                        {summaryEarningsLoading ? "…" : formatCurrency(row.earnings)}
+                      </span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
