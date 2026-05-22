@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { mergeGroupData } from "../../../utils/dashboard/dashboardMerge.js";
@@ -29,7 +28,6 @@ import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
 import { companiesInGroupList, sortIds } from "../lib/dashboardEarnings.js";
 
 export function useDashboardPage({ i18n, dateFrom, dateTo }) {
-  const navigate = useNavigate();
   const [me, setMe] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [companies, setCompanies] = useState([]);
@@ -59,28 +57,24 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return () => document.body.classList.remove("transaction-page");
   }, []);
 
-  const bootstrap = useCallback(async () => {
+  const bootstrap = useCallback(async (signal) => {
     setLoadError("");
     try {
-      const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+      const res = await fetch(buildApiUrl("api/session/current_user_api.php"), {
+        credentials: "include",
+        signal,
+      });
       const json = await res.json();
       if (!res.ok || !json.success || !json.data) {
-        navigate("/login", { replace: true });
+        setLoadError(i18n.failedToLoadDashboard);
         return;
       }
       const u = json.data;
-      if (u.user_type === "member") {
-        window.location.assign(new URL("/member", window.location.origin).href);
-        return;
-      }
-      if (u.needs_owner_secondary) {
-        window.location.assign(new URL("/owner-secondary-password", window.location.origin).href);
-        return;
-      }
       setMe(u);
 
       const cr = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
         credentials: "include",
+        signal,
       });
       const cj = await cr.json();
       if (!cr.ok || !cj.success || !Array.isArray(cj.data)) {
@@ -117,13 +111,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         cid = parseInt(cj.data[0].id, 10);
       }
       setCompanyId(cid ? parseInt(cid, 10) : null);
-    } catch {
-      navigate("/login", { replace: true });
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      setLoadError(i18n.failedToLoadDashboard);
     }
-  }, [navigate]);
+  }, [i18n.failedToLoadDashboard]);
 
   useEffect(() => {
-    bootstrap();
+    const controller = new AbortController();
+    bootstrap(controller.signal);
+    return () => controller.abort();
   }, [bootstrap]);
 
   const companiesForPicker = useMemo(

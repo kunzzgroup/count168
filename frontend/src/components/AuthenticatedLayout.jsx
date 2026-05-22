@@ -153,15 +153,17 @@ export default function AuthenticatedLayout() {
   const sidebarMenuTitle = (label) => (sidebarIconOnly ? label : undefined);
 
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 25000);
     (async () => {
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 25000);
       try {
         const res = await fetch(buildApiUrl("api/session/current_user_api.php"), {
           credentials: "include",
           signal: controller.signal,
         });
         const json = await res.json();
+        if (cancelled) return;
         if (!res.ok || !json.success || !json.data) {
           navigate("/login", { replace: true });
           return;
@@ -181,17 +183,20 @@ export default function AuthenticatedLayout() {
         }
         setMe(u);
       } catch (err) {
-        if (err?.name !== "AbortError") {
-          navigate("/login", { replace: true });
-        } else {
-          console.warn("Session check timed out");
-          navigate("/login", { replace: true });
-        }
+        if (cancelled || err?.name === "AbortError") return;
+        navigate("/login", { replace: true });
       } finally {
-        window.clearTimeout(timeoutId);
-        setLoading(false);
+        if (!cancelled) {
+          window.clearTimeout(timeoutId);
+          setLoading(false);
+        }
       }
     })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
   }, [navigate]);
 
   useEffect(() => {
