@@ -181,6 +181,8 @@ function computeKpiMetrics(dashboardData, selectedGroup) {
   };
 }
 
+const DASHBOARD_PROFIT_COLOR = "#3b82f6";
+
 const KPI_CARD_ICONS = {
   profit: "fas fa-dollar-sign",
   expense: "fas fa-arrow-trend-down",
@@ -747,7 +749,7 @@ export default function TransactionDashboardPage() {
 
   const chartSeries = useMemo(() => {
     const series = [
-      { idx: 0, label: i18n.profit, color: "#22c55e", dataKey: "profit", fill: "url(#gProfit)" },
+      { idx: 0, label: i18n.profit, color: DASHBOARD_PROFIT_COLOR, dataKey: "profit", fill: "url(#gProfit)" },
       { idx: 1, label: i18n.expenses, color: "#ef4444", dataKey: "expenses", fill: "url(#gExp)" },
       { idx: 2, label: i18n.netProfitChart, color: "#10b981", dataKey: "netProfit", fill: "url(#gNet)" },
     ];
@@ -759,7 +761,7 @@ export default function TransactionDashboardPage() {
 
   const summaryBreakdownBars = useMemo(() => {
     const rows = [
-      { label: i18n.profit, value: Math.abs(kpi.profit || 0), color: "#22c55e" },
+      { label: i18n.profit, value: Math.abs(kpi.profit || 0), color: DASHBOARD_PROFIT_COLOR },
       { label: i18n.expenses, value: Math.abs(kpi.expenses || 0), color: "#ef4444" },
       { label: i18n.netProfitChart, value: Math.abs(kpi.netProfit || 0), color: "#10b981" },
     ];
@@ -1045,8 +1047,8 @@ export default function TransactionDashboardPage() {
                   >
                     <defs>
                       <linearGradient id="gProfit" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgba(34,197,94,0.35)" />
-                        <stop offset="100%" stopColor="rgba(34,197,94,0.02)" />
+                        <stop offset="0%" stopColor="rgba(59,130,246,0.35)" />
+                        <stop offset="100%" stopColor="rgba(59,130,246,0.02)" />
                       </linearGradient>
                       <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="rgba(239,68,68,0.35)" />
