@@ -354,8 +354,18 @@ body.dashboard-page {
 .dashboard-filter-panel {
     padding: 0;
     overflow: visible;
-    background: linear-gradient(180deg, #f8fafc 0%, var(--scd-card) 32%);
-    border-radius: 12px;
+    margin-bottom: 0;
+}
+
+/* 与 User List .action-buttons-container 同款白卡 */
+body.dashboard-page .dashboard-filter-panel.action-buttons-container {
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    box-shadow: var(--shadow-card, 0 2px 8px rgba(0, 0, 0, 0.1));
+    border-radius: 10px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    margin-bottom: 0;
 }
 
 .dashboard-filter-panel__head {
@@ -371,11 +381,74 @@ body.dashboard-page {
     letter-spacing: 0.02em;
 }
 
-.dashboard-filter-panel__body {
-    padding-top: clamp(8px, 0.8vw, 12px);
-    display: flex;
-    flex-direction: column;
-    gap: clamp(10px, 1vw, 16px);
+/* 与 transaction-range 日历弹窗同宽（transaction.css / maintenanceDateRangePicker） */
+body.dashboard-page {
+    --dashboard-date-range-w: clamp(316px, 22vw, 336px);
+}
+
+/* 日期行：与 user-gc-inline-panel 同款 label 列 + 日期条 */
+body.dashboard-page .dashboard-filter-date-row {
+    display: grid;
+    grid-template-columns: var(--user-gc-inline-label-w, 9rem) auto;
+    column-gap: 14px;
+    align-items: center;
+    padding: 10px 20px;
+    margin: 0;
+}
+
+body.dashboard-page .dashboard-filter-date-row .user-gc-inline-label {
+    justify-self: stretch;
+}
+
+body.dashboard-page .dashboard-filter-date-row .dashboard-filter-date-field,
+body.dashboard-page .dashboard-filter-date-row .report-outlined-anchor,
+body.dashboard-page .dashboard-filter-date-row .transaction-outlined-field-col--date {
+    flex: 0 0 auto;
+    width: var(--dashboard-date-range-w);
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    justify-self: start;
+}
+
+body.dashboard-page .dashboard-filter-date-row .report-outlined-shell.report-outlined-shell--no-label {
+    margin-top: 0;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+body.dashboard-page .dashboard-filter-date-row .report-outlined-inner {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+body.dashboard-page.transaction-page .dashboard-filter-date-row .transaction-date-range-group {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
+body.dashboard-page.transaction-page .dashboard-filter-date-row .report-outlined-inner .transaction-date-range-group .date-range-picker {
+    min-width: 0 !important;
+    width: 100%;
+    max-width: 100%;
+}
+
+/* Group / Company / Currency：沿用 userlist.css 中 body.dashboard-page .user-gc-inline-panel（12px 20px 14px / row-gap 10px） */
+body.dashboard-page.transaction-page .dashboard-filter-panel .transaction-bottom-filters .user-gc-inline-panel,
+body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-panel {
+    display: grid;
+    grid-template-columns: var(--user-gc-inline-label-w, 9rem) 1fr;
+    column-gap: 14px;
+    row-gap: 10px;
+    align-items: center;
+    padding: 12px 20px 14px;
+    border-top: 1px solid rgba(15, 23, 42, 0.06);
+    background: transparent;
 }
 
 /* 篩選列：併排觸發器 + 下拉（參考稿：藥丸摘要 + 雙欄 / 幣種網格） */
@@ -707,7 +780,8 @@ body.dashboard-page {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: clamp(8px, 0.9vw, 14px);
+    --dashboard-section-gap: clamp(12px, 1.5vw, 20px);
+    gap: var(--dashboard-section-gap);
 }
 
 .dashboard-card {
@@ -715,7 +789,7 @@ body.dashboard-page {
     border: 1px solid var(--scd-border);
     border-radius: 8px;
     box-shadow: var(--scd-shadow-md);
-    padding: clamp(8px, 1vw, 16px);
+    padding: 0;
 }
 
 /* 顶部筛选 + KPI 已改为「頁首日期」+「篩選卡片」+「KPI 網格」；保留 class 以免舊引用報錯 */
@@ -761,142 +835,133 @@ body.dashboard-page {
     grid-template-columns: repeat(4, 1fr);
 }
 
-/* === KPI 卡片 - 基础上下布局 === */
+/* === KPI 卡片（图二：顶栏图标+标题 / 大号数值 / 底部说明） === */
 .dashboard-kpi-card {
-    background-color: var(--scd-card);
-    border: 1px solid var(--scd-border);
-    border-radius: 12px;
-    box-shadow: var(--scd-shadow-sm);
-    padding: 24px;
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    padding: clamp(16px, 1.25vw, 22px) clamp(18px, 1.4vw, 24px);
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 16px;
-}
-
-/* Grid中的卡片加长 */
-.dashboard-kpi-grid .dashboard-kpi-card {
-    min-height: 90px;
-}
-
-/* 左侧文本区 */
-.kpi-text {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(4px, 0.4vw, 8px);
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: clamp(10px, 0.9vw, 14px);
     min-width: 0;
-    width: 100%;
 }
 
-.dashboard-kpi-card .kpi-label {
-    font-size: clamp(10px, 0.72vw, 13px);
-    color: var(--scd-muted-foreground);
-    font-weight: 600;
-    letter-spacing: 0.06em;
+.dashboard-kpi-grid .dashboard-kpi-card {
+    min-height: 0;
+}
+
+.kpi-card-head {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 0.65vw, 10px);
+    min-width: 0;
+}
+
+.kpi-card-head-icon {
+    flex: 0 0 auto;
+    font-size: clamp(16px, 1.15vw, 20px);
+    line-height: 1;
+    color: #9ca3af;
+}
+
+.kpi-card-head-label {
+    font-size: clamp(13px, 0.95vw, 15px);
+    font-weight: 500;
+    color: #6b7280;
     font-family: var(--font-heading-page);
-    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-#earnings-card-wrapper .kpi-label {
-    text-transform: uppercase;
+.kpi-card-main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    min-width: 0;
 }
 
-.dashboard-kpi-card .kpi-value {
-    font-size: clamp(18px, 1.4vw, 26px);
+.kpi-card-value {
+    font-size: clamp(22px, 1.75vw, 32px);
     font-weight: 700;
-    color: var(--scd-card-foreground);
+    color: #111827;
     font-family: var(--font-heading-page);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
     white-space: nowrap;
 }
 
-.kpi-footer {
-    font-size: clamp(10px, 0.72vw, 12px);
-    color: var(--scd-muted-foreground);
-    margin-top: 4px;
+.kpi-card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 6px;
+    font-size: clamp(12px, 0.85vw, 14px);
     font-weight: 500;
-    letter-spacing: 0.02em;
+    font-family: var(--font-heading-page);
+    line-height: 1.35;
 }
 
-.kpi-value--profit {
-    color: var(--scd-success);
-}
-
-.kpi-value--expense {
-    color: var(--scd-danger);
-}
-
-.kpi-value--net-pos {
-    color: var(--scd-success);
-}
-
-.kpi-value--net-neg {
-    color: var(--scd-danger);
-}
-
-.kpi-value--earnings {
-    color: #d97706;
-}
-
-/* 圖標：彩色方塊（參考稿） */
-.kpi-icon--boxed {
-    width: 44px;
-    height: 44px;
-    min-height: 44px;
-    border-radius: 10px;
-    display: flex;
+.kpi-card-badge {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    font-size: clamp(18px, 1.4vw, 22px);
-    order: -1;
+    gap: 4px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: clamp(11px, 0.8vw, 13px);
+    font-weight: 600;
+    font-family: var(--font-heading-page);
+    line-height: 1;
+    white-space: nowrap;
 }
 
-.kpi-icon--profit {
-    background: rgba(34, 197, 94, 0.15);
-    color: var(--scd-success);
+.kpi-card-badge.is-up {
+    background: rgba(34, 197, 94, 0.14);
+    color: #16a34a;
 }
 
-.kpi-icon--expense {
+.kpi-card-badge.is-down {
     background: rgba(239, 68, 68, 0.12);
-    color: var(--scd-danger);
+    color: #dc2626;
 }
 
-.kpi-icon--net-pos {
-    background: rgba(34, 197, 94, 0.15);
-    color: var(--scd-success);
+.kpi-card-badge i {
+    font-size: 0.85em;
 }
 
-.kpi-icon--net-neg {
-    background: rgba(239, 68, 68, 0.12);
-    color: var(--scd-danger);
+.kpi-card-delta {
+    font-weight: 600;
 }
 
-.kpi-icon--earnings {
-    background: rgba(245, 158, 11, 0.15);
-    color: #d97706;
+.kpi-card-delta.is-up {
+    color: #16a34a;
 }
 
-/* 卡片左上角小图标（未使用 boxed 時後備） */
-.kpi-icon:not(.kpi-icon--boxed) {
-    width: auto;
-    height: auto;
-    background: transparent !important;
-    border-radius: 0;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    flex-shrink: 0;
-    color: inherit;
-    font-size: clamp(20px, 1.6vw, 24px);
-    order: -1;
+.kpi-card-delta.is-down {
+    color: #dc2626;
 }
 
-/* 語義 KPI 卡片 */
-.dashboard-kpi-card--profit .kpi-label,
-.dashboard-kpi-card--expense .kpi-label,
-.dashboard-kpi-card--net .kpi-label,
-.dashboard-kpi-card--earnings .kpi-label {
-    color: var(--scd-muted-foreground);
+.kpi-card-foot-muted {
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+.dashboard-kpi-card--positive .kpi-card-head-icon {
+    color: #22c55e;
+}
+
+.dashboard-kpi-card--negative .kpi-card-head-icon {
+    color: #ef4444;
+}
+
+.dashboard-kpi-card--earnings .kpi-card-head-icon {
+    color: #f59e0b;
 }
 
 #earnings-card-wrapper {
@@ -1062,20 +1127,15 @@ body.dashboard-page {
     .dashboard-kpi-card {
         min-width: 0;
         padding: 12px 14px;
+        border-radius: 14px;
     }
 
-    .dashboard-kpi-card .kpi-value {
-        font-size: 18px;
+    .dashboard-kpi-card .kpi-card-value {
+        font-size: 20px;
     }
 
-    .dashboard-kpi-card .kpi-label {
-        font-size: 11px;
-    }
-
-    .kpi-icon {
-        width: 38px;
-        height: 38px;
-        font-size: 16px;
+    .dashboard-kpi-card .kpi-card-head-label {
+        font-size: 12px;
     }
 
     .dashboard-chart-section {
@@ -1164,19 +1224,18 @@ body.dashboard-page {
 
     .dashboard-kpi-card {
         padding: 10px 12px;
+        gap: 8px;
     }
 
-    .dashboard-kpi-card .kpi-value {
-        font-size: 15px;
+    .dashboard-kpi-card .kpi-card-value {
+        font-size: 16px;
     }
 
-    .dashboard-kpi-card .kpi-label {
-        font-size: 10px;
+    .dashboard-kpi-card .kpi-card-head-label {
+        font-size: 11px;
     }
 
-    .kpi-icon {
-        width: 32px;
-        height: 32px;
+    .kpi-card-head-icon {
         font-size: 14px;
     }
 

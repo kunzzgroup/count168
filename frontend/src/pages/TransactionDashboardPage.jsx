@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Area,
@@ -13,6 +13,15 @@ import { buildApiUrl } from "../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { mergeGroupData } from "../utils/dashboardMerge.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
+import { formatDmy, parseDdMmYyyyToYmd } from "../utils/dateUtils.js";
+import {
+  bindMaintenanceCalendarDismissListeners,
+  ensureMaintenanceDateRangePicker,
+} from "../utils/maintenanceDateRangePicker.js";
+import "../../public/css/userlist.css";
+import "../../public/css/transaction.css";
+import "../../public/css/report-outlined-fields.css";
+import "../../public/css/date-range-picker.css";
 
 const DASHBOARD_API = "api/transactions/dashboard_api.php";
 
@@ -45,6 +54,11 @@ function formatDisplayDate(ymd) {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
+function ymdToDmy(ymd) {
+  const d = parseYmd(ymd);
+  return d ? formatDmy(d) : "";
+}
+
 function formatCurrency(value) {
   return parseFloat(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -52,89 +66,136 @@ function formatCurrency(value) {
   });
 }
 
-function quickRangeToDates(range) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let startDate;
-  let endDate;
-  switch (range) {
-    case "today":
-      startDate = new Date(today);
-      endDate = new Date(today);
-      break;
-    case "yesterday": {
-      const y = new Date(today);
-      y.setDate(y.getDate() - 1);
-      startDate = y;
-      endDate = y;
-      break;
-    }
-    case "thisWeek": {
-      const w = new Date(today);
-      const dayOfWeek = w.getDay();
-      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      w.setDate(w.getDate() - daysToMonday);
-      startDate = w;
-      endDate = new Date(today);
-      break;
-    }
-    case "lastWeek": {
-      const lastWeekEnd = new Date(today);
-      const lastWeekDayOfWeek = lastWeekEnd.getDay();
-      const daysToLastSunday = lastWeekDayOfWeek === 0 ? 0 : lastWeekDayOfWeek;
-      lastWeekEnd.setDate(lastWeekEnd.getDate() - daysToLastSunday - 1);
-      const lastWeekStart = new Date(lastWeekEnd);
-      lastWeekStart.setDate(lastWeekStart.getDate() - 6);
-      startDate = lastWeekStart;
-      endDate = lastWeekEnd;
-      break;
-    }
-    case "thisMonth":
-      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-      endDate = new Date(today);
-      break;
-    case "lastMonth": {
-      const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const lmEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-      startDate = lm;
-      endDate = lmEnd;
-      break;
-    }
-    case "thisYear":
-      startDate = new Date(today.getFullYear(), 0, 1);
-      endDate = new Date(today);
-      break;
-    case "lastYear":
-      startDate = new Date(today.getFullYear() - 1, 0, 1);
-      endDate = new Date(today.getFullYear() - 1, 11, 31);
-      break;
-    default:
-      return null;
-  }
-  return { startDate: formatYmd(startDate), endDate: formatYmd(endDate) };
+function formatSignedChange(value) {
+  const n = parseFloat(value) || 0;
+  const body = formatCurrency(Math.abs(n));
+  if (n > 0) return `+${body}`;
+  if (n < 0) return `-${body}`;
+  return body;
 }
 
-function buildCalendarCells(year, month) {
-  const firstDay = new Date(year, month - 1, 1);
-  const offset = firstDay.getDay();
-  const start = new Date(firstDay);
-  start.setDate(firstDay.getDate() - offset);
-  const cells = [];
-  for (let i = 0; i < 42; i += 1) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    cells.push({
-      ymd: formatYmd(d),
-      day: d.getDate(),
-      inCurrentMonth: d.getMonth() === month - 1,
-      isToday: formatYmd(d) === formatYmd(new Date()),
-    });
-  }
-  return cells;
+function previousPeriodRange(fromYmd, toYmd) {
+  const from = parseYmd(fromYmd);
+  const to = parseYmd(toYmd);
+  const dayMs = 86400000;
+  const dayCount = Math.max(1, Math.round((to - from) / dayMs) + 1);
+  const prevTo = new Date(from.getTime() - dayMs);
+  const prevFrom = new Date(prevTo.getTime() - (dayCount - 1) * dayMs);
+  return { from: formatYmd(prevFrom), to: formatYmd(prevTo) };
 }
 
-function normalizeRange(from, to) {
-  return from <= to ? [from, to] : [to, from];
+function isFullCalendarMonth(fromYmd, toYmd) {
+  const from = parseYmd(fromYmd);
+  const to = parseYmd(toYmd);
+  if (from.getDate() !== 1) return false;
+  const lastDay = new Date(from.getFullYear(), from.getMonth() + 1, 0).getDate();
+  return (
+    to.getDate() === lastDay &&
+    from.getMonth() === to.getMonth() &&
+    from.getFullYear() === to.getFullYear()
+  );
+}
+
+function kpiPercentChange(current, previous) {
+  const c = parseFloat(current) || 0;
+  const p = parseFloat(previous) || 0;
+  if (p === 0) {
+    if (c === 0) return 0;
+    return c > 0 ? 100 : -100;
+  }
+  return ((c - p) / Math.abs(p)) * 100;
+}
+
+function buildKpiCompare(current, previous) {
+  const delta = (parseFloat(current) || 0) - (parseFloat(previous) || 0);
+  return {
+    delta,
+    pct: kpiPercentChange(current, previous),
+    isUp: delta >= 0,
+  };
+}
+
+function computeKpiMetrics(dashboardData, selectedGroup) {
+  if (!dashboardData) return null;
+  const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
+  const rawExpenses = parseFloat(dashboardData?.period_total?.expenses ?? dashboardData.expenses) || 0;
+  const displayProfitNum = rawProfit;
+  const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+  const netProfitDisplay = displayProfitNum + displayExpensesNum;
+  const ownershipPercentage = parseFloat(dashboardData?.ownership_percentage) || 0;
+  const groupEquityPercentage = parseFloat(dashboardData?.group_equity_percentage) || 0;
+  const groupAccountPercentage = parseFloat(dashboardData?.group_account_percentage) || 0;
+  const hasGroupOwnership = !!dashboardData?.has_group_ownership;
+  const linkMul = parseFloat(dashboardData?._link_multiplier || 0) || 0;
+  const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
+  const inGroupView = !!selectedGroup;
+  const directPct = ownershipPercentage / 100;
+  let effectivePct;
+  if (hasLinkOwnership) {
+    const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
+    effectivePct = linkMul * viewerGroupShare;
+  } else if (directPct > 0) {
+    effectivePct = directPct;
+  } else if (hasGroupOwnership) {
+    effectivePct = (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
+  } else {
+    effectivePct = directPct === 0 && inGroupView ? 1 : 0;
+  }
+  const earningsDisplay = netProfitDisplay * effectivePct;
+  const showEarnings = !!dashboardData?.has_ownership_setup || hasLinkOwnership || inGroupView;
+  return {
+    profit: displayProfitNum,
+    expenses: displayExpensesNum,
+    netProfit: netProfitDisplay,
+    earnings: earningsDisplay,
+    showEarnings,
+  };
+}
+
+const KPI_CARD_ICONS = {
+  profit: "fas fa-dollar-sign",
+  expense: "fas fa-arrow-trend-down",
+  net: "fas fa-chart-line",
+  earnings: "fas fa-hand-holding-dollar",
+};
+
+function DashboardKpiCard({ variant, label, value, loading, id, tone, compare, compareLabel, fallbackFoot }) {
+  const showCompare = compare && !loading;
+  const badgeUp = compare?.pct >= 0;
+  const deltaUp = compare?.isUp;
+
+  return (
+    <div
+      id={id}
+      className={`dashboard-kpi-card dashboard-kpi-card--${variant}${tone ? ` dashboard-kpi-card--${tone}` : ""}`}
+    >
+      <div className="kpi-card-head">
+        <i className={`kpi-card-head-icon ${KPI_CARD_ICONS[variant] || "far fa-chart-bar"}`} aria-hidden="true" />
+        <span className="kpi-card-head-label">{label}</span>
+      </div>
+      <div className="kpi-card-main">
+        <div className="kpi-card-value">{loading ? "…" : value}</div>
+        {showCompare && (
+          <span className={`kpi-card-badge${badgeUp ? " is-up" : " is-down"}`}>
+            <i className={`fas fa-arrow-${badgeUp ? "up" : "down"}`} aria-hidden="true" />
+            {Math.abs(compare.pct).toFixed(1)}%
+          </span>
+        )}
+      </div>
+      <div className="kpi-card-foot">
+        {showCompare ? (
+          <>
+            <span className={`kpi-card-delta${deltaUp ? " is-up" : " is-down"}`}>
+              {formatSignedChange(compare.delta)}
+            </span>
+            <span className="kpi-card-foot-muted">{compareLabel}</span>
+          </>
+        ) : (
+          <span className="kpi-card-foot-muted">{fallbackFoot}</span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function companiesInGroupList(companies, gid) {
@@ -209,18 +270,11 @@ export default function TransactionDashboardPage() {
   const [groupAllMode, setGroupAllMode] = useState(false);
   /** Non-null with length ≥ 2 → merge dashboard for these company IDs (subset of a group or independents). */
   const [mergedSubsetIds, setMergedSubsetIds] = useState(null);
-  const [gcPopoverOpen, setGcPopoverOpen] = useState(false);
-  const [currencyPopoverOpen, setCurrencyPopoverOpen] = useState(false);
-  const [popoverActiveGroup, setPopoverActiveGroup] = useState(null);
-  const [gcDraftIds, setGcDraftIds] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [currencyCode, setCurrencyCode] = useState("");
   const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardDataPrev, setDashboardDataPrev] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [quickOpen, setQuickOpen] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [pendingStart, setPendingStart] = useState(null);
-  const [hoverDate, setHoverDate] = useState(null);
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const [companyAccessModal, setCompanyAccessModal] = useState({ open: false, message: "" });
@@ -231,13 +285,95 @@ export default function TransactionDashboardPage() {
   const defaultEnd = formatYmd(today);
   const [dateFrom, setDateFrom] = useState(defaultStart);
   const [dateTo, setDateTo] = useState(defaultEnd);
-  const [calendarYear, setCalendarYear] = useState(today.getFullYear());
-  const [calendarMonth, setCalendarMonth] = useState(today.getMonth() + 1);
-  const barRef = useRef(null);
-  const gcPickRef = useRef(null);
-  const currPickRef = useRef(null);
-  const calendarGridWheelRef = useRef(null);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
+  const dashDatePickerReadyRef = useRef(false);
+
+  const effectiveDateRangeText = useMemo(
+    () => `${ymdToDmy(dateFrom)} - ${ymdToDmy(dateTo)}`,
+    [dateFrom, dateTo]
+  );
+
+  const periodPresets = useMemo(
+    () => [
+      ["today", i18n.today],
+      ["yesterday", i18n.yesterday],
+      ["thisWeek", i18n.thisWeek],
+      ["lastWeek", i18n.lastWeek],
+      ["thisMonth", i18n.thisMonth],
+      ["lastMonth", i18n.lastMonth],
+      ["thisYear", i18n.thisYear],
+      ["lastYear", i18n.lastYear],
+    ],
+    [i18n]
+  );
+
+  /* useLayoutEffect: passive cleanup from other routes must not run after child mount and strip transaction-page (React #310 / SPA nav flash). */
+  useLayoutEffect(() => {
+    document.body.classList.add("transaction-page");
+    return () => document.body.classList.remove("transaction-page");
+  }, []);
+
+  useEffect(() => {
+    bindMaintenanceCalendarDismissListeners();
+  }, []);
+
+  useEffect(() => {
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: i18n.selectDateRange,
+      selectEndDateHint: i18n.selectEndDate,
+      monthLabels: i18n.monthLabels,
+    });
+  }, [i18n]);
+
+  useEffect(() => {
+    const df = document.getElementById("date_from");
+    const dt = document.getElementById("date_to");
+    if (!df || !dt) return;
+    const f = ymdToDmy(dateFrom);
+    const t = ymdToDmy(dateTo);
+    if (df.value !== f) df.value = f;
+    if (dt.value !== t) dt.value = t;
+    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (!me) return undefined;
+    let cancelled = false;
+    ensureMaintenanceDateRangePicker();
+    const initPicker = () => {
+      if (cancelled || dashDatePickerReadyRef.current) return;
+      if (!window.MaintenanceDateRangePicker?.init) return;
+      if (!document.getElementById("calendar-popup")) return;
+      window.MaintenanceDateRangePicker.init({
+        allowEmpty: false,
+        placeholder: i18n.selectDateRange,
+        selectEndDateHint: i18n.selectEndDate,
+        onChange: () => {
+          const fromDmy =
+            window.MaintenanceDateRangePicker.getDateFrom?.() ||
+            document.getElementById("date_from")?.value ||
+            "";
+          const toDmy =
+            window.MaintenanceDateRangePicker.getDateTo?.() ||
+            document.getElementById("date_to")?.value ||
+            "";
+          const from = parseDdMmYyyyToYmd(fromDmy);
+          const to = parseDdMmYyyyToYmd(toDmy);
+          if (from && to) {
+            setDateFrom(from);
+            setDateTo(to);
+          }
+        },
+      });
+      dashDatePickerReadyRef.current = true;
+      window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
+    };
+    initPicker();
+    return () => {
+      cancelled = true;
+      dashDatePickerReadyRef.current = false;
+    };
+  }, [me, i18n.selectDateRange, i18n.selectEndDate]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -255,25 +391,6 @@ export default function TransactionDashboardPage() {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("eazycount:language-updated", onLangUpdated);
     };
-  }, []);
-
-  useEffect(() => {
-    const onOutside = (event) => {
-      if (barRef.current && !barRef.current.contains(event.target)) {
-        setQuickOpen(false);
-        setCalendarOpen(false);
-        setPendingStart(null);
-        setHoverDate(null);
-      }
-      if (gcPickRef.current && !gcPickRef.current.contains(event.target)) {
-        setGcPopoverOpen(false);
-      }
-      if (currPickRef.current && !currPickRef.current.contains(event.target)) {
-        setCurrencyPopoverOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
   }, []);
 
   const bootstrap = useCallback(async () => {
@@ -343,15 +460,10 @@ export default function TransactionDashboardPage() {
     bootstrap();
   }, [bootstrap]);
 
-  const filteredCompanies = useMemo(() => {
-    let list = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
-    if (selectedGroup) {
-      list = list.filter((c) => c.group_id && String(c.group_id).toUpperCase() === selectedGroup);
-    } else {
-      list = list.filter((c) => !c.group_id || String(c.group_id).trim() === "");
-    }
-    return list;
-  }, [companies, selectedGroup]);
+  const companiesForPicker = useMemo(
+    () => companiesInGroupList(companies, selectedGroup),
+    [companies, selectedGroup]
+  );
 
   const groupIds = useMemo(
     () =>
@@ -441,10 +553,10 @@ export default function TransactionDashboardPage() {
     loadCurrencies();
   }, [loadCurrencies]);
 
-  const fetchDashboardPayload = async (cid) => {
+  const fetchDashboardPayload = async (cid, rangeFrom = dateFrom, rangeTo = dateTo) => {
     const q = new URLSearchParams({
-      date_from: dateFrom,
-      date_to: dateTo,
+      date_from: rangeFrom,
+      date_to: rangeTo,
       company_id: String(cid),
     });
     if (currencyCode) q.append("currency", currencyCode);
@@ -473,7 +585,9 @@ export default function TransactionDashboardPage() {
     if (!companyId) return;
     setLoading(true);
     setLoadError("");
-    try {
+    setDashboardDataPrev(null);
+
+    const loadMerged = async (rangeFrom, rangeTo) => {
       if (groupAllMode && selectedGroup) {
         const groupCompanies = companies.filter(
           (c) =>
@@ -482,20 +596,28 @@ export default function TransactionDashboardPage() {
             c.company_id &&
             String(c.company_id).trim() !== ""
         );
-        const results = await Promise.all(groupCompanies.map((c) => fetchDashboardPayload(c.id)));
-        const merged = mergeGroupData(results, { startDate: dateFrom, endDate: dateTo });
-        setDashboardData(merged);
-      } else if (mergedSubsetIds && mergedSubsetIds.length > 1) {
-        const results = await Promise.all(mergedSubsetIds.map((cid) => fetchDashboardPayload(cid)));
-        const merged = mergeGroupData(results, { startDate: dateFrom, endDate: dateTo });
-        setDashboardData(merged);
-      } else {
-        const data = await fetchDashboardPayload(companyId);
-        setDashboardData(data);
+        const results = await Promise.all(groupCompanies.map((c) => fetchDashboardPayload(c.id, rangeFrom, rangeTo)));
+        return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
       }
+      if (mergedSubsetIds && mergedSubsetIds.length > 1) {
+        const results = await Promise.all(mergedSubsetIds.map((cid) => fetchDashboardPayload(cid, rangeFrom, rangeTo)));
+        return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
+      }
+      return fetchDashboardPayload(companyId, rangeFrom, rangeTo);
+    };
+
+    try {
+      const prevRange = previousPeriodRange(dateFrom, dateTo);
+      const [current, previous] = await Promise.all([
+        loadMerged(dateFrom, dateTo),
+        loadMerged(prevRange.from, prevRange.to).catch(() => null),
+      ]);
+      setDashboardData(current);
+      setDashboardDataPrev(previous);
     } catch (e) {
       setLoadError(e.message || i18n.failedToLoadDashboard);
       setDashboardData(null);
+      setDashboardDataPrev(null);
     } finally {
       setLoading(false);
     }
@@ -515,50 +637,33 @@ export default function TransactionDashboardPage() {
     loadDashboard();
   }, [loadDashboard]);
 
+  const kpiCompareLabel = useMemo(
+    () => (isFullCalendarMonth(dateFrom, dateTo) ? i18n.thanLastMonth : i18n.thanPreviousPeriod),
+    [dateFrom, dateTo, i18n.thanLastMonth, i18n.thanPreviousPeriod]
+  );
+
   const kpi = useMemo(() => {
-    if (!dashboardData) {
-      return {
-        profit: 0,
-        expenses: 0,
-        netProfit: 0,
-        earnings: 0,
-        showEarnings: false,
-      };
-    }
-    const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
-    const rawExpenses = parseFloat(dashboardData?.period_total?.expenses ?? dashboardData.expenses) || 0;
-    const displayProfitNum = rawProfit;
-    const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-    const netProfitDisplay = displayProfitNum + displayExpensesNum;
-    const ownershipPercentage = parseFloat(dashboardData?.ownership_percentage) || 0;
-    const groupEquityPercentage = parseFloat(dashboardData?.group_equity_percentage) || 0;
-    const groupAccountPercentage = parseFloat(dashboardData?.group_account_percentage) || 0;
-    const hasGroupOwnership = !!dashboardData?.has_group_ownership;
-    const linkMul = parseFloat(dashboardData?._link_multiplier || 0) || 0;
-    const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
-    const inGroupView = !!selectedGroup;
-    const directPct = ownershipPercentage / 100;
-    let effectivePct;
-    if (hasLinkOwnership) {
-      const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
-      effectivePct = linkMul * viewerGroupShare;
-    } else if (directPct > 0) {
-      effectivePct = directPct;
-    } else if (hasGroupOwnership) {
-      effectivePct = (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
-    } else {
-      effectivePct = directPct === 0 && inGroupView ? 1 : 0;
-    }
-    const earningsDisplay = netProfitDisplay * effectivePct;
-    const showEarnings = !!dashboardData?.has_ownership_setup || hasLinkOwnership || inGroupView;
-    return {
-      profit: displayProfitNum,
-      expenses: displayExpensesNum,
-      netProfit: netProfitDisplay,
-      earnings: earningsDisplay,
-      showEarnings,
+    const empty = {
+      profit: 0,
+      expenses: 0,
+      netProfit: 0,
+      earnings: 0,
+      showEarnings: false,
+      comparisons: null,
     };
-  }, [dashboardData, selectedGroup]);
+    const current = computeKpiMetrics(dashboardData, selectedGroup);
+    if (!current) return empty;
+    const previous = computeKpiMetrics(dashboardDataPrev, selectedGroup);
+    const comparisons = previous
+      ? {
+          profit: buildKpiCompare(current.profit, previous.profit),
+          expenses: buildKpiCompare(current.expenses, previous.expenses),
+          netProfit: buildKpiCompare(current.netProfit, previous.netProfit),
+          earnings: buildKpiCompare(current.earnings, previous.earnings),
+        }
+      : null;
+    return { ...current, comparisons };
+  }, [dashboardData, dashboardDataPrev, selectedGroup]);
 
   const chartRows = useMemo(
     () => (dashboardData ? buildChartRows(dashboardData, dateFrom, dateTo) : []),
@@ -579,234 +684,59 @@ export default function TransactionDashboardPage() {
     return `${cur} · ${left} – ${right}`;
   }, [currencyCode, dateFrom, dateTo, i18n.locale]);
 
-  const groupCompanySummary = useMemo(() => {
-    const labelForIds = (ids) =>
-      sortIds(ids)
-        .map((id) => companies.find((c) => parseInt(c.id, 10) === id)?.company_id)
-        .filter(Boolean)
-        .join(", ");
-
-    if (!groupIds.length && filteredCompanies.length) {
-      if (mergedSubsetIds && mergedSubsetIds.length > 1) return labelForIds(mergedSubsetIds);
-      const c = companies.find((co) => parseInt(co.id, 10) === parseInt(companyId, 10));
-      return c?.company_id || "—";
-    }
-
-    if (!selectedGroup) {
-      const c = companies.find((co) => parseInt(co.id, 10) === parseInt(companyId, 10));
-      return c?.company_id || "—";
-    }
-
-    if (groupAllMode) return `${selectedGroup} · ${i18n.all}`;
-    if (mergedSubsetIds && mergedSubsetIds.length > 1) {
-      return `${selectedGroup} · ${labelForIds(mergedSubsetIds)}`;
-    }
-    const c = filteredCompanies.find((co) => parseInt(co.id, 10) === parseInt(companyId, 10));
-    return `${selectedGroup} · ${c?.company_id ?? "—"}`;
-  }, [
-    groupIds.length,
-    filteredCompanies,
-    mergedSubsetIds,
-    companyId,
-    companies,
-    selectedGroup,
-    groupAllMode,
-    i18n.all,
-  ]);
-
-  const computeGcDraft = useCallback(
-    (gid) => {
-      const list = companiesInGroupList(companies, gid);
-      const allowed = sortIds(list.map((c) => parseInt(c.id, 10)));
-      if (!allowed.length) return [];
-      if (gid && groupAllMode && gid === selectedGroup) return allowed;
-      if (mergedSubsetIds?.length && (gid === selectedGroup || (!gid && !selectedGroup))) {
-        const inter = mergedSubsetIds.filter((id) => allowed.includes(id));
-        if (inter.length) return sortIds(inter);
-      }
-      if (companyId && allowed.includes(parseInt(companyId, 10))) {
-        return [parseInt(companyId, 10)];
-      }
-      return [allowed[0]];
-    },
-    [companies, groupAllMode, mergedSubsetIds, selectedGroup, companyId]
-  );
-
-  const openGcPopover = useCallback(() => {
-    const g = selectedGroup ?? null;
-    setPopoverActiveGroup(g);
-    setGcDraftIds(computeGcDraft(g));
-    setGcPopoverOpen(true);
-  }, [selectedGroup, computeGcDraft]);
-
-  const confirmGcPopover = useCallback(async () => {
-    const gid = popoverActiveGroup;
-    const list = companiesInGroupList(companies, gid);
-    const allIds = sortIds(list.map((c) => parseInt(c.id, 10)));
-    let picked = sortIds(gcDraftIds.filter((id) => allIds.includes(id)));
-    if (!picked.length && allIds.length) picked = [allIds[0]];
-
-    if (gid) {
-      setSelectedGroup(gid);
-      sessionStorage.setItem("dashboard_group_filter", gid);
-    } else {
-      setSelectedGroup(null);
-      sessionStorage.removeItem("dashboard_group_filter");
-    }
-
-    const isAll =
-      allIds.length > 0 &&
-      picked.length === allIds.length &&
-      allIds.every((id, idx) => id === picked[idx]);
-
-    if (picked.length === 1) {
-      await switchCompany(picked[0]);
-    } else if (gid && isAll) {
-      setMergedSubsetIds(null);
-      setGroupAllMode(true);
-      await switchCompany(picked[0], { clearGroupAll: false, clearSubset: true });
-    } else {
+  const handlePickGroup = useCallback(
+    async (gid) => {
+      const g = String(gid || "").trim().toUpperCase();
+      if (!g || g === selectedGroup) return;
+      const list = companiesInGroupList(companies, g);
+      const allIds = sortIds(list.map((c) => parseInt(c.id, 10)));
+      if (!allIds.length) return;
+      setSelectedGroup(g);
+      sessionStorage.setItem("dashboard_group_filter", g);
       setGroupAllMode(false);
-      await switchCompany(picked[0], { clearSubset: false });
-      setMergedSubsetIds(picked);
-    }
-
-    setGcPopoverOpen(false);
-  }, [popoverActiveGroup, companies, gcDraftIds, switchCompany]);
-
-  const toggleGcDraftId = useCallback((id) => {
-    setGcDraftIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return sortIds([...next]);
-    });
-  }, []);
-
-  const selectAllGcDraft = useCallback(() => {
-    const list = companiesInGroupList(companies, popoverActiveGroup);
-    setGcDraftIds(sortIds(list.map((c) => parseInt(c.id, 10))));
-  }, [companies, popoverActiveGroup]);
-
-  const onPopoverPickGroup = useCallback(
-    (gid) => {
-      const next = popoverActiveGroup === gid ? null : gid;
-      setPopoverActiveGroup(next);
-      const list = companiesInGroupList(companies, next);
-      setGcDraftIds(sortIds(list.map((c) => parseInt(c.id, 10))));
+      setMergedSubsetIds(null);
+      await switchCompany(allIds[0], { clearGroupAll: true, clearSubset: true });
     },
-    [companies, popoverActiveGroup]
+    [companies, selectedGroup, switchCompany]
   );
 
-  const setPeriodRange = (periodKey) => {
-    const r = quickRangeToDates(periodKey);
-    if (!r) return;
-    setDateFrom(r.startDate);
-    setDateTo(r.endDate);
-    const d = parseYmd(r.startDate);
-    setCalendarYear(d.getFullYear());
-    setCalendarMonth(d.getMonth() + 1);
-  };
+  const handlePickCompany = useCallback(
+    async (c) => {
+      const id = parseInt(c.id, 10);
+      const gid = c.group_id ? String(c.group_id).toUpperCase() : null;
+      const isActive =
+        !groupAllMode &&
+        !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
+        parseInt(companyId, 10) === id &&
+        (!gid || gid === selectedGroup);
+      if (isActive) return;
 
-  const onCalendarDayClick = (ymd) => {
-    if (!pendingStart) {
-      setPendingStart(ymd);
-      setDateFrom(ymd);
-      setDateTo(ymd);
-      return;
-    }
-    const [from, to] = normalizeRange(pendingStart, ymd);
-    setDateFrom(from);
-    setDateTo(to);
-    setPendingStart(null);
-    setHoverDate(null);
-    setCalendarOpen(false);
-  };
-
-  const previewRange = useMemo(() => {
-    if (!pendingStart || !hoverDate) return null;
-    const [from, to] = normalizeRange(pendingStart, hoverDate);
-    return { from, to };
-  }, [pendingStart, hoverDate]);
-
-  const calendarCells = useMemo(
-    () => buildCalendarCells(calendarYear, calendarMonth),
-    [calendarYear, calendarMonth]
-  );
-
-  const periodLabel = useMemo(() => {
-    const options = {
-      today: i18n.today,
-      yesterday: i18n.yesterday,
-      thisWeek: i18n.thisWeek,
-      lastWeek: i18n.lastWeek,
-      thisMonth: i18n.thisMonth,
-      lastMonth: i18n.lastMonth,
-      thisYear: i18n.thisYear,
-      lastYear: i18n.lastYear,
-    };
-    return options;
-  }, [i18n]);
-
-  const yearOptions = useMemo(() => {
-    const nowY = new Date().getFullYear();
-    return Array.from({ length: nowY - 2021 + 5 }, (_, i) => 2022 + i);
-  }, []);
-
-  const gotoPrevMonth = () => {
-    if (calendarMonth === 1) {
-      setCalendarMonth(12);
-      setCalendarYear((y) => y - 1);
-      return;
-    }
-    setCalendarMonth((m) => m - 1);
-  };
-
-  const gotoNextMonth = () => {
-    if (calendarMonth === 12) {
-      setCalendarMonth(1);
-      setCalendarYear((y) => y + 1);
-      return;
-    }
-    setCalendarMonth((m) => m + 1);
-  };
-
-  useEffect(() => {
-    if (!calendarOpen) return;
-    const el = calendarGridWheelRef.current;
-    if (!el) return;
-    const onWheel = (e) => {
-      if (e.deltaY === 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.deltaY > 0) {
-        setCalendarMonth((m) => {
-          if (m === 12) {
-            setCalendarYear((y) => y + 1);
-            return 1;
-          }
-          return m + 1;
-        });
+      if (gid) {
+        setSelectedGroup(gid);
+        sessionStorage.setItem("dashboard_group_filter", gid);
       } else {
-        setCalendarMonth((m) => {
-          if (m === 1) {
-            setCalendarYear((y) => y - 1);
-            return 12;
-          }
-          return m - 1;
-        });
+        setSelectedGroup(null);
+        sessionStorage.removeItem("dashboard_group_filter");
       }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [calendarOpen]);
+      setGroupAllMode(false);
+      setMergedSubsetIds(null);
+      await switchCompany(id);
+    },
+    [companyId, selectedGroup, groupAllMode, mergedSubsetIds, switchCompany]
+  );
 
-  const toggleCalendarFromBar = () => {
-    setCalendarOpen((v) => !v);
-    setQuickOpen(false);
-    setPendingStart(null);
-    setHoverDate(null);
-  };
+  const handlePickAllInGroup = useCallback(async () => {
+    if (!selectedGroup) return;
+    const list = companiesInGroupList(companies, selectedGroup);
+    const allIds = sortIds(list.map((c) => parseInt(c.id, 10)));
+    if (allIds.length <= 1) {
+      if (list[0]) await handlePickCompany(list[0]);
+      return;
+    }
+    setGroupAllMode(true);
+    setMergedSubsetIds(null);
+    await switchCompany(allIds[0], { clearGroupAll: false, clearSubset: true });
+  }, [selectedGroup, companies, handlePickCompany, switchCompany]);
 
   return (
     <>
@@ -842,425 +772,154 @@ export default function TransactionDashboardPage() {
         )}
 
         <div id="app" className="dashboard-content">
-          <div className="dashboard-card dashboard-filter-panel">
-            <div className="dashboard-filter-panel__head">
-              <span className="dashboard-filter-panel__title">{i18n.filterSection}</span>
+          <div className="dashboard-card dashboard-filter-panel action-buttons-container">
+            <div className="dashboard-filter-date-row">
+              <span className="user-gc-inline-label">{i18n.dateRange}</span>
+              <div className="dashboard-filter-date-field report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
+                <div className="report-outlined-shell report-outlined-shell--no-label">
+                  <div className="report-outlined-inner">
+                    <div className="transaction-date-range-group">
+                      <div
+                        className="date-range-picker"
+                        id="date-range-picker"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={i18n.selectDateRange}
+                      >
+                        <i className="fas fa-calendar-alt" />
+                        <span id="date-range-display">{effectiveDateRangeText}</span>
+                        <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+                      </div>
+                      <input type="hidden" id="date_from" readOnly />
+                      <input type="hidden" id="date_to" readOnly />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="dashboard-card-body dashboard-filter-panel__body">
-              <div className="dashboard-filter-toolbar">
-                {(groupIds.length > 0 || filteredCompanies.length > 0) && (
-                  <div className="dashboard-filter-trigger-wrap" ref={gcPickRef}>
-                    <button type="button" className="dashboard-filter-trigger" onClick={openGcPopover}>
-                      <span className="dashboard-filter-trigger__label">{i18n.groupAndCompany}</span>
-                      <span className="dashboard-filter-trigger__chips" title={groupCompanySummary}>
-                        {groupCompanySummary}
-                      </span>
-                      <i className="fas fa-chevron-down dashboard-filter-trigger__caret" aria-hidden />
-                    </button>
 
-                    {gcPopoverOpen && (
-                      <div className="dashboard-filter-popover dashboard-gc-popover" role="dialog">
-                        <div className="dashboard-gc-popover__panes">
-                          {groupIds.length > 0 && (
-                            <div className="dashboard-gc-popover__col dashboard-gc-popover__groups">
-                              <div className="dashboard-filter-popover__title">{i18n.selectGroup}</div>
-                              <ul className="dashboard-gc-group-list">
-                                {groupIds.map((gid) => {
-                                  const count = companiesInGroupList(companies, gid).length;
-                                  const active = popoverActiveGroup === gid;
-                                  return (
-                                    <li key={gid}>
-                                      <button
-                                        type="button"
-                                        className={`dashboard-gc-group-item${active ? " is-active" : ""}`}
-                                        onClick={() => onPopoverPickGroup(gid)}
-                                      >
-                                        <span className="dashboard-gc-group-item__dot" aria-hidden />
-                                        <span className="dashboard-gc-group-item__label">
-                                          {lang === "zh" ? `${gid} 集团` : `${gid} Group`}
-                                        </span>
-                                        <span className="dashboard-gc-group-item__badge">{count}</span>
-                                      </button>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </div>
-                          )}
-
-                          <div
-                            className={`dashboard-gc-popover__col dashboard-gc-popover__companies${
-                              groupIds.length === 0 ? " is-full" : ""
-                            }`}
-                          >
-                            <div className="dashboard-filter-popover__title">{i18n.selectCompany}</div>
-                            <div className="dashboard-gc-company-pills">
-                              {companiesInGroupList(companies, popoverActiveGroup).length > 1 && (
-                                <button type="button" className="dashboard-pill dashboard-pill--ghost" onClick={selectAllGcDraft}>
-                                  {i18n.all}
-                                </button>
-                              )}
-                              {companiesInGroupList(companies, popoverActiveGroup).map((c) => {
-                                const id = parseInt(c.id, 10);
-                                const on = gcDraftIds.includes(id);
-                                return (
-                                  <button
-                                    key={c.id}
-                                    type="button"
-                                    className={`dashboard-pill${on ? " is-on" : ""}`}
-                                    onClick={() => toggleGcDraftId(id)}
-                                  >
-                                    {c.company_id}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <div className="dashboard-gc-popover__footer">
-                              <span className="dashboard-gc-popover__count">
-                                {i18n.selectedCompaniesCount.replace("{n}", String(gcDraftIds.length))}
-                              </span>
-                              <button type="button" className="dashboard-filter-confirm-btn" onClick={confirmGcPopover}>
-                                {i18n.confirm}
-                              </button>
-                            </div>
-                          </div>
+            {(groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0) && (
+              <div className="user-gc-inline-panel">
+                {groupIds.length > 0 && (
+                    <div className="user-gc-inline-row">
+                      <span className="user-gc-inline-label">{i18n.groupId}</span>
+                      <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                        <div className="user-gc-segment-group" role="group" aria-label={i18n.groupId}>
+                          {groupIds.map((gid) => (
+                            <button
+                              key={gid}
+                              type="button"
+                              className={`user-gc-segment${selectedGroup === gid && !groupAllMode ? " is-on" : ""}`}
+                              onClick={() => void handlePickGroup(gid)}
+                            >
+                              {gid}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                    )}
-                  </div>
-                )}
-
-                {currencies.length > 0 && (
-                  <div className="dashboard-filter-trigger-wrap" ref={currPickRef}>
-                    <button
-                      type="button"
-                      className="dashboard-filter-trigger"
-                      onClick={() => setCurrencyPopoverOpen((v) => !v)}
-                    >
-                      <span className="dashboard-filter-trigger__label">{i18n.currency.replace(":", "")}</span>
-                      <span className="dashboard-filter-trigger__chip-mini">{currencyCode}</span>
-                      <i className="fas fa-chevron-down dashboard-filter-trigger__caret" aria-hidden />
-                    </button>
-                    {currencyPopoverOpen && (
-                      <div className="dashboard-filter-popover dashboard-currency-popover" role="dialog">
-                        <div className="dashboard-filter-popover__title">{i18n.settlementCurrency}</div>
-                        <div className="dashboard-currency-grid">
+                    </div>
+                  )}
+                  {companiesForPicker.length > 0 && (
+                    <div className="user-gc-inline-row">
+                      <span className="user-gc-inline-label">{i18n.company}</span>
+                      <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                        <div className="user-gc-segment-group" role="group" aria-label={i18n.company}>
+                          {selectedGroup && companiesForPicker.length > 1 && (
+                            <button
+                              type="button"
+                              className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
+                              onClick={() => void handlePickAllInGroup()}
+                            >
+                              {i18n.all}
+                            </button>
+                          )}
+                          {companiesForPicker.map((c) => {
+                            const id = parseInt(c.id, 10);
+                            const active = groupAllMode
+                              ? false
+                              : mergedSubsetIds && mergedSubsetIds.length > 1
+                                ? mergedSubsetIds.includes(id)
+                                : parseInt(companyId, 10) === id;
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                className={`user-gc-segment${active ? " is-on" : ""}`}
+                                onClick={() => void handlePickCompany(c)}
+                              >
+                                {String(c.company_id || "").toUpperCase()}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {currencies.length > 0 && (
+                    <div className="user-gc-inline-row">
+                      <span className="user-gc-inline-label">{i18n.currency}</span>
+                      <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                        <div className="user-gc-segment-group" role="group" aria-label={i18n.currency}>
                           {currencies.map((code) => (
                             <button
                               key={code}
                               type="button"
-                              className={`dashboard-currency-option${currencyCode === code ? " is-active" : ""}`}
-                              onClick={() => {
-                                setCurrencyCode(code);
-                                setCurrencyPopoverOpen(false);
-                              }}
+                              className={`user-gc-segment${currencyCode === code ? " is-on" : ""}`}
+                              onClick={() => setCurrencyCode(code)}
                             >
                               {code}
                             </button>
                           ))}
                         </div>
                       </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="dashboard-filter-toolbar__date" ref={barRef}>
-                  <div className="dashboard-date-controls dashboard-date-controls--toolbar">
-                    <div className="dashboard-date-range-bar dashboard-date-range-bar--compact">
-                      <button
-                        type="button"
-                        className="btn dashboard-date-range-bar__cal"
-                        onClick={toggleCalendarFromBar}
-                      >
-                        <i className="fas fa-calendar-alt" />
-                      </button>
-
-                      <button
-                        type="button"
-                        className="dashboard-date-range-bar__range dashboard-date-range-bar__range--stack"
-                        onClick={toggleCalendarFromBar}
-                      >
-                        <span className="dashboard-date-range-bar__range-line">{formatDisplayDate(dateFrom)} –</span>
-                        <span className="dashboard-date-range-bar__range-line">{formatDisplayDate(dateTo)}</span>
-                      </button>
-
-                      <div className="dropdown dashboard-date-range-bar__period">
-                        <button
-                          type="button"
-                          className="btn btn-secondary dropdown-toggle dashboard-period-btn"
-                          aria-label={i18n.quickPeriod}
-                          title={i18n.quickPeriod}
-                          onClick={() => {
-                            setQuickOpen((o) => !o);
-                            setCalendarOpen(false);
-                            setPendingStart(null);
-                            setHoverDate(null);
-                          }}
-                        >
-                          <i className="fas fa-clock" aria-hidden />
-                          <span className="dashboard-period-btn__text">{i18n.period}</span>
-                          <i className="fas fa-chevron-down" aria-hidden />
-                        </button>
-                        {quickOpen && (
-                          <div className="dropdown-menu" style={{ display: "block" }} id="quick-select-dropdown">
-                            {Object.entries(periodLabel).map(([key, label]) => (
-                              <button
-                                key={key}
-                                type="button"
-                                className="dropdown-item"
-                                onClick={() => {
-                                  setPeriodRange(key);
-                                  setQuickOpen(false);
-                                }}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {calendarOpen && (
-                        <div
-                          className="calendar-popup calendar-popup--toolbar"
-                          style={{
-                            top: "calc(100% + 6px)",
-                            left: 0,
-                            right: 0,
-                            position: "absolute",
-                            boxSizing: "border-box",
-                            padding: "10px 12px 12px",
-                            borderRadius: 12,
-                            border: "1px solid #dbe3ef",
-                            background: "#ffffff",
-                            boxShadow: "0 12px 30px rgba(15, 23, 42, 0.14)",
-                            maxHeight: "none",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div style={{ width: "100%", maxWidth: 320, margin: "0 auto" }}>
-                            <div
-                              className="calendar-header"
-                              style={{
-                                marginBottom: 8,
-                                padding: "0 2px",
-                              }}
-                            >
-                              <button
-                                type="button"
-                                className="calendar-nav-btn"
-                                onClick={gotoPrevMonth}
-                                style={{ borderRadius: 8, width: 24, height: 24 }}
-                              >
-                                <i className="fas fa-chevron-left" />
-                              </button>
-                              <div
-                                className="calendar-month-year"
-                                style={{
-                                  background: "#f8fafc",
-                                  border: "1px solid #e2e8f0",
-                                  borderRadius: 8,
-                                  padding: "2px 4px",
-                                  gap: 6,
-                                }}
-                              >
-                                <select
-                                  value={calendarYear}
-                                  onChange={(e) => setCalendarYear(Number(e.target.value))}
-                                  style={{
-                                    fontSize: 12,
-                                    padding: "4px 6px",
-                                    minWidth: 68,
-                                    border: "none",
-                                    background: "transparent",
-                                  }}
-                                >
-                                  {yearOptions.map((y) => (
-                                    <option key={y} value={y}>
-                                      {y}
-                                    </option>
-                                  ))}
-                                </select>
-                                <select
-                                  value={calendarMonth}
-                                  onChange={(e) => setCalendarMonth(Number(e.target.value))}
-                                  style={{
-                                    fontSize: 12,
-                                    padding: "4px 6px",
-                                    minWidth: 58,
-                                    border: "none",
-                                    background: "transparent",
-                                  }}
-                                >
-                                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                                    <option key={m} value={m}>
-                                      {String(m).padStart(2, "0")}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <button
-                                type="button"
-                                className="calendar-nav-btn"
-                                onClick={gotoNextMonth}
-                                style={{ borderRadius: 8, width: 24, height: 24 }}
-                              >
-                                <i className="fas fa-chevron-right" />
-                              </button>
-                            </div>
-
-                            <div
-                              style={{
-                                marginBottom: 8,
-                                fontWeight: 700,
-                                color: "#0f172a",
-                                textAlign: "center",
-                                fontSize: 26,
-                                letterSpacing: "0.2px",
-                              }}
-                            >
-                              {new Date(calendarYear, calendarMonth - 1, 1).toLocaleDateString(i18n.locale, {
-                                month: "long",
-                                year: "numeric",
-                              })}
-                            </div>
-
-                            <div ref={calendarGridWheelRef}>
-                              <div
-                                className="calendar-weekdays"
-                                style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0, marginBottom: 4 }}
-                              >
-                                {i18n.weekdays.map((w, index) => (
-                                  <div
-                                    key={`${w}-${index}`}
-                                    className="calendar-weekday"
-                                    style={{ fontSize: 12, fontWeight: 700, color: "#64748b", padding: "3px 0" }}
-                                  >
-                                    {w}
-                                  </div>
-                                ))}
-                              </div>
-
-                              <div
-                                className="calendar-days"
-                                style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0 }}
-                              >
-                                {calendarCells.map((cell) => {
-                                  const isStart = cell.ymd === dateFrom;
-                                  const isEnd = cell.ymd === dateTo;
-                                  const inRange = cell.ymd >= dateFrom && cell.ymd <= dateTo;
-                                  const inPreview =
-                                    previewRange && cell.ymd >= previewRange.from && cell.ymd <= previewRange.to;
-                                  const active = isStart || isEnd;
-                                  const rangeFill = (inRange || inPreview) && !active;
-                                  return (
-                                    <button
-                                      key={cell.ymd}
-                                      type="button"
-                                      className={[
-                                        "calendar-day",
-                                        cell.isToday ? "today" : "",
-                                        !cell.inCurrentMonth ? "other-month" : "",
-                                        inRange ? "in-range" : "",
-                                        isStart ? "start-date" : "",
-                                        isEnd ? "end-date" : "",
-                                        inPreview ? "preview-range" : "",
-                                      ]
-                                        .filter(Boolean)
-                                        .join(" ")}
-                                      onMouseEnter={() => {
-                                        if (pendingStart) setHoverDate(cell.ymd);
-                                      }}
-                                      onMouseLeave={() => {
-                                        if (pendingStart) setHoverDate(null);
-                                      }}
-                                      onClick={() => onCalendarDayClick(cell.ymd)}
-                                      style={{
-                                        fontSize: 12,
-                                        height: 34,
-                                        minHeight: 34,
-                                        aspectRatio: "auto",
-                                        padding: 0,
-                                        borderRadius: active ? 8 : 0,
-                                        border: active ? "none" : "1px solid transparent",
-                                        background: active ? "#3b82f6" : rangeFill ? "#dbeafe" : "transparent",
-                                        color: active ? "#ffffff" : !cell.inCurrentMonth ? "#cbd5e1" : "#0f172a",
-                                        fontWeight: active ? 700 : 600,
-                                      }}
-                                    >
-                                      {cell.day}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
 
           <div
             className={`dashboard-kpi-grid${kpi.showEarnings ? " dashboard-kpi-grid--with-earnings" : ""}`}
           >
-            <div className="dashboard-kpi-card dashboard-kpi-card--profit">
-              <div className="kpi-icon kpi-icon--boxed kpi-icon--profit">
-                <i className="fas fa-dollar-sign" />
-              </div>
-              <div className="kpi-text">
-                <div className="kpi-label">{i18n.profit}</div>
-                <div className="kpi-value kpi-value--profit">{loading ? "…" : formatCurrency(kpi.profit)}</div>
-                <div className="kpi-footer">{kpiFooter}</div>
-              </div>
-            </div>
-            <div className="dashboard-kpi-card dashboard-kpi-card--expense">
-              <div className="kpi-icon kpi-icon--boxed kpi-icon--expense">
-                <i className="fas fa-arrow-down" />
-              </div>
-              <div className="kpi-text">
-                <div className="kpi-label">{i18n.expenses}</div>
-                <div className="kpi-value kpi-value--expense">{loading ? "…" : formatCurrency(kpi.expenses)}</div>
-                <div className="kpi-footer">{kpiFooter}</div>
-              </div>
-            </div>
-            <div
-              className={`dashboard-kpi-card dashboard-kpi-card--net${
-                kpi.netProfit >= 0 ? " is-positive" : " is-negative"
-              }`}
-            >
-              <div
-                className={`kpi-icon kpi-icon--boxed ${kpi.netProfit >= 0 ? "kpi-icon--net-pos" : "kpi-icon--net-neg"}`}
-              >
-                <i className="fas fa-chart-line" />
-              </div>
-              <div className="kpi-text">
-                <div className="kpi-label">{i18n.netProfit}</div>
-                <div
-                  className={`kpi-value ${kpi.netProfit >= 0 ? "kpi-value--net-pos" : "kpi-value--net-neg"}`}
-                >
-                  {loading ? "…" : formatCurrency(kpi.netProfit)}
-                </div>
-                <div className="kpi-footer">{kpiFooter}</div>
-              </div>
-            </div>
-
+            <DashboardKpiCard
+              variant="profit"
+              label={i18n.profit}
+              value={formatCurrency(kpi.profit)}
+              compare={kpi.comparisons?.profit}
+              compareLabel={kpiCompareLabel}
+              fallbackFoot={kpiFooter}
+              loading={loading}
+            />
+            <DashboardKpiCard
+              variant="expense"
+              label={i18n.expenses}
+              value={formatCurrency(kpi.expenses)}
+              compare={kpi.comparisons?.expenses}
+              compareLabel={kpiCompareLabel}
+              fallbackFoot={kpiFooter}
+              loading={loading}
+            />
+            <DashboardKpiCard
+              variant="net"
+              label={i18n.netProfit}
+              value={formatCurrency(kpi.netProfit)}
+              compare={kpi.comparisons?.netProfit}
+              compareLabel={kpiCompareLabel}
+              fallbackFoot={kpiFooter}
+              loading={loading}
+              tone={kpi.netProfit >= 0 ? "positive" : "negative"}
+            />
             {kpi.showEarnings && (
-              <div className="dashboard-kpi-card dashboard-kpi-card--earnings" id="earnings-card-wrapper">
-                <div className="kpi-icon kpi-icon--boxed kpi-icon--earnings">
-                  <i className="fas fa-hand-holding-usd" />
-                </div>
-                <div className="kpi-text">
-                  <div className="kpi-label">{i18n.earnings}</div>
-                  <div className="kpi-value kpi-value--earnings" id="earnings-value">
-                    {loading ? "…" : formatCurrency(kpi.earnings)}
-                  </div>
-                  <div className="kpi-footer">{kpiFooter}</div>
-                </div>
-              </div>
+              <DashboardKpiCard
+                variant="earnings"
+                label={i18n.earnings}
+                value={formatCurrency(kpi.earnings)}
+                compare={kpi.comparisons?.earnings}
+                compareLabel={kpiCompareLabel}
+                fallbackFoot={kpiFooter}
+                loading={loading}
+                id="earnings-card-wrapper"
+              />
             )}
           </div>
 
@@ -1349,6 +1008,66 @@ export default function TransactionDashboardPage() {
               </ResponsiveContainer>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style={{ display: "none" }}>
+        <div className="transaction-calendar-presets" aria-label={i18n.periodShortcutsAria}>
+          {periodPresets.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className="transaction-calendar-preset"
+              data-period-key={key}
+              aria-pressed="false"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.selectQuickRange?.(key);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="transaction-calendar-panel">
+          <div className="calendar-header">
+            <button
+              type="button"
+              className="calendar-nav-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.changeMonth?.(-1);
+              }}
+            >
+              <i className="fas fa-chevron-left" />
+            </button>
+            <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
+              <button type="button" id="calendar-month-select" className="calendar-month-trigger" aria-label="Month">
+                {i18n.monthLabels[parseYmd(dateFrom)?.getMonth() ?? new Date().getMonth()]}
+              </button>
+              <button type="button" id="calendar-year-select" className="calendar-year-trigger" aria-label="Year">
+                {parseYmd(dateFrom)?.getFullYear() ?? new Date().getFullYear()}
+              </button>
+            </div>
+            <button
+              type="button"
+              className="calendar-nav-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.changeMonth?.(1);
+              }}
+            >
+              <i className="fas fa-chevron-right" />
+            </button>
+          </div>
+          <div className="calendar-weekdays">
+            {i18n.weekdaysShort.map((d) => (
+              <div key={d} className="calendar-weekday">
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="calendar-days" id="calendar-days" />
         </div>
       </div>
     </>

@@ -20,6 +20,8 @@ import MemberLinkedFilterModal from "./MemberLinkedFilterModal.jsx";
 import {
   computeTableTotals,
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS,
+  WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW,
+  WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ,
   WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS,
 } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
@@ -94,6 +96,7 @@ export default function MemberPage() {
   /** 宽屏三栏时：中/右栏 max-height = 左侧筛选（含 Currency）整块高度，底与 Currency 对齐 */
   const wlFiltersColRef = useRef(null);
   const [wlFiltersSyncPx, setWlFiltersSyncPx] = useState(null);
+  const [accountNarrowViewport, setAccountNarrowViewport] = useState(false);
 
   const showNotification = useCallback((message, type = "info") => {
     if (!message) return;
@@ -142,16 +145,27 @@ export default function MemberPage() {
     formatPaymentHistoryMoney,
   } = useMemberWinLoss({ showNotification, lang });
 
-  /** Account 多段：每段最多 7 格，未满行 segment 宽度按比例收缩，不拉满整栏 */
+  const accountMaxPerBand = accountNarrowViewport
+    ? WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW
+    : WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS;
+
+  /** Account 多段：每段最多 N 格，超出自动换行；窄屏减少每行格数以完整显示户名 */
   const accountFilterBands = useMemo(() => {
     const accounts = Array.isArray(linkedAccounts) ? linkedAccounts : [];
-    const maxPerBand = WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS;
     const bands = [];
-    for (let i = 0; i < accounts.length; i += maxPerBand) {
-      bands.push(accounts.slice(i, i + maxPerBand));
+    for (let i = 0; i < accounts.length; i += accountMaxPerBand) {
+      bands.push(accounts.slice(i, i + accountMaxPerBand));
     }
     return bands;
-  }, [linkedAccounts]);
+  }, [linkedAccounts, accountMaxPerBand]);
+
+  useEffect(() => {
+    const mq = window.matchMedia(WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ);
+    const update = () => setAccountNarrowViewport(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   /** Currency 多段：每段最多 8 格（含 All），每满一行新开一条 segment 白底条，列仍按 8 列对齐 */
   const currencyFilterBands = useMemo(() => {
@@ -514,7 +528,8 @@ export default function MemberPage() {
                         key={`member-acc-band-${segIdx}`}
                         className="user-gc-segment-group member-winloss-account-segments"
                         style={{
-                          width: `${(band.length / WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS) * 100}%`,
+                          width:
+                            band.length >= accountMaxPerBand ? "100%" : "fit-content",
                           maxWidth: "100%",
                           gridTemplateColumns: `repeat(${band.length}, minmax(max-content, 1fr))`,
                         }}
