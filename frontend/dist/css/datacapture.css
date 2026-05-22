@@ -112,11 +112,7 @@ body.datacapture-page .container {
 
     body.datacapture-page .excel-table-container {
         flex: 0 1 auto;
-        min-height: 180px;
-    }
-
-    body.datacapture-page .excel-table-scroll {
-        max-height: min(48vh, calc(100dvh - 400px));
+        min-height: min(42vh, 360px);
     }
 
     body.datacapture-page .form-container {
@@ -1351,32 +1347,18 @@ body.datacapture-page .bottom-section .form-actions {
 }
 
 .excel-table-container {
-    --dc-table-scroll-max-h: min(56vh, calc(100dvh - 380px));
     margin: 0;
     border: 1px solid var(--dc-border, #e2e8f0);
     border-radius: 10px;
-    overflow: hidden;
+    overflow: auto;
     background: white;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
     max-width: 100%;
     width: 100%;
     flex: 1 1 auto;
-    min-height: 180px;
+    min-height: 140px;
     height: auto;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.excel-table-scroll {
-    flex: 1 1 auto;
-    min-height: 160px;
-    max-height: var(--dc-table-scroll-max-h);
-    overflow: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
-    position: relative;
 }
 
 .text-input-format {
@@ -1400,7 +1382,8 @@ body.datacapture-page .bottom-section .form-actions {
 /* 2.Format模式：可粘贴整张表格的区域（contenteditable） */
 .paste-area-format {
     width: 100%;
-    min-height: min(320px, var(--dc-table-scroll-max-h, 320px));
+    height: 100%;
+    min-height: 0;
     padding: 10px;
     border: none;
     font-family: Arial, sans-serif;
@@ -1453,17 +1436,18 @@ body.datacapture-page .bottom-section .form-actions {
 /* 2.Format模式：预览容器（替代网格表显示，避免“乱表格”） */
 .table-preview-format {
     width: 100%;
-    min-height: min(320px, var(--dc-table-scroll-max-h, 320px));
+    height: 100%;
+    min-height: 0;
     box-sizing: border-box;
     background: white;
-    overflow: auto;
+    overflow: hidden;
     position: relative;
     z-index: 1;
 }
 
 .table-preview-frame-format {
     width: 100%;
-    min-height: min(280px, calc(var(--dc-table-scroll-max-h, 320px) - 24px));
+    height: 100%;
     border: 0;
     background: white;
 }
@@ -1473,7 +1457,6 @@ body.datacapture-page .bottom-section .form-actions {
     border-collapse: collapse;
     font-size: 12px;
     font-family: Arial, sans-serif;
-    table-layout: fixed;
 }
 
 .excel-table th,
@@ -1482,22 +1465,8 @@ body.datacapture-page .bottom-section .form-actions {
     font-size: clamp(10px, 0.63vw, 12px);
     padding: clamp(2px, 0.31vw, 6px) clamp(8px, 0.83vw, 16px);
     text-align: center;
-    min-width: 0;
+    min-width: clamp(30px, 3.49vw, 67px);
     position: relative;
-}
-
-.excel-table thead th:first-child,
-.excel-table tbody td.row-header {
-    width: clamp(30px, 2.5vw, 40px);
-    min-width: 30px;
-    padding-left: 4px;
-    padding-right: 4px;
-}
-
-.excel-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
 }
 
 .excel-table th {
@@ -1598,7 +1567,7 @@ body.datacapture-page .bottom-section .form-actions {
 .excel-table-header {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 14px;
+    gap: 12px 20px;
     align-items: center;
     padding: 12px clamp(10px, 0.8vw, 16px);
     background-color: #f8fafc;
@@ -1606,24 +1575,10 @@ body.datacapture-page .bottom-section .form-actions {
     font-size: clamp(12px, 0.94vw, 18px);
     font-weight: 700;
     color: #0f172a;
-    flex-shrink: 0;
-    min-width: 0;
-}
-
-.excel-table-header > span:first-child {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.excel-table-header .data-capture-type-selector {
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 100%;
 }
 
 .excel-table-header .btn-cancel {
     margin-left: auto;
-    flex-shrink: 0;
 }
 
 .data-capture-type-selector {
@@ -1980,82 +1935,5 @@ body.datacapture-page .bottom-section .form-actions {
         margin-bottom: 4px;
     }
 
-    body.datacapture-page .excel-table-container {
-        --dc-table-scroll-max-h: min(50vh, calc(100dvh - 420px));
-    }
-
-}
-
-/* Tall desktop: let the grid fill remaining viewport height */
-@media (min-width: 1441px) and (min-height: 921px) {
-    body.datacapture-page .excel-table-container {
-        min-height: 0;
-        --dc-table-scroll-max-h: none;
-    }
-
-    body.datacapture-page .excel-table-scroll {
-        max-height: none;
-    }
-}
-
-@media (max-width: 900px) {
-    body.datacapture-page .container {
-        padding-left: clamp(12px, 3vw, 20px);
-        padding-right: clamp(12px, 3vw, 20px);
-    }
-
-    body.datacapture-page .excel-table-container {
-        --dc-table-scroll-max-h: min(42vh, calc(100dvh - 500px));
-    }
-
-    .excel-table-header .btn-cancel {
-        margin-left: 0;
-    }
-
-    body.datacapture-page .bottom-section .form-actions {
-        justify-content: stretch;
-    }
-
-    body.datacapture-page .bottom-section .form-actions .btn-save {
-        width: 100%;
-    }
-}
-
-@media (max-width: 640px) {
-    body.datacapture-page .excel-table-container {
-        border-radius: 8px;
-    }
-
-    body.datacapture-page .excel-table th,
-    body.datacapture-page .excel-table td {
-        font-size: 10px;
-        padding: 2px clamp(4px, 1.5vw, 8px);
-    }
-
-    body.datacapture-page .excel-table-header {
-        padding: 10px 12px;
-        gap: 8px;
-    }
-
-    body.datacapture-page .data-capture-type-selector {
-        flex: 1 1 calc(50% - 8px);
-    }
-}
-
-/* Beat global-13inch table density rules on the capture grid */
-body.ec-auth-shell.datacapture-page .excel-table th,
-body.ec-auth-shell.datacapture-page .excel-table td {
-    padding: clamp(2px, 0.31vw, 6px) clamp(8px, 0.83vw, 16px) !important;
-    font-size: clamp(10px, 0.63vw, 12px) !important;
-    box-sizing: border-box !important;
-    line-height: 1.25 !important;
-}
-
-body.ec-auth-shell.datacapture-page .excel-table thead th:first-child,
-body.ec-auth-shell.datacapture-page .excel-table tbody td.row-header {
-    width: clamp(30px, 2.5vw, 40px) !important;
-    min-width: 30px !important;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
 }
 

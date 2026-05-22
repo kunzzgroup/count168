@@ -32,7 +32,7 @@ function DataCaptureGrid() {
   }, []);
 
   return (
-    <div className="excel-table-scroll" aria-label="Data capture grid">
+    <>
       <table className="excel-table" id="dataTable">
         <thead id="tableHeader">
           <tr>
@@ -56,7 +56,7 @@ function DataCaptureGrid() {
         suppressContentEditableWarning
         data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
       />
-    </div>
+    </>
   );
 }
 

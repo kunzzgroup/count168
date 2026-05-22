@@ -14,9 +14,9 @@ import {
   sortedUniqueGroupIds,
 } from "../../utils/company/sharedCompanyFilter.js";
 
+import "../../../public/css/datacapture.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
-import "../../../public/css/datacapture.css";
 
 import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
 import {
