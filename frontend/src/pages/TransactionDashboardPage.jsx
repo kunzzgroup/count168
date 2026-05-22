@@ -292,6 +292,18 @@ function formatI18nTemplate(template, vars) {
   );
 }
 
+function EarningsPieTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const item = payload[0]?.payload;
+  if (!item?.code) return null;
+  return (
+    <div className="dashboard-summary-pie-tooltip">
+      <div className="dashboard-summary-pie-tooltip-label">{item.code}</div>
+      <div className="dashboard-summary-pie-tooltip-value">{formatCurrency(item.earnings ?? 0)}</div>
+    </div>
+  );
+}
+
 function renderCurrencyPieLabel(props) {
   const { cx, cy, midAngle, outerRadius, percent, payload } = props;
   if (!payload?.code || percent < 0.06) return null;
@@ -1548,6 +1560,8 @@ export default function TransactionDashboardPage() {
                         strokeWidth={3}
                         labelLine={false}
                         label={earningsPieSlices.length ? renderCurrencyPieLabel : false}
+                        activeShape={false}
+                        isAnimationActive={false}
                       >
                         {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
                           (entry, index) => (
@@ -1555,10 +1569,7 @@ export default function TransactionDashboardPage() {
                           )
                         )}
                       </Pie>
-                      <Tooltip
-                        formatter={(_, __, item) => formatCurrency(item?.payload?.earnings ?? 0)}
-                        labelFormatter={(label) => String(label || "")}
-                      />
+                      <Tooltip content={<EarningsPieTooltip />} cursor={false} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -1571,7 +1582,8 @@ export default function TransactionDashboardPage() {
                       style={
                         row.code === currencyCode
                           ? {
-                              borderLeft: `3px solid ${currencyPieFillByCode[row.code] || getCurrencyColor(row.code, index)}`,
+                              "--currency-accent":
+                                currencyPieFillByCode[row.code] || getCurrencyColor(row.code, index),
                             }
                           : undefined
                       }

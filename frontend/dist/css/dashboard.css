@@ -1203,10 +1203,60 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     min-width: 140px;
     min-height: 160px;
     max-height: 210px;
+    user-select: none;
+}
+
+.dashboard-summary-pie-wrap .recharts-responsive-container,
+.dashboard-summary-pie-wrap .recharts-wrapper,
+.dashboard-summary-pie-wrap .recharts-surface,
+.dashboard-summary-pie-wrap svg {
+    outline: none !important;
+    border: none !important;
+}
+
+.dashboard-summary-pie-wrap .recharts-responsive-container:focus,
+.dashboard-summary-pie-wrap .recharts-wrapper:focus,
+.dashboard-summary-pie-wrap svg:focus,
+.dashboard-summary-pie-wrap svg:focus-visible,
+.dashboard-summary-pie-wrap path:focus,
+.dashboard-summary-pie-wrap path:focus-visible,
+.dashboard-summary-pie-wrap .recharts-pie-sector:focus,
+.dashboard-summary-pie-wrap .recharts-pie-sector:focus-visible {
+    outline: none !important;
 }
 
 .dashboard-summary-pie-wrap .recharts-pie-sector {
     outline: none;
+    cursor: default;
+}
+
+.dashboard-summary-pie-wrap .recharts-tooltip-wrapper {
+    outline: none !important;
+    pointer-events: none;
+}
+
+.dashboard-summary-pie-tooltip {
+    padding: 6px 10px;
+    border-radius: var(--radius-panel, 8px);
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
+    font-family: var(--font-ui);
+    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
+    color: var(--color-body-strong, #1f2937);
+    line-height: 1.35;
+}
+
+.dashboard-summary-pie-tooltip-label {
+    font-weight: var(--font-weight-semibold, 600);
+    color: var(--color-heading, #002c49);
+    margin-bottom: 2px;
+}
+
+.dashboard-summary-pie-tooltip-value {
+    font-weight: 600;
+    color: var(--color-text-ink-strong, #111827);
+    font-variant-numeric: tabular-nums;
 }
 
 .dashboard-summary-currency-list {
@@ -1226,14 +1276,21 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     grid-template-columns: 10px 1fr auto;
     align-items: center;
     gap: 8px;
-    padding: 6px 8px;
-    border-radius: 8px;
+    padding: 6px 8px 6px 8px;
+    border-radius: var(--radius-panel, 8px);
     font-family: var(--font-heading-page);
+    border-left: 3px solid transparent;
+    transition: background-color var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
 }
 
 .dashboard-summary-currency-row.is-active {
-    background: rgba(15, 23, 42, 0.04);
-    padding-left: 5px;
+    background: transparent;
+    border-left-color: var(--currency-accent, var(--color-primary-strong, #2563eb));
+}
+
+.dashboard-summary-currency-row.is-active .dashboard-summary-currency-code {
+    color: var(--color-text-ink-strong, #111827);
+    font-weight: 700;
 }
 
 .dashboard-summary-currency-dot {
@@ -1247,10 +1304,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-size: clamp(12px, 0.85vw, 14px);
     font-weight: 600;
     color: #374151;
-}
-
-.dashboard-summary-currency-row.is-active .dashboard-summary-currency-code {
-    color: #111827;
 }
 
 .dashboard-summary-currency-amount-col {
