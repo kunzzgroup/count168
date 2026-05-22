@@ -757,7 +757,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     border: 1px solid var(--scd-border);
     border-radius: 8px;
     box-shadow: var(--scd-shadow-md);
-    padding: clamp(8px, 1vw, 16px);
+    padding: 0;
 }
 
 /* 顶部筛选 + KPI 已改为「頁首日期」+「篩選卡片」+「KPI 網格」；保留 class 以免舊引用報錯 */
