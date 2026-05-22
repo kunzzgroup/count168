@@ -896,11 +896,58 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .kpi-card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 6px;
     font-size: clamp(12px, 0.85vw, 14px);
     font-weight: 500;
-    color: #9ca3af;
     font-family: var(--font-heading-page);
     line-height: 1.35;
+}
+
+.kpi-card-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: clamp(11px, 0.8vw, 13px);
+    font-weight: 600;
+    font-family: var(--font-heading-page);
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.kpi-card-badge.is-up {
+    background: rgba(34, 197, 94, 0.14);
+    color: #16a34a;
+}
+
+.kpi-card-badge.is-down {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+}
+
+.kpi-card-badge i {
+    font-size: 0.85em;
+}
+
+.kpi-card-delta {
+    font-weight: 600;
+}
+
+.kpi-card-delta.is-up {
+    color: #16a34a;
+}
+
+.kpi-card-delta.is-down {
+    color: #dc2626;
+}
+
+.kpi-card-foot-muted {
+    color: #9ca3af;
+    font-weight: 500;
 }
 
 .dashboard-kpi-card--positive .kpi-card-head-icon {

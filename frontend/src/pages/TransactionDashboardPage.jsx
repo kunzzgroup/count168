@@ -66,6 +66,92 @@ function formatCurrency(value) {
   });
 }
 
+function formatSignedChange(value) {
+  const n = parseFloat(value) || 0;
+  const body = formatCurrency(Math.abs(n));
+  if (n > 0) return `+${body}`;
+  if (n < 0) return `-${body}`;
+  return body;
+}
+
+function previousPeriodRange(fromYmd, toYmd) {
+  const from = parseYmd(fromYmd);
+  const to = parseYmd(toYmd);
+  const dayMs = 86400000;
+  const dayCount = Math.max(1, Math.round((to - from) / dayMs) + 1);
+  const prevTo = new Date(from.getTime() - dayMs);
+  const prevFrom = new Date(prevTo.getTime() - (dayCount - 1) * dayMs);
+  return { from: formatYmd(prevFrom), to: formatYmd(prevTo) };
+}
+
+function isFullCalendarMonth(fromYmd, toYmd) {
+  const from = parseYmd(fromYmd);
+  const to = parseYmd(toYmd);
+  if (from.getDate() !== 1) return false;
+  const lastDay = new Date(from.getFullYear(), from.getMonth() + 1, 0).getDate();
+  return (
+    to.getDate() === lastDay &&
+    from.getMonth() === to.getMonth() &&
+    from.getFullYear() === to.getFullYear()
+  );
+}
+
+function kpiPercentChange(current, previous) {
+  const c = parseFloat(current) || 0;
+  const p = parseFloat(previous) || 0;
+  if (p === 0) {
+    if (c === 0) return 0;
+    return c > 0 ? 100 : -100;
+  }
+  return ((c - p) / Math.abs(p)) * 100;
+}
+
+function buildKpiCompare(current, previous) {
+  const delta = (parseFloat(current) || 0) - (parseFloat(previous) || 0);
+  return {
+    delta,
+    pct: kpiPercentChange(current, previous),
+    isUp: delta >= 0,
+  };
+}
+
+function computeKpiMetrics(dashboardData, selectedGroup) {
+  if (!dashboardData) return null;
+  const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
+  const rawExpenses = parseFloat(dashboardData?.period_total?.expenses ?? dashboardData.expenses) || 0;
+  const displayProfitNum = rawProfit;
+  const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+  const netProfitDisplay = displayProfitNum + displayExpensesNum;
+  const ownershipPercentage = parseFloat(dashboardData?.ownership_percentage) || 0;
+  const groupEquityPercentage = parseFloat(dashboardData?.group_equity_percentage) || 0;
+  const groupAccountPercentage = parseFloat(dashboardData?.group_account_percentage) || 0;
+  const hasGroupOwnership = !!dashboardData?.has_group_ownership;
+  const linkMul = parseFloat(dashboardData?._link_multiplier || 0) || 0;
+  const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
+  const inGroupView = !!selectedGroup;
+  const directPct = ownershipPercentage / 100;
+  let effectivePct;
+  if (hasLinkOwnership) {
+    const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
+    effectivePct = linkMul * viewerGroupShare;
+  } else if (directPct > 0) {
+    effectivePct = directPct;
+  } else if (hasGroupOwnership) {
+    effectivePct = (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
+  } else {
+    effectivePct = directPct === 0 && inGroupView ? 1 : 0;
+  }
+  const earningsDisplay = netProfitDisplay * effectivePct;
+  const showEarnings = !!dashboardData?.has_ownership_setup || hasLinkOwnership || inGroupView;
+  return {
+    profit: displayProfitNum,
+    expenses: displayExpensesNum,
+    netProfit: netProfitDisplay,
+    earnings: earningsDisplay,
+    showEarnings,
+  };
+}
+
 const KPI_CARD_ICONS = {
   profit: "fas fa-dollar-sign",
   expense: "fas fa-arrow-trend-down",
@@ -73,7 +159,11 @@ const KPI_CARD_ICONS = {
   earnings: "fas fa-hand-holding-dollar",
 };
 
-function DashboardKpiCard({ variant, label, value, footer, loading, id, tone }) {
+function DashboardKpiCard({ variant, label, value, loading, id, tone, compare, compareLabel, fallbackFoot }) {
+  const showCompare = compare && !loading;
+  const badgeUp = compare?.pct >= 0;
+  const deltaUp = compare?.isUp;
+
   return (
     <div
       id={id}
@@ -85,8 +175,25 @@ function DashboardKpiCard({ variant, label, value, footer, loading, id, tone }) 
       </div>
       <div className="kpi-card-main">
         <div className="kpi-card-value">{loading ? "…" : value}</div>
+        {showCompare && (
+          <span className={`kpi-card-badge${badgeUp ? " is-up" : " is-down"}`}>
+            <i className={`fas fa-arrow-${badgeUp ? "up" : "down"}`} aria-hidden="true" />
+            {Math.abs(compare.pct).toFixed(1)}%
+          </span>
+        )}
       </div>
-      <div className="kpi-card-foot">{footer}</div>
+      <div className="kpi-card-foot">
+        {showCompare ? (
+          <>
+            <span className={`kpi-card-delta${deltaUp ? " is-up" : " is-down"}`}>
+              {formatSignedChange(compare.delta)}
+            </span>
+            <span className="kpi-card-foot-muted">{compareLabel}</span>
+          </>
+        ) : (
+          <span className="kpi-card-foot-muted">{fallbackFoot}</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -166,6 +273,7 @@ export default function TransactionDashboardPage() {
   const [currencies, setCurrencies] = useState([]);
   const [currencyCode, setCurrencyCode] = useState("");
   const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardDataPrev, setDashboardDataPrev] = useState(null);
   const [loading, setLoading] = useState(true);
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -445,10 +553,10 @@ export default function TransactionDashboardPage() {
     loadCurrencies();
   }, [loadCurrencies]);
 
-  const fetchDashboardPayload = async (cid) => {
+  const fetchDashboardPayload = async (cid, rangeFrom = dateFrom, rangeTo = dateTo) => {
     const q = new URLSearchParams({
-      date_from: dateFrom,
-      date_to: dateTo,
+      date_from: rangeFrom,
+      date_to: rangeTo,
       company_id: String(cid),
     });
     if (currencyCode) q.append("currency", currencyCode);
@@ -477,7 +585,9 @@ export default function TransactionDashboardPage() {
     if (!companyId) return;
     setLoading(true);
     setLoadError("");
-    try {
+    setDashboardDataPrev(null);
+
+    const loadMerged = async (rangeFrom, rangeTo) => {
       if (groupAllMode && selectedGroup) {
         const groupCompanies = companies.filter(
           (c) =>
@@ -486,20 +596,28 @@ export default function TransactionDashboardPage() {
             c.company_id &&
             String(c.company_id).trim() !== ""
         );
-        const results = await Promise.all(groupCompanies.map((c) => fetchDashboardPayload(c.id)));
-        const merged = mergeGroupData(results, { startDate: dateFrom, endDate: dateTo });
-        setDashboardData(merged);
-      } else if (mergedSubsetIds && mergedSubsetIds.length > 1) {
-        const results = await Promise.all(mergedSubsetIds.map((cid) => fetchDashboardPayload(cid)));
-        const merged = mergeGroupData(results, { startDate: dateFrom, endDate: dateTo });
-        setDashboardData(merged);
-      } else {
-        const data = await fetchDashboardPayload(companyId);
-        setDashboardData(data);
+        const results = await Promise.all(groupCompanies.map((c) => fetchDashboardPayload(c.id, rangeFrom, rangeTo)));
+        return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
       }
+      if (mergedSubsetIds && mergedSubsetIds.length > 1) {
+        const results = await Promise.all(mergedSubsetIds.map((cid) => fetchDashboardPayload(cid, rangeFrom, rangeTo)));
+        return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
+      }
+      return fetchDashboardPayload(companyId, rangeFrom, rangeTo);
+    };
+
+    try {
+      const prevRange = previousPeriodRange(dateFrom, dateTo);
+      const [current, previous] = await Promise.all([
+        loadMerged(dateFrom, dateTo),
+        loadMerged(prevRange.from, prevRange.to).catch(() => null),
+      ]);
+      setDashboardData(current);
+      setDashboardDataPrev(previous);
     } catch (e) {
       setLoadError(e.message || i18n.failedToLoadDashboard);
       setDashboardData(null);
+      setDashboardDataPrev(null);
     } finally {
       setLoading(false);
     }
@@ -519,50 +637,33 @@ export default function TransactionDashboardPage() {
     loadDashboard();
   }, [loadDashboard]);
 
+  const kpiCompareLabel = useMemo(
+    () => (isFullCalendarMonth(dateFrom, dateTo) ? i18n.thanLastMonth : i18n.thanPreviousPeriod),
+    [dateFrom, dateTo, i18n.thanLastMonth, i18n.thanPreviousPeriod]
+  );
+
   const kpi = useMemo(() => {
-    if (!dashboardData) {
-      return {
-        profit: 0,
-        expenses: 0,
-        netProfit: 0,
-        earnings: 0,
-        showEarnings: false,
-      };
-    }
-    const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
-    const rawExpenses = parseFloat(dashboardData?.period_total?.expenses ?? dashboardData.expenses) || 0;
-    const displayProfitNum = rawProfit;
-    const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-    const netProfitDisplay = displayProfitNum + displayExpensesNum;
-    const ownershipPercentage = parseFloat(dashboardData?.ownership_percentage) || 0;
-    const groupEquityPercentage = parseFloat(dashboardData?.group_equity_percentage) || 0;
-    const groupAccountPercentage = parseFloat(dashboardData?.group_account_percentage) || 0;
-    const hasGroupOwnership = !!dashboardData?.has_group_ownership;
-    const linkMul = parseFloat(dashboardData?._link_multiplier || 0) || 0;
-    const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
-    const inGroupView = !!selectedGroup;
-    const directPct = ownershipPercentage / 100;
-    let effectivePct;
-    if (hasLinkOwnership) {
-      const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
-      effectivePct = linkMul * viewerGroupShare;
-    } else if (directPct > 0) {
-      effectivePct = directPct;
-    } else if (hasGroupOwnership) {
-      effectivePct = (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
-    } else {
-      effectivePct = directPct === 0 && inGroupView ? 1 : 0;
-    }
-    const earningsDisplay = netProfitDisplay * effectivePct;
-    const showEarnings = !!dashboardData?.has_ownership_setup || hasLinkOwnership || inGroupView;
-    return {
-      profit: displayProfitNum,
-      expenses: displayExpensesNum,
-      netProfit: netProfitDisplay,
-      earnings: earningsDisplay,
-      showEarnings,
+    const empty = {
+      profit: 0,
+      expenses: 0,
+      netProfit: 0,
+      earnings: 0,
+      showEarnings: false,
+      comparisons: null,
     };
-  }, [dashboardData, selectedGroup]);
+    const current = computeKpiMetrics(dashboardData, selectedGroup);
+    if (!current) return empty;
+    const previous = computeKpiMetrics(dashboardDataPrev, selectedGroup);
+    const comparisons = previous
+      ? {
+          profit: buildKpiCompare(current.profit, previous.profit),
+          expenses: buildKpiCompare(current.expenses, previous.expenses),
+          netProfit: buildKpiCompare(current.netProfit, previous.netProfit),
+          earnings: buildKpiCompare(current.earnings, previous.earnings),
+        }
+      : null;
+    return { ...current, comparisons };
+  }, [dashboardData, dashboardDataPrev, selectedGroup]);
 
   const chartRows = useMemo(
     () => (dashboardData ? buildChartRows(dashboardData, dateFrom, dateTo) : []),
@@ -784,21 +885,27 @@ export default function TransactionDashboardPage() {
               variant="profit"
               label={i18n.profit}
               value={formatCurrency(kpi.profit)}
-              footer={kpiFooter}
+              compare={kpi.comparisons?.profit}
+              compareLabel={kpiCompareLabel}
+              fallbackFoot={kpiFooter}
               loading={loading}
             />
             <DashboardKpiCard
               variant="expense"
               label={i18n.expenses}
               value={formatCurrency(kpi.expenses)}
-              footer={kpiFooter}
+              compare={kpi.comparisons?.expenses}
+              compareLabel={kpiCompareLabel}
+              fallbackFoot={kpiFooter}
               loading={loading}
             />
             <DashboardKpiCard
               variant="net"
               label={i18n.netProfit}
               value={formatCurrency(kpi.netProfit)}
-              footer={kpiFooter}
+              compare={kpi.comparisons?.netProfit}
+              compareLabel={kpiCompareLabel}
+              fallbackFoot={kpiFooter}
               loading={loading}
               tone={kpi.netProfit >= 0 ? "positive" : "negative"}
             />
@@ -807,7 +914,9 @@ export default function TransactionDashboardPage() {
                 variant="earnings"
                 label={i18n.earnings}
                 value={formatCurrency(kpi.earnings)}
-                footer={kpiFooter}
+                compare={kpi.comparisons?.earnings}
+                compareLabel={kpiCompareLabel}
+                fallbackFoot={kpiFooter}
                 loading={loading}
                 id="earnings-card-wrapper"
               />
