@@ -219,10 +219,18 @@ export default function MemberMiniGrid({
           return hit ? parseFloat(hit[1]) * rem : fallbackRem * rem;
         };
         const minColPx = parseRem(WINLOSS_MATRIX_MIN_CCY_COL_WIDTH, 6);
+        const padPx = 24;
         let maxPx = minColPx;
-        grid.querySelectorAll(".member-wl-compact-matrix__amt-hd, .member-wl-compact-matrix__amt").forEach((el) => {
-          const w = el.scrollWidth;
-          if (w > maxPx) maxPx = w;
+        const measureEl = (el) => {
+          const inner = el.querySelector?.(".member-balance-matrix-amt");
+          const target = inner || el;
+          return target.scrollWidth + padPx;
+        };
+        grid.querySelectorAll(".member-wl-compact-matrix__amt-hd").forEach((el) => {
+          maxPx = Math.max(maxPx, measureEl(el));
+        });
+        grid.querySelectorAll(".member-wl-compact-matrix__amt").forEach((el) => {
+          maxPx = Math.max(maxPx, measureEl(el));
         });
         const colW = `${maxPx}px`;
         scroll.style.setProperty("--member-wl-ccy-fill-col-w", colW);

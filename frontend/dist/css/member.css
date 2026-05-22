@@ -1109,6 +1109,10 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     margin-inline-start: auto;
 }
 
+.member-winloss-page .member-dash-rail-matrix:has(.member-dash-matrix-scroll--compact) {
+    overflow: visible;
+}
+
 .member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll) {
     align-items: stretch;
     align-self: flex-end;
@@ -2464,17 +2468,19 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 
 /* 单币种紧凑表：账户 | 金额 两列贴近，表宽随内容 */
 .member-dash-matrix-scroll--compact {
-    width: 100%;
+    width: max-content;
     max-width: 100%;
     flex: 0 1 auto;
-    overflow-x: hidden;
+    overflow-x: visible;
     overflow-y: hidden;
 }
 
 /* 单层 grid + display:contents，表头/数据列宽一致，竖线对齐 */
 .member-wl-compact-matrix {
     display: grid;
-    grid-template-columns: minmax(5.5rem, max-content) minmax(var(--member-wl-ccy-fill-col-w, 4.75rem), var(--member-wl-ccy-fill-col-w, 4.75rem));
+    grid-template-columns:
+        minmax(5.5rem, max-content)
+        minmax(var(--member-wl-ccy-fill-col-w, 6rem), max-content);
     width: max-content;
     max-width: none;
     min-width: max-content;
@@ -2487,8 +2493,10 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 
 .member-winloss-page .member-wl-compact-matrix__amt-hd,
 .member-winloss-page .member-wl-compact-matrix__amt {
-    min-width: var(--member-wl-ccy-fill-col-w, 4.75rem);
+    min-width: var(--member-wl-ccy-fill-col-w, 6rem);
     box-sizing: border-box;
+    overflow: visible;
+    white-space: nowrap;
 }
 
 .member-wl-compact-matrix__hd,
@@ -2541,7 +2549,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     align-items: center;
     justify-content: flex-end;
     min-height: var(--member-wl-matrix-row-h, 40px);
-    padding: 8px 10px 8px 12px;
+    padding: 8px 12px;
     text-align: right;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
@@ -2549,6 +2557,15 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     background: #fff;
     border-bottom: 1px solid #e8eef5;
     box-sizing: border-box;
+    overflow: visible;
+    white-space: nowrap;
+}
+
+.member-wl-compact-matrix__amt .member-balance-matrix-amt {
+    display: inline-block;
+    max-width: none;
+    overflow: visible;
+    white-space: nowrap;
 }
 
 .member-wl-compact-matrix__row--alt .member-wl-compact-matrix__account,
@@ -2587,7 +2604,8 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 }
 
 .member-winloss-page .member-wl-compact-matrix__amt .member-balance-matrix-amt {
-    font-size: var(--text-tiny);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Accounts in grid modal */
