@@ -1,31 +1,28 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../utils/sharedCompanyFilter.js";
-import { buildApiUrl } from "../../utils/apiUrl.js";
-import "../../../public/css/accountCSS.css";
-import "../../../public/css/transaction.css";
-import "../../../public/css/userlist.css";
-import "../../../public/css/domain_report.css";
-import "../../../public/css/report-outlined-fields.css";
-import "../../../public/css/maintenance_unified_filters.css";
-import "../../../public/css/date-range-picker.css";
-import "../../../public/css/maintenance_notifications.css";
+import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../../utils/sharedCompanyFilter.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
+import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/transaction.css";
+import "../../../../public/css/userlist.css";
+import "../../../../public/css/domain_report.css";
+import "../../../../public/css/report-outlined-fields.css";
+import "../../../../public/css/maintenance_unified_filters.css";
+import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/maintenance_notifications.css";
+import { fetchDomainReport, fetchProcesses } from "./domainReportApi.js";
 import {
-  fetchDomainReport,
-  fetchProcesses,
-  fetchCurrencies,
   fetchCompanyPermissions,
-  isBankOnlyCategoryCompany
-} from "./domainReportLogic.js";
-import { formatYmd } from "../../utils/dateUtils.js";
-import { getReportText, REPORT_I18N } from "../../translateFile/reportTranslate.js";
-
-// Components
-import DomainReportFilters from "./components/DomainReportFilters.jsx";
-import DomainReportTable from "./components/DomainReportTable.jsx";
-import { useReportGcSwitcher } from "./hooks/useReportGcSwitcher.js";
-import { reportToastMaintenanceVariant } from "./reportToastVariant.js";
+  fetchCurrencies,
+  isBankOnlyCategoryCompany,
+} from "../shared/reportCompanyApi.js";
+import { formatYmd } from "../../../utils/dateUtils.js";
+import { getReportText, REPORT_I18N } from "../../../translateFile/reportTranslate.js";
+import DomainReportFilters from "./DomainReportFilters.jsx";
+import DomainReportTable from "./DomainReportTable.jsx";
+import { useReportGcSwitcher } from "../shared/useReportGcSwitcher.js";
+import { reportToastMaintenanceVariant } from "../shared/reportAmountFormat.js";
 
 export default function DomainReportPage() {
   const navigate = useNavigate();
@@ -33,12 +30,10 @@ export default function DomainReportPage() {
   const t = useCallback((key, params) => getReportText(lang, key, params), [lang]);
   const r = useMemo(() => REPORT_I18N[lang] || REPORT_I18N.en, [lang]);
 
-  // -- State: Boot / Me --
   const [bootLoading, setBootLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
 
-  // -- State: Filters --
   const [companyId, setCompanyId] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
   const [companyHighlightId, setCompanyHighlightId] = useState(null);
@@ -47,12 +42,10 @@ export default function DomainReportPage() {
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
 
-  // Date Range
   const today = useMemo(() => new Date(), []);
   const [dateFrom, setDateFrom] = useState(formatYmd(today));
   const [dateTo, setDateTo] = useState(formatYmd(today));
 
-  // -- State: Data --
   const [processes, setProcesses] = useState([]);
   const [currencyList, setCurrencyList] = useState([]);
   const [reportData, setReportData] = useState(null);
@@ -61,7 +54,6 @@ export default function DomainReportPage() {
   const [reportSyncing, setReportSyncing] = useState(false);
   const [error, setError] = useState("");
 
-  // -- State: UI --
   const [toast, setToast] = useState(null);
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
@@ -100,7 +92,6 @@ export default function DomainReportPage() {
     toastTimerRef.current = setTimeout(() => setToast(null), 2000);
   }, []);
 
-  // -- Initialization --
   useEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "report-page");
@@ -145,7 +136,6 @@ export default function DomainReportPage() {
     };
   }, []);
 
-  // -- Boot Logic --
   useEffect(() => {
     (async () => {
       try {
@@ -192,7 +182,6 @@ export default function DomainReportPage() {
     })();
   }, [navigate]);
 
-  // -- Data Fetching --
   const loadReport = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;
     domainReportAbortRef.current?.abort();
@@ -288,7 +277,6 @@ export default function DomainReportPage() {
     domainReportAbortRef.current?.abort();
   }, []);
 
-  // -- Handlers --
   const onSwitchCompany = useCallback(async (c) => {
     const effectiveId = companyHighlightId ?? companyId;
     if (!c?.id || Number(c.id) === Number(effectiveId)) return;
@@ -399,7 +387,6 @@ export default function DomainReportPage() {
         </div>
       </div>
 
-      {/* Notifications — same markup/classes as maintenance pages */}
       {toast && (
         <div id="domainReportNotificationContainer" className="maintenance-notification-container">
           <div className={`maintenance-notification maintenance-notification-${reportToastMaintenanceVariant(toast.type)} show`}>

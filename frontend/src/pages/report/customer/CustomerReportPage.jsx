@@ -1,31 +1,28 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../utils/sharedCompanyFilter.js";
-import { buildApiUrl } from "../../utils/apiUrl.js";
-import "../../../public/css/accountCSS.css";
-import "../../../public/css/transaction.css";
-import "../../../public/css/userlist.css";
-import "../../../public/css/customer_report.css";
-import "../../../public/css/report-outlined-fields.css";
-import "../../../public/css/maintenance_unified_filters.css";
-import "../../../public/css/date-range-picker.css";
-import "../../../public/css/maintenance_notifications.css";
+import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../../utils/sharedCompanyFilter.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
+import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/transaction.css";
+import "../../../../public/css/userlist.css";
+import "../../../../public/css/customer_report.css";
+import "../../../../public/css/report-outlined-fields.css";
+import "../../../../public/css/maintenance_unified_filters.css";
+import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/maintenance_notifications.css";
+import { fetchAccounts, fetchCustomerReport } from "./customerReportApi.js";
 import {
-  fetchAccounts,
-  fetchCurrencies,
-  fetchCustomerReport,
   fetchCompanyPermissions,
+  fetchCurrencies,
   isBankOnlyCategoryCompany,
-} from "./customerReportLogic.js";
-import { formatYmd } from "../../utils/dateUtils.js";
-import { getReportText, REPORT_I18N } from "../../translateFile/reportTranslate.js";
-
-// Components
-import CustomerReportFilters from "./components/CustomerReportFilters.jsx";
-import CustomerReportTable from "./components/CustomerReportTable.jsx";
-import { useReportGcSwitcher } from "./hooks/useReportGcSwitcher.js";
-import { reportToastMaintenanceVariant } from "./reportToastVariant.js";
+} from "../shared/reportCompanyApi.js";
+import { formatYmd } from "../../../utils/dateUtils.js";
+import { getReportText, REPORT_I18N } from "../../../translateFile/reportTranslate.js";
+import CustomerReportFilters from "./CustomerReportFilters.jsx";
+import CustomerReportTable from "./CustomerReportTable.jsx";
+import { useReportGcSwitcher } from "../shared/useReportGcSwitcher.js";
+import { reportToastMaintenanceVariant } from "../shared/reportAmountFormat.js";
 
 export default function CustomerReportPage() {
   const navigate = useNavigate();
@@ -33,16 +30,12 @@ export default function CustomerReportPage() {
   const t = useCallback((key, params) => getReportText(lang, key, params), [lang]);
   const r = useMemo(() => REPORT_I18N[lang] || REPORT_I18N.en, [lang]);
 
-  // -- State: Boot / Me --
   const [bootLoading, setBootLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
 
-  // -- State: Filters --
   const [companyId, setCompanyId] = useState(null);
-  /** Process List 同款：all | follow | ungrouped */
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
-  /** 切换公司时会话 API 未返回前，分段条先高亮目标公司 */
   const [companyHighlightId, setCompanyHighlightId] = useState(null);
   const switchCompanySeqRef = useRef(0);
   const [accountId, setAccountId] = useState("");
@@ -50,22 +43,18 @@ export default function CustomerReportPage() {
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
 
-  // Date Range
   const today = useMemo(() => new Date(), []);
   const [dateFrom, setDateFrom] = useState(formatYmd(today));
   const [dateTo, setDateTo] = useState(formatYmd(today));
 
-  // -- State: Data --
   const [accounts, setAccounts] = useState([]);
   const [currencyList, setCurrencyList] = useState([]);
   const [reportData, setReportData] = useState(null);
   const reportDataRef = useRef(null);
   const [loading, setLoading] = useState(false);
-  /** 已有列表时的后台刷新：不闪白、不占全表 loading，仅用顶栏细条提示 */
   const [reportSyncing, setReportSyncing] = useState(false);
   const [error, setError] = useState("");
 
-  // -- State: UI --
   const [toast, setToast] = useState(null);
   const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
@@ -104,7 +93,6 @@ export default function CustomerReportPage() {
     toastTimerRef.current = setTimeout(() => setToast(null), 2000);
   }, []);
 
-  // -- Initialization --
   useEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "report-page");
@@ -149,7 +137,6 @@ export default function CustomerReportPage() {
     };
   }, []);
 
-  // -- Boot Logic --
   useEffect(() => {
     (async () => {
       try {
@@ -196,7 +183,6 @@ export default function CustomerReportPage() {
     })();
   }, [navigate]);
 
-  // -- Data Fetching --
   const loadReport = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;
     customerReportAbortRef.current?.abort();
@@ -261,7 +247,7 @@ export default function CustomerReportPage() {
     try {
       const [accs, curs] = await Promise.all([
         fetchAccounts(companyId),
-        fetchCurrencies(companyId)
+        fetchCurrencies(companyId),
       ]);
       setAccounts(accs);
       setCurrencyList(curs);
@@ -294,7 +280,6 @@ export default function CustomerReportPage() {
     customerReportAbortRef.current?.abort();
   }, []);
 
-  // -- Handlers --
   const onSwitchCompany = useCallback(async (c) => {
     const effectiveId = companyHighlightId ?? companyId;
     if (!c?.id || Number(c.id) === Number(effectiveId)) return;
@@ -411,7 +396,6 @@ export default function CustomerReportPage() {
         </div>
       </div>
 
-      {/* Notifications — same markup/classes as maintenance pages */}
       {toast && (
         <div id="customerReportNotificationContainer" className="maintenance-notification-container">
           <div className={`maintenance-notification maintenance-notification-${reportToastMaintenanceVariant(toast.type)} show`}>

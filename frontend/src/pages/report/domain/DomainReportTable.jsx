@@ -1,4 +1,4 @@
-import { formatAmount } from "../domainReportLogic.js";
+import { formatAmount } from "./domainReportApi.js";
 
 function cellUpperOrDash(v) {
   if (v == null || String(v).trim() === "") return "-";

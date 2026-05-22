@@ -2,7 +2,7 @@
  * Shared Customer / Domain report money display and subtotal sums.
  * Aligns with legacy `js/domain_report.js` (HALF_UP + abs(x) < 0.005 as 0) + thousands separators.
  */
-import MoneyDecimal from "../../utils/moneyDecimal.js";
+import MoneyDecimal from "../../../utils/moneyDecimal.js";
 
 export function formatReportAmount(value) {
   const thousandsZero = () => MoneyDecimal.formatThousands(MoneyDecimal.formatFixedHalfUp("0", 2), 2);
@@ -29,4 +29,11 @@ export function reportAmountAdd(a, b) {
   } catch {
     return "0";
   }
+}
+
+/** Map report page notify types to maintenance toast CSS variants. */
+export function reportToastMaintenanceVariant(type) {
+  if (type === "danger" || type === "error") return "error";
+  if (type === "info") return "info";
+  return "success";
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import ReportDatePicker from "../common/ReportDatePicker.jsx";
-import ReportGcFilterPanel from "./ReportGcFilterPanel.jsx";
+import ReportGcFilterPanel from "../shared/ReportGcFilterPanel.jsx";
 
 const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
 
@@ -67,7 +67,6 @@ export default function DomainReportFilters({
   return (
     <div className="domain-report-filter-container">
       <div className="domain-report-filters">
-        {/* Process Select — outlined floating label */}
         <div className="domain-report-filter-group report-outlined-anchor">
           <div className="report-outlined-shell">
             <span className="report-outlined-label" id="report-process-outlined-label">
@@ -117,7 +116,6 @@ export default function DomainReportFilters({
           </div>
         </div>
 
-        {/* Date Range Picker */}
         <ReportDatePicker
           dateFrom={dateFrom}
           dateTo={dateTo}
