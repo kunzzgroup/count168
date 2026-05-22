@@ -238,6 +238,7 @@ function computeKpiMetrics(dashboardData, selectedGroup) {
   };
 }
 
+const DASHBOARD_PROFIT_COLOR = "#3b82f6";
 const DASHBOARD_EARNINGS_PIE_HEIGHT = 170;
 const DASHBOARD_EARNINGS_COLOR = "#f59e0b";
 /** 各币种固定色：圆环与右侧列表一致，便于对照 */
