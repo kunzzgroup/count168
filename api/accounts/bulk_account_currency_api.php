@@ -9,7 +9,7 @@ session_start();
 session_write_close(); // 释放 session 锁
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/deleted_log.php';
+require_once __DIR__ . '/../deleted_log/deleted_log.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
