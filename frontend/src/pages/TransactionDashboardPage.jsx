@@ -293,18 +293,6 @@ function formatI18nTemplate(template, vars) {
   );
 }
 
-function EarningsPieTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const item = payload[0]?.payload;
-  if (!item?.code) return null;
-  return (
-    <div className="dashboard-summary-pie-tooltip">
-      <div className="dashboard-summary-pie-tooltip-label">{item.code}</div>
-      <div className="dashboard-summary-pie-tooltip-value">{formatCurrency(item.earnings ?? 0)}</div>
-    </div>
-  );
-}
-
 function computePieCenterMetrics(slices, selectedCode) {
   const total = (slices || []).reduce((sum, row) => sum + (row.value || 0), 0);
   const selected = String(selectedCode || "").toUpperCase();
@@ -1549,7 +1537,6 @@ export default function TransactionDashboardPage() {
                           )
                         )}
                       </Pie>
-                      <Tooltip content={<EarningsPieTooltip />} cursor={false} />
                     </PieChart>
                   </ResponsiveContainer>
                   {!summaryEarningsLoading && earningsPieSlices.length > 0 && (
@@ -1558,8 +1545,10 @@ export default function TransactionDashboardPage() {
                       className="dashboard-summary-pie-center"
                       aria-hidden="true"
                     >
-                      <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
-                      <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
+                      <div className="dashboard-summary-pie-center-badge">
+                        <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
+                        <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
+                      </div>
                     </div>
                   )}
                 </div>
