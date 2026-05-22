@@ -1316,10 +1316,6 @@ export default function TransactionDashboardPage() {
             </div>
 
             <div className="dashboard-panel-card dashboard-panel-card--summary">
-              <div className="dashboard-summary-head">
-                <span className="dashboard-summary-label">{i18n.periodSummary}</span>
-                <span className="dashboard-summary-foot-muted">{kpiFooter}</span>
-              </div>
               <div className="dashboard-summary-hero">
                 <div className="dashboard-summary-hero-block">
                   <span className="dashboard-summary-hero-caption">
