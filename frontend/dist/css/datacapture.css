@@ -162,15 +162,6 @@ body.datacapture-page h1 {
     min-width: 0;
 }
 
-/* Top band: cap height so Submitted Processes scrolls inside, not stretching the page */
-body.datacapture-page .top-section {
-    flex: 0 1 auto;
-    flex-shrink: 1;
-    max-height: min(42dvh, 400px);
-    min-height: 0;
-    overflow: hidden;
-}
-
 @media (max-width: 900px) {
     .top-section {
         flex-direction: column;
@@ -182,13 +173,17 @@ body.datacapture-page .top-section {
     }
 }
 
-/* Equal columns + aligned with Submitted Processes card; extra form density for table area */
+/* Equal columns: form shows all fields; submitted list scrolls inside matched card height */
 body.datacapture-page .top-section {
     display: grid;
     grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
     align-items: stretch;
     column-gap: clamp(18px, 2.2vw, 32px);
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: auto;
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    max-height: none;
+    overflow: visible;
 }
 
 body.datacapture-page .top-section .form-column,
@@ -198,13 +193,34 @@ body.datacapture-page .top-section .submitted-column {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    min-height: 0;
 }
 
-body.datacapture-page .top-section .form-column > .form-container,
+body.datacapture-page .top-section .form-column {
+    min-height: auto;
+}
+
+body.datacapture-page .top-section .submitted-column {
+    min-height: 0;
+    align-self: stretch;
+}
+
+body.datacapture-page .top-section .form-column > .form-container {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+}
+
+body.datacapture-page .form-container .process-form {
+    overflow-x: hidden;
+    overflow-y: visible;
+    flex: 0 0 auto;
+    min-height: auto;
+}
+
 body.datacapture-page .top-section .submitted-column > .submitted-container {
     flex: 1 1 auto;
     min-height: 0;
+    height: 100%;
 }
 
 @media (max-width: 900px) {
