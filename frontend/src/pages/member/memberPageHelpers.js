@@ -15,9 +15,9 @@ export const WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ = "(max-width: 1409px)";
 /** Win/Loss Currency：每条 segment 白底带最多按钮数（含第一段的「All」占位），多出的自动再开新带 */
 export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS = 8;
 
-/** Win/Loss 矩阵：<10 列 1fr 铺满；≥10 列时每列宽 = 9 列铺满时的单列宽，向右延伸并可横向滚动 */
+/** Win/Loss 矩阵：<10 列白卡随内容收缩；≥10 列单列宽=9 列参考宽并横向滚动 */
 export const WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD = 10;
-/** 视口内按此列数均分宽度（与 <10 列时 9 列铺满的间距一致） */
+/** ≥10 列时在中栏内按此列数均分得到单列参考宽 */
 export const WINLOSS_MATRIX_FILL_CCY_COLS = 9;
 export const WINLOSS_MATRIX_ROWHEAD_COL_WIDTH = "5.75rem";
 /** 单列最小宽：容纳 "-9,999,999.00" 等带千分位金额，窄视口不足时矩阵横向滚动 */

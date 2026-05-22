@@ -192,9 +192,7 @@ export default function MemberMiniGrid({
       };
       const rowheadPx = parseRem(WINLOSS_MATRIX_ROWHEAD_COL_WIDTH, 5.75);
       const minColPx = parseRem(WINLOSS_MATRIX_MIN_CCY_COL_WIDTH, 6);
-      /* 单列宽 = 中栏按 9 列铺满时的宽度；表总宽 = 行头 + ncu×列宽，贴右向左扩展，不随 ncu 拉伸整栏 */
-      const fitColPx = (innerW - rowheadPx) / WINLOSS_MATRIX_FILL_CCY_COLS;
-      let colPx = Math.max(minColPx, fitColPx);
+      const scrollMode = ncu >= WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD;
 
       const measureContentColPx = () => {
         let maxPx = 0;
@@ -212,11 +210,25 @@ export default function MemberMiniGrid({
         grid.style.gridTemplateColumns = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content) repeat(${ncu}, minmax(${colW}, max-content))`;
       };
 
+      let colPx = minColPx;
+      if (innerW > 0) {
+        const fitColPx = (innerW - rowheadPx) / WINLOSS_MATRIX_FILL_CCY_COLS;
+        colPx = Math.max(minColPx, fitColPx);
+      }
+
       applyColumns(colPx);
       const contentPx = measureContentColPx();
       if (contentPx > colPx) {
         colPx = contentPx;
         applyColumns(colPx);
+      }
+
+      if (!scrollMode) {
+        grid.style.width = `${rowheadPx + ncu * colPx}px`;
+        grid.style.maxWidth = "100%";
+      } else {
+        grid.style.removeProperty("width");
+        grid.style.removeProperty("maxWidth");
       }
     };
 
@@ -232,6 +244,8 @@ export default function MemberMiniGrid({
       scroll.style.removeProperty("--member-wl-ccy-fill-col-w");
       grid.style.removeProperty("--member-wl-ccy-fill-col-w");
       grid.style.removeProperty("grid-template-columns");
+      grid.style.removeProperty("width");
+      grid.style.removeProperty("max-width");
     };
   }, [ncu, orderUpper.join("|"), listOrdered.length, balanceMap?.size, shellMode]);
 
