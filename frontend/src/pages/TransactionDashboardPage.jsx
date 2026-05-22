@@ -8,6 +8,7 @@ import {
   Customized,
   Pie,
   PieChart,
+  Label,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -239,7 +240,7 @@ function computeKpiMetrics(dashboardData, selectedGroup) {
 }
 
 const DASHBOARD_PROFIT_COLOR = "#3b82f6";
-const DASHBOARD_EARNINGS_PIE_HEIGHT = 200;
+const DASHBOARD_EARNINGS_PIE_HEIGHT = 180;
 const DASHBOARD_EARNINGS_COLOR = "#f59e0b";
 /** 各币种固定色：圆环与右侧列表一致，便于对照 */
 const DASHBOARD_CURRENCY_COLORS = {
@@ -305,68 +306,53 @@ function EarningsPieTooltip({ active, payload }) {
   );
 }
 
-function renderCurrencyPieLabel(props) {
-  const { cx, cy, midAngle, innerRadius, outerRadius, percent, payload } = props;
-  if (!payload?.code) return null;
-  const RADIAN = Math.PI / 180;
-  const sin = Math.sin(-RADIAN * midAngle);
-  const cos = Math.cos(-RADIAN * midAngle);
-  const innerR = typeof innerRadius === "number" ? innerRadius : outerRadius * 0.55;
-  const fontSize = percent < 0.1 ? 9 : 10;
-
-  if (percent < 0.15) {
-    const midR = innerR + (outerRadius - innerR) * 0.55;
-    const lx = cx + midR * cos;
-    const ly = cy + midR * sin;
+function makePieCenterLabel(slices) {
+  return function PieCenterLabelContent({ viewBox }) {
+    if (!viewBox?.cx || !viewBox?.cy || !slices?.length) return null;
+    const total = slices.reduce((sum, row) => sum + (row.value || 0), 0);
+    if (total <= 0) return null;
+    const top = slices[0];
+    const pct = ((top.value / total) * 100).toFixed(0);
+    const cx = viewBox.cx;
+    const cy = viewBox.cy;
     return (
-      <text
-        x={lx}
-        y={ly}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill="#ffffff"
-        fontSize={fontSize}
-        fontWeight={600}
-        stroke="rgba(15, 23, 42, 0.35)"
-        strokeWidth={2}
-        paintOrder="stroke"
-      >
-        {payload.code}
-      </text>
+      <g aria-hidden="true">
+        <text
+          x={cx}
+          y={cy - 4}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="var(--color-text-ink-strong, #111827)"
+          fontSize={20}
+          fontWeight={700}
+          fontFamily="var(--font-heading-page, Inter, sans-serif)"
+        >
+          {pct}%
+        </text>
+        <text
+          x={cx}
+          y={cy + 14}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="var(--color-text-caption, #64748b)"
+          fontSize={11}
+          fontWeight={600}
+          fontFamily="var(--font-heading-page, Inter, sans-serif)"
+        >
+          {top.code}
+        </text>
+      </g>
     );
-  }
+  };
+}
 
-  const leaderExtra = 12;
-  const labelExtra = 8;
-  const sx = cx + (outerRadius + 2) * cos;
-  const sy = cy + (outerRadius + 2) * sin;
-  const mx = cx + (outerRadius + leaderExtra) * cos;
-  const my = cy + (outerRadius + leaderExtra) * sin;
-  const ex = mx + (cos >= 0 ? 1 : -1) * labelExtra;
-  const ey = my;
-  const textAnchor = cos >= 0 ? "start" : "end";
-  const tx = ex + (cos >= 0 ? 3 : -3);
-  return (
-    <g>
-      <path
-        d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
-        stroke="var(--color-border-slate, #cbd5e1)"
-        fill="none"
-        strokeWidth={1}
-      />
-      <text
-        x={tx}
-        y={ey}
-        textAnchor={textAnchor}
-        fill="var(--color-text-caption, #64748b)"
-        fontSize={fontSize}
-        fontWeight={600}
-        dominantBaseline="central"
-      >
-        {payload.code}
-      </text>
-    </g>
-  );
+function computeCurrencySharePct(row, total, useConverted) {
+  const val =
+    useConverted && row.earningsConverted != null
+      ? Math.abs(row.earningsConverted)
+      : Math.abs(parseFloat(row.earnings) || 0);
+  if (!total || total <= 0) return 0;
+  return (val / total) * 100;
 }
 
 const KPI_CARD_ICONS = {
@@ -1194,6 +1180,21 @@ export default function TransactionDashboardPage() {
     [earningsCurrencyRows, useConvertedEarnings]
   );
 
+  const earningsShareTotal = useMemo(() => {
+    if (useConvertedEarnings && convertedEarningsTotal != null) {
+      return Math.abs(convertedEarningsTotal);
+    }
+    return earningsCurrencyRows.reduce(
+      (sum, row) => sum + Math.abs(parseFloat(row.earnings) || 0),
+      0
+    );
+  }, [useConvertedEarnings, convertedEarningsTotal, earningsCurrencyRows]);
+
+  const pieCenterLabel = useMemo(
+    () => makePieCenterLabel(earningsPieSlices),
+    [earningsPieSlices]
+  );
+
   const currencyPieFillByCode = useMemo(() => {
     const map = {};
     earningsCurrencyRows.forEach((row, index) => {
@@ -1548,7 +1549,7 @@ export default function TransactionDashboardPage() {
               <div className="dashboard-summary-earnings-panel">
                 <div className="dashboard-summary-pie-wrap" aria-hidden={summaryEarningsLoading}>
                   <ResponsiveContainer width="100%" height={DASHBOARD_EARNINGS_PIE_HEIGHT}>
-                    <PieChart margin={{ top: 16, right: 20, bottom: 16, left: 20 }}>
+                    <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <Pie
                         data={
                           earningsPieSlices.length
@@ -1559,20 +1560,22 @@ export default function TransactionDashboardPage() {
                         nameKey="code"
                         cx="50%"
                         cy="50%"
-                        innerRadius="52%"
-                        outerRadius="68%"
-                        paddingAngle={earningsPieSlices.length > 1 ? 3 : 0}
+                        innerRadius="58%"
+                        outerRadius="78%"
+                        paddingAngle={earningsPieSlices.length > 1 ? 2 : 0}
                         stroke="#fff"
-                        strokeWidth={3}
-                        labelLine={false}
-                        label={earningsPieSlices.length ? renderCurrencyPieLabel : false}
+                        strokeWidth={2}
+                        label={false}
                         activeShape={false}
                         isAnimationActive={false}
                       >
                         {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
                           (entry, index) => (
-                            <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={3} />
+                            <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={2} />
                           )
+                        )}
+                        {earningsPieSlices.length > 0 && (
+                          <Label content={pieCenterLabel} position="center" />
                         )}
                       </Pie>
                       <Tooltip content={<EarningsPieTooltip />} cursor={false} />
@@ -1580,7 +1583,16 @@ export default function TransactionDashboardPage() {
                   </ResponsiveContainer>
                 </div>
                 <div className="dashboard-summary-currency-list" role="list">
-                  {earningsCurrencyRows.map((row, index) => (
+                  <div className="dashboard-summary-currency-list-head" aria-hidden="true">
+                    <span>{i18n.currencyBreakdown}</span>
+                  </div>
+                  {earningsCurrencyRows.map((row, index) => {
+                    const sharePct = computeCurrencySharePct(
+                      row,
+                      earningsShareTotal,
+                      useConvertedEarnings
+                    );
+                    return (
                     <div
                       key={row.code}
                       role="listitem"
@@ -1617,8 +1629,12 @@ export default function TransactionDashboardPage() {
                             </span>
                           )}
                       </div>
+                      <span className="dashboard-summary-currency-share">
+                        {summaryEarningsLoading ? "" : `${sharePct.toFixed(1)}%`}
+                      </span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               {currencies.length > 1 && rateFootnoteText && (

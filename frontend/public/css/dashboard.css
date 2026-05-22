@@ -1269,15 +1269,25 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    gap: clamp(4px, 0.4vw, 6px);
+    gap: clamp(3px, 0.35vw, 5px);
     overflow-y: auto;
     max-height: none;
     padding-right: 2px;
 }
 
+.dashboard-summary-currency-list-head {
+    padding: 0 8px 2px;
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
+    font-weight: 600;
+    color: var(--color-muted-fg, #6b7280);
+    font-family: var(--font-heading-page);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
 .dashboard-summary-currency-row {
     display: grid;
-    grid-template-columns: 8px 1fr auto;
+    grid-template-columns: 8px minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 8px 10px;
     padding: 7px 8px;
@@ -1337,6 +1347,17 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-family: var(--font-heading-page);
     white-space: nowrap;
     line-height: 1.2;
+}
+
+.dashboard-summary-currency-share {
+    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
+    font-weight: 600;
+    color: var(--color-text-caption, #64748b);
+    font-family: var(--font-heading-page);
+    min-width: 38px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .dashboard-summary-rate-footnote {

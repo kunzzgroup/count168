@@ -86,6 +86,7 @@ export const DASHBOARD_I18N = {
     rateUnavailable: "Some rates unavailable",
     rateLoading: "Loading rates…",
     rateSourceLabel: "Frankfurter",
+    currencyBreakdown: "Breakdown",
   },
   zh: {
     transactionDashboard: "交易仪表板",
@@ -174,5 +175,6 @@ export const DASHBOARD_I18N = {
     rateUnavailable: "部分币种无在线汇率",
     rateLoading: "加载汇率中…",
     rateSourceLabel: "Frankfurter",
+    currencyBreakdown: "构成",
   },
 };
