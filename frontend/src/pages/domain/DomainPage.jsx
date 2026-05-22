@@ -384,7 +384,7 @@ export default function DomainPage() {
                     )}
                   </div>
                   <div className="card-item uppercase-text">{String(domain.created_by || "-").toUpperCase()}</div>
-                  <div className="card-item" style={{ display: "flex", alignItems: "center" }}>
+                  <div className="card-item domain-action-cell">
                     <button
                       type="button"
                       className="btn-edit"
@@ -393,15 +393,16 @@ export default function DomainPage() {
                     >
                       <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
                     </button>
-                    {!isProtected && (
+                    {!isProtected ? (
                       <input
                         type="checkbox"
                         className="domain-checkbox"
                         value={domain.id}
                         checked={checkedIds.has(domain.id)}
+                        aria-label={t("selectOwnerForDelete")}
                         onChange={(e) => handleCheckbox(domain.id, e.target.checked)}
                       />
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );
