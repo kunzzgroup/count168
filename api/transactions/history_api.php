@@ -16,7 +16,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 header('X-Count168-History-Sort: calendar');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/bank_process_bill_display.php';

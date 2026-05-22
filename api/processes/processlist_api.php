@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../permissions.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/ensure_bank_process_day_end_monthly_cap_column.php';

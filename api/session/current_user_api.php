@@ -7,7 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 $pdo = null;
 try {
-    require_once __DIR__ . '/../../config.php';
+    require_once __DIR__ . '/../../includes/config.php';
     require_once __DIR__ . '/../c168/c168_domain_access.php';
     require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
     require_once __DIR__ . '/../includes/member_linked_closure.php';
