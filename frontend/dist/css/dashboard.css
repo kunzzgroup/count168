@@ -1395,6 +1395,14 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-variant-numeric: tabular-nums;
 }
 
+.dashboard-summary-pie-tooltip-converted {
+    margin-top: 1px;
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
+    font-weight: 400;
+    color: var(--color-text-caption, #64748b);
+    font-variant-numeric: tabular-nums;
+}
+
 .dashboard-summary-pie-tooltip-pct {
     margin-top: 2px;
     font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
@@ -1441,15 +1449,15 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     padding-right: 2px;
     display: flex;
     flex-direction: column;
-    gap: clamp(3px, 0.35vw, 5px);
+    gap: clamp(2px, 0.25vw, 4px);
 }
 
 .dashboard-summary-currency-row {
     display: grid;
-    grid-template-columns: 8px minmax(0, 1fr) auto auto;
+    grid-template-columns: 8px 36px minmax(0, 1fr);
     align-items: center;
-    gap: 8px 10px;
-    padding: 7px 8px;
+    column-gap: 8px;
+    padding: 5px 8px;
     border-radius: var(--radius-panel, 8px);
     font-family: var(--font-heading-page);
     border-left: none;
@@ -1482,13 +1490,22 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-weight: 600;
     color: var(--color-text-label, #374151);
     letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.dashboard-summary-currency-values {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: clamp(6px, 0.55vw, 10px);
+    min-width: 0;
 }
 
 .dashboard-summary-currency-amount-col {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 2px;
+    gap: 1px;
     min-width: 0;
 }
 
@@ -1497,6 +1514,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     font-weight: 600;
     color: var(--color-text-ink-strong, #111827);
     white-space: nowrap;
+    line-height: 1.25;
 }
 
 .dashboard-summary-currency-converted {
@@ -1505,18 +1523,21 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     color: var(--color-text-caption, #64748b);
     font-family: var(--font-heading-page);
     white-space: nowrap;
-    line-height: 1.2;
+    line-height: 1.15;
 }
 
 .dashboard-summary-currency-rate {
+    flex: 0 0 auto;
     font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
     font-weight: 600;
     color: var(--color-text-caption, #64748b);
     font-family: var(--font-heading-page);
-    min-width: 44px;
+    min-width: 2.75rem;
+    padding-left: clamp(6px, 0.55vw, 10px);
     text-align: right;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    border-left: 1px solid var(--color-border-slate, #e2e8f0);
 }
 
 .dashboard-summary-rate-footnote {

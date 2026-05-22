@@ -275,11 +275,14 @@ function getCurrencyColor(code, fallbackIndex = 0) {
 function buildEarningsPieSlices(rows, { useConverted = false } = {}) {
   return rows
     .map((row, index) => {
+      const originalEarnings = row.earnings;
       const earnings =
         useConverted && row.earningsConverted != null ? row.earningsConverted : row.earnings;
       return {
         code: row.code,
         earnings,
+        originalEarnings,
+        earningsConverted: row.earningsConverted,
         value: Math.abs(earnings),
         fill: getCurrencyColor(row.code, index),
       };
@@ -294,13 +297,34 @@ function formatI18nTemplate(template, vars) {
   );
 }
 
-function EarningsPieSectorTooltip({ slice, sharePct, placeAbove = true }) {
+function EarningsPieSectorTooltip({
+  slice,
+  sharePct,
+  baseCode,
+  useConverted,
+  convertedApproxTemplate,
+  placeAbove = true,
+}) {
   if (!slice?.code) return null;
+  const displayAmount = slice.originalEarnings ?? slice.earnings ?? 0;
+  const showConverted =
+    useConverted &&
+    slice.earningsConverted != null &&
+    String(slice.code).toUpperCase() !== String(baseCode || "").toUpperCase();
+
   return (
     <div className={`dashboard-summary-pie-tooltip-stack${placeAbove ? "" : " is-below"}`}>
       <div className="dashboard-summary-pie-tooltip dashboard-summary-pie-tooltip--sector">
         <div className="dashboard-summary-pie-tooltip-label">{slice.code}</div>
-        <div className="dashboard-summary-pie-tooltip-value">{formatCurrency(slice.earnings ?? 0)}</div>
+        <div className="dashboard-summary-pie-tooltip-value">{formatCurrency(displayAmount)}</div>
+        {showConverted && (
+          <div className="dashboard-summary-pie-tooltip-converted">
+            {formatI18nTemplate(convertedApproxTemplate, {
+              amount: formatCurrency(slice.earningsConverted),
+              code: baseCode,
+            })}
+          </div>
+        )}
         {sharePct != null && (
           <div className="dashboard-summary-pie-tooltip-pct">{sharePct.toFixed(1)}%</div>
         )}
@@ -1634,6 +1658,9 @@ export default function TransactionDashboardPage() {
                       <EarningsPieSectorTooltip
                         slice={hoveredPieTooltip.slice}
                         sharePct={hoveredPieTooltip.sharePct}
+                        baseCode={currencyCode}
+                        useConverted={useConvertedEarnings}
+                        convertedApproxTemplate={i18n.convertedApprox}
                         placeAbove={hoveredPieTooltip.placeAbove}
                       />
                     </div>
@@ -1696,31 +1723,33 @@ export default function TransactionDashboardPage() {
                         aria-hidden="true"
                       />
                       <span className="dashboard-summary-currency-code">{row.code}</span>
-                      <div className="dashboard-summary-currency-amount-col">
-                        <span className="dashboard-summary-currency-amount">
-                          {summaryEarningsLoading ? "…" : formatCurrency(row.earnings)}
+                      <div className="dashboard-summary-currency-values">
+                        <div className="dashboard-summary-currency-amount-col">
+                          <span className="dashboard-summary-currency-amount">
+                            {summaryEarningsLoading ? "…" : formatCurrency(row.earnings)}
+                          </span>
+                          {useConvertedEarnings &&
+                            row.earningsConverted != null &&
+                            String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
+                              <span className="dashboard-summary-currency-converted">
+                                {formatI18nTemplate(i18n.convertedApprox, {
+                                  amount: formatCurrency(row.earningsConverted),
+                                  code: currencyCode,
+                                })}
+                              </span>
+                            )}
+                        </div>
+                        <span
+                          className="dashboard-summary-currency-rate"
+                          title={unitRateTitle}
+                        >
+                          {summaryEarningsLoading
+                            ? ""
+                            : useConvertedEarnings
+                              ? unitRateLabel
+                              : `${sharePct.toFixed(1)}%`}
                         </span>
-                        {useConvertedEarnings &&
-                          row.earningsConverted != null &&
-                          String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
-                            <span className="dashboard-summary-currency-converted">
-                              {formatI18nTemplate(i18n.convertedApprox, {
-                                amount: formatCurrency(row.earningsConverted),
-                                code: currencyCode,
-                              })}
-                            </span>
-                          )}
                       </div>
-                      <span
-                        className="dashboard-summary-currency-rate"
-                        title={unitRateTitle}
-                      >
-                        {summaryEarningsLoading
-                          ? ""
-                          : useConvertedEarnings
-                            ? unitRateLabel
-                            : `${sharePct.toFixed(1)}%`}
-                      </span>
                     </div>
                     );
                   })}
