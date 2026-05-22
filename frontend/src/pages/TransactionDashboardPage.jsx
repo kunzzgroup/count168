@@ -112,6 +112,14 @@ function formatSignedChange(value) {
   return body;
 }
 
+/** 按天模式：≤14 天全显示；更长区间自动跳日，避免 X 轴重叠 */
+function resolveDailyChartXAxisTicks(dayCount) {
+  if (dayCount <= 14) {
+    return { interval: 0, minTickGap: 0 };
+  }
+  return { interval: "preserveStartEnd", minTickGap: 36 };
+}
+
 function makeDashboardChartXTick(compact) {
   return function DashboardChartXTick({ x, y, payload }) {
     if (x == null || y == null || payload?.value == null) return null;
@@ -791,9 +799,11 @@ export default function TransactionDashboardPage() {
     const n = chartRows.length;
     const compact = !chartAggregateByMonth && n > 14;
     const marginBottom = compact ? 22 : 20;
+    const tickSkip = chartAggregateByMonth
+      ? { interval: 0, minTickGap: 0 }
+      : resolveDailyChartXAxisTicks(n);
     return {
-      interval: chartAggregateByMonth || n <= 62 ? 0 : "preserveStartEnd",
-      minTickGap: chartAggregateByMonth || n <= 62 ? 0 : 6,
+      ...tickSkip,
       tick: makeDashboardChartXTick(compact),
       height: marginBottom,
       marginBottom,
