@@ -2645,7 +2645,7 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     z-index: 20000;
 }
 
-/* Add Account 内操作（创建币种等）的 toast：高于 account-modal(20000) 与公司选择器(25000)，位置仍在右上 */
+/* Add Account 内操作（创建币种等）的 toast：高于 account-modal(20050) 与公司选择器(25500)，位置仍在右上 */
 .process-notification-container.process-notification-container--above-account-modal {
     z-index: 26000;
 }

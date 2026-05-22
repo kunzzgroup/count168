@@ -23,6 +23,8 @@ export const profitSharingModalDropdownZIndex = 10101;
 export const accountModalDropdownZIndex = 20001;
 /** Add Account modal above ProcessModalPortal bank modals (10050). */
 export const accountModalOverlayZIndex = 20050;
+/** Company picker above Add Account modal; below validation toast (26000). */
+export const accountCompanyPickerZIndex = 25500;
 /** Toast above bank/process modals (10050); below Add Account (20050). */
 export const processNotificationZIndex = 10100;
 /** Toast above Add Account modal and company picker. */

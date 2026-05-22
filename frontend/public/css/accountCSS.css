@@ -3220,3 +3220,8 @@ body > .account-notification-container {
     z-index: 10100;
 }
 
+body > .user-modal-company-picker-root--above-modals,
+body > .user-modal-permission-picker-root--above-modals {
+    z-index: 25500;
+}
+

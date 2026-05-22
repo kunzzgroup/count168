@@ -666,7 +666,7 @@
         }
 
         body.dashboard-page .user-modal-company-picker-root--above-modals {
-            z-index: 10002;
+            z-index: 25500;
         }
 
         /* Legacy PHP #addModal only (SPA uses #account-addModal) */

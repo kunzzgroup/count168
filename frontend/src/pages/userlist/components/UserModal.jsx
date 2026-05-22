@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
+import { accountCompanyPickerZIndex, accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
 
 /** Inline so first paint is 3-column even if extracted CSS applies one frame late */
 const modalBodyStyle = {
@@ -611,7 +611,10 @@ export default function UserModal({
       : userModalShell}
     {companyPickerOpen && (currentUserRole === "admin" || currentUserRole === "owner")
       ? createPortal(
-          <div className="user-modal-company-picker-root">
+          <div
+            className="user-modal-company-picker-root user-modal-company-picker-root--above-modals"
+            style={{ zIndex: accountCompanyPickerZIndex }}
+          >
             <button
               type="button"
               className="user-modal-company-picker-backdrop"
@@ -707,7 +710,10 @@ export default function UserModal({
       : null}
     {permissionPickerOpen
       ? createPortal(
-          <div className="user-modal-permission-picker-root">
+          <div
+            className="user-modal-permission-picker-root user-modal-permission-picker-root--above-modals"
+            style={{ zIndex: accountCompanyPickerZIndex }}
+          >
             <button
               type="button"
               className="user-modal-permission-picker-backdrop"
