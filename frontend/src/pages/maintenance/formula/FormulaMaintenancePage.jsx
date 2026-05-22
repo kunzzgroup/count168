@@ -31,7 +31,7 @@ import {
 // Components
 import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.jsx";
 import FormulaMaintenanceTable from "./components/FormulaMaintenanceTable.jsx";
-import ConfirmDeleteModal from "../capture/components/ConfirmDeleteModal.jsx";
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
 
 export default function FormulaMaintenancePage() {
   const navigate = useNavigate();
@@ -730,7 +730,7 @@ export default function FormulaMaintenancePage() {
       </div>
 
       {/* Modal & Notifications */}
-      <ConfirmDeleteModal
+      <MaintenanceDeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}

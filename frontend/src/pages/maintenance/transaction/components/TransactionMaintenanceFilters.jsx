@@ -1,21 +1,12 @@
 import { useMemo } from "react";
-import ProcessSelect from "./ProcessSelect.jsx";
+import ProcessSelect from "../../shared/ProcessSelect.jsx";
+import {
+  buildMaintenancePeriodPresets,
+  formatDmyFromYmd,
+  parseDmy,
+} from "../../shared/maintenanceDateHelpers.js";
 import ReportDatePicker from "../../../report/common/ReportDatePicker.jsx";
 import ReportGcFilterPanel from "../../../report/components/ReportGcFilterPanel.jsx";
-
-const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
-
-function parseDmy(dmy) {
-  const match = String(dmy || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) return "";
-  return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
-}
-
-function formatDmy(ymd) {
-  const [y, m, d] = (ymd || "").split("-");
-  if (!y || !m || !d) return "";
-  return `${d}/${m}/${y}`;
-}
 
 export default function TransactionMaintenanceFilters({
   processes,
@@ -36,10 +27,7 @@ export default function TransactionMaintenanceFilters({
   onSwitchCompany,
   m,
 }) {
-  const periodPresets = useMemo(
-    () => QUICK_RANGE_KEYS.map((key) => ({ key, label: m[key] || key })),
-    [m],
-  );
+  const periodPresets = useMemo(() => buildMaintenancePeriodPresets(m), [m]);
 
   return (
     <div className="customer-report-filter-container">
@@ -71,8 +59,8 @@ export default function TransactionMaintenanceFilters({
           dateFrom={parseDmy(dateFrom || today)}
           dateTo={parseDmy(dateTo || today)}
           onRangeChange={(start, end) => {
-            setDateFrom(formatDmy(start));
-            setDateTo(formatDmy(end));
+            setDateFrom(formatDmyFromYmd(start));
+            setDateTo(formatDmyFromYmd(end));
           }}
           containerClass="customer-report-filter-group"
           label={m.dateRange}

@@ -19,8 +19,7 @@ import TransactionMaintenancePage from "./pages/maintenance/transaction/Transact
 import FormulaMaintenancePage from "./pages/maintenance/formula/FormulaMaintenancePage.jsx";
 import BankprocessMaintenancePage from "./pages/maintenance/bankprocess/BankprocessMaintenancePage.jsx";
 import PaymentMaintenancePage from "./pages/maintenance/payment/PaymentMaintenancePage.jsx";
-import OwnerSecondaryPasswordPage from "./pages/login/OwnerSecondaryPasswordPage.jsx";
-import UserSecondaryPasswordPage from "./pages/login/UserSecondaryPasswordPage.jsx";
+import SecondaryPasswordPage from "./pages/login/SecondaryPasswordPage.jsx";
 import MemberPage from "./pages/member/MemberPage.jsx";
 import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
 import UserAccessPage from "./pages/useraccess/UserAccessPage.jsx";
@@ -33,8 +32,8 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/member" element={<MemberPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/owner-secondary-password" element={<OwnerSecondaryPasswordPage />} />
-      <Route path="/user-secondary-password" element={<UserSecondaryPasswordPage />} />
+      <Route path="/owner-secondary-password" element={<SecondaryPasswordPage variant="owner" />} />
+      <Route path="/user-secondary-password" element={<SecondaryPasswordPage variant="user" />} />
       <Route element={<AuthenticatedLayout />}>
         <Route path="/dashboard" element={<TransactionDashboardPage />} />
         <Route path="/domain" element={<DomainPage />} />

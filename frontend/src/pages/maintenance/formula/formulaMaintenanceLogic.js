@@ -1,55 +1,23 @@
 import { buildApiUrl } from "../../../utils/apiUrl.js";
+import {
+  fetchFormulaCompanyPermissionsRaw,
+  fetchMaintenanceProcesses,
+  isBankOnlyCategoryCompany,
+} from "../shared/maintenanceCompanyApi.js";
 
-/**
- * Fetch raw permissions for a specific company
- */
 export async function fetchCompanyPermissionsRaw(companyCode) {
-  if (!companyCode) return [];
-  try {
-    const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get_company_permissions", company_id: companyCode })
-    });
-    const result = await response.json();
-    let permissions = ['Games', 'Loan', 'Rate', 'Money'];
-    if (result.success && result.data && Array.isArray(result.data.permissions)) {
-      permissions = result.data.permissions;
-    }
-    return permissions;
-  } catch (err) {
-    console.error("Error fetching company permissions:", err);
-    return ['Games', 'Loan', 'Rate', 'Money'];
-  }
+  return fetchFormulaCompanyPermissionsRaw(companyCode);
 }
 
-/**
- * Fetch permissions for formula category buttons (Bank excluded)
- */
 export async function fetchCompanyPermissions(companyCode) {
   const permissions = await fetchCompanyPermissionsRaw(companyCode);
-  return permissions.filter(p => p !== 'Bank');
+  return permissions.filter((p) => p !== "Bank");
 }
 
-export function isBankOnlyCategoryCompany(permissions) {
-  if (!Array.isArray(permissions) || permissions.length === 0) return false;
-  const hasBank = permissions.includes("Bank");
-  const hasGames = permissions.includes("Games") || permissions.includes("Gambling");
-  return hasBank && !hasGames;
-}
+export { isBankOnlyCategoryCompany };
 
-/**
- * Fetch process list for a specific company
- */
 export async function fetchProcesses(companyId) {
-  const params = new URLSearchParams();
-  if (companyId) params.append("company_id", companyId);
-  const url = buildApiUrl(`api/processes/processlist_api.php?${params.toString()}`);
-  
-  const response = await fetch(url);
-  const data = await response.json();
-  if (!data.success) throw new Error(data.error || 'Failed to load process list');
-  return data.data || [];
+  return fetchMaintenanceProcesses(companyId);
 }
 
 /**

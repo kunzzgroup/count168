@@ -24,7 +24,7 @@ import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/mai
 // Components
 import PaymentMaintenanceFilters from "./components/PaymentMaintenanceFilters.jsx";
 import PaymentMaintenanceTable from "./components/PaymentMaintenanceTable.jsx";
-import ConfirmDeleteModal from "../capture/components/ConfirmDeleteModal.jsx"; // Reuse from capture
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
 
 export default function PaymentMaintenancePage() {
   const navigate = useNavigate();
@@ -586,7 +586,7 @@ export default function PaymentMaintenancePage() {
       </div>
 
       {/* Modal & Notifications */}
-      <ConfirmDeleteModal
+      <MaintenanceDeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}

@@ -1,10 +1,12 @@
 import { buildApiUrl } from "../../../utils/apiUrl.js";
+import {
+  DEFAULT_PERMISSIONS_BANKPROCESS,
+  fetchDomainCompanyPermissions,
+} from "../shared/maintenanceCompanyApi.js";
+import { formatDmyFromDate } from "../shared/maintenanceDateHelpers.js";
 
 export function formatDmy(d) {
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  return formatDmyFromDate(d);
 }
 
 export function formatAmount(value) {
@@ -23,23 +25,10 @@ export function toUpperDisplay(value) {
 }
 
 export async function fetchCompanyPermissions(companyCode) {
-  if (!companyCode) return [];
-  try {
-    const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "get_company_permissions",
-        company_id: companyCode,
-      }),
-    });
-    const result = await response.json();
-    return Array.isArray(result?.data?.permissions)
-      ? result.data.permissions.filter((p) => p !== "Games")
-      : ["Bank", "Loan", "Rate", "Money"];
-  } catch {
-    return ["Bank", "Loan", "Rate", "Money"];
-  }
+  return fetchDomainCompanyPermissions(companyCode, {
+    excludeGames: true,
+    defaultPermissions: DEFAULT_PERMISSIONS_BANKPROCESS,
+  });
 }
 
 export async function fetchCompanyCurrencies(companyId) {

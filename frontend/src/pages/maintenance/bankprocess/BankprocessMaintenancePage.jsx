@@ -16,7 +16,7 @@ import "../../../../public/css/bankprocess_maintenance.css";
 import "../../../../public/css/maintenance_notifications.css";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
 import BankprocessMaintenanceTable from "./components/BankprocessMaintenanceTable.jsx";
-import BankprocessDeleteModal from "./components/BankprocessDeleteModal.jsx";
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
 import {
   deleteBankprocessData,
   fetchCompanyCurrencies,
@@ -570,11 +570,12 @@ export default function BankprocessMaintenancePage() {
         ))}
       </div>
 
-      <BankprocessDeleteModal
+      <MaintenanceDeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={onConfirmDelete}
         count={selectedIds.length}
+        messageKey="deleteConfirmBankProcess"
         t={t}
       />
     </div>

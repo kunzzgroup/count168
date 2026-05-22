@@ -26,7 +26,7 @@ import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/mai
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
 import CaptureMaintenanceTable from "./components/CaptureMaintenanceTable.jsx";
-import ConfirmDeleteModal from "./components/ConfirmDeleteModal.jsx";
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
 
 export default function CaptureMaintenancePage() {
   const navigate = useNavigate();
@@ -591,7 +591,7 @@ export default function CaptureMaintenancePage() {
         ))}
       </div>
       {/* Confirm Modal */}
-      <ConfirmDeleteModal
+      <MaintenanceDeleteConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDeleteAction}

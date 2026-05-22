@@ -1,9 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
+/**
+ * Searchable process dropdown for maintenance pages.
+ * @param {"id"|"processName"} valueMode — capture uses DB id; formula/transaction use process_name
+ */
 export default function ProcessSelect({
   processes,
   selectedValue,
   onSelect,
+  valueMode = "processName",
   placeholder = "--Select All--",
   unsetPlaceholder,
   searchPlaceholder = "Search process...",
@@ -16,17 +21,19 @@ export default function ProcessSelect({
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  const filteredProcesses = processes.filter(p => {
-    const text = p.description 
-      ? `${p.process_name} (${p.description})`
-      : p.process_name;
+  const useIdValue = valueMode === "id";
+  const useTransactionSelectAll = valueMode === "processName" && unsetPlaceholder == null;
+
+  const filteredProcesses = processes.filter((p) => {
+    const text = p.description ? `${p.process_name} (${p.description})` : p.process_name;
     return text.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  const displayProcesses = [
-    { id: "", process_name: placeholder },
-    ...filteredProcesses
-  ];
+  const selectAllSeed = useTransactionSelectAll
+    ? { id: null, process_name: placeholder }
+    : { id: "", process_name: placeholder };
+
+  const displayProcesses = [selectAllSeed, ...filteredProcesses];
 
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
@@ -44,6 +51,27 @@ export default function ProcessSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const isSelectAllOption = (process) => {
+    if (useIdValue) {
+      return !(process?.id != null && process.process_name !== placeholder);
+    }
+    if (useTransactionSelectAll) {
+      return (
+        process == null ||
+        process.id == null ||
+        process.id === "" ||
+        process.process_name === placeholder
+      );
+    }
+    return !(process?.id != null && process.process_name !== placeholder);
+  };
+
+  const resolveValue = (process) => {
+    if (isSelectAllOption(process)) return "";
+    if (useIdValue) return String(process.id);
+    return String(process.process_name);
+  };
+
   const handleToggle = () => {
     setIsOpen(!isOpen);
     setSearchTerm("");
@@ -51,20 +79,19 @@ export default function ProcessSelect({
   };
 
   const handleSelect = (process) => {
-    const value =
-      process.id != null && process.process_name !== placeholder
-        ? String(process.process_name)
-        : "";
-    onSelect(value);
+    onSelect(resolveValue(process));
     setIsOpen(false);
   };
 
   const getDisplayText = (value) => {
-    if (value === null || value === undefined) {
+    if (!useIdValue && (value === null || value === undefined)) {
       return unsetPlaceholder || placeholder;
     }
-    if (value === "") return placeholder;
-    const p = processes.find((proc) => String(proc.process_name) === value);
+    if (!value || value === placeholder) return placeholder;
+
+    const p = useIdValue
+      ? processes.find((proc) => String(proc.id) === String(value))
+      : processes.find((proc) => String(proc.process_name) === value);
     if (!p) return placeholder;
     return p.description ? `${p.process_name} (${p.description})` : p.process_name;
   };
@@ -74,10 +101,10 @@ export default function ProcessSelect({
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightedIndex(prev => (prev + 1) % displayProcesses.length);
+      setHighlightedIndex((prev) => (prev + 1) % displayProcesses.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightedIndex(prev => (prev - 1 + displayProcesses.length) % displayProcesses.length);
+      setHighlightedIndex((prev) => (prev - 1 + displayProcesses.length) % displayProcesses.length);
     } else if (e.key === "Enter") {
       e.preventDefault();
       handleSelect(displayProcesses[highlightedIndex]);
@@ -96,14 +123,14 @@ export default function ProcessSelect({
       >
         {getDisplayText(selectedValue)}
       </button>
-      
+
       {isOpen && (
         <div className="custom-select-dropdown show">
           <div className="custom-select-search">
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder={searchPlaceholder}
-              autoComplete="off" 
+              autoComplete="off"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -116,17 +143,23 @@ export default function ProcessSelect({
           <div className="custom-select-options">
             {displayProcesses.length > 0 ? (
               displayProcesses.map((p, index) => {
-                const value =
-                  p.id != null && p.process_name !== placeholder ? String(p.process_name) : "";
-                const text =
-                  p.process_name !== placeholder
-                    ? p.description
-                      ? `${p.process_name} (${p.description})`
-                      : p.process_name
-                    : placeholder;
-                
+                const value = resolveValue(p);
+                let text;
+                if (isSelectAllOption(p)) {
+                  text = placeholder;
+                } else if (useTransactionSelectAll) {
+                  text = p.description ? `${p.process_name} (${p.description})` : p.process_name;
+                } else {
+                  text =
+                    p.process_name !== placeholder
+                      ? p.description
+                        ? `${p.process_name} (${p.description})`
+                        : p.process_name
+                      : placeholder;
+                }
+
                 return (
-                  <div 
+                  <div
                     key={index}
                     className={`custom-select-option ${selectedValue === value ? "selected" : ""} ${highlightedIndex === index ? "highlighted" : ""}`}
                     onClick={() => handleSelect(p)}
