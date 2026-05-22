@@ -8,6 +8,7 @@ import {
   MEMBER_AMOUNT_NA_MARK,
   miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
+  measureCompactMatrixColumnWidths,
   WINLOSS_MATRIX_FILL_CCY_COLS,
   WINLOSS_MATRIX_MIN_CCY_COL_WIDTH,
   WINLOSS_MATRIX_ROWHEAD_COL_WIDTH,
@@ -214,30 +215,13 @@ export default function MemberMiniGrid({
     if (compactMode) {
       const syncCompactWidth = () => {
         const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-        const parseRem = (s, fallbackRem) => {
-          const hit = String(s).match(/^([\d.]+)rem$/);
-          return hit ? parseFloat(hit[1]) * rem : fallbackRem * rem;
-        };
-        const minColPx = parseRem(WINLOSS_MATRIX_MIN_CCY_COL_WIDTH, 6);
-        const cellPadPx = 26;
-        const looseCol = "12rem";
-        scroll.style.setProperty("--member-wl-ccy-fill-col-w", looseCol);
-        grid.style.setProperty("--member-wl-ccy-fill-col-w", looseCol);
-        let maxPx = minColPx;
-        const measureEl = (el) => {
-          const inner = el.querySelector?.(".member-balance-matrix-amt");
-          const target = inner || el;
-          return target.scrollWidth + cellPadPx;
-        };
-        grid.querySelectorAll(".member-wl-compact-matrix__amt-hd").forEach((el) => {
-          maxPx = Math.max(maxPx, measureEl(el));
-        });
-        grid.querySelectorAll(".member-wl-compact-matrix__amt").forEach((el) => {
-          maxPx = Math.max(maxPx, measureEl(el));
-        });
-        const colW = `${maxPx}px`;
-        scroll.style.setProperty("--member-wl-ccy-fill-col-w", colW);
-        grid.style.setProperty("--member-wl-ccy-fill-col-w", colW);
+        const { accountColPx, amtColPx } = measureCompactMatrixColumnWidths(grid, rem);
+        const accW = `${accountColPx}px`;
+        const amtW = `${amtColPx}px`;
+        scroll.style.setProperty("--member-wl-compact-acc-col-w", accW);
+        scroll.style.setProperty("--member-wl-ccy-fill-col-w", amtW);
+        grid.style.setProperty("--member-wl-compact-acc-col-w", accW);
+        grid.style.setProperty("--member-wl-ccy-fill-col-w", amtW);
       };
       syncCompactWidth();
       requestAnimationFrame(syncCompactWidth);
@@ -248,7 +232,9 @@ export default function MemberMiniGrid({
       return () => {
         ro.disconnect();
         window.removeEventListener("resize", syncCompactWidth);
+        scroll.style.removeProperty("--member-wl-compact-acc-col-w");
         scroll.style.removeProperty("--member-wl-ccy-fill-col-w");
+        grid.style.removeProperty("--member-wl-compact-acc-col-w");
         grid.style.removeProperty("--member-wl-ccy-fill-col-w");
       };
     }

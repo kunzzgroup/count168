@@ -23,6 +23,66 @@ export const WINLOSS_MATRIX_ROWHEAD_COL_WIDTH = "5.75rem";
 /** 单列最小宽：容纳 "-9,999,999.00" 等带千分位金额，窄视口不足时矩阵横向滚动 */
 export const WINLOSS_MATRIX_MIN_CCY_COL_WIDTH = "6rem";
 
+/** 单币种紧凑表：列最小宽与单元格水平 padding（须与 member.css 一致） */
+export const WINLOSS_COMPACT_ACCOUNT_COL_MIN = "5.5rem";
+export const WINLOSS_COMPACT_AMT_COL_MIN = "5.25rem";
+export const WINLOSS_COMPACT_ACCOUNT_CELL_PAD_X = 24;
+export const WINLOSS_COMPACT_AMT_CELL_PAD_X = 24;
+
+export function measureElementTextWidthPx(referenceEl, text) {
+  if (!referenceEl || typeof document === "undefined") return 0;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return 0;
+  const cs = getComputedStyle(referenceEl);
+  ctx.font = `${cs.fontWeight || "600"} ${cs.fontSize || "13px"} ${cs.fontFamily || "sans-serif"}`;
+  return ctx.measureText(String(text ?? "").trim()).width;
+}
+
+/** 按实际文字量宽（图二紧凑尺寸），避免在窄列里量 scrollWidth 偏小导致裁切 */
+export function measureCompactMatrixColumnWidths(gridEl, remPx) {
+  const parseRem = (s, fallbackRem) => {
+    const hit = String(s).match(/^([\d.]+)rem$/);
+    return hit ? parseFloat(hit[1]) * remPx : fallbackRem * remPx;
+  };
+  const minAccPx = parseRem(WINLOSS_COMPACT_ACCOUNT_COL_MIN, 5.5);
+  const minAmtPx = parseRem(WINLOSS_COMPACT_AMT_COL_MIN, 5.25);
+
+  const accProbe =
+    gridEl.querySelector(".member-wl-compact-matrix__account") ||
+    gridEl.querySelector(".member-wl-compact-matrix__account-hd");
+  const amtProbe =
+    gridEl.querySelector(".member-wl-compact-matrix__amt .member-balance-matrix-amt") ||
+    gridEl.querySelector(".member-wl-compact-matrix__amt") ||
+    gridEl.querySelector(".member-wl-compact-matrix__amt-hd");
+
+  let accountColPx = minAccPx;
+  gridEl.querySelectorAll(".member-wl-compact-matrix__account-hd, .member-wl-compact-matrix__account").forEach((el) => {
+    accountColPx = Math.max(
+      accountColPx,
+      measureElementTextWidthPx(accProbe || el, el.textContent) + WINLOSS_COMPACT_ACCOUNT_CELL_PAD_X,
+    );
+  });
+
+  let amtColPx = minAmtPx;
+  gridEl.querySelectorAll(".member-wl-compact-matrix__amt-hd").forEach((el) => {
+    amtColPx = Math.max(
+      amtColPx,
+      measureElementTextWidthPx(amtProbe || el, el.textContent) + WINLOSS_COMPACT_AMT_CELL_PAD_X,
+    );
+  });
+  gridEl.querySelectorAll(".member-wl-compact-matrix__amt .member-balance-matrix-amt, .member-balance-matrix-na").forEach((el) => {
+    const cell = el.closest(".member-wl-compact-matrix__amt");
+    if (!cell) return;
+    amtColPx = Math.max(
+      amtColPx,
+      measureElementTextWidthPx(amtProbe || el, el.textContent) + WINLOSS_COMPACT_AMT_CELL_PAD_X,
+    );
+  });
+
+  return { accountColPx: Math.ceil(accountColPx), amtColPx: Math.ceil(amtColPx) };
+}
+
 export function normalizeNumber(value) {
   try {
     return MoneyDecimal.toDecimal(value || "0", 0);
