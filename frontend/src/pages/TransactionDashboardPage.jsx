@@ -684,6 +684,40 @@ export default function TransactionDashboardPage() {
     return `${cur} · ${left} – ${right}`;
   }, [currencyCode, dateFrom, dateTo, i18n.locale]);
 
+  const chartDateRangeText = useMemo(() => {
+    if (dashboardData?.date_range) {
+      return `${formatDisplayDate(dashboardData.date_range.from)} ${i18n.to} ${formatDisplayDate(
+        dashboardData.date_range.to
+      )}`;
+    }
+    return `${formatDisplayDate(dateFrom)} ${i18n.to} ${formatDisplayDate(dateTo)}`;
+  }, [dashboardData, dateFrom, dateTo, i18n.to]);
+
+  const chartSeries = useMemo(() => {
+    const series = [
+      { idx: 0, label: i18n.profit, color: "#22c55e", dataKey: "profit", fill: "url(#gProfit)" },
+      { idx: 1, label: i18n.expenses, color: "#ef4444", dataKey: "expenses", fill: "url(#gExp)" },
+      { idx: 2, label: i18n.netProfitChart, color: "#10b981", dataKey: "netProfit", fill: "url(#gNet)" },
+    ];
+    if (kpi.showEarnings) {
+      series.push({ idx: 3, label: i18n.earnings, color: "#f59e0b", dataKey: "earnings", fill: "url(#gEarn)" });
+    }
+    return series;
+  }, [i18n, kpi.showEarnings]);
+
+  const summaryBreakdownBars = useMemo(() => {
+    const rows = [
+      { label: i18n.profit, value: Math.abs(kpi.profit || 0), color: "#22c55e" },
+      { label: i18n.expenses, value: Math.abs(kpi.expenses || 0), color: "#ef4444" },
+      { label: i18n.netProfitChart, value: Math.abs(kpi.netProfit || 0), color: "#10b981" },
+    ];
+    if (kpi.showEarnings) {
+      rows.push({ label: i18n.earnings, value: Math.abs(kpi.earnings || 0), color: "#f59e0b" });
+    }
+    const max = Math.max(...rows.map((r) => r.value), 1);
+    return rows.map((r) => ({ ...r, pct: Math.min(100, (r.value / max) * 100) }));
+  }, [i18n, kpi]);
+
   const handlePickGroup = useCallback(
     async (gid) => {
       const g = String(gid || "").trim().toUpperCase();
@@ -923,89 +957,129 @@ export default function TransactionDashboardPage() {
             )}
           </div>
 
-          <div className="dashboard-chart-section">
-            <div
-              className="dashboard-chart-header"
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}
-            >
-              <div>
-                <div className="dashboard-chart-title">{i18n.trendChart}</div>
-                <div className="dashboard-date-info" id="chart-date-range">
-                  {dashboardData?.date_range
-                    ? `${formatDisplayDate(dashboardData.date_range.from)} ${i18n.to} ${formatDisplayDate(
-                        dashboardData.date_range.to
-                      )}`
-                    : `${formatDisplayDate(dateFrom)} ${i18n.to} ${formatDisplayDate(dateTo)}`}
-                </div>
-              </div>
-              <div className="dashboard-chart-buttons" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {[i18n.profit, i18n.expenses, i18n.netProfitChart, i18n.earnings].map((label, i) => {
-                  const colors = ["#22c55e", "#ef4444", "#10b981", "#f59e0b"];
-                  return (
+          <div className="dashboard-panels-row">
+            <div className="dashboard-panel-card dashboard-panel-card--chart">
+              <div className="dashboard-panel-head">
+                <h3 className="dashboard-panel-title">{i18n.statistics}</h3>
+                <div className="dashboard-panel-legend" role="group" aria-label={i18n.trendChart}>
+                  {chartSeries.map((s) => (
                     <button
-                      key={label}
+                      key={s.dataKey}
                       type="button"
-                      className={`chart-toggle-btn${chartVisible[i] ? " active" : ""}`}
-                      style={{ "--btn-color": colors[i] }}
+                      className={`dashboard-legend-item${chartVisible[s.idx] ? " is-on" : ""}`}
+                      aria-pressed={chartVisible[s.idx]}
                       onClick={() =>
                         setChartVisible((v) => {
                           const n = [...v];
-                          n[i] = !n[i];
+                          n[s.idx] = !n[s.idx];
                           return n;
                         })
                       }
                     >
-                      {label}
+                      <span className="dashboard-legend-dot" style={{ backgroundColor: s.color }} aria-hidden="true" />
+                      <span>{s.label}</span>
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
+                <div className="dashboard-panel-period-pill" id="chart-date-range">
+                  {chartDateRangeText}
+                </div>
+              </div>
+              <div className="dashboard-panel-chart-body">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartRows} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gProfit" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(34,197,94,0.35)" />
+                        <stop offset="100%" stopColor="rgba(34,197,94,0.02)" />
+                      </linearGradient>
+                      <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(239,68,68,0.35)" />
+                        <stop offset="100%" stopColor="rgba(239,68,68,0.02)" />
+                      </linearGradient>
+                      <linearGradient id="gNet" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(16,185,129,0.35)" />
+                        <stop offset="100%" stopColor="rgba(16,185,129,0.02)" />
+                      </linearGradient>
+                      <linearGradient id="gEarn" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(245,158,11,0.35)" />
+                        <stop offset="100%" stopColor="rgba(245,158,11,0.02)" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => formatCurrency(v)} width={72} />
+                    <Tooltip
+                      formatter={(value) => formatCurrency(value)}
+                      labelFormatter={(_, items) => {
+                        const d = items?.[0]?.payload?.date;
+                        return d ? formatDisplayDate(d) : "";
+                      }}
+                    />
+                    {chartSeries.map(
+                      (s) =>
+                        chartVisible[s.idx] && (
+                          <Area
+                            key={s.dataKey}
+                            type="monotone"
+                            dataKey={s.dataKey}
+                            name={s.label}
+                            stroke={s.color}
+                            fill={s.fill}
+                            strokeWidth={2}
+                          />
+                        )
+                    )}
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
-            <div className="dashboard-chart-container" style={{ height: 320 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartRows} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gProfit" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(34,197,94,0.35)" />
-                      <stop offset="100%" stopColor="rgba(34,197,94,0.02)" />
-                    </linearGradient>
-                    <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(239,68,68,0.35)" />
-                      <stop offset="100%" stopColor="rgba(239,68,68,0.02)" />
-                    </linearGradient>
-                    <linearGradient id="gNet" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(16,185,129,0.35)" />
-                      <stop offset="100%" stopColor="rgba(16,185,129,0.02)" />
-                    </linearGradient>
-                    <linearGradient id="gEarn" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(245,158,11,0.35)" />
-                      <stop offset="100%" stopColor="rgba(245,158,11,0.02)" />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#94a3b8" />
-                  <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => formatCurrency(v)} width={72} />
-                  <Tooltip
-                    formatter={(value) => formatCurrency(value)}
-                    labelFormatter={(_, items) => {
-                      const d = items?.[0]?.payload?.date;
-                      return d ? formatDisplayDate(d) : "";
-                    }}
-                  />
-                  {chartVisible[0] && (
-                    <Area type="monotone" dataKey="profit" name={i18n.profit} stroke="#22c55e" fill="url(#gProfit)" strokeWidth={2} />
-                  )}
-                  {chartVisible[1] && (
-                    <Area type="monotone" dataKey="expenses" name={i18n.expenses} stroke="#ef4444" fill="url(#gExp)" strokeWidth={2} />
-                  )}
-                  {chartVisible[2] && (
-                    <Area type="monotone" dataKey="netProfit" name={i18n.netProfitChart} stroke="#10b981" fill="url(#gNet)" strokeWidth={2} />
-                  )}
-                  {chartVisible[3] && (
-                    <Area type="monotone" dataKey="earnings" name={i18n.earnings} stroke="#f59e0b" fill="url(#gEarn)" strokeWidth={2} />
-                  )}
-                </AreaChart>
-              </ResponsiveContainer>
+
+            <div className="dashboard-panel-card dashboard-panel-card--summary">
+              <div className="dashboard-summary-head">
+                <span className="dashboard-summary-label">{i18n.periodSummary}</span>
+                <span className="dashboard-summary-foot-muted">{kpiFooter}</span>
+              </div>
+              <div className="dashboard-summary-hero">
+                <div className="dashboard-summary-hero-value">{loading ? "…" : formatCurrency(kpi.netProfit)}</div>
+                {!loading && kpi.comparisons?.netProfit && (
+                  <span
+                    className={`kpi-card-badge${kpi.comparisons.netProfit.pct >= 0 ? " is-up" : " is-down"}`}
+                  >
+                    <i
+                      className={`fas fa-arrow-${kpi.comparisons.netProfit.pct >= 0 ? "up" : "down"}`}
+                      aria-hidden="true"
+                    />
+                    {Math.abs(kpi.comparisons.netProfit.pct).toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              {!loading && kpi.comparisons?.netProfit && (
+                <div className="dashboard-summary-compare">
+                  <span
+                    className={`kpi-card-delta${kpi.comparisons.netProfit.isUp ? " is-up" : " is-down"}`}
+                  >
+                    {formatSignedChange(kpi.comparisons.netProfit.delta)}
+                  </span>
+                  <span className="kpi-card-foot-muted">{kpiCompareLabel}</span>
+                </div>
+              )}
+              <div className="dashboard-summary-bars">
+                {summaryBreakdownBars.map((row) => (
+                  <div key={row.label} className="dashboard-summary-bar-row">
+                    <div className="dashboard-summary-bar-meta">
+                      <span className="dashboard-summary-bar-label">{row.label}</span>
+                      <span className="dashboard-summary-bar-value">{formatCurrency(row.value)}</span>
+                    </div>
+                    <div className="dashboard-summary-bar-track">
+                      <div
+                        className="dashboard-summary-bar-fill"
+                        style={{ width: `${row.pct}%`, backgroundColor: row.color }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
