@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Area,
@@ -13,7 +13,11 @@ import { buildApiUrl } from "../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { mergeGroupData } from "../utils/dashboardMerge.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
+import ReportDatePicker from "./report/common/ReportDatePicker.jsx";
 import "../../public/css/userlist.css";
+import "../../public/css/transaction.css";
+import "../../public/css/report-outlined-fields.css";
+import "../../public/css/date-range-picker.css";
 
 const DASHBOARD_API = "api/transactions/dashboard_api.php";
 
@@ -51,91 +55,6 @@ function formatCurrency(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-function quickRangeToDates(range) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let startDate;
-  let endDate;
-  switch (range) {
-    case "today":
-      startDate = new Date(today);
-      endDate = new Date(today);
-      break;
-    case "yesterday": {
-      const y = new Date(today);
-      y.setDate(y.getDate() - 1);
-      startDate = y;
-      endDate = y;
-      break;
-    }
-    case "thisWeek": {
-      const w = new Date(today);
-      const dayOfWeek = w.getDay();
-      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      w.setDate(w.getDate() - daysToMonday);
-      startDate = w;
-      endDate = new Date(today);
-      break;
-    }
-    case "lastWeek": {
-      const lastWeekEnd = new Date(today);
-      const lastWeekDayOfWeek = lastWeekEnd.getDay();
-      const daysToLastSunday = lastWeekDayOfWeek === 0 ? 0 : lastWeekDayOfWeek;
-      lastWeekEnd.setDate(lastWeekEnd.getDate() - daysToLastSunday - 1);
-      const lastWeekStart = new Date(lastWeekEnd);
-      lastWeekStart.setDate(lastWeekStart.getDate() - 6);
-      startDate = lastWeekStart;
-      endDate = lastWeekEnd;
-      break;
-    }
-    case "thisMonth":
-      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-      endDate = new Date(today);
-      break;
-    case "lastMonth": {
-      const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const lmEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-      startDate = lm;
-      endDate = lmEnd;
-      break;
-    }
-    case "thisYear":
-      startDate = new Date(today.getFullYear(), 0, 1);
-      endDate = new Date(today);
-      break;
-    case "lastYear":
-      startDate = new Date(today.getFullYear() - 1, 0, 1);
-      endDate = new Date(today.getFullYear() - 1, 11, 31);
-      break;
-    default:
-      return null;
-  }
-  return { startDate: formatYmd(startDate), endDate: formatYmd(endDate) };
-}
-
-function buildCalendarCells(year, month) {
-  const firstDay = new Date(year, month - 1, 1);
-  const offset = firstDay.getDay();
-  const start = new Date(firstDay);
-  start.setDate(firstDay.getDate() - offset);
-  const cells = [];
-  for (let i = 0; i < 42; i += 1) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    cells.push({
-      ymd: formatYmd(d),
-      day: d.getDate(),
-      inCurrentMonth: d.getMonth() === month - 1,
-      isToday: formatYmd(d) === formatYmd(new Date()),
-    });
-  }
-  return cells;
-}
-
-function normalizeRange(from, to) {
-  return from <= to ? [from, to] : [to, from];
 }
 
 function companiesInGroupList(companies, gid) {
@@ -214,10 +133,6 @@ export default function TransactionDashboardPage() {
   const [currencyCode, setCurrencyCode] = useState("");
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [quickOpen, setQuickOpen] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [pendingStart, setPendingStart] = useState(null);
-  const [hoverDate, setHoverDate] = useState(null);
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const [companyAccessModal, setCompanyAccessModal] = useState({ open: false, message: "" });
@@ -228,10 +143,6 @@ export default function TransactionDashboardPage() {
   const defaultEnd = formatYmd(today);
   const [dateFrom, setDateFrom] = useState(defaultStart);
   const [dateTo, setDateTo] = useState(defaultEnd);
-  const [calendarYear, setCalendarYear] = useState(today.getFullYear());
-  const [calendarMonth, setCalendarMonth] = useState(today.getMonth() + 1);
-  const barRef = useRef(null);
-  const calendarGridWheelRef = useRef(null);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
 
   useEffect(() => {
@@ -252,18 +163,24 @@ export default function TransactionDashboardPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const onOutside = (event) => {
-      if (barRef.current && !barRef.current.contains(event.target)) {
-        setQuickOpen(false);
-        setCalendarOpen(false);
-        setPendingStart(null);
-        setHoverDate(null);
-      }
-    };
-    document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
+  const handleDateRangeChange = useCallback((from, to) => {
+    setDateFrom(from);
+    setDateTo(to);
   }, []);
+
+  const periodPresets = useMemo(
+    () => [
+      { key: "today", label: i18n.today },
+      { key: "yesterday", label: i18n.yesterday },
+      { key: "thisWeek", label: i18n.thisWeek },
+      { key: "lastWeek", label: i18n.lastWeek },
+      { key: "thisMonth", label: i18n.thisMonth },
+      { key: "lastMonth", label: i18n.lastMonth },
+      { key: "thisYear", label: i18n.thisYear },
+      { key: "lastYear", label: i18n.lastYear },
+    ],
+    [i18n]
+  );
 
   const bootstrap = useCallback(async () => {
     setLoadError("");
@@ -617,116 +534,6 @@ export default function TransactionDashboardPage() {
     await switchCompany(allIds[0], { clearGroupAll: false, clearSubset: true });
   }, [selectedGroup, companies, handlePickCompany, switchCompany]);
 
-  const setPeriodRange = (periodKey) => {
-    const r = quickRangeToDates(periodKey);
-    if (!r) return;
-    setDateFrom(r.startDate);
-    setDateTo(r.endDate);
-    const d = parseYmd(r.startDate);
-    setCalendarYear(d.getFullYear());
-    setCalendarMonth(d.getMonth() + 1);
-  };
-
-  const onCalendarDayClick = (ymd) => {
-    if (!pendingStart) {
-      setPendingStart(ymd);
-      setDateFrom(ymd);
-      setDateTo(ymd);
-      return;
-    }
-    const [from, to] = normalizeRange(pendingStart, ymd);
-    setDateFrom(from);
-    setDateTo(to);
-    setPendingStart(null);
-    setHoverDate(null);
-    setCalendarOpen(false);
-  };
-
-  const previewRange = useMemo(() => {
-    if (!pendingStart || !hoverDate) return null;
-    const [from, to] = normalizeRange(pendingStart, hoverDate);
-    return { from, to };
-  }, [pendingStart, hoverDate]);
-
-  const calendarCells = useMemo(
-    () => buildCalendarCells(calendarYear, calendarMonth),
-    [calendarYear, calendarMonth]
-  );
-
-  const periodLabel = useMemo(() => {
-    const options = {
-      today: i18n.today,
-      yesterday: i18n.yesterday,
-      thisWeek: i18n.thisWeek,
-      lastWeek: i18n.lastWeek,
-      thisMonth: i18n.thisMonth,
-      lastMonth: i18n.lastMonth,
-      thisYear: i18n.thisYear,
-      lastYear: i18n.lastYear,
-    };
-    return options;
-  }, [i18n]);
-
-  const yearOptions = useMemo(() => {
-    const nowY = new Date().getFullYear();
-    return Array.from({ length: nowY - 2021 + 5 }, (_, i) => 2022 + i);
-  }, []);
-
-  const gotoPrevMonth = () => {
-    if (calendarMonth === 1) {
-      setCalendarMonth(12);
-      setCalendarYear((y) => y - 1);
-      return;
-    }
-    setCalendarMonth((m) => m - 1);
-  };
-
-  const gotoNextMonth = () => {
-    if (calendarMonth === 12) {
-      setCalendarMonth(1);
-      setCalendarYear((y) => y + 1);
-      return;
-    }
-    setCalendarMonth((m) => m + 1);
-  };
-
-  useEffect(() => {
-    if (!calendarOpen) return;
-    const el = calendarGridWheelRef.current;
-    if (!el) return;
-    const onWheel = (e) => {
-      if (e.deltaY === 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.deltaY > 0) {
-        setCalendarMonth((m) => {
-          if (m === 12) {
-            setCalendarYear((y) => y + 1);
-            return 1;
-          }
-          return m + 1;
-        });
-      } else {
-        setCalendarMonth((m) => {
-          if (m === 1) {
-            setCalendarYear((y) => y - 1);
-            return 12;
-          }
-          return m - 1;
-        });
-      }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [calendarOpen]);
-
-  const toggleCalendarFromBar = () => {
-    setCalendarOpen((v) => !v);
-    setQuickOpen(false);
-    setPendingStart(null);
-    setHoverDate(null);
-  };
-
   return (
     <>
       <div className="dashboard-container">
@@ -766,6 +573,22 @@ export default function TransactionDashboardPage() {
               <span className="dashboard-filter-panel__title">{i18n.filterSection}</span>
             </div>
             <div className="dashboard-card-body dashboard-filter-panel__body">
+              <ReportDatePicker
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onRangeChange={handleDateRangeChange}
+                containerClass="dashboard-filter-date-field"
+                label={i18n.captureDate}
+                placeholder={i18n.selectDateRange}
+                selectEndDateHint={i18n.selectEndDate}
+                outlinedFloatingLabel
+                captureDateStyle
+                periodPresets={periodPresets}
+                periodShortcutsAria={i18n.periodShortcutsAria}
+                monthLabels={i18n.monthLabels}
+                weekdaysShort={i18n.weekdaysShort}
+              />
+
               {(groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0) && (
                 <div className="user-gc-inline-panel dashboard-filter-gc-panel">
                   {groupIds.length > 0 && (
@@ -844,243 +667,6 @@ export default function TransactionDashboardPage() {
                   )}
                 </div>
               )}
-
-              <div className="dashboard-filter-toolbar__date" ref={barRef}>
-                  <div className="dashboard-date-controls dashboard-date-controls--toolbar">
-                    <div className="dashboard-date-range-bar dashboard-date-range-bar--compact">
-                      <button
-                        type="button"
-                        className="btn dashboard-date-range-bar__cal"
-                        onClick={toggleCalendarFromBar}
-                      >
-                        <i className="fas fa-calendar-alt" />
-                      </button>
-
-                      <button
-                        type="button"
-                        className="dashboard-date-range-bar__range dashboard-date-range-bar__range--stack"
-                        onClick={toggleCalendarFromBar}
-                      >
-                        <span className="dashboard-date-range-bar__range-line">{formatDisplayDate(dateFrom)} –</span>
-                        <span className="dashboard-date-range-bar__range-line">{formatDisplayDate(dateTo)}</span>
-                      </button>
-
-                      <div className="dropdown dashboard-date-range-bar__period">
-                        <button
-                          type="button"
-                          className="btn btn-secondary dropdown-toggle dashboard-period-btn"
-                          aria-label={i18n.quickPeriod}
-                          title={i18n.quickPeriod}
-                          onClick={() => {
-                            setQuickOpen((o) => !o);
-                            setCalendarOpen(false);
-                            setPendingStart(null);
-                            setHoverDate(null);
-                          }}
-                        >
-                          <i className="fas fa-clock" aria-hidden />
-                          <span className="dashboard-period-btn__text">{i18n.period}</span>
-                          <i className="fas fa-chevron-down" aria-hidden />
-                        </button>
-                        {quickOpen && (
-                          <div className="dropdown-menu" style={{ display: "block" }} id="quick-select-dropdown">
-                            {Object.entries(periodLabel).map(([key, label]) => (
-                              <button
-                                key={key}
-                                type="button"
-                                className="dropdown-item"
-                                onClick={() => {
-                                  setPeriodRange(key);
-                                  setQuickOpen(false);
-                                }}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {calendarOpen && (
-                        <div
-                          className="calendar-popup calendar-popup--toolbar"
-                          style={{
-                            top: "calc(100% + 6px)",
-                            left: 0,
-                            right: 0,
-                            position: "absolute",
-                            boxSizing: "border-box",
-                            padding: "10px 12px 12px",
-                            borderRadius: 12,
-                            border: "1px solid #dbe3ef",
-                            background: "#ffffff",
-                            boxShadow: "0 12px 30px rgba(15, 23, 42, 0.14)",
-                            maxHeight: "none",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div style={{ width: "100%", maxWidth: 320, margin: "0 auto" }}>
-                            <div
-                              className="calendar-header"
-                              style={{
-                                marginBottom: 8,
-                                padding: "0 2px",
-                              }}
-                            >
-                              <button
-                                type="button"
-                                className="calendar-nav-btn"
-                                onClick={gotoPrevMonth}
-                                style={{ borderRadius: 8, width: 24, height: 24 }}
-                              >
-                                <i className="fas fa-chevron-left" />
-                              </button>
-                              <div
-                                className="calendar-month-year"
-                                style={{
-                                  background: "#f8fafc",
-                                  border: "1px solid #e2e8f0",
-                                  borderRadius: 8,
-                                  padding: "2px 4px",
-                                  gap: 6,
-                                }}
-                              >
-                                <select
-                                  value={calendarYear}
-                                  onChange={(e) => setCalendarYear(Number(e.target.value))}
-                                  style={{
-                                    fontSize: 12,
-                                    padding: "4px 6px",
-                                    minWidth: 68,
-                                    border: "none",
-                                    background: "transparent",
-                                  }}
-                                >
-                                  {yearOptions.map((y) => (
-                                    <option key={y} value={y}>
-                                      {y}
-                                    </option>
-                                  ))}
-                                </select>
-                                <select
-                                  value={calendarMonth}
-                                  onChange={(e) => setCalendarMonth(Number(e.target.value))}
-                                  style={{
-                                    fontSize: 12,
-                                    padding: "4px 6px",
-                                    minWidth: 58,
-                                    border: "none",
-                                    background: "transparent",
-                                  }}
-                                >
-                                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                                    <option key={m} value={m}>
-                                      {String(m).padStart(2, "0")}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <button
-                                type="button"
-                                className="calendar-nav-btn"
-                                onClick={gotoNextMonth}
-                                style={{ borderRadius: 8, width: 24, height: 24 }}
-                              >
-                                <i className="fas fa-chevron-right" />
-                              </button>
-                            </div>
-
-                            <div
-                              style={{
-                                marginBottom: 8,
-                                fontWeight: 700,
-                                color: "#0f172a",
-                                textAlign: "center",
-                                fontSize: 26,
-                                letterSpacing: "0.2px",
-                              }}
-                            >
-                              {new Date(calendarYear, calendarMonth - 1, 1).toLocaleDateString(i18n.locale, {
-                                month: "long",
-                                year: "numeric",
-                              })}
-                            </div>
-
-                            <div ref={calendarGridWheelRef}>
-                              <div
-                                className="calendar-weekdays"
-                                style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0, marginBottom: 4 }}
-                              >
-                                {i18n.weekdays.map((w, index) => (
-                                  <div
-                                    key={`${w}-${index}`}
-                                    className="calendar-weekday"
-                                    style={{ fontSize: 12, fontWeight: 700, color: "#64748b", padding: "3px 0" }}
-                                  >
-                                    {w}
-                                  </div>
-                                ))}
-                              </div>
-
-                              <div
-                                className="calendar-days"
-                                style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0 }}
-                              >
-                                {calendarCells.map((cell) => {
-                                  const isStart = cell.ymd === dateFrom;
-                                  const isEnd = cell.ymd === dateTo;
-                                  const inRange = cell.ymd >= dateFrom && cell.ymd <= dateTo;
-                                  const inPreview =
-                                    previewRange && cell.ymd >= previewRange.from && cell.ymd <= previewRange.to;
-                                  const active = isStart || isEnd;
-                                  const rangeFill = (inRange || inPreview) && !active;
-                                  return (
-                                    <button
-                                      key={cell.ymd}
-                                      type="button"
-                                      className={[
-                                        "calendar-day",
-                                        cell.isToday ? "today" : "",
-                                        !cell.inCurrentMonth ? "other-month" : "",
-                                        inRange ? "in-range" : "",
-                                        isStart ? "start-date" : "",
-                                        isEnd ? "end-date" : "",
-                                        inPreview ? "preview-range" : "",
-                                      ]
-                                        .filter(Boolean)
-                                        .join(" ")}
-                                      onMouseEnter={() => {
-                                        if (pendingStart) setHoverDate(cell.ymd);
-                                      }}
-                                      onMouseLeave={() => {
-                                        if (pendingStart) setHoverDate(null);
-                                      }}
-                                      onClick={() => onCalendarDayClick(cell.ymd)}
-                                      style={{
-                                        fontSize: 12,
-                                        height: 34,
-                                        minHeight: 34,
-                                        aspectRatio: "auto",
-                                        padding: 0,
-                                        borderRadius: active ? 8 : 0,
-                                        border: active ? "none" : "1px solid transparent",
-                                        background: active ? "#3b82f6" : rangeFill ? "#dbeafe" : "transparent",
-                                        color: active ? "#ffffff" : !cell.inCurrentMonth ? "#cbd5e1" : "#0f172a",
-                                        fontWeight: active ? 700 : 600,
-                                      }}
-                                    >
-                                      {cell.day}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-              </div>
             </div>
           </div>
 
