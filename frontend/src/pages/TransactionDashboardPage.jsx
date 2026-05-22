@@ -75,10 +75,6 @@ function formatSignedChange(value) {
   return body;
 }
 
-function dashboardChartBaselineY(height, marginBottom) {
-  return height - marginBottom;
-}
-
 function makeDashboardChartXTick(compact) {
   return function DashboardChartXTick({ x, y, payload }) {
     if (x == null || y == null || payload?.value == null) return null;
@@ -92,9 +88,9 @@ function makeDashboardChartXTick(compact) {
   };
 }
 
-function DashboardChartBaseline({ offset, width, height, marginBottom }) {
-  if (!height || !width || marginBottom == null) return null;
-  const axisY = dashboardChartBaselineY(height, marginBottom);
+function DashboardChartBaseline({ offset, width, height }) {
+  if (!height || !width || offset?.bottom == null) return null;
+  const axisY = height - offset.bottom;
   return (
     <line
       x1={offset?.left ?? 0}
@@ -1066,14 +1062,7 @@ export default function TransactionDashboardPage() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <Customized
-                      component={(props) => (
-                        <DashboardChartBaseline
-                          {...props}
-                          marginBottom={chartXAxisLayout.marginBottom}
-                        />
-                      )}
-                    />
+                    <Customized component={DashboardChartBaseline} />
                     <XAxis
                       dataKey="label"
                       interval={chartXAxisLayout.interval}
