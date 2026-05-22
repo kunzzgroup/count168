@@ -1180,19 +1180,29 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .dashboard-summary-earnings-panel {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     gap: clamp(8px, 0.85vw, 14px);
     flex: 1;
-    min-height: 0;
+    min-height: clamp(150px, 14vw, 190px);
 }
 
 .dashboard-summary-pie-wrap {
     flex: 0 0 42%;
-    min-width: 120px;
-    min-height: 140px;
-    max-height: 180px;
-    align-self: center;
+    width: 42%;
+    min-width: 110px;
+    height: clamp(150px, 14vw, 190px);
+    min-height: 150px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     user-select: none;
+}
+
+.dashboard-summary-pie-wrap .recharts-responsive-container {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 150px;
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container,

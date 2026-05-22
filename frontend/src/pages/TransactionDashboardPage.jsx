@@ -238,7 +238,7 @@ function computeKpiMetrics(dashboardData, selectedGroup) {
   };
 }
 
-const DASHBOARD_PROFIT_COLOR = "#3b82f6";
+const DASHBOARD_EARNINGS_PIE_HEIGHT = 170;
 const DASHBOARD_EARNINGS_COLOR = "#f59e0b";
 /** 各币种固定色：圆环与右侧列表一致，便于对照 */
 const DASHBOARD_CURRENCY_COLORS = {
@@ -1521,7 +1521,7 @@ export default function TransactionDashboardPage() {
               </div>
               <div className="dashboard-summary-earnings-panel">
                 <div className="dashboard-summary-pie-wrap" aria-hidden={summaryEarningsLoading}>
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height={DASHBOARD_EARNINGS_PIE_HEIGHT}>
                     <PieChart margin={{ top: 6, right: 8, bottom: 6, left: 8 }}>
                       <Pie
                         data={
