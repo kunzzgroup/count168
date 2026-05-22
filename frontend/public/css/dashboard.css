@@ -1101,6 +1101,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     flex: 1;
     min-height: 0;
     align-items: stretch;
+    overflow: visible;
 }
 
 .dashboard-summary-left-col {
@@ -1111,6 +1112,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     min-width: 0;
     min-height: 0;
     height: 100%;
+    overflow: visible;
 }
 
 .dashboard-summary-hero--compact {
@@ -1126,6 +1128,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     width: 100%;
     min-width: 0;
     min-height: clamp(140px, 12vw, 180px);
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1139,6 +1142,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     height: clamp(168px, 15vw, 180px);
     max-width: 100%;
     flex-shrink: 0;
+    overflow: visible;
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container,
@@ -1327,14 +1331,14 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .dashboard-summary-pie-tooltip-anchor {
     position: absolute;
-    z-index: 4;
+    z-index: 20;
     pointer-events: none;
-    transform: translate(-50%, -100%);
+    transform: translate(-50%, calc(-100% - 6px));
     animation: dashboard-pie-tooltip-anchor-in 0.18s var(--ease-out-soft, ease) both;
 }
 
 .dashboard-summary-pie-tooltip-anchor.is-below {
-    transform: translate(-50%, 0);
+    transform: translate(-50%, 6px);
     animation-name: dashboard-pie-tooltip-anchor-below-in;
 }
 
@@ -1382,22 +1386,22 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 @keyframes dashboard-pie-tooltip-anchor-in {
     from {
         opacity: 0;
-        transform: translate(-50%, calc(-100% + 4px));
+        transform: translate(-50%, calc(-100% - 2px));
     }
     to {
         opacity: 1;
-        transform: translate(-50%, -100%);
+        transform: translate(-50%, calc(-100% - 6px));
     }
 }
 
 @keyframes dashboard-pie-tooltip-anchor-below-in {
     from {
         opacity: 0;
-        transform: translate(-50%, -4px);
+        transform: translate(-50%, 2px);
     }
     to {
         opacity: 1;
-        transform: translate(-50%, 0);
+        transform: translate(-50%, 6px);
     }
 }
 

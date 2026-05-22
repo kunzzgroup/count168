@@ -344,8 +344,8 @@ function polarToCartesian(cx, cy, radius, angleDeg) {
   };
 }
 
-/** Anchor tooltip on the outer-arc midpoint using Recharts sector geometry. */
-function computeSectorTooltipPosition(sector) {
+/** Anchor tooltip outside the sector arc, clamped inside the chart shell. */
+function computeSectorTooltipPosition(sector, shellWidth, shellHeight) {
   const cx = sector?.cx;
   const cy = sector?.cy;
   const outerRadius = sector?.outerRadius;
@@ -353,9 +353,30 @@ function computeSectorTooltipPosition(sector) {
   if (cx == null || cy == null || outerRadius == null || midAngle == null) {
     return null;
   }
+  if (shellWidth <= 0 || shellHeight <= 0) {
+    return null;
+  }
 
-  const point = polarToCartesian(cx, cy, outerRadius, midAngle);
-  return { left: point.x, top: point.y, placeAbove: point.y <= cy };
+  const estW = 112;
+  const estH = 88;
+  const pad = 8;
+  const anchor = polarToCartesian(cx, cy, outerRadius + 8, midAngle);
+  const lift = polarToCartesian(0, 0, 24, midAngle);
+  let left = anchor.x + lift.x;
+  let top = anchor.y + lift.y;
+
+  let placeAbove = top <= cy;
+  if (placeAbove && top - estH < pad) placeAbove = false;
+  if (!placeAbove && top + estH > shellHeight - pad) placeAbove = true;
+
+  left = Math.max(estW / 2 + pad, Math.min(shellWidth - estW / 2 - pad, left));
+  if (placeAbove) {
+    top = Math.max(estH + pad, Math.min(shellHeight - pad, top));
+  } else {
+    top = Math.max(pad, Math.min(shellHeight - estH - pad, top));
+  }
+
+  return { left, top, placeAbove };
 }
 
 function computePieCenterMetrics(slices, selectedCode) {
@@ -574,7 +595,14 @@ export default function TransactionDashboardPage() {
   const [dateTo, setDateTo] = useState(defaultEnd);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
   const dashDatePickerReadyRef = useRef(false);
-  const pieWrapRef = useRef(null);
+  const pieAreaRef = useRef(null);
+  const pieShellRef = useRef(null);
+  const [pieShellLayout, setPieShellLayout] = useState({
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0,
+  });
   const [hoveredPieSector, setHoveredPieSector] = useState(null);
 
   const effectiveDateRangeText = useMemo(
@@ -1234,6 +1262,31 @@ export default function TransactionDashboardPage() {
     setHoveredPieSector(null);
   }, [currencyCode, earningsPieSlices]);
 
+  useLayoutEffect(() => {
+    const wrap = pieAreaRef.current;
+    const shell = pieShellRef.current;
+    if (!wrap || !shell) return undefined;
+
+    const syncLayout = () => {
+      setPieShellLayout({
+        left: shell.offsetLeft,
+        top: shell.offsetTop,
+        width: shell.clientWidth,
+        height: shell.clientHeight,
+      });
+    };
+
+    syncLayout();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncLayout) : null;
+    observer?.observe(wrap);
+    observer?.observe(shell);
+    window.addEventListener("resize", syncLayout);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", syncLayout);
+    };
+  }, [summaryEarningsLoading, earningsPieSlices.length, currencyCode]);
+
   const handlePieSectorEnter = useCallback((sectorData, index) => {
     const slice = earningsPieSlices[index];
     if (!slice || sectorData?.midAngle == null) return;
@@ -1247,8 +1300,12 @@ export default function TransactionDashboardPage() {
   }, [earningsPieSlices]);
 
   const hoveredPieTooltip = useMemo(() => {
-    if (!hoveredPieSector) return null;
-    const pos = computeSectorTooltipPosition(hoveredPieSector);
+    if (!hoveredPieSector || pieShellLayout.width <= 0) return null;
+    const pos = computeSectorTooltipPosition(
+      hoveredPieSector,
+      pieShellLayout.width,
+      pieShellLayout.height
+    );
     if (!pos) return null;
     const slice = hoveredPieSector.slice;
     const total = earningsPieSlices.reduce((sum, row) => sum + (row.value || 0), 0);
@@ -1257,11 +1314,11 @@ export default function TransactionDashboardPage() {
     return {
       slice,
       sharePct,
-      left: pos.left,
-      top: pos.top,
+      left: pos.left + pieShellLayout.left,
+      top: pos.top + pieShellLayout.top,
       placeAbove: pos.placeAbove,
     };
-  }, [hoveredPieSector, earningsPieSlices]);
+  }, [hoveredPieSector, earningsPieSlices, pieShellLayout]);
 
   const handlePickGroup = useCallback(
     async (gid) => {
@@ -1607,11 +1664,12 @@ export default function TransactionDashboardPage() {
                     </div>
                   </div>
                   <div
+                    ref={pieAreaRef}
                     className="dashboard-summary-pie-wrap"
                     aria-hidden={summaryEarningsLoading}
                     onMouseLeave={() => setHoveredPieSector(null)}
                   >
-                    <div ref={pieWrapRef} className="dashboard-summary-pie-chart-shell">
+                    <div ref={pieShellRef} className="dashboard-summary-pie-chart-shell">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <Pie
@@ -1647,6 +1705,19 @@ export default function TransactionDashboardPage() {
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
+                  {!summaryEarningsLoading && earningsPieSlices.length > 0 && (
+                    <div
+                      key={currencyCode || "center"}
+                      className="dashboard-summary-pie-center"
+                      aria-hidden="true"
+                    >
+                      <div className="dashboard-summary-pie-center-badge">
+                        <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
+                        <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
+                      </div>
+                    </div>
+                  )}
+                    </div>
                   {hoveredPieTooltip && (
                     <div
                       className={`dashboard-summary-pie-tooltip-anchor${hoveredPieTooltip.placeAbove ? "" : " is-below"}`}
@@ -1665,19 +1736,6 @@ export default function TransactionDashboardPage() {
                       />
                     </div>
                   )}
-                  {!summaryEarningsLoading && earningsPieSlices.length > 0 && (
-                    <div
-                      key={currencyCode || "center"}
-                      className="dashboard-summary-pie-center"
-                      aria-hidden="true"
-                    >
-                      <div className="dashboard-summary-pie-center-badge">
-                        <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
-                        <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
-                      </div>
-                    </div>
-                  )}
-                    </div>
                   </div>
                 </div>
                 <div className="dashboard-summary-currency-list" aria-label={i18n.currencyBreakdown}>
