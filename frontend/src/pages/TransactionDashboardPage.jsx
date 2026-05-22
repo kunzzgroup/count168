@@ -79,26 +79,13 @@ function dashboardChartBaselineY(height, marginBottom) {
   return height - marginBottom;
 }
 
-function makeDashboardChartXTick(marginBottom, dense) {
+function makeDashboardChartXTick(compact) {
   return function DashboardChartXTick({ x, y, payload }) {
     if (x == null || y == null || payload?.value == null) return null;
-    const labelY = y + (dense ? 12 : 14);
-    if (dense) {
-      return (
-        <text
-          x={x}
-          y={labelY}
-          fill="#94a3b8"
-          fontSize={9}
-          textAnchor="end"
-          transform={`rotate(-40, ${x}, ${labelY})`}
-        >
-          {payload.value}
-        </text>
-      );
-    }
+    const labelY = y + (compact ? 8 : 10);
+    const fontSize = compact ? 10 : 11;
     return (
-      <text x={x} y={labelY} fill="#94a3b8" fontSize={11} textAnchor="middle">
+      <text x={x} y={labelY} fill="#94a3b8" fontSize={fontSize} textAnchor="middle">
         {payload.value}
       </text>
     );
@@ -287,6 +274,13 @@ function buildChartRows(data, startYmd, endYmd) {
   }
 
   const dates = eachDateInRange(startYmd, endYmd);
+  const rangeStart = parseYmd(startYmd);
+  const rangeEnd = parseYmd(endYmd);
+  const sameCalendarMonth =
+    rangeStart &&
+    rangeEnd &&
+    rangeStart.getFullYear() === rangeEnd.getFullYear() &&
+    rangeStart.getMonth() === rangeEnd.getMonth();
   return dates.map((date) => {
     const profitDelta = parseFloat(dailyData.profit?.[date] || 0) || 0;
     const expensesDelta = parseFloat(dailyData.expenses?.[date] || 0) || 0;
@@ -294,7 +288,10 @@ function buildChartRows(data, startYmd, endYmd) {
     const displayExpenses = expensesDelta > 0 ? -expensesDelta : expensesDelta;
     const netProfit = displayProfit + displayExpenses;
     const earnings = netProfit * earningsMultiplier;
-    const label = `${parseYmd(date).getDate()}/${parseYmd(date).getMonth() + 1}`;
+    const d = parseYmd(date);
+    const label = sameCalendarMonth
+      ? String(d.getDate())
+      : `${d.getDate()}/${d.getMonth() + 1}`;
     return {
       date,
       label,
@@ -718,13 +715,12 @@ export default function TransactionDashboardPage() {
 
   const chartXAxisLayout = useMemo(() => {
     const n = chartRows.length;
-    const dense = n > 14;
-    const marginBottom = dense ? 32 : 22;
+    const compact = n > 14;
+    const marginBottom = compact ? 22 : 20;
     return {
-      dense,
-      interval: n <= 45 ? 0 : "preserveStartEnd",
-      minTickGap: n <= 45 ? 0 : 8,
-      tick: makeDashboardChartXTick(marginBottom, dense),
+      interval: n <= 62 ? 0 : "preserveStartEnd",
+      minTickGap: n <= 62 ? 0 : 6,
+      tick: makeDashboardChartXTick(compact),
       height: marginBottom,
       marginBottom,
     };
@@ -1020,7 +1016,7 @@ export default function TransactionDashboardPage() {
           <div className="dashboard-panels-row">
             <div className="dashboard-panel-card dashboard-panel-card--chart">
               <div className="dashboard-panel-head">
-                <h3 className="dashboard-panel-title">{i18n.statistics}</h3>
+                <h3 className="dashboard-panel-title">{i18n.trendChart}</h3>
                 <div className="dashboard-panel-legend" role="group" aria-label={i18n.trendChart}>
                   {chartSeries.map((s) => (
                     <button
@@ -1084,6 +1080,7 @@ export default function TransactionDashboardPage() {
                       minTickGap={chartXAxisLayout.minTickGap}
                       tick={chartXAxisLayout.tick}
                       height={chartXAxisLayout.height}
+                      tickMargin={0}
                       axisLine={false}
                       tickLine={false}
                     />
