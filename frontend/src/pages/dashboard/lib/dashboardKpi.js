@@ -1,3 +1,4 @@
+/** Month-over-month change % vs previous period (not the cumulative footnote delta). */
 export function kpiPercentChange(current, previous) {
   const c = parseFloat(current) || 0;
   const p = parseFloat(previous) || 0;
@@ -9,7 +10,9 @@ export function kpiPercentChange(current, previous) {
 }
 
 export function buildKpiCompare(current, previous) {
-  const delta = (parseFloat(current) || 0) - (parseFloat(previous) || 0);
+  const c = parseFloat(current) || 0;
+  const p = parseFloat(previous) || 0;
+  const delta = c + p;
   return {
     delta,
     pct: kpiPercentChange(current, previous),
