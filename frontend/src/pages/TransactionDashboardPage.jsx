@@ -239,7 +239,7 @@ function computeKpiMetrics(dashboardData, selectedGroup) {
 }
 
 const DASHBOARD_PROFIT_COLOR = "#3b82f6";
-const DASHBOARD_EARNINGS_PIE_HEIGHT = 170;
+const DASHBOARD_EARNINGS_PIE_HEIGHT = 200;
 const DASHBOARD_EARNINGS_COLOR = "#f59e0b";
 /** 各币种固定色：圆环与右侧列表一致，便于对照 */
 const DASHBOARD_CURRENCY_COLORS = {
@@ -306,13 +306,38 @@ function EarningsPieTooltip({ active, payload }) {
 }
 
 function renderCurrencyPieLabel(props) {
-  const { cx, cy, midAngle, outerRadius, percent, payload } = props;
+  const { cx, cy, midAngle, innerRadius, outerRadius, percent, payload } = props;
   if (!payload?.code) return null;
   const RADIAN = Math.PI / 180;
   const sin = Math.sin(-RADIAN * midAngle);
   const cos = Math.cos(-RADIAN * midAngle);
-  const leaderExtra = percent < 0.08 ? 22 : 16;
-  const labelExtra = percent < 0.08 ? 14 : 10;
+  const innerR = typeof innerRadius === "number" ? innerRadius : outerRadius * 0.55;
+  const fontSize = percent < 0.1 ? 9 : 10;
+
+  if (percent < 0.15) {
+    const midR = innerR + (outerRadius - innerR) * 0.55;
+    const lx = cx + midR * cos;
+    const ly = cy + midR * sin;
+    return (
+      <text
+        x={lx}
+        y={ly}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#ffffff"
+        fontSize={fontSize}
+        fontWeight={600}
+        stroke="rgba(15, 23, 42, 0.35)"
+        strokeWidth={2}
+        paintOrder="stroke"
+      >
+        {payload.code}
+      </text>
+    );
+  }
+
+  const leaderExtra = 12;
+  const labelExtra = 8;
   const sx = cx + (outerRadius + 2) * cos;
   const sy = cy + (outerRadius + 2) * sin;
   const mx = cx + (outerRadius + leaderExtra) * cos;
@@ -320,8 +345,7 @@ function renderCurrencyPieLabel(props) {
   const ex = mx + (cos >= 0 ? 1 : -1) * labelExtra;
   const ey = my;
   const textAnchor = cos >= 0 ? "start" : "end";
-  const tx = ex + (cos >= 0 ? 4 : -4);
-  const fontSize = percent < 0.08 ? 9 : 10;
+  const tx = ex + (cos >= 0 ? 3 : -3);
   return (
     <g>
       <path
@@ -336,6 +360,7 @@ function renderCurrencyPieLabel(props) {
         textAnchor={textAnchor}
         fill="var(--color-text-caption, #64748b)"
         fontSize={fontSize}
+        fontWeight={600}
         dominantBaseline="central"
       >
         {payload.code}
@@ -1523,7 +1548,7 @@ export default function TransactionDashboardPage() {
               <div className="dashboard-summary-earnings-panel">
                 <div className="dashboard-summary-pie-wrap" aria-hidden={summaryEarningsLoading}>
                   <ResponsiveContainer width="100%" height={DASHBOARD_EARNINGS_PIE_HEIGHT}>
-                    <PieChart margin={{ top: 6, right: 8, bottom: 6, left: 8 }}>
+                    <PieChart margin={{ top: 16, right: 20, bottom: 16, left: 20 }}>
                       <Pie
                         data={
                           earningsPieSlices.length
@@ -1534,8 +1559,8 @@ export default function TransactionDashboardPage() {
                         nameKey="code"
                         cx="50%"
                         cy="50%"
-                        innerRadius="58%"
-                        outerRadius="82%"
+                        innerRadius="52%"
+                        outerRadius="68%"
                         paddingAngle={earningsPieSlices.length > 1 ? 3 : 0}
                         stroke="#fff"
                         strokeWidth={3}

@@ -1083,6 +1083,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-panel-card--summary {
     gap: clamp(8px, 0.65vw, 12px);
     padding: clamp(14px, 1.1vw, 18px) clamp(16px, 1.2vw, 20px);
+    overflow: visible;
 }
 
 .dashboard-summary-hero {
@@ -1183,26 +1184,29 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     align-items: stretch;
     gap: clamp(8px, 0.85vw, 14px);
     flex: 1;
-    min-height: clamp(150px, 14vw, 190px);
+    min-height: clamp(168px, 15vw, 210px);
+    overflow: visible;
 }
 
 .dashboard-summary-pie-wrap {
-    flex: 0 0 42%;
-    width: 42%;
-    min-width: 110px;
-    height: clamp(150px, 14vw, 190px);
-    min-height: 150px;
+    flex: 0 0 46%;
+    width: 46%;
+    min-width: 130px;
+    height: clamp(168px, 15vw, 210px);
+    min-height: 168px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: visible;
     user-select: none;
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container {
     width: 100% !important;
     height: 100% !important;
-    min-height: 150px;
+    min-height: 168px;
+    overflow: visible !important;
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container,
@@ -1211,6 +1215,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-pie-wrap svg {
     outline: none !important;
     border: none !important;
+    overflow: visible !important;
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container:focus,
