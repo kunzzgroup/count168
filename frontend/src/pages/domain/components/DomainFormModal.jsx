@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import CompanySettingsModal from "./CompanySettingsModal.jsx";
 import {
@@ -13,7 +13,7 @@ import {
   forceLowercaseValue,
   forceNumericValue,
 } from "../domainHelpers.js";
-import { getDomainText } from "../../../translateFile/domainTranslate.js";
+import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 
 function normalizeDomainCode(value) {

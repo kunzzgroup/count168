@@ -1,3 +1,5 @@
+import { createGetText, toLocale } from "../shared/i18nHelpers.js";
+
 export const ACCOUNT_I18N = {
   en: {
     failedToLoadAccounts: "Failed to load accounts",
@@ -367,7 +369,7 @@ function translateAccountDynamicApiMessage(lang, message) {
 /** Map backend API message to account-list i18n for toasts. */
 export function translateAccountApiMessage(lang, apiMessage, fallbackKey = "", params = {}) {
   const message = String(apiMessage ?? "").trim();
-  const locale = lang === "zh" ? "zh" : "en";
+  const locale = toLocale(lang);
 
   const dynamic = translateAccountDynamicApiMessage(locale, message);
   if (dynamic) return dynamic;
@@ -383,8 +385,4 @@ export function translateAccountApiMessage(lang, apiMessage, fallbackKey = "", p
   return message || (fallbackKey ? getAccountText(locale, fallbackKey, params) : "");
 }
 
-export function getAccountText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
-  const template = ACCOUNT_I18N[locale][key] ?? ACCOUNT_I18N.en[key] ?? key;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
-}
+export const getAccountText = createGetText(ACCOUNT_I18N);

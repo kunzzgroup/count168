@@ -1,4 +1,4 @@
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 
 const DEFAULT_PERMISSIONS_FULL = ["Games", "Bank", "Loan", "Rate", "Money"];
 const DEFAULT_PERMISSIONS_FORMULA = ["Games", "Loan", "Rate", "Money"];

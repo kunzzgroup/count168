@@ -9,7 +9,7 @@ import {
 } from "../lib/transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../lib/transactionSubmitHelpers.js";
 import { submitTransaction, transactionQueryKeys } from "../lib/transactionApi.js";
-import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
+import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 import { resolveGridRowToAccountOption } from "../lib/transactionPaymentLogic.js";
 
 export function useTransactionForm({

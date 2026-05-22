@@ -19,8 +19,8 @@ import { getRoleClass } from "./lib/transactionPaymentLogic.js";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
-import { useLoginLang } from "../../utils/useLoginLang.js";
-import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/transactionTranslate.js";
+import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
+import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 
 /** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
 const ROUTE_BODY_CLASSES_TO_CLEAR = [

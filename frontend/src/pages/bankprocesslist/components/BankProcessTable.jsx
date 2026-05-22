@@ -1,5 +1,5 @@
 import React from "react";
-import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../../utils/core/apiUrl.js";
 import {
   canShowBankResend,
   normalizeBankProcessStatus,

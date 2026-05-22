@@ -1,4 +1,4 @@
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { submitSummaryPayload } from "../lib/summaryApi.js";
 import { SUMMARY_SUBMIT_MAX_ROWS_PER_BATCH } from "./summarySubmitConstants.js";
 import { buildSummarySubmitPayload } from "./summarySubmitPayload.js";

@@ -1,6 +1,6 @@
 /** Account List Logic Helpers */
 
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 
 export const PAGE_SIZE = 20;
 

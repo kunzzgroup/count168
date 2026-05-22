@@ -1,4 +1,4 @@
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { normalizeRows } from "./processListHelpers.js";
 
 /** Warm Bank Process List data before route swap (Games → Bank). */

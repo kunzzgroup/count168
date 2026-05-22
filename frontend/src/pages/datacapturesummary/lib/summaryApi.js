@@ -1,4 +1,4 @@
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 
 function withCompany(url, companyId) {
   if (companyId == null || companyId === "") return url;

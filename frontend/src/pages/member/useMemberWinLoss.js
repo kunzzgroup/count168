@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { buildApiUrl } from "../../utils/apiUrl.js";
-import { getMemberText, translateMemberApiMessage } from "../../translateFile/memberTranslate.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
+import { getMemberText, translateMemberApiMessage } from "../../translateFile/pages/memberTranslate.js";
 import {
   MINI_GRID_SHELL_CCY,
   accountHoldsMiniGridCurrency,

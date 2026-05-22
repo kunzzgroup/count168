@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { isPartnershipAuditReadOnlyLocked } from "../../utils/partnershipAuditReadOnly.js";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
+import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { saveUserCurrencyOrder } from "../transaction/lib/transactionApi.js";
 import { isBankCategoryCompany } from "../bankprocesslist/lib/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
@@ -26,7 +26,7 @@ import ProcessFormModal from "./components/ProcessFormModal.jsx";
 import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
 import ProcessDeleteConfirmModal from "./components/ProcessDeleteConfirmModal.jsx";
 import AddProcessIcon from "./components/AddProcessIcon.jsx";
-import { getProcessListText } from "../../translateFile/processListTranslate.js";
+import { getProcessListText } from "../../translateFile/pages/processListTranslate.js";
 
 function filterSearchInput(raw) {
   return String(raw || "")

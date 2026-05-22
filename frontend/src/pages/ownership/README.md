@@ -22,4 +22,4 @@ Entry: `OwnershipPage.jsx` (routed from `App.jsx`).
 - **group/components/** — `GroupEarningCard`, `GePartnerSection`
 
 Styles: `frontend/public/css/ownership.css`  
-i18n: `frontend/src/translateFile/ownershipTranslate.js`
+i18n: `frontend/src/translateFile/pages/ownershipTranslate.js`

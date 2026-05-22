@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SECONDARY_VERIFY_I18N } from "../../translateFile/secondaryPasswordVerifyTranslate.js";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { SECONDARY_VERIFY_I18N } from "../../translateFile/auth/authTranslate.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import SecondaryVerifyBackButton from "./SecondaryVerifyBackButton.jsx";
 import { useAuthBackground } from "./useAuthBackground.js";
 

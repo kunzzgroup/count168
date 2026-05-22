@@ -1,5 +1,5 @@
 import { formatRateAmount } from "./transactionFormat.js";
-import MoneyDecimal from "../../../utils/moneyDecimal.js";
+import MoneyDecimal from "../../../utils/money/moneyDecimal.js";
 
 export function toNumberLike(raw) {
   const n = Number(String(raw ?? "").replace(/,/g, "").trim());

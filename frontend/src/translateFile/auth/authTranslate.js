@@ -1,3 +1,40 @@
+export const LOGIN_I18N = {
+  en: {
+    admin: "Admin",
+    member: "Member",
+    companyPlaceholder: "Company / Group ID",
+    accountPlaceholder: "Account Id",
+    usernamePlaceholder: "Username",
+    passwordPlaceholder: "Password",
+    rememberMe: "Remember me",
+    forgotPassword: "Forget Password?",
+    login: "Login",
+    loggingIn: "Logging in...",
+    notice: "Notice",
+    loginFailed: "Login failed",
+    loginError: "An error occurred during login",
+    confirm: "Confirm",
+    maintenanceLabel: "System Maintenance:",
+  },
+  zh: {
+    admin: "管理员",
+    member: "会员",
+    companyPlaceholder: "公司 / 集团 ID",
+    accountPlaceholder: "账号 ID",
+    usernamePlaceholder: "用户名",
+    passwordPlaceholder: "密码",
+    rememberMe: "记住我",
+    forgotPassword: "忘记密码？",
+    login: "登录",
+    loggingIn: "登录中...",
+    notice: "提示",
+    loginFailed: "登录失败",
+    loginError: "登录时发生错误",
+    confirm: "确认",
+    maintenanceLabel: "系统维护中:",
+  },
+};
+
 export const RESET_PASSWORD_I18N = {
   en: {
     pageTitle: "Reset Password",
@@ -55,4 +92,29 @@ export const RESET_PASSWORD_I18N = {
     resetFailed: "密码重置失败，请稍后重试。",
     switchLang: "切换语言",
   },
-}
+};
+
+export const SECONDARY_VERIFY_I18N = {
+  en: {
+    title: "Secondary Password Verification",
+    lead: "Please enter your 6-digit secondary password to continue",
+    placeholder: "Enter 6-digit password",
+    verify: "Verify",
+    verifying: "Verifying...",
+    digitsSix: "Please enter exactly 6 digits",
+    genericError: "An error occurred. Please try again.",
+    switchLang: "Switch language",
+    backToLogin: "Back to login",
+  },
+  zh: {
+    title: "二级密码验证",
+    lead: "请输入 6 位数字二级密码",
+    placeholder: "请输入 6 位数字密码",
+    verify: "验证",
+    verifying: "验证中...",
+    digitsSix: "请输入完整的 6 位数字",
+    genericError: "发生错误，请稍后重试。",
+    switchLang: "切换语言",
+    backToLogin: "返回登录",
+  },
+};

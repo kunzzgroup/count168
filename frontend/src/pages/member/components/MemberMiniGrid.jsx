@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
+import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 
 import {
   accountHoldsMiniGridCurrency,

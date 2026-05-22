@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { isCompanyVisibleForSharedFilter } from "../../../utils/sharedCompanyFilter.js";
+import { isCompanyVisibleForSharedFilter } from "../../../utils/company/sharedCompanyFilter.js";
 
 /** GroupID = ALL: show C168 first (same expectation as other owner tools). */
 function orderSnapCompaniesForAllGroup(companies) {

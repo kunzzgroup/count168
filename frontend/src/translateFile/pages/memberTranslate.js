@@ -1,5 +1,6 @@
-import { DASHBOARD_I18N } from "./dashboardTranslate.js";
+import { DASHBOARD_I18N } from "../shell/dashboardTranslate.js";
 import { MAINTENANCE_I18N } from "./maintenanceTranslate.js";
+import { interpolate, toLocale } from "../shared/i18nHelpers.js";
 
 export const MEMBER_I18N = {
   en: {
@@ -137,10 +138,10 @@ function lookupNested(locale, key) {
 }
 
 export function getMemberText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
+  const locale = toLocale(lang);
   const template =
     lookupNested(locale, key) ?? lookupNested("en", key) ?? MEMBER_I18N.en[key] ?? key;
-  return String(template).replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
+  return interpolate(template, params);
 }
 
 export function formatMemberRole(lang, role) {
@@ -171,7 +172,7 @@ export function formatMemberRowDescription(lang, row) {
 /** Map backend API message to member i18n for toasts. */
 export function translateMemberApiMessage(lang, apiMessage, fallbackKey = "", params = {}) {
   const message = String(apiMessage ?? "").trim();
-  const locale = lang === "zh" ? "zh" : "en";
+  const locale = toLocale(lang);
   const key = MEMBER_API_MESSAGE_KEYS[normApiMessage(message)];
   if (key) return getMemberText(locale, key, params);
   if (message && fallbackKey) return getMemberText(locale, fallbackKey, params);

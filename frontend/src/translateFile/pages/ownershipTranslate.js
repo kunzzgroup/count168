@@ -1,3 +1,5 @@
+import { createGetText } from "../shared/i18nHelpers.js";
+
 export const OWNERSHIP_I18N = {
   en: {
     accountOwnership: "Account Ownership",
@@ -135,8 +137,4 @@ export const OWNERSHIP_I18N = {
   },
 };
 
-export function getOwnershipText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
-  const template = OWNERSHIP_I18N[locale][key] ?? OWNERSHIP_I18N.en[key] ?? key;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
-}
+export const getOwnershipText = createGetText(OWNERSHIP_I18N);

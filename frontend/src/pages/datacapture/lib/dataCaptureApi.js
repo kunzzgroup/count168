@@ -1,4 +1,4 @@
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 
 /** YYYY-MM-DD in local timezone */
 export function getLocalDateString(date = null) {

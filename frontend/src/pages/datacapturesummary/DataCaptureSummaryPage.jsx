@@ -1,7 +1,7 @@
 import { Component, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
-import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
+import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
 import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
 import EditFormulaModal from "./components/EditFormulaModal.jsx";

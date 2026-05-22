@@ -1,4 +1,4 @@
-import { MoneyDecimal } from "../../utils/moneyDecimal.js";
+import { MoneyDecimal } from "../../utils/money/moneyDecimal.js";
 
 export const MINI_GRID_SHELL_CCY = ["MYR", "SGD"];
 export const MINI_GRID_SHELL_ROWS = 5;

@@ -1,3 +1,5 @@
+import { createGetText, toLocale } from "../shared/i18nHelpers.js";
+
 export const USER_LIST_I18N = {
   en: {
     failedToLoadUsers: "Failed to load users",
@@ -318,7 +320,7 @@ function translateUserListDynamicApiMessage(lang, message) {
 /** Map backend API message to user-list i18n for toasts. */
 export function translateUserListApiMessage(lang, apiMessage, fallbackKey = "", params = {}) {
   const message = String(apiMessage ?? "").trim();
-  const locale = lang === "zh" ? "zh" : "en";
+  const locale = toLocale(lang);
 
   const dynamic = translateUserListDynamicApiMessage(locale, message);
   if (dynamic) return dynamic;
@@ -334,8 +336,4 @@ export function translateUserListApiMessage(lang, apiMessage, fallbackKey = "", 
   return message || (fallbackKey ? getUserListText(locale, fallbackKey, params) : "");
 }
 
-export function getUserListText(lang, key, params = {}) {
-  const locale = lang === "zh" ? "zh" : "en";
-  const template = USER_LIST_I18N[locale][key] ?? USER_LIST_I18N.en[key] ?? key;
-  return template.replace(/\{(\w+)\}/g, (_, token) => String(params[token] ?? ""));
-}
+export const getUserListText = createGetText(USER_LIST_I18N);

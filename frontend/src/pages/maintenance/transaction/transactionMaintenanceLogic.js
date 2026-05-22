@@ -1,5 +1,5 @@
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { formatDmy, parseDdMmYyyyToYmd, parseYmd } from "../../../utils/dateUtils.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { formatDmy, parseDdMmYyyyToYmd, parseYmd } from "../../../utils/date/dateUtils.js";
 import {
   fetchDomainCompanyPermissions,
   fetchMaintenanceProcesses,

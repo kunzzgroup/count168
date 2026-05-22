@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RESET_PASSWORD_I18N } from "../../translateFile/resetPasswordTranslate.js";
+import { RESET_PASSWORD_I18N } from "../../translateFile/auth/authTranslate.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 import { sendResetTac, submitResetPassword } from "./resetPassword.js";
 

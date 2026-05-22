@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import {
   DEFAULT_FORM,
   getOrderedRoles,
   normalizeAlertAmount,
   toUpper,
 } from "../../account/accountLogic.js";
-import { getAccountText, translateAccountApiMessage } from "../../../translateFile/accountTranslate.js";
+import { getAccountText, translateAccountApiMessage } from "../../../translateFile/pages/accountTranslate.js";
 
 function normalizeCompanyRow(row) {
   if (!row || typeof row !== "object") return row;

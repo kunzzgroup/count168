@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
+import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
@@ -29,7 +29,7 @@ import {
   CurrencySettingModal,
   LinkAccountModal,
 } from "./components/accountModals.jsx";
-import { getAccountText, translateAccountApiMessage } from "../../translateFile/accountTranslate.js";
+import { getAccountText, translateAccountApiMessage } from "../../translateFile/pages/accountTranslate.js";
 
 export default function AccountListPage() {
   const navigate = useNavigate();

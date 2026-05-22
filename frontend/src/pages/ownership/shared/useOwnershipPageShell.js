@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { getOwnershipText } from "../../../translateFile/ownershipTranslate.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { getOwnershipText } from "../../../translateFile/pages/ownershipTranslate.js";
 import { getApiMessage, isApiSuccess } from "./ownershipHelpers.js";
 
 export function useOwnershipPageShell() {
