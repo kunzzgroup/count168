@@ -65,6 +65,32 @@ function canSetUserReadOnly(string $currentRole, string $targetUserRole): bool {
     return false;
 }
 
+/** 去重、过滤无效的 company id，避免 IN 查询因重复 id 误判为 invalid */
+function normalizeCompanyIdList(array $ids): array {
+    $out = [];
+    foreach ($ids as $id) {
+        $n = (int) $id;
+        if ($n > 0) {
+            $out[$n] = $n;
+        }
+    }
+    return array_values($out);
+}
+
+function assertCompanyIdsExist(PDO $pdo, array $companyIds): void {
+    $companyIds = normalizeCompanyIdList($companyIds);
+    if (empty($companyIds)) {
+        return;
+    }
+    $placeholders = str_repeat('?,', count($companyIds) - 1) . '?';
+    $stmt = $pdo->prepare("SELECT id FROM company WHERE id IN ($placeholders)");
+    $stmt->execute($companyIds);
+    $validCompanies = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    if (count($validCompanies) !== count($companyIds)) {
+        throw new RuntimeException('One or more selected companies are invalid');
+    }
+}
+
 // 获取当前登录用户（你需要根据你的登录系统调整这个逻辑）
 function getCurrentUser() {
     // 这里你需要根据你的登录系统来获取当前用户
@@ -284,22 +310,17 @@ try {
             
             // 验证 company_ids
             global $current_company_id;
-            $company_ids = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
+            $company_ids = isset($input['company_ids']) && is_array($input['company_ids']) ? normalizeCompanyIdList($input['company_ids']) : [];
             if (empty($company_ids)) {
                 // 如果没有提供 company_ids，使用当前 session 的 company_id
-                $company_ids = [$current_company_id];
+                $company_ids = [(int) $current_company_id];
             }
             
             // 验证所有 company_ids 是否存在
-            if (count($company_ids) > 0) {
-                $placeholders = str_repeat('?,', count($company_ids) - 1) . '?';
-                $stmt = $pdo->prepare("SELECT id FROM company WHERE id IN ($placeholders)");
-                $stmt->execute($company_ids);
-                $validCompanies = $stmt->fetchAll(PDO::FETCH_COLUMN);
-                
-                if (count($validCompanies) !== count($company_ids)) {
-                    sendResponse(false, 'One or more selected companies are invalid');
-                }
+            try {
+                assertCompanyIdsExist($pdo, $company_ids);
+            } catch (RuntimeException $e) {
+                sendResponse(false, $e->getMessage());
             }
             
             // 使用第一个 company_id 作为主 company_id（用于兼容性）
@@ -702,16 +723,11 @@ try {
                 }
                 
                 // 如果提供了 company_ids，更新 company 关联
+                if (isset($input['company_ids']) && is_array($input['company_ids'])) {
+                    $input['company_ids'] = normalizeCompanyIdList($input['company_ids']);
+                }
                 if (isset($input['company_ids']) && is_array($input['company_ids']) && count($input['company_ids']) > 0) {
-                    // 验证所有 company_ids 是否存在
-                    $placeholders = str_repeat('?,', count($input['company_ids']) - 1) . '?';
-                    $stmt = $pdo->prepare("SELECT id FROM company WHERE id IN ($placeholders)");
-                    $stmt->execute($input['company_ids']);
-                    $validCompanies = $stmt->fetchAll(PDO::FETCH_COLUMN);
-                    
-                    if (count($validCompanies) !== count($input['company_ids'])) {
-                        throw new Exception('One or more selected companies are invalid');
-                    }
+                    assertCompanyIdsExist($pdo, $input['company_ids']);
                     
                     // 检查移除后用户是否还属于当前公司（用于提示）
                     // 允许移除当前公司的关联，但会在响应中标记
@@ -1185,8 +1201,13 @@ try {
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($user) {
-                    // 获取用户关联的所有 company_ids
-                    $stmt = $pdo->prepare("SELECT company_id FROM user_company_map WHERE user_id = ?");
+                    // 获取用户关联的所有 company_ids（仅返回仍存在于 company 表的记录）
+                    $stmt = $pdo->prepare("
+                        SELECT ucm.company_id
+                        FROM user_company_map ucm
+                        INNER JOIN company c ON c.id = ucm.company_id
+                        WHERE ucm.user_id = ?
+                    ");
                     $stmt->execute([$user['id']]);
                     $companyIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
                     $user['company_ids'] = $companyIds;

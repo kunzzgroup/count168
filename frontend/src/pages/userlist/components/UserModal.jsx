@@ -141,6 +141,7 @@ import {
   roleHasReadOnlyToggle,
   canInteractWithReadOnlyToggle,
   isUserModalPageReadOnlyLock,
+  normalizeCompanyIds,
 } from "../userListLogic.js";
 
 export default function UserModal({
@@ -328,7 +329,7 @@ export default function UserModal({
 
   const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
   const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
-  const pageReadOnlyLock = Boolean(sessionMutationsBlocked) || isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only);
+  const pageReadOnlyLock = Boolean(sessionMutationsBlocked) || isUserModalPageReadOnlyLock(isEditMode, editingRow, form.read_only);
 
   useEffect(() => {
     if (!open || !pageReadOnlyLock) return;
@@ -660,7 +661,7 @@ export default function UserModal({
                   className="user-modal-company-picker-select-all"
                   disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || modalCompanies.length === 0 || pageReadOnlyLock}
                   onClick={() => {
-                    setSelectedCompanyIds(modalCompanies.map((c) => Number(c.id)));
+                    setSelectedCompanyIds(normalizeCompanyIds(modalCompanies.map((c) => c.id)));
                   }}
                 >
                   {t("selectAll")}
@@ -669,7 +670,8 @@ export default function UserModal({
               <ul className="user-modal-company-picker-list">
                 {companyPickerFiltered.map((c) => {
                   const id = Number(c.id);
-                  const checked = selectedCompanyIds.includes(id);
+                  const normalizedSelected = normalizeCompanyIds(selectedCompanyIds);
+                  const checked = normalizedSelected.includes(id);
                   const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
                   return (
                     <li key={c.id} className="user-modal-company-picker-row">
@@ -680,8 +682,9 @@ export default function UserModal({
                           disabled={rowDisabled}
                           onChange={() =>
                             setSelectedCompanyIds((prev) => {
-                              if (prev.includes(id)) return prev.filter((x) => x !== id);
-                              return [...prev, id];
+                              const norm = normalizeCompanyIds(prev);
+                              if (norm.includes(id)) return norm.filter((x) => x !== id);
+                              return [...norm, id];
                             })
                           }
                         />
