@@ -1394,7 +1394,8 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     margin-bottom: 0;
 }
 
-.transaction-page .transaction-tables-loading {
+.transaction-page .transaction-tables-loading,
+.transaction-page .transaction-tables-refreshing {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1402,6 +1403,11 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     width: 100%;
     color: #6b7280;
     font-size: clamp(9px, 0.73vw, 14px);
+}
+
+.transaction-page .transaction-tables-refreshing {
+    min-height: 36px;
+    margin-bottom: 8px;
 }
 
 .transaction-page .transaction-tables-loading::before {

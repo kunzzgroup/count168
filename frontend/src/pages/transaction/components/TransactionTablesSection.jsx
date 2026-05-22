@@ -12,18 +12,28 @@ export default function TransactionTablesSection({
   m,
   t,
 }) {
+  const hasTableData = tp.mode !== "none";
+  const showTablesWhileLoading = searchLoading && hasTableData;
+
   return (
     <>
       <div className="transaction-tables-section" style={{ display: tablesVisible ? "block" : "none" }}>
-        <div id="transaction-tables-loading" className="transaction-tables-loading" style={{ display: searchLoading ? "flex" : "none" }} aria-live="polite">
+        <div id="transaction-tables-loading" className="transaction-tables-loading" style={{ display: searchLoading && !hasTableData ? "flex" : "none" }} aria-live="polite">
           {m.loadingData}
         </div>
+        {showTablesWhileLoading ? (
+          <div className="transaction-tables-refreshing" aria-live="polite">
+            {m.loadingData}
+          </div>
+        ) : null}
         <div
           id="default-tables-container"
           style={{
-            display: tp.mode === "default" ? "flex" : "none",
+            display: tp.mode === "default" && (!searchLoading || showTablesWhileLoading) ? "flex" : "none",
             flexDirection: "column",
             width: "100%",
+            opacity: showTablesWhileLoading ? 0.55 : 1,
+            pointerEvents: showTablesWhileLoading ? "none" : "auto",
           }}
         >
           {tp.singleCurrencyTitle ? (
@@ -111,7 +121,15 @@ export default function TransactionTablesSection({
             </div>
           </div>
         </div>
-        <div id="currency-grouped-tables-container" style={{ display: tp.mode === "grouped" ? "block" : "none", width: "100%" }}>
+        <div
+          id="currency-grouped-tables-container"
+          style={{
+            display: tp.mode === "grouped" && (!searchLoading || showTablesWhileLoading) ? "block" : "none",
+            width: "100%",
+            opacity: showTablesWhileLoading ? 0.55 : 1,
+            pointerEvents: showTablesWhileLoading ? "none" : "auto",
+          }}
+        >
           {(tp.grouped || []).map((g) => (
             <div key={g.currency} style={{ marginBottom: 24 }}>
               <h3 style={{ margin: "20px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937" }}>

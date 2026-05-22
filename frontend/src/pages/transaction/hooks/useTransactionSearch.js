@@ -11,6 +11,7 @@ import {
   countDisplayedRows,
   normalizeRateRowsByCrDr,
   readTransactionCurrencyFilterState,
+  readTxListFromSessionStorage,
   sortByRole,
   sanitizeSearchApiData,
 } from "../lib/transactionPaymentLogic.js";
@@ -19,6 +20,7 @@ import {
   saveUserCurrencyOrder,
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
+import { clearTxSearchCache, getTxSearchCache, setTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
 
 export function useTransactionSearch({
   filterSnapshot,
@@ -318,6 +320,24 @@ export function useTransactionSearch({
         return;
       }
 
+      const sessionKey = buildTxListSessionKey({
+        companyId: cid,
+        dateFrom: effectiveDateFrom,
+        dateTo: effectiveDateTo,
+        selectedCategories,
+        showInactive: showInactiveForQuery,
+        showCaptureOnly: showCaptureOnlyForQuery,
+        hideZeroBalance: !searchState.showZeroBalance,
+        showAllCurrencies,
+        selectedCurrencies,
+      });
+
+      let instantData = null;
+      if (!forceRefresh) {
+        instantData =
+          getTxSearchCache(requestKey) ?? (sessionKey ? readTxListFromSessionStorage(sessionKey) : null);
+      }
+
       const baseBlockOverlay = showBlockingOverlayOpt !== undefined ? showBlockingOverlayOpt : !silent;
       let blockOverlay = baseBlockOverlay;
       if (suppressBlockingOverlayOnceRef.current) {
@@ -328,8 +348,16 @@ export function useTransactionSearch({
       const runToken = ++latestRunTokenRef.current;
       await queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
 
+      if (instantData) {
+        setRawSearchData(instantData);
+        setTablesVisible(true);
+      } else if (!isInitialLoad) {
+        setRawSearchData(null);
+      }
+
       let didSetBlockingLoading = false;
-      if (blockOverlay) {
+      const showLoadingIndicator = blockOverlay || !instantData;
+      if (showLoadingIndicator) {
         setSearchLoading(true);
         didSetBlockingLoading = true;
       }
@@ -350,13 +378,14 @@ export function useTransactionSearch({
         queryClient.fetchQuery({
           queryKey: transactionQueryKeys.search(params),
           queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
-          staleTime: 15_000,
-          gcTime: 2 * 60_000,
+          staleTime: 5 * 60_000,
+          gcTime: 15 * 60_000,
         });
 
       const commitQuiet = (data) => {
         const cleaned = sanitizeSearchApiData(data);
         setRawSearchData(cleaned);
+        setTxSearchCache(requestKey, cleaned);
         saveTxListToSession(cleaned);
         lastCompletedSearchKeyRef.current = requestKey;
         lastCompletedSearchTsRef.current = Date.now();
@@ -598,6 +627,7 @@ export function useTransactionSearch({
       suppressBlockingOverlayOnceRef.current = true;
       setRawSearchData(null);
       prevCaptureDateRangeKeyRef.current = null;
+      clearTxSearchCache();
     }
     prevCompanyIdForSearchRef.current = cid;
     setTablesVisible(true);
@@ -636,27 +666,12 @@ export function useTransactionSearch({
         showAllCurrencies,
         selectedCurrencies,
       });
-      if (key) {
-        const raw = sessionStorage.getItem(key);
-        if (raw) {
-          const o = JSON.parse(raw);
-          if (o?.data && (o.v === 1 || o.v === 2)) {
-            const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || "0", 10) || 0;
-            const savedAt = o.v === 2 && typeof o.savedAt === "number" ? o.savedAt : 0;
-            if (invalidateTs <= savedAt) {
-              setRawSearchData(sanitizeSearchApiData(o.data));
-              setTablesVisible(true);
-              lastSearchCommitMsRef.current = savedAt || Date.now();
-              hadReplay = true;
-            } else {
-              try {
-                sessionStorage.removeItem(key);
-              } catch {
-                /* ignore */
-              }
-            }
-          }
-        }
+      const replay = key ? readTxListFromSessionStorage(key) : null;
+      if (replay) {
+        setRawSearchData(replay);
+        setTablesVisible(true);
+        lastSearchCommitMsRef.current = Date.now();
+        hadReplay = true;
       }
     } catch {
       /* ignore */
@@ -695,8 +710,12 @@ export function useTransactionSearch({
     }
     if (prevCaptureDateRangeKeyRef.current === key) return;
     prevCaptureDateRangeKeyRef.current = key;
-    scheduleAutoSearch({ delayMs: 0 });
-  }, [effectiveDateFrom, effectiveDateTo, filterSnapshot?.companyId, showAllCurrencies, selectedCurrencies, scheduleAutoSearch]);
+    void runSearchRef.current?.({
+      silent: true,
+      notifyErrors: true,
+      showBlockingOverlay: true,
+    });
+  }, [effectiveDateFrom, effectiveDateTo, filterSnapshot?.companyId, showAllCurrencies, selectedCurrencies]);
 
   return {
     dateFrom,
