@@ -233,21 +233,23 @@ export default function BankProcessListPage() {
     <div className="container">
       <div className="content">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 0, flexWrap: "wrap", gap: 12 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 12, position: "relative", zIndex: 1 }}>
+          <div className="bank-process-header-left">
             <h1 className="page-title">{t("bankProcessList")}</h1>
-            <div className="process-accounting-inbox-wrap">
-              <button
-                type="button"
-                className="process-accounting-inbox-btn process-accounting-inbox-main"
-                onClick={() => { setAccountingOpen(true); void loadAccountingInbox(); }}
-              >
-                <svg className="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
-                </svg>
-                {t("accountingDue")}
-                <span className="process-accounting-inbox-badge">{accountingRows.filter((x) => !x.already_posted_today).length}</span>
-              </button>
-            </div>
+            <AccountingDueModal
+              isOpen={accountingOpen}
+              setOpen={setAccountingOpen}
+              accountingRows={accountingRows}
+              accountingLoading={accountingLoading}
+              accountingSelected={accountingSelected}
+              setAccountingSelected={setAccountingSelected}
+              accountingDeleteSelected={accountingDeleteSelected}
+              setAccountingDeleteSelected={setAccountingDeleteSelected}
+              onPostToTransaction={postAccountingToTransaction}
+              onDismissRows={dismissAccountingRows}
+              loadAccountingInbox={loadAccountingInbox}
+              lang={lang}
+              t={t}
+            />
           </div>
         </div>
         <div className="action-buttons-container">
@@ -677,17 +679,6 @@ export default function BankProcessListPage() {
         }}
         t={t}
       />
-
-      {accountingOpen && (
-        <AccountingDueModal
-          accountingRows={accountingRows} accountingLoading={accountingLoading}
-          accountingSelected={accountingSelected} setAccountingSelected={setAccountingSelected}
-          accountingDeleteSelected={accountingDeleteSelected} setAccountingDeleteSelected={setAccountingDeleteSelected}
-          onPostToTransaction={postAccountingToTransaction} onDismissRows={dismissAccountingRows} onClose={() => setAccountingOpen(false)}
-          lang={lang}
-          t={t}
-        />
-      )}
 
       {resendModalOpen && (
         <ResendModal

@@ -182,6 +182,10 @@ export const BANK_PROCESS_I18N = {
     startDate: "Start Date",
     loading: "Loading...",
     noDueToday: "No process due for accounting today.",
+    refresh: "Refresh",
+    close: "Close",
+    accountingDueAwaiting: "{count} process awaiting accounting",
+    accountingDueAwaitingPlural: "{count} processes awaiting accounting",
     transaction: "Transaction",
 
     errCannotDeleteWithDayStart: "Cannot delete bank process with day start set",
@@ -403,6 +407,10 @@ export const BANK_PROCESS_I18N = {
     startDate: "开始日期",
     loading: "加载中...",
     noDueToday: "今天没有待入账流程。",
+    refresh: "刷新",
+    close: "关闭",
+    accountingDueAwaiting: "{count} 条流程待入账",
+    accountingDueAwaitingPlural: "{count} 条流程待入账",
     transaction: "入账",
 
     errCannotDeleteWithDayStart: "已设置起始日的银行流程无法删除",

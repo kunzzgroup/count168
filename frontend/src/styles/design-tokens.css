@@ -160,6 +160,23 @@
   --contra-inbox-row-border: #f1f5f9;
   --contra-inbox-header-border: #e8edf5;
 
+  /*
+   * Accounting Due inbox (Bank Process List) — grid + spacing aligned with Contra Inbox
+   */
+  --accounting-due-grid-cols: minmax(0, 0.28fr) minmax(0, 0.2fr) minmax(0, 0.62fr) minmax(0, 0.92fr) minmax(0, 0.52fr) minmax(0, 0.72fr) minmax(0, 0.44fr);
+  --accounting-due-grid-gap: 0;
+  --accounting-due-cell-pad-y: clamp(0.45rem, 0.38vw, 0.6rem);
+  --accounting-due-cell-pad-x: clamp(0.35rem, 0.32vw, 0.5rem);
+  --accounting-due-head-pad-y: clamp(0.5rem, 0.42vw, 0.65rem);
+  --accounting-due-head-pad-x: clamp(0.4rem, 0.36vw, 0.55rem);
+  --accounting-due-text-cell: var(--text-tiny);
+  --accounting-due-text-head: var(--text-tiny);
+  --accounting-due-header-bg: #f4f7fc;
+  --accounting-due-header-fg: var(--color-heading);
+  --accounting-due-header-divider: rgba(30, 58, 95, 0.14);
+  --accounting-due-row-border: #f1f5f9;
+  --accounting-due-header-border: #e8edf5;
+
   /* --- 壳层背景图（background-color 仍用 --color-page-bg）--- */
   --app-shell-bg-image: radial-gradient(
       circle at 15% 20%,

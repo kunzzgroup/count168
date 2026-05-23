@@ -1065,349 +1065,441 @@
     padding: clamp(20px, 2.08vw, 40px) 20px;
 }
 
-/* Process Accounting Inbox (需要算账) - 标题右侧 */
-.process-accounting-inbox-wrap {
+/* Bank Process List header row (title + Accounting Due) */
+.bank-process-header-left {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 1.04vw, 20px);
+    min-width: 0;
+    flex-wrap: nowrap;
     position: relative;
-    margin-top: var(--text-page-title-mt) !important;
+    z-index: 1;
 }
 
-.process-accounting-inbox-badge {
+.bank-process-header-left > .page-title {
+    margin: 0 !important;
+    padding: 0;
+    line-height: 1;
+    align-self: center;
+}
+
+/* Accounting Due inbox trigger + popover (Contra Inbox design language) */
+.process-accounting-inbox-wrap {
+    position: relative;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.process-accounting-inbox-badge,
+.accounting-due-inbox-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 24px;
+    min-width: 20px;
     height: 20px;
-    padding: 0 8px;
+    padding: 0 6px;
     border-radius: 999px;
-    background: #ef4444;
+    background: #ff3b30;
     color: #fff;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
+    line-height: 1;
 }
 
 .process-accounting-inbox-btn {
-    padding: 6px 10px;
-    border: 1px solid #d0d7de;
-    border-radius: 10px;
-    background: #f8fafc;
+    border: none;
+    background: transparent;
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
-    color: #111827;
+    font-family: inherit;
     transition: all 0.15s ease;
 }
 
-.process-accounting-inbox-btn:hover {
-    background: #eef2ff;
-    border-color: #a5b4fc;
+.process-accounting-inbox-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .process-accounting-inbox-btn.process-accounting-inbox-main {
     display: inline-flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 28px;
-    border-radius: 12px;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
     background: #ffffff;
+    font-size: clamp(11px, 0.83vw, 15px);
     font-weight: 800;
-    color: #0f172a;
+    color: #000033;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.process-accounting-inbox-btn.process-accounting-inbox-main:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.process-accounting-inbox-wrap--open .process-accounting-inbox-btn.process-accounting-inbox-main {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.process-accounting-inbox-main-label {
+    white-space: nowrap;
 }
 
 .process-accounting-inbox-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: #000033;
+}
+
+.process-accounting-inbox-chevron {
     width: 16px;
     height: 16px;
-    display: inline-block;
+    flex-shrink: 0;
+    color: #64748b;
+    transition: transform 0.2s ease;
 }
 
-.process-accounting-inbox-popover {
+.process-accounting-inbox-wrap--open .process-accounting-inbox-chevron {
+    transform: rotate(180deg);
+}
+
+.accounting-due-inbox-popover {
     position: absolute;
     left: 0;
-    top: calc(100% + 8px);
-    width: min(720px, calc(100vw - 60px));
-    max-height: 420px;
+    top: calc(100% + 12px);
+    width: min(960px, calc(100vw - 48px));
+    max-height: min(560px, calc(100vh - 120px));
     overflow: hidden;
-    border: 1px solid #d0d7de;
-    border-radius: 14px;
+    border: 1px solid #e8edf5;
+    border-radius: 16px;
     background: #fff;
-    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.18);
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.12), 0 12px 40px rgba(15, 23, 42, 0.08);
     z-index: 1200;
-    display: none;
-}
-
-.process-accounting-inbox-popover-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 10px 12px;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f8fafc;
-}
-
-.process-accounting-inbox-popover-title {
-    font-weight: 900;
-    color: #0f172a;
-    font-size: 14px;
-}
-
-.process-accounting-inbox-popover-body {
-    max-height: 320px;
-    overflow: auto;
-    padding: 8px;
-}
-
-.process-accounting-inbox-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-
-.process-accounting-inbox-table th,
-.process-accounting-inbox-table td {
-    padding: 6px 8px;
-    border-top: 1px solid #e5e7eb;
-    text-align: left;
-}
-
-.process-accounting-inbox-table th {
-    background: #f1f5f9;
-    font-weight: 700;
-}
-
-.process-accounting-inbox-table tr.process-accounting-inbox-row-posted {
-    background: #f1f5f9 !important;
-    opacity: 0.7;
-    color: #64748b;
-}
-
-.process-accounting-inbox-table tr.process-accounting-inbox-row-posted td {
-    color: #94a3b8;
-}
-
-.process-accounting-inbox-actions {
-    padding: 10px 0 0;
-    border-top: 1px solid #e5e7eb;
-    margin-top: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-/* Accounting Due large modal (same size as Add Process) */
-#processAccountingDueModal .accounting-due-modal-content {
-    width: 94% !important;
-    max-width: 80rem !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
     display: flex;
     flex-direction: column;
-    height: auto !important;
-    min-height: min-content !important;
-    max-height: min(94vh, 56rem);
-    overflow: hidden;
 }
 
-#processAccountingDueModal .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 10px;
-    position: relative;
-    padding-right: 40px;
+.accounting-due-inbox-popover.accounting-due-inbox-popover--fixed {
+    position: fixed;
+    top: auto;
+    left: auto;
+    z-index: 10050;
 }
 
-#processAccountingDueModal .modal-header h2 {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-}
-
-#processAccountingDueModal .modal-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#processAccountingDueModal .modal-header .close {
+.accounting-due-inbox-popover::before {
+    content: "";
     position: absolute;
-    top: 16px;
-    right: 20px;
-    font-size: 32px;
-    color: #64748b;
-    cursor: pointer;
-    line-height: 1;
+    top: -7px;
+    left: var(--accounting-due-caret-left, 28px);
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-left: 1px solid #e8edf5;
+    border-top: 1px solid #e8edf5;
+    transform: rotate(45deg);
+}
+
+.accounting-due-inbox-popover-header {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #eef2f7;
+    background: #fff;
+}
+
+.accounting-due-inbox-popover-title {
+    font-weight: 800;
+    color: #000033;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: clamp(14px, 1.04vw, 18px);
+}
+
+.accounting-due-inbox-popover-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.accounting-due-inbox-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.accounting-due-inbox-btn.accounting-due-inbox-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: clamp(11px, 0.78vw, 14px);
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.accounting-due-inbox-btn.accounting-due-inbox-refresh svg {
+    width: 16px;
+    height: 16px;
+}
+
+.accounting-due-inbox-btn.accounting-due-inbox-refresh:hover:not(:disabled) {
+    background: #eff6ff;
+}
+
+.accounting-due-inbox-btn.accounting-due-inbox-close {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 32px;
     height: 32px;
-    transition: color 0.2s;
-    font-weight: normal;
+    border-radius: 8px;
+    color: #64748b;
 }
 
-#processAccountingDueModal .modal-header .close:hover {
-    color: #0f172a;
+.accounting-due-inbox-btn.accounting-due-inbox-close svg {
+    width: 18px;
+    height: 18px;
 }
 
-/* Stack list + actions vertically (overrides global .modal-body { display:flex } row layout from legacy sheets) */
-#processAccountingDueModal .modal-body {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
+.accounting-due-inbox-btn.accounting-due-inbox-close:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.accounting-due-inbox-popover-body {
     flex: 1 1 auto;
     min-height: 0;
-    width: 100%;
-    box-sizing: border-box;
-    gap: 0;
-}
-
-/* 表格区域：宽度铺满；高度随行数增高，过高时在区域内滚动，表头固定 */
-#processAccountingDueModal .process-accounting-inbox-table-wrap {
-    width: 100%;
-    max-width: 100%;
-    flex: 0 1 auto;
-    min-height: auto;
-    max-height: min(calc(94vh - 14rem), 640px);
+    overflow-x: hidden;
     overflow-y: auto;
-    overflow-x: auto;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    margin-bottom: 0;
-    box-sizing: border-box;
 }
 
-#processAccountingDueModal .process-accounting-inbox-table {
-    width: 100%;
-    min-width: 100%;
-    table-layout: auto;
-}
-
-#processAccountingDueModal .process-accounting-inbox-table tbody td[colspan] {
+.accounting-due-inbox-loading,
+.accounting-due-inbox-empty {
+    padding: 28px 16px;
     text-align: center;
-    color: #64748b;
-    padding: 2rem 1rem;
-    vertical-align: middle;
+    color: var(--color-muted-fg);
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-semibold);
 }
 
-#processAccountingDueModal .process-accounting-inbox-actions {
+.accounting-due-inbox-grid {
+    display: grid;
+    grid-template-columns: var(--accounting-due-grid-cols);
+    column-gap: var(--accounting-due-grid-gap);
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+}
+
+.accounting-due-inbox-grid-row {
+    display: contents;
+}
+
+.accounting-due-inbox-grid-row--head .accounting-due-inbox-grid-cell--head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: var(--accounting-due-head-pad-y) var(--accounting-due-head-pad-x);
+    background: var(--accounting-due-header-bg);
+    border-bottom: 1px solid var(--accounting-due-header-border);
+    box-shadow: inset -1px 0 0 var(--accounting-due-header-divider);
+}
+
+.accounting-due-inbox-grid-row--head .accounting-due-inbox-grid-cell--head:last-child {
+    box-shadow: none;
+}
+
+.accounting-due-inbox-grid-row:not(.accounting-due-inbox-grid-row--head) .accounting-due-inbox-grid-cell {
+    padding: var(--accounting-due-cell-pad-y) var(--accounting-due-cell-pad-x);
+    border-bottom: 1px solid var(--accounting-due-row-border);
+}
+
+.accounting-due-inbox-grid-row:not(.accounting-due-inbox-grid-row--head):last-of-type .accounting-due-inbox-grid-cell {
+    border-bottom: none;
+}
+
+.accounting-due-inbox-grid-row:not(.accounting-due-inbox-grid-row--head):not(.accounting-due-inbox-grid-row--posted):hover .accounting-due-inbox-grid-cell {
+    background: #fafbfd;
+}
+
+.accounting-due-inbox-grid-row--posted .accounting-due-inbox-grid-cell {
+    background: #f8fafc;
+    opacity: 0.72;
+    color: #94a3b8;
+}
+
+.accounting-due-inbox-grid-cell {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    font-size: var(--accounting-due-text-cell);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-body-strong);
+    line-height: 1.35;
+}
+
+.accounting-due-inbox-grid-cell--head {
+    font-size: var(--accounting-due-text-head);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--accounting-due-header-fg);
+    white-space: nowrap;
+    background: var(--accounting-due-header-bg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.accounting-due-inbox-grid-cell--cb,
+.accounting-due-inbox-grid-cell--no,
+.accounting-due-inbox-grid-cell--delete {
+    justify-content: center;
+    text-align: center;
+}
+
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--cb,
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--no,
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--delete {
+    justify-content: center;
+    text-align: center;
+}
+
+.accounting-due-inbox-grid-cell--date {
+    white-space: nowrap;
+}
+
+.accounting-due-inbox-grid-cell--owner,
+.accounting-due-inbox-grid-cell--contract {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.accounting-due-inbox-grid-cell--bank {
+    justify-content: center;
+    text-align: center;
+}
+
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--bank {
+    justify-content: center;
+    text-align: center;
+}
+
+.accounting-due-inbox-delete-head {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.accounting-due-inbox-grid-cell input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #2563eb;
+}
+
+.accounting-due-inbox-grid-cell input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.accounting-due-inbox-toolbar {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-shrink: 0;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    justify-content: flex-start;
-    margin-top: 12px;
-    padding-top: 12px;
+    padding: 12px 16px;
+    border-top: 1px solid #eef2f7;
+    background: #fff;
 }
 
-#processAccountingDueModal .process-accounting-inbox-table-wrap .process-accounting-inbox-table th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: #f1f5f9;
-    box-shadow: 0 1px 0 #e5e7eb;
-}
-
-/* Transaction 与 Cancel 同尺寸、同字体，仅颜色不同 */
-#processAccountingDueModal .btn-primary {
-    background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
-    color: white;
+.accounting-due-inbox-action-btn {
     font-family: var(--font-heading-page);
-    width: clamp(7.5rem, 9.5vw, 10.5rem);
-    padding: clamp(0.5rem, 0.6vw, 0.75rem) 1.5rem;
-    font-size: clamp(0.9rem, 1.1vw, 1.25rem);
+    width: clamp(7rem, 8.5vw, 9.5rem);
+    padding: clamp(0.45rem, 0.55vw, 0.65rem) 1.25rem;
+    font-size: clamp(11px, 0.78vw, 14px);
+    font-weight: 700;
     border: none;
-    border-radius: 0.375rem;
-    box-shadow: 0 2px 4px rgba(13, 148, 136, 0.3);
+    border-radius: 8px;
     cursor: pointer;
     text-align: center;
     display: inline-flex;
     justify-content: center;
     align-items: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-#processAccountingDueModal .btn-primary:hover:not(:disabled) {
+.accounting-due-inbox-action-btn--primary {
+    background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(13, 148, 136, 0.3);
+}
+
+.accounting-due-inbox-action-btn--primary:hover:not(:disabled) {
     background: linear-gradient(180deg, #0f766e 0%, #0d9488 100%);
     box-shadow: 0 4px 8px rgba(13, 148, 136, 0.4);
     transform: translateY(-1px);
 }
 
-#processAccountingDueModal .btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Accounting Due 内 Delete 与主页面红色 Delete 一致（覆盖浏览器默认灰） */
-#processAccountingDueModal .process-accounting-inbox-actions .btn-delete,
-#processAccountingDueModal .btn.btn-delete {
-    background: linear-gradient(180deg, #F30E12 0%, #A91215 100%) !important;
-    color: #fff !important;
-    font-family: var(--font-heading-page);
-    width: clamp(7.5rem, 9.5vw, 10.5rem);
-    padding: clamp(0.5rem, 0.6vw, 0.75rem) 1.5rem;
-    font-size: clamp(0.9rem, 1.1vw, 1.25rem);
-    border: none !important;
-    border-radius: 0.375rem;
+.accounting-due-inbox-action-btn--delete {
+    background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
+    color: #fff;
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
-    cursor: pointer;
-    text-align: center;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
 }
 
-#processAccountingDueModal .process-accounting-inbox-actions .btn-delete:hover:not(:disabled),
-#processAccountingDueModal .btn.btn-delete:hover:not(:disabled) {
-    background: linear-gradient(180deg, #A91215 0%, #F30E12 100%) !important;
-    color: #fff !important;
+.accounting-due-inbox-action-btn--delete:hover:not(:disabled) {
+    background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
 }
 
-#processAccountingDueModal .process-accounting-inbox-actions .btn-delete:disabled,
-#processAccountingDueModal .btn.btn-delete:disabled {
-    background: linear-gradient(180deg, #F30E12 0%, #A91215 100%) !important;
-    color: rgba(255, 255, 255, 0.8) !important;
-    opacity: 0.7;
-    cursor: not-allowed;
-}
-
-/* Accounting Due 内 Cancel 按钮样式 */
-#processAccountingDueModal .process-accounting-inbox-actions .btn-cancel,
-#processAccountingDueModal .btn.btn-cancel {
-    background: linear-gradient(180deg, #6c757d 0%, #495057 100%) !important;
-    color: #fff !important;
-    font-family: var(--font-heading-page);
-    width: clamp(7.5rem, 9.5vw, 10.5rem);
-    padding: clamp(0.5rem, 0.6vw, 0.75rem) 1.5rem;
-    font-size: clamp(0.9rem, 1.1vw, 1.25rem);
-    border: none !important;
-    border-radius: 0.375rem;
+.accounting-due-inbox-action-btn--cancel {
+    background: linear-gradient(180deg, #6c757d 0%, #495057 100%);
+    color: #fff;
     box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
-    cursor: pointer;
-    text-align: center;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
 }
 
-#processAccountingDueModal .process-accounting-inbox-actions .btn-cancel:hover:not(:disabled),
-#processAccountingDueModal .btn.btn-cancel:hover:not(:disabled) {
-    background: linear-gradient(180deg, #495057 0%, #6c757d 100%) !important;
+.accounting-due-inbox-action-btn--cancel:hover:not(:disabled) {
+    background: linear-gradient(180deg, #495057 0%, #6c757d 100%);
     box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
     transform: translateY(-1px);
 }
 
-#processAccountingDueModal .process-accounting-inbox-actions .btn-cancel:disabled,
-#processAccountingDueModal .btn.btn-cancel:disabled {
-    background: linear-gradient(180deg, #6c757d 0%, #495057 100%) !important;
-    color: rgba(255, 255, 255, 0.8) !important;
-    opacity: 0.7;
+.accounting-due-inbox-action-btn:disabled {
+    opacity: 0.65;
     cursor: not-allowed;
+    transform: none;
+}
+
+.accounting-due-inbox-popover-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px 12px;
+    border-top: 1px solid #eef2f7;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: clamp(11px, 0.78vw, 13px);
+    font-weight: 600;
+}
+
+.accounting-due-inbox-popover-footer svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: #94a3b8;
 }
 
 /* Bank Add Process 必填未填时红框 */
