@@ -79,6 +79,7 @@ export default function BankProcessTable({
   setSelectedIds,
   notify,
   fetchRows,
+  loadAccountingInbox,
   openEdit,
   openRemarkModal,
   openResendModal,
@@ -205,7 +206,8 @@ export default function BankProcessTable({
               })}
             </div>
           </div>
-          <div className="process-cards bank-mode bank-virtual-scroll">
+          <div className="bank-virtual-scroll-shell">
+            <div className="process-cards bank-mode bank-virtual-scroll">
             {tableLoading && (
               <div className="process-card bank-virtual-data-row bank-virtual-data-row--message">
                 <div className="card-item bank-virtual-cell bank-virtual-cell--message">{t("loadData")}</div>
@@ -242,6 +244,7 @@ export default function BankProcessTable({
                       onUpdated={() => {
                         notifyTransactionDataChanged("bank-process-list-react");
                         void fetchRows();
+                        void loadAccountingInbox?.({ silent: true });
                       }}
                     />
                   </div>
@@ -401,6 +404,7 @@ export default function BankProcessTable({
                   )}
                 </div>
               ))}
+            </div>
           </div>
         </div>
       </div>

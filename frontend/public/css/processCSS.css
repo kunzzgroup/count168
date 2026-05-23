@@ -851,6 +851,7 @@ body.process-page {
 /* Bank Process List：表头固定，数据区在视口内纵向滚动（分页固定右下角） */
 .process-page.process-page--bank {
     --bank-process-scroll-max: 100%;
+    --bank-list-scrollbar-gutter: 12px;
 }
 
 .process-page.process-page--bank .container {
@@ -892,6 +893,9 @@ body.process-page {
     flex-direction: column;
     overflow: hidden;
     width: 100%;
+    box-sizing: border-box;
+    /* 为列表外侧滚动条预留空间，避免被裁切 */
+    padding-right: var(--bank-list-scrollbar-gutter);
 }
 
 .process-page.process-page--bank .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region {
@@ -934,11 +938,11 @@ body.process-page {
     --bank-list-cell-min-height: clamp(32px, 2.4vw, 44px);
     --bank-list-header-row-height: clamp(40px, 2.8vw, 48px);
     --bank-list-cell-line-height: 1.35;
-    /* 列表与上方 section 同宽；Owner 用 1fr 吸收剩余宽度，Contract→Action 贴右且完整展示 */
-    --bank-virtual-grid-columns: minmax(36px, max-content) minmax(72px, max-content) minmax(56px, max-content) minmax(120px, max-content) minmax(260px, 1fr) minmax(100px, max-content) minmax(72px, max-content) minmax(68px, max-content) minmax(60px, max-content) minmax(60px, max-content) minmax(60px, max-content) minmax(88px, 96px) minmax(88px, max-content) minmax(72px, max-content);
+    /* Owner 随内容；Contract 紧跟 Owner；右侧 filler 列吸收多余宽度（勿用 min(1fr,px)） */
+    --bank-virtual-grid-columns: minmax(36px, max-content) minmax(72px, max-content) minmax(56px, max-content) minmax(120px, max-content) minmax(200px, max-content) minmax(92px, max-content) minmax(64px, max-content) minmax(60px, max-content) minmax(60px, max-content) minmax(60px, max-content) minmax(60px, max-content) minmax(88px, 96px) minmax(88px, max-content) minmax(72px, max-content);
     --bank-virtual-grid-columns-with-select:
         minmax(36px, max-content) minmax(72px, max-content) minmax(56px, max-content) minmax(120px, max-content)
-        minmax(260px, 1fr) minmax(100px, max-content) minmax(72px, max-content) minmax(68px, max-content)
+        minmax(200px, max-content) minmax(92px, max-content) minmax(64px, max-content) minmax(60px, max-content)
         minmax(60px, max-content) minmax(60px, max-content) minmax(60px, max-content) minmax(88px, 96px)
         minmax(88px, max-content) minmax(72px, max-content) minmax(48px, 48px);
     --bank-virtual-grid-active: var(--bank-virtual-grid-columns);
@@ -951,7 +955,8 @@ body.process-page {
 .process-page.process-page--bank .process-table-wrapper.bank-process-table-region {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-x: visible;
+    overflow-y: hidden;
 }
 
 .process-page.process-page--bank .bank-virtual-table {
@@ -971,7 +976,8 @@ body.process-page {
     width: 100%;
     max-width: 100%;
     display: grid;
-    grid-template-columns: var(--bank-virtual-grid-active);
+    /* 数据列 + 右侧 filler；滚动条在列表外，不占 grid 列 */
+    grid-template-columns: var(--bank-virtual-grid-active) minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     flex: 1 1 auto;
     min-height: 0;
@@ -998,13 +1004,35 @@ body.process-page {
     padding: 0;
 }
 
-.process-page.process-page--bank .bank-virtual-scroll.process-cards {
+/* 数据区：与表头同宽；纵向滚动条画在列表右外侧 */
+.process-page.process-page--bank .bank-virtual-scroll-shell {
     grid-column: 1 / -1;
     grid-row: 2;
     display: grid;
     grid-template-columns: subgrid;
+    grid-template-rows: minmax(0, 1fr);
+    align-self: stretch;
+    min-height: 0;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+    width: calc(100% + var(--bank-list-scrollbar-gutter));
+    margin-right: calc(-1 * var(--bank-list-scrollbar-gutter));
+    padding-right: var(--bank-list-scrollbar-gutter);
+    scrollbar-width: thin;
+    scrollbar-color: #2563eb #eef4ff;
+}
+
+.process-page.process-page--bank .bank-virtual-scroll.process-cards {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
     grid-auto-rows: auto;
     align-content: start;
+    overflow: visible;
 }
 
 /* 覆盖 global-13inch 对 .table-header 的 9 列 !important（否则 15 个表头会折成两行） */
@@ -1022,22 +1050,19 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     border-radius: 8px 8px 0 0;
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     padding: 0;
+    padding-right: var(--bank-list-scrollbar-gutter);
     overflow: visible;
     grid-auto-rows: var(--bank-list-header-row-height, var(--bank-list-cell-min-height));
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
     z-index: 3;
+    box-sizing: border-box;
+    width: calc(100% + var(--bank-list-scrollbar-gutter));
+    margin-right: calc(-1 * var(--bank-list-scrollbar-gutter));
 }
 
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
-    flex: 1 1 0;
-    min-height: 0;
-    max-height: var(--bank-process-scroll-max);
-    overflow-x: visible;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    min-height: min-content;
     border-radius: 0 0 8px 8px;
-    scrollbar-gutter: stable;
     /* 固定分页条在右下角时，为最后一行留出可滚空间 */
     padding-bottom: max(52px, calc(20px + env(safe-area-inset-bottom, 0px)));
 }
@@ -1046,22 +1071,43 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     flex-shrink: 0;
 }
 
-.process-page.process-page--bank .bank-virtual-scroll.process-cards::-webkit-scrollbar {
-    width: 10px;
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
-.process-page.process-page--bank .bank-virtual-scroll.process-cards::-webkit-scrollbar-track {
-    background: rgba(148, 163, 184, 0.2);
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar-button,
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar-button:single-button,
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar-button:vertical:decrement,
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar-button:vertical:increment {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar-track {
+    background: #eef4ff;
     border-radius: 8px;
+    margin: 6px 0;
 }
 
-.process-page.process-page--bank .bank-virtual-scroll.process-cards::-webkit-scrollbar-thumb {
-    background: rgba(100, 116, 139, 0.55);
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 55%, #1d4ed8 100%);
     border-radius: 8px;
+    border: 2px solid #eef4ff;
+    min-height: 48px;
 }
 
-.process-page.process-page--bank .bank-virtual-scroll.process-cards::-webkit-scrollbar-thumb:hover {
-    background: rgba(71, 85, 105, 0.75);
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 55%, #1e40af 100%);
+}
+
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar-thumb:active {
+    background: #1e40af;
+}
+
+.process-page.process-page--bank .bank-virtual-scroll-shell::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 .process-page.process-page--bank .bank-virtual-data-row.process-card {
@@ -1653,12 +1699,13 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
     min-width: 72px;
 }
 
-/* Card Owner：1fr 列吸收剩余宽度，公司名单行完整展示 */
+/* Card Owner：随内容列宽，Contract 紧跟其后 */
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-th,
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
     padding-left: clamp(6px, 0.45vw, 8px);
-    padding-right: clamp(10px, 0.65vw, 14px);
+    padding-right: clamp(8px, 0.55vw, 10px);
     min-width: 0;
+    max-width: 380px;
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
@@ -1672,7 +1719,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.
 /* Contract → Action：贴右排列，列宽随内容，保证徽章/日期/图标完整显示 */
 body.process-page.process-page--bank .bank-process-table-region .bank-col-contract.bank-virtual-th,
 body.process-page.process-page--bank .bank-process-table-region .bank-col-contract.bank-virtual-cell {
-    padding-left: clamp(6px, 0.45vw, 8px);
+    padding-left: clamp(4px, 0.35vw, 6px);
     padding-right: clamp(2px, 0.2vw, 4px);
 }
 
