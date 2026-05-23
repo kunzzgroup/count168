@@ -77,15 +77,20 @@ export function areSummaryLegacyScriptsLoaded() {
   );
 }
 
+/** Bump when js/datacapturesummary.js changes so browsers fetch the latest legacy bundle. */
+const SUMMARY_LEGACY_SCRIPT_VERSION = "20260523-delete-i18n";
+
 /** Load decimal + money + summary legacy bundle (parallel). */
 export async function ensureSummaryLegacyScriptsLoaded() {
   if (areSummaryLegacyScriptsLoaded()) return;
+
+  const summaryScriptUrl = `${buildApiUrl("js/datacapturesummary.js")}?v=${SUMMARY_LEGACY_SCRIPT_VERSION}`;
 
   await Promise.all([
     loadSummaryScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined"),
     loadSummaryScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined"),
     loadSummaryScriptOnce(
-      buildApiUrl("js/datacapturesummary.js"),
+      summaryScriptUrl,
       () => typeof window.initDataCaptureSummaryPage === "function"
     ),
   ]);

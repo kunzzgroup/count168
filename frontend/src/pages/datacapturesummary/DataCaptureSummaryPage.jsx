@@ -96,6 +96,7 @@ function DataCaptureSummaryPageInner() {
     window.__SUMMARY_TRANSLATE_NOTIFICATION__ = ({ title, message }) =>
       translateDataCaptureSummaryNotification(lang, title, message);
     window.__SUMMARY_I18N_TEXT__ = (key, params) => getDataCaptureSummaryText(lang, key, params);
+    window.__SUMMARY_SYNC_DELETE_BUTTON_LABEL__?.();
     window.updateDeleteButton?.();
     return () => {
       delete window.__SUMMARY_RATE_SELECT_LABELS__;
@@ -382,6 +383,7 @@ function DataCaptureSummaryPageInner() {
 
       <SummaryActionBar
         t={t}
+        lang={lang}
         rateInput={pageActions.rateInput}
         onRateInputChange={pageActions.setRateInput}
         rateSelectAllLabel={pageActions.rateSelectAllLabel}

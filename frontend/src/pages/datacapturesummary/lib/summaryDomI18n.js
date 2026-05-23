@@ -1,8 +1,12 @@
+import { syncSummaryDeleteButtonLabel } from "./summaryDeleteButtonLabel.js";
+
 /**
  * Re-apply Summary page labels on legacy-managed DOM nodes (Edit Formula, etc.).
  */
 export function applySummaryDomLabels(t) {
   if (typeof t !== "function") return;
+
+  syncSummaryDeleteButtonLabel(t);
 
   const labelForMap = {
     process: "idProduct",

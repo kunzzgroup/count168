@@ -9,6 +9,7 @@ import {
   saveSummaryRefreshState,
 } from "../lib/summaryPageActions.js";
 import { requestSummaryDeleteConfirmation } from "../lib/summaryDeleteFlow.js";
+import { syncSummaryDeleteButtonLabel } from "../lib/summaryDeleteButtonLabel.js";
 import { useSummarySubmit } from "./useSummarySubmit.js";
 
 /**
@@ -51,6 +52,15 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
     t,
   });
 
+  const syncDeleteButtonLabel = useCallback(
+    (countOverride) => {
+      const count = syncSummaryDeleteButtonLabel(t, countOverride);
+      setDeleteCount(count);
+      return count;
+    },
+    [t]
+  );
+
   useLayoutEffect(() => {
     if (!scriptsReady) return undefined;
 
@@ -58,8 +68,9 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
     window.__SUMMARY_REACT_REFRESH__ = () => {
       handleRefreshRef.current?.();
     };
+    window.__SUMMARY_SYNC_DELETE_BUTTON_LABEL__ = syncDeleteButtonLabel;
     window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ = (count) => {
-      setDeleteCount(Number(count) || 0);
+      syncDeleteButtonLabel(count);
     };
     window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ = (label) => {
       const norm = String(label || "").trim();
@@ -75,21 +86,17 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
     };
     window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__ = navigateAfterSubmitSuccess;
 
-    if (typeof window.updateDeleteButton === "function") {
-      window.updateDeleteButton();
-    } else {
-      const count = document.querySelectorAll(".summary-row-checkbox:checked").length;
-      setDeleteCount(count);
-    }
+    syncDeleteButtonLabel();
 
     return () => {
       delete window.__SUMMARY_REACT_NAV_BACK__;
       delete window.__SUMMARY_REACT_REFRESH__;
       delete window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__;
+      delete window.__SUMMARY_SYNC_DELETE_BUTTON_LABEL__;
       delete window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__;
       delete window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__;
     };
-  }, [scriptsReady, navigateBack, navigateAfterSubmitSuccess, t]);
+  }, [scriptsReady, navigateBack, navigateAfterSubmitSuccess, t, syncDeleteButtonLabel]);
 
   const handleBack = useCallback(() => {
     navigateBack();

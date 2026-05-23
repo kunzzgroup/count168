@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useEffect } from "react";
 
 export default function SummaryActionBar({
   t,
+  lang,
   rateInput,
   onRateInputChange,
   rateSelectAllLabel,
@@ -15,12 +16,20 @@ export default function SummaryActionBar({
   const deleteBtnRef = useRef(null);
   const deleteLabel = deleteCount > 0 ? t("deleteWithCount", { count: deleteCount }) : t("delete");
 
-  // Legacy updateDeleteButton() may set textContent before React owns the button.
+  // Legacy updateDeleteButton() may overwrite button text — re-apply after render and on lang change.
   useLayoutEffect(() => {
     if (deleteBtnRef.current) {
       deleteBtnRef.current.textContent = deleteLabel;
     }
-  }, [deleteLabel]);
+  }, [deleteLabel, lang]);
+
+  useEffect(() => {
+    const onLangUpdated = () => {
+      window.__SUMMARY_SYNC_DELETE_BUTTON_LABEL__?.();
+    };
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => window.removeEventListener("eazycount:language-updated", onLangUpdated);
+  }, []);
 
   return (
     <div className="summary-action-buttons" id="actionButtons" style={{ display: "none" }}>
@@ -56,6 +65,7 @@ export default function SummaryActionBar({
         type="button"
         className="btn btn-delete"
         id="summaryDeleteSelectedBtn"
+        key={`summary-delete-${lang}`}
         ref={deleteBtnRef}
         onClick={onDeleteSelected}
         title={t("deleteSelectedRows")}

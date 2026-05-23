@@ -19905,6 +19905,7 @@ function updateDeleteButton() {
 
     if (typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function') {
         window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__(count);
+        return;
     }
 
     const deleteBtn = document.getElementById('summaryDeleteSelectedBtn');
@@ -19913,15 +19914,6 @@ function updateDeleteButton() {
     const label = count > 0
         ? summaryI18n('deleteWithCount', 'Delete (' + count + ')', { count: count })
         : summaryI18n('delete', 'Delete');
-
-    if (reactOwned) {
-        deleteBtn.textContent = label;
-        deleteBtn.disabled = count <= 0;
-        if (typeof window.__SUMMARY_SYNC_DELETE_BUTTON_LABEL__ === 'function') {
-            window.__SUMMARY_SYNC_DELETE_BUTTON_LABEL__(count);
-        }
-        return;
-    }
 
     deleteBtn.textContent = label;
     deleteBtn.disabled = count <= 0;
