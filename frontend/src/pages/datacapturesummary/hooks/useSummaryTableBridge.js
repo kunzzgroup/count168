@@ -58,6 +58,7 @@ export function showSummaryTableChrome() {
   if (actionButtons) actionButtons.style.display = "flex";
   if (summaryTableContainer) summaryTableContainer.style.display = "block";
   if (summarySubmitContainer) summarySubmitContainer.style.display = "flex";
+  window.updateDeleteButton?.();
 }
 
 export function hideSummaryLoadingChrome() {

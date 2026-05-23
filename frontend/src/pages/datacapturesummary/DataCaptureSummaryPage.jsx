@@ -91,11 +91,12 @@ function DataCaptureSummaryPageInner() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.__SUMMARY_RATE_SELECT_LABELS__ = getSummaryRateSelectLabels(lang);
     window.__SUMMARY_TRANSLATE_NOTIFICATION__ = ({ title, message }) =>
       translateDataCaptureSummaryNotification(lang, title, message);
     window.__SUMMARY_I18N_TEXT__ = (key, params) => getDataCaptureSummaryText(lang, key, params);
+    window.updateDeleteButton?.();
     return () => {
       delete window.__SUMMARY_RATE_SELECT_LABELS__;
       delete window.__SUMMARY_TRANSLATE_NOTIFICATION__;

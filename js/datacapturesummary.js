@@ -111,11 +111,19 @@ function showNotification(title, message, type) {
     }, 5000);
 }
 
-function summaryI18n(key, fallback) {
+function summaryI18n(key, fallback, params) {
     if (typeof window.__SUMMARY_I18N_TEXT__ === 'function') {
-        const text = window.__SUMMARY_I18N_TEXT__(key);
+        const text = window.__SUMMARY_I18N_TEXT__(key, params);
         if (text != null && String(text).trim() !== '') return String(text);
     }
+    try {
+        if (localStorage.getItem('login_lang') === 'zh') {
+            if (key === 'delete') return '删除';
+            if (key === 'deleteWithCount' && params && params.count != null) {
+                return '删除（' + params.count + '）';
+            }
+        }
+    } catch (e) { /* ignore */ }
     return fallback != null ? fallback : key;
 }
 
@@ -19902,20 +19910,21 @@ function updateDeleteButton() {
     const deleteBtn = document.getElementById('summaryDeleteSelectedBtn');
     if (!deleteBtn) return;
 
+    const label = count > 0
+        ? summaryI18n('deleteWithCount', 'Delete (' + count + ')', { count: count })
+        : summaryI18n('delete', 'Delete');
+
     if (reactOwned) {
+        deleteBtn.textContent = label;
         deleteBtn.disabled = count <= 0;
+        if (typeof window.__SUMMARY_SYNC_DELETE_BUTTON_LABEL__ === 'function') {
+            window.__SUMMARY_SYNC_DELETE_BUTTON_LABEL__(count);
+        }
         return;
     }
 
-    if (count > 0) {
-        deleteBtn.textContent = typeof window.__SUMMARY_I18N_TEXT__ === 'function'
-            ? window.__SUMMARY_I18N_TEXT__('deleteWithCount', { count: count })
-            : `Delete (${count})`;
-        deleteBtn.disabled = false;
-    } else {
-        deleteBtn.textContent = summaryI18n('delete', 'Delete');
-        deleteBtn.disabled = true;
-    }
+    deleteBtn.textContent = label;
+    deleteBtn.disabled = count <= 0;
 }
 
 function collectValidDeleteRowTargetsFromDom() {
