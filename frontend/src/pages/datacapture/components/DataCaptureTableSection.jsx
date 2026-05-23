@@ -1,10 +1,19 @@
 import DataCaptureGrid from "./DataCaptureGrid.jsx";
 import { CAPTURE_TYPE_OPTIONS } from "../lib/dataCaptureFormRules.js";
 
+function captureTypeLabel(opt, t) {
+  if (opt === "1.Text") return t("captureTypeText");
+  if (opt === "2.Format") return t("captureTypeFormat");
+  if (opt === "CITIBET") return t("captureTypeCitibet");
+  if (opt === "4.RETURN") return t("captureTypeReturn");
+  return opt;
+}
+
 /**
  * Bottom section: capture type, grid, submit.
  */
 export default function DataCaptureTableSection({
+  t,
   captureType,
   citibetMode = false,
   formatGridReady = false,
@@ -19,10 +28,10 @@ export default function DataCaptureTableSection({
     <div className="bottom-section">
       <div className={`excel-table-container${citibetMode ? " citibet-mode" : ""}`}>
         <div className="excel-table-header">
-          <span>Data Capture Table</span>
+          <span>{t("dataCaptureTable")}</span>
           {showFormatPasteHint ? (
             <span className="dc-format-paste-hint" style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>
-              Paste a formatted table below
+              {t("pasteFormattedTableHint")}
             </span>
           ) : null}
           <div className="dc-table-header-controls">
@@ -31,22 +40,16 @@ export default function DataCaptureTableSection({
               className="data-capture-type-selector"
               value={captureType}
               onChange={onCaptureTypeChange}
-              aria-label="Data capture format"
+              aria-label={t("captureFormatAria")}
             >
               {CAPTURE_TYPE_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
-                  {opt === "1.Text"
-                    ? "1.TEXT"
-                    : opt === "2.Format"
-                      ? "2.FORMAT"
-                      : opt === "CITIBET"
-                        ? "3.CITIBET"
-                        : "4.RETURN"}
+                  {captureTypeLabel(opt, t)}
                 </option>
               ))}
             </select>
             <button type="button" className="btn btn-cancel" onClick={() => (onReset ? onReset() : window.resetForm?.())}>
-              Reset
+              {t("reset")}
             </button>
           </div>
         </div>
@@ -71,7 +74,7 @@ export default function DataCaptureTableSection({
             void window.submitDataCaptureForm?.();
           }}
         >
-          Submit
+          {t("submit")}
         </button>
       </div>
     </div>

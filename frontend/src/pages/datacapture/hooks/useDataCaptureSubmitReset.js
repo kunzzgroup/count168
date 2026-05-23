@@ -15,6 +15,7 @@ import { fetchProcessDetail } from "../lib/dataCaptureApi.js";
 import { convertTableFormatOnSubmit } from "../lib/dataCaptureConvertTableOnSubmit.js";
 import { buildSpaPath } from "../../../utils/core/apiUrl.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
+import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { markSummaryFreshNavigation } from "../../datacapturesummary/lib/summaryStorage.js";
 
 function buildProcessCapturePayload(form, captureType, currencies) {
@@ -45,6 +46,7 @@ export function useDataCaptureSubmitReset({
   captureType,
   mutationsBlocked = false,
   navigate,
+  t,
 }) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreInFlightRef = useRef(false);
@@ -105,7 +107,7 @@ export function useDataCaptureSubmitReset({
 
   const submit = useCallback(async () => {
     if (mutationsBlocked) {
-      pushDataCaptureNotification("Read-only account: this action is not allowed.", "danger");
+      pushDataCaptureNotification(t("readOnlyBlocked"), "danger");
       return;
     }
     const tableData = captureTableDataFromDom(captureType);
@@ -118,7 +120,7 @@ export function useDataCaptureSubmitReset({
       tableData,
     });
     if (!validation.ok) {
-      pushDataCaptureNotification(validation.message, "danger");
+      pushDataCaptureNotification(translateDataCaptureMessage(localStorage.getItem("login_lang") === "zh" ? "zh" : "en", validation.message), "danger");
       return;
     }
 
@@ -137,9 +139,9 @@ export function useDataCaptureSubmitReset({
       window.location.assign(buildSpaPath("datacapturesummary?success=1"));
     } catch (error) {
       console.error("Error submitting data:", error);
-      pushDataCaptureNotification("Failed to capture data", "danger");
+      pushDataCaptureNotification(t("failedCaptureData"), "danger");
     }
-  }, [form, captureType, mutationsBlocked, navigate]);
+  }, [form, captureType, mutationsBlocked, navigate, t]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {

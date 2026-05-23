@@ -47,6 +47,7 @@ import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmit
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { preloadSummaryLegacyScriptsInBackground } from "../datacapturesummary/lib/preloadSummaryLegacyScripts.js";
+import { getDataCaptureText } from "../../translateFile/pages/dataCaptureTranslate.js";
 
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
@@ -98,15 +99,16 @@ class DataCaptureErrorBoundary extends Component {
 
   render() {
     if (this.state.error) {
+      const lang = localStorage.getItem("login_lang") === "zh" ? "zh" : "en";
       const msg = this.state.error?.message || String(this.state.error);
       return (
         <div className="container" style={{ padding: "24px" }}>
-          <h2 style={{ marginTop: 0 }}>Data Capture failed to render</h2>
+          <h2 style={{ marginTop: 0 }}>{getDataCaptureText(lang, "renderFailedTitle")}</h2>
           <p style={{ color: "#b91c1c", marginBottom: 12 }} role="alert">
             {msg}
           </p>
           <p style={{ margin: 0, color: "#666", fontSize: 14 }}>
-            Refresh the page. If it keeps happening, open the browser console (F12) and share the first error line with support.
+            {getDataCaptureText(lang, "renderFailedHint")}
           </p>
         </div>
       );
@@ -120,6 +122,24 @@ export default function DataCapturePage() {
   const [searchParams] = useSearchParams();
   const { me, sessionReady } = useAuthSession();
   const companyIdFromUrl = searchParams.get("company_id");
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params) => getDataCaptureText(lang, key, params), [lang]);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    const onLangUpdated = (e) => {
+      const next = e?.detail?.lang;
+      setLang(next === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
+    };
+  }, []);
 
   const [bootLoading, setBootLoading] = useState(true);
   const [engineError, setEngineError] = useState("");
@@ -194,6 +214,7 @@ export default function DataCapturePage() {
     captureType,
     mutationsBlocked,
     navigate,
+    t,
   });
 
   useDataCaptureGrid(scriptsReady);
@@ -519,7 +540,7 @@ export default function DataCapturePage() {
     <DataCaptureErrorBoundary key={companyId ?? "none"}>
       <div className="container" key={companyId ?? "none"}>
       <div className="dc-page-toolbar">
-        <h1>Data Capture</h1>
+        <h1>{t("pageTitle")}</h1>
 
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div
@@ -527,7 +548,7 @@ export default function DataCapturePage() {
             className="data-capture-company-filter data-capture-permission-filter-header"
             style={{ display: showPermissionFilter ? "flex" : "none" }}
           >
-            <span className="data-capture-company-label">Category:</span>
+            <span className="data-capture-company-label">{t("category")}</span>
             <div id="data-capture-permission-buttons" className="data-capture-company-buttons">
               {permissions.map((p) => (
                 <button
@@ -567,9 +588,9 @@ export default function DataCapturePage() {
                 <div className="user-gc-inline-panel dc-data-capture-gc-panel">
                   {groups.length > 0 ? (
                     <div id="group-buttons-wrapper" className="user-gc-inline-row shared-group-wrapper">
-                      <span className="user-gc-inline-label">GroupID:</span>
+                      <span className="user-gc-inline-label">{t("groupId")}</span>
                       <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                        <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label="Group ID">
+                        <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label={t("groupAria")}>
                           {groups.map((gid) => (
                             <button
                               key={gid}
@@ -588,9 +609,9 @@ export default function DataCapturePage() {
 
                   {list.length > 0 ? (
                     <div id="company-buttons-wrapper" className="user-gc-inline-row shared-company-wrapper">
-                      <span className="user-gc-inline-label">Company:</span>
+                      <span className="user-gc-inline-label">{t("company")}</span>
                       <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                        <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label="Company">
+                        <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label={t("companyAria")}>
                           {list.map((comp) => {
                             const gid = String(comp.group_id || "").trim().toUpperCase();
                             const visible = isCompanyVisibleForSharedFilter(comp, selectedGroup, false, "follow");
@@ -619,7 +640,7 @@ export default function DataCapturePage() {
 
               <div className="dc-form-two-col dc-form-two-col--stacked">
                 <div className="form-group">
-                  <label htmlFor="capture_date">Date</label>
+                  <label htmlFor="capture_date">{t("date")}</label>
                   <select id="capture_date" name="capture_date" required value={form.captureDate} onChange={(e) => void form.onDateChange(e)}>
                     {form.dateOptions.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -630,13 +651,13 @@ export default function DataCapturePage() {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="capture_process">Process</label>
+                  <label htmlFor="capture_process">{t("process")}</label>
                   <div className="custom-select-wrapper">
                     <button
                       type="button"
                       className={`custom-select-button${form.processOpen ? " open" : ""}`.trim()}
                       id="capture_process"
-                      data-placeholder="Select Process"
+                      data-placeholder={t("selectProcess")}
                       name="process"
                       {...(form.selectedProcess?.id
                         ? {
@@ -653,7 +674,7 @@ export default function DataCapturePage() {
                         form.setProcessOpen((o) => !o);
                       }}
                     >
-                      {form.selectedProcess?.displayText || "Select Process"}
+                      {form.selectedProcess?.displayText || t("selectProcess")}
                     </button>
                     <div
                       className={`custom-select-dropdown${form.processOpen ? " show" : ""}`.trim()}
@@ -663,7 +684,7 @@ export default function DataCapturePage() {
                         <input
                           ref={form.processSearchInputRef}
                           type="text"
-                          placeholder="Search process..."
+                          placeholder={t("searchProcess")}
                           autoComplete="off"
                           value={form.processFilter}
                           onChange={(e) => form.setProcessFilter(e.target.value)}
@@ -687,7 +708,7 @@ export default function DataCapturePage() {
                       <div className="custom-select-options dc-react-process-options">
                         {form.processListTruncated ? (
                           <div className="custom-select-option custom-select-option--hint" style={{ cursor: "default", opacity: 0.85 }}>
-                            Type to search ({form.processRowsCount} processes)
+                            {t("typeToSearchProcesses", { count: form.processRowsCount })}
                           </div>
                         ) : null}
                         {form.visibleProcesses.map((row) => (
@@ -708,7 +729,7 @@ export default function DataCapturePage() {
 
               <div className="dc-form-two-col dc-form-two-col--stacked">
                 <div className="form-group">
-                  <label htmlFor="capture_description">Description</label>
+                  <label htmlFor="capture_description">{t("description")}</label>
                   <div className="input-with-icon">
                     <input
                       type="text"
@@ -716,14 +737,14 @@ export default function DataCapturePage() {
                       name="description"
                       required
                       readOnly
-                      placeholder="Click + to select descriptions"
+                      placeholder={t("clickToSelectDescriptions")}
                       value={form.descriptionDisplay}
                     />
                     <button
                       type="button"
                       className="add-icon"
                       onClick={() => openDescriptionModal()}
-                      title="Select descriptions"
+                      title={t("selectDescriptions")}
                     >
                       +
                     </button>
@@ -731,7 +752,7 @@ export default function DataCapturePage() {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="capture_currency">Currency</label>
+                  <label htmlFor="capture_currency">{t("currency")}</label>
                   <select
                     id="capture_currency"
                     name="currency"
@@ -741,7 +762,7 @@ export default function DataCapturePage() {
                       setTimeout(() => window.updateSubmitButtonState?.(), 0);
                     }}
                   >
-                    <option value="">Select Currency</option>
+                    <option value="">{t("selectCurrency")}</option>
                     {form.currencies.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.code}
@@ -753,13 +774,13 @@ export default function DataCapturePage() {
 
               <div className="dc-form-bottom-block">
                 <div className="form-group replace-word-group dc-replace-word-field">
-                  <label htmlFor="capture_replace_word_from">Replace Word</label>
+                  <label htmlFor="capture_replace_word_from">{t("replaceWord")}</label>
                   <div className="replace-word-fields">
                     <input
                       type="text"
                       id="capture_replace_word_from"
                       name="replace_word_from"
-                      placeholder="Old word"
+                      placeholder={t("oldWord")}
                       value={form.replaceFrom}
                       onChange={(e) => form.setReplaceFrom(e.target.value.toUpperCase())}
                     />
@@ -768,7 +789,7 @@ export default function DataCapturePage() {
                       type="text"
                       id="capture_replace_word_to"
                       name="replace_word_to"
-                      placeholder="New word"
+                      placeholder={t("newWord")}
                       value={form.replaceTo}
                       onChange={(e) => form.setReplaceTo(e.target.value.toUpperCase())}
                     />
@@ -777,17 +798,17 @@ export default function DataCapturePage() {
 
                 <div className="dc-form-remove-remark-grid">
                   <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
-                    Remove Word
+                    {t("removeWord")}
                   </label>
                   <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk">
-                    Remark
+                    {t("remark")}
                   </label>
                   <input
                     type="text"
                     id="capture_remove_word"
                     name="remove_word"
                     className="dc-remove-remark__input dc-remove-remark__input--rm"
-                    placeholder="Enter words to remove"
+                    placeholder={t("enterWordsToRemove")}
                     value={form.removeWord}
                     onChange={(e) => form.setRemoveWord(e.target.value.toUpperCase())}
                   />
@@ -796,12 +817,12 @@ export default function DataCapturePage() {
                     id="capture_remark"
                     name="remark"
                     className="dc-remove-remark__input dc-remove-remark__input--mk"
-                    placeholder="Enter remark"
+                    placeholder={t("enterRemark")}
                     value={form.remark}
                     onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
                   />
                   <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
-                    (Use semicolon to separate multiple words, e.g. abc;cde;efg)
+                    {t("removeWordHelp")}
                   </small>
                   <div className="dc-remove-remark__slot" aria-hidden="true" />
                 </div>
@@ -812,13 +833,13 @@ export default function DataCapturePage() {
 
         <div className="submitted-column">
           <div className="submitted-container">
-            <h2 className="submitted-title">Submitted Processes</h2>
+            <h2 className="submitted-title">{t("submittedProcesses")}</h2>
             <div className="submitted-list">
               {/* Legacy `renderSubmittedProcesses` sets innerHTML on `#submittedProcessesList` — decoy only. */}
               <div id="submittedProcessesList" className="dc-legacy-submitted-host" aria-hidden="true" style={{ display: "none" }} />
               <div className="dc-react-submitted-list">
               {submittedItems.length === 0 ? (
-                <div className="no-data">No processes submitted for this date</div>
+                <div className="no-data">{t("noProcessesSubmitted")}</div>
               ) : (
                 submittedItems.map((process, index) => (
                   <div
@@ -851,6 +872,7 @@ export default function DataCapturePage() {
       </div>
 
       <DataCaptureTableSection
+        t={t}
         captureType={captureType}
         citibetMode={citibetMode}
         formatGridReady={formatGridReady}
@@ -861,6 +883,7 @@ export default function DataCapturePage() {
       />
 
       <DescriptionSelectionModal
+        t={t}
         open={descriptionModalOpen}
         onClose={closeDescriptionModal}
         companyId={companyId}
@@ -869,9 +892,10 @@ export default function DataCapturePage() {
 
       <ProcessNotificationContainer />
 
-      <DataCaptureContextMenus />
+      <DataCaptureContextMenus t={t} />
 
       <DataCaptureDeleteDialog
+        t={t}
         open={deleteOpen}
         deleteOption={deleteOption}
         onDeleteOptionChange={setDeleteOption}

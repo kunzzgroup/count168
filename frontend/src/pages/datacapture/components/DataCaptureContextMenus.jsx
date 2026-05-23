@@ -1,60 +1,57 @@
 import { memo } from "react";
 
-/**
- * Legacy positions these with inline styles; never re-render after mount so React does not clear display/position.
- */
-function DataCaptureContextMenus() {
+function DataCaptureContextMenus({ t }) {
   return (
     <>
       <div id="contextMenu" className="context-menu">
         <div className="context-menu-item" role="presentation" onClick={(e) => { e.stopPropagation(); window.copySelectedCells?.(); }}>
-          <span>📋 Copy</span>
+          <span>📋 {t("copy")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={(e) => { e.stopPropagation(); window.pasteToSelectedCells?.(); }}>
-          <span>📄 Paste</span>
+          <span>📄 {t("paste")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={(e) => { e.stopPropagation(); window.clearSelectedCells?.(); }}>
-          <span>🗑️ Clear</span>
+          <span>🗑️ {t("clear")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={(e) => { e.stopPropagation(); window.showDeleteDialog?.(e); }}>
-          <span>🗑️ Delete</span>
+          <span>🗑️ {t("delete")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={(e) => window.selectAllCells?.(e)}>
-          <span>☑️ Select All</span>
+          <span>☑️ {t("selectAll")}</span>
         </div>
       </div>
 
       <div id="columnContextMenu" className="context-menu">
         <div className="context-menu-item" role="presentation" onClick={() => window.insertColumnLeft?.()}>
-          <span>➕ Insert 1 column left</span>
+          <span>➕ {t("insertColumnLeft")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={() => window.insertColumnRight?.()}>
-          <span>➕ Insert 1 column right</span>
+          <span>➕ {t("insertColumnRight")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={() => window.deleteColumn?.()}>
-          <span>🗑️ Delete column</span>
+          <span>🗑️ {t("deleteColumn")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={() => window.clearColumn?.()}>
-          <span>❌ Clear column</span>
+          <span>❌ {t("clearColumn")}</span>
         </div>
       </div>
 
       <div id="rowContextMenu" className="context-menu">
         <div className="context-menu-item" role="presentation" onClick={() => window.insertRowAbove?.()}>
-          <span>➕ Insert 1 row above</span>
+          <span>➕ {t("insertRowAbove")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={() => window.insertRowBelow?.()}>
-          <span>➕ Insert 1 row below</span>
+          <span>➕ {t("insertRowBelow")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={() => window.deleteRow?.()}>
-          <span>🗑️ Delete row</span>
+          <span>🗑️ {t("deleteRow")}</span>
         </div>
         <div className="context-menu-item" role="presentation" onClick={() => window.clearRow?.()}>
-          <span>❌ Clear row</span>
+          <span>❌ {t("clearRow")}</span>
         </div>
       </div>
     </>
   );
 }
 
-export default memo(DataCaptureContextMenus, () => true);
+export default memo(DataCaptureContextMenus, (prev, next) => prev.t === next.t);

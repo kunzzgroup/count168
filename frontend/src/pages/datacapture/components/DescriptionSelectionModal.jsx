@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { fetchDescriptionCatalog, postAddDescription, postDeleteDescription } from "../lib/dataCaptureApi.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
+import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 
 function normalizeCatalog(json) {
   const raw = json?.descriptions ?? json?.data?.descriptions ?? [];
@@ -14,11 +15,18 @@ function normalizeCatalog(json) {
     .filter((d) => d.name && d.id != null);
 }
 
-export default function DescriptionSelectionModal({ open, onClose, companyId, onConfirm }) {
+export default function DescriptionSelectionModal({ t, open, onClose, companyId, onConfirm }) {
   const [catalog, setCatalog] = useState([]);
   const [pendingNames, setPendingNames] = useState([]);
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
+
+  const notify = useCallback(
+    (message, type = "danger") => {
+      pushDataCaptureNotification(translateDataCaptureMessage(localStorage.getItem("login_lang") === "zh" ? "zh" : "en", message), type);
+    },
+    [],
+  );
 
   const loadCatalog = useCallback(async () => {
     if (!companyId) {
@@ -28,16 +36,16 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
     try {
       const result = await fetchDescriptionCatalog(companyId);
       if (!result.success) {
-        pushDataCaptureNotification(result.error || "Failed to load descriptions", "danger");
+        notify(result.error || "Failed to load descriptions");
         setCatalog([]);
         return;
       }
       setCatalog(normalizeCatalog(result));
     } catch {
-      pushDataCaptureNotification("Failed to load descriptions", "danger");
+      notify("Failed to load descriptions");
       setCatalog([]);
     }
-  }, [companyId]);
+  }, [companyId, notify]);
 
   useEffect(() => {
     if (!open) return;
@@ -79,11 +87,7 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
           result.data?.duplicate === true ||
           String(result.error || "").includes("already exists");
         if (!result.success) {
-          if (dup) {
-            pushDataCaptureNotification("Description name already exists", "danger");
-          } else {
-            pushDataCaptureNotification(result.error || "Failed to add description", "danger");
-          }
+          notify(dup ? "Description name already exists" : result.error || "Failed to add description");
           return;
         }
         const newId = result.data?.description_id ?? result.description_id;
@@ -97,24 +101,24 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
         }
         setPendingNames((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
         setNewName("");
-        pushDataCaptureNotification("Description added successfully!", "success");
+        notify("Description added successfully!", "success");
       } catch {
-        pushDataCaptureNotification("Failed to add description", "danger");
+        notify("Failed to add description");
       }
     },
-    [companyId, newName, loadCatalog]
+    [companyId, newName, loadCatalog, notify],
   );
 
   const handleDelete = useCallback(
     async (id, name) => {
       if (!id) return;
-      if (!window.confirm(`Are you sure you want to delete description ${name}? This action cannot be undone.`)) {
+      if (!window.confirm(t("deleteDescriptionConfirm", { name }))) {
         return;
       }
       try {
         const result = await postDeleteDescription(id);
         if (!result.success) {
-          pushDataCaptureNotification(result.error || "Failed to delete description", "danger");
+          notify(result.error || "Failed to delete description");
           return;
         }
         setCatalog((prev) => prev.filter((d) => String(d.id) !== String(id)));
@@ -129,21 +133,21 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
           }, 0);
           return next;
         });
-        pushDataCaptureNotification("Description deleted successfully", "success");
+        notify("Description deleted successfully", "success");
       } catch {
-        pushDataCaptureNotification("Failed to delete description", "danger");
+        notify("Failed to delete description");
       }
     },
-    []
+    [t, notify],
   );
 
   const handleConfirm = useCallback(() => {
     if (pendingNames.length === 0) {
-      pushDataCaptureNotification("Please select at least one description", "danger");
+      notify("Please select at least one description");
       return;
     }
     onConfirm(pendingNames);
-  }, [onConfirm, pendingNames]);
+  }, [onConfirm, pendingNames, notify]);
 
   if (!open) return null;
 
@@ -159,7 +163,7 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
     >
       <div className="modal-content description-selection-modal">
         <div className="modal-header">
-          <h2 id="dc-desc-modal-title">Select or Add Description</h2>
+          <h2 id="dc-desc-modal-title">{t("selectOrAddDescription")}</h2>
           <span className="close" onClick={onClose} role="presentation">
             &times;
           </span>
@@ -167,10 +171,10 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
         <div className="modal-body">
           <div className="description-selection-container">
             <div className="selected-descriptions-section">
-              <h3>Selected Descriptions</h3>
+              <h3>{t("selectedDescriptions")}</h3>
               <div className="selected-descriptions-list" id="selectedDescriptionsInModal">
                 {pendingNames.length === 0 ? (
-                  <div className="no-descriptions">No descriptions selected</div>
+                  <div className="no-descriptions">{t("noDescriptionsSelected")}</div>
                 ) : (
                   pendingNames.map((name) => (
                     <div key={name} className="selected-description-modal-item">
@@ -186,36 +190,36 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
 
             <div className="available-descriptions-section">
               <div className="add-description-bar">
-                <h3>Add New Description</h3>
+                <h3>{t("addNewDescription")}</h3>
                 <form className="add-description-form" onSubmit={handleAdd}>
                   <div className="add-description-input-group">
                     <input
                       type="text"
                       name="description_name"
-                      placeholder="Enter new description name..."
+                      placeholder={t("enterNewDescriptionName")}
                       required
                       value={newName}
                       onChange={(e) => setNewName(e.target.value.toUpperCase())}
                     />
                     <button type="submit" className="btn btn-save">
-                      Add
+                      {t("add")}
                     </button>
                   </div>
                 </form>
               </div>
 
-              <h3>Available Descriptions</h3>
+              <h3>{t("availableDescriptions")}</h3>
               <div className="description-search">
                 <input
                   type="text"
-                  placeholder="Search descriptions..."
+                  placeholder={t("searchDescriptions")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value.toUpperCase())}
                 />
               </div>
               <div className="description-list" id="existingDescriptions">
                 {filteredCatalog.length === 0 ? (
-                  <div className="no-descriptions">No descriptions found</div>
+                  <div className="no-descriptions">{t("noDescriptionsFound")}</div>
                 ) : (
                   filteredCatalog.map((d) => (
                     <div key={String(d.id)} className="description-item">
@@ -234,8 +238,8 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
                       <button
                         type="button"
                         className="description-delete-btn"
-                        title="Delete description"
-                        aria-label="Delete description"
+                        title={t("deleteDescription")}
+                        aria-label={t("deleteDescription")}
                         onClick={() => void handleDelete(d.id, d.name)}
                       >
                         &times;
@@ -249,10 +253,10 @@ export default function DescriptionSelectionModal({ open, onClose, companyId, on
         </div>
         <div className="modal-footer">
           <button type="button" className="btn btn-cancel" onClick={onClose}>
-            Cancel
+            {t("cancel")}
           </button>
           <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={handleConfirm}>
-            Confirm
+            {t("confirm")}
           </button>
         </div>
       </div>
