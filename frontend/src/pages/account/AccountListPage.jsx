@@ -33,6 +33,7 @@ import {
 import {
   formatCurrencyInUseAccountLabels,
   getAccountText,
+  parseAccountsFromCurrencyDeleteMessage,
   translateAccountApiMessage,
 } from "../../translateFile/pages/accountTranslate.js";
 
@@ -114,8 +115,8 @@ export default function AccountListPage() {
   }, []);
 
   const notifyApi = useCallback(
-    (apiMessage, fallbackKey, type = "success", params = {}) => {
-      notify(translateAccountApiMessage(lang, apiMessage, fallbackKey, params), type);
+    (apiMessage, fallbackKey, type = "success", params = {}, apiData = null) => {
+      notify(translateAccountApiMessage(lang, apiMessage, fallbackKey, params, apiData), type);
     },
     [lang, notify],
   );
@@ -628,8 +629,61 @@ export default function AccountListPage() {
   const showCurrencyInUseAlert = (currencyId, apiData) => {
     const cur = currencies.find((c) => Number(c.id) === Number(currencyId));
     const code = cur?.code ? toUpper(cur.code) : "";
-    const accountNames = formatCurrencyInUseAccountLabels(apiData?.accounts_in_use);
+    let accountNames = formatCurrencyInUseAccountLabels(apiData?.accounts_in_use);
+    if (accountNames.length === 0 && Array.isArray(apiData?.account_labels)) {
+      accountNames = apiData.account_labels.filter(Boolean);
+    }
     setCurrencyInUseAlert({ code, accountNames });
+  };
+
+  const fetchAccountsUsingCurrency = async (currencyId) => {
+    try {
+      const params = new URLSearchParams({
+        action: "get_linked_accounts_by_currency",
+        currency_id: String(currencyId),
+      });
+      if (companyId) params.set("company_id", String(companyId));
+      const res = await fetch(
+        buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`),
+        { method: "POST", credentials: "include" },
+      );
+      const json = await res.json();
+      if (!json.success) return [];
+      const fromApi = Array.isArray(json.data?.linked_accounts) ? json.data.linked_accounts : [];
+      if (fromApi.length > 0) {
+        return fromApi.map((a) => ({
+          id: Number(a.id),
+          name: String(a.name ?? ""),
+          account_id: String(a.account_id ?? ""),
+        }));
+      }
+      const linkedIds = new Set((json.data?.linked_account_ids || []).map(Number));
+      return accounts
+        .filter((a) => linkedIds.has(Number(a.id)))
+        .map((a) => ({
+          id: Number(a.id),
+          name: String(a.name ?? ""),
+          account_id: String(a.account_id ?? ""),
+        }));
+    } catch {
+      return [];
+    }
+  };
+
+  const handleCurrencyDeleteBlocked = async (currencyId, json, msg) => {
+    let accountsInUse = Array.isArray(json?.data?.accounts_in_use) ? json.data.accounts_in_use : [];
+    if (accountsInUse.length === 0) {
+      accountsInUse = await fetchAccountsUsingCurrency(currencyId);
+    }
+    if (accountsInUse.length === 0) {
+      accountsInUse = parseAccountsFromCurrencyDeleteMessage(msg);
+    }
+    const inUseHint = /being used|正在使用|Cannot delete|account\(s\)/i.test(msg);
+    if (accountsInUse.length > 0 || inUseHint) {
+      showCurrencyInUseAlert(currencyId, { accounts_in_use: accountsInUse });
+      return;
+    }
+    notifyApi(msg, "failedDeleteCurrency", "danger", {}, json?.data);
   };
 
   const removeModalCurrency = async (currencyId) => {
@@ -638,42 +692,12 @@ export default function AccountListPage() {
       return;
     }
     const id = Number(currencyId);
-    const wasLinked = initialEditCurrencyIds.map(Number).includes(id);
-
-    const hideFromModal = () => {
-      setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
-      setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    };
 
     const dropCurrency = () => {
-      hideFromModal();
+      setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+      setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
       setCurrencies((prev) => prev.filter((c) => Number(c.id) !== id));
     };
-
-    if (isEditMode && form.id && wasLinked) {
-      hideFromModal();
-      try {
-        const res = await fetch(accountCurrencyApiUrl("remove_currency"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ account_id: Number(form.id), currency_id: id }),
-          credentials: "include",
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          setHiddenCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
-          setSelectedCurrencyIds((prev) => (prev.map(Number).includes(id) ? prev : [...prev, id]));
-          notifyApi(json.message || json.error, "saveFailed", "danger");
-          return;
-        }
-        setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
-      } catch {
-        setHiddenCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
-        setSelectedCurrencyIds((prev) => (prev.map(Number).includes(id) ? prev : [...prev, id]));
-        notify(t("saveFailed"), "danger");
-      }
-      return;
-    }
 
     try {
       const res = await fetch(buildApiUrl("api/accounts/delete_currency_api.php"), {
@@ -688,16 +712,7 @@ export default function AccountListPage() {
         return;
       }
       const msg = String(json.message || json.error || "");
-      const accountsInUse = Array.isArray(json.data?.accounts_in_use) ? json.data.accounts_in_use : [];
-      if (accountsInUse.length > 0) {
-        showCurrencyInUseAlert(id, json.data);
-        return;
-      }
-      if (/being used|正在使用|Cannot delete/i.test(msg)) {
-        notifyApi(msg, "apiCurrencyInUse", "danger", {}, json.data);
-        return;
-      }
-      notifyApi(msg, "failedDeleteCurrency", "danger");
+      await handleCurrencyDeleteBlocked(id, json, msg);
     } catch {
       notify(t("failedDeleteCurrency"), "danger");
     }

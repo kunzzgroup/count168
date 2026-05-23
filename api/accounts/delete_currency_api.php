@@ -76,37 +76,55 @@ function getAccountsUsingCurrency(PDO $pdo, int $currencyId, int $companyId, str
 
     if (tableExists($pdo, 'account_currency')) {
         $hasLegacyCurrencyId = columnExists($pdo, 'account', 'currency_id');
-        $legacyCondition = $hasLegacyCurrencyId ? ' OR a.currency_id = ?' : '';
         $hasAccountCompany = tableExists($pdo, 'account_company');
         if ($hasAccountCompany) {
             $stmt = $pdo->prepare("
                 SELECT DISTINCT a.id, a.name, a.account_id
-                FROM account a
+                FROM account_currency ac
+                INNER JOIN account a ON a.id = ac.account_id
                 INNER JOIN account_company acc ON a.id = acc.account_id
-                LEFT JOIN account_currency ac ON a.id = ac.account_id AND ac.currency_id = ?
-                WHERE acc.company_id = ? AND (ac.currency_id IS NOT NULL{$legacyCondition})
+                WHERE ac.currency_id = ? AND acc.company_id = ?
                 ORDER BY a.name ASC, a.account_id ASC
             ");
-            $params = [$currencyId, $companyId];
+            $stmt->execute([$currencyId, $companyId]);
+            $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
             if ($hasLegacyCurrencyId) {
-                $params[] = $currencyId;
+                $stmt = $pdo->prepare("
+                    SELECT DISTINCT a.id, a.name, a.account_id
+                    FROM account a
+                    INNER JOIN account_company acc ON a.id = acc.account_id
+                    WHERE a.currency_id = ? AND acc.company_id = ?
+                    ORDER BY a.name ASC, a.account_id ASC
+                ");
+                $stmt->execute([$currencyId, $companyId]);
+                $seenIds = [];
+                foreach ($accounts as $row) {
+                    $seenIds[(int)($row['id'] ?? 0)] = true;
+                }
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    $aid = (int)($row['id'] ?? 0);
+                    if ($aid > 0 && !isset($seenIds[$aid])) {
+                        $accounts[] = $row;
+                        $seenIds[$aid] = true;
+                    }
+                }
+                usort($accounts, function ($a, $b) {
+                    $cmp = strcmp((string)($a['name'] ?? ''), (string)($b['name'] ?? ''));
+                    return $cmp !== 0 ? $cmp : strcmp((string)($a['account_id'] ?? ''), (string)($b['account_id'] ?? ''));
+                });
             }
-            $stmt->execute($params);
         } else {
             $stmt = $pdo->prepare("
                 SELECT DISTINCT a.id, a.name, a.account_id
-                FROM account a
-                LEFT JOIN account_currency ac ON a.id = ac.account_id AND ac.currency_id = ?
-                WHERE ac.currency_id IS NOT NULL{$legacyCondition}
+                FROM account_currency ac
+                INNER JOIN account a ON a.id = ac.account_id
+                WHERE ac.currency_id = ?
                 ORDER BY a.name ASC, a.account_id ASC
             ");
-            $params = [$currencyId];
-            if ($hasLegacyCurrencyId) {
-                $params[] = $currencyId;
-            }
-            $stmt->execute($params);
+            $stmt->execute([$currencyId]);
+            $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
-        $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         try {
             if (tableExists($pdo, 'account_company') && columnExists($pdo, 'account', 'currency')) {

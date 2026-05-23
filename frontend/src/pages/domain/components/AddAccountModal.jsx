@@ -162,7 +162,7 @@ export default function AddAccountModal({ companyId, companyCode, preferredRole,
       }
       const msg = String(json.message || json.error || "");
       if (/being used|正在使用|Cannot delete/i.test(msg)) {
-        hideFromModal();
+        showDomainAlert(msg || t("failedDeleteCurrency"), "danger");
         return;
       }
       showDomainAlert(msg || t("failedDeleteCurrency"), "danger");
