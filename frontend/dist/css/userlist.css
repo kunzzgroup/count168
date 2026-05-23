@@ -97,10 +97,10 @@ body.user-page:not(.user-page--show-all) {
         48px;
 }
 
-/* 中文表头（登录 ID / 最后登录 / 创建者）略宽，减少省略 */
+/* 中文表头（序号 / 登录 ID / 最后登录 / 创建者）略宽，减少省略 */
 body.lang-zh.user-page .user-list-table {
     --user-list-grid-cols:
-        38px
+        54px
         minmax(100px, 1.05fr)
         minmax(80px, 1fr)
         minmax(140px, 1.5fr)
@@ -110,7 +110,7 @@ body.lang-zh.user-page .user-list-table {
         minmax(88px, 0.95fr)
         minmax(64px, 0.48fr);
     --user-list-grid-cols-bulk:
-        38px
+        54px
         minmax(100px, 1.05fr)
         minmax(80px, 1fr)
         minmax(140px, 1.5fr)
@@ -225,6 +225,16 @@ body.user-page .user-list-table .user-card.user-list-row {
     padding-left: 0 !important;
     padding-right: 0 !important;
     font-variant-numeric: tabular-nums;
+}
+
+.user-list-table .user-list-table-header .header-item:first-child.header-item--with-sort-icon {
+    gap: 2px;
+}
+
+.user-list-table .user-list-table-header .header-item:first-child.header-item--with-sort-icon .header-item__label {
+    flex: 0 0 auto;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 .user-list-table .user-list-table-header .header-item:nth-child(5),
