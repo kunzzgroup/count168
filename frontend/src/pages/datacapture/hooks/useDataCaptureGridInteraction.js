@@ -73,6 +73,7 @@ export function useDataCaptureGridInteraction(scriptsReady) {
     window.__DC_MOVE_CARET_TO_END_REACT__ = moveCaretToEnd;
     window.__DC_MOVE_CARET_TO_CLICK_REACT__ = moveCaretToClickPosition;
     window.__DC_HANDLE_CELL_CLICK_REACT__ = handleCellClick;
+    window.__DC_HANDLE_CELL_CLICK__ = handleCellClick;
     window.__DC_HANDLE_CELL_KEYDOWN_REACT__ = handleCellKeydown;
     window.__DC_SET_ACTIVE_CELL__ = setActiveCell;
     window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS__ = setActiveCellWithoutFocus;
@@ -140,6 +141,7 @@ export function useDataCaptureGridInteraction(scriptsReady) {
       delete window.__DC_MOVE_CARET_TO_END_REACT__;
       delete window.__DC_MOVE_CARET_TO_CLICK_REACT__;
       delete window.__DC_HANDLE_CELL_CLICK_REACT__;
+      if (window.__DC_HANDLE_CELL_CLICK__ === handleCellClick) delete window.__DC_HANDLE_CELL_CLICK__;
       delete window.__DC_HANDLE_CELL_KEYDOWN_REACT__;
       delete window.__DC_SHOW_CONTEXT_MENU_REACT__;
       delete window.__DC_SHOW_COLUMN_CONTEXT_MENU_REACT__;

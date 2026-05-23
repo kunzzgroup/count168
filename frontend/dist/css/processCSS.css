@@ -1793,7 +1793,7 @@ body.process-page.process-page--bank .bank-col-status .bank-status-dropdown {
 body.process-page.process-page--bank .bank-col-status .bank-status-button {
     width: auto;
     max-width: 100%;
-    min-width: 5.35rem;
+    min-width: 8rem;
 }
 
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-no.bank-virtual-th,

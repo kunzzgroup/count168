@@ -1,6 +1,7 @@
 /**
  * Per-cell focus / blur money format / paste — SPA replacement for legacy bindDataCaptureCellEvents.
  */
+import { highlightHeadersForCell } from "./dataCaptureGridActiveCell.js";
 import { formatMoneyDisplay } from "../paste/core/dataCapturePasteMoneyUtils.js";
 
 function shouldSkipBlurMoneyFormat() {
@@ -10,6 +11,7 @@ function shouldSkipBlurMoneyFormat() {
 
 function onCellFocus() {
   this.classList.add("selected");
+  highlightHeadersForCell(this);
 }
 
 function onCellBlur() {
