@@ -110,10 +110,10 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
 
 /**
  * Bank 列表 grid（与 processCSS.css --bank-virtual-grid-columns* 一致，供测试/文档引用）。
- * 小屏：外层 .bank-virtual-table 横向滚动 + inner min-width，对齐 payment-maintenance 虚拟表。
+ * 全列 minmax(0, fr)：铺满容器、无横向滚动。
  */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "minmax(40px,2.7fr) minmax(88px,3.2fr) minmax(72px,2.4fr) minmax(120px,max-content) minmax(200px,max-content) minmax(100px,6fr) minmax(92px,5.5fr) minmax(80px,6fr) minmax(68px,5fr) minmax(68px,5fr) minmax(68px,5fr) minmax(96px,100px) minmax(64px,4fr) minmax(72px,4.5fr)";
+  "minmax(0,0.34fr) minmax(0,0.62fr) minmax(0,0.44fr) minmax(0,1.12fr) minmax(0,1.48fr) minmax(0,0.68fr) minmax(0,0.58fr) minmax(0,0.52fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.62fr) minmax(0,0.58fr) minmax(0,0.54fr)";
 
 /** Bank Process 列表：BANK (TYPE)，如 RHB (BUSINESS) */
 export function formatBankWithTypeDisplay(bank, type) {
@@ -125,7 +125,7 @@ export function formatBankWithTypeDisplay(bank, type) {
   return `${b} (${t})`;
 }
 
-export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT = `${BANK_GRID_TEMPLATE_COLUMNS} minmax(48px,48px)`;
+export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT = `${BANK_GRID_TEMPLATE_COLUMNS} minmax(0,0.36fr)`;
 
 export function normalizeRows(data) {
   if (!Array.isArray(data)) return [];

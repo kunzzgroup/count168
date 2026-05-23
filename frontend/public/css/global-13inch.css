@@ -621,7 +621,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     /* 8. Table Headers Sticky Drop-Shadow for 13-inch scrolling */
-    body.ec-auth-shell .table-header:not(.user-list-table-header),
+    body.ec-auth-shell .table-header:not(.user-list-table-header):not(.bank-virtual-head-row),
     body.ec-auth-shell .account-table-header,
     body.ec-auth-shell .datacapture-table-header {
         position: sticky !important;

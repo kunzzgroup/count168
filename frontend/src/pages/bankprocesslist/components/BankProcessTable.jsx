@@ -66,8 +66,6 @@ function renderBankContract(value, dayStart, dayEnd, lang) {
   );
 }
 
-const BANK_WRAP_COLS = new Set(["supplier", "bank", "customer", "insurance"]);
-
 export default function BankProcessTable({
   tableLoading,
   showAll,
@@ -79,6 +77,7 @@ export default function BankProcessTable({
   setSelectedIds,
   notify,
   fetchRows,
+  loadAccountingInbox,
   openEdit,
   openRemarkModal,
   openResendModal,
@@ -105,10 +104,8 @@ export default function BankProcessTable({
 
   const bankColClass = (key) => `bank-col bank-col-${key}`;
 
-  const cellClass = (key, extra = "") => {
-    const wrap = BANK_WRAP_COLS.has(key) ? " bank-virtual-cell--wrap" : "";
-    return `card-item bank-virtual-cell ${bankColClass(key)}${wrap}${extra ? ` ${extra}` : ""}`;
-  };
+  const cellClass = (key, extra = "") =>
+    `card-item bank-virtual-cell ${bankColClass(key)}${extra ? ` ${extra}` : ""}`;
 
   const bankHeaderDefs = [
     { key: "no", labelText: t("no"), sortable: true },
@@ -205,7 +202,9 @@ export default function BankProcessTable({
               })}
             </div>
           </div>
-          <div className="process-cards bank-mode bank-virtual-scroll">
+          <div className="bank-virtual-scroll-clip">
+            <div className="bank-virtual-scroll-shell">
+            <div className="process-cards bank-mode bank-virtual-scroll">
             {tableLoading && (
               <div className="process-card bank-virtual-data-row bank-virtual-data-row--message">
                 <div className="card-item bank-virtual-cell bank-virtual-cell--message">{t("loadData")}</div>
@@ -242,6 +241,7 @@ export default function BankProcessTable({
                       onUpdated={() => {
                         notifyTransactionDataChanged("bank-process-list-react");
                         void fetchRows();
+                        void loadAccountingInbox?.({ silent: true });
                       }}
                     />
                   </div>
@@ -401,6 +401,8 @@ export default function BankProcessTable({
                   )}
                 </div>
               ))}
+            </div>
+            </div>
           </div>
         </div>
       </div>

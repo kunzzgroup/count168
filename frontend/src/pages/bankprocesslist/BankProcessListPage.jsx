@@ -519,6 +519,7 @@ export default function BankProcessListPage() {
             showHeaderSelectAll={showInactive || showOfficial || showEInvoice || showBlock}
             notify={notify}
             fetchRows={fetchRows}
+            loadAccountingInbox={loadAccountingInbox}
             openEdit={openEdit}
             openRemarkModal={(row) => {
               setRemarkRow(row);
