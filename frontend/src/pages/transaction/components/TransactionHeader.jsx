@@ -149,10 +149,13 @@ export default function TransactionHeader({
           {contraInbox.loading && itemCount === 0 ? <div className="contra-inbox-loading">{m.loading}</div> : null}
 
           {!contraInbox.loading && itemCount === 0 ? (
-            <div className="contra-inbox-empty">{m.contraInboxEmpty}</div>
-          ) : (
-            <div className="contra-inbox-grid" role="table">
-              <div className="contra-inbox-grid-header" role="row">
+            <div className="contra-inbox-empty">
+              <div>{m.contraInboxEmpty}</div>
+              <div className="contra-inbox-empty-hint">{m.contraInboxEmptyHint}</div>
+            </div>
+          ) : itemCount > 0 ? (
+            <div className="contra-inbox-grid" role="table" id="contraInboxTbody">
+              <div className="contra-inbox-grid-row contra-inbox-grid-row--head" role="row">
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
                   {m.date}
                 </div>
@@ -260,7 +263,7 @@ export default function TransactionHeader({
                   );
                 })}
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="contra-inbox-popover-footer">

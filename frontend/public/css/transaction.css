@@ -2462,29 +2462,50 @@ body.transaction-page .transaction-header-left .transaction-title {
     font-weight: var(--font-weight-semibold);
 }
 
+.contra-inbox-empty-hint {
+    margin-top: 8px;
+    font-size: var(--text-tiny);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted-fg);
+    line-height: 1.45;
+    max-width: 36rem;
+    margin-inline: auto;
+}
+
 .contra-inbox-grid {
     display: grid;
     grid-template-columns: var(--contra-inbox-grid-cols);
     column-gap: var(--contra-inbox-grid-gap);
+    align-items: center;
     width: 100%;
     min-width: max-content;
 }
 
-.contra-inbox-grid-header,
+/* Flat grid: row wrappers use display:contents so all cells share one column template (no subgrid). */
 .contra-inbox-grid-row {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: subgrid;
-    align-items: center;
+    display: contents;
 }
 
-.contra-inbox-grid-header {
+.contra-inbox-grid-row--head .contra-inbox-grid-cell--head {
     position: sticky;
     top: 0;
     z-index: 1;
     padding: var(--contra-inbox-cell-pad-y) var(--contra-inbox-cell-pad-x);
     background: var(--contra-inbox-header-bg);
     border-bottom: 1px solid var(--contra-inbox-header-border);
+}
+
+.contra-inbox-grid-row:not(.contra-inbox-grid-row--head) .contra-inbox-grid-cell {
+    padding: var(--contra-inbox-cell-pad-y) var(--contra-inbox-cell-pad-x);
+    border-bottom: 1px solid var(--contra-inbox-row-border);
+}
+
+.contra-inbox-grid-row:not(.contra-inbox-grid-row--head):last-of-type .contra-inbox-grid-cell {
+    border-bottom: none;
+}
+
+.contra-inbox-grid-row:not(.contra-inbox-grid-row--head):hover .contra-inbox-grid-cell {
+    background: #fafbfd;
 }
 
 .contra-inbox-grid-cell {
@@ -2506,19 +2527,6 @@ body.transaction-page .transaction-header-left .transaction-title {
     color: var(--contra-inbox-header-fg);
     white-space: nowrap;
     background: var(--contra-inbox-header-bg);
-}
-
-.contra-inbox-grid-row {
-    padding: var(--contra-inbox-cell-pad-y) var(--contra-inbox-cell-pad-x);
-    border-bottom: 1px solid var(--contra-inbox-row-border);
-}
-
-.contra-inbox-grid > .contra-inbox-grid-row:last-child {
-    border-bottom: none;
-}
-
-.contra-inbox-grid-row:hover {
-    background: #fafbfd;
 }
 
 .contra-inbox-grid-cell--from,

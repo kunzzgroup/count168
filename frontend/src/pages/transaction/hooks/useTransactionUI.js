@@ -100,7 +100,7 @@ export function useTransactionUI() {
         if (res?.success) {
           setContraInbox((s) => ({ ...s, loading: false, items: Array.isArray(res.data) ? res.data : [] }));
         } else {
-          setContraInbox((s) => ({ ...s, loading: false }));
+          setContraInbox((s) => ({ ...s, loading: false, items: [] }));
         }
         return res;
       } catch {

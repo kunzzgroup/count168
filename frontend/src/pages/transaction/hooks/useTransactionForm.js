@@ -345,7 +345,7 @@ export function useTransactionForm({
           } else {
             pushToast(res?.message || m.rateTransactionSubmitted, "success");
           }
-          await refreshContraInboxBadge();
+          await refreshContraInboxBadge(companyId);
           setTxConfirm(false);
           setRateCurrencyFromAmount("");
           setRateExchangeRateRaw("");
@@ -431,7 +431,7 @@ export function useTransactionForm({
         } else {
           pushToast(res?.message || m.transactionSubmitted, "success");
         }
-        await refreshContraInboxBadge();
+        await refreshContraInboxBadge(companyId);
         setTxAmount("");
         setTxConfirm(false);
         await onSearch({ forceRefresh: true });
