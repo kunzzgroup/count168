@@ -193,7 +193,7 @@ body.user-page .user-list-table .user-card.user-list-row {
 .user-list-table .user-list-table-header .header-item:nth-child(6),
 .user-list-table .user-list-row .card-item:nth-child(5),
 .user-list-table .user-list-row .card-item:nth-child(6) {
-    justify-content: center;
+    justify-content: left;
 }
 
 .user-list-table .user-list-table-header .header-item:nth-child(9),

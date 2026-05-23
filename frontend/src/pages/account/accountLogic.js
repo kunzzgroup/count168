@@ -90,3 +90,9 @@ export function buildAccountsUrl(companyId, searchTerm, showInactive, showAll) {
   if (showAll) url.searchParams.set("showAll", "1");
   return url;
 }
+
+/** Add Account：列表中有 MYR 时默认勾选 */
+export function pickDefaultAddCurrencyIds(currencies) {
+  const myr = (currencies || []).find((c) => toUpper(c.code) === "MYR");
+  return myr ? [Number(myr.id)] : [];
+}

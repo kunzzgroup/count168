@@ -19,6 +19,7 @@ import {
   isVirtualGroupLinkCompanyRow,
   buildAccountsFetchKey,
   buildAccountsUrl,
+  pickDefaultAddCurrencyIds,
 } from "./accountLogic.js";
 
 // Components
@@ -436,6 +437,8 @@ export default function AccountListPage() {
           const ids = curJ.data.filter(c => c.is_linked).map(c => Number(c.id));
           setSelectedCurrencyIds(ids);
           setInitialEditCurrencyIds(ids);
+        } else {
+          setSelectedCurrencyIds(pickDefaultAddCurrencyIds(curJ.data));
         }
       }
       if (compJ.success) {
@@ -547,6 +550,18 @@ export default function AccountListPage() {
       const res = await fetch(buildApiUrl(ep), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "saveFailed", "danger");
+      if (!isEditMode && json?.data?.id && selectedCurrencyIds.length) {
+        for (const cid of selectedCurrencyIds) {
+          const currencyRes = await fetch(accountCurrencyApiUrl("add_currency"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ account_id: Number(json.data.id), currency_id: Number(cid) }),
+            credentials: "include",
+          });
+          const currencyJson = await currencyRes.json();
+          if (!currencyRes.ok || !currencyJson.success) return notifyApi(currencyJson.message, "saveFailed", "danger");
+        }
+      }
       if (isEditMode && form.id) {
         const before = new Set(initialEditCurrencyIds.map(Number));
         const after = new Set(selectedCurrencyIds.map(Number));
