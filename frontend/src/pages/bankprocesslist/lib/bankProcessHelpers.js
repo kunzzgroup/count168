@@ -113,7 +113,17 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
  * 小屏：外层 .bank-virtual-table 横向滚动 + inner min-width，对齐 payment-maintenance 虚拟表。
  */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "minmax(40px,2fr) minmax(84px,6fr) minmax(84px,4fr) minmax(56px,5fr) minmax(68px,5fr) minmax(96px,7fr) minmax(88px,6fr) minmax(92px,5fr) minmax(80px,5.5fr) minmax(56px,4fr) minmax(56px,4fr) minmax(56px,4fr) minmax(96px,7fr) minmax(64px,4.5fr) minmax(72px,5fr)";
+  "minmax(40px,2fr) minmax(84px,6fr) minmax(84px,4fr) minmax(120px,10fr) minmax(96px,7fr) minmax(88px,6fr) minmax(92px,5fr) minmax(80px,5.5fr) minmax(56px,4fr) minmax(56px,4fr) minmax(56px,4fr) minmax(96px,7fr) minmax(64px,4.5fr) minmax(72px,5fr)";
+
+/** Bank Process 列表：BANK(TYPE)，如 RHB(BUSINESS) */
+export function formatBankWithTypeDisplay(bank, type) {
+  const b = String(bank ?? "").trim();
+  const t = String(type ?? "").trim();
+  if (!b && !t) return "-";
+  if (!b) return t ? `(${t})` : "-";
+  if (!t) return b;
+  return `${b}(${t})`;
+}
 
 export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT = `${BANK_GRID_TEMPLATE_COLUMNS} minmax(48px,48px)`;
 
@@ -260,10 +270,12 @@ export function sortBankProcessTableRows(rows, sortColumn, sortDirection) {
       sortPrimary((a, b) => bankSortCompareText(a.country, b.country));
       break;
     case "bank":
-      sortPrimary((a, b) => bankSortCompareText(a.bank, b.bank));
-      break;
     case "types":
-      sortPrimary((a, b) => bankSortCompareText(a.type, b.type));
+      sortPrimary((a, b) => {
+        const byBank = bankSortCompareText(a.bank, b.bank);
+        if (byBank !== 0) return byBank;
+        return bankSortCompareText(a.type, b.type);
+      });
       break;
     case "owner":
       sortPrimary((a, b) => bankSortCompareText(a.supplier, b.supplier));

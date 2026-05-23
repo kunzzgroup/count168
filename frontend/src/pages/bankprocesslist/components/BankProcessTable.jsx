@@ -7,6 +7,7 @@ import {
   formatBankProcessContractLabel,
   bankProcessContractBadgeKey,
   formatBankMoneyFixed2,
+  formatBankWithTypeDisplay,
   isValidBankMoneyInput,
 } from "../lib/bankProcessHelpers.js";
 import BankProcessStatusControl from "./BankProcessStatusControl.jsx";
@@ -65,7 +66,7 @@ function renderBankContract(value, dayStart, dayEnd, lang) {
   );
 }
 
-const BANK_WRAP_COLS = new Set(["supplier", "bank", "types", "owner", "customer", "insurance"]);
+const BANK_WRAP_COLS = new Set(["supplier", "bank", "owner", "customer", "insurance"]);
 
 export default function BankProcessTable({
   tableLoading,
@@ -114,7 +115,6 @@ export default function BankProcessTable({
     { key: "supplier", labelText: t("supplier"), sortable: true },
     { key: "ccy", labelText: t("country"), sortable: true },
     { key: "bank", labelText: t("bank"), sortable: true },
-    { key: "types", labelText: t("types"), sortable: true },
     { key: "owner", labelText: t("cardOwner"), sortable: true },
     { key: "contract", labelText: t("contract"), sortable: true },
     { key: "insurance", labelText: t("insurance"), sortable: true },
@@ -222,8 +222,7 @@ export default function BankProcessTable({
                   <div className={cellClass("no")}>{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</div>
                   <div className={cellClass("supplier")}>{r.card_lower || "-"}</div>
                   <div className={cellClass("ccy")}>{r.country || "-"}</div>
-                  <div className={cellClass("bank")}>{r.bank || "-"}</div>
-                  <div className={cellClass("types")}>{r.type || "-"}</div>
+                  <div className={cellClass("bank")}>{formatBankWithTypeDisplay(r.bank, r.type)}</div>
                   <div className={cellClass("owner")}>{r.supplier || "-"}</div>
                   <div className={cellClass("contract", "bank-contract-cell")}>
                     {renderBankContract(r.contract, r.day_start || r.date, r.day_end, lang)}
