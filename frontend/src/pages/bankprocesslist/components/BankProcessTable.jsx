@@ -66,8 +66,6 @@ function renderBankContract(value, dayStart, dayEnd, lang) {
   );
 }
 
-const BANK_WRAP_COLS = new Set(["supplier", "bank", "customer", "insurance"]);
-
 export default function BankProcessTable({
   tableLoading,
   showAll,
@@ -106,10 +104,8 @@ export default function BankProcessTable({
 
   const bankColClass = (key) => `bank-col bank-col-${key}`;
 
-  const cellClass = (key, extra = "") => {
-    const wrap = BANK_WRAP_COLS.has(key) ? " bank-virtual-cell--wrap" : "";
-    return `card-item bank-virtual-cell ${bankColClass(key)}${wrap}${extra ? ` ${extra}` : ""}`;
-  };
+  const cellClass = (key, extra = "") =>
+    `card-item bank-virtual-cell ${bankColClass(key)}${extra ? ` ${extra}` : ""}`;
 
   const bankHeaderDefs = [
     { key: "no", labelText: t("no"), sortable: true },
@@ -206,7 +202,8 @@ export default function BankProcessTable({
               })}
             </div>
           </div>
-          <div className="bank-virtual-scroll-shell">
+          <div className="bank-virtual-scroll-clip">
+            <div className="bank-virtual-scroll-shell">
             <div className="process-cards bank-mode bank-virtual-scroll">
             {tableLoading && (
               <div className="process-card bank-virtual-data-row bank-virtual-data-row--message">
@@ -404,6 +401,7 @@ export default function BankProcessTable({
                   )}
                 </div>
               ))}
+            </div>
             </div>
           </div>
         </div>
