@@ -201,17 +201,7 @@ export function useTransactionData({
     return () => {
       cancelled = true;
     };
-  }, [
-    loading,
-    forbidden,
-    filterSnapshot,
-    todayDmy,
-    queryClient,
-    setCategories,
-    setAccountOptions,
-    setCurrencyOptions,
-    setCurrencyRowsOrdered,
-  ]);
+  }, [loading, forbidden, filterSnapshot?.companyId, todayDmy, queryClient]);
 
   const onCompanyButtonClick = useCallback(
     async (comp) => {

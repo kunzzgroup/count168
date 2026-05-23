@@ -71,6 +71,7 @@ export function useTransactionSearch({
   const effectiveDateFrom = dateFrom || todayDmy;
   const effectiveDateTo = dateTo || todayDmy;
   const effectiveDateRangeText = `${effectiveDateFrom} - ${effectiveDateTo}`;
+  const selectedCurrenciesKey = selectedCurrencies.map((c) => String(c || "").toUpperCase()).join(",");
 
   const persistCurrencyFilter = useCallback((companyId, showAll, sel) => {
     if (!companyId) return;
@@ -630,7 +631,7 @@ export function useTransactionSearch({
       clearTxSearchCache();
     }
     prevCompanyIdForSearchRef.current = cid;
-    setTablesVisible(true);
+    setTablesVisible((prev) => (prev ? prev : true));
     lastCompletedSearchKeyRef.current = "";
     try {
       latestRunTokenRef.current += 1;
@@ -639,6 +640,16 @@ export function useTransactionSearch({
       /* ignore */
     }
   }, [filterSnapshot?.companyId, queryClient]);
+
+  const selectedCategoriesKey = useMemo(
+    () =>
+      [...selectedCategories]
+        .map((x) => String(x || "").toUpperCase().trim())
+        .filter(Boolean)
+        .sort()
+        .join(","),
+    [selectedCategories],
+  );
 
   // Initial search / replay logic
   useEffect(() => {
@@ -678,7 +689,7 @@ export function useTransactionSearch({
     }
 
     initialSearchDoneRef.current = true;
-    void runSearch({
+    void runSearchRef.current?.({
       isInitialLoad: true,
       silent: hadReplay,
       notifyErrors: true,
@@ -688,13 +699,13 @@ export function useTransactionSearch({
     filterSnapshot?.companyId,
     currencyRowsOrdered.length,
     showAllCurrencies,
-    selectedCurrencies,
+    selectedCurrenciesKey,
     effectiveDateFrom,
     effectiveDateTo,
-    effectiveDateRangeText,
-    selectedCategories,
-    searchState,
-    runSearch,
+    selectedCategoriesKey,
+    searchState.showPaymentOnly,
+    searchState.showCaptureOnly,
+    searchState.showZeroBalance,
   ]);
 
   useEffect(() => {
@@ -715,7 +726,7 @@ export function useTransactionSearch({
       notifyErrors: true,
       showBlockingOverlay: true,
     });
-  }, [effectiveDateFrom, effectiveDateTo, filterSnapshot?.companyId, showAllCurrencies, selectedCurrencies]);
+  }, [effectiveDateFrom, effectiveDateTo, filterSnapshot?.companyId, showAllCurrencies, selectedCurrenciesKey]);
 
   return {
     dateFrom,
