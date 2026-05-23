@@ -1,0 +1,129 @@
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  buildSummaryRestoreCapturePath,
+  buildSummarySubmittedCapturePath,
+  clearSummarySessionAfterSubmit,
+  runLegacyRateBatchSubmit,
+  runLegacyRateSelectAll,
+  saveSummaryRefreshState,
+} from "../lib/summaryPageActions.js";
+import { requestSummaryDeleteConfirmation } from "../lib/summaryDeleteFlow.js";
+import { useSummarySubmit } from "./useSummarySubmit.js";
+
+/**
+ * Phase 4/7: React owns page chrome actions; Submit orchestration in useSummarySubmit.
+ */
+export function useSummaryPageActions({ companyId, scriptsReady }) {
+  const navigate = useNavigate();
+  const rateSelectAllRef = useRef(null);
+  const handleRefreshRef = useRef(async () => {});
+
+  const [rateInput, setRateInput] = useState("");
+  const [rateSelectAllLabel, setRateSelectAllLabel] = useState("Select All");
+  const [deleteCount, setDeleteCount] = useState(0);
+
+  const navigateBack = useCallback(() => {
+    saveSummaryRefreshState();
+    window.isNavigatingAwayByBackOrSubmit = true;
+    navigate(buildSummaryRestoreCapturePath(companyId), { replace: true });
+  }, [navigate, companyId]);
+
+  const navigateAfterSubmitSuccess = useCallback(() => {
+    clearSummarySessionAfterSubmit();
+    navigate(buildSummarySubmittedCapturePath(companyId), { replace: true });
+  }, [navigate, companyId]);
+
+  const { submitSummary, isSubmitting } = useSummarySubmit({
+    companyId,
+    scriptsReady,
+    onSuccess: navigateAfterSubmitSuccess,
+  });
+
+  useLayoutEffect(() => {
+    if (!scriptsReady) return undefined;
+
+    window.__SUMMARY_REACT_NAV_BACK__ = navigateBack;
+    window.__SUMMARY_REACT_REFRESH__ = () => {
+      handleRefreshRef.current?.();
+    };
+    window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ = (count) => {
+      setDeleteCount(Number(count) || 0);
+    };
+    window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ = (label) => {
+      if (typeof label === "string" && label.trim()) {
+        setRateSelectAllLabel(label.trim());
+      }
+    };
+    window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__ = navigateAfterSubmitSuccess;
+
+    return () => {
+      delete window.__SUMMARY_REACT_NAV_BACK__;
+      delete window.__SUMMARY_REACT_REFRESH__;
+      delete window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__;
+      delete window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__;
+      delete window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__;
+    };
+  }, [scriptsReady, navigateBack, navigateAfterSubmitSuccess]);
+
+  const handleBack = useCallback(() => {
+    navigateBack();
+  }, [navigateBack]);
+
+  const handleRefresh = useCallback(async () => {
+    saveSummaryRefreshState();
+    if (
+      window.__SUMMARY_REACT_TABLE__ &&
+      typeof window.__SUMMARY_REACT_ON_TABLE_READY__ === "function"
+    ) {
+      try {
+        window.__SUMMARY_REACT_SET_POPULATING__?.(true);
+        await window.__SUMMARY_REACT_ON_TABLE_READY__({ reset: true });
+        return;
+      } catch (error) {
+        console.warn("Soft summary refresh failed, falling back to reload:", error);
+      }
+    }
+    window.location.reload();
+  }, []);
+
+  handleRefreshRef.current = handleRefresh;
+
+  const handleRateBatchSubmit = useCallback(() => {
+    runLegacyRateBatchSubmit();
+  }, []);
+
+  const handleToggleRateSelectAll = useCallback(() => {
+    const btn = rateSelectAllRef.current;
+    if (!btn) return;
+    runLegacyRateSelectAll(btn);
+    if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ === "function") {
+      return;
+    }
+    setRateSelectAllLabel(btn.textContent.trim() || "Select All");
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    requestSummaryDeleteConfirmation({});
+  }, []);
+
+  const handleSubmitSummary = useCallback(() => {
+    submitSummary();
+  }, [submitSummary]);
+
+  return {
+    rateInput,
+    setRateInput,
+    rateSelectAllLabel,
+    rateSelectAllRef,
+    deleteCount,
+    deleteDisabled: deleteCount <= 0,
+    submitting: isSubmitting,
+    handleBack,
+    handleRefresh,
+    handleRateBatchSubmit,
+    handleToggleRateSelectAll,
+    handleDeleteSelected,
+    handleSubmitSummary,
+  };
+}
