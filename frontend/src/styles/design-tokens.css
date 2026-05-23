@@ -145,15 +145,18 @@
    * Contra Inbox popover grid（Transaction Payment）
    * Header / cell 共用 --contra-inbox-text-cell，表头仅 uppercase + 字重区分
    */
-  --contra-inbox-grid-cols: minmax(0, 1.05fr) minmax(0, 0.42fr) minmax(0, 0.42fr) minmax(0, 0.5fr) minmax(0, 0.68fr) minmax(0, 0.82fr) minmax(0, 1.05fr) minmax(0, 0.95fr);
-  --contra-inbox-grid-gap: clamp(0.35rem, 0.35vw, 0.5rem);
-  --contra-inbox-cell-pad-y: clamp(0.55rem, 0.45vw, 0.75rem);
-  --contra-inbox-cell-pad-x: clamp(0.45rem, 0.42vw, 0.65rem);
+  --contra-inbox-grid-cols: minmax(0, 0.78fr) minmax(0, 0.34fr) minmax(0, 0.34fr) minmax(0, 0.56fr) minmax(0, 0.76fr) minmax(0, 0.7fr) minmax(0, 0.88fr) minmax(0, 0.82fr);
+  --contra-inbox-grid-gap: 0;
+  --contra-inbox-cell-pad-y: clamp(0.45rem, 0.38vw, 0.6rem);
+  --contra-inbox-cell-pad-x: clamp(0.35rem, 0.32vw, 0.5rem);
+  --contra-inbox-head-pad-y: clamp(0.5rem, 0.42vw, 0.65rem);
+  --contra-inbox-head-pad-x: clamp(0.4rem, 0.36vw, 0.55rem);
   --contra-inbox-text-cell: var(--text-tiny);
   --contra-inbox-text-head: var(--text-tiny);
   --contra-inbox-text-action: var(--text-tiny);
   --contra-inbox-header-bg: #f4f7fc;
   --contra-inbox-header-fg: var(--color-heading);
+  --contra-inbox-header-divider: rgba(30, 58, 95, 0.14);
   --contra-inbox-row-border: #f1f5f9;
   --contra-inbox-header-border: #e8edf5;
 

@@ -174,7 +174,7 @@ export default function TransactionHeader({
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--submitter" role="columnheader">
                   {m.submittedBy}
                 </div>
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--desc" role="columnheader">
                   {m.description}
                 </div>
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--action" role="columnheader">

@@ -2491,9 +2491,14 @@ body.transaction-page .transaction-header-left .transaction-title {
     position: sticky;
     top: 0;
     z-index: 1;
-    padding: var(--contra-inbox-cell-pad-y) var(--contra-inbox-cell-pad-x);
+    padding: var(--contra-inbox-head-pad-y) var(--contra-inbox-head-pad-x);
     background: var(--contra-inbox-header-bg);
     border-bottom: 1px solid var(--contra-inbox-header-border);
+    box-shadow: inset -1px 0 0 var(--contra-inbox-header-divider);
+}
+
+.contra-inbox-grid-row--head .contra-inbox-grid-cell--head:last-child {
+    box-shadow: none;
 }
 
 .contra-inbox-grid-row:not(.contra-inbox-grid-row--head) .contra-inbox-grid-cell {
@@ -2523,13 +2528,14 @@ body.transaction-page .transaction-header-left .transaction-title {
 .contra-inbox-grid-cell--head {
     font-size: var(--contra-inbox-text-head);
     font-weight: var(--font-weight-bold);
-    letter-spacing: 0.03em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
     color: var(--contra-inbox-header-fg);
     white-space: nowrap;
     background: var(--contra-inbox-header-bg);
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.2;
 }
 
 .contra-inbox-grid-cell--from,
@@ -2546,6 +2552,7 @@ body.transaction-page .transaction-header-left .transaction-title {
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--to,
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--currency,
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--amount,
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--submitter,
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--action {
     justify-content: center;
     text-align: center;
@@ -2676,13 +2683,14 @@ body.transaction-page .transaction-header-left .transaction-title {
     align-items: center;
     justify-content: center;
     gap: 0;
-    padding: 3px 8px;
-    border-radius: 6px;
+    padding: 2px 7px;
+    border-radius: 5px;
     font-size: var(--contra-inbox-text-action);
     font-weight: var(--font-weight-bold);
     white-space: nowrap;
     background: #fff;
     min-width: 0;
+    line-height: 1.25;
 }
 
 .contra-inbox-btn.contra-inbox-approve svg,
