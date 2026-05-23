@@ -33,6 +33,8 @@ export default function AccountModal({
   onSubmit,
   onClose,
   t,
+  /** When true, × delete is only shown for deselected (non-blue) currency tags */
+  currencyDeleteOnlyWhenDeselected = false,
   /** When nested above other modals (e.g. Domain Company Settings at 2147483001) */
   overlayZIndex,
   /** Render on document.body so z-index is not trapped inside #root .container (default: true) */
@@ -152,17 +154,19 @@ export default function AccountModal({
               <span className="currency-code-text">
                 {upper(c.code)}
               </span>
-              <button
-                type="button"
-                className="currency-delete-btn"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onRemoveCurrency(c.id);
-                }}
-              >
-                ×
-              </button>
+              {(!currencyDeleteOnlyWhenDeselected || !selected) ? (
+                <button
+                  type="button"
+                  className="currency-delete-btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onRemoveCurrency(c.id);
+                  }}
+                >
+                  ×
+                </button>
+              ) : null}
             </div>
           );
         })}

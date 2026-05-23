@@ -34,7 +34,18 @@ export function AccountConfirmModal({ open, message, onConfirm, onClose, t }) {
 export function AccountAlertModal({ open, title, message, accountNames = [], onClose, t }) {
   if (!open) return null;
   return portalToDocumentBody(
-    <div id="accountAlertModal" className="account-modal" role="dialog" aria-modal="true" style={{ zIndex: confirmModalZIndex }}>
+    <div
+      id="accountAlertModal"
+      className="account-modal"
+      role="dialog"
+      aria-modal="true"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: confirmModalZIndex,
+      }}
+    >
       <div className="account-confirm-modal-content">
         <div className="account-confirm-icon-container">
           <svg className="account-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
