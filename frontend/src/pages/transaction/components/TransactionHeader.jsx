@@ -156,16 +156,16 @@ export default function TransactionHeader({
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
                   {m.date}
                 </div>
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--from" role="columnheader">
                   {m.from}
                 </div>
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--to" role="columnheader">
                   {m.to}
                 </div>
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--currency" role="columnheader">
                   {m.currency}
                 </div>
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--amount" role="columnheader">
                   {m.amount}
                 </div>
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
@@ -178,8 +178,7 @@ export default function TransactionHeader({
                   {m.action}
                 </div>
               </div>
-              <div className="contra-inbox-grid-body" id="contraInboxTbody">
-                {contraInbox.items.map((it) => {
+              {contraInbox.items.map((it) => {
                   const fromCode = toUpperDisplay(it.from_account_code || "-");
                   const toCode = toUpperDisplay(it.to_account_code || "-");
                   const submittedBy = toUpperDisplay(it.submitted_by || it.created_by || "-");
@@ -198,18 +197,13 @@ export default function TransactionHeader({
                           {formatContraDate(it.transaction_date || it.date)}
                         </span>
                       </div>
-                      <div className="contra-inbox-grid-cell" role="cell">
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--from" role="cell">
                         <span className="contra-inbox-account-badge contra-inbox-account-badge--from">{fromCode}</span>
                       </div>
-                      <div className="contra-inbox-grid-cell" role="cell">
-                        <span className="contra-inbox-account-flow">
-                          <span className="contra-inbox-account-arrow" aria-hidden="true">
-                            →
-                          </span>
-                          <span className="contra-inbox-account-badge contra-inbox-account-badge--to">{toCode}</span>
-                        </span>
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--to" role="cell">
+                        <span className="contra-inbox-account-badge contra-inbox-account-badge--to">{toCode}</span>
                       </div>
-                      <div className="contra-inbox-grid-cell" role="cell">
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--currency" role="cell">
                         {toUpperDisplay(it.currency || "-")}
                       </div>
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--amount" role="cell">
@@ -265,7 +259,6 @@ export default function TransactionHeader({
                     </div>
                   );
                 })}
-              </div>
             </div>
           )}
         </div>
