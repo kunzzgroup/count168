@@ -963,16 +963,16 @@ body.process-page {
     /* 全列 minmax(0, fr)：铺满容器宽度，避免 max-content 总和溢出导致横向滚动 */
     --bank-virtual-grid-columns:
         minmax(0, 0.34fr) minmax(0, 0.62fr) minmax(0, 0.44fr)
-        minmax(0, 1.12fr) minmax(0, 1.48fr)
-        minmax(0, 0.68fr) minmax(0, 0.58fr) minmax(0, 0.52fr)
-        minmax(0, 0.58fr) minmax(0, 0.58fr) minmax(0, 0.58fr)
-        minmax(0, 0.62fr) minmax(0, 0.58fr) minmax(0, 0.54fr);
+        minmax(0, 1.05fr) minmax(0, 1.78fr)
+        minmax(0, 0.6fr) minmax(0, 0.56fr) minmax(0, 0.5fr)
+        minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
+        minmax(0, 0.6fr) minmax(0, 0.56fr) minmax(0, 0.52fr);
     --bank-virtual-grid-columns-with-select:
         minmax(0, 0.34fr) minmax(0, 0.62fr) minmax(0, 0.44fr)
-        minmax(0, 1.12fr) minmax(0, 1.48fr)
-        minmax(0, 0.68fr) minmax(0, 0.58fr) minmax(0, 0.52fr)
-        minmax(0, 0.58fr) minmax(0, 0.58fr) minmax(0, 0.58fr)
-        minmax(0, 0.62fr) minmax(0, 0.58fr) minmax(0, 0.54fr) minmax(0, 0.36fr);
+        minmax(0, 1.05fr) minmax(0, 1.78fr)
+        minmax(0, 0.6fr) minmax(0, 0.56fr) minmax(0, 0.5fr)
+        minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
+        minmax(0, 0.6fr) minmax(0, 0.56fr) minmax(0, 0.52fr) minmax(0, 0.34fr);
     --bank-virtual-grid-active: var(--bank-virtual-grid-columns);
 }
 
@@ -1767,29 +1767,34 @@ body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.b
     min-width: 0;
 }
 
-/* Card Owner：随 fr 列宽伸缩，过长单行省略 */
+/* Card Owner：加宽列、收紧与 Contract 间距，完整显示名称 */
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-th,
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
-    padding-left: clamp(12px, 0.62vw, 16px);
-    padding-right: clamp(14px, 0.68vw, 18px);
+    padding-left: clamp(6px, 0.42vw, 9px);
+    padding-right: clamp(2px, 0.12vw, 3px);
     min-width: 0;
 }
 
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    justify-content: flex-start;
+}
+
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
-    white-space: nowrap;
-    word-break: normal;
-    overflow-wrap: normal;
-    text-overflow: ellipsis;
-    overflow: hidden;
     justify-content: flex-start;
     max-width: none;
 }
 
-/* Contract → Action：列宽随 fr 分配，徽章/日期/图标在列内展示 */
+/* Contract：紧贴 Card Owner，徽章列宽略收 */
 body.process-page.process-page--bank .bank-process-table-region .bank-col-contract.bank-virtual-th,
 body.process-page.process-page--bank .bank-process-table-region .bank-col-contract.bank-virtual-cell {
-    padding-left: clamp(12px, 0.62vw, 16px);
-    padding-right: clamp(4px, 0.35vw, 6px);
+    padding-left: clamp(2px, 0.12vw, 3px);
+    padding-right: clamp(4px, 0.32vw, 6px);
 }
 
 /* Insurance → Status：收紧列内间距并完整展示 */
@@ -1946,14 +1951,20 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-th,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
-    padding-left: clamp(12px, 0.62vw, 16px) !important;
-    padding-right: clamp(14px, 0.68vw, 18px) !important;
+    padding-left: clamp(6px, 0.42vw, 9px) !important;
+    padding-right: clamp(2px, 0.12vw, 3px) !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner {
+    overflow: visible !important;
+    text-overflow: clip !important;
 }
 
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-contract.bank-virtual-th,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-contract.bank-virtual-cell {
-    padding-left: clamp(12px, 0.62vw, 16px) !important;
-    padding-right: clamp(4px, 0.35vw, 6px) !important;
+    padding-left: clamp(2px, 0.12vw, 3px) !important;
+    padding-right: clamp(4px, 0.32vw, 6px) !important;
 }
 
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-insurance.bank-virtual-th,
