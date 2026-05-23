@@ -506,6 +506,7 @@ export default function BankProcessListPage() {
           </div>
         </div>
 
+        <div className="bank-process-list-body">
         <div className="bank-process-list-scroll-region" role="region" aria-label={t("bankProcessList")}>
           <BankProcessTable
             tableLoading={tableLoading}
@@ -543,7 +544,7 @@ export default function BankProcessListPage() {
           />
         </div>
         {!showAll && (
-          <div className="pagination-container">
+          <div className="pagination-container bank-process-pagination">
             <button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
               ◀
             </button>
@@ -558,6 +559,7 @@ export default function BankProcessListPage() {
             </button>
           </div>
         )}
+        </div>
       </div>
 
       {modalOpen && (
