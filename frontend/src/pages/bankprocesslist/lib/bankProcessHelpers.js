@@ -2,7 +2,7 @@ import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 
 export const PAGE_SIZE = 20;
 
-/** Bank Process 金额：固定两位小数（如 300.00） */
+/** Bank Process 金额：固定两位小数（如 300.00）. */
 export function isValidBankMoneyInput(value) {
   try {
     MoneyDecimal.toDecimal(value);
