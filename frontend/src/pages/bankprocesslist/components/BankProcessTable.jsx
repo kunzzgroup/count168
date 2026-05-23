@@ -66,7 +66,7 @@ function renderBankContract(value, dayStart, dayEnd, lang) {
   );
 }
 
-const BANK_WRAP_COLS = new Set(["supplier", "bank", "owner", "customer", "insurance"]);
+const BANK_WRAP_COLS = new Set(["supplier", "bank", "customer", "insurance"]);
 
 export default function BankProcessTable({
   tableLoading,

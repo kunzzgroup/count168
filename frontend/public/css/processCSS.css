@@ -932,12 +932,13 @@ body.process-page {
     --bank-list-cell-min-height: clamp(32px, 2.4vw, 44px);
     --bank-list-header-row-height: clamp(40px, 2.8vw, 48px);
     --bank-list-cell-line-height: 1.35;
-    --bank-virtual-table-min-width: 1360px;
-    --bank-virtual-grid-columns: minmax(40px, 2.7fr) minmax(84px, 6fr) minmax(84px, 4fr) minmax(120px, 10fr) minmax(96px, 7fr) minmax(88px, 6fr) minmax(92px, 5fr) minmax(80px, 5.5fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(72px, 5fr);
+    --bank-virtual-table-min-width: 1420px;
+    /* Bank/Owner 用 max-content 避免 fr 撑出大块空白；Contract→Profit 多分 flex；Status 固定宽 */
+    --bank-virtual-grid-columns: minmax(40px, 2.7fr) minmax(88px, 3.2fr) minmax(72px, 2.4fr) minmax(120px, max-content) minmax(200px, max-content) minmax(100px, 6fr) minmax(92px, 5.5fr) minmax(80px, 6fr) minmax(68px, 5fr) minmax(68px, 5fr) minmax(68px, 5fr) minmax(96px, 100px) minmax(64px, 4fr) minmax(72px, 4.5fr);
     --bank-virtual-grid-columns-with-select:
-        minmax(40px, 2.7fr) minmax(84px, 6fr) minmax(84px, 4fr) minmax(120px, 10fr)
-        minmax(96px, 7fr) minmax(88px, 6fr) minmax(92px, 5fr) minmax(80px, 5.5fr) minmax(56px, 4fr)
-        minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(72px, 5fr)
+        minmax(40px, 2.7fr) minmax(88px, 3.2fr) minmax(72px, 2.4fr) minmax(120px, max-content)
+        minmax(200px, max-content) minmax(100px, 6fr) minmax(92px, 5.5fr) minmax(80px, 6fr) minmax(68px, 5fr)
+        minmax(68px, 5fr) minmax(68px, 5fr) minmax(96px, 100px) minmax(64px, 4fr) minmax(72px, 4.5fr)
         minmax(48px, 48px);
     --bank-virtual-grid-active: var(--bank-virtual-grid-columns);
 }
@@ -966,26 +967,25 @@ body.process-page {
 .process-page.process-page--bank .bank-virtual-table-inner {
     min-width: var(--bank-virtual-table-min-width);
     width: 100%;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: var(--bank-virtual-grid-active);
+    grid-template-rows: auto minmax(0, 1fr);
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
     box-sizing: border-box;
 }
 
+/* 表头不参与独立 grid：与数据行共用 inner 的列轨道（subgrid），避免每行 max-content 宽度不一致 */
 .process-page.process-page--bank .bank-virtual-thead {
-    position: sticky;
-    top: 0;
-    z-index: 3;
-    flex-shrink: 0;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+    display: contents;
 }
 
 .process-page.process-page--bank .bank-virtual-head-row,
 .process-page.process-page--bank .bank-virtual-data-row {
     display: grid;
-    grid-template-columns: var(--bank-virtual-grid-active);
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
     align-items: stretch;
     width: 100%;
     min-width: 100%;
@@ -995,11 +995,21 @@ body.process-page {
     padding: 0;
 }
 
+.process-page.process-page--bank .bank-virtual-scroll.process-cards {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-auto-rows: auto;
+    align-content: start;
+}
+
 /* 覆盖 global-13inch 对 .table-header 的 9 列 !important（否则 15 个表头会折成两行） */
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row.table-header,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row {
     display: grid !important;
-    grid-template-columns: var(--bank-virtual-grid-active) !important;
+    grid-column: 1 / -1 !important;
+    grid-template-columns: subgrid !important;
     gap: 0 !important;
     column-gap: 0 !important;
 }
@@ -1011,6 +1021,8 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     padding: 0;
     overflow: visible;
     grid-auto-rows: var(--bank-list-header-row-height, var(--bank-list-cell-min-height));
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+    z-index: 3;
 }
 
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
@@ -1570,9 +1582,11 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
     white-space: nowrap;
 }
 
-/* 居中列：Contract / Status / 金额 / 序号 等 */
+/* 居中列：Contract→Profit / Status / 序号 等（整块统一居中，避免列内左右不齐） */
 body.process-page.process-page--bank .bank-col-no,
 body.process-page.process-page--bank .bank-col-contract,
+body.process-page.process-page--bank .bank-col-insurance,
+body.process-page.process-page--bank .bank-col-customer,
 body.process-page.process-page--bank .bank-col-cost,
 body.process-page.process-page--bank .bank-col-price,
 body.process-page.process-page--bank .bank-col-profit,
@@ -1583,12 +1597,60 @@ body.process-page.process-page--bank .bank-col-action {
 }
 
 /* 左对齐文本列 */
+/* Supplier / Country：收紧列间距；Supplier 表头 min 88px 保证「Supplier/供应商」+ 排序图标完整显示 */
+body.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-th,
+body.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-cell {
+    padding-right: clamp(4px, 0.35vw, 6px);
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-col-ccy.bank-virtual-th,
+body.process-page.process-page--bank .bank-process-table-region .bank-col-ccy.bank-virtual-cell {
+    padding-left: clamp(4px, 0.35vw, 6px);
+    padding-right: clamp(6px, 0.45vw, 8px);
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-th,
+body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-cell {
+    padding-left: clamp(6px, 0.45vw, 8px);
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-supplier.header-item--with-sort-icon {
+    min-width: 88px;
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-ccy.header-item--with-sort-icon {
+    min-width: 72px;
+}
+
+/* Card Owner：单行完整展示公司名（不换行、不省略） */
+body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-th,
+body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
+    padding-right: clamp(8px, 0.55vw, 10px);
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+    text-overflow: clip;
+    overflow: hidden;
+}
+
+/* Contract → Profit：与 Status 之间留缝；列位由 subgrid 统一轨道，勿再按列加不对称 padding */
+body.process-page.process-page--bank .bank-process-table-region .bank-col-profit.bank-virtual-th,
+body.process-page.process-page--bank .bank-process-table-region .bank-col-profit.bank-virtual-cell {
+    padding-right: clamp(8px, 0.55vw, 10px);
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-col-status.bank-virtual-th,
+body.process-page.process-page--bank .bank-process-table-region .bank-col-status.bank-virtual-cell {
+    padding-left: clamp(6px, 0.45vw, 8px);
+}
+
 body.process-page.process-page--bank .bank-col-supplier,
 body.process-page.process-page--bank .bank-col-ccy,
 body.process-page.process-page--bank .bank-col-bank,
-body.process-page.process-page--bank .bank-col-owner,
-body.process-page.process-page--bank .bank-col-insurance,
-body.process-page.process-page--bank .bank-col-customer {
+body.process-page.process-page--bank .bank-col-owner {
     justify-content: flex-start;
 }
 
@@ -1600,6 +1662,8 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
 
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-no,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-contract,
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-insurance,
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-customer,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-cost,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-price,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-profit,
@@ -1611,9 +1675,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-supplier,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-ccy,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-bank,
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-owner,
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-insurance,
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-customer {
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-owner {
     justify-content: flex-start;
 }
 
@@ -1664,11 +1726,11 @@ body.process-page.process-page--bank .bank-col-status .bank-status-button {
     min-width: 5.35rem;
 }
 
-body.ec-auth-shell.process-page.process-page--bank .bank-col-contract,
 body.ec-auth-shell.process-page.process-page--bank .bank-col-status {
     padding-left: 4px !important;
     padding-right: 4px !important;
 }
+
 
 /* Bank virtual：单元格 padding 由 --bank-list-cell-* 控制，覆盖 global-13inch 行级 padding */
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row,
