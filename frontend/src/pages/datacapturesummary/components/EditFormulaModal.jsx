@@ -214,15 +214,15 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="form-actions">
-              <button type="button" id="editFormulaSaveBtn" className="btn btn-save" disabled>
-                Save
-              </button>
-              <button type="button" className="btn btn-cancel" onClick={onClose}>
-                Cancel
-              </button>
-            </div>
+          <div className="form-actions edit-formula-form-actions">
+            <button type="button" id="editFormulaSaveBtn" className="btn btn-save" disabled>
+              Save
+            </button>
+            <button type="button" className="btn btn-cancel" onClick={onClose}>
+              Cancel
+            </button>
           </div>
         </div>
       </div>

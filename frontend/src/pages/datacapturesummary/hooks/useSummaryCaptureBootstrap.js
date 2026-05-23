@@ -47,7 +47,10 @@ export function useSummaryCaptureBootstrap({ companyId, searchParams, enabled })
   );
 
   const serverStateQueryEnabled =
-    enabled && !!captureSession && (processId != null || !!processCode);
+    enabled &&
+    !!captureSession &&
+    !isFreshCaptureRound &&
+    (processId != null || !!processCode);
 
   const serverStateQuery = useQuery({
     queryKey: summaryQueryKeys.serverState(companyId, processId, processCode),

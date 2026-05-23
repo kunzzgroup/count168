@@ -15,6 +15,7 @@ import { fetchProcessDetail } from "../lib/dataCaptureApi.js";
 import { convertTableFormatOnSubmit } from "../lib/dataCaptureConvertTableOnSubmit.js";
 import { buildSpaPath } from "../../../utils/core/apiUrl.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
+import { markSummaryFreshNavigation } from "../../datacapturesummary/lib/summaryStorage.js";
 
 function buildProcessCapturePayload(form, captureType, currencies) {
   const currencyOpt = (currencies || []).find((c) => String(c.id) === String(form.currencyId));
@@ -38,7 +39,13 @@ function buildProcessCapturePayload(form, captureType, currencies) {
  * Phase 1 migration: Submit, Reset, and Restore orchestration in React.
  * Submit-time table transform lives in dataCaptureConvertTableOnSubmit.js (Phase 5b).
  */
-export function useDataCaptureSubmitReset({ companyId, form, captureType, mutationsBlocked = false }) {
+export function useDataCaptureSubmitReset({
+  companyId,
+  form,
+  captureType,
+  mutationsBlocked = false,
+  navigate,
+}) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreInFlightRef = useRef(false);
   const captureTypeRef = useRef(captureType);
@@ -122,14 +129,17 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType, mutati
       const finalTableData = captureTableDataFromDom(captureType);
       saveCaptureSession(finalTableData, processData, captureType);
 
-      window.isNavigatingAwayByBackOrSubmit = true;
-      // Full navigation avoids SPA script/DOM race that caused blank Summary after submit.
+      markSummaryFreshNavigation();
+      if (typeof navigate === "function") {
+        navigate("/datacapturesummary?success=1");
+        return;
+      }
       window.location.assign(buildSpaPath("datacapturesummary?success=1"));
     } catch (error) {
       console.error("Error submitting data:", error);
       pushDataCaptureNotification("Failed to capture data", "danger");
     }
-  }, [form, captureType, mutationsBlocked]);
+  }, [form, captureType, mutationsBlocked, navigate]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {

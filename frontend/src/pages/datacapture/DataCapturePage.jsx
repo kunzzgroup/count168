@@ -46,6 +46,7 @@ import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList
 import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmittedPanelHeight.js";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { preloadSummaryLegacyScriptsInBackground } from "../datacapturesummary/lib/preloadSummaryLegacyScripts.js";
 
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
@@ -187,7 +188,13 @@ export default function DataCapturePage() {
   } = useDataCaptureLegacyChrome();
 
   const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
-  const submitReset = useDataCaptureSubmitReset({ companyId, form, captureType, mutationsBlocked });
+  const submitReset = useDataCaptureSubmitReset({
+    companyId,
+    form,
+    captureType,
+    mutationsBlocked,
+    navigate,
+  });
 
   useDataCaptureGrid(scriptsReady);
   useDataCaptureGridInteraction(scriptsReady);
@@ -473,6 +480,11 @@ export default function DataCapturePage() {
       }
     };
   }, [bootLoading, me, companyId, switchCompanySessionAndNavigate]);
+
+  useEffect(() => {
+    if (!scriptsReady) return;
+    preloadSummaryLegacyScriptsInBackground();
+  }, [scriptsReady]);
 
   useEffect(() => {
     if (!companyId) return;

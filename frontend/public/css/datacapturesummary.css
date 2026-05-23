@@ -927,6 +927,8 @@
             background: #f1f1f1;
             border: 1px solid #d0d7de;
             border-radius: 8px;
+            display: flex;
+            flex-direction: column;
         }
 
         .edit-formula-form-container .form-header {
@@ -943,15 +945,17 @@
         }
 
         .edit-formula-form-container .form-content {
-            padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
+            padding: clamp(8px, 0.8vw, 14px) clamp(16px, 1.25vw, 24px) clamp(4px, 0.42vw, 8px);
             overflow: visible;
             width: 100%;
             box-sizing: border-box;
+            flex: 1 1 auto;
+            min-height: 0;
         }
 
         .edit-formula-form-container .form-layout {
             display: flex;
-            gap: clamp(20px, 1.56vw, 30px);
+            gap: clamp(12px, 1.04vw, 20px);
             flex-wrap: nowrap;
             overflow: visible;
             justify-content: flex-start;
@@ -1184,8 +1188,8 @@
 
         .edit-formula-form-container .form-row {
             display: flex;
-            gap: clamp(12px, 1.04vw, 20px);
-            align-items: flex-end;
+            gap: clamp(8px, 0.73vw, 14px);
+            align-items: center;
             overflow: visible;
         }
         
@@ -1433,15 +1437,67 @@
             transform: scale(0.95) !important;
         }
 
-        .edit-formula-form-container .form-actions {
+        .edit-formula-form-container .form-actions,
+        .edit-formula-form-container .edit-formula-form-actions {
             display: flex;
             gap: clamp(8px, 0.63vw, 12px);
             justify-content: center !important;
             align-items: center;
-            margin-top: 0;
-            padding-top: 0;
+            margin: 0;
+            padding: clamp(8px, 0.73vw, 12px) clamp(16px, 1.25vw, 24px) clamp(12px, 1.04vw, 16px);
             border-top: none;
             width: 100%;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        #editFormulaModal .edit-formula-form-actions .btn-save,
+        #editFormulaModal .edit-formula-form-actions .btn-cancel {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: var(--userlist-btn-add-width);
+            width: auto;
+            padding: clamp(6px, 0.42vw, 8px) 20px;
+            font-size: var(--text-medium, clamp(10px, 0.83vw, 16px));
+            font-weight: var(--font-weight-semibold, 600);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        #editFormulaModal .edit-formula-form-actions .btn-save {
+            background: var(--btn-add-gradient);
+            color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        }
+
+        #editFormulaModal .edit-formula-form-actions .btn-save:hover:not(:disabled) {
+            background: var(--btn-add-gradient-hover);
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+            transform: translateY(-1px);
+        }
+
+        #editFormulaModal .edit-formula-form-actions .btn-save:disabled,
+        #editFormulaModal .edit-formula-form-actions .btn-save:disabled:hover {
+            background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%) !important;
+            color: #f8fafc !important;
+            box-shadow: none !important;
+            transform: none !important;
+            cursor: not-allowed;
+            opacity: 0.9;
+        }
+
+        #editFormulaModal .edit-formula-form-actions .btn-cancel {
+            background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
+            color: #fff;
+            box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
+        }
+
+        #editFormulaModal .edit-formula-form-actions .btn-cancel:hover {
+            background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
+            box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
+            transform: translateY(-1px);
         }
 
         /* Enhanced Table Styles for Captured Data - 与datacapture.php中的excel-table样式完全一致 */
@@ -1690,7 +1746,7 @@
         }
 
         .account-add-btn {
-            background: #007bff;
+            background: var(--btn-add-gradient);
             color: white;
             border: none;
             border-radius: 4px;
@@ -1707,6 +1763,7 @@
             position: relative;
             z-index: 10003;
             pointer-events: auto;
+            box-shadow: 0 1px 3px rgba(0, 123, 255, 0.3);
         }
 
         #editFormulaModal .account-add-btn {
@@ -1714,7 +1771,7 @@
         }
 
         .account-add-btn:hover {
-            background: #0056b3;
+            background: var(--btn-add-gradient-hover);
             transform: scale(1.05);
         }
 
@@ -1735,7 +1792,7 @@
         }
 
         .description-add-btn {
-            background: #007bff;
+            background: var(--btn-add-gradient);
             color: white;
             border: none;
             border-radius: 4px;
@@ -1749,10 +1806,11 @@
             transition: all 0.2s ease;
             flex-shrink: 0;
             white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0, 123, 255, 0.3);
         }
 
         .description-add-btn:hover {
-            background: #0056b3;
+            background: var(--btn-add-gradient-hover);
             transform: scale(1.05);
         }
 

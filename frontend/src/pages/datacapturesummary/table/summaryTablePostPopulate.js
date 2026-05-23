@@ -1,8 +1,8 @@
 import { pushSummaryNotification } from "../lib/summaryNotify.js";
 import { stripSummarySuccessParamFromUrl } from "../lib/summaryStorage.js";
 
-const PREPOPULATE_READY_TIMEOUT_MS = 8000;
-const PREPOPULATE_POLL_MS = 40;
+const PREPOPULATE_READY_TIMEOUT_MS = 6000;
+const PREPOPULATE_POLL_MS = 16;
 
 function resolveSummaryProcessId() {
   if (typeof window.getCurrentProcessId === "function") {
@@ -58,11 +58,15 @@ async function preloadSummaryAccountCatalog() {
  * Runs template auto-populate + formula/rate restore after React renders summary rows.
  * Mirrors the .finally() block in populateOriginalTableWithColumnAData.
  */
-export async function runSummaryTablePostPopulate(idProducts) {
-  await waitForSummaryPrePopulateReady();
-  await preloadSummaryAccountCatalog();
+export async function runSummaryTablePostPopulate(idProducts, options = {}) {
+  if (!options.skipPreReadyWait) {
+    await waitForSummaryPrePopulateReady();
+  }
+
+  const accountCatalogPromise = preloadSummaryAccountCatalog();
 
   if (typeof window.autoPopulateSummaryRowsFromTemplates !== "function") {
+    await accountCatalogPromise;
     runSummaryTablePostPopulateFinally();
     return;
   }
@@ -71,18 +75,18 @@ export async function runSummaryTablePostPopulate(idProducts) {
     if (typeof window.__SUMMARY_STRIP_SUB_ROWS__ === "function") {
       window.__SUMMARY_STRIP_SUB_ROWS__();
       await new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(resolve));
+        requestAnimationFrame(resolve);
       });
     }
     await window.autoPopulateSummaryRowsFromTemplates(idProducts);
   } catch (error) {
     console.error("Auto-populate templates error:", error);
     try {
-      await new Promise((resolve) => window.setTimeout(resolve, 120));
+      await new Promise((resolve) => window.setTimeout(resolve, 80));
       if (typeof window.__SUMMARY_STRIP_SUB_ROWS__ === "function") {
         window.__SUMMARY_STRIP_SUB_ROWS__();
         await new Promise((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(resolve));
+          requestAnimationFrame(resolve);
         });
       }
       await window.autoPopulateSummaryRowsFromTemplates(idProducts);
@@ -90,6 +94,7 @@ export async function runSummaryTablePostPopulate(idProducts) {
       console.error("Auto-populate templates retry error:", retryError);
     }
   } finally {
+    await accountCatalogPromise;
     runSummaryTablePostPopulateFinally();
   }
 }

@@ -1,6 +1,5 @@
 import { Component, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
 import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
@@ -27,90 +26,16 @@ import {
 import { useSummaryTablePopulate } from "./hooks/useSummaryTablePopulate.js";
 import { useSummaryFormulaEngine } from "./hooks/useSummaryFormulaEngine.js";
 import { clearSummaryCaptureRoundStorage } from "./lib/summaryStorage.js";
+import {
+  areSummaryLegacyScriptsLoaded,
+  ensureSummaryLegacyScriptsLoaded,
+} from "./lib/preloadSummaryLegacyScripts.js";
 
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/datacapturesummary.css";
 import "../../../public/css/global-13inch.css";
-
-/** Legacy engine present (SPA revisit or full page load after prior visit). */
-function areSummaryLegacyScriptsLoaded() {
-  return (
-    typeof window.Decimal !== "undefined" &&
-    typeof window.MoneyDecimal !== "undefined" &&
-    typeof window.initDataCaptureSummaryPage === "function"
-  );
-}
-
-/** Avoid hanging when `load` already fired before listeners attach (SPA revisit / cache). */
-function loadScriptOnce(src, isAlreadyLoaded) {
-  return new Promise((resolve, reject) => {
-    const clean = src.split(/[?#]/)[0];
-    const finish = (node) => {
-      if (node) node.dataset.loaded = "1";
-      resolve();
-    };
-
-    if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
-      resolve();
-      return;
-    }
-
-    const nodes = document.querySelectorAll("script[src]");
-    for (let i = 0; i < nodes.length; i += 1) {
-      const n = nodes[i];
-      const ns = n.getAttribute("src") || "";
-      if (ns.split(/[?#]/)[0] !== clean) continue;
-      if (n.dataset.loaded === "1") {
-        resolve();
-        return;
-      }
-      if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
-        finish(n);
-        return;
-      }
-      const onLoad = () => finish(n);
-      const timeoutId = window.setTimeout(() => {
-        n.removeEventListener("load", onLoad);
-        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
-          finish(n);
-          return;
-        }
-        n.remove();
-        loadScriptOnce(src, isAlreadyLoaded).then(resolve).catch(reject);
-      }, 10000);
-      n.addEventListener(
-        "load",
-        () => {
-          window.clearTimeout(timeoutId);
-          onLoad();
-        },
-        { once: true }
-      );
-      n.addEventListener(
-        "error",
-        () => {
-          window.clearTimeout(timeoutId);
-          n.remove();
-          loadScriptOnce(src, isAlreadyLoaded).then(resolve).catch(reject);
-        },
-        { once: true }
-      );
-      queueMicrotask(() => {
-        if (n.dataset.loaded === "1") return;
-        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) finish(n);
-      });
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = false;
-    s.onload = () => finish(s);
-    s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-    document.head.appendChild(s);
-  });
-}
 
 class SummaryPageErrorBoundary extends Component {
   constructor(props) {
@@ -228,6 +153,10 @@ function DataCaptureSummaryPageInner() {
     window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
     setEngineError("");
 
+    void injectStylesheet("https://fonts.googleapis.com/css?family=Amaranth").catch(() => {
+      /* non-blocking */
+    });
+
     if (areSummaryLegacyScriptsLoaded()) {
       setScriptsReady(true);
       return undefined;
@@ -237,17 +166,7 @@ function DataCaptureSummaryPageInner() {
 
     (async () => {
       try {
-        await injectStylesheet("https://fonts.googleapis.com/css?family=Amaranth");
-      } catch {
-        /* ignore */
-      }
-
-      try {
-        await Promise.all([
-          loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined"),
-          loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined"),
-          loadScriptOnce(buildApiUrl("js/datacapturesummary.js"), () => typeof window.initDataCaptureSummaryPage === "function"),
-        ]);
+        await ensureSummaryLegacyScriptsLoaded();
         if (alive) setScriptsReady(true);
       } catch (e) {
         if (!alive) return;
@@ -291,9 +210,7 @@ function DataCaptureSummaryPageInner() {
       setLegacyInitDone(true);
     };
 
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(runInit);
-    });
+    const id = requestAnimationFrame(runInit);
     return () => {
       cancelled = true;
       cancelAnimationFrame(id);

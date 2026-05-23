@@ -13,6 +13,28 @@ export const SUMMARY_CAPTURE_STORAGE_KEYS = [
 export const SUMMARY_RATE_VALUES_KEY = "capturedTableRateValues";
 export const SUMMARY_FORMULA_SOURCE_KEY = "capturedTableFormulaSourceForRefresh";
 export const SUMMARY_CAPTURE_ID_KEY = "capturedCaptureId";
+const SUMMARY_FRESH_NAV_KEY = "dc_summary_fresh_nav";
+
+export function markSummaryFreshNavigation() {
+  try {
+    sessionStorage.setItem(SUMMARY_FRESH_NAV_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+  window.isNavigatingAwayByBackOrSubmit = true;
+}
+
+export function consumeSummaryFreshNavigation() {
+  try {
+    if (sessionStorage.getItem(SUMMARY_FRESH_NAV_KEY) === "1") {
+      sessionStorage.removeItem(SUMMARY_FRESH_NAV_KEY);
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
 
 export function clearSummaryCaptureRoundStorage() {
   try {

@@ -16,7 +16,7 @@ const MAX_POPULATE_ATTEMPTS = 4;
 
 let populateInFlight = false;
 
-async function executeSummaryPopulate({ tableData, syncFromDom }) {
+async function executeSummaryPopulate({ tableData, syncFromDom, onTableVisible }) {
   if (!tableData) return false;
 
   if (populateInFlight) {
@@ -30,9 +30,10 @@ async function executeSummaryPopulate({ tableData, syncFromDom }) {
   try {
     removeLegacySummaryEmptyStateDom();
     await waitForSummaryPrePopulateReady();
+    onTableVisible?.();
     const { idProducts } = buildColumnAEntries(tableData);
     window.rebuildUsedAccountIds?.();
-    await runSummaryTablePostPopulate(idProducts);
+    await runSummaryTablePostPopulate(idProducts, { skipPreReadyWait: true });
     syncFromDom?.();
     window.updateHeaderCurrencyFromSummaryTable?.();
     return !summaryTableNeedsTemplatePopulate();
@@ -43,18 +44,28 @@ async function executeSummaryPopulate({ tableData, syncFromDom }) {
   }
 }
 
-async function runPopulateAttempts({ tableData, syncFromDom, resetToInitialRows, fromExplicitReset }) {
+async function runPopulateAttempts({
+  tableData,
+  syncFromDom,
+  resetToInitialRows,
+  fromExplicitReset,
+  onTableVisible,
+}) {
   const maxAttempts = fromExplicitReset ? 1 : MAX_POPULATE_ATTEMPTS;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (attempt > 0) {
       resetToInitialRows?.();
       await new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(resolve));
+        requestAnimationFrame(resolve);
       });
-      await new Promise((resolve) => window.setTimeout(resolve, 180 * attempt));
+      await new Promise((resolve) => window.setTimeout(resolve, 120 * attempt));
     }
-    const populated = await executeSummaryPopulate({ tableData, syncFromDom });
+    const populated = await executeSummaryPopulate({
+      tableData,
+      syncFromDom,
+      onTableVisible: attempt === 0 ? onTableVisible : undefined,
+    });
     if (populated) return true;
   }
   return false;
@@ -87,14 +98,19 @@ export function useSummaryTablePopulate({
       if (shouldReset) {
         resetToInitialRows?.();
         await new Promise((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(resolve));
+          requestAnimationFrame(resolve);
         });
       }
+      const onTableVisible = () => {
+        showSummaryTableChrome();
+        onPopulatingChange?.(false);
+      };
       const populated = await runPopulateAttempts({
         tableData,
         syncFromDom,
         resetToInitialRows,
         fromExplicitReset: shouldReset,
+        onTableVisible,
       });
       if (!populated) {
         console.warn("Summary template populate incomplete after retries");
