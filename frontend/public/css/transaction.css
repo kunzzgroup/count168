@@ -2248,13 +2248,23 @@ body.transaction-page .transaction-container * {
 .transaction-header-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: clamp(12px, 1vw, 20px);
     min-width: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    margin-top: var(--text-page-title-mt);
+}
+
+.transaction-header-left .transaction-title {
+    margin-top: 0 !important;
+    margin-bottom: 0;
+    line-height: 1.05;
+    flex-shrink: 0;
 }
 
 .contra-inbox-wrap {
     position: relative;
+    flex-shrink: 0;
+    align-self: center;
 }
 
 .contra-inbox-badge {
