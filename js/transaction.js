@@ -3073,7 +3073,17 @@
                 return bal !== null && MoneyDecimal.toDecimal(bal).abs().lte(eps);
             };
             const hasWinLoss = row => {
-                // Show Win/Loss Only 以实际金额是否非 0 为准，避免后端标记为真但金额为 0 的行混入。
+                const wlTxnFlag = (typeof row.has_win_loss_transactions === 'boolean')
+                    ? row.has_win_loss_transactions
+                    : ((typeof row.has_win_loss_transactions === 'number')
+                        ? row.has_win_loss_transactions !== 0
+                        : parseInt(row.has_win_loss_transactions || '0', 10) !== 0);
+                const idProductFlag = (typeof row.has_period_id_product_rows === 'boolean')
+                    ? row.has_period_id_product_rows
+                    : ((typeof row.has_period_id_product_rows === 'number')
+                        ? row.has_period_id_product_rows !== 0
+                        : parseInt(row.has_period_id_product_rows || '0', 10) !== 0);
+                if (wlTxnFlag || idProductFlag) return true;
                 const rawWinLoss = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
                     ? String(row.win_loss_full).replace(/,/g, '').trim()
                     : row.win_loss;
@@ -3184,7 +3194,21 @@
             return bal !== null && MoneyDecimal.toDecimal(bal).abs().lte(eps);
         };
         const hasWinLoss = row => {
-            const wl = parseBalanceValue(row.win_loss);
+            const wlTxnFlag = (typeof row.has_win_loss_transactions === 'boolean')
+                ? row.has_win_loss_transactions
+                : ((typeof row.has_win_loss_transactions === 'number')
+                    ? row.has_win_loss_transactions !== 0
+                    : parseInt(row.has_win_loss_transactions || '0', 10) !== 0);
+            const idProductFlag = (typeof row.has_period_id_product_rows === 'boolean')
+                ? row.has_period_id_product_rows
+                : ((typeof row.has_period_id_product_rows === 'number')
+                    ? row.has_period_id_product_rows !== 0
+                    : parseInt(row.has_period_id_product_rows || '0', 10) !== 0);
+            if (wlTxnFlag || idProductFlag) return true;
+            const rawWinLoss = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
+                ? String(row.win_loss_full).replace(/,/g, '').trim()
+                : row.win_loss;
+            const wl = parseBalanceValue(rawWinLoss);
             return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt('0.00001');
         };
         const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;

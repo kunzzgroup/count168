@@ -56,10 +56,8 @@ export function useTransactionSearch({
   const lastSearchCommitMsRef = useRef(0);
   const runSearchRef = useRef(null);
   const autoSearchTimerRef = useRef(null);
-  const prevServerFilterRef = useRef({
-    showPaymentOnly: false,
-    showCaptureOnly: false,
-  });
+  /** Tracks last server-side filter chips; null until after first search commit (avoids duplicate fetch on mount). */
+  const prevServerSideFiltersRef = useRef(null);
   /** After a real company switch, skip one blocking "Loading data" overlay (still fetch in background). */
   const suppressBlockingOverlayOnceRef = useRef(false);
   const prevCompanyIdForSearchRef = useRef(null);
@@ -210,28 +208,43 @@ export function useTransactionSearch({
     scheduleAutoSearch,
   ]);
 
-  // NOTE:
-  // Most checkbox changes are list-local for speed.
-  // But when server-side-narrowed filters are turned OFF, refresh once to restore full dataset.
+  // Show Payment / Show Win/Loss / Show 0 balance 影响 search_api 参数与 (account×currency) 范围；与 legacy `js/transaction.js` 一致，变更后重新搜索。
   useEffect(() => {
-    const prev = prevServerFilterRef.current;
-    const paymentTurnedOff = prev.showPaymentOnly && !searchState.showPaymentOnly;
-    const captureTurnedOff = prev.showCaptureOnly && !searchState.showCaptureOnly;
-    prevServerFilterRef.current = {
-      showPaymentOnly: searchState.showPaymentOnly,
-      showCaptureOnly: searchState.showCaptureOnly,
-    };
-
-    if (!paymentTurnedOff && !captureTurnedOff) return;
+    if (!initialSearchDoneRef.current) return;
     if (!filterSnapshot?.companyId) return;
     if (!effectiveDateFrom || !effectiveDateTo) return;
+    if (!showAllCurrencies && selectedCurrencies.length === 0) return;
+
+    const current = {
+      showPaymentOnly: searchState.showPaymentOnly,
+      showCaptureOnly: searchState.showCaptureOnly,
+      showZeroBalance: searchState.showZeroBalance,
+    };
+
+    if (prevServerSideFiltersRef.current === null) {
+      prevServerSideFiltersRef.current = current;
+      return;
+    }
+
+    const prev = prevServerSideFiltersRef.current;
+    const changed =
+      prev.showPaymentOnly !== current.showPaymentOnly ||
+      prev.showCaptureOnly !== current.showCaptureOnly ||
+      prev.showZeroBalance !== current.showZeroBalance;
+
+    prevServerSideFiltersRef.current = current;
+    if (!changed) return;
+
     scheduleAutoSearch({ delayMs: 80 });
   }, [
     searchState.showPaymentOnly,
     searchState.showCaptureOnly,
+    searchState.showZeroBalance,
     filterSnapshot?.companyId,
     effectiveDateFrom,
     effectiveDateTo,
+    showAllCurrencies,
+    selectedCurrenciesKey,
     scheduleAutoSearch,
   ]);
 
@@ -628,6 +641,7 @@ export function useTransactionSearch({
       suppressBlockingOverlayOnceRef.current = true;
       setRawSearchData(null);
       prevCaptureDateRangeKeyRef.current = null;
+      prevServerSideFiltersRef.current = null;
       clearTxSearchCache();
     }
     prevCompanyIdForSearchRef.current = cid;

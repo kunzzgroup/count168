@@ -191,7 +191,8 @@ export function normalizeRateRowsByCrDr(leftRows, rightRows, isRate) {
 
 /**
  * Show Payment Only / Show Win/Loss Only 行筛选 — 与 `js/transaction.js` `applyZeroBalanceFilterAndRender`
- * 内「先应用 Show Payment Only / Show Win/Loss 过滤」分支一致（含仅 W/L、双勾选+Show 0 balance 的 OR 规则；W/L 以 win_loss_full 优先的金额非零为准，不用 has_win_loss_transactions）。
+ * 内「先应用 Show Payment Only / Show Win/Loss 过滤」分支一致（含仅 W/L、双勾选+Show 0 balance 的 OR 规则）。
+ * Show Win/Loss Only：优先 has_win_loss_transactions（本期有 W/L 动账），再兜底 net win_loss_full 非零（与 hasCrdr 对称）。
  */
 export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly, showCaptureOnly, showZeroBalance = false }) {
   const safeLeft = Array.isArray(rawLeft) ? rawLeft : [];
@@ -201,6 +202,12 @@ export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly,
   }
 
   const eps = "0.00001";
+
+  const flagToBool = (v) => {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v !== 0;
+    return parseInt(String(v || "0"), 10) !== 0;
+  };
 
   const hasCrdr = (row) => {
     const byFlag =
@@ -232,6 +239,9 @@ export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly,
   };
 
   const hasWinLoss = (row) => {
+    if (flagToBool(row.has_win_loss_transactions) || flagToBool(row.has_period_id_product_rows)) {
+      return true;
+    }
     const rawWinLoss =
       row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ""
         ? String(row.win_loss_full).replace(/,/g, "").trim()
