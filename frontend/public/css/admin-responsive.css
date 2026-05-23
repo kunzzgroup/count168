@@ -66,9 +66,6 @@
     box-sizing: border-box;
   }
 
-  body.user-page .user-list-table .user-list-table-header .header-item__label {
-    white-space: nowrap;
-  }
 
   /* 1024×768：字号略小于 global-13inch，减少 Login ID / Status / Email 等被省略 */
   body.user-page h1,

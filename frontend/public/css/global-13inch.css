@@ -363,6 +363,30 @@
             48px;
     }
 
+    body.lang-zh.user-page .user-list-table {
+        --user-list-grid-cols:
+            38px
+            minmax(100px, 1.05fr)
+            minmax(80px, 1fr)
+            minmax(140px, 1.5fr)
+            minmax(72px, 0.85fr)
+            minmax(64px, 0.65fr)
+            minmax(108px, 1.25fr)
+            minmax(88px, 0.95fr)
+            minmax(64px, 0.48fr);
+        --user-list-grid-cols-bulk:
+            38px
+            minmax(100px, 1.05fr)
+            minmax(80px, 1fr)
+            minmax(140px, 1.5fr)
+            minmax(72px, 0.85fr)
+            minmax(64px, 0.65fr)
+            minmax(108px, 1.25fr)
+            minmax(88px, 0.95fr)
+            minmax(60px, 0.46fr)
+            48px;
+    }
+
     body.ec-auth-shell.user-page .user-list-table-header .header-item,
     body.ec-auth-shell.user-page .user-list-row .card-item {
         padding: 0 !important;
