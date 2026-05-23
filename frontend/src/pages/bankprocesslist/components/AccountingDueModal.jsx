@@ -155,24 +155,32 @@ export default function AccountingDueModal({
             <div className="accounting-due-inbox-grid" role="table" id="processAccountingDueGrid">
               <div className="accounting-due-inbox-grid-row accounting-due-inbox-grid-row--head" role="row">
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--cb" role="columnheader">
-                  <input
-                    type="checkbox"
-                    title={t("selectAll")}
-                    className="accounting-due-inbox-cb"
-                    checked={postAllChecked}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setAccountingSelected((prev) => {
-                        const next = new Set(prev);
-                        postableRows.forEach((r) => {
-                          const id = Number(r.id);
-                          if (checked) next.add(id);
-                          else next.delete(id);
-                        });
-                        return next;
-                      });
-                    }}
-                  />
+                  <div className="accounting-due-inbox-select-head">
+                    <span className="accounting-due-inbox-select-head-label accounting-due-inbox-select-head-label--post">
+                      {t("accountingDueColPost")}
+                    </span>
+                    <span className="accounting-due-inbox-select-head-cb">
+                      <input
+                        type="checkbox"
+                        title={t("selectAll")}
+                        aria-label={`${t("accountingDueColPost")} — ${t("selectAll")}`}
+                        className="accounting-due-inbox-cb"
+                        checked={postAllChecked}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setAccountingSelected((prev) => {
+                            const next = new Set(prev);
+                            postableRows.forEach((r) => {
+                              const id = Number(r.id);
+                              if (checked) next.add(id);
+                              else next.delete(id);
+                            });
+                            return next;
+                          });
+                        }}
+                      />
+                    </span>
+                  </div>
                 </div>
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--no" role="columnheader">
                   {t("no")}
@@ -192,22 +200,28 @@ export default function AccountingDueModal({
                 <div
                   className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--delete"
                   role="columnheader"
-                  title={t("deleteCol")}
                 >
-                  <input
-                    type="checkbox"
-                    title={t("selectAllForDelete")}
-                    aria-label={`${t("deleteCol")} — ${t("selectAllForDelete")}`}
-                    className="accounting-due-inbox-delete-cb"
-                    checked={deleteAllChecked}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setAccountingDeleteSelected(() => {
-                        if (!checked) return new Set();
-                        return new Set(accountingRows.map((r) => Number(r.id)));
-                      });
-                    }}
-                  />
+                  <div className="accounting-due-inbox-select-head">
+                    <span className="accounting-due-inbox-select-head-label accounting-due-inbox-select-head-label--delete">
+                      {t("accountingDueColDelete")}
+                    </span>
+                    <span className="accounting-due-inbox-select-head-cb">
+                      <input
+                        type="checkbox"
+                        title={t("selectAllForDelete")}
+                        aria-label={`${t("accountingDueColDelete")} — ${t("selectAllForDelete")}`}
+                        className="accounting-due-inbox-delete-cb"
+                        checked={deleteAllChecked}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setAccountingDeleteSelected(() => {
+                            if (!checked) return new Set();
+                            return new Set(accountingRows.map((r) => Number(r.id)));
+                          });
+                        }}
+                      />
+                    </span>
+                  </div>
                 </div>
               </div>
 

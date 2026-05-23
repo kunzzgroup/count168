@@ -179,6 +179,8 @@ export const BANK_PROCESS_I18N = {
     save: "Save",
 
     deleteCol: "Delete",
+    accountingDueColPost: "Post",
+    accountingDueColDelete: "Delete",
     selectAllForDelete: "Select all for delete",
     startDate: "Start Date",
     loading: "Loading...",
@@ -405,6 +407,8 @@ export const BANK_PROCESS_I18N = {
     save: "保存",
 
     deleteCol: "删除",
+    accountingDueColPost: "入账",
+    accountingDueColDelete: "删除",
     selectAllForDelete: "全选删除",
     startDate: "开始日期",
     loading: "加载中...",

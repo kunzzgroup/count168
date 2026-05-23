@@ -11,7 +11,6 @@ import {
   ALL_ROLE_OPTIONS,
   PAGE_SIZE,
   PERMISSION_KEYS,
-  ROLE_HIERARCHY,
   applyUserFilters,
   computeRowCapabilities,
   formatLastLogin,
@@ -26,6 +25,7 @@ import {
   roleHasReadOnlyToggle,
   canInteractWithReadOnlyToggle,
   isUserModalPageReadOnlyLock,
+  getUserEditFieldLocks,
 } from "./userListLogic.js";
 
 // Components
@@ -637,10 +637,7 @@ export default function UserListPage() {
     setIsEditMode(true); setEditingRow(row);
     setForm({ id: String(row.id), login_id: row.login_id || "", name: row.name || "", email: row.email || "", role: normRole(row.role), password: "", secondary_password: "", status: normRole(row.status) || "active", read_only: true });
     setRoleSelectDisabled(!!row.is_owner_shadow); setLoginDisabled(true);
-    const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
-    const curLevel = ROLE_HIERARCHY[currentUserRole] ?? 999; const editLevel = ROLE_HIERARCHY[normRole(row.role)] ?? 999;
-    const isSelf = caps.isSelf; const isSame = !isSelf && curLevel === editLevel; const isLower = !isSelf && curLevel > editLevel;
-    setFieldLocks({ name: isSame || isLower, email: isSame || isLower, role: isSame || isLower, password: false, sidebar: isSelf || isSame || isLower, company: isSelf || isSame || isLower || !(currentUserRole === "admin" || currentUserRole === "owner") });
+    setFieldLocks(getUserEditFieldLocks(row, currentUserId, currentUserRole));
     void loadCompaniesForModal();
     applyEditDetail(row, cachedDetail, cachedAccess.accounts, cachedAccess.processes);
     setModalOpen(true);
@@ -706,7 +703,9 @@ export default function UserListPage() {
     if (roleForReadOnly && roleHasReadOnlyToggle(roleForReadOnly) && canInteractWithReadOnlyToggle(currentUserRole, roleForReadOnly)) {
       payload.read_only = form.read_only ? 1 : 0;
     }
-    if (editingRow?.is_owner_shadow) { delete payload.role; } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = selectedCompanyIds; } else {
+    if (editingRow?.is_owner_shadow) {
+      payload.role = "owner";
+    } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = selectedCompanyIds; } else {
       const caps = computeRowCapabilities(editingRow, currentUserId, currentUserRole);
       if (caps.isSelf || caps.isHigherLevel || caps.isSameLevel) {
         payload.account_permissions = accountPerms;

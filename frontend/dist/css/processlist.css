@@ -1323,10 +1323,43 @@
 
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--cb,
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--delete {
-    justify-content: center;
-    text-align: center;
-    padding: var(--accounting-due-head-pad-y) 0 !important;
+    display: grid;
+    grid-template-rows: auto minmax(var(--accounting-due-checkbox-size), 1fr);
+    align-items: center;
+    justify-items: center;
+    gap: 5px;
+    padding: 0.4rem 0 0.5rem !important;
     background: var(--accounting-due-header-bg);
+}
+
+.accounting-due-inbox-select-head {
+    display: contents;
+}
+
+.accounting-due-inbox-select-head-label {
+    font-size: clamp(9px, 0.62vw, 11px);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.accounting-due-inbox-select-head-label--post {
+    color: #0f766e;
+}
+
+.accounting-due-inbox-select-head-label--delete {
+    color: #b42318;
+}
+
+.accounting-due-inbox-select-head-cb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: var(--accounting-due-checkbox-size);
 }
 
 .accounting-due-inbox-grid-row:not(.accounting-due-inbox-grid-row--head) .accounting-due-inbox-grid-cell {

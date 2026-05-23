@@ -189,7 +189,7 @@ function validateUserData($data, $isUpdate = false) {
     }
     
     // Validate role
-    $validRoles = ['partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
+    $validRoles = ['owner', 'partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
     if (!in_array($data['role'], $validRoles)) {
         return "Invalid role";
     }
