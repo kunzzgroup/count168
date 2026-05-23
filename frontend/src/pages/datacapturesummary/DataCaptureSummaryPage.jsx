@@ -31,7 +31,6 @@ import { clearSummaryCaptureRoundStorage } from "./lib/summaryStorage.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
-import "../../../public/css/datacapture.css";
 import "../../../public/css/datacapturesummary.css";
 import "../../../public/css/global-13inch.css";
 
@@ -215,11 +214,11 @@ function DataCaptureSummaryPageInner() {
   const legacyInitDoneRef = useRef(false);
 
   useLayoutEffect(() => {
-    document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page");
-    document.body.classList.add("dashboard-page");
+    document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page", "datacapture-summary-page");
+    document.body.classList.add("dashboard-page", "datacapture-summary-page");
     purgeLegacySummaryAddAccountModal();
     return () => {
-      document.body.classList.remove("page-ready");
+      document.body.classList.remove("page-ready", "datacapture-summary-page");
     };
   }, []);
 

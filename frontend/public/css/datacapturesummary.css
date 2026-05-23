@@ -79,7 +79,7 @@
         /* Submit Button Container - Between Tables */
         .summary-submit-container {
             display: flex;
-            justify-content: center;
+            justify-content: center !important;
             align-items: center;
             gap: 12px;
             margin-top: clamp(10px, 1.04vw, 20px);
@@ -878,7 +878,7 @@
 
         /* Add Account Button Styles */
         .add-account-btn {
-            background: #007bff;
+            background: var(--btn-add-gradient);
             color: white;
             border: none;
             border-radius: 50%;
@@ -891,22 +891,23 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
-            float: right; /* 靠右对齐 */
+            float: right;
+            box-shadow: 0 1px 3px rgba(0, 123, 255, 0.3);
+        }
+
+        .add-account-btn:hover {
+            background: var(--btn-add-gradient-hover);
+            transform: scale(1.05);
+        }
+
+        .add-account-btn:active {
+            transform: scale(0.95);
         }
 
         /* Add column cell alignment - center the button within the column */
         .summary-table td:nth-child(3) {
             text-align: center;
             position: relative;
-        }
-
-        .add-account-btn:hover {
-            background: #0056b3;
-            transform: scale(1.1);
-        }
-
-        .add-account-btn:active {
-            transform: scale(0.95);
         }
 
         /* Edit Formula Form Styles */

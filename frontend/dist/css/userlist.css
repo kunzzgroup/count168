@@ -718,23 +718,31 @@ body.member-winloss-page .user-gc-segment--draggable-pill:not(:disabled):active 
 }
 
 .user-page .btn:hover,
-.account-page .btn:hover {
+.account-page .btn:hover,
+body.datacapture-page .btn:hover,
+body.datacapture-summary-page .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .user-page .btn:active,
-.account-page .btn:active {
+.account-page .btn:active,
+body.datacapture-page .btn:active,
+body.datacapture-summary-page .btn:active {
     transform: translateY(0);
 }
 
 .user-page .btn:hover::after,
-.account-page .btn:hover::after {
+.account-page .btn:hover::after,
+body.datacapture-page .btn:hover::after,
+body.datacapture-summary-page .btn:hover::after {
     transform: translateX(120%);
 }
 
 .user-page .btn-add,
-.account-page .btn-add {
+.account-page .btn-add,
+body.datacapture-page .btn-add,
+body.datacapture-summary-page .btn-add {
     background: var(--btn-add-gradient);
     color: white;
     font-family: var(--font-heading-page);
@@ -764,7 +772,9 @@ body.member-winloss-page .user-gc-segment--draggable-pill:not(:disabled):active 
 }
 
 .user-page .btn-add:hover,
-.account-page .btn-add:hover {
+.account-page .btn-add:hover,
+body.datacapture-page .btn-add:hover,
+body.datacapture-summary-page .btn-add:hover {
     background: var(--btn-add-gradient-hover);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
@@ -822,7 +832,9 @@ body.member-winloss-page .user-gc-segment--draggable-pill:not(:disabled):active 
 }
 
 .user-page .btn-delete,
-.account-page .btn-delete {
+.account-page .btn-delete,
+body.datacapture-page .btn-delete,
+body.datacapture-summary-page .btn-delete {
     background: var(--btn-delete-gradient);
     color: white;
     font-family: var(--font-heading-page);
@@ -846,7 +858,9 @@ body.member-winloss-page .user-gc-segment--draggable-pill:not(:disabled):active 
 }
 
 .user-page .btn-delete:hover,
-.account-page .btn-delete:hover {
+.account-page .btn-delete:hover,
+body.datacapture-page .btn-delete:hover,
+body.datacapture-summary-page .btn-delete:hover {
     background: var(--btn-delete-gradient-hover);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
@@ -917,7 +931,9 @@ body.ec-auth-shell.user-page #confirmModal .confirm-delete:disabled:hover {
     opacity: 0.9;
 }
 
-.user-page .btn-cancel {
+.user-page .btn-cancel,
+body.datacapture-page .btn-cancel,
+body.datacapture-summary-page .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
     font-family: var(--font-heading-page);
@@ -938,7 +954,9 @@ body.ec-auth-shell.user-page #confirmModal .confirm-delete:disabled:hover {
     text-align: center;
 }
 
-.user-page .btn-cancel:hover {
+.user-page .btn-cancel:hover,
+body.datacapture-page .btn-cancel:hover,
+body.datacapture-summary-page .btn-cancel:hover {
     background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
     box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
     transform: translateY(-1px);
@@ -2265,7 +2283,9 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 /* ── btn-save：与顶栏 .btn-add 同款尺寸与字重（底色仍为蓝渐变）── */
-.user-page .btn-save {
+.user-page .btn-save,
+body.datacapture-page .btn-save,
+body.datacapture-summary-page .btn-save {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: var(--font-heading-page);
@@ -2286,7 +2306,9 @@ label.user-modal-col-title.acc-proc-label {
     text-align: center;
 }
 
-.user-page .btn-save:hover {
+.user-page .btn-save:hover,
+body.datacapture-page .btn-save:hover,
+body.datacapture-summary-page .btn-save:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%) !important;
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
@@ -2295,7 +2317,15 @@ label.user-modal-col-title.acc-proc-label {
 .user-page .btn-save:disabled,
 .user-page .btn-save:disabled:hover,
 body.ec-auth-shell.user-page #userModal .btn-save:disabled,
-body.ec-auth-shell.user-page #userModal .btn-save:disabled:hover {
+body.ec-auth-shell.user-page #userModal .btn-save:disabled:hover,
+body.datacapture-page .btn-save:disabled,
+body.datacapture-page .btn-save:disabled:hover,
+body.datacapture-summary-page .btn-save:disabled,
+body.datacapture-summary-page .btn-save:disabled:hover,
+body.datacapture-page .btn-add:disabled,
+body.datacapture-page .btn-add:disabled:hover,
+body.datacapture-summary-page .btn-add:disabled,
+body.datacapture-summary-page .btn-add:disabled:hover {
     background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%) !important;
     color: #f8fafc !important;
     box-shadow: none !important;
@@ -3640,3 +3670,14 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     cursor: not-allowed;
 }
 
+body.datacapture-page .btn-delete:disabled,
+body.datacapture-page .btn-delete:disabled:hover,
+body.datacapture-summary-page .btn-delete:disabled,
+body.datacapture-summary-page .btn-delete:disabled:hover {
+    background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed;
+    opacity: 0.9;
+}

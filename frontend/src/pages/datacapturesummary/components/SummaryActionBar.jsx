@@ -28,14 +28,14 @@ export default function SummaryActionBar({
         />
         <button
           type="button"
-          className="btn btn-save"
+          className="btn btn-add"
           id="rateSelectAllBtn"
           ref={rateSelectAllRef}
           onClick={onToggleRateSelectAll}
         >
           {rateSelectAllLabel}
         </button>
-        <button type="button" className="btn btn-save" id="topSubmitBtn" onClick={onRateBatchSubmit}>
+        <button type="button" className="btn btn-add" id="topSubmitBtn" onClick={onRateBatchSubmit}>
           Submit
         </button>
       </div>

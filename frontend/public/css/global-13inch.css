@@ -73,7 +73,15 @@
     body.ec-auth-shell.account-page #account-addModal .account-btn-save,
     body.ec-auth-shell.account-page #account-addModal .account-btn-cancel,
     body.ec-auth-shell.account-page #account-editModal .account-btn-save,
-    body.ec-auth-shell.account-page #account-editModal .account-btn-cancel {
+    body.ec-auth-shell.account-page #account-editModal .account-btn-cancel,
+    body.ec-auth-shell.datacapture-page .btn-add,
+    body.ec-auth-shell.datacapture-page .btn-save,
+    body.ec-auth-shell.datacapture-page .btn-cancel,
+    body.ec-auth-shell.datacapture-page .btn-delete,
+    body.ec-auth-shell.datacapture-summary-page .btn-add,
+    body.ec-auth-shell.datacapture-summary-page .btn-save,
+    body.ec-auth-shell.datacapture-summary-page .btn-cancel,
+    body.ec-auth-shell.datacapture-summary-page .btn-delete {
         font-size: var(--text-medium) !important;
         font-weight: var(--font-weight-semibold) !important;
         padding: clamp(6px, 0.42vw, 8px) 20px !important;
