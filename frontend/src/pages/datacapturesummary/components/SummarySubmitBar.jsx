@@ -10,14 +10,14 @@ export default function SummarySubmitBar({
     <div className="summary-submit-container" id="summarySubmitContainer" style={{ display: "none" }}>
       <button
         type="button"
-        className="btn btn-submit"
+        className="btn btn-save"
         id="summarySubmitBtn"
         onClick={onSubmit}
         disabled={submitting}
       >
         {submitting ? "提交中..." : "Submit"}
       </button>
-      <button type="button" className="btn btn-cancel" onClick={onBack} style={{ marginLeft: 10 }}>
+      <button type="button" className="btn btn-cancel" onClick={onBack}>
         Back
       </button>
       <button type="button" className="btn btn-refresh" onClick={onRefresh} title="Refresh page">

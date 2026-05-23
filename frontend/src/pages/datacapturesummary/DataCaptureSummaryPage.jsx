@@ -31,6 +31,7 @@ import { clearSummaryCaptureRoundStorage } from "./lib/summaryStorage.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
+import "../../../public/css/datacapture.css";
 import "../../../public/css/datacapturesummary.css";
 import "../../../public/css/global-13inch.css";
 

@@ -28,21 +28,21 @@ export default function SummaryActionBar({
         />
         <button
           type="button"
-          className="btn-update-all"
+          className="btn btn-save"
           id="rateSelectAllBtn"
           ref={rateSelectAllRef}
           onClick={onToggleRateSelectAll}
         >
           {rateSelectAllLabel}
         </button>
-        <button type="button" className="btn-update-all" id="topSubmitBtn" onClick={onRateBatchSubmit}>
+        <button type="button" className="btn btn-save" id="topSubmitBtn" onClick={onRateBatchSubmit}>
           Submit
         </button>
       </div>
       <div style={{ flex: 1 }} />
       <button
         type="button"
-        className="summary-btn summary-btn-delete"
+        className="btn btn-delete"
         id="summaryDeleteSelectedBtn"
         onClick={onDeleteSelected}
         title="Delete selected rows"

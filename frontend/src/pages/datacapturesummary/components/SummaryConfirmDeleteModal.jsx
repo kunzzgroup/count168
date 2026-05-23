@@ -24,10 +24,10 @@ export default function SummaryConfirmDeleteModal({
           {message}
         </p>
         <div className="summary-confirm-actions">
-          <button type="button" className="summary-btn summary-btn-cancel confirm-cancel" onClick={onCancel}>
+          <button type="button" className="btn btn-cancel confirm-cancel" onClick={onCancel}>
             Cancel
           </button>
-          <button type="button" className="summary-btn summary-btn-delete confirm-delete" onClick={onConfirm}>
+          <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
             Delete
           </button>
         </div>
