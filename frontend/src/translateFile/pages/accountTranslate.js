@@ -133,6 +133,9 @@ export const ACCOUNT_I18N = {
     apiReadOnlyCannotAdd: "Read-only account cannot add accounts",
     apiReadOnlyCannotDelete: "Read-only account cannot delete accounts",
     apiCurrencyInUse: "Currency is in use and cannot be deleted",
+    currencyInUseTitle: "Cannot delete currency",
+    currencyInUseMessage: "Currency {code} is still used by the following account(s):",
+    ok: "OK",
   },
   zh: {
     failedToLoadAccounts: "加载账号失败",
@@ -266,6 +269,9 @@ export const ACCOUNT_I18N = {
     apiReadOnlyCannotAdd: "只读账号无法添加账户",
     apiReadOnlyCannotDelete: "只读账号无法删除账户",
     apiCurrencyInUse: "货币正在使用中，无法删除",
+    currencyInUseTitle: "无法删除货币",
+    currencyInUseMessage: "货币 {code} 仍被以下账号使用：",
+    ok: "确定",
   },
 };
 
@@ -356,22 +362,36 @@ function accountMessageLanguageHint(message) {
   return "mixed";
 }
 
-function translateAccountDynamicApiMessage(lang, message) {
+function formatAccountInUseLabel(acc) {
+  const name = String(acc?.name ?? "").trim();
+  const code = String(acc?.account_id ?? "").trim();
+  if (name && code) return `${name} (${code})`;
+  return name || code;
+}
+
+function translateAccountDynamicApiMessage(lang, message, data = null) {
   const raw = String(message || "").trim();
   if (!raw) return null;
   let m = raw.match(/^Cannot delete active accounts:\s*(.+)$/i);
   if (m) return getAccountText(lang, "apiCannotDeleteActiveAccounts") + ": " + m[1];
+  const accountsInUse = Array.isArray(data?.accounts_in_use) ? data.accounts_in_use : [];
+  if (accountsInUse.length > 0) {
+    const labels = accountsInUse.map(formatAccountInUseLabel).filter(Boolean);
+    if (labels.length > 0) {
+      return getAccountText(lang, "apiCurrencyInUse") + ": " + labels.join(", ");
+    }
+  }
   m = raw.match(/^(?:Currency is being used|正在使用|Cannot delete).*currency/i);
   if (m || /being used|正在使用/i.test(raw)) return getAccountText(lang, "apiCurrencyInUse");
   return null;
 }
 
 /** Map backend API message to account-list i18n for toasts. */
-export function translateAccountApiMessage(lang, apiMessage, fallbackKey = "", params = {}) {
+export function translateAccountApiMessage(lang, apiMessage, fallbackKey = "", params = {}, apiData = null) {
   const message = String(apiMessage ?? "").trim();
   const locale = toLocale(lang);
 
-  const dynamic = translateAccountDynamicApiMessage(locale, message);
+  const dynamic = translateAccountDynamicApiMessage(locale, message, apiData);
   if (dynamic) return dynamic;
 
   const key = ACCOUNT_API_MESSAGE_KEYS[normAccountApiMessage(message)];
@@ -383,6 +403,12 @@ export function translateAccountApiMessage(lang, apiMessage, fallbackKey = "", p
   }
 
   return message || (fallbackKey ? getAccountText(locale, fallbackKey, params) : "");
+}
+
+export function formatCurrencyInUseAccountLabels(accounts = []) {
+  return (Array.isArray(accounts) ? accounts : [])
+    .map(formatAccountInUseLabel)
+    .filter(Boolean);
 }
 
 export const getAccountText = createGetText(ACCOUNT_I18N);

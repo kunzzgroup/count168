@@ -31,6 +31,35 @@ export function AccountConfirmModal({ open, message, onConfirm, onClose, t }) {
   );
 }
 
+export function AccountAlertModal({ open, title, message, accountNames = [], onClose, t }) {
+  if (!open) return null;
+  return portalToDocumentBody(
+    <div id="accountAlertModal" className="account-modal" role="dialog" aria-modal="true" style={{ zIndex: confirmModalZIndex }}>
+      <div className="account-confirm-modal-content">
+        <div className="account-confirm-icon-container">
+          <svg className="account-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h2 className="account-confirm-title">{title}</h2>
+        <p className="account-confirm-message">{message}</p>
+        {accountNames.length > 0 ? (
+          <ul className="account-currency-in-use-list">
+            {accountNames.map((label) => (
+              <li key={label}>{label}</li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="account-confirm-actions">
+          <button type="button" className="btn btn-cancel confirm-cancel" onClick={onClose}>
+            {t("ok")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LinkAccountModal({
   open,
   accounts,
