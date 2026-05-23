@@ -971,6 +971,9 @@
             flex-shrink: 1;
             box-sizing: border-box;
             overflow: visible;
+            display: flex;
+            flex-direction: column;
+            gap: clamp(6px, 0.52vw, 10px);
         }
         
         
@@ -1064,6 +1067,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
+            gap: clamp(6px, 0.52vw, 10px);
             margin-left: 0;
             padding-left: 0px;
             box-sizing: border-box;
@@ -1444,8 +1448,10 @@
             justify-content: center !important;
             align-items: center;
             margin: 0;
-            padding: clamp(8px, 0.73vw, 12px) clamp(16px, 1.25vw, 24px) clamp(12px, 1.04vw, 16px);
-            border-top: none;
+            margin-top: clamp(8px, 0.73vw, 12px) !important;
+            padding: clamp(6px, 0.52vw, 10px) clamp(16px, 1.25vw, 24px) clamp(12px, 1.04vw, 16px);
+            padding-top: clamp(6px, 0.52vw, 10px) !important;
+            border-top: none !important;
             width: 100%;
             box-sizing: border-box;
             flex-shrink: 0;
@@ -1909,5 +1915,31 @@
             .loading-container {
                 display: none !important;
             }
+        }
+
+        /* Edit Formula — compact vertical rhythm (gap between rows, not zero margin) */
+        #editFormulaModal .edit-formula-form-container .form-left-column,
+        #editFormulaModal .edit-formula-form-container .form-middle-column {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: clamp(6px, 0.52vw, 10px) !important;
+        }
+
+        #editFormulaModal .edit-formula-form-container .form-row {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        #editFormulaModal .edit-formula-form-container .form-group,
+        #editFormulaModal .edit-formula-form-container .form-group label {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        #editFormulaModal .edit-formula-form-actions.form-actions {
+            margin-top: clamp(8px, 0.73vw, 12px) !important;
+            margin-bottom: 0 !important;
+            padding-top: clamp(6px, 0.52vw, 10px) !important;
+            border-top: none !important;
         }
 
