@@ -18,16 +18,86 @@ export function isReturnFormulaLikeCell(raw) {
 
     const hasParentheses = cell.includes("(") || cell.includes(")");
     const hasColon = cell.includes(":");
-    const hasMathOperators = cell.includes("+") || cell.includes("*") || cell.includes("/");
+    const hasMathOperators =
+        cell.includes("+") || cell.includes("-") || cell.includes("*") || cell.includes("/");
     const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators);
 
     if (hasParentheses || hasColonAndOperators) return true;
+
+    // LABEL : 2427.51 — simple label + value after colon
+    if (hasColon) {
+        const afterColon = cell.substring(cell.indexOf(":") + 1).trim();
+        if (afterColon && /\d/.test(afterColon)) {
+            return true;
+        }
+    }
 
     // Pure numeric formula (no label letters), e.g. 681.19*.11*[1]
     if (/[A-Za-z]/.test(cell)) return false;
     const numericOnly = cell.replace(/,/g, "");
     if (/^-?\d+(?:\.\d+)?$/.test(numericOnly)) return false;
     return /[+\-*/()[\]]/.test(cell);
+}
+
+/** Extract numeric tokens from a RETURN expression (handles .11, [1], unary minus). */
+export function extractReturnExpressionTokens(cell) {
+    if (!cell) return [];
+    const s = String(cell)
+        .replace(/\s+/g, "")
+        .replace(/,/g, "")
+        .replace(/\[([^\]]+)\]/g, "$1");
+
+    const tokens = [];
+    const isDigit = (c) => c >= "0" && c <= "9";
+    const isOp = (c) => c === "+" || c === "-" || c === "*" || c === "/";
+
+    const normalizeDotDecimalToPercent = (numStr) => {
+        if (numStr.startsWith(".")) {
+            const n = Number("0" + numStr);
+            if (Number.isFinite(n)) {
+                const pct = n * 100;
+                const rounded = Math.round(pct * 1000000) / 1000000;
+                return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+            }
+        }
+        return numStr;
+    };
+
+    let i = 0;
+    while (i < s.length) {
+        let sign = "";
+
+        if ((s[i] === "+" || s[i] === "-") && i + 1 < s.length && (isDigit(s[i + 1]) || s[i + 1] === ".")) {
+            const prev = i === 0 ? "" : s[i - 1];
+            const isUnary = i === 0 || prev === "(" || prev === "[" || isOp(prev);
+            if (isUnary) {
+                sign = s[i];
+                i++;
+            }
+        }
+
+        if (i < s.length && (isDigit(s[i]) || s[i] === ".")) {
+            const start = i;
+            if (isDigit(s[i])) {
+                while (i < s.length && isDigit(s[i])) i++;
+            }
+            if (i < s.length && s[i] === ".") {
+                i++;
+                while (i < s.length && isDigit(s[i])) i++;
+            }
+
+            let numStr = s.slice(start, i);
+            if (numStr) {
+                numStr = normalizeDotDecimalToPercent(numStr);
+                tokens.push((sign === "-" ? "-" : "") + numStr);
+            }
+            continue;
+        }
+
+        i++;
+    }
+
+    return tokens;
 }
 
 export function smartSplitPreservingDates(text) {
@@ -73,7 +143,10 @@ export function smartSplitPreservingDates(text) {
                 result.push(word);
                 i++;
             }
-        } else if (word.includes(':') && (word.includes('(') || word.includes('+') || word.includes('-') || word.includes('*') || word.includes('/'))) {
+        } else if (word.includes(':') && (() => {
+            const afterColon = word.substring(word.indexOf(':') + 1).trim();
+            return afterColon && (afterColon.includes('(') || /[+\-*/]/.test(afterColon) || /\d/.test(afterColon));
+        })()) {
             // 检测到公式列的开始（包含冒号和运算符）
             // 尝试合并后续的词，直到找到完整的公式或遇到明显的列分隔
             let formulaCol = word;
@@ -84,6 +157,12 @@ export function smartSplitPreservingDates(text) {
                 const nextWord = words[j];
 
                 // 如果下一个词包含运算符或括号，可能是公式的一部分
+                const labelValueComplete = /^[A-Za-z][A-Za-z0-9]*\s*:\s*[\d,.+-]+$/.test(formulaCol.trim()) &&
+                    !formulaCol.includes('(');
+                if (labelValueComplete) {
+                    break;
+                }
+
                 if (nextWord.includes('(') || nextWord.includes(')') ||
                     nextWord.includes('+') || nextWord.includes('-') ||
                     nextWord.includes('*') || nextWord.includes('/') ||
@@ -139,15 +218,15 @@ export function parseApiReturnTableFormat(pastedData) {
     let descriptionIndex = -1;
     let descriptionCol = '';
 
-    // 首先尝试找到包含冒号和运算符的单个列
+    // 首先尝试找到 Description 列（冒号 + 数字/公式）
     for (let i = 0; i < columns.length; i++) {
         const col = columns[i];
-        if (col.includes(':') && (col.includes('(') || col.includes('+') || col.includes('-') ||
-            col.includes('*') || col.includes('/'))) {
-            descriptionIndex = i;
-            descriptionCol = col;
-            break;
-        }
+        if (!col.includes(':')) continue;
+        const afterColon = col.substring(col.indexOf(':') + 1).trim();
+        if (!afterColon || !/\d/.test(afterColon)) continue;
+        descriptionIndex = i;
+        descriptionCol = col;
+        break;
     }
 
     // 如果找不到完整的 Description 列，尝试合并相邻的列
@@ -333,13 +412,11 @@ export function parseApiReturnFormat(pastedData) {
     const trimmed = pastedData.trim();
     if (!trimmed) return null;
 
-    // 检查是否包含冒号和运算符（API-RETURN 格式的特征）
-    // 注意：现在也支持没有冒号的情况（只有公式）
     const hasColon = trimmed.includes(':');
     const hasOperators = trimmed.includes('(') || trimmed.includes('+') || trimmed.includes('-') ||
         trimmed.includes('*') || trimmed.includes('/');
 
-    if (!hasOperators) {
+    if (!hasOperators && !hasColon) {
         return null;
     }
 
@@ -406,12 +483,13 @@ export function parseApiReturnFormat(pastedData) {
             }
         }
     } else {
-        // 非公式格式：使用正则表达式提取所有数字（包括小数和负数）
-        // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
-        const numberPattern = /-?\d+\.\d+|-?\d+/g;
-        const matchedNumbers = expression.match(numberPattern);
-        if (matchedNumbers) {
-            numbers = matchedNumbers;
+        numbers = extractReturnExpressionTokens(expression);
+        if (numbers.length === 0) {
+            const numberPattern = /-?\d+\.\d+|-?\d+/g;
+            const matchedNumbers = expression.match(numberPattern);
+            if (matchedNumbers) {
+                numbers = matchedNumbers;
+            }
         }
     }
 

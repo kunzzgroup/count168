@@ -1,8 +1,10 @@
 /** API_RETURN & 4.RETURN paste. */
 import {
+  extractReturnExpressionTokens,
   isReturnFormulaLikeCell,
   parseApiReturnFormat,
   parseApiReturnTableFormat,
+  smartSplitPreservingDates,
 } from "../core/dataCaptureApiReturnParsers.js";
 
 
@@ -429,77 +431,8 @@ export function handle4ReturnPaste(e, pastedData) {
         console.log('4.RETURN format detected, processing paste data...');
         console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
 
-        // 4.RETURN 专用：提取公式中的 token
-        // 例如：681.19000000*.11*[1]*1.00000000  ->  ["681.19000000","11","1","1.00000000"]
-        function extractReturnTokens(cell) {
-            if (!cell) return [];
-            // 保留括号用于判断“(-9)”这种负数；去空白/千分位逗号；把 [1] 这种方括号数字展开为 1
-            const s = String(cell)
-                .replace(/\s+/g, '')
-                .replace(/,/g, '')
-                .replace(/\[([^\]]+)\]/g, '$1');
-
-            const tokens = [];
-            const isDigit = (c) => c >= '0' && c <= '9';
-            const isOp = (c) => c === '+' || c === '-' || c === '*' || c === '/';
-
-            const normalizeDotDecimalToPercent = (numStr) => {
-                // 只处理“无前导0的小数”例如 .11（用户期望显示 11）
-                // ⚠️ 不要把 0.06 转成 6，因此 0.xx 保持原样
-                if (numStr.startsWith('.')) {
-                    const n = Number('0' + numStr);
-                    if (Number.isFinite(n)) {
-                        const pct = n * 100;
-                        const rounded = Math.round(pct * 1000000) / 1000000; // 防浮点误差
-                        return Number.isInteger(rounded) ? String(rounded) : String(rounded);
-                    }
-                }
-                return numStr;
-            };
-
-            // 扫描提取数字 token，并只在“一元负号”时保留负号：
-            // - (-9) / +9 / *-9 / /-9 / (-0.06) 视为负数
-            // - 133.7-10 这里的 - 是减法运算符，不把 10 变成 -10
-            let i = 0;
-            while (i < s.length) {
-                let sign = '';
-
-                // 识别一元符号 +/-
-                if ((s[i] === '+' || s[i] === '-') && (i + 1 < s.length) && (isDigit(s[i + 1]) || s[i + 1] === '.')) {
-                    const prev = i === 0 ? '' : s[i - 1];
-                    const isUnary = (i === 0) || prev === '(' || prev === '[' || isOp(prev);
-                    if (isUnary) {
-                        sign = s[i];
-                        i++;
-                    }
-                }
-
-                // 识别数字（支持 .11 / 1.23 / 123）
-                if (i < s.length && (isDigit(s[i]) || s[i] === '.')) {
-                    const start = i;
-                    // 整数部分
-                    if (isDigit(s[i])) {
-                        while (i < s.length && isDigit(s[i])) i++;
-                    }
-                    // 小数部分
-                    if (i < s.length && s[i] === '.') {
-                        i++;
-                        while (i < s.length && isDigit(s[i])) i++;
-                    }
-
-                    let numStr = s.slice(start, i);
-                    if (numStr) {
-                        numStr = normalizeDotDecimalToPercent(numStr);
-                        tokens.push((sign === '-' ? '-' : '') + numStr);
-                    }
-                    continue;
-                }
-
-                i++;
-            }
-
-            return tokens;
-        }
+        // 4.RETURN 专用：提取公式中的 token（见 extractReturnExpressionTokens）
+        const extractReturnTokens = extractReturnExpressionTokens;
 
         // 4.RETURN：一行内已由 Tab 分列后的单元格数组（就地修改）：去尾冒号、按需展开公式列
         function processReturnRowTabCells(cells, lineNo) {
