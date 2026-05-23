@@ -7,6 +7,7 @@ import GroupEarningsTab from "./group/GroupEarningsTab.jsx";
 import { useOwnershipPageShell } from "./shared/useOwnershipPageShell.js";
 import { useCompanyOwnership } from "./company/useCompanyOwnership.js";
 import { useGroupEarnings } from "./group/useGroupEarnings.js";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
 
 export default function OwnershipPage() {
   const shell = useOwnershipPageShell();
@@ -24,7 +25,7 @@ export default function OwnershipPage() {
     setConflict,
   } = shell;
 
-  if (boot || !cssReady) return null;
+  if (boot || !cssReady) return <PageContentLoader />;
 
   return (
     <>

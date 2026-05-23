@@ -1,4 +1,4 @@
-import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
@@ -44,6 +44,8 @@ import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js"
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
 import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmittedPanelHeight.js";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
@@ -115,12 +117,13 @@ class DataCaptureErrorBoundary extends Component {
 export default function DataCapturePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { me } = useAuthSession();
+  const dcBootRan = useRef(false);
   const companyIdFromUrl = searchParams.get("company_id");
 
   const [bootLoading, setBootLoading] = useState(true);
   const [engineError, setEngineError] = useState("");
   const [scriptsReady, setScriptsReady] = useState(false);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -279,6 +282,8 @@ export default function DataCapturePage() {
   }, []);
 
   useEffect(() => {
+    if (!me || dcBootRan.current) return;
+    dcBootRan.current = true;
     let alive = true;
     (async () => {
       try {
@@ -287,24 +292,19 @@ export default function DataCapturePage() {
         /* ignore */
       }
       try {
-        const [meRes, companiesRes] = await Promise.all([
-          fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-        ]);
-        const meJson = await meRes.json();
-        if (!alive) return;
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
+        const u = me;
+        const companiesRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+          credentials: "include",
+        });
+        const companiesJson = await companiesRes.json();
+
         const perms = Array.isArray(u.company_permissions) ? u.company_permissions : [];
+        if (!alive) return;
         if (perms.length === 0) {
           navigate("/process-list?error=no_permission", { replace: true });
           return;
         }
 
-        const companiesJson = await companiesRes.json();
         const raw = Array.isArray(companiesJson?.data) ? companiesJson.data.map(normalizeOwnerCompanyRow) : [];
 
         const url = new URL(window.location.href);
@@ -348,7 +348,6 @@ export default function DataCapturePage() {
 
         const initialGroup = resolveInitialSelectedGroupFromSession(raw, rowForPick);
 
-        setMe(u);
         setCompanies(raw);
         setCompanyId(effectiveCompany);
         setSelectedGroup(initialGroup);
@@ -362,7 +361,7 @@ export default function DataCapturePage() {
     return () => {
       alive = false;
     };
-  }, [navigate]);
+  }, [navigate, me]);
 
   useEffect(() => {
     if (bootLoading || !companyIdFromUrl || companies.length === 0) return;
@@ -500,11 +499,7 @@ export default function DataCapturePage() {
   };
 
   if (bootLoading) {
-    return (
-      <div className="container" style={{ padding: "24px" }}>
-        <p style={{ margin: 0 }}>Loading…</p>
-      </div>
-    );
+    return <PageContentLoader />;
   }
 
   const list = filterCompaniesWithDisplayId(companiesDeduped);

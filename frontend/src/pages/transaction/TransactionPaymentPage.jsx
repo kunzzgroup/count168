@@ -20,7 +20,7 @@ import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
-import AppBootLoading from "../../components/AppBootLoading.jsx";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 
 /** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
@@ -227,7 +227,7 @@ export default function TransactionPaymentPage() {
   if (loading || !filterSnapshot) {
     return (
       <div className="transaction-container transaction-container--boot">
-        <AppBootLoading label={m.loadingData || m.loading || "Loading…"} />
+        <PageContentLoader label={m.loadingData || m.loading || "Loading…"} />
       </div>
     );
   }

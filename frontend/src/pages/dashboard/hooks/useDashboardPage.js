@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useOutletContext } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   buildDashboardCacheKey,
@@ -35,8 +35,7 @@ import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
 import { companiesInGroupList, sortIds } from "../lib/dashboardEarnings.js";
 
 export function useDashboardPage({ i18n, dateFrom, dateTo }) {
-  const { me: layoutMe } = useOutletContext() ?? {};
-  const [me, setMe] = useState(layoutMe ?? null);
+  const { me, sessionReady } = useAuthSession();
   const [loadError, setLoadError] = useState("");
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
@@ -89,21 +88,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const bootstrap = useCallback(async (signal) => {
     setLoadError("");
+    if (!sessionReady || !me) return;
     try {
-      let u = layoutMe ?? null;
-      if (!u) {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), {
-          credentials: "include",
-          signal,
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success || !json.data) {
-          setLoadError(json?.message || json?.error || i18n.failedToLoadDashboard);
-          return;
-        }
-        u = json.data;
-      }
-      setMe(u);
+      const u = me;
 
       const cr = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
         credentials: "include",
@@ -149,13 +136,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (err?.name === "AbortError") return;
       setLoadError(err?.message || i18n.failedToLoadDashboard);
     }
-  }, [layoutMe, i18n.failedToLoadDashboard]);
+  }, [sessionReady, me, i18n.failedToLoadDashboard]);
 
   useEffect(() => {
+    if (!sessionReady || !me) return undefined;
     const controller = new AbortController();
     bootstrap(controller.signal);
     return () => controller.abort();
-  }, [bootstrap]);
+  }, [bootstrap, sessionReady, me]);
 
   const companiesForPicker = useMemo(
     () => companiesInGroupList(companies, selectedGroup),

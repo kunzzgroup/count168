@@ -4,6 +4,7 @@ import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
 import AppBootLoading from "./AppBootLoading.jsx";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
+import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
 import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
 import { applyLoginLang } from "../utils/i18n/useLoginLang.js";
@@ -81,16 +82,15 @@ export default function AuthenticatedLayout() {
   const sidebarIconOnly = isTabletViewport && sidebarCollapsed;
   const sidebarTabletExpanded = isTabletViewport && !sidebarCollapsed;
 
-  /* Only switch off login shell after session is confirmed for dashboard — avoids bg/layout flash when redirecting to secondary password. */
+  /* Enter dashboard chrome immediately so refresh/route changes never flash login tile bg. */
   useLayoutEffect(() => {
-    if (loading || !me) return undefined;
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page", "ec-auth-shell");
     return () => {
       document.body.classList.remove("dashboard-page", "ec-auth-shell");
       document.body.classList.add("bg");
     };
-  }, [loading, me]);
+  }, []);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -205,21 +205,27 @@ export default function AuthenticatedLayout() {
     };
   }, [navigate]);
 
-  useEffect(() => {
-    const onCompanySession = async () => {
-      try {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const json = await res.json();
-        if (res.ok && json.success && json.data) {
-          setMe(json.data);
-        }
-      } catch {
-        /* ignore */
+  const refreshSession = useCallback(async () => {
+    try {
+      const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        setMe(json.data);
+        return json.data;
       }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    const onCompanySession = () => {
+      void refreshSession();
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
     return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
-  }, []);
+  }, [refreshSession]);
 
   useEffect(() => {
     setHoverSection(null);
@@ -328,10 +334,21 @@ export default function AuthenticatedLayout() {
     setHoverSection(section);
   };
 
+  const sessionContextValue = useMemo(
+    () => ({
+      me,
+      sessionReady: !loading && Boolean(me),
+      refreshSession,
+      lang,
+    }),
+    [me, loading, refreshSession, lang]
+  );
+
   if (loading) return <AppBootLoading label={lang === "zh" ? "正在加载…" : "Loading…"} />;
   if (!me) return <Navigate to="/login" replace />;
 
   return (
+    <AuthSessionProvider value={sessionContextValue}>
     <>
       <div
         className={`informationmenu-overlay sidebar-dismiss-overlay${sidebarTabletExpanded ? " show" : ""}`}
@@ -757,5 +774,6 @@ export default function AuthenticatedLayout() {
 
       <Outlet />
     </>
+    </AuthSessionProvider>
   );
 }

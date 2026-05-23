@@ -25,16 +25,19 @@ import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pag
 import PaymentMaintenanceFilters from "./components/PaymentMaintenanceFilters.jsx";
 import PaymentMaintenanceTable from "./components/PaymentMaintenanceTable.jsx";
 import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
+import PageContentLoader from "../../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function PaymentMaintenancePage() {
   const navigate = useNavigate();
+  const { me } = useAuthSession();
+  const paymentMaintBootRan = useRef(false);
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
   // -- Boot State --
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [permissions, setPermissions] = useState([]);
 
@@ -197,24 +200,17 @@ export default function PaymentMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
+    if (!me || paymentMaintBootRan.current) return;
+    paymentMaintBootRan.current = true;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
-        
+        const u = me;
+
         // Member check
         if (String(u.user_type || "").toLowerCase() === "member") {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
         }
-
-        // Legacy parity: payment_maintenance.php only enforced logged-in session.
-        setMe(u);
 
         // Load Companies
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
@@ -268,7 +264,7 @@ export default function PaymentMaintenancePage() {
         setBootLoading(false);
       }
     })();
-  }, [navigate]);
+  }, [navigate, me]);
 
   // -- Load Meta Data (Permissions & Currencies) --
   useEffect(() => {
@@ -513,7 +509,7 @@ export default function PaymentMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me || !cssReady) return null;
+  if (bootLoading || !me || !cssReady) return <PageContentLoader />;
 
   return (
     <div className="payment-maintenance-page-root container">

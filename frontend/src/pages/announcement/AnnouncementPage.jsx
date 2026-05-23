@@ -9,9 +9,13 @@ import "../../../public/css/announcement.css";
 import { AnnouncementToast, AnnouncementConfirmModal } from "./components/AnnouncementCommon.jsx";
 import { EditAnnouncementModal, EditMaintenanceModal } from "./components/AnnouncementModals.jsx";
 import { AnnouncementPanel, MaintenancePanel } from "./components/AnnouncementPanels.jsx";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
 
 export default function AnnouncementPage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
+  const announcementBootRan = useRef(false);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getAnnouncementText(lang, key, params), [lang]);
 
@@ -86,22 +90,27 @@ export default function AnnouncementPage() {
   }, [showNotice, t]);
 
   useEffect(() => {
+    if (!sessionReady || !me || announcementBootRan.current) return;
+    announcementBootRan.current = true;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const json = await res.json();
-        if (cancelled) return;
-        if (!res.ok || !json.success || !json.data) { navigate("/login", { replace: true }); return; }
-        if (!json.data.has_c168_domain_page_access) { navigate("/dashboard", { replace: true }); return; }
+        if (!me.has_c168_domain_page_access) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
         await Promise.all([loadAnnouncements(), loadMaintenance()]);
         if (!cancelled) setReady(true);
-      } catch { if (!cancelled) navigate("/login", { replace: true }); }
+      } catch {
+        if (!cancelled) navigate("/login", { replace: true });
+      }
     })();
-    return () => { cancelled = true; };
-  }, [navigate, loadAnnouncements, loadMaintenance]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, me, navigate, loadAnnouncements, loadMaintenance]);
 
-  if (!ready) return null;
+  if (!ready) return <PageContentLoader />;
 
   // Handlers
   function handleAnnouncementEdit(item) {

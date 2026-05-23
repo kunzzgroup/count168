@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/domain.css";
@@ -20,16 +20,18 @@ import DomainFeeModal from "./components/DomainFeeModal.jsx";
 import CompanyExpirationModal from "./components/CompanyExpirationModal.jsx";
 import DomainFormModal from "./components/DomainFormModal.jsx";
 import { getDomainText } from "../../translateFile/pages/domainTranslate.js";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
 
 export default function DomainPage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
+  const domainBootRan = useRef(false);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
-  const isZh = lang === "zh";
   const t = (key, params) => getDomainText(lang, key, params);
 
-  // ── Session / auth ─────────────────────────────────────────────────────────
-  const [me, setMe] = useState(null);
-  const [ready, setReady] = useState(false);
+  // ── Boot / domain data ───────────────────────────────────────────────────────
+  const [bootDone, setBootDone] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
@@ -80,38 +82,41 @@ export default function DomainPage() {
   const [domainFeePrice, setDomainFeePrice] = useState(0);
   const [feeInlineSummary, setFeeInlineSummary] = useState("");
 
-  // ── Auth + initial data load ───────────────────────────────────────────────
+  // ── Initial data load (session from AuthenticatedLayout) ─────────────────────
   useEffect(() => {
+    if (!sessionReady || !me || domainBootRan.current) return;
+    domainBootRan.current = true;
+    let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const json = await res.json();
-        if (!res.ok || !json.success || !json.data) return navigate("/login", { replace: true });
-        const u = json.data;
-        if (!u.has_c168_domain_page_access) { navigate("/dashboard", { replace: true }); return; }
-        setMe(u);
-        setReady(true);
+        if (!me.has_c168_domain_page_access) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
 
-        // Load domain list
         const r2 = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-          method: "POST", credentials: "include",
+          method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "list" }),
         });
         const j2 = await r2.json();
         if (!r2.ok || !j2?.success) {
-          setLoadError(j2?.message || t("failedToLoadDomainData")); return;
+          if (!cancelled) setLoadError(j2?.message || t("failedToLoadDomainData"));
+          return;
         }
-        setDomains(Array.isArray(j2?.data?.domains) ? j2.data.domains : []);
-
-        // Load fee summary
+        if (!cancelled) setDomains(Array.isArray(j2?.data?.domains) ? j2.data.domains : []);
         refreshFeeSummary();
       } catch {
-        setReady(true);
-        setLoadError(t("failedToLoadDomainData"));
+        if (!cancelled) setLoadError(t("failedToLoadDomainData"));
+      } finally {
+        if (!cancelled) setBootDone(true);
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, me, navigate]);
 
   // ── Fee summary ────────────────────────────────────────────────────────────
   function refreshFeeSummary() {
@@ -247,7 +252,7 @@ export default function DomainPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (!ready) return null;
+  if (!bootDone) return <PageContentLoader />;
 
   const isOwnerOrAdmin = ["owner", "admin"].includes(String(me?.role || "").toLowerCase());
 

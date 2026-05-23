@@ -17,6 +17,8 @@ import "../../../../public/css/maintenance_notifications.css";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
 import BankprocessMaintenanceTable from "./components/BankprocessMaintenanceTable.jsx";
 import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
+import PageContentLoader from "../../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import {
   deleteBankprocessData,
   fetchCompanyCurrencies,
@@ -44,11 +46,12 @@ function consumeNoDataToastDedupeKey(key) {
 
 export default function BankprocessMaintenancePage() {
   const navigate = useNavigate();
+  const { me } = useAuthSession();
+  const bankMaintBootRan = useRef(false);
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [companyCode, setCompanyCode] = useState("");
@@ -171,18 +174,16 @@ export default function BankprocessMaintenancePage() {
   }, [bootLoading, me, lang, t, m]);
 
   useEffect(() => {
+    if (!me || bankMaintBootRan.current) return;
+    bankMaintBootRan.current = true;
     (async () => {
       try {
-        const [meRes, compRes] = await Promise.all([
-          fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-        ]);
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const user = meJson.data;
+        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
+
+        const compJson = await compRes.json();
+        const compRows = Array.isArray(compJson?.data) ? compJson.data.filter((c) => c.company_id) : [];
+
+        const user = me;
         if (String(user.user_type || "").toLowerCase() === "member") {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
@@ -195,9 +196,6 @@ export default function BankprocessMaintenancePage() {
           return;
         }
 
-        const compJson = await compRes.json();
-        const compRows = Array.isArray(compJson?.data) ? compJson.data.filter((c) => c.company_id) : [];
-        setMe(user);
         setCompanies(compRows);
 
         let initialCompanyId = user.company_id ? Number(user.company_id) : (compRows[0]?.id ? Number(compRows[0].id) : null);
@@ -253,7 +251,7 @@ export default function BankprocessMaintenancePage() {
         setBootLoading(false);
       }
     })();
-  }, [navigate]);
+  }, [navigate, me]);
 
   useEffect(() => {
     if (bootLoading || !companyId || !companyCode) return;
@@ -510,7 +508,7 @@ export default function BankprocessMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me) return null;
+  if (bootLoading || !me) return <PageContentLoader />;
 
   return (
     <div className="bankprocess-maintenance-page-root container">

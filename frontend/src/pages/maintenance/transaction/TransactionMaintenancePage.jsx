@@ -31,6 +31,8 @@ import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pag
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
 import TransactionMaintenanceTable from "./components/TransactionMaintenanceTable.jsx";
+import PageContentLoader from "../../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 /**
  * Dedupe "no data" toast on Transaction Maintenance.
@@ -53,13 +55,14 @@ function consumeNoDataToastDedupeKey(key) {
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { me } = useAuthSession();
+  const txnMaintenanceBootRan = useRef(false);
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
   // -- Boot State --
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [permissions, setPermissions] = useState([]);
 
@@ -332,16 +335,12 @@ export default function TransactionMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
+    if (!me || txnMaintenanceBootRan.current) return;
+    txnMaintenanceBootRan.current = true;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
-        
+        const u = me;
+
         // Member check
         if (String(u.user_type || "").toLowerCase() === "member") {
           window.location.assign(new URL("/member", window.location.origin).href);
@@ -353,7 +352,6 @@ export default function TransactionMaintenancePage() {
           navigate("/dashboard", { replace: true });
           return;
         }
-        setMe(u);
 
         // Load Companies
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
@@ -428,7 +426,7 @@ export default function TransactionMaintenancePage() {
         setBootLoading(false);
       }
     })();
-  }, [navigate]);
+  }, [navigate, me]);
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
@@ -589,7 +587,7 @@ export default function TransactionMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
   };
 
-  if (bootLoading || !me || !cssReady) return null;
+  if (bootLoading || !me || !cssReady) return <PageContentLoader />;
 
   return (
     <div className="container">

@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/admin-responsive.css";
@@ -65,12 +67,12 @@ function buildModalCompanyList(raw) {
 
 export default function UserListPage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const langRef = useRef(lang);
   langRef.current = lang;
   const t = useCallback((key, params) => getUserListText(lang, key, params), [lang]);
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [usersRaw, setUsersRaw] = useState([]);
@@ -347,17 +349,18 @@ export default function UserListPage() {
   }, [companyId, me, notify]);
 
   useEffect(() => {
+    if (!sessionReady || !me) return;
+    let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) { navigate("/login", { replace: true }); return; }
-        if (String(meJson.data.user_type || "").toLowerCase() === "member") { window.location.assign(new URL("/member", window.location.origin).href); return; }
-        const perms = Array.isArray(meJson.data.permissions) ? meJson.data.permissions : [];
-        if (perms.length > 0 && !perms.includes("admin")) { navigate("/dashboard", { replace: true }); return; }
-        setMe(meJson.data);
+        const perms = Array.isArray(me.permissions) ? me.permissions : [];
+        if (perms.length > 0 && !perms.includes("admin")) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
+        if (cancelled) return;
         const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
         setCompanies(rows);
         const modalCompanyList = buildModalCompanyList(rows);
@@ -365,27 +368,20 @@ export default function UserListPage() {
         setModalCompanies(modalCompanyList);
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id");
-        const effective = cid || meJson.data.company_id || rows[0]?.id || null;
+        const effective = cid || me.company_id || rows[0]?.id || null;
         setCompanyId(effective ? Number(effective) : null);
         setSearch(String(url.searchParams.get("search") || ""));
         setShowAll(url.searchParams.get("showAll") === "1");
-      } catch { navigate("/login", { replace: true }); } finally { setBootLoading(false); }
-    })();
-  }, [navigate]);
-
-  useEffect(() => {
-    const onCompanySession = async () => {
-      try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (meJson.success && meJson.data) setMe(meJson.data);
       } catch {
-        /* ignore */
+        if (!cancelled) navigate("/login", { replace: true });
+      } finally {
+        if (!cancelled) setBootLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener("eazycount:company-session-updated", onCompanySession);
-    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
-  }, []);
+  }, [sessionReady, me, navigate]);
 
   useEffect(() => {
     if (!bootLoading && companyId && me) void fetchUsers();
@@ -735,7 +731,7 @@ export default function UserListPage() {
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
-  if (bootLoading || !me || !cssReady) return null;
+  if (bootLoading || !sessionReady || !me || !cssReady) return <PageContentLoader />;
 
   return (
     <>

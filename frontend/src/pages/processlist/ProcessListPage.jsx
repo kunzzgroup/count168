@@ -27,6 +27,8 @@ import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
 import ProcessDeleteConfirmModal from "./components/ProcessDeleteConfirmModal.jsx";
 import AddProcessIcon from "./components/AddProcessIcon.jsx";
 import { getProcessListText } from "../../translateFile/pages/processListTranslate.js";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 
 function filterSearchInput(raw) {
   return String(raw || "")
@@ -52,6 +54,7 @@ function ProcessToastStack({ items }) {
 export default function ProcessListPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { me: sessionMeFromLayout, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getProcessListText(lang, key, params), [lang]);
   const [cssReady, setCssReady] = useState(false);
@@ -82,8 +85,8 @@ export default function ProcessListPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [expirationCompanies, setExpirationCompanies] = useState(null);
-  /** current_user_api.data — Partnership/Audit read_only 时禁用流程写操作 */
-  const [sessionMe, setSessionMe] = useState(null);
+  /** Partnership/Audit read_only 时禁用流程写操作 — synced from layout session */
+  const sessionMe = sessionMeFromLayout;
   const fetchAbortRef = useRef(null);
   const searchDebounceRef = useRef(null);
   const skipNextFetchRef = useRef(false);
@@ -147,20 +150,6 @@ export default function ProcessListPage() {
     () => isPartnershipAuditReadOnlyLocked(sessionMe),
     [sessionMe]
   );
-
-  useEffect(() => {
-    const onCompanySession = async () => {
-      try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (meJson.success && meJson.data) setSessionMe(meJson.data);
-      } catch {
-        /* ignore */
-      }
-    };
-    window.addEventListener("eazycount:company-session-updated", onCompanySession);
-    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
-  }, []);
 
   useEffect(() => {
     rowsRef.current = rows;
@@ -244,9 +233,11 @@ export default function ProcessListPage() {
   }, [currencyFilterCode]);
 
   useEffect(() => {
+    if (!sessionReady || !sessionMeFromLayout) return;
     (async () => {
       let skipLoadingDone = false;
       try {
+        const layoutMe = sessionMeFromLayout;
         const routePrefetch = location.state?.processListPrefetch;
         const prefetchCompanyId = routePrefetch?.companyId ? Number(routePrefetch.companyId) : null;
         const currentUrl = new URL(window.location.href);
@@ -285,37 +276,21 @@ export default function ProcessListPage() {
           } else {
             setTableLoading(true);
           }
-          try {
-            const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-            const meJson = await meRes.json();
-            if (meRes.ok && meJson.success && meJson.data) setSessionMe(meJson.data);
-          } catch {
-            /* ignore */
-          }
           setLoading(false);
           return;
         }
 
-        const [meRes, companiesRes] = await Promise.all([
-          fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-        ]);
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          window.location.assign(new URL("/login", window.location.origin).toString());
-          return;
-        }
-        setSessionMe(meJson.data);
+        const companiesRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const companiesJson = await companiesRes.json();
         const cs = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
         setCompanies(cs);
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        let effectiveCompany = queryCompany || meJson.data.company_id || cs[0]?.id || null;
+        let effectiveCompany = queryCompany || layoutMe.company_id || cs[0]?.id || null;
         effectiveCompany = effectiveCompany ? Number(effectiveCompany) : null;
 
-        if (queryCompany && effectiveCompany && Number(effectiveCompany) !== Number(meJson.data.company_id)) {
+        if (queryCompany && effectiveCompany && Number(effectiveCompany) !== Number(layoutMe.company_id)) {
           try {
             const syncRes = await fetch(
               buildApiUrl(`api/session/update_company_session_api.php?company_id=${effectiveCompany}`),
@@ -323,10 +298,10 @@ export default function ProcessListPage() {
             );
             const syncJson = await syncRes.json();
             if (!syncJson.success) {
-              effectiveCompany = meJson.data.company_id ? Number(meJson.data.company_id) : effectiveCompany;
+              effectiveCompany = layoutMe.company_id ? Number(layoutMe.company_id) : effectiveCompany;
             }
           } catch {
-            effectiveCompany = meJson.data.company_id ? Number(meJson.data.company_id) : effectiveCompany;
+            effectiveCompany = layoutMe.company_id ? Number(layoutMe.company_id) : effectiveCompany;
           }
         }
 
@@ -374,7 +349,7 @@ export default function ProcessListPage() {
         if (!skipLoadingDone) setLoading(false);
       }
     })();
-  }, [loadFormMeta, location.state, navigate]);
+  }, [loadFormMeta, location.state, navigate, sessionReady, sessionMeFromLayout]);
 
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
@@ -1075,7 +1050,7 @@ export default function ProcessListPage() {
     setSearch(filterSearchInput(e.target.value));
   };
 
-  if (loading || !cssReady) return null;
+  if (loading || !cssReady || !sessionReady) return <PageContentLoader />;
 
   return (
     <div className="container">

@@ -36,9 +36,12 @@ import {
   translateAccountApiMessage,
 } from "../../translateFile/pages/accountTranslate.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 
 export default function AccountListPage() {
   const navigate = useNavigate();
+  const { me: sessionMe, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const langRef = useRef(lang);
   langRef.current = lang;
@@ -57,8 +60,6 @@ export default function AccountListPage() {
   const [roles, setRoles] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
-  /** current_user_api.data —用于 Partnership/Audit read_only 时禁用账号页写操作 */
-  const [sessionMe, setSessionMe] = useState(null);
 
   // -- Filters --
   const [searchTerm, setSearchTerm] = useState("");
@@ -186,26 +187,24 @@ export default function AccountListPage() {
 
   // -- Boot --
   useEffect(() => {
+    if (!sessionReady || !sessionMe) return;
+    let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meJson.success || !meJson.data) return navigate("/login", { replace: true });
-        setSessionMe(meJson.data);
-
         const [compRes, editRes] = await Promise.all([
           fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
           fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }),
         ]);
         const compJson = await compRes.json();
         const editJson = await editRes.json();
+        if (cancelled) return;
 
         const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
         setCompanies(rows);
         setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 
         const url = new URL(window.location.href);
-        const cid = url.searchParams.get("company_id") || meJson.data.company_id || rows[0]?.id;
+        const cid = url.searchParams.get("company_id") || sessionMe.company_id || rows[0]?.id;
         const initialCompanyId = cid ? Number(cid) : null;
         const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
@@ -213,6 +212,7 @@ export default function AccountListPage() {
         if (initialCompanyId) {
           const accountRes = await fetch(buildAccountsUrl(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll).toString(), { credentials: "include" });
           const accountJson = await accountRes.json();
+          if (cancelled) return;
           if (accountJson.success) {
             setAccounts(Array.isArray(accountJson?.data?.accounts) ? accountJson.data.accounts : []);
             bootFetchedAccountsKeyRef.current = buildAccountsFetchKey(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll);
@@ -222,11 +222,16 @@ export default function AccountListPage() {
         setSearchTerm(initialSearchTerm);
         setShowInactive(initialShowInactive);
         setShowAll(initialShowAll);
-
-      } catch { navigate("/login"); }
-      finally { setBootLoading(false); }
+      } catch {
+        if (!cancelled) navigate("/login");
+      } finally {
+        if (!cancelled) setBootLoading(false);
+      }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, sessionMe, navigate]);
 
   useEffect(() => {
     if (!bootLoading && companyId) {
@@ -238,20 +243,6 @@ export default function AccountListPage() {
       fetchAccounts();
     }
   }, [bootLoading, companyId, searchTerm, showInactive, showAll, fetchAccounts]);
-
-  useEffect(() => {
-    const onCompanySession = async () => {
-      try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (meJson.success && meJson.data) setSessionMe(meJson.data);
-      } catch {
-        /* ignore */
-      }
-    };
-    window.addEventListener("eazycount:company-session-updated", onCompanySession);
-    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
-  }, []);
 
   // -- Computed --
   const allCompanyButtons = useMemo(
@@ -918,7 +909,7 @@ export default function AccountListPage() {
     }
   };
 
-  if (bootLoading || !cssReady) return null;
+  if (bootLoading || !sessionReady || !cssReady) return <PageContentLoader />;
 
   const handleSort = (column) => {
     setSortDirection((direction) => (sortColumn === column && direction === "asc" ? "desc" : "asc"));

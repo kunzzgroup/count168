@@ -36,10 +36,12 @@ import {
 import { dedupeCompanyRowsForSwitcher } from "../../processlist/processListHelpers.js";
 import { prefetchGamesProcessListPayload } from "../../processlist/processRoutePrefetch.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export function useBankProcessListPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { me: authMe } = useAuthSession();
   const resolveLang = useCallback(
     (next) => {
       if (next === "zh") return "zh";
@@ -107,7 +109,6 @@ export function useBankProcessListPage() {
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
-  const [sessionMe, setSessionMe] = useState(null);
   const [companyId, setCompanyId] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
   const [switchingCompany, setSwitchingCompany] = useState(false);
@@ -206,7 +207,7 @@ export function useBankProcessListPage() {
   }, []);
 
   const { mutationsBlocked, guardWrite } = usePartnershipAuditWriteGuard(
-    sessionMe,
+    authMe,
     notify,
     t("readOnlyActionBlocked")
   );
@@ -560,21 +561,19 @@ export function useBankProcessListPage() {
           return;
         }
 
-        const [meRes, companiesRes] = await Promise.all([
-          fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-        ]);
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          window.location.assign(new URL("/login", window.location.origin).toString());
-          return;
-        }
-        setSessionMe(meJson.data);
+        const companiesRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+          credentials: "include",
+        });
         const companiesJson = await companiesRes.json();
         const cs = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
         setCompanies(cs);
+        const sessionUser = authMe;
+        if (!sessionUser) {
+          window.location.assign(new URL("/login", window.location.origin).toString());
+          return;
+        }
         const url = new URL(window.location.href);
-        const effectiveCompany = url.searchParams.get("company_id") || meJson.data.company_id || cs[0]?.id || null;
+        const effectiveCompany = url.searchParams.get("company_id") || sessionUser.company_id || cs[0]?.id || null;
         const effectiveNum = effectiveCompany ? Number(effectiveCompany) : null;
         const currentCompanyRow = effectiveNum != null ? cs.find((c) => Number(c.id) === Number(effectiveNum)) : null;
         if (currentCompanyRow?.company_id) {

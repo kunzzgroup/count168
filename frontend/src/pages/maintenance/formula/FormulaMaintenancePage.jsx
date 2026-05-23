@@ -34,9 +34,13 @@ import {
 import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.jsx";
 import FormulaMaintenanceTable from "./components/FormulaMaintenanceTable.jsx";
 import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
+import PageContentLoader from "../../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function FormulaMaintenancePage() {
   const navigate = useNavigate();
+  const { me } = useAuthSession();
+  const formulaMaintBootRan = useRef(false);
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
@@ -44,7 +48,6 @@ export default function FormulaMaintenancePage() {
 
   // -- Boot State --
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [permissions, setPermissions] = useState([]);
 
@@ -262,16 +265,12 @@ export default function FormulaMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
+    if (!me || formulaMaintBootRan.current) return;
+    formulaMaintBootRan.current = true;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
-        
+        const u = me;
+
         if (String(u.user_type || "").toLowerCase() === "member") {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
@@ -281,7 +280,6 @@ export default function FormulaMaintenancePage() {
           navigate("/dashboard", { replace: true });
           return;
         }
-        setMe(u);
 
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
@@ -344,7 +342,7 @@ export default function FormulaMaintenancePage() {
         setBootLoading(false);
       }
     })();
-  }, [navigate]);
+  }, [navigate, me]);
 
   // -- Load Meta Data --
   useEffect(() => {
@@ -658,7 +656,7 @@ export default function FormulaMaintenancePage() {
     setScrollRestoreRowId(null);
   }, []);
 
-  if (bootLoading || !me) return null;
+  if (bootLoading || !me) return <PageContentLoader />;
 
   return (
     <div className="formula-maintenance-page-root container">

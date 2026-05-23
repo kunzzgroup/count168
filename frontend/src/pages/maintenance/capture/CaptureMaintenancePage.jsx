@@ -23,6 +23,8 @@ import {
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
+import PageContentLoader from "../../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
@@ -31,13 +33,13 @@ import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmMod
 
 export default function CaptureMaintenancePage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
   // -- Boot State ---
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [permissions, setPermissions] = useState([]);
 
@@ -176,54 +178,45 @@ export default function CaptureMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
+    if (!sessionReady || !me) return;
+    let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
-        
-        // Member check
-        if (String(u.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
-          return;
-        }
+        const u = me;
 
         // Permissions check
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
         const hasFull = perms.length === 0;
         const canMaintenance = hasFull || perms.includes("maintenance");
-        
+
         // Sidebar visibility check
         if (!canMaintenance) {
           navigate("/dashboard", { replace: true });
           return;
         }
-        setMe(u);
 
         // Load Companies
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
+        if (cancelled) return;
         const rows = Array.isArray(compJson?.data) ? compJson.data : [];
         setCompanies(rows);
 
         // Set Initial Company
         let initialCompanyId = u.company_id ? Number(u.company_id) : (rows[0]?.id ? Number(rows[0].id) : null);
         setCompanyId(initialCompanyId);
-        
+
         const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
-          
+
           // Fetch initial metadata here to ensure the first query starts with the correct activePermission
           const [procList, companyPerms] = await Promise.all([
             fetchProcesses(initialCompanyId),
             fetchCompanyPermissions(code)
           ]);
+          if (cancelled) return;
 
           const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
           const bankOnly = companyPerms.includes("Bank") && !hasGames;
@@ -242,29 +235,32 @@ export default function CaptureMaintenancePage() {
           const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
           const initialActive = savedPerm && companyPerms.includes(savedPerm) ? savedPerm : (companyPerms.length > 0 ? companyPerms[0] : "");
           setActivePermission(initialActive);
-          
+
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-          
+
           let selGroup = null;
           if (savedGroup && groups.includes(savedGroup) && currentComp.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
             selGroup = savedGroup;
           } else if (currentComp.group_id?.trim()) {
             selGroup = String(currentComp.group_id).toUpperCase().trim();
           }
-          
+
           setSelectedGroup(selGroup);
           if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
         }
 
       } catch (err) {
         console.error("Boot error:", err);
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, me, navigate]);
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
@@ -514,7 +510,7 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me || !cssReady) return null;
+  if (bootLoading || !sessionReady || !me || !cssReady) return <PageContentLoader />;
 
   return (
     <div className="container">

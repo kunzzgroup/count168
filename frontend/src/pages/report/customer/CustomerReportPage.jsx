@@ -23,15 +23,18 @@ import CustomerReportFilters from "./CustomerReportFilters.jsx";
 import CustomerReportTable from "./CustomerReportTable.jsx";
 import { useReportGcSwitcher } from "../shared/useReportGcSwitcher.js";
 import { reportToastMaintenanceVariant } from "../shared/reportAmountFormat.js";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import PageContentLoader from "../../../components/PageContentLoader.jsx";
 
 export default function CustomerReportPage() {
   const navigate = useNavigate();
+  const { me } = useAuthSession();
+  const reportBootRan = useRef(false);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getReportText(lang, key, params), [lang]);
   const r = useMemo(() => REPORT_I18N[lang] || REPORT_I18N.en, [lang]);
 
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
 
   const [companyId, setCompanyId] = useState(null);
@@ -138,20 +141,11 @@ export default function CustomerReportPage() {
   }, []);
 
   useEffect(() => {
+    if (!me || reportBootRan.current) return;
+    reportBootRan.current = true;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
-        if (String(u.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
-          return;
-        }
-
+        const u = me;
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
         const hasFull = perms.length === 0;
         const canReport = hasFull || perms.includes("report");
@@ -159,7 +153,6 @@ export default function CustomerReportPage() {
           navigate("/dashboard", { replace: true });
           return;
         }
-        setMe(u);
 
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
@@ -181,7 +174,7 @@ export default function CustomerReportPage() {
         setBootLoading(false);
       }
     })();
-  }, [navigate]);
+  }, [me, navigate]);
 
   const loadReport = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;
@@ -342,7 +335,7 @@ export default function CustomerReportPage() {
     if (!showAllCurrencies) setSelectedCurrencies([]);
   };
 
-  if (bootLoading || !me || !cssReady) return null;
+  if (bootLoading || !me || !cssReady) return <PageContentLoader />;
 
   return (
     <div className="container">

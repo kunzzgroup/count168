@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
 
 const PERMISSION_OPTIONS = [
   "home",
@@ -27,6 +29,7 @@ function parseJsonArray(raw) {
 
 export default function UserAccessPage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -48,16 +51,11 @@ export default function UserAccessPage() {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    if (!sessionReady || !me) return;
     let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson?.success || !meJson?.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const companyId = Number(meJson.data.company_id || 0);
+        const companyId = Number(me.company_id || 0);
 
         const usersRes = await fetch(buildApiUrl("api/useraccess/useraccess_api.php"), {
           method: "POST",
@@ -89,7 +87,7 @@ export default function UserAccessPage() {
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [sessionReady, me, navigate]);
 
   const templateUser = useMemo(
     () => users.find((u) => String(u.id) === String(templateUserId)) || null,
@@ -254,7 +252,7 @@ export default function UserAccessPage() {
     setSelectedProcessIds(new Set());
   }
 
-  if (loading) return null;
+  if (!sessionReady || loading) return <PageContentLoader />;
 
   return (
     <div style={{ marginLeft: 260, padding: 16 }}>
