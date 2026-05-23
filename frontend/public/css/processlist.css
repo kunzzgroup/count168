@@ -1074,6 +1074,7 @@
     flex-wrap: nowrap;
     position: relative;
     z-index: 1;
+    margin-top: var(--text-page-title-mt) !important;
 }
 
 .bank-process-header-left > .page-title {
