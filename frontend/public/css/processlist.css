@@ -1282,6 +1282,10 @@
     overflow-y: auto;
 }
 
+.accounting-due-inbox-table-wrap {
+    padding: 12px 14px 10px;
+}
+
 .accounting-due-inbox-loading,
 .accounting-due-inbox-empty {
     padding: 28px 16px;
@@ -1295,9 +1299,13 @@
     display: grid;
     grid-template-columns: var(--accounting-due-grid-cols);
     column-gap: var(--accounting-due-grid-gap);
-    align-items: center;
+    align-items: stretch;
     width: 100%;
     min-width: 0;
+    border: 1px solid var(--accounting-due-header-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
 }
 
 .accounting-due-inbox-grid-row {
@@ -1308,40 +1316,44 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    min-height: clamp(2.85rem, 2.4vw, 3.35rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--accounting-due-head-min-height);
     padding: var(--accounting-due-head-pad-y) var(--accounting-due-head-pad-x);
-    background: var(--accounting-due-header-bg);
+    background: var(--accounting-due-header-bg) !important;
     border-bottom: 1px solid var(--accounting-due-header-border);
     box-shadow: inset -1px 0 0 var(--accounting-due-header-divider);
-    align-items: center;
+    text-align: center;
 }
 
 .accounting-due-inbox-grid-row--head .accounting-due-inbox-grid-cell--head:last-child {
     box-shadow: none;
-    background: var(--accounting-due-header-bg);
 }
 
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--cb,
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--delete {
-    display: grid;
-    grid-template-rows: auto minmax(var(--accounting-due-checkbox-size), 1fr);
-    align-items: center;
-    justify-items: center;
-    gap: 5px;
-    padding: 0.4rem 0 0.5rem !important;
-    background: var(--accounting-due-header-bg);
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 0.45rem 0.25rem !important;
 }
 
 .accounting-due-inbox-select-head {
-    display: contents;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
 }
 
 .accounting-due-inbox-select-head-label {
-    font-size: clamp(9px, 0.62vw, 11px);
+    font-size: var(--accounting-due-text-action-label);
     font-weight: var(--font-weight-bold);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    line-height: 1.1;
+    line-height: 1;
     text-align: center;
     white-space: nowrap;
 }
@@ -1363,9 +1375,12 @@
 }
 
 .accounting-due-inbox-grid-row:not(.accounting-due-inbox-grid-row--head) .accounting-due-inbox-grid-cell {
+    display: flex;
+    align-items: center;
+    min-height: var(--accounting-due-row-min-height);
     padding: var(--accounting-due-cell-pad-y) var(--accounting-due-cell-pad-x);
     border-bottom: 1px solid var(--accounting-due-row-border);
-    min-height: clamp(2.5rem, 2.1vw, 2.95rem);
+    background: #fff;
 }
 
 .accounting-due-inbox-grid-row:not(.accounting-due-inbox-grid-row--head):last-of-type .accounting-due-inbox-grid-cell {
@@ -1384,9 +1399,6 @@
 
 .accounting-due-inbox-grid-cell {
     min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
     font-size: var(--accounting-due-text-cell);
     font-weight: var(--font-weight-semibold);
     color: var(--color-body-strong);
@@ -1400,20 +1412,13 @@
     text-transform: uppercase;
     color: var(--accounting-due-header-fg);
     white-space: nowrap;
-    background: var(--accounting-due-header-bg);
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.25;
+    line-height: 1.2;
 }
 
 .accounting-due-inbox-grid-cell--cb,
-.accounting-due-inbox-grid-cell--delete {
-    justify-content: center;
-    text-align: center;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-}
-
+.accounting-due-inbox-grid-cell--delete,
 .accounting-due-inbox-grid-cell--no,
 .accounting-due-inbox-grid-cell--date,
 .accounting-due-inbox-grid-cell--bank,
@@ -1422,26 +1427,24 @@
     text-align: center;
 }
 
-.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--no,
-.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--date,
-.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--bank,
-.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--contract {
+.accounting-due-inbox-grid-cell--cb,
+.accounting-due-inbox-grid-cell--delete {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--owner {
     justify-content: center;
     text-align: center;
 }
 
-.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--owner {
+.accounting-due-inbox-grid-cell--owner {
     justify-content: flex-start;
     text-align: left;
 }
 
 .accounting-due-inbox-grid-cell--date {
     white-space: nowrap;
-}
-
-.accounting-due-inbox-grid-cell--owner {
-    justify-content: flex-start;
-    text-align: left;
 }
 
 .accounting-due-inbox-grid-cell--owner,

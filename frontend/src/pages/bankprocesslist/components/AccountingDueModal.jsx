@@ -152,6 +152,7 @@ export default function AccountingDueModal({
           {!accountingLoading && accountingRows.length === 0 ? (
             <div className="accounting-due-inbox-empty">{t("noDueToday")}</div>
           ) : accountingRows.length > 0 ? (
+            <div className="accounting-due-inbox-table-wrap">
             <div className="accounting-due-inbox-grid" role="table" id="processAccountingDueGrid">
               <div className="accounting-due-inbox-grid-row accounting-due-inbox-grid-row--head" role="row">
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--cb" role="columnheader">
@@ -283,6 +284,7 @@ export default function AccountingDueModal({
                   </div>
                 );
               })}
+            </div>
             </div>
           ) : null}
         </div>

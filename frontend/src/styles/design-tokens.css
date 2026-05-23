@@ -163,14 +163,17 @@
   /*
    * Accounting Due inbox (Bank Process List) — grid + spacing aligned with Contra Inbox
    */
-  --accounting-due-grid-cols: 56px 52px minmax(0, 0.68fr) minmax(0, 1.05fr) minmax(0, 0.55fr) minmax(0, 0.78fr) 56px;
+  --accounting-due-grid-cols: 60px 56px minmax(0, 0.7fr) minmax(0, 1.08fr) minmax(0, 0.56fr) minmax(0, 0.8fr) 60px;
   --accounting-due-grid-gap: 0;
-  --accounting-due-cell-pad-y: clamp(0.55rem, 0.48vw, 0.72rem);
-  --accounting-due-cell-pad-x: clamp(0.45rem, 0.4vw, 0.62rem);
-  --accounting-due-head-pad-y: clamp(0.55rem, 0.48vw, 0.72rem);
-  --accounting-due-head-pad-x: clamp(0.45rem, 0.4vw, 0.62rem);
+  --accounting-due-cell-pad-y: clamp(0.58rem, 0.5vw, 0.75rem);
+  --accounting-due-cell-pad-x: clamp(0.5rem, 0.42vw, 0.65rem);
+  --accounting-due-head-pad-y: clamp(0.5rem, 0.42vw, 0.65rem);
+  --accounting-due-head-pad-x: clamp(0.5rem, 0.42vw, 0.65rem);
+  --accounting-due-head-min-height: clamp(3.1rem, 2.6vw, 3.6rem);
+  --accounting-due-row-min-height: clamp(2.65rem, 2.2vw, 3rem);
   --accounting-due-text-cell: var(--text-small);
   --accounting-due-text-head: var(--text-small);
+  --accounting-due-text-action-label: clamp(10px, 0.68vw, 12px);
   --accounting-due-checkbox-size: clamp(16px, 1.05vw, 18px);
   --accounting-due-header-bg: #f4f7fc;
   --accounting-due-header-fg: var(--color-heading);

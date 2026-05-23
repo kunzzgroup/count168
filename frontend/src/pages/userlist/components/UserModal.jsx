@@ -141,7 +141,6 @@ import {
   roleHasReadOnlyToggle,
   canInteractWithReadOnlyToggle,
   isUserModalPageReadOnlyLock,
-  isOwnerEditingOwnerShadow,
 } from "../userListLogic.js";
 
 export default function UserModal({
@@ -341,7 +340,6 @@ export default function UserModal({
     setCompanySearchQuery("");
   }, [open, pageReadOnlyLock]);
 
-  const ownerShadowProfileEdit = isOwnerEditingOwnerShadow(editingRow, currentUserRole);
   const permissionsLocked = fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
   const showSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
 
@@ -350,11 +348,6 @@ export default function UserModal({
       <div className={`modal-content user-modal-content${isEditMode ? " edit-mode" : ""}`}>
         <div className="modal-header-bar">
           <h2 id="modalTitle">{isEditMode ? (editingRow?.is_owner_shadow ? t("editOwner") : t("editUser")) : t("addUser")}</h2>
-          {ownerShadowProfileEdit ? (
-            <p className="user-modal-owner-shadow-hint" style={{ margin: "4px 0 0", fontSize: "12px", color: "#64748b", fontWeight: 400 }}>
-              {t("editOwnerProfileHint")}
-            </p>
-          ) : null}
           <button type="button" className="btn-back" onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
