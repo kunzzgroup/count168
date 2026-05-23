@@ -437,6 +437,7 @@ export function useBankProcessListPage() {
     setCssReady(true);
     return () => {
       document.body.classList.remove("process-page", "process-page--bank", "process-page--bank-show-all");
+      document.body.classList.add("dashboard-page");
     };
   }, []);
 

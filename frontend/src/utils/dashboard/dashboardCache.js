@@ -1,6 +1,6 @@
 const MAX_ENTRIES = 24;
 
-/** @type {Map<string, Record<string, unknown>>} */
+/** @type {Map<string, { current: unknown, previous: unknown, earnings?: Array<{ code: string, earnings: number }> }>} */
 const store = new Map();
 
 export function buildDashboardCacheKey({
@@ -12,27 +12,27 @@ export function buildDashboardCacheKey({
   groupAllMode,
   mergedSubsetIds,
 }) {
-  const ids = Array.isArray(mergedSubsetIds) ? [...mergedSubsetIds].sort((a, b) => Number(a) - Number(b)).join(",") : "";
+  const subset = mergedSubsetIds?.length
+    ? [...mergedSubsetIds].sort((a, b) => a - b).join(",")
+    : "";
   return [
     companyId ?? "",
-    dateFrom ?? "",
-    dateTo ?? "",
-    currencyCode ?? "",
-    selectedGroup ?? "",
+    dateFrom,
+    dateTo,
+    currencyCode || "",
+    selectedGroup || "",
     groupAllMode ? "1" : "0",
-    ids,
+    subset,
   ].join("|");
 }
 
 export function getDashboardCache(key) {
-  if (!key) return null;
   return store.get(key) ?? null;
 }
 
-export function setDashboardCache(key, value) {
-  if (!key || !value) return;
+export function setDashboardCache(key, entry) {
   if (store.has(key)) store.delete(key);
-  store.set(key, { ...value });
+  store.set(key, entry);
   while (store.size > MAX_ENTRIES) {
     const oldest = store.keys().next().value;
     store.delete(oldest);
@@ -40,12 +40,10 @@ export function setDashboardCache(key, value) {
 }
 
 export function patchDashboardCache(key, patch) {
-  if (!key || !patch) return;
-  const prev = store.get(key) ?? {};
-  if (store.has(key)) store.delete(key);
-  store.set(key, { ...prev, ...patch });
-  while (store.size > MAX_ENTRIES) {
-    const oldest = store.keys().next().value;
-    store.delete(oldest);
+  const prev = store.get(key);
+  if (!prev) {
+    setDashboardCache(key, patch);
+    return;
   }
+  setDashboardCache(key, { ...prev, ...patch });
 }
