@@ -152,27 +152,35 @@ function scheduleDismissOnOutsideClick(menuId) {
   }, 0);
 }
 
+function showOnlyContextMenu(menu, e, anchorElement, beforeShow) {
+  hideContextMenu();
+  if (beforeShow) beforeShow();
+  if (!menu) return;
+  positionContextMenu(menu, e, anchorElement);
+}
+
 export function showContextMenu(e, cell) {
   const contextMenu = document.getElementById("contextMenu");
   if (!contextMenu || !cell) return;
 
-  const count = getSelectedCellCount();
-  if (count > 1) {
-    // preserve multi-select
-  } else if (count === 1) {
-    const isCtrlPressed = e.ctrlKey || e.metaKey;
-    if (!isCellSelected(cell) && !isCtrlPressed) {
+  showOnlyContextMenu(contextMenu, e, cell, () => {
+    const count = getSelectedCellCount();
+    if (count > 1) {
+      // preserve multi-select
+    } else if (count === 1) {
+      const isCtrlPressed = e.ctrlKey || e.metaKey;
+      if (!isCellSelected(cell) && !isCtrlPressed) {
+        clearAllSelections();
+        registerSelectedCell(cell);
+        cell.classList.add("multi-selected");
+      }
+    } else {
       clearAllSelections();
       registerSelectedCell(cell);
       cell.classList.add("multi-selected");
     }
-  } else {
-    clearAllSelections();
-    registerSelectedCell(cell);
-    cell.classList.add("multi-selected");
-  }
+  });
 
-  positionContextMenu(contextMenu, e, cell);
   scheduleDismissOnOutsideClick("contextMenu");
 }
 
@@ -185,13 +193,15 @@ export function showColumnContextMenu(e, headerEl) {
 
   const actualColIndex = getColumnIndexFromHeader(target);
   const finalColIndex = actualColIndex >= 0 ? actualColIndex : null;
-  setContextMenuColumn(finalColIndex);
-  window.__DC_SET_CONTEXT_MENU_COLUMN__?.(finalColIndex);
 
   const columnContextMenu = document.getElementById("columnContextMenu");
   if (!columnContextMenu) return;
 
-  positionContextMenu(columnContextMenu, e, target);
+  showOnlyContextMenu(columnContextMenu, e, target, () => {
+    setContextMenuColumn(finalColIndex);
+    window.__DC_SET_CONTEXT_MENU_COLUMN__?.(finalColIndex);
+  });
+
   scheduleDismissOnOutsideClick("columnContextMenu");
 }
 
@@ -204,12 +214,14 @@ export function showRowContextMenu(e, rowHeaderEl) {
 
   const actualRowIndex = getRowIndexFromHeader(target);
   const finalRowIndex = actualRowIndex >= 0 ? actualRowIndex : null;
-  setContextMenuRow(finalRowIndex);
-  window.__DC_SET_CONTEXT_MENU_ROW__?.(finalRowIndex);
 
   const rowContextMenu = document.getElementById("rowContextMenu");
   if (!rowContextMenu) return;
 
-  positionContextMenu(rowContextMenu, e, target);
+  showOnlyContextMenu(rowContextMenu, e, target, () => {
+    setContextMenuRow(finalRowIndex);
+    window.__DC_SET_CONTEXT_MENU_ROW__?.(finalRowIndex);
+  });
+
   scheduleDismissOnOutsideClick("rowContextMenu");
 }
