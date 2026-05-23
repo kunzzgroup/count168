@@ -287,10 +287,13 @@ if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
     }
 }
 
-// Save rate values on browser refresh (F5); do not save when leaving via Back or Submit
+// Save draft state on browser refresh (F5); skip when leaving via Back or Submit
 window.addEventListener('beforeunload', function () {
+    if (!window.isNavigatingAwayByBackOrSubmit && typeof saveRateValuesForRefresh === 'function') {
+        saveRateValuesForRefresh();
+    }
     if (!window.isNavigatingAwayByBackOrSubmit && typeof saveFormulaSourceForRefresh === 'function') {
-        saveFormulaSourceForRefresh({ includeRateValue: false });
+        saveFormulaSourceForRefresh();
     }
 });
 
@@ -1407,7 +1410,8 @@ function restoreRateValuesFromRefresh() {
 // Go back to datacapture page, preserving localStorage data
 // 离开前先保存当前 Rate/Formula/行顺序，以便用户再次进入 Summary 时能恢复（不清除缓存）
 function goBackToDataCapture() {
-    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh({ includeRateValue: false });
+    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
     if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_NAV_BACK__ === 'function') {
         window.__SUMMARY_REACT_NAV_BACK__();
@@ -1419,12 +1423,10 @@ function goBackToDataCapture() {
     window.location.href = buildApiUrl(backUrl);
 }
 
-// Refresh page: reload templates; unsaved Rate Value is discarded (Rate Submit only).
+// Refresh page: save draft Rate/Formula so they restore after reload (before final Submit).
 function refreshPage() {
-    try {
-        localStorage.removeItem('capturedTableRateValues');
-        localStorage.removeItem('capturedTableRateValuesByProductId');
-    } catch (e) { }
+    saveRateValuesForRefresh();
+    saveFormulaSourceForRefresh();
     if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_REFRESH__ === 'function') {
         window.__SUMMARY_REACT_REFRESH__();
         return;

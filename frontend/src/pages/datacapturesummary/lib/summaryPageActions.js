@@ -1,18 +1,8 @@
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
-/** Clear scratch Rate caches. Committed Rate still restores from server after refresh. */
-export function clearUnsavedSummaryRateScratch() {
-  try {
-    localStorage.removeItem("capturedTableRateValues");
-    localStorage.removeItem("capturedTableRateValuesByProductId");
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Persist formula/source refresh caches. Rate only when includeRateValue is true (Rate Submit). */
+/** Persist formula/source/rate draft caches before refresh or leaving (not final Submit). */
 export function saveSummaryRefreshState(options = {}) {
-  const includeRateValue = options.includeRateValue === true;
+  const includeRateValue = options.includeRateValue !== false;
   if (includeRateValue) {
     window.saveRateValuesForRefresh?.();
   }

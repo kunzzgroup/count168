@@ -4,7 +4,6 @@ import {
   buildSummaryRestoreCapturePath,
   buildSummarySubmittedCapturePath,
   clearSummarySessionAfterSubmit,
-  clearUnsavedSummaryRateScratch,
   runLegacyRateBatchSubmit,
   runLegacyRateSelectAll,
   saveSummaryRefreshState,
@@ -25,7 +24,7 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
   const [deleteCount, setDeleteCount] = useState(0);
 
   const navigateBack = useCallback(() => {
-    saveSummaryRefreshState({ includeRateValue: false });
+    saveSummaryRefreshState();
     window.isNavigatingAwayByBackOrSubmit = true;
     navigate(buildSummaryRestoreCapturePath(companyId), { replace: true });
   }, [navigate, companyId]);
@@ -73,8 +72,8 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
   }, [navigateBack]);
 
   const handleRefresh = useCallback(async () => {
-    // Refresh reloads templates — do not persist unsaved Rate edits (Rate Submit only).
-    clearUnsavedSummaryRateScratch();
+    // Save draft Rate/Formula before reload so Refresh retains edits prior to final Submit.
+    saveSummaryRefreshState();
     if (
       window.__SUMMARY_REACT_TABLE__ &&
       typeof window.__SUMMARY_REACT_ON_TABLE_READY__ === "function"
