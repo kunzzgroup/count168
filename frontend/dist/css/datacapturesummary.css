@@ -1183,7 +1183,6 @@
         }
 
         .edit-formula-form-container .form-row {
-            margin-bottom: clamp(6px, 0.63vw, 12px);
             display: flex;
             gap: clamp(12px, 1.04vw, 20px);
             align-items: flex-end;
@@ -1208,6 +1207,7 @@
             flex: 1;
             overflow: visible;
             position: relative;
+            margin-bottom: 0;
         }
         
         /* Ensure account form group allows dropdown overflow */
@@ -1225,7 +1225,6 @@
             font-size: clamp(10px, 0.73vw, 14px);
             min-width: clamp(80px, 6.25vw, 120px);
             flex-shrink: 0;
-            margin-bottom: 4px;
         }
 
         .edit-formula-form-container .form-group input,
@@ -1437,8 +1436,12 @@
         .edit-formula-form-container .form-actions {
             display: flex;
             gap: clamp(8px, 0.63vw, 12px);
-            justify-content: center;
+            justify-content: center !important;
+            align-items: center;
             margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+            width: 100%;
         }
 
         /* Enhanced Table Styles for Captured Data - 与datacapture.php中的excel-table样式完全一致 */
