@@ -3,6 +3,24 @@
  */
 
 let activeContextMenuAnchor = null;
+let contextMenuColumn = null;
+let contextMenuRow = null;
+
+export function setContextMenuColumn(col) {
+  contextMenuColumn = col;
+}
+
+export function getContextMenuColumnIndex() {
+  return contextMenuColumn;
+}
+
+export function setContextMenuRow(row) {
+  contextMenuRow = row;
+}
+
+export function getContextMenuRowIndex() {
+  return contextMenuRow;
+}
 
 function getColumnIndexFromHeader(header) {
   const headerRow = document.querySelector("#tableHeader tr");
@@ -158,13 +176,16 @@ export function showContextMenu(e, cell) {
   scheduleDismissOnOutsideClick("contextMenu");
 }
 
-export function showColumnContextMenu(e, colIndex) {
+export function showColumnContextMenu(e, headerEl) {
   e.preventDefault();
   e.stopPropagation();
 
-  const target = e.currentTarget || e.target;
+  const target = headerEl || e.target?.closest?.("#tableHeader th");
+  if (!target || target.cellIndex <= 0) return;
+
   const actualColIndex = getColumnIndexFromHeader(target);
-  const finalColIndex = actualColIndex >= 0 ? actualColIndex : colIndex;
+  const finalColIndex = actualColIndex >= 0 ? actualColIndex : null;
+  setContextMenuColumn(finalColIndex);
   window.__DC_SET_CONTEXT_MENU_COLUMN__?.(finalColIndex);
 
   const columnContextMenu = document.getElementById("columnContextMenu");
@@ -174,13 +195,16 @@ export function showColumnContextMenu(e, colIndex) {
   scheduleDismissOnOutsideClick("columnContextMenu");
 }
 
-export function showRowContextMenu(e, rowIndex) {
+export function showRowContextMenu(e, rowHeaderEl) {
   e.preventDefault();
   e.stopPropagation();
 
-  const target = e.currentTarget || e.target;
+  const target = rowHeaderEl || e.target?.closest?.(".row-header");
+  if (!target) return;
+
   const actualRowIndex = getRowIndexFromHeader(target);
-  const finalRowIndex = actualRowIndex >= 0 ? actualRowIndex : rowIndex;
+  const finalRowIndex = actualRowIndex >= 0 ? actualRowIndex : null;
+  setContextMenuRow(finalRowIndex);
   window.__DC_SET_CONTEXT_MENU_ROW__?.(finalRowIndex);
 
   const rowContextMenu = document.getElementById("rowContextMenu");

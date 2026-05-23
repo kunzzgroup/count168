@@ -62,7 +62,7 @@
         }
         
         .batch-controls-group .batch-input {
-            width: clamp(80px, 10.25vw, 120px);
+            width: clamp(120px, 10.25vw, 150px);
             padding: clamp(4px, 0.42vw, 8px) clamp(8px, 0.83vw, 16px);
             border: 1px solid #d1d5db;
             border-radius: 6px;

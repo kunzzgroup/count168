@@ -18,6 +18,10 @@ import {
   showContextMenu,
   showRowContextMenu,
   updateActiveContextMenuPosition,
+  getContextMenuColumnIndex,
+  getContextMenuRowIndex,
+  setContextMenuColumn,
+  setContextMenuRow,
 } from "../lib/dataCaptureContextMenu.js";
 import {
   clearColumn,
@@ -82,9 +86,15 @@ export function useDataCaptureGridInteraction(scriptsReady) {
     window.__DC_SHOW_CONTEXT_MENU_REACT__ = showContextMenu;
     window.__DC_SHOW_COLUMN_CONTEXT_MENU_REACT__ = showColumnContextMenu;
     window.__DC_SHOW_ROW_CONTEXT_MENU_REACT__ = showRowContextMenu;
+    window.__DC_SHOW_COLUMN_CONTEXT_MENU__ = showColumnContextMenu;
+    window.__DC_SHOW_ROW_CONTEXT_MENU__ = showRowContextMenu;
     window.__DC_HIDE_CONTEXT_MENU__ = hideContextMenu;
     window.__DC_UPDATE_CONTEXT_MENU_POSITION__ = updateActiveContextMenuPosition;
     window.updateActiveContextMenuPosition = updateActiveContextMenuPosition;
+    window.__DC_SET_CONTEXT_MENU_COLUMN__ = setContextMenuColumn;
+    window.__DC_GET_CONTEXT_MENU_COLUMN__ = getContextMenuColumnIndex;
+    window.__DC_SET_CONTEXT_MENU_ROW__ = setContextMenuRow;
+    window.__DC_GET_CONTEXT_MENU_ROW__ = getContextMenuRowIndex;
 
     window.__DC_INSERT_COLUMN_LEFT__ = insertColumnLeft;
     window.__DC_INSERT_COLUMN_RIGHT__ = insertColumnRight;
@@ -146,8 +156,14 @@ export function useDataCaptureGridInteraction(scriptsReady) {
       delete window.__DC_SHOW_CONTEXT_MENU_REACT__;
       delete window.__DC_SHOW_COLUMN_CONTEXT_MENU_REACT__;
       delete window.__DC_SHOW_ROW_CONTEXT_MENU_REACT__;
+      delete window.__DC_SHOW_COLUMN_CONTEXT_MENU__;
+      delete window.__DC_SHOW_ROW_CONTEXT_MENU__;
       delete window.__DC_HIDE_CONTEXT_MENU__;
       delete window.__DC_UPDATE_CONTEXT_MENU_POSITION__;
+      delete window.__DC_SET_CONTEXT_MENU_COLUMN__;
+      delete window.__DC_GET_CONTEXT_MENU_COLUMN__;
+      delete window.__DC_SET_CONTEXT_MENU_ROW__;
+      delete window.__DC_GET_CONTEXT_MENU_ROW__;
       if (window.updateActiveContextMenuPosition === updateActiveContextMenuPosition) {
         delete window.updateActiveContextMenuPosition;
       }

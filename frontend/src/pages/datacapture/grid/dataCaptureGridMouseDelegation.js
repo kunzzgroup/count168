@@ -65,14 +65,14 @@ export function attachGridMouseDelegation(dataTable) {
     const colHeader = e.target?.closest?.("#tableHeader th");
     if (colHeader && colHeader.cellIndex > 0) {
       e.preventDefault();
-      window.__DC_SHOW_COLUMN_CONTEXT_MENU__?.(e);
+      window.__DC_SHOW_COLUMN_CONTEXT_MENU_REACT__?.(e, colHeader);
       return;
     }
 
     const rowHeader = e.target?.closest?.(".row-header");
     if (rowHeader && dataTable.contains(rowHeader)) {
       e.preventDefault();
-      window.__DC_SHOW_ROW_CONTEXT_MENU__?.(e);
+      window.__DC_SHOW_ROW_CONTEXT_MENU_REACT__?.(e, rowHeader);
       return;
     }
 
