@@ -747,6 +747,10 @@ body.process-page {
     z-index: 10020;
 }
 
+.process-page .bank-status-menu.bank-status-menu-floating.bank-status-menu-floating--up {
+    top: auto;
+}
+
 .process-page .bank-status-dropdown.open .bank-status-menu {
     display: flex;
 }
@@ -1190,9 +1194,9 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     text-overflow: ellipsis;
 }
 
-@media (max-width: 1599px) {
+@media (max-width: 1699px) {
     .process-page.process-page--bank .bank-virtual-head-row .bank-virtual-th {
-        overflow: visible;
+        overflow: hidden;
         text-overflow: clip;
     }
 }
@@ -1558,14 +1562,14 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     line-height: 1.2;
 }
 
-@media (min-width: 1600px) {
+@media (min-width: 1700px) {
     .process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.header-item--with-sort-icon {
         display: flex !important;
         flex-wrap: nowrap !important;
     }
 }
 
-@media (min-width: 1600px) {
+@media (min-width: 1700px) {
     .process-page.process-page--bank .bank-process-table-region .table-header .header-item.header-item--with-sort-icon .header-item__label {
         min-width: 0;
         flex: 0 1 auto;
@@ -1693,7 +1697,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
     min-width: 0;
 }
 
-@media (min-width: 1600px) {
+@media (min-width: 1700px) {
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th {
         flex-wrap: nowrap !important;
@@ -1701,31 +1705,33 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
     }
 }
 
-@media (max-width: 1599px) {
+@media (max-width: 1699px) {
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th {
-        flex-wrap: wrap !important;
-        height: auto !important;
-        overflow: visible !important;
+        flex-wrap: nowrap !important;
+        height: var(--bank-list-header-row-height) !important;
+        overflow: hidden !important;
         text-overflow: clip !important;
     }
 }
 
-/* Bank 表头：完整显示标题（Country / Insurance / Card Owner 等），数据列仍 ellipsis */
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header.header-item--with-sort-icon {
-    overflow: visible;
-    min-width: 0;
-}
+/* Bank 表头：宽屏完整显示标题；<1700px 由下方 media 统一角标排序 */
+@media (min-width: 1700px) {
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header.header-item--with-sort-icon {
+        overflow: visible;
+        min-width: 0;
+    }
 
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header .header-item__label,
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header.header-item--with-sort-icon .header-item__label {
-    min-width: 0;
-    max-width: none;
-    overflow: visible;
-    text-overflow: clip;
-    flex-shrink: 0;
-    white-space: nowrap;
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header.header-item--with-sort-icon .header-item__label {
+        min-width: 0;
+        max-width: none;
+        overflow: visible;
+        text-overflow: clip;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
 }
 
 /* 居中列：Contract→Profit / Status / 序号 等（整块统一居中，避免列内左右不齐） */
@@ -1904,7 +1910,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
     justify-content: flex-start;
 }
 
-@media (min-width: 1600px) {
+@media (min-width: 1700px) {
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .header-item__label {
         flex: 0 1 auto;
         min-width: 0;
@@ -1913,6 +1919,21 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
         white-space: nowrap;
         overflow: visible;
         text-overflow: clip;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon {
+        position: static;
+        transform: none;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon__up,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon__down {
+        display: block;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon::before {
+        content: none;
+        display: none;
     }
 }
 
@@ -1976,21 +1997,182 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
     background: inherit;
 }
 
-/* 视口 < 1700px：加宽 Status/Date/Action；Bank/Owner 保留最小宽度 */
+/* 视口 < 1700px：统一表头角标排序 + 列宽保证标题完整、同一基线 */
 @media (max-width: 1699px) {
     .process-page.process-page--bank {
+        --bank-list-cell-padding-x: clamp(4px, 0.42vw, 8px);
+        --bank-list-header-row-height: clamp(40px, 2.9vw, 48px);
+        --bank-header-th-font-size: clamp(10px, 0.7vw, 12px);
         --bank-virtual-grid-columns:
-            minmax(0, 0.3fr) minmax(0, 0.55fr) minmax(0, 0.4fr)
-            minmax(118px, 0.9fr) minmax(158px, 1.55fr)
-            minmax(52px, 0.5fr) minmax(0, 0.46fr) minmax(0, 0.44fr)
-            minmax(0, 0.48fr) minmax(0, 0.48fr) minmax(0, 0.48fr)
-            minmax(76px, 0.7fr) minmax(92px, 0.72fr) minmax(84px, 0.58fr);
+            minmax(30px, 0.16fr) minmax(70px, 0.4fr) minmax(66px, 0.3fr)
+            minmax(108px, 0.82fr) minmax(128px, 1.42fr)
+            minmax(70px, 0.38fr) minmax(74px, 0.34fr) minmax(70px, 0.32fr)
+            minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
+            minmax(56px, 0.48fr) minmax(90px, 0.54fr) minmax(80px, 0.44fr);
         --bank-virtual-grid-columns-with-select:
-            minmax(0, 0.3fr) minmax(0, 0.55fr) minmax(0, 0.4fr)
-            minmax(118px, 0.9fr) minmax(158px, 1.55fr)
-            minmax(52px, 0.5fr) minmax(0, 0.46fr) minmax(0, 0.44fr)
-            minmax(0, 0.48fr) minmax(0, 0.48fr) minmax(0, 0.48fr)
-            minmax(76px, 0.7fr) minmax(92px, 0.72fr) minmax(84px, 0.58fr) minmax(40px, 0.32fr);
+            minmax(30px, 0.16fr) minmax(70px, 0.4fr) minmax(66px, 0.3fr)
+            minmax(108px, 0.82fr) minmax(128px, 1.42fr)
+            minmax(70px, 0.38fr) minmax(74px, 0.34fr) minmax(70px, 0.32fr)
+            minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
+            minmax(56px, 0.48fr) minmax(90px, 0.54fr) minmax(80px, 0.44fr) minmax(38px, 0.28fr);
+    }
+
+    /* 表头：单行对齐；角标 ↕/▲/▼ 贴列右上，文字同一基线 */
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header {
+        font-size: var(--bank-header-th-font-size) !important;
+        overflow: hidden !important;
+        text-overflow: clip !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-sortable,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-sortable {
+        cursor: pointer;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-sortable:hover,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-sortable:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon {
+        position: relative !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        align-content: center !important;
+        justify-content: center !important;
+        column-gap: 0 !important;
+        row-gap: 0 !important;
+        overflow: hidden !important;
+        max-width: 100%;
+        min-width: 0;
+        height: var(--bank-list-header-row-height) !important;
+        min-height: var(--bank-list-header-row-height) !important;
+        padding-right: clamp(10px, 0.75vw, 12px) !important;
+        box-sizing: border-box !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-supplier,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-ccy,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-bank,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-owner,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-supplier,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-ccy,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-bank,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-owner {
+        justify-content: flex-start !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header.header-item--with-sort-icon .header-item__label,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .header-item__label {
+        display: block !important;
+        flex: 1 1 auto !important;
+        -webkit-box-orient: unset !important;
+        -webkit-line-clamp: unset !important;
+        line-clamp: unset !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        line-height: var(--bank-list-cell-line-height, 1.22) !important;
+        padding-right: 2px !important;
+        text-align: inherit;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon {
+        position: absolute !important;
+        top: 50% !important;
+        right: 2px !important;
+        transform: translateY(-50%) !important;
+        display: inline-flex !important;
+        flex: none !important;
+        flex-shrink: 0 !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 8px !important;
+        min-width: 8px !important;
+        max-width: 8px !important;
+        height: 8px !important;
+        margin: 0 !important;
+        gap: 0 !important;
+        opacity: 0.5;
+        pointer-events: none;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon__up,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon__down,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon__up,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon__down {
+        display: none !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon::before,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon::before {
+        content: "↕";
+        display: block;
+        font-size: 8px;
+        line-height: 1;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.72);
+        letter-spacing: 0;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon.is-asc::before,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon.is-asc::before {
+        content: "▲";
+        color: #fff;
+        font-size: 7px;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon.is-desc::before,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon.is-desc::before {
+        content: "▼";
+        color: #fff;
+        font-size: 7px;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-sortable:hover .account-sort-icon,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-sortable:hover .account-sort-icon {
+        opacity: 0.9;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-sortable:hover .account-sort-icon::before,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-sortable:hover .account-sort-icon::before {
+        color: #fff;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon.is-active,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon.is-active {
+        opacity: 1;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-no .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-contract .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-insurance .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-customer .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-cost .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-price .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-profit .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-status .header-item__label,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-date .header-item__label {
+        text-align: center;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-col-insurance.bank-virtual-th,
+    body.process-page.process-page--bank .bank-process-table-region .bank-col-customer.bank-virtual-th,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-insurance.bank-virtual-th,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-customer.bank-virtual-th {
+        padding-left: clamp(3px, 0.28vw, 5px) !important;
+        padding-right: clamp(10px, 0.75vw, 12px) !important;
     }
 
     .process-page.process-page--bank .bank-status-button {
@@ -2051,7 +2233,7 @@ body.process-page.process-page--bank .bank-cell-display__type {
         --bank-list-cell-padding-y: clamp(4px, 0.38vw, 7px);
         --bank-list-cell-line-height: 1.22;
         --bank-list-cell-min-height: clamp(42px, 3vw, 54px);
-        --bank-list-header-row-height: clamp(50px, 3.5vw, 62px);
+        --bank-list-header-row-height: clamp(40px, 2.9vw, 48px);
         --bank-header-th-font-size: clamp(9px, 0.65vw, 11px);
         /* 列宽按表头完整词 + 排序图标预留（No…Action） */
         --bank-virtual-grid-columns:
@@ -2059,123 +2241,13 @@ body.process-page.process-page--bank .bank-cell-display__type {
             minmax(44px, 0.58fr) minmax(82px, 0.98fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(54px, 0.5fr) minmax(48px, 0.5fr) minmax(56px, 0.42fr);
+            minmax(52px, 0.46fr) minmax(88px, 0.56fr) minmax(76px, 0.44fr);
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.28fr)
             minmax(44px, 0.58fr) minmax(82px, 0.98fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(54px, 0.5fr) minmax(48px, 0.5fr) minmax(56px, 0.42fr) minmax(34px, 0.26fr);
-    }
-
-    /* 表头：<1600px 完整展示标题；窄列时标签与排序图标自动换行 */
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header {
-        font-size: var(--bank-header-th-font-size) !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-    }
-
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        align-items: center !important;
-        align-content: center !important;
-        justify-content: center !important;
-        column-gap: 3px !important;
-        row-gap: 1px !important;
-        overflow: visible !important;
-        max-width: 100%;
-        min-width: 0;
-        height: auto !important;
-        min-height: var(--bank-list-header-row-height) !important;
-    }
-
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-supplier,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-ccy,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-bank,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-owner,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-supplier,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-ccy,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-bank,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-owner {
-        justify-content: flex-start !important;
-    }
-
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .header-item__label,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header.header-item--with-sort-icon .header-item__label,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .header-item__label {
-        display: block !important;
-        flex: 0 1 auto !important;
-        -webkit-box-orient: unset !important;
-        -webkit-line-clamp: unset !important;
-        line-clamp: unset !important;
-        white-space: nowrap !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-        word-break: normal !important;
-        overflow-wrap: normal !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        line-height: 1.12 !important;
-        text-align: inherit;
-    }
-
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon {
-        flex: 0 0 11px !important;
-        flex-shrink: 0 !important;
-        width: 11px !important;
-        min-width: 11px !important;
-        max-width: 11px !important;
-        align-self: center !important;
-        margin: 0 !important;
-    }
-
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-no .header-item__label,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-contract .header-item__label,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-insurance .header-item__label,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-customer .header-item__label,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-cost .header-item__label,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-price .header-item__label,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-profit .header-item__label,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-status .header-item__label,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-date .header-item__label {
-        text-align: center;
-    }
-
-    body.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-th,
-    body.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-cell {
-        padding-left: clamp(4px, 0.32vw, 6px);
-        padding-right: clamp(6px, 0.45vw, 10px);
-    }
-
-    body.process-page.process-page--bank .bank-process-table-region .bank-col-ccy.bank-virtual-th,
-    body.process-page.process-page--bank .bank-process-table-region .bank-col-ccy.bank-virtual-cell {
-        padding-left: clamp(4px, 0.32vw, 6px);
-        padding-right: clamp(6px, 0.45vw, 10px);
-    }
-
-    body.process-page.process-page--bank .bank-process-table-region .bank-col-insurance.bank-virtual-th,
-    body.process-page.process-page--bank .bank-process-table-region .bank-col-insurance.bank-virtual-cell,
-    body.process-page.process-page--bank .bank-process-table-region .bank-col-customer.bank-virtual-th,
-    body.process-page.process-page--bank .bank-process-table-region .bank-col-customer.bank-virtual-cell {
-        padding-left: clamp(4px, 0.32vw, 6px);
-        padding-right: clamp(4px, 0.32vw, 6px);
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-th,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-cell {
-        padding-right: clamp(6px, 0.45vw, 10px) !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-ccy.bank-virtual-th,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-ccy.bank-virtual-cell {
-        padding-left: clamp(4px, 0.32vw, 6px) !important;
-        padding-right: clamp(6px, 0.45vw, 10px) !important;
+            minmax(52px, 0.46fr) minmax(88px, 0.56fr) minmax(76px, 0.44fr) minmax(34px, 0.26fr);
     }
 
     /* 行高由 Bank/Owner 等两行列决定；其余列垂直居中于行内 */
@@ -2316,9 +2388,8 @@ body.process-page.process-page--bank .bank-cell-display__type {
         text-overflow: ellipsis;
     }
 
-    /* Status / Action：随两行 Bank 垂直居中 */
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-status-cell,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-action-cell {
+    /* Status / Action：随两行 Bank 垂直居中；Action 限制在列内避免压住 Date */
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-status-cell {
         display: flex !important;
         flex-wrap: nowrap !important;
         align-self: center !important;
@@ -2330,7 +2401,20 @@ body.process-page.process-page--bank .bank-cell-display__type {
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-action-cell {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-self: center !important;
+        align-items: center !important;
+        align-content: center !important;
         justify-content: flex-start !important;
+        overflow: hidden !important;
+        max-width: 100%;
+        white-space: nowrap !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-date.bank-virtual-cell {
+        overflow: hidden !important;
+        padding-right: clamp(6px, 0.45vw, 8px) !important;
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-supplier.bank-virtual-cell,
@@ -2382,13 +2466,13 @@ body.process-page.process-page--bank .bank-cell-display__type {
             minmax(100px, 0.72fr) minmax(72px, 1.05fr)
             minmax(66px, 0.36fr) minmax(72px, 0.32fr) minmax(68px, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(54px, 0.5fr) minmax(48px, 0.5fr) minmax(56px, 0.42fr);
+            minmax(52px, 0.46fr) minmax(88px, 0.56fr) minmax(76px, 0.44fr);
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(66px, 0.4fr) minmax(62px, 0.28fr)
             minmax(100px, 0.72fr) minmax(72px, 1.05fr)
             minmax(66px, 0.36fr) minmax(72px, 0.32fr) minmax(68px, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(54px, 0.5fr) minmax(48px, 0.5fr) minmax(56px, 0.42fr) minmax(34px, 0.26fr);
+            minmax(52px, 0.46fr) minmax(88px, 0.56fr) minmax(76px, 0.44fr) minmax(34px, 0.26fr);
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-th,
@@ -2432,13 +2516,13 @@ body.process-page.process-page--bank .bank-cell-display__type {
             minmax(104px, 0.76fr) minmax(68px, 1.02fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.46fr) minmax(66px, 0.46fr) minmax(62px, 0.44fr)
-            minmax(54px, 0.5fr) minmax(48px, 0.5fr) minmax(56px, 0.42fr);
+            minmax(52px, 0.44fr) minmax(90px, 0.56fr) minmax(78px, 0.44fr);
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.26fr)
             minmax(104px, 0.76fr) minmax(68px, 1.02fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.46fr) minmax(66px, 0.46fr) minmax(62px, 0.44fr)
-            minmax(54px, 0.5fr) minmax(48px, 0.5fr) minmax(56px, 0.42fr) minmax(34px, 0.26fr);
+            minmax(52px, 0.44fr) minmax(90px, 0.56fr) minmax(78px, 0.44fr) minmax(34px, 0.26fr);
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-th,
@@ -2492,13 +2576,77 @@ body.process-page.process-page--bank .bank-cell-display__type {
     }
 }
 
+/* 视口 ≤ 1439px：加宽 Date / Action（置于 1408 之后，避免被覆盖） */
+@media (max-width: 1439px) {
+    .process-page.process-page--bank {
+        --bank-virtual-grid-columns:
+            minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.26fr)
+            minmax(104px, 0.74fr) minmax(66px, 1fr)
+            minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
+            minmax(66px, 0.44fr) minmax(66px, 0.44fr) minmax(62px, 0.42fr)
+            minmax(52px, 0.42fr) minmax(94px, 0.58fr) minmax(82px, 0.46fr);
+        --bank-virtual-grid-columns-with-select:
+            minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.26fr)
+            minmax(104px, 0.74fr) minmax(66px, 1fr)
+            minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
+            minmax(66px, 0.44fr) minmax(66px, 0.44fr) minmax(62px, 0.42fr)
+            minmax(52px, 0.42fr) minmax(94px, 0.58fr) minmax(82px, 0.46fr) minmax(34px, 0.26fr);
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-col-date.bank-virtual-th,
+    body.process-page.process-page--bank .bank-process-table-region .bank-col-date.bank-virtual-cell,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-date.bank-virtual-cell,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-date.bank-virtual-th,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-date.bank-virtual-cell {
+        padding-left: clamp(4px, 0.32vw, 6px) !important;
+        padding-right: clamp(8px, 0.55vw, 10px) !important;
+        overflow: hidden !important;
+        text-overflow: clip !important;
+        z-index: 2;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-col-action.bank-virtual-th,
+    body.process-page.process-page--bank .bank-process-table-region .bank-col-action.bank-virtual-cell,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-action.bank-virtual-cell,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-action-cell,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-action.bank-virtual-th,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-action.bank-virtual-cell {
+        padding-left: clamp(6px, 0.45vw, 8px) !important;
+        padding-right: clamp(2px, 0.2vw, 4px) !important;
+        overflow: hidden !important;
+        max-width: 100%;
+        z-index: 1;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-action-cell {
+        justify-content: flex-start !important;
+        overflow: hidden !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-date.bank-virtual-cell--single-line {
+        justify-content: center !important;
+        text-align: center;
+    }
+
+    body.process-page.process-page--bank .bank-process-table-region .bank-action-tools,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools {
+        display: inline-flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: clamp(2px, 0.28vw, 4px) !important;
+        max-width: 100%;
+        overflow: hidden;
+    }
+}
+
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-no.bank-virtual-th,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-no.bank-virtual-cell {
     padding-left: clamp(4px, 0.35vw, 6px) !important;
     padding-right: clamp(2px, 0.2vw, 4px) !important;
 }
 
-@media (min-width: 1600px) {
+@media (min-width: 1700px) {
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-th,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-cell {
         padding-left: clamp(4px, 0.32vw, 6px) !important;
@@ -2589,7 +2737,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     min-height: var(--bank-list-header-row-height, var(--bank-list-cell-min-height)) !important;
 }
 
-@media (min-width: 1600px) {
+@media (min-width: 1700px) {
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th {
         height: 100% !important;
@@ -2597,12 +2745,12 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     }
 }
 
-@media (max-width: 1599px) {
+@media (max-width: 1699px) {
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .header-item.bank-header,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-virtual-th {
-        height: auto !important;
-        flex-wrap: wrap !important;
-        overflow: visible !important;
+        height: var(--bank-list-header-row-height) !important;
+        flex-wrap: nowrap !important;
+        overflow: hidden !important;
         text-overflow: clip !important;
     }
 }
@@ -2615,7 +2763,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     box-sizing: border-box !important;
 }
 
-@media (min-width: 1600px) {
+@media (min-width: 1700px) {
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon {
         gap: 4px !important;
         align-items: center !important;
@@ -2630,13 +2778,25 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     }
 
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon {
+        position: static !important;
+        transform: none !important;
         flex: 0 0 auto !important;
         align-self: center !important;
     }
+
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon__up,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon__down {
+        display: block !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon .account-sort-icon::before {
+        content: none !important;
+        display: none !important;
+    }
 }
 
-/* < 1600px：ec-auth-shell 表头列内边距收紧（布局由上方 flex-wrap 表头规则统一） */
-@media (max-width: 1599px) {
+/* < 1700px：ec-auth-shell 表头列内边距收紧 */
+@media (max-width: 1699px) {
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-th,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-supplier.bank-virtual-cell {
         padding-left: clamp(3px, 0.28vw, 5px) !important;

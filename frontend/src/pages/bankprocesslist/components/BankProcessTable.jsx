@@ -173,25 +173,39 @@ export default function BankProcessTable({
     });
   }
 
-  const renderSortableHeader = (h) => (
-    <div
-      key={h.key}
-      className={`header-item bank-header bank-virtual-th header-item--with-sort-icon header-sortable ${bankColClass(h.key)}`}
-      role="columnheader"
-      onClick={() => onSort(h.key)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSort(h.key);
-        }
-      }}
-    >
-      <span className="header-item__label bank-virtual-th__label">{h.labelText}</span>
-      <BankSortIcon column={h.key} sortColumn={sortColumn} sortDirection={sortDirection} />
-    </div>
-  );
+  const renderSortableHeader = (h) => {
+    const isActive = sortColumn === h.key;
+    const ariaSort = !isActive ? "none" : sortDirection === "asc" ? "ascending" : "descending";
+    const sortHint = isActive
+      ? sortDirection === "asc"
+        ? " (↑)"
+        : " (↓)"
+      : " (↕)";
+
+    return (
+      <div
+        key={h.key}
+        className={`header-item bank-header bank-virtual-th header-item--with-sort-icon header-sortable ${bankColClass(h.key)}`}
+        role="columnheader"
+        aria-sort={ariaSort}
+        title={`${h.labelText}${sortHint}`}
+        onClick={() => onSort(h.key)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSort(h.key);
+          }
+        }}
+      >
+        <span className="header-item__label bank-virtual-th__label">{h.labelText}</span>
+        <BankSortIcon column={h.key} sortColumn={sortColumn} sortDirection={sortDirection} />
+      </div>
+    );
+  };
 
   const tableShellClass = `bank-virtual-table${showSelectColumn ? " bank-virtual-table--select-col" : ""}`;
+  /** Last N visible rows: status menu opens upward to avoid pagination/footer overlap. */
+  const STATUS_MENU_UP_LAST_ROWS = 3;
 
   return (
     <div
@@ -264,6 +278,7 @@ export default function BankProcessTable({
                   <div className={cellClass("status", "bank-status-cell")}>
                     <BankProcessStatusControl
                       row={r}
+                      openMenuUp={pageRows.length > 0 && i >= pageRows.length - STATUS_MENU_UP_LAST_ROWS}
                       lang={lang}
                       notify={notify}
                       buildApiUrl={buildApiUrl}
