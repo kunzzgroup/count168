@@ -136,14 +136,6 @@
         max-width: 250px !important;
     }
 
-    /* Checkboxes and Labels */
-    body.ec-auth-shell label,
-    body.ec-auth-shell .account-checkbox-section label,
-    body.ec-auth-shell .checkbox-section label,
-    body.ec-auth-shell .transaction-label {
-        font-size: 14px !important;
-    }
-
     body.ec-auth-shell input[type="checkbox"] {
         width: 16px !important;
         height: 16px !important;

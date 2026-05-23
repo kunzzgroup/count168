@@ -3505,6 +3505,47 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     }
 }
 
+/* Tablet / 13-inch (≤1440px): Account & Process 两栏格；Select All · Clear All 并排紧凑 */
+@media screen and (max-width: 1440px) {
+    #userModal .account-grid--four,
+    #userModal .account-grid.account-grid--four,
+    body.user-page #userModal .account-grid.account-grid--four {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-auto-rows: minmax(46px, auto);
+        gap: 6px;
+        padding: 4px 0;
+    }
+
+    #userModal .user-modal-select-card {
+        min-height: 46px;
+        padding: 6px 8px;
+    }
+
+    #userModal .account-control-buttons,
+    #userModal .account-process-col .account-control-buttons {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        justify-content: stretch;
+        gap: 6px;
+        padding-top: 8px;
+        margin-top: auto;
+    }
+
+    body.ec-auth-shell.user-page #userModal .btn-account-control,
+    body.ec-auth-shell.user-page #userModal .btn-clearall {
+        flex: 1 1 0;
+        min-width: 0;
+        width: auto;
+        max-width: none;
+        padding: 6px 8px !important;
+        font-size: clamp(10px, 1.6vw, 12px) !important;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+}
+
 /* ── Read Only Toggle — absolute positioned in header ─── */
 .read-only-toggle-inline {
     display: inline-flex;
