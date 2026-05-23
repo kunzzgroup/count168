@@ -111,6 +111,14 @@ function showNotification(title, message, type) {
     }, 5000);
 }
 
+function summaryI18n(key, fallback) {
+    if (typeof window.__SUMMARY_I18N_TEXT__ === 'function') {
+        const text = window.__SUMMARY_I18N_TEXT__(key);
+        if (text != null && String(text).trim() !== '') return String(text);
+    }
+    return fallback != null ? fallback : key;
+}
+
 // Find column index in a process row that matches the given numeric value
 function findColumnIndexByValue(processValue, numericValue) {
     try {
@@ -3408,7 +3416,7 @@ function initAccountInput() {
             // Reset currency dropdown if no account selected
             const currencySelect = document.getElementById('currency');
             if (currencySelect) {
-                currencySelect.innerHTML = '<option value="">Select Currency</option>';
+                currencySelect.innerHTML = '<option value="">' + summaryI18n('selectCurrency', 'Select Currency') + '</option>';
             }
         }
         if (typeof updateEditFormulaSaveButtonState === 'function') {
@@ -3478,7 +3486,7 @@ async function loadFormData() {
             // Clear currency dropdown initially
             const currencySelect = document.getElementById('currency');
             if (currencySelect) {
-                currencySelect.innerHTML = '<option value="">Select Currency</option>';
+                currencySelect.innerHTML = '<option value="">' + summaryI18n('selectCurrency', 'Select Currency') + '</option>';
             }
 
             // Load account data
@@ -3528,11 +3536,11 @@ async function loadFormData() {
                                 }
                             });
                         } else {
-                            accountButton.textContent = accountButton.getAttribute('data-placeholder') || 'Select Account';
+                            accountButton.textContent = accountButton.getAttribute('data-placeholder') || summaryI18n('selectAccount', 'Select Account');
                             accountButton.removeAttribute('data-value');
                         }
                     } else {
-                        accountButton.textContent = accountButton.getAttribute('data-placeholder') || 'Select Account';
+                        accountButton.textContent = accountButton.getAttribute('data-placeholder') || summaryI18n('selectAccount', 'Select Account');
                         accountButton.removeAttribute('data-value');
                     }
 
@@ -3613,7 +3621,7 @@ async function loadCurrenciesForAccount(accountId, preferredCurrency) {
             const currencySelect = document.getElementById('currency');
             if (currencySelect) {
                 // Clear existing options
-                currencySelect.innerHTML = '<option value="">Select Currency</option>';
+                currencySelect.innerHTML = '<option value="">' + summaryI18n('selectCurrency', 'Select Currency') + '</option>';
 
                 // Add currency options from account's currencies
                 if (result.data && result.data.length > 0) {
@@ -4042,7 +4050,7 @@ function loadIdProductList() {
     if (!descriptionSelect1) return;
 
     // Clear existing options except the first one
-    descriptionSelect1.innerHTML = '<option value="">Select Id Product</option>';
+    descriptionSelect1.innerHTML = '<option value="">' + summaryI18n('selectIdProduct', 'Select Id Product') + '</option>';
 
     // Get table data
     let parsedTableData;
@@ -4219,7 +4227,7 @@ function updateIdProductRowData(idProductValue) {
     if (!descriptionSelect2) return;
 
     // Clear existing options
-    descriptionSelect2.innerHTML = '<option value="">Select Row Data</option>';
+    descriptionSelect2.innerHTML = '<option value="">' + summaryI18n('selectRowData', 'Select Row Data') + '</option>';
 
     if (!idProductValue || idProductValue.trim() === '') {
         return;
@@ -19890,6 +19898,11 @@ function updateDeleteButton() {
     }
     const deleteBtn = document.getElementById('summaryDeleteSelectedBtn');
     if (!deleteBtn) return;
+
+    if (typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function') {
+        deleteBtn.disabled = count <= 0;
+        return;
+    }
 
     if (count > 0) {
         deleteBtn.textContent = `Delete (${count})`;

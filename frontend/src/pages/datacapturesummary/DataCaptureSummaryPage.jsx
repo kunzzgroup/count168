@@ -26,6 +26,7 @@ import {
 import { useSummaryTablePopulate } from "./hooks/useSummaryTablePopulate.js";
 import { useSummaryFormulaEngine } from "./hooks/useSummaryFormulaEngine.js";
 import { clearSummaryCaptureRoundStorage } from "./lib/summaryStorage.js";
+import { applySummaryDomLabels } from "./lib/summaryDomI18n.js";
 import {
   getDataCaptureSummaryText,
   getSummaryRateSelectLabels,
@@ -94,9 +95,11 @@ function DataCaptureSummaryPageInner() {
     window.__SUMMARY_RATE_SELECT_LABELS__ = getSummaryRateSelectLabels(lang);
     window.__SUMMARY_TRANSLATE_NOTIFICATION__ = ({ title, message }) =>
       translateDataCaptureSummaryNotification(lang, title, message);
+    window.__SUMMARY_I18N_TEXT__ = (key, params) => getDataCaptureSummaryText(lang, key, params);
     return () => {
       delete window.__SUMMARY_RATE_SELECT_LABELS__;
       delete window.__SUMMARY_TRANSLATE_NOTIFICATION__;
+      delete window.__SUMMARY_I18N_TEXT__;
     };
   }, [lang]);
 
@@ -144,7 +147,7 @@ function DataCaptureSummaryPageInner() {
   }, [capture.hasCaptureData, scriptsReady]);
 
   const pageActions = useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked, t });
-  const editFormula = useSummaryEditFormula({ scriptsReady });
+  const editFormula = useSummaryEditFormula({ scriptsReady, t });
   const overlays = useSummaryOverlays();
   const addAccount = useSummaryAddAccount({
     companyId,
@@ -153,6 +156,11 @@ function DataCaptureSummaryPageInner() {
   });
   useSummaryFormulaEngine();
   useSummaryLegacyChrome(scriptsReady);
+
+  useEffect(() => {
+    if (!scriptsReady) return;
+    applySummaryDomLabels(t);
+  }, [lang, t, scriptsReady, legacyInitDone, editFormula.open]);
 
   const showEmptyState =
     sessionReady &&

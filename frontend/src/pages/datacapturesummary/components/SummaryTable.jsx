@@ -14,7 +14,7 @@ export default function SummaryTable({ t, tableData, rows = [], visible = false 
               <th className="id-product-header">{t("idProduct")}</th>
               <th>{t("account")}</th>
               <th />
-              <th>{t("currency")}</th>
+              <th>{t("currencyColumn")}</th>
               <th>{t("formula")}</th>
               <th>{t("source")}</th>
               <th>{t("rate")}</th>
