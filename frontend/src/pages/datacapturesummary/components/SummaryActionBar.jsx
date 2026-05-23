@@ -1,4 +1,5 @@
 export default function SummaryActionBar({
+  t,
   rateInput,
   onRateInputChange,
   rateSelectAllLabel,
@@ -9,20 +10,20 @@ export default function SummaryActionBar({
   deleteDisabled,
   onDeleteSelected,
 }) {
-  const deleteLabel = deleteCount > 0 ? `Delete (${deleteCount})` : "Delete";
+  const deleteLabel = deleteCount > 0 ? t("deleteWithCount", { count: deleteCount }) : t("delete");
 
   return (
     <div className="summary-action-buttons" id="actionButtons" style={{ display: "none" }}>
       <div style={{ flex: 1 }} />
       <div className="batch-controls-group">
         <label htmlFor="rateInput" className="batch-label">
-          Rate
+          {t("rate")}
         </label>
         <input
           type="text"
           id="rateInput"
           className="batch-input"
-          placeholder="e.g. *3 or /3"
+          placeholder={t("ratePlaceholder")}
           value={rateInput}
           onChange={(e) => onRateInputChange(e.target.value)}
         />
@@ -31,12 +32,13 @@ export default function SummaryActionBar({
           className="btn btn-add"
           id="rateSelectAllBtn"
           ref={rateSelectAllRef}
+          data-rate-select-mode="all"
           onClick={onToggleRateSelectAll}
         >
           {rateSelectAllLabel}
         </button>
         <button type="button" className="btn btn-add" id="topSubmitBtn" onClick={onRateBatchSubmit}>
-          Submit
+          {t("submit")}
         </button>
       </div>
       <div style={{ flex: 1 }} />
@@ -45,7 +47,7 @@ export default function SummaryActionBar({
         className="btn btn-delete"
         id="summaryDeleteSelectedBtn"
         onClick={onDeleteSelected}
-        title="Delete selected rows"
+        title={t("deleteSelectedRows")}
         disabled={deleteDisabled}
       >
         {deleteLabel}

@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   buildSummaryRestoreCapturePath,
@@ -14,14 +14,23 @@ import { useSummarySubmit } from "./useSummarySubmit.js";
 /**
  * Phase 4/7: React owns page chrome actions; Submit orchestration in useSummarySubmit.
  */
-export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked = false }) {
+export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked = false, t }) {
   const navigate = useNavigate();
   const rateSelectAllRef = useRef(null);
   const handleRefreshRef = useRef(async () => {});
 
   const [rateInput, setRateInput] = useState("");
-  const [rateSelectAllLabel, setRateSelectAllLabel] = useState("Select All");
+  const [rateSelectAllLabel, setRateSelectAllLabel] = useState(() => t("selectAll"));
   const [deleteCount, setDeleteCount] = useState(0);
+
+  useEffect(() => {
+    setRateSelectAllLabel(t("selectAll"));
+    const btn = rateSelectAllRef.current;
+    if (btn) {
+      btn.textContent = t("selectAll");
+      btn.dataset.rateSelectMode = "all";
+    }
+  }, [t]);
 
   const navigateBack = useCallback(() => {
     saveSummaryRefreshState();
@@ -39,6 +48,7 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
     scriptsReady,
     mutationsBlocked,
     onSuccess: navigateAfterSubmitSuccess,
+    t,
   });
 
   useLayoutEffect(() => {
@@ -52,8 +62,15 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
       setDeleteCount(Number(count) || 0);
     };
     window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ = (label) => {
-      if (typeof label === "string" && label.trim()) {
-        setRateSelectAllLabel(label.trim());
+      const norm = String(label || "").trim();
+      if (norm === "Select All" || norm === t("selectAll")) {
+        setRateSelectAllLabel(t("selectAll"));
+        if (rateSelectAllRef.current) rateSelectAllRef.current.dataset.rateSelectMode = "all";
+        return;
+      }
+      if (norm === "Clear All" || norm === t("clearAll")) {
+        setRateSelectAllLabel(t("clearAll"));
+        if (rateSelectAllRef.current) rateSelectAllRef.current.dataset.rateSelectMode = "clear";
       }
     };
     window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__ = navigateAfterSubmitSuccess;
@@ -65,7 +82,7 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
       delete window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__;
       delete window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__;
     };
-  }, [scriptsReady, navigateBack, navigateAfterSubmitSuccess]);
+  }, [scriptsReady, navigateBack, navigateAfterSubmitSuccess, t]);
 
   const handleBack = useCallback(() => {
     navigateBack();
@@ -102,12 +119,12 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
     if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ === "function") {
       return;
     }
-    setRateSelectAllLabel(btn.textContent.trim() || "Select All");
-  }, []);
+    setRateSelectAllLabel(btn.textContent.trim() || t("selectAll"));
+  }, [t]);
 
   const handleDeleteSelected = useCallback(() => {
-    requestSummaryDeleteConfirmation({});
-  }, []);
+    requestSummaryDeleteConfirmation({ t });
+  }, [t]);
 
   const handleSubmitSummary = useCallback(() => {
     submitSummary();

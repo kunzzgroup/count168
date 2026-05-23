@@ -8,7 +8,7 @@ import { pushSummaryNotification } from "../lib/summaryNotify.js";
 /**
  * Phase 7: React-owned Summary Submit orchestration.
  */
-export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutationsBlocked = false }) {
+export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutationsBlocked = false, t }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inFlightRef = useRef(false);
   const onSuccessRef = useRef(onSuccess);
@@ -21,7 +21,7 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutations
 
   const submitSummary = useCallback(async () => {
     if (mutationsBlocked) {
-      pushSummaryNotification("Error", "Read-only account: this action is not allowed.", "error");
+      pushSummaryNotification("Error", t("readOnlyBlocked"), "error");
       return;
     }
     if (inFlightRef.current) return;
@@ -33,7 +33,7 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutations
       if (!totalValidation.ok) {
         pushSummaryNotification(
           "Error",
-          totalValidation.message || "Total validation failed.",
+          totalValidation.message || t("totalValidationFailed"),
           "error"
         );
         return;
@@ -43,7 +43,7 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutations
       if (!session?.processData) {
         pushSummaryNotification(
           "Error",
-          "No process data found. Please return to Data Capture page.",
+          t("noProcessData"),
           "error"
         );
         return;
@@ -53,7 +53,7 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutations
       if (!prep.ok) {
         pushSummaryNotification(
           prep.warning ? "Warning" : "Error",
-          prep.message || "Failed to prepare summary rows.",
+          prep.message || t("prepareRowsFailed"),
           "error"
         );
         return;
@@ -72,7 +72,7 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutations
       });
 
       if (!result.ok) {
-        pushSummaryNotification("Error", result.message || "Submission failed.", "error");
+        pushSummaryNotification("Error", result.message || t("submissionFailed"), "error");
       }
     } catch (error) {
       console.error("Summary submit failed:", error);
@@ -81,12 +81,12 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutations
         errorMessage =
           "The server returned an invalid response. This may be due to the data size exceeding the server limit (PHP post_max_size). Please reduce the number of rows submitted or contact the administrator.";
       }
-      pushSummaryNotification("Error", `Submission failed: ${errorMessage}`, "error");
+      pushSummaryNotification("Error", `${t("submissionFailed")} ${errorMessage}`, "error");
     } finally {
       inFlightRef.current = false;
       setSubmitting(false);
     }
-  }, [companyId, setSubmitting, mutationsBlocked]);
+  }, [companyId, setSubmitting, mutationsBlocked, t]);
 
   useEffect(() => {
     if (!scriptsReady) return undefined;

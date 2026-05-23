@@ -72,6 +72,12 @@ function showNotification(title, message, type) {
     message = normalized.message;
     type = normalized.type;
 
+    if (typeof window.__SUMMARY_TRANSLATE_NOTIFICATION__ === 'function') {
+        const translated = window.__SUMMARY_TRANSLATE_NOTIFICATION__({ title: title, message: message });
+        title = translated.title;
+        message = translated.message;
+    }
+
     if (typeof window.__SUMMARY_REACT_SHOW_NOTIFICATION__ === 'function') {
         window.__SUMMARY_REACT_SHOW_NOTIFICATION__(title, message, type);
         return;
@@ -12817,9 +12823,13 @@ function toggleAllRate(button) {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
 
-    const rows = summaryTableBody.querySelectorAll('tr');
-    const isSelectAll = button.textContent.trim() === 'Select All';
+    const labels = window.__SUMMARY_RATE_SELECT_LABELS__ || { selectAll: 'Select All', clearAll: 'Clear All' };
+    const mode = button.dataset.rateSelectMode
+        || (button.textContent.trim() === labels.selectAll ? 'all' : 'clear');
+    const isSelectAll = mode !== 'clear';
     let updatedCount = 0;
+
+    const rows = summaryTableBody.querySelectorAll('tr');
 
     rows.forEach(row => {
         // Get the process value for this row (check if row has Id Product)
@@ -12846,7 +12856,11 @@ function toggleAllRate(button) {
     });
 
     // Update button text
-    const nextLabel = isSelectAll ? 'Clear All' : 'Select All';
+    const nextLabel = isSelectAll ? labels.clearAll : labels.selectAll;
+    const nextMode = isSelectAll ? 'clear' : 'all';
+    if (button) {
+        button.dataset.rateSelectMode = nextMode;
+    }
     if (window.__SUMMARY_REACT_TABLE__ && typeof window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__ === 'function') {
         window.__SUMMARY_REACT_ON_RATE_SELECT_ALL_LABEL__(nextLabel);
     } else if (button) {

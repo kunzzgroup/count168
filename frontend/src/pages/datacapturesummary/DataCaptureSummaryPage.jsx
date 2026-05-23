@@ -1,4 +1,4 @@
-import { Component, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
@@ -27,6 +27,11 @@ import { useSummaryTablePopulate } from "./hooks/useSummaryTablePopulate.js";
 import { useSummaryFormulaEngine } from "./hooks/useSummaryFormulaEngine.js";
 import { clearSummaryCaptureRoundStorage } from "./lib/summaryStorage.js";
 import {
+  getDataCaptureSummaryText,
+  getSummaryRateSelectLabels,
+  translateDataCaptureSummaryNotification,
+} from "../../translateFile/pages/dataCaptureSummaryTranslate.js";
+import {
   areSummaryLegacyScriptsLoaded,
   ensureSummaryLegacyScriptsLoaded,
 } from "./lib/preloadSummaryLegacyScripts.js";
@@ -49,11 +54,12 @@ class SummaryPageErrorBoundary extends Component {
 
   render() {
     if (this.state.error) {
+      const lang = localStorage.getItem("login_lang") === "zh" ? "zh" : "en";
       return (
         <div className="container">
-          <h1>Data Capture Summary</h1>
+          <h1>{getDataCaptureSummaryText(lang, "pageTitle")}</h1>
           <p role="alert" style={{ color: "#b91c1c", padding: "12px 0" }}>
-            Failed to load Data Capture Summary. Please refresh the page or return to Data Capture.
+            {getDataCaptureSummaryText(lang, "loadPageFailed")}
           </p>
         </div>
       );
@@ -65,6 +71,35 @@ class SummaryPageErrorBoundary extends Component {
 function DataCaptureSummaryPageInner() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params) => getDataCaptureSummaryText(lang, key, params), [lang]);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    const onLangUpdated = (e) => {
+      const next = e?.detail?.lang;
+      setLang(next === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    window.__SUMMARY_RATE_SELECT_LABELS__ = getSummaryRateSelectLabels(lang);
+    window.__SUMMARY_TRANSLATE_NOTIFICATION__ = ({ title, message }) =>
+      translateDataCaptureSummaryNotification(lang, title, message);
+    return () => {
+      delete window.__SUMMARY_RATE_SELECT_LABELS__;
+      delete window.__SUMMARY_TRANSLATE_NOTIFICATION__;
+    };
+  }, [lang]);
+
   const { companyId, mutationsBlocked, bootLoading: sessionBootLoading, bootError } = useSummaryBoot();
 
   const [scriptsReady, setScriptsReady] = useState(() => areSummaryLegacyScriptsLoaded());
@@ -108,7 +143,7 @@ function DataCaptureSummaryPageInner() {
     }
   }, [capture.hasCaptureData, scriptsReady]);
 
-  const pageActions = useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked });
+  const pageActions = useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked, t });
   const editFormula = useSummaryEditFormula({ scriptsReady });
   const overlays = useSummaryOverlays();
   const addAccount = useSummaryAddAccount({
@@ -175,7 +210,7 @@ function DataCaptureSummaryPageInner() {
           return;
         }
         console.error(e);
-        setEngineError("Failed to load Data Capture Summary scripts.");
+        setEngineError(t("loadScriptsFailed"));
       }
     })();
 
@@ -308,7 +343,7 @@ function DataCaptureSummaryPageInner() {
 
   return (
     <div className="container">
-      <h1>Data Capture Summary</h1>
+      <h1>{t("pageTitle")}</h1>
 
       {showPageBootOverlay ? (
         <div
@@ -317,7 +352,7 @@ function DataCaptureSummaryPageInner() {
           aria-busy="true"
         >
           <div className="loading-spinner" />
-          <p style={{ margin: "12px 0 0" }}>Loading…</p>
+          <p style={{ margin: "12px 0 0" }}>{t("loading")}</p>
         </div>
       ) : null}
 
@@ -333,10 +368,11 @@ function DataCaptureSummaryPageInner() {
         style={{ display: showDataLoading ? undefined : "none" }}
       >
         <div className="loading-spinner" />
-        <p>Loading data...</p>
+        <p>{t("loadingData")}</p>
       </div>
 
       <SummaryActionBar
+        t={t}
         rateInput={pageActions.rateInput}
         onRateInputChange={pageActions.setRateInput}
         rateSelectAllLabel={pageActions.rateSelectAllLabel}
@@ -349,17 +385,19 @@ function DataCaptureSummaryPageInner() {
       />
 
       <div className="summary-table-container" id="summaryTableContainer" style={{ display: "none" }}>
-        <SummaryProcessInfo processData={capture.processData} visible={capture.hasCaptureData} />
+        <SummaryProcessInfo t={t} processData={capture.processData} visible={capture.hasCaptureData} />
         <SummaryTable
+          t={t}
           tableData={capture.transformedTableData}
           rows={summaryRows}
           visible={capture.hasCaptureData}
         />
       </div>
 
-      {showEmptyState ? <SummaryEmptyState /> : null}
+      {showEmptyState ? <SummaryEmptyState t={t} /> : null}
 
       <EditFormulaModal
+        t={t}
         key={editFormula.sessionKey}
         open={editFormula.open}
         productValue={editFormula.productValue}
@@ -370,6 +408,7 @@ function DataCaptureSummaryPageInner() {
       <AccountModal {...addAccount.accountModalProps} />
 
       <SummarySubmitBar
+        t={t}
         submitting={pageActions.submitting}
         onSubmit={pageActions.handleSubmitSummary}
         onBack={pageActions.handleBack}
@@ -383,6 +422,7 @@ function DataCaptureSummaryPageInner() {
       />
 
       <SummaryConfirmDeleteModal
+        t={t}
         open={overlays.confirmOpen}
         message={overlays.confirmMessage}
         onCancel={overlays.closeConfirmDelete}

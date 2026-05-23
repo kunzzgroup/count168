@@ -5,15 +5,23 @@ import { normalizeSummaryNotificationArgs } from "./summaryNotificationNormalize
  */
 export function pushSummaryNotification(title, message, type = "success") {
   const normalized = normalizeSummaryNotificationArgs(title, message, type);
+  let nextTitle = normalized.title;
+  let nextMessage = normalized.message;
+
+  if (typeof window.__SUMMARY_TRANSLATE_NOTIFICATION__ === "function") {
+    const translated = window.__SUMMARY_TRANSLATE_NOTIFICATION__({
+      title: nextTitle,
+      message: nextMessage,
+    });
+    nextTitle = translated.title;
+    nextMessage = translated.message;
+  }
+
   if (typeof window.__SUMMARY_REACT_SHOW_NOTIFICATION__ === "function") {
-    window.__SUMMARY_REACT_SHOW_NOTIFICATION__(
-      normalized.title,
-      normalized.message,
-      normalized.type
-    );
+    window.__SUMMARY_REACT_SHOW_NOTIFICATION__(nextTitle, nextMessage, normalized.type);
     return;
   }
-  window.alert(normalized.message ? `${normalized.title}: ${normalized.message}` : normalized.title);
+  window.alert(nextMessage ? `${nextTitle}: ${nextMessage}` : nextTitle);
 }
 
 export function hideSummaryNotification() {

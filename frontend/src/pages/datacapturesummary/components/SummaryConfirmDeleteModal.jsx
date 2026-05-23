@@ -1,4 +1,5 @@
 export default function SummaryConfirmDeleteModal({
+  t,
   open,
   message,
   onCancel,
@@ -19,16 +20,16 @@ export default function SummaryConfirmDeleteModal({
             />
           </svg>
         </div>
-        <h2 className="summary-confirm-title">Confirm Delete</h2>
+        <h2 className="summary-confirm-title">{t("confirmDelete")}</h2>
         <p id="confirmDeleteMessage" className="summary-confirm-message">
           {message}
         </p>
         <div className="summary-confirm-actions">
           <button type="button" className="btn btn-cancel confirm-cancel" onClick={onCancel}>
-            Cancel
+            {t("cancel")}
           </button>
           <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
-            Delete
+            {t("delete")}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { EDIT_FORMULA_INPUT_METHODS, CALCULATOR_KEYPAD } from "../formula/editFormulaConstants.js";
+import { getSummaryInputMethodLabel } from "../../../translateFile/pages/dataCaptureSummaryTranslate.js";
 
-function CalcButton({ value, action, className = "" }) {
+function CalcButton({ value, action, className = "", clearLabel = "Clr" }) {
   const isOperator = ["/", "*", "-", "+"].includes(value);
   const isClear = action === "clear";
   const isEquals = action === "equals";
@@ -17,16 +18,12 @@ function CalcButton({ value, action, className = "" }) {
       data-value={value || undefined}
       data-action={action || undefined}
     >
-      {isClear ? "Clr" : isEquals ? "=" : value}
+      {isClear ? clearLabel : isEquals ? "=" : value}
     </button>
   );
 }
 
-/**
- * React-owned Edit Formula modal shell — form fields match legacy DOM ids
- * so initEditFormulaFormAfterMount / saveFormula continue to work unchanged.
- */
-export default function EditFormulaModal({ open, productValue, onClose, onOpenAddAccount }) {
+export default function EditFormulaModal({ t, open, productValue, onClose, onOpenAddAccount }) {
   const handleOpenAddAccount = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -42,6 +39,8 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
   };
   if (!open) return null;
 
+  const lang = localStorage.getItem("login_lang") === "zh" ? "zh" : "en";
+
   return (
     <div
       id="editFormulaModal"
@@ -54,36 +53,36 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
       <div className="summary-confirm-modal-content" id="editFormulaModalContent">
         <div id="editFormulaForm" className="edit-formula-form-container">
           <div className="form-header">
-            <h3 id="edit-formula-title">Edit Formula</h3>
-            <button type="button" className="account-close" onClick={onClose} aria-label="Close" />
+            <h3 id="edit-formula-title">{t("editFormula")}</h3>
+            <button type="button" className="account-close" onClick={onClose} aria-label={t("close")} />
           </div>
           <div className="form-content">
             <div className="form-layout">
               <div className="form-left-column">
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="process">Id Product</label>
+                    <label htmlFor="process">{t("idProduct")}</label>
                     <input type="text" id="process" defaultValue={productValue || ""} readOnly />
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="account">Account</label>
+                    <label htmlFor="account">{t("account")}</label>
                     <div className="account-select-with-buttons">
                       <div className="custom-select-wrapper">
                         <button
                           type="button"
                           className="custom-select-button"
                           id="account"
-                          data-placeholder="Select Account"
+                          data-placeholder={t("selectAccount")}
                           name="account"
                         >
-                          Select Account
+                          {t("selectAccount")}
                         </button>
                         <div className="custom-select-dropdown" id="account_dropdown">
                           <div className="custom-select-search">
-                            <input type="text" placeholder="Search account..." autoComplete="off" />
+                            <input type="text" placeholder={t("searchAccount")} autoComplete="off" />
                           </div>
                           <div className="custom-select-options" />
                         </div>
@@ -92,7 +91,7 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
                         type="button"
                         className="account-add-btn"
                         onClick={handleOpenAddAccount}
-                        title="Add New Account"
+                        title={t("addNewAccount")}
                       >
                         +
                       </button>
@@ -102,28 +101,28 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
 
                 <div className="form-row source-percent-row">
                   <div className="form-group source-percent-group">
-                    <label htmlFor="sourcePercent">Source</label>
-                    <input type="text" id="sourcePercent" placeholder="e.g. 1 or 2 or 0.5 (倍数)" />
+                    <label htmlFor="sourcePercent">{t("source")}</label>
+                    <input type="text" id="sourcePercent" placeholder={t("sourcePercentPlaceholder")} />
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="descriptionSelect1">Data</label>
+                    <label htmlFor="descriptionSelect1">{t("data")}</label>
                     <div className="description-select-with-buttons">
                       <select id="descriptionSelect1" defaultValue="">
-                        <option value="">Select Id Product</option>
+                        <option value="">{t("selectIdProduct")}</option>
                       </select>
                       <select id="descriptionSelect2" defaultValue="">
-                        <option value="">Select Row Data</option>
+                        <option value="">{t("selectRowData")}</option>
                       </select>
                       <button
                         type="button"
                         className="description-add-btn"
                         onClick={() => window.addSelectedDataToFormula?.()}
-                        title="Add Selected Data To Formula"
+                        title={t("addSelectedDataToFormula")}
                       >
-                        Add
+                        {t("add")}
                       </button>
                     </div>
                   </div>
@@ -131,8 +130,8 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
 
                 <div className="form-row formula-row-full-width">
                   <div className="form-group">
-                    <label htmlFor="formula">Formula</label>
-                    <input type="text" id="formula" placeholder="e.g. $5+$10*0.6/7" />
+                    <label htmlFor="formula">{t("formula")}</label>
+                    <input type="text" id="formula" placeholder={t("formulaPlaceholder")} />
                   </div>
                 </div>
 
@@ -165,11 +164,11 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
               <div className="form-middle-column">
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="inputMethod">Input Method</label>
+                    <label htmlFor="inputMethod">{t("inputMethod")}</label>
                     <select id="inputMethod" defaultValue="">
                       {EDIT_FORMULA_INPUT_METHODS.map((opt) => (
                         <option key={opt.value || "empty"} value={opt.value}>
-                          {opt.label}
+                          {getSummaryInputMethodLabel(lang, opt.value)}
                         </option>
                       ))}
                     </select>
@@ -178,16 +177,16 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="currency">Currency</label>
+                    <label htmlFor="currency">{t("currency")}</label>
                     <select id="currency" defaultValue="">
-                      <option value="">Select Currency</option>
+                      <option value="">{t("selectCurrency")}</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="description">Description</label>
+                    <label htmlFor="description">{t("description")}</label>
                     <input type="text" id="description" placeholder="" />
                   </div>
                 </div>
@@ -202,7 +201,7 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
                           return <button key={`empty-${cellIndex}`} type="button" className="calc-btn calc-empty" />;
                         }
                         if (cell === "clear") {
-                          return <CalcButton key="clear" action="clear" />;
+                          return <CalcButton key="clear" action="clear" clearLabel={t("calcClear")} />;
                         }
                         if (cell === "equals") {
                           return <CalcButton key="equals" action="equals" />;
@@ -218,10 +217,10 @@ export default function EditFormulaModal({ open, productValue, onClose, onOpenAd
 
           <div className="form-actions edit-formula-form-actions">
             <button type="button" id="editFormulaSaveBtn" className="btn btn-save" disabled>
-              Save
+              {t("save")}
             </button>
             <button type="button" className="btn btn-cancel" onClick={onClose}>
-              Cancel
+              {t("cancel")}
             </button>
           </div>
         </div>

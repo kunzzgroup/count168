@@ -84,7 +84,7 @@ function runDeleteAfterConfirm(valid, showNotification) {
   return false;
 }
 
-export function requestSummaryDeleteConfirmation({ showConfirmDelete, showNotification }) {
+export function requestSummaryDeleteConfirmation({ showConfirmDelete, showNotification, t }) {
   const collect =
     typeof window.collectValidDeleteRowTargets === "function"
       ? window.collectValidDeleteRowTargets
@@ -94,13 +94,15 @@ export function requestSummaryDeleteConfirmation({ showConfirmDelete, showNotifi
   if (!valid.length) {
     notifyError(
       "Error",
-      "Please select valid rows to delete. Empty sub rows cannot be deleted.",
+      t ? t("deleteInvalidRows") : "Please select valid rows to delete. Empty sub rows cannot be deleted.",
       showNotification
     );
     return;
   }
 
-  const message = `Are you sure you want to delete ${valid.length} selected row(s)? This action cannot be undone.`;
+  const message = t
+    ? t("deleteConfirm", { count: valid.length })
+    : `Are you sure you want to delete ${valid.length} selected row(s)? This action cannot be undone.`;
 
   openConfirmDelete(
     message,

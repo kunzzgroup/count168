@@ -1,6 +1,7 @@
 import { assetUrl } from "../../../utils/core/apiUrl.js";
 
 export default function SummarySubmitBar({
+  t,
   submitting = false,
   onSubmit,
   onBack,
@@ -15,15 +16,15 @@ export default function SummarySubmitBar({
         onClick={onSubmit}
         disabled={submitting}
       >
-        {submitting ? "提交中..." : "Submit"}
+        {submitting ? t("submitting") : t("submit")}
       </button>
       <button type="button" className="btn btn-cancel" onClick={onBack}>
-        Back
+        {t("back")}
       </button>
-      <button type="button" className="btn btn-refresh" onClick={onRefresh} title="Refresh page">
+      <button type="button" className="btn btn-refresh" onClick={onRefresh} title={t("refreshPage")}>
         <img
           src={assetUrl("images/refresh.svg")}
-          alt="Refresh"
+          alt={t("refresh")}
           style={{ width: "clamp(23px, 1.8vw, 35px)", height: "clamp(23px, 1.8vw, 35px)" }}
         />
       </button>
