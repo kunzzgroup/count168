@@ -289,11 +289,8 @@ if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
 
 // Save rate values on browser refresh (F5); do not save when leaving via Back or Submit
 window.addEventListener('beforeunload', function () {
-    if (!window.isNavigatingAwayByBackOrSubmit && typeof saveRateValuesForRefresh === 'function') {
-        saveRateValuesForRefresh();
-    }
     if (!window.isNavigatingAwayByBackOrSubmit && typeof saveFormulaSourceForRefresh === 'function') {
-        saveFormulaSourceForRefresh();
+        saveFormulaSourceForRefresh({ includeRateValue: false });
     }
 });
 
@@ -725,6 +722,11 @@ function saveFormulaSourceForRefresh(opts) {
     if (!summaryTableBody) return;
     const processId = getCurrentProcessId();
     const processCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+    let priorSaved = null;
+    try {
+        const priorRaw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
+        if (priorRaw) priorSaved = JSON.parse(priorRaw);
+    } catch (e) { /* ignore */ }
     const rows = summaryTableBody.querySelectorAll('tr');
     const byKey = {};
     const byStableKey = {};
@@ -750,7 +752,12 @@ function saveFormulaSourceForRefresh(opts) {
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const sourceCell = cells[5];
         const source = sourceCell ? sourceCell.textContent.trim() : '';
-        const rateValue = includeRateValue ? getRateValueTextFromSummaryRow(row) : '';
+        const priorRowData = priorSaved
+            ? getSavedSummaryRowData(row, priorSaved.rowsByKey, priorSaved.rowsByStableKey, priorSaved.rowsByRowUid)
+            : null;
+        const rateValue = includeRateValue
+            ? getRateValueTextFromSummaryRow(row)
+            : (priorRowData && priorRowData.rateValue != null ? String(priorRowData.rateValue) : '');
         const originalDescription = row.getAttribute('data-original-description') || '';
         const existing = byKey[normKey];
         // 若已存在记录且其中公式/来源/Rate 有有效值，而当前行为空，避免用“空值”覆盖已有数据
@@ -826,6 +833,10 @@ function saveFormulaSourceForRefresh(opts) {
             const rateFpNorm = rateFp && typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(rateFp) : rateFp;
             if (rateFpNorm) rateValuesByRateFingerprint[rateFpNorm] = rv;
         });
+    } else if (priorSaved && typeof priorSaved === 'object') {
+        Object.assign(rateValuesByKey, priorSaved.rateValuesByKey || {});
+        Object.assign(rateValuesByRowUid, priorSaved.rateValuesByRowUid || {});
+        Object.assign(rateValuesByRateFingerprint, priorSaved.rateValuesByRateFingerprint || {});
     }
     const payload = {
         processId: processId != null ? processId : null,
@@ -1396,8 +1407,7 @@ function restoreRateValuesFromRefresh() {
 // Go back to datacapture page, preserving localStorage data
 // 离开前先保存当前 Rate/Formula/行顺序，以便用户再次进入 Summary 时能恢复（不清除缓存）
 function goBackToDataCapture() {
-    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
-    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
+    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh({ includeRateValue: false });
     window.isNavigatingAwayByBackOrSubmit = true;
     if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_NAV_BACK__ === 'function') {
         window.__SUMMARY_REACT_NAV_BACK__();

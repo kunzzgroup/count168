@@ -1,9 +1,21 @@
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
-/** Persist rate/formula refresh caches before leaving or reloading. */
-export function saveSummaryRefreshState() {
-  window.saveRateValuesForRefresh?.();
-  window.saveFormulaSourceForRefresh?.();
+/** Clear scratch Rate cache (manual cell edits). Rate persists only via Rate Submit. */
+export function clearUnsavedSummaryRateScratch() {
+  try {
+    localStorage.removeItem("capturedTableRateValues");
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Persist formula/source refresh caches. Rate only when includeRateValue is true (Rate Submit). */
+export function saveSummaryRefreshState(options = {}) {
+  const includeRateValue = options.includeRateValue === true;
+  if (includeRateValue) {
+    window.saveRateValuesForRefresh?.();
+  }
+  window.saveFormulaSourceForRefresh?.({ includeRateValue });
 }
 
 export function buildSummaryRestoreCapturePath(companyId) {

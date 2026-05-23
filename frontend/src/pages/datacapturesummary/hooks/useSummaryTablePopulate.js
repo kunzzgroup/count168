@@ -120,7 +120,12 @@ export function useSummaryTablePopulate({
       console.error("Summary template populate failed:", error);
       return false;
     } finally {
-      finishPopulate();
+      if (shouldReset) {
+        showSummaryTableChrome();
+        onPopulatingChange?.(false);
+      } else {
+        finishPopulate();
+      }
     }
   }, [tableData, syncFromDom, resetToInitialRows, onPopulatingChange, finishPopulate]);
 
