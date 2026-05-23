@@ -62,7 +62,7 @@
         }
         
         .batch-controls-group .batch-input {
-            width: clamp(80px, 6.25vw, 120px);
+            width: clamp(80px, 10.25vw, 120px);
             padding: clamp(4px, 0.42vw, 8px) clamp(8px, 0.83vw, 16px);
             border: 1px solid #d1d5db;
             border-radius: 6px;
@@ -79,7 +79,7 @@
         /* Submit Button Container - Between Tables */
         .summary-submit-container {
             display: flex;
-            justify-content: center !important;
+            justify-content: flex-start !important;
             align-items: center;
             gap: 12px;
             margin-top: clamp(10px, 1.04vw, 20px);
