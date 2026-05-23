@@ -2542,7 +2542,6 @@ body.transaction-page .transaction-header-left .transaction-title {
     white-space: nowrap;
 }
 
-.contra-inbox-grid-cell--transfer,
 .contra-inbox-grid-cell--from,
 .contra-inbox-grid-cell--to,
 .contra-inbox-grid-cell--currency,
@@ -2553,8 +2552,13 @@ body.transaction-page .transaction-header-left .transaction-title {
     text-align: center;
 }
 
-.contra-inbox-grid-row:not(.contra-inbox-grid-row--head) .contra-inbox-grid-cell--transfer {
-    grid-column: 2 / 4;
+.contra-inbox-grid-cell--from {
+    position: relative;
+}
+
+.contra-inbox-grid-cell--to {
+    position: relative;
+    gap: 0.2em;
 }
 
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--date {
@@ -2572,20 +2576,16 @@ body.transaction-page .transaction-header-left .transaction-title {
     text-align: center;
 }
 
-.contra-inbox-transfer {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35em;
-    white-space: nowrap;
-    min-width: 0;
-}
-
 .contra-inbox-transfer-arrow {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translate(-50%, -50%);
     color: #94a3b8;
     font-weight: var(--font-weight-bold);
     line-height: 1;
-    flex-shrink: 0;
+    pointer-events: none;
+    z-index: 1;
 }
 
 .contra-inbox-grid-cell--amount {

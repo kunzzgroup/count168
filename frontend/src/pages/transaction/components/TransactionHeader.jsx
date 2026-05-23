@@ -194,14 +194,14 @@ export default function TransactionHeader({
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--date" role="cell">
                         {formatContraDate(it.transaction_date || it.date)}
                       </div>
-                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--transfer" role="cell">
-                        <span className="contra-inbox-transfer">
-                          <span className="contra-inbox-account-code contra-inbox-account-code--from">{fromCode}</span>
-                          <span className="contra-inbox-transfer-arrow" aria-hidden="true">
-                            →
-                          </span>
-                          <span className="contra-inbox-account-code contra-inbox-account-code--to">{toCode}</span>
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--from" role="cell">
+                        <span className="contra-inbox-account-code contra-inbox-account-code--from">{fromCode}</span>
+                      </div>
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--to" role="cell">
+                        <span className="contra-inbox-transfer-arrow" aria-hidden="true">
+                          →
                         </span>
+                        <span className="contra-inbox-account-code contra-inbox-account-code--to">{toCode}</span>
                       </div>
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--currency" role="cell">
                         {toUpperDisplay(it.currency || "-")}
