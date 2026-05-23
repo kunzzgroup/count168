@@ -37,14 +37,27 @@ export default function TransactionHistoryModal({
   if (!history.open) return null;
 
   const modal = (
-    <div id="historyModal" className="transaction-modal" style={{ display: "flex" }}>
-      <div className="transaction-modal-content transaction-history-modal">
+    <div
+      id="historyModal"
+      className="transaction-modal transaction-history-modal-overlay"
+      style={{ display: "flex" }}
+      role="presentation"
+      onClick={closeModal}
+    >
+      <div
+        className="transaction-modal-content transaction-history-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal_title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="transaction-modal-header">
           <h3 id="modal_title">{history.title}</h3>
           <button
             type="button"
             id="modal_close"
             className="transaction-modal-close"
+            aria-label={m.close || "Close"}
             onClick={closeModal}
           >
             ×
@@ -89,6 +102,13 @@ export default function TransactionHistoryModal({
                 </tr>
               </thead>
               <tbody id="modal_tbody">
+                {!history.loading && history.rows.length === 0 ? (
+                  <tr className="transaction-history-empty-row">
+                    <td colSpan={showDescriptionColumn ? 10 : 9} className="transaction-history-empty-cell">
+                      {m.searchCompletedNoData}
+                    </td>
+                  </tr>
+                ) : null}
                 {history.rows.map((r, idx) => {
                   const isBf = r.row_type === "bf";
                   const idProductDisplay = r.is_bank_process_transaction ? r.card_owner || "-" : r.product || "-";
@@ -104,6 +124,7 @@ export default function TransactionHistoryModal({
                     <tr
                       key={r.id ?? `${idx}-${r.date || ""}-${r.balance || ""}`}
                       className={isBf ? "transaction-bf-row transaction-history-bf-row" : "transaction-table-row"}
+                      style={isBf ? { fontWeight: "bold" } : undefined}
                     >
                       <td className="transaction-history-col-date">{r.date || "-"}</td>
                       <td className="transaction-history-col-product">{String(idProductDisplay)}</td>
