@@ -115,14 +115,14 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
 export const BANK_GRID_TEMPLATE_COLUMNS =
   "minmax(40px,2.7fr) minmax(88px,3.2fr) minmax(72px,2.4fr) minmax(120px,max-content) minmax(200px,max-content) minmax(100px,6fr) minmax(92px,5.5fr) minmax(80px,6fr) minmax(68px,5fr) minmax(68px,5fr) minmax(68px,5fr) minmax(96px,100px) minmax(64px,4fr) minmax(72px,4.5fr)";
 
-/** Bank Process 列表：BANK(TYPE)，如 RHB(BUSINESS) */
+/** Bank Process 列表：BANK (TYPE)，如 RHB (BUSINESS) */
 export function formatBankWithTypeDisplay(bank, type) {
   const b = String(bank ?? "").trim();
   const t = String(type ?? "").trim();
   if (!b && !t) return "-";
   if (!b) return t ? `(${t})` : "-";
   if (!t) return b;
-  return `${b}(${t})`;
+  return `${b} (${t})`;
 }
 
 export const BANK_GRID_TEMPLATE_COLUMNS_WITH_SELECT = `${BANK_GRID_TEMPLATE_COLUMNS} minmax(48px,48px)`;
@@ -546,6 +546,14 @@ export const parseBankContractTermMonths = (contract) => {
   m = c.match(/^(\d+)\s*MONTHS?$/i);
   if (m) return Math.max(1, parseInt(m[1], 10));
   return null;
+};
+
+/** Day end 租期月数：1+1 / 1+2 / 1+3 仅算首段 1 个月；+N 为损坏罚金，不参与租期终点。 */
+export const parseBankContractRentalMonthsForDayEnd = (contract) => {
+  if (!contract || String(contract).trim() === '') return null;
+  const c = String(contract).trim();
+  if (/^1\+\d+/i.test(c)) return 1;
+  return parseBankContractTermMonths(contract);
 };
 
 export const addCalendarMonthsToYmd = (ymd, months) => {
