@@ -117,8 +117,7 @@ class DataCaptureErrorBoundary extends Component {
 export default function DataCapturePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { me } = useAuthSession();
-  const dcBootRan = useRef(false);
+  const { me, sessionReady } = useAuthSession();
   const companyIdFromUrl = searchParams.get("company_id");
 
   const [bootLoading, setBootLoading] = useState(true);
@@ -282,9 +281,10 @@ export default function DataCapturePage() {
   }, []);
 
   useEffect(() => {
-    if (!me || dcBootRan.current) return;
-    dcBootRan.current = true;
-    let alive = true;
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
         await injectStylesheet("https://fonts.googleapis.com/css?family=Amaranth");
@@ -299,7 +299,7 @@ export default function DataCapturePage() {
         const companiesJson = await companiesRes.json();
 
         const perms = Array.isArray(u.company_permissions) ? u.company_permissions : [];
-        if (!alive) return;
+        if (cancelled) return;
         if (perms.length === 0) {
           navigate("/process-list?error=no_permission", { replace: true });
           return;
@@ -340,7 +340,7 @@ export default function DataCapturePage() {
           companyCode: pickCode,
           sessionUser: u,
         });
-        if (!alive) return;
+        if (cancelled) return;
         if (!hasGamesAccess) {
           navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
           return;
@@ -352,16 +352,15 @@ export default function DataCapturePage() {
         setCompanyId(effectiveCompany);
         setSelectedGroup(initialGroup);
       } catch {
-        if (!alive) return;
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        if (alive) setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
     return () => {
-      alive = false;
+      cancelled = true;
     };
-  }, [navigate, me]);
+  }, [sessionReady, me, navigate]);
 
   useEffect(() => {
     if (bootLoading || !companyIdFromUrl || companies.length === 0) return;

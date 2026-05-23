@@ -28,8 +28,7 @@ import PageContentLoader from "../../../components/PageContentLoader.jsx";
 
 export default function DomainReportPage() {
   const navigate = useNavigate();
-  const { me } = useAuthSession();
-  const domainReportBootRan = useRef(false);
+  const { me, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getReportText(lang, key, params), [lang]);
   const r = useMemo(() => REPORT_I18N[lang] || REPORT_I18N.en, [lang]);
@@ -140,8 +139,10 @@ export default function DomainReportPage() {
   }, []);
 
   useEffect(() => {
-    if (!me || domainReportBootRan.current) return;
-    domainReportBootRan.current = true;
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
         const u = me;
@@ -168,12 +169,15 @@ export default function DomainReportPage() {
         if (effective) await checkBankOnly(effective);
 
       } catch {
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [me, navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, me, navigate]);
 
   const loadReport = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;

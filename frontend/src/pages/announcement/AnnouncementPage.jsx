@@ -15,7 +15,6 @@ import PageContentLoader from "../../components/PageContentLoader.jsx";
 export default function AnnouncementPage() {
   const navigate = useNavigate();
   const { me, sessionReady } = useAuthSession();
-  const announcementBootRan = useRef(false);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getAnnouncementText(lang, key, params), [lang]);
 
@@ -90,9 +89,10 @@ export default function AnnouncementPage() {
   }, [showNotice, t]);
 
   useEffect(() => {
-    if (!sessionReady || !me || announcementBootRan.current) return;
-    announcementBootRan.current = true;
+    if (!sessionReady || !me) return;
+
     let cancelled = false;
+    setReady(false);
     (async () => {
       try {
         if (!me.has_c168_domain_page_access) {

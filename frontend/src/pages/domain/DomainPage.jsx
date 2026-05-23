@@ -26,7 +26,6 @@ import PageContentLoader from "../../components/PageContentLoader.jsx";
 export default function DomainPage() {
   const navigate = useNavigate();
   const { me, sessionReady } = useAuthSession();
-  const domainBootRan = useRef(false);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = (key, params) => getDomainText(lang, key, params);
 
@@ -84,9 +83,10 @@ export default function DomainPage() {
 
   // ── Initial data load (session from AuthenticatedLayout) ─────────────────────
   useEffect(() => {
-    if (!sessionReady || !me || domainBootRan.current) return;
-    domainBootRan.current = true;
+    if (!sessionReady || !me) return;
+
     let cancelled = false;
+    setBootDone(false);
     (async () => {
       try {
         if (!me.has_c168_domain_page_access) {

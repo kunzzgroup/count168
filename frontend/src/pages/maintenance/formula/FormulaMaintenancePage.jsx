@@ -39,8 +39,7 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function FormulaMaintenancePage() {
   const navigate = useNavigate();
-  const { me } = useAuthSession();
-  const formulaMaintBootRan = useRef(false);
+  const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
@@ -265,8 +264,10 @@ export default function FormulaMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
-    if (!me || formulaMaintBootRan.current) return;
-    formulaMaintBootRan.current = true;
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
         const u = me;
@@ -337,12 +338,15 @@ export default function FormulaMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate, me]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, navigate, me]);
 
   // -- Load Meta Data --
   useEffect(() => {

@@ -46,8 +46,7 @@ function consumeNoDataToastDedupeKey(key) {
 
 export default function BankprocessMaintenancePage() {
   const navigate = useNavigate();
-  const { me } = useAuthSession();
-  const bankMaintBootRan = useRef(false);
+  const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
@@ -174,8 +173,10 @@ export default function BankprocessMaintenancePage() {
   }, [bootLoading, me, lang, t, m]);
 
   useEffect(() => {
-    if (!me || bankMaintBootRan.current) return;
-    bankMaintBootRan.current = true;
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
@@ -246,12 +247,15 @@ export default function BankprocessMaintenancePage() {
           sessionStorage.removeItem("dashboard_group_filter");
         }
       } catch {
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate, me]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, navigate, me]);
 
   useEffect(() => {
     if (bootLoading || !companyId || !companyCode) return;

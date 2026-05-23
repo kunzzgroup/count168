@@ -55,8 +55,7 @@ function consumeNoDataToastDedupeKey(key) {
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { me } = useAuthSession();
-  const txnMaintenanceBootRan = useRef(false);
+  const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
@@ -335,8 +334,10 @@ export default function TransactionMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
-    if (!me || txnMaintenanceBootRan.current) return;
-    txnMaintenanceBootRan.current = true;
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
         const u = me;
@@ -420,13 +421,18 @@ export default function TransactionMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setFiltersReady(true);
-        setBootLoading(false);
+        if (!cancelled) {
+          setFiltersReady(true);
+          setBootLoading(false);
+        }
       }
     })();
-  }, [navigate, me]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, navigate, me]);
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {

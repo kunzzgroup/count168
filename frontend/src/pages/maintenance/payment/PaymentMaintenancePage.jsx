@@ -30,8 +30,7 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function PaymentMaintenancePage() {
   const navigate = useNavigate();
-  const { me } = useAuthSession();
-  const paymentMaintBootRan = useRef(false);
+  const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
@@ -200,8 +199,10 @@ export default function PaymentMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
-    if (!me || paymentMaintBootRan.current) return;
-    paymentMaintBootRan.current = true;
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
         const u = me;
@@ -259,12 +260,15 @@ export default function PaymentMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate, me]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, navigate, me]);
 
   // -- Load Meta Data (Permissions & Currencies) --
   useEffect(() => {
