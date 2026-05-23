@@ -850,7 +850,7 @@ body.process-page {
 
 /* Bank Process List：表头固定，数据区在视口内纵向滚动（分页固定右下角） */
 .process-page.process-page--bank {
-    --bank-process-scroll-max: min(calc(100dvh - clamp(248px, 34vh, 400px)), calc(100vh - clamp(248px, 34vh, 400px)), 920px);
+    --bank-process-scroll-max: 100%;
 }
 
 .process-page.process-page--bank .container {
@@ -953,8 +953,11 @@ body.process-page {
 }
 
 .process-page.process-page--bank .bank-virtual-table {
+    display: flex;
+    flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
@@ -967,6 +970,7 @@ body.process-page {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    height: 100%;
     box-sizing: border-box;
 }
 
@@ -1010,7 +1014,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     max-height: var(--bank-process-scroll-max);
     overflow-x: visible;
@@ -1019,6 +1023,12 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     -webkit-overflow-scrolling: touch;
     border-radius: 0 0 8px 8px;
     scrollbar-gutter: stable;
+    /* 固定分页条在右下角时，为最后一行留出可滚空间 */
+    padding-bottom: max(52px, calc(20px + env(safe-area-inset-bottom, 0px)));
+}
+
+.process-page.process-page--bank .bank-virtual-scroll .bank-virtual-data-row.process-card {
+    flex-shrink: 0;
 }
 
 .process-page.process-page--bank .bank-virtual-scroll.process-cards::-webkit-scrollbar {
