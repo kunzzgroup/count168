@@ -24,7 +24,7 @@ import {
   formatBankMoneyFixed2,
   formatProfitSharingStringFixed2,
   EMPTY_BANK_FORM,
-  parseBankContractTermMonths,
+  parseBankContractRentalMonthsForDayEnd,
   contractBillingEndYmdForBankForm,
   matchesCurrentBankFilters,
   bankProcessFrequencyNormalized,
@@ -778,7 +778,7 @@ export function useBankProcessListPage() {
 
     if (!keysChanged || !start) return;
 
-    const term = parseBankContractTermMonths(contract);
+    const term = parseBankContractRentalMonthsForDayEnd(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
 
     if (!calculated) {
