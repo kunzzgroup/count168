@@ -231,7 +231,7 @@
 
 
 
-    /* SPECIFIC FIX: Bank Process List (15 columns) MUST be ultra-dense */
+    /* SPECIFIC FIX: Bank Process List (14 columns) MUST be ultra-dense */
     .process-page.process-page--bank .bank-data-table th {
         font-size: 11px !important;
         padding: 4px 4px !important;
@@ -243,7 +243,7 @@
         line-height: 1.15 !important;
     }
 
-    /* Bank Process virtual table：15 列 grid，勿套用上方 User List 的 9 列 table-header */
+    /* Bank Process virtual table：14 列 grid，勿套用上方 User List 的 9 列 table-header */
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row.table-header,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row {
         display: grid !important;

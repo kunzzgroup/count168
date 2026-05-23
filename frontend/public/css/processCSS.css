@@ -932,10 +932,10 @@ body.process-page {
     --bank-list-cell-min-height: clamp(32px, 2.4vw, 44px);
     --bank-list-header-row-height: clamp(40px, 2.8vw, 48px);
     --bank-list-cell-line-height: 1.35;
-    --bank-virtual-table-min-width: 1420px;
-    --bank-virtual-grid-columns: minmax(40px, 2.7fr) minmax(84px, 6fr) minmax(84px, 4fr) minmax(56px, 5fr) minmax(68px, 5fr) minmax(96px, 7fr) minmax(88px, 6fr) minmax(92px, 5fr) minmax(80px, 5.5fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(72px, 5fr);
+    --bank-virtual-table-min-width: 1360px;
+    --bank-virtual-grid-columns: minmax(40px, 2.7fr) minmax(84px, 6fr) minmax(84px, 4fr) minmax(120px, 10fr) minmax(96px, 7fr) minmax(88px, 6fr) minmax(92px, 5fr) minmax(80px, 5.5fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(72px, 5fr);
     --bank-virtual-grid-columns-with-select:
-        minmax(40px, 2.7fr) minmax(84px, 6fr) minmax(84px, 4fr) minmax(56px, 5fr) minmax(68px, 5fr)
+        minmax(40px, 2.7fr) minmax(84px, 6fr) minmax(84px, 4fr) minmax(120px, 10fr)
         minmax(96px, 7fr) minmax(88px, 6fr) minmax(92px, 5fr) minmax(80px, 5.5fr) minmax(56px, 4fr)
         minmax(56px, 4fr) minmax(56px, 4fr) minmax(96px, 7fr) minmax(64px, 4.5fr) minmax(72px, 5fr)
         minmax(48px, 48px);
@@ -1586,7 +1586,6 @@ body.process-page.process-page--bank .bank-col-action {
 body.process-page.process-page--bank .bank-col-supplier,
 body.process-page.process-page--bank .bank-col-ccy,
 body.process-page.process-page--bank .bank-col-bank,
-body.process-page.process-page--bank .bank-col-types,
 body.process-page.process-page--bank .bank-col-owner,
 body.process-page.process-page--bank .bank-col-insurance,
 body.process-page.process-page--bank .bank-col-customer {
@@ -1612,7 +1611,6 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-he
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-supplier,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-ccy,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-bank,
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-types,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-owner,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-insurance,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.header-item--with-sort-icon.bank-col-customer {
