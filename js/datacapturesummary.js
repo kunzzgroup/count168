@@ -19893,22 +19893,27 @@ function showEmptyState() {
 function updateDeleteButton() {
     const selectedCheckboxes = document.querySelectorAll('.summary-row-checkbox:checked');
     const count = selectedCheckboxes.length;
+    const reactOwned = window.__SUMMARY_REACT_TABLE__ || typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function';
+
     if (typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function') {
         window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__(count);
     }
+
     const deleteBtn = document.getElementById('summaryDeleteSelectedBtn');
     if (!deleteBtn) return;
 
-    if (typeof window.__SUMMARY_REACT_ON_DELETE_SELECTION_CHANGE__ === 'function') {
+    if (reactOwned) {
         deleteBtn.disabled = count <= 0;
         return;
     }
 
     if (count > 0) {
-        deleteBtn.textContent = `Delete (${count})`;
+        deleteBtn.textContent = typeof window.__SUMMARY_I18N_TEXT__ === 'function'
+            ? window.__SUMMARY_I18N_TEXT__('deleteWithCount', { count: count })
+            : `Delete (${count})`;
         deleteBtn.disabled = false;
     } else {
-        deleteBtn.textContent = 'Delete';
+        deleteBtn.textContent = summaryI18n('delete', 'Delete');
         deleteBtn.disabled = true;
     }
 }

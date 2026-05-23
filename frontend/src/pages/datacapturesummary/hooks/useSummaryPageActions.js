@@ -75,6 +75,13 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
     };
     window.__SUMMARY_REACT_ON_SUBMIT_SUCCESS__ = navigateAfterSubmitSuccess;
 
+    if (typeof window.updateDeleteButton === "function") {
+      window.updateDeleteButton();
+    } else {
+      const count = document.querySelectorAll(".summary-row-checkbox:checked").length;
+      setDeleteCount(count);
+    }
+
     return () => {
       delete window.__SUMMARY_REACT_NAV_BACK__;
       delete window.__SUMMARY_REACT_REFRESH__;

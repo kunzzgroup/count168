@@ -1,3 +1,5 @@
+import { useLayoutEffect, useRef } from "react";
+
 export default function SummaryActionBar({
   t,
   rateInput,
@@ -10,7 +12,15 @@ export default function SummaryActionBar({
   deleteDisabled,
   onDeleteSelected,
 }) {
+  const deleteBtnRef = useRef(null);
   const deleteLabel = deleteCount > 0 ? t("deleteWithCount", { count: deleteCount }) : t("delete");
+
+  // Legacy updateDeleteButton() may set textContent before React owns the button.
+  useLayoutEffect(() => {
+    if (deleteBtnRef.current) {
+      deleteBtnRef.current.textContent = deleteLabel;
+    }
+  }, [deleteLabel]);
 
   return (
     <div className="summary-action-buttons" id="actionButtons" style={{ display: "none" }}>
@@ -46,6 +56,7 @@ export default function SummaryActionBar({
         type="button"
         className="btn btn-delete"
         id="summaryDeleteSelectedBtn"
+        ref={deleteBtnRef}
         onClick={onDeleteSelected}
         title={t("deleteSelectedRows")}
         disabled={deleteDisabled}
