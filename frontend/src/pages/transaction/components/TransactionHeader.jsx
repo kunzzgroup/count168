@@ -20,6 +20,7 @@ export default function TransactionHeader({
   approveContra,
   rejectContra,
   fsCompanyId,
+  mutationsBlocked = false,
   m,
   t,
 }) {
@@ -220,7 +221,9 @@ export default function TransactionHeader({
                           <button
                             type="button"
                             className="contra-inbox-btn contra-inbox-approve"
+                            disabled={mutationsBlocked}
                             onClick={async () => {
+                              if (mutationsBlocked) return;
                               const tid = it.transaction_id || it.id;
                               if (!tid) return;
                               await approveContra({ transactionId: tid, companyId: fsCompanyId });
@@ -231,7 +234,9 @@ export default function TransactionHeader({
                           <button
                             type="button"
                             className="contra-inbox-btn contra-inbox-reject"
+                            disabled={mutationsBlocked}
                             onClick={async () => {
+                              if (mutationsBlocked) return;
                               if (!confirm(m.confirmRejectContra)) return;
                               const tid = it.transaction_id || it.id;
                               if (!tid) return;

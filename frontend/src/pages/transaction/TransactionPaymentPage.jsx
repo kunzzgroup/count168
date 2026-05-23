@@ -243,6 +243,7 @@ export default function TransactionPaymentPage() {
         approveContra={onApproveContra}
         rejectContra={onRejectContra}
         fsCompanyId={filterSnapshot?.companyId}
+        mutationsBlocked={Boolean(filterSnapshot?.mutationsBlocked)}
         m={m}
         t={t}
       />

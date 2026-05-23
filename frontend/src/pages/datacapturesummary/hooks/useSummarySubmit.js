@@ -8,7 +8,7 @@ import { pushSummaryNotification } from "../lib/summaryNotify.js";
 /**
  * Phase 7: React-owned Summary Submit orchestration.
  */
-export function useSummarySubmit({ companyId, scriptsReady, onSuccess }) {
+export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutationsBlocked = false }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inFlightRef = useRef(false);
   const onSuccessRef = useRef(onSuccess);
@@ -20,6 +20,10 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess }) {
   }, []);
 
   const submitSummary = useCallback(async () => {
+    if (mutationsBlocked) {
+      pushSummaryNotification("Error", "Read-only account: this action is not allowed.", "error");
+      return;
+    }
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     setSubmitting(true);
@@ -82,7 +86,7 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess }) {
       inFlightRef.current = false;
       setSubmitting(false);
     }
-  }, [companyId, setSubmitting]);
+  }, [companyId, setSubmitting, mutationsBlocked]);
 
   useEffect(() => {
     if (!scriptsReady) return undefined;

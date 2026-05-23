@@ -21,7 +21,7 @@ export default function AccountingDueModal({
   const popoverRef = useRef(null);
   const refreshRef = useRef(loadAccountingInbox);
   const wasOpenRef = useRef(false);
-  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, width: 960, caretLeft: 28 });
+  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, width: 1040, caretLeft: 28 });
 
   const postableRows = accountingRows.filter((r) => !r.already_posted_today);
   const postableCount = postableRows.length;
@@ -40,7 +40,7 @@ export default function AccountingDueModal({
     const btn = btnRef.current;
     if (!btn) return;
     const rect = btn.getBoundingClientRect();
-    const width = Math.min(960, Math.max(360, window.innerWidth - 48));
+    const width = Math.min(1040, Math.max(380, window.innerWidth - 48));
     let left = rect.left;
     if (left + width > window.innerWidth - 24) {
       left = Math.max(24, window.innerWidth - width - 24);
@@ -191,7 +191,7 @@ export default function AccountingDueModal({
                 </div>
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--delete" role="columnheader">
                   <span className="accounting-due-inbox-delete-head">
-                    {t("deleteCol")}
+                    <span className="accounting-due-inbox-delete-head-label">{t("deleteCol")}</span>
                     <input
                       type="checkbox"
                       title={t("selectAllForDelete")}

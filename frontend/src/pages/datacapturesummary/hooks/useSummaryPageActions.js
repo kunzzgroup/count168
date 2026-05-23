@@ -14,7 +14,7 @@ import { useSummarySubmit } from "./useSummarySubmit.js";
 /**
  * Phase 4/7: React owns page chrome actions; Submit orchestration in useSummarySubmit.
  */
-export function useSummaryPageActions({ companyId, scriptsReady }) {
+export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked = false }) {
   const navigate = useNavigate();
   const rateSelectAllRef = useRef(null);
   const handleRefreshRef = useRef(async () => {});
@@ -37,6 +37,7 @@ export function useSummaryPageActions({ companyId, scriptsReady }) {
   const { submitSummary, isSubmitting } = useSummarySubmit({
     companyId,
     scriptsReady,
+    mutationsBlocked,
     onSuccess: navigateAfterSubmitSuccess,
   });
 

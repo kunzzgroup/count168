@@ -22,6 +22,7 @@ import {
 } from "./captureMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
+import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
@@ -96,6 +97,8 @@ export default function CaptureMaintenancePage() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 2000);
   }, []);
+
+  const { guardWrite } = usePartnershipAuditWriteGuard(me, notify);
 
   // -- Initialization --
   useEffect(() => {
@@ -476,6 +479,7 @@ export default function CaptureMaintenancePage() {
   const selectAll = selectedIds.length > 0 && selectedIds.length === selectableRowsCount;
 
   const handleDeleteClick = () => {
+    if (guardWrite()) return;
     if (selectedIds.length === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -484,6 +488,7 @@ export default function CaptureMaintenancePage() {
   };
 
   const confirmDeleteAction = async () => {
+    if (guardWrite()) return;
     setShowDeleteModal(false);
     try {
       const itemsToDelete = captureData

@@ -140,7 +140,7 @@ class SummaryPageErrorBoundary extends Component {
 function DataCaptureSummaryPageInner() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { companyId, bootLoading: sessionBootLoading, bootError } = useSummaryBoot();
+  const { companyId, mutationsBlocked, bootLoading: sessionBootLoading, bootError } = useSummaryBoot();
 
   const [scriptsReady, setScriptsReady] = useState(() => areSummaryLegacyScriptsLoaded());
   const [engineError, setEngineError] = useState("");
@@ -183,7 +183,7 @@ function DataCaptureSummaryPageInner() {
     }
   }, [capture.hasCaptureData, scriptsReady]);
 
-  const pageActions = useSummaryPageActions({ companyId, scriptsReady });
+  const pageActions = useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked });
   const editFormula = useSummaryEditFormula({ scriptsReady });
   const overlays = useSummaryOverlays();
   const addAccount = useSummaryAddAccount({

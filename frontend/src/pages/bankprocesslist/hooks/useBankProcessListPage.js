@@ -35,6 +35,7 @@ import {
 } from "../lib/bankProcessHelpers.js";
 import { dedupeCompanyRowsForSwitcher } from "../../processlist/processListHelpers.js";
 import { prefetchGamesProcessListPayload } from "../../processlist/processRoutePrefetch.js";
+import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 
 export function useBankProcessListPage() {
   const navigate = useNavigate();
@@ -106,6 +107,7 @@ export function useBankProcessListPage() {
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
+  const [sessionMe, setSessionMe] = useState(null);
   const [companyId, setCompanyId] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
   const [switchingCompany, setSwitchingCompany] = useState(false);
@@ -202,6 +204,12 @@ export function useBankProcessListPage() {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(null), 1800);
   }, []);
+
+  const { mutationsBlocked, guardWrite } = usePartnershipAuditWriteGuard(
+    sessionMe,
+    notify,
+    t("readOnlyActionBlocked")
+  );
 
   const accountModalOrderedRoles = useMemo(() => getOrderedRoles(rolesList), [rolesList]);
 
@@ -335,6 +343,7 @@ export function useBankProcessListPage() {
   };
 
   const submitAccountModal = async (e) => {
+    if (guardWrite()) return;
     e.preventDefault();
     const isEdit = accountModalIsEditMode && accountModalForm.id;
     const alertAmount = normalizeAlertAmount(accountModalForm.alert_amount);
@@ -560,6 +569,7 @@ export function useBankProcessListPage() {
           window.location.assign(new URL("/login", window.location.origin).toString());
           return;
         }
+        setSessionMe(meJson.data);
         const companiesJson = await companiesRes.json();
         const cs = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
         setCompanies(cs);
@@ -1023,6 +1033,7 @@ export function useBankProcessListPage() {
   };
 
   const submitNewCountry = async (e) => {
+    if (guardWrite()) return;
     e.preventDefault();
     const name = sanitizeCapitalLettersOnly(newCountryName);
     if (!companyId) return;
@@ -1049,6 +1060,7 @@ export function useBankProcessListPage() {
   };
 
   const submitNewBank = async (e) => {
+    if (guardWrite()) return;
     e.preventDefault();
     const name = sanitizeCapitalLettersOnly(newBankName);
     if (!companyId || !form.country) return;
@@ -1238,6 +1250,7 @@ export function useBankProcessListPage() {
 
   const submitForm = async (e) => {
     e.preventDefault();
+    if (guardWrite()) return;
     const rawFreq = bankProcessFrequencyNormalized(form.day_start_frequency);
     const isOnceSubmit = rawFreq === "once";
     const dayStart = String(form.day_start || "").trim();
@@ -1298,6 +1311,7 @@ export function useBankProcessListPage() {
   };
 
   const postAccountingToTransaction = async () => {
+    if (guardWrite()) return;
     const selected = accountingRows.filter((r) => accountingSelected.has(Number(r.id)) && !r.already_posted_today);
     if (selected.length === 0) return notify(t("needOneDueItem"), "warning");
     try {
@@ -1316,6 +1330,7 @@ export function useBankProcessListPage() {
   };
 
   const dismissAccountingRows = async () => {
+    if (guardWrite()) return;
     const selected = accountingRows.filter((r) => accountingDeleteSelected.has(Number(r.id)));
     if (selected.length === 0) return notify(t("tickDeleteRows"), "warning");
     try {
@@ -1333,6 +1348,7 @@ export function useBankProcessListPage() {
   };
 
   const saveRemarkModal = async () => {
+    if (guardWrite()) return;
     if (!remarkRow) return;
     try {
       const fd = new FormData(); fd.append("id", String(remarkRow.id)); fd.append("remark", remarkDraft);
@@ -1347,6 +1363,7 @@ export function useBankProcessListPage() {
   };
 
   const resendAccountingDue = async () => {
+    if (guardWrite()) return;
     if (!resendTarget) return;
     setResendInlineError("");
     const dayStart = String(resendDayStart || "").trim();
@@ -1394,6 +1411,7 @@ export function useBankProcessListPage() {
   };
 
   const confirmDeleteProcesses = async () => {
+    if (guardWrite()) return;
     if (!selectedIds.size) {
       setDeleteConfirmOpen(false);
       return;
@@ -1799,5 +1817,6 @@ export function useBankProcessListPage() {
     totalPages,
     pageRows,
     PAGE_SIZE,
+    mutationsBlocked,
   };
 }

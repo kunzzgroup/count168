@@ -1171,8 +1171,8 @@
     position: absolute;
     left: 0;
     top: calc(100% + 12px);
-    width: min(960px, calc(100vw - 48px));
-    max-height: min(560px, calc(100vh - 120px));
+    width: min(1040px, calc(100vw - 48px));
+    max-height: min(620px, calc(100vh - 120px));
     overflow: hidden;
     border: 1px solid #e8edf5;
     border-radius: 16px;
@@ -1219,7 +1219,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: clamp(14px, 1.04vw, 18px);
+    font-size: clamp(15px, 1.12vw, 19px);
 }
 
 .accounting-due-inbox-popover-actions {
@@ -1308,10 +1308,12 @@
     position: sticky;
     top: 0;
     z-index: 1;
+    min-height: clamp(2.85rem, 2.4vw, 3.35rem);
     padding: var(--accounting-due-head-pad-y) var(--accounting-due-head-pad-x);
     background: var(--accounting-due-header-bg);
     border-bottom: 1px solid var(--accounting-due-header-border);
     box-shadow: inset -1px 0 0 var(--accounting-due-header-divider);
+    align-items: center;
 }
 
 .accounting-due-inbox-grid-row--head .accounting-due-inbox-grid-cell--head:last-child {
@@ -1321,6 +1323,7 @@
 .accounting-due-inbox-grid-row:not(.accounting-due-inbox-grid-row--head) .accounting-due-inbox-grid-cell {
     padding: var(--accounting-due-cell-pad-y) var(--accounting-due-cell-pad-x);
     border-bottom: 1px solid var(--accounting-due-row-border);
+    min-height: clamp(2.5rem, 2.1vw, 2.95rem);
 }
 
 .accounting-due-inbox-grid-row:not(.accounting-due-inbox-grid-row--head):last-of-type .accounting-due-inbox-grid-cell {
@@ -1351,32 +1354,60 @@
 .accounting-due-inbox-grid-cell--head {
     font-size: var(--accounting-due-text-head);
     font-weight: var(--font-weight-bold);
-    letter-spacing: 0.02em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--accounting-due-header-fg);
     white-space: nowrap;
     background: var(--accounting-due-header-bg);
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.2;
+    line-height: 1.25;
 }
 
 .accounting-due-inbox-grid-cell--cb,
-.accounting-due-inbox-grid-cell--no,
 .accounting-due-inbox-grid-cell--delete {
+    justify-content: center;
+    text-align: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.accounting-due-inbox-grid-cell--no,
+.accounting-due-inbox-grid-cell--date,
+.accounting-due-inbox-grid-cell--bank,
+.accounting-due-inbox-grid-cell--contract {
     justify-content: center;
     text-align: center;
 }
 
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--cb,
-.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--no,
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--delete {
+    justify-content: center;
+    text-align: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--no,
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--date,
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--bank,
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--contract {
     justify-content: center;
     text-align: center;
 }
 
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--owner {
+    justify-content: flex-start;
+    text-align: left;
+}
+
 .accounting-due-inbox-grid-cell--date {
     white-space: nowrap;
+}
+
+.accounting-due-inbox-grid-cell--owner {
+    justify-content: flex-start;
+    text-align: left;
 }
 
 .accounting-due-inbox-grid-cell--owner,
@@ -1386,27 +1417,28 @@
     white-space: nowrap;
 }
 
-.accounting-due-inbox-grid-cell--bank {
-    justify-content: center;
-    text-align: center;
-}
-
-.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--bank {
-    justify-content: center;
-    text-align: center;
-}
-
 .accounting-due-inbox-delete-head {
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
+    width: 100%;
+}
+
+.accounting-due-inbox-delete-head-label {
+    font-size: var(--accounting-due-text-head);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1.1;
 }
 
 .accounting-due-inbox-grid-cell input[type="checkbox"] {
-    width: 15px;
-    height: 15px;
+    width: var(--accounting-due-checkbox-size);
+    height: var(--accounting-due-checkbox-size);
     margin: 0;
+    flex-shrink: 0;
     cursor: pointer;
     accent-color: #2563eb;
 }
@@ -1428,9 +1460,9 @@
 
 .accounting-due-inbox-action-btn {
     font-family: var(--font-heading-page);
-    width: clamp(7rem, 8.5vw, 9.5rem);
-    padding: clamp(0.45rem, 0.55vw, 0.65rem) 1.25rem;
-    font-size: clamp(11px, 0.78vw, 14px);
+    width: clamp(7.5rem, 9vw, 10rem);
+    padding: clamp(0.5rem, 0.6vw, 0.7rem) 1.35rem;
+    font-size: clamp(12px, 0.85vw, 15px);
     font-weight: 700;
     border: none;
     border-radius: 8px;

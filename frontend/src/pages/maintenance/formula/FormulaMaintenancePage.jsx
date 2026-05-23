@@ -4,6 +4,7 @@ import { getMaintenanceText, MAINTENANCE_I18N, getFormulaInputMethodOptions } fr
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
+import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
@@ -99,6 +100,8 @@ export default function FormulaMaintenancePage() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 2000);
   }, []);
+
+  const { guardWrite, mutationsBlocked } = usePartnershipAuditWriteGuard(me, notify);
 
   // -- Initialization --
   useEffect(() => {
@@ -605,6 +608,7 @@ export default function FormulaMaintenancePage() {
   }, [selectAllChecked, selectAllIndeterminate]);
 
   const handleDeleteClick = () => {
+    if (guardWrite()) return;
     if (selectedCount === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -613,6 +617,7 @@ export default function FormulaMaintenancePage() {
   };
 
   const handleConfirmDelete = async () => {
+    if (guardWrite()) return;
     setIsDeleteModalOpen(false);
     const idsToDelete = resolveSelectedIds();
     try {
@@ -625,6 +630,7 @@ export default function FormulaMaintenancePage() {
   };
 
   const handleSaveRow = async (id, editForm) => {
+    if (guardWrite()) return;
     try {
       const payload = {
         template_id: id,

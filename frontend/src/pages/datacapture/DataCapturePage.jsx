@@ -41,6 +41,7 @@ import { useDataCaptureGlobalShims } from "./hooks/useDataCaptureGlobalShims.js"
 import { useDataCaptureGridHeader } from "./hooks/useDataCaptureGridHeader.js";
 import { useDataCaptureLegacyChrome } from "./hooks/useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
+import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
 import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmittedPanelHeight.js";
 
@@ -183,7 +184,8 @@ export default function DataCapturePage() {
     closeDeleteDialog,
   } = useDataCaptureLegacyChrome();
 
-  const submitReset = useDataCaptureSubmitReset({ companyId, form, captureType });
+  const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
+  const submitReset = useDataCaptureSubmitReset({ companyId, form, captureType, mutationsBlocked });
 
   useDataCaptureGrid(scriptsReady);
   useDataCaptureGridInteraction(scriptsReady);
@@ -847,7 +849,7 @@ export default function DataCapturePage() {
         citibetMode={citibetMode}
         formatGridReady={formatGridReady}
         onCaptureTypeChange={handleCaptureTypeChange}
-        submitDisabled={submitReset.submitDisabled}
+        submitDisabled={submitReset.submitDisabled || mutationsBlocked}
         onSubmit={() => void submitReset.submit()}
         onReset={submitReset.reset}
       />

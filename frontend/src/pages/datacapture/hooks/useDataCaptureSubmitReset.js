@@ -38,7 +38,7 @@ function buildProcessCapturePayload(form, captureType, currencies) {
  * Phase 1 migration: Submit, Reset, and Restore orchestration in React.
  * Submit-time table transform lives in dataCaptureConvertTableOnSubmit.js (Phase 5b).
  */
-export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
+export function useDataCaptureSubmitReset({ companyId, form, captureType, mutationsBlocked = false }) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreInFlightRef = useRef(false);
   const captureTypeRef = useRef(captureType);
@@ -97,6 +97,10 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
   }, [recomputeSubmitState]);
 
   const submit = useCallback(async () => {
+    if (mutationsBlocked) {
+      pushDataCaptureNotification("Read-only account: this action is not allowed.", "danger");
+      return;
+    }
     const tableData = captureTableDataFromDom(captureType);
     const validation = validateDataCaptureForm({
       selectedProcess: form.selectedProcess,
@@ -125,7 +129,7 @@ export function useDataCaptureSubmitReset({ companyId, form, captureType }) {
       console.error("Error submitting data:", error);
       pushDataCaptureNotification("Failed to capture data", "danger");
     }
-  }, [form, captureType]);
+  }, [form, captureType, mutationsBlocked]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {

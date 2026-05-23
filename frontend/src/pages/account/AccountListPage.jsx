@@ -36,6 +36,7 @@ import {
   parseAccountsFromCurrencyDeleteMessage,
   translateAccountApiMessage,
 } from "../../translateFile/pages/accountTranslate.js";
+import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 
 export default function AccountListPage() {
   const navigate = useNavigate();
@@ -331,13 +332,7 @@ export default function AccountListPage() {
     return sortedAccounts;
   }, [sortedAccounts]);
 
-  const accountMutationsBlocked = useMemo(() => {
-    if (!sessionMe) return false;
-    const r = String(sessionMe.role || "").trim().toLowerCase();
-    if (r !== "partnership" && r !== "audit") return false;
-    const ro = sessionMe.read_only;
-    return ro === 1 || ro === true || ro === "1";
-  }, [sessionMe]);
+  const accountMutationsBlocked = usePartnershipAuditReadOnlyLocked(sessionMe);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredForMode.length / PAGE_SIZE)), [filteredForMode]);
   const pageRows = useMemo(() => {

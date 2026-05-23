@@ -6,6 +6,7 @@ import {
   resolveCompanyGamesAccess,
 } from "../../datacapture/lib/dataCaptureCompanyAccess.js";
 import { fetchSummarySessionUser } from "../lib/summaryApi.js";
+import { usePartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
 import { summaryQueryKeys } from "../lib/summaryQueryKeys.js";
 
 /**
@@ -22,6 +23,7 @@ export function useSummaryBoot() {
   });
 
   const me = query.data ?? null;
+  const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
   const companyId =
     me?.company_id != null && Number.isFinite(Number(me.company_id)) ? Number(me.company_id) : null;
 
@@ -72,6 +74,7 @@ export function useSummaryBoot() {
   return {
     me,
     companyId,
+    mutationsBlocked,
     bootLoading: query.isLoading,
     bootError: query.isError,
   };
