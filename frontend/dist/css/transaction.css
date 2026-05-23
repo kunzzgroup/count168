@@ -2245,20 +2245,24 @@ body.transaction-page .transaction-container * {
     gap: 12px;
 }
 
-.transaction-header-left {
+/* Title + Contra Inbox share one row; top spacing lives on the row, not the h1. */
+body.ec-auth-shell.transaction-page .transaction-header-left,
+body.transaction-page .transaction-header-left {
     display: flex;
     align-items: center;
-    gap: clamp(12px, 1vw, 20px);
+    gap: clamp(12px, 1.04vw, 20px);
     min-width: 0;
     flex-wrap: nowrap;
-    margin-top: var(--text-page-title-mt);
+    margin-top: var(--text-page-title-mt) !important;
 }
 
-.transaction-header-left .transaction-title {
-    margin-top: 0 !important;
-    margin-bottom: 0;
-    line-height: 1.05;
-    flex-shrink: 0;
+body.ec-auth-shell.transaction-page .transaction-header-left > .transaction-title,
+body.ec-auth-shell .transaction-page .transaction-header-left > h1.transaction-title,
+body.transaction-page .transaction-header-left .transaction-title {
+    margin: 0 !important;
+    padding: 0;
+    line-height: 1;
+    align-self: center;
 }
 
 .contra-inbox-wrap {
