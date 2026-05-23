@@ -2261,90 +2261,184 @@ body.transaction-page .transaction-container * {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 24px;
+    min-width: 20px;
     height: 20px;
-    padding: 0 8px;
+    padding: 0 6px;
     border-radius: 999px;
-    background: #ef4444;
+    background: #ff3b30;
     color: #fff;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: 11px;
     font-weight: 800;
+    line-height: 1;
 }
 
 .contra-inbox-btn {
-    padding: 6px 10px;
-    border: 1px solid #d0d7de;
-    border-radius: 10px;
-    background: #f8fafc;
+    border: none;
+    background: transparent;
     cursor: pointer;
-    font-size: clamp(9px, 0.73vw, 14px);
-    font-weight: 700;
-    color: #111827;
+    font-family: inherit;
     transition: all 0.15s ease;
 }
 
-.contra-inbox-btn:hover {
-    background: #eef2ff;
-    border-color: #a5b4fc;
+.contra-inbox-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .contra-inbox-btn.contra-inbox-main {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
-    border-radius: 12px;
+    padding: 8px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
     background: #ffffff;
+    font-size: clamp(11px, 0.83vw, 15px);
     font-weight: 800;
-    color: #0f172a;
+    color: #000033;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.contra-inbox-btn.contra-inbox-main:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.contra-inbox-wrap--open .contra-inbox-btn.contra-inbox-main {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.contra-inbox-main-label {
+    white-space: nowrap;
 }
 
 .contra-inbox-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: #000033;
+}
+
+.contra-inbox-chevron {
     width: 16px;
     height: 16px;
-    display: inline-block;
+    flex-shrink: 0;
+    color: #64748b;
+    transition: transform 0.2s ease;
+}
+
+.contra-inbox-wrap--open .contra-inbox-chevron {
+    transform: rotate(180deg);
 }
 
 .contra-inbox-popover {
     position: absolute;
     left: 0;
-    top: calc(100% + 8px);
-    /* JS 会给元素写死宽度，这里用 !important 强制限制最大宽度，避免在较小屏幕溢出 */
-    width: auto !important;
-    max-width: min(760px, calc(100vw - 40px)) !important;
-    max-height: 420px;
+    top: calc(100% + 12px);
+    width: min(920px, calc(100vw - 48px));
+    max-height: min(520px, calc(100vh - 120px));
     overflow: hidden;
-    border: 1px solid #d0d7de;
-    border-radius: 14px;
+    border: 1px solid #e8edf5;
+    border-radius: 16px;
     background: #fff;
-    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.18);
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.12), 0 12px 40px rgba(15, 23, 42, 0.08);
     z-index: 1200;
-    display: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.contra-inbox-popover::before {
+    content: "";
+    position: absolute;
+    top: -7px;
+    left: 28px;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-left: 1px solid #e8edf5;
+    border-top: 1px solid #e8edf5;
+    transform: rotate(45deg);
 }
 
 .contra-inbox-popover-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    padding: clamp(6px, 0.52vw, 10px) 12px;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f8fafc;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #eef2f7;
+    background: #fff;
 }
 
 .contra-inbox-popover-title {
-    font-weight: 900;
-    color: #0f172a;
+    font-weight: 800;
+    color: #000033;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: clamp(11px, 0.94vw, 18px);
-    /* 与其他标题保持一致比例 */
+    font-size: clamp(14px, 1.04vw, 18px);
+}
+
+.contra-inbox-popover-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.contra-inbox-btn.contra-inbox-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: clamp(11px, 0.78vw, 14px);
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.contra-inbox-btn.contra-inbox-refresh svg {
+    width: 16px;
+    height: 16px;
+}
+
+.contra-inbox-btn.contra-inbox-refresh:hover:not(:disabled) {
+    background: #eff6ff;
+}
+
+.contra-inbox-btn.contra-inbox-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: #64748b;
+}
+
+.contra-inbox-btn.contra-inbox-close svg {
+    width: 18px;
+    height: 18px;
+}
+
+.contra-inbox-btn.contra-inbox-close:hover {
+    background: #f1f5f9;
+    color: #334155;
 }
 
 .contra-inbox-popover-body {
-    max-height: 360px;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: auto;
+}
+
+.contra-inbox-loading,
+.contra-inbox-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: #64748b;
+    font-size: clamp(11px, 0.83vw, 14px);
+    font-weight: 600;
 }
 
 .contra-inbox-table {
@@ -2352,37 +2446,200 @@ body.transaction-page .transaction-container * {
     border-collapse: collapse;
 }
 
-.contra-inbox-table th,
-.contra-inbox-table td {
-    padding: 6px 8px;
-    border-top: 1px solid #e5e7eb;
-    font-size: clamp(9px, 0.73vw, 14px);
-    font-weight: 700;
+.contra-inbox-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 10px 12px;
+    background: #f4f7fc;
+    border-bottom: 1px solid #e8edf5;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #1e3a5f;
     text-align: left;
-    vertical-align: top;
+    white-space: nowrap;
+}
+
+.contra-inbox-table tbody td {
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: clamp(11px, 0.78vw, 14px);
+    font-weight: 600;
+    color: #334155;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.contra-inbox-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.contra-inbox-table tbody tr:hover {
+    background: #fafbfd;
+}
+
+.contra-inbox-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    color: #334155;
+}
+
+.contra-inbox-date svg {
+    width: 14px;
+    height: 14px;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.contra-inbox-account-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: clamp(11px, 0.78vw, 13px);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.contra-inbox-account-badge--from {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.contra-inbox-account-badge--to {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
+.contra-inbox-account-flow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.contra-inbox-account-arrow {
+    color: #94a3b8;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.contra-inbox-amount {
+    font-weight: 800 !important;
+    color: #000033 !important;
+    white-space: nowrap;
+}
+
+.contra-inbox-submitter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.contra-inbox-submitter-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #0284c7;
+    flex-shrink: 0;
+}
+
+.contra-inbox-submitter-avatar svg {
+    width: 14px;
+    height: 14px;
+}
+
+.contra-inbox-desc {
+    max-width: 180px;
+    word-break: break-word;
+}
+
+.contra-inbox-action-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.contra-inbox-btn.contra-inbox-approve,
+.contra-inbox-btn.contra-inbox-reject {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: clamp(10px, 0.73vw, 13px);
+    font-weight: 700;
+    white-space: nowrap;
+    background: #fff;
+}
+
+.contra-inbox-btn.contra-inbox-approve svg,
+.contra-inbox-btn.contra-inbox-reject svg {
+    width: 14px;
+    height: 14px;
 }
 
 .contra-inbox-approve {
-    background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
-    border-color: transparent;
-    color: #fff;
+    border: 1.5px solid #4cd964;
+    color: #16a34a;
 }
 
 .contra-inbox-approve:hover {
-    background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
-    border-color: transparent;
+    background: #f0fdf4;
+    border-color: #22c55e;
 }
 
 .contra-inbox-reject {
-    background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-    border-color: transparent;
-    color: #fff;
-    margin-left: 6px;
+    border: 1.5px solid #ff3b30;
+    color: #dc2626;
 }
 
 .contra-inbox-reject:hover {
-    background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
-    border-color: transparent;
+    background: #fef2f2;
+    border-color: #ef4444;
+}
+
+.contra-inbox-popover-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid #eef2f7;
+    background: #fafbfd;
+    color: #64748b;
+    font-size: clamp(11px, 0.78vw, 13px);
+    font-weight: 600;
+}
+
+.contra-inbox-popover-footer svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: #94a3b8;
+}
+
+@media (max-width: 900px) {
+    .contra-inbox-popover {
+        left: auto;
+        right: 0;
+        width: min(920px, calc(100vw - 24px));
+    }
+
+    .contra-inbox-popover::before {
+        left: auto;
+        right: 28px;
+    }
 }
 
 /* 表格自然展开，页面整体滚动 */

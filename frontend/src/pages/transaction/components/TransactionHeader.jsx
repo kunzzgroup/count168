@@ -1,9 +1,20 @@
+import { useEffect, useRef } from "react";
 import { formatPaymentHistoryMoneyHalfUp, toUpperDisplay } from "../lib/transactionFormat.js";
+
+function formatContraDate(raw) {
+  if (!raw || raw === "-") return "-";
+  const s = String(raw).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return s;
+}
 
 export default function TransactionHeader({
   canApproveContra,
   contraInbox,
   toggleContraInbox,
+  closeContraInbox,
   refreshContraInbox,
   approveContra,
   rejectContra,
@@ -11,95 +22,219 @@ export default function TransactionHeader({
   m,
   t,
 }) {
+  const wrapRef = useRef(null);
+  const itemCount = contraInbox.items.length;
+  const isOpen = contraInbox.open;
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    refreshContraInbox?.();
+  }, [isOpen, refreshContraInbox]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const onPointerDown = (event) => {
+      if (wrapRef.current && !wrapRef.current.contains(event.target)) {
+        closeContraInbox?.();
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") closeContraInbox?.();
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen, closeContraInbox]);
+
+  const awaitingText =
+    itemCount === 1
+      ? t("contraInboxAwaitingApproval", { count: itemCount })
+      : t("contraInboxAwaitingApprovalPlural", { count: itemCount });
+
   return (
     <div className="transaction-header-bar">
       <div className="transaction-header-left">
         <h1 className="transaction-title">{m.transactionList}</h1>
         {canApproveContra && (
-          <div className="contra-inbox-wrap" id="contraInboxWrap">
-            <button type="button" className="contra-inbox-btn contra-inbox-main" id="contraInboxBtn" onClick={toggleContraInbox}>
-              <svg className="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
+          <div
+            ref={wrapRef}
+            className={`contra-inbox-wrap${isOpen ? " contra-inbox-wrap--open" : ""}`}
+            id="contraInboxWrap"
+          >
+            <button
+              type="button"
+              className="contra-inbox-btn contra-inbox-main"
+              id="contraInboxBtn"
+              aria-expanded={isOpen}
+              aria-haspopup="dialog"
+              onClick={toggleContraInbox}
+            >
+              <svg className="contra-inbox-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M22 12h-6l-2 3h-4l-2-3H2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              {m.contraInbox}
+              <span className="contra-inbox-main-label">{m.contraInbox}</span>
               <span className="contra-inbox-badge" id="contraInboxCount">
-                {contraInbox.items.length}
+                {itemCount}
               </span>
+              <svg className="contra-inbox-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
-            <div className="contra-inbox-popover" id="contraInboxPopover" style={{ display: contraInbox.open ? "block" : "none" }}>
-              <div className="contra-inbox-popover-header">
-                <div className="contra-inbox-popover-title">
-                  {m.contraInbox}
-                  <span className="contra-inbox-badge" id="contraInboxCount2">
-                    {contraInbox.items.length}
-                  </span>
+
+            {isOpen && (
+              <div className="contra-inbox-popover" id="contraInboxPopover" role="dialog" aria-label={m.contraInbox}>
+                <div className="contra-inbox-popover-header">
+                  <div className="contra-inbox-popover-title">
+                    {m.contraInbox}
+                    <span className="contra-inbox-badge" id="contraInboxCount2">
+                      {itemCount}
+                    </span>
+                  </div>
+                  <div className="contra-inbox-popover-actions">
+                    <button
+                      type="button"
+                      className="contra-inbox-btn contra-inbox-refresh"
+                      id="contraInboxRefreshBtn"
+                      onClick={refreshContraInbox}
+                      disabled={contraInbox.loading}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M21 12a9 9 0 1 1-2.64-6.36" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M21 3v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {m.refresh}
+                    </button>
+                    <button
+                      type="button"
+                      className="contra-inbox-btn contra-inbox-close"
+                      aria-label={m.close}
+                      onClick={closeContraInbox}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <button type="button" className="contra-inbox-btn" id="contraInboxRefreshBtn" onClick={refreshContraInbox}>
-                  {m.refresh}
-                </button>
+
+                <div className="contra-inbox-popover-body">
+                  {contraInbox.loading && itemCount === 0 ? (
+                    <div className="contra-inbox-loading">{m.loading}</div>
+                  ) : null}
+
+                  {!contraInbox.loading && itemCount === 0 ? (
+                    <div className="contra-inbox-empty">{m.contraInboxEmpty}</div>
+                  ) : (
+                    <table className="contra-inbox-table">
+                      <thead>
+                        <tr>
+                          <th>{m.date}</th>
+                          <th>{m.from}</th>
+                          <th>{m.to}</th>
+                          <th>{m.currency}</th>
+                          <th>{m.amount}</th>
+                          <th>{m.submittedBy}</th>
+                          <th>{m.description}</th>
+                          <th>{m.action}</th>
+                        </tr>
+                      </thead>
+                      <tbody id="contraInboxTbody">
+                        {contraInbox.items.map((it) => {
+                          const fromCode = toUpperDisplay(it.from_account_code || "-");
+                          const toCode = toUpperDisplay(it.to_account_code || "-");
+                          const submittedBy = toUpperDisplay(it.submitted_by || it.created_by || "-");
+                          return (
+                            <tr key={it.id || `${it.transaction_id}-${it.transaction_date}`}>
+                              <td>
+                                <span className="contra-inbox-date">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                                    <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+                                  </svg>
+                                  {formatContraDate(it.transaction_date || it.date)}
+                                </span>
+                              </td>
+                              <td>
+                                <span className="contra-inbox-account-badge contra-inbox-account-badge--from">{fromCode}</span>
+                              </td>
+                              <td>
+                                <span className="contra-inbox-account-flow">
+                                  <span className="contra-inbox-account-arrow" aria-hidden="true">
+                                    →
+                                  </span>
+                                  <span className="contra-inbox-account-badge contra-inbox-account-badge--to">{toCode}</span>
+                                </span>
+                              </td>
+                              <td>{toUpperDisplay(it.currency || "-")}</td>
+                              <td className="contra-inbox-amount">{formatPaymentHistoryMoneyHalfUp(it.amount)}</td>
+                              <td>
+                                <span className="contra-inbox-submitter">
+                                  <span className="contra-inbox-submitter-avatar" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <circle cx="12" cy="8" r="4" />
+                                      <path d="M4 20c0-3.3 2.7-6 6-6h4c3.3 0 6 2.7 6 6" strokeLinecap="round" />
+                                    </svg>
+                                  </span>
+                                  {submittedBy}
+                                </span>
+                              </td>
+                              <td className="contra-inbox-desc">{toUpperDisplay(it.description || "-")}</td>
+                              <td>
+                                <div className="contra-inbox-action-group">
+                                  <button
+                                    type="button"
+                                    className="contra-inbox-btn contra-inbox-approve"
+                                    onClick={async () => {
+                                      const tid = it.transaction_id || it.id;
+                                      if (!tid) return;
+                                      await approveContra({ transactionId: tid, companyId: fsCompanyId });
+                                    }}
+                                  >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                                      <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    {m.approve}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="contra-inbox-btn contra-inbox-reject"
+                                    onClick={async () => {
+                                      if (!confirm(m.confirmRejectContra)) return;
+                                      const tid = it.transaction_id || it.id;
+                                      if (!tid) return;
+                                      await rejectContra({ transactionId: tid, companyId: fsCompanyId });
+                                    }}
+                                  >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                                      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    {m.reject}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                <div className="contra-inbox-popover-footer">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 16v-4M12 8h.01" strokeLinecap="round" />
+                  </svg>
+                  <span>{awaitingText}</span>
+                </div>
               </div>
-              <div className="contra-inbox-popover-body">
-                {contraInbox.loading && <div style={{ padding: 12 }}>{m.loading}</div>}
-                <table className="contra-inbox-table">
-                  <thead>
-                    <tr>
-                      <th>{m.date}</th>
-                      <th>{m.from}</th>
-                      <th>{m.to}</th>
-                      <th>{m.currency}</th>
-                      <th>{m.amount}</th>
-                      <th>{m.submittedBy}</th>
-                      <th>{m.description}</th>
-                      <th>{m.action}</th>
-                    </tr>
-                  </thead>
-                  <tbody id="contraInboxTbody">
-                    {contraInbox.items.map((it) => (
-                      <tr key={it.id || `${it.transaction_id}-${it.transaction_date}`}>
-                        <td>{it.transaction_date || it.date || "-"}</td>
-                        <td>
-                          {it.from_account_code || "-"}
-                          {it.from_account_name ? ` - ${it.from_account_name}` : ""}
-                        </td>
-                        <td>
-                          {it.to_account_code || "-"}
-                          {it.to_account_name ? ` - ${it.to_account_name}` : ""}
-                        </td>
-                        <td>{toUpperDisplay(it.currency || "-")}</td>
-                        <td>{formatPaymentHistoryMoneyHalfUp(it.amount)}</td>
-                        <td>{toUpperDisplay(it.submitted_by || it.created_by || "-")}</td>
-                        <td>{toUpperDisplay(it.description || "-")}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="contra-inbox-btn contra-inbox-approve"
-                            onClick={async () => {
-                              const tid = it.transaction_id || it.id;
-                              if (!tid) return;
-                              await approveContra({ transactionId: tid, companyId: fsCompanyId });
-                            }}
-                          >
-                            {m.approve}
-                          </button>
-                          <button
-                            type="button"
-                            className="contra-inbox-btn contra-inbox-reject"
-                            onClick={async () => {
-                              if (!confirm(m.confirmRejectContra)) return;
-                              const tid = it.transaction_id || it.id;
-                              if (!tid) return;
-                              await rejectContra({ transactionId: tid, companyId: fsCompanyId });
-                            }}
-                          >
-                            {m.reject}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            )}
           </div>
         )}
       </div>

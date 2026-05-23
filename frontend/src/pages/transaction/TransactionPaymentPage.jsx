@@ -216,6 +216,7 @@ export default function TransactionPaymentPage() {
         canApproveContra={canApproveContra}
         contraInbox={ui.contraInbox}
         toggleContraInbox={() => ui.setContraInbox((s) => ({ ...s, open: !s.open }))}
+        closeContraInbox={() => ui.setContraInbox((s) => ({ ...s, open: false }))}
         refreshContraInbox={() => ui.refreshContraInboxBadge(filterSnapshot?.companyId)}
         approveContra={(opts) => ui.onApproveContra(opts.transactionId, opts.companyId, search.runSearch)}
         rejectContra={(opts) => ui.onRejectContra(opts.transactionId, opts.companyId)}

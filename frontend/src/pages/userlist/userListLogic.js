@@ -62,10 +62,15 @@ export function canInteractWithReadOnlyToggle(currentUserRole, targetUserRole) {
   return false;
 }
 
-/** Edit User：Read Only 开启时整表只读（新建用户不受此锁，避免默认 read_only 卡住表单） */
-export function isUserModalPageReadOnlyLock(isEditMode, editingRow, role, readOnly) {
+/**
+ * Edit User：Partnership/Audit 用户在被设为 Read Only 时，仅「本人编辑自己」锁定整表。
+ * Owner / Manager 等上级编辑下级只读账号时仍可修改（含关闭 Read Only）。
+ */
+export function isUserModalPageReadOnlyLock(isEditMode, editingRow, role, readOnly, currentUserId) {
   if (!isEditMode || editingRow?.is_owner_shadow) return false;
-  return roleHasReadOnlyToggle(role) && !!readOnly;
+  if (!roleHasReadOnlyToggle(role) || !readOnly) return false;
+  if (!currentUserId || editingRow?.id == null) return false;
+  return Number(editingRow.id) === Number(currentUserId);
 }
 
 export function getCurrentUserRolePermissions(currentUserRole) {
