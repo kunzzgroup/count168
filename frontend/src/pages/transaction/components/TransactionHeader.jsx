@@ -156,14 +156,17 @@ export default function TransactionHeader({
           ) : itemCount > 0 ? (
             <div className="contra-inbox-grid" role="table" id="contraInboxTbody">
               <div className="contra-inbox-grid-row contra-inbox-grid-row--head" role="row">
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--date" role="columnheader">
                   {m.date}
                 </div>
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--from" role="columnheader">
-                  {m.from}
-                </div>
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--to" role="columnheader">
-                  {m.to}
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--transfer" role="columnheader">
+                  <span className="contra-inbox-head-transfer">
+                    {m.from}
+                    <span className="contra-inbox-head-arrow" aria-hidden="true">
+                      →
+                    </span>
+                    {m.to}
+                  </span>
                 </div>
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--currency" role="columnheader">
                   {m.currency}
@@ -191,14 +194,17 @@ export default function TransactionHeader({
                       role="row"
                       key={it.id || `${it.transaction_id}-${it.transaction_date}`}
                     >
-                      <div className="contra-inbox-grid-cell" role="cell">
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--date" role="cell">
                         {formatContraDate(it.transaction_date || it.date)}
                       </div>
-                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--from" role="cell">
-                        <span className="contra-inbox-account-code contra-inbox-account-code--from">{fromCode}</span>
-                      </div>
-                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--to" role="cell">
-                        <span className="contra-inbox-account-code contra-inbox-account-code--to">{toCode}</span>
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--transfer" role="cell">
+                        <span className="contra-inbox-transfer">
+                          <span className="contra-inbox-account-code contra-inbox-account-code--from">{fromCode}</span>
+                          <span className="contra-inbox-transfer-arrow" aria-hidden="true">
+                            →
+                          </span>
+                          <span className="contra-inbox-account-code contra-inbox-account-code--to">{toCode}</span>
+                        </span>
                       </div>
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--currency" role="cell">
                         {toUpperDisplay(it.currency || "-")}
