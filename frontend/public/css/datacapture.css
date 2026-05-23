@@ -874,7 +874,10 @@ body.datacapture-page .dc-react-submitted-list {
 body.datacapture-page .bottom-section .form-actions {
     flex-shrink: 0;
     margin-top: 0;
-    justify-content: center;
+    padding-top: 0;
+    border-top: none;
+    justify-content: center !important;
+    width: 100%;
 }
 
 .btn-save {
