@@ -25,11 +25,16 @@ import {
 import AccountModal from "../../components/AccountModal.jsx";
 import { processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
 import {
+  AccountAlertModal,
   AccountConfirmModal,
   CurrencySettingModal,
   LinkAccountModal,
 } from "./components/accountModals.jsx";
-import { getAccountText, translateAccountApiMessage } from "../../translateFile/pages/accountTranslate.js";
+import {
+  formatCurrencyInUseAccountLabels,
+  getAccountText,
+  translateAccountApiMessage,
+} from "../../translateFile/pages/accountTranslate.js";
 
 export default function AccountListPage() {
   const navigate = useNavigate();
@@ -69,6 +74,7 @@ export default function AccountListPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [currencyInUseAlert, setCurrencyInUseAlert] = useState(null);
   const [currencySettingOpen, setCurrencySettingOpen] = useState(false);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -619,6 +625,13 @@ export default function AccountListPage() {
     [companyId]
   );
 
+  const showCurrencyInUseAlert = (currencyId, apiData) => {
+    const cur = currencies.find((c) => Number(c.id) === Number(currencyId));
+    const code = cur?.code ? toUpper(cur.code) : "";
+    const accountNames = formatCurrencyInUseAccountLabels(apiData?.accounts_in_use);
+    setCurrencyInUseAlert({ code, accountNames });
+  };
+
   const removeModalCurrency = async (currencyId) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
@@ -675,8 +688,13 @@ export default function AccountListPage() {
         return;
       }
       const msg = String(json.message || json.error || "");
+      const accountsInUse = Array.isArray(json.data?.accounts_in_use) ? json.data.accounts_in_use : [];
+      if (accountsInUse.length > 0) {
+        showCurrencyInUseAlert(id, json.data);
+        return;
+      }
       if (/being used|正在使用|Cannot delete/i.test(msg)) {
-        hideFromModal();
+        notifyApi(msg, "apiCurrencyInUse", "danger", {}, json.data);
         return;
       }
       notifyApi(msg, "failedDeleteCurrency", "danger");
@@ -1101,6 +1119,14 @@ export default function AccountListPage() {
         t={t}
       />
       <AccountConfirmModal open={confirmDeleteOpen} message={t("deleteConfirmMessage", { count: selectedDeleteIds.size })} onConfirm={confirmDelete} onClose={() => setConfirmDeleteOpen(false)} t={t} />
+      <AccountAlertModal
+        open={Boolean(currencyInUseAlert)}
+        title={t("currencyInUseTitle")}
+        message={t("currencyInUseMessage", { code: currencyInUseAlert?.code || "" })}
+        accountNames={currencyInUseAlert?.accountNames || []}
+        onClose={() => setCurrencyInUseAlert(null)}
+        t={t}
+      />
       <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onClearCurrencySelection={clearCurrencySettingSelection} onSave={saveCurrencySetting} accounts={accounts} roles={roles} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} t={t} />
       <LinkAccountModal open={linkModalOpen} accounts={linkAccountsPool} currentAccountId={linkingAccountId} selectedIds={selectedLinkedIds} setSelectedIds={setSelectedLinkedIds} linkType={linkType} setLinkType={setLinkType} searchTerm={linkSearchTerm} setSearchTerm={setLinkSearchTerm} onSave={saveLinks} onClose={() => setLinkModalOpen(false)} t={t} />
     </>

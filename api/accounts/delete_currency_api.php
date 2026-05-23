@@ -67,6 +67,82 @@ function countAccountCurrencyUsageWithoutCompany(PDO $pdo, int $currencyId): int
     return (int)$stmt->fetchColumn();
 }
 
+/**
+ * 返回正在使用该货币的账户（name + account_id），按 name 排序。
+ * @return array<int, array{id: int, name: string, account_id: string}>
+ */
+function getAccountsUsingCurrency(PDO $pdo, int $currencyId, int $companyId, string $currencyCode): array {
+    $accounts = [];
+
+    if (tableExists($pdo, 'account_currency')) {
+        $hasLegacyCurrencyId = columnExists($pdo, 'account', 'currency_id');
+        $legacyCondition = $hasLegacyCurrencyId ? ' OR a.currency_id = ?' : '';
+        $hasAccountCompany = tableExists($pdo, 'account_company');
+        if ($hasAccountCompany) {
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT a.id, a.name, a.account_id
+                FROM account a
+                INNER JOIN account_company acc ON a.id = acc.account_id
+                LEFT JOIN account_currency ac ON a.id = ac.account_id AND ac.currency_id = ?
+                WHERE acc.company_id = ? AND (ac.currency_id IS NOT NULL{$legacyCondition})
+                ORDER BY a.name ASC, a.account_id ASC
+            ");
+            $params = [$currencyId, $companyId];
+            if ($hasLegacyCurrencyId) {
+                $params[] = $currencyId;
+            }
+            $stmt->execute($params);
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT a.id, a.name, a.account_id
+                FROM account a
+                LEFT JOIN account_currency ac ON a.id = ac.account_id AND ac.currency_id = ?
+                WHERE ac.currency_id IS NOT NULL{$legacyCondition}
+                ORDER BY a.name ASC, a.account_id ASC
+            ");
+            $params = [$currencyId];
+            if ($hasLegacyCurrencyId) {
+                $params[] = $currencyId;
+            }
+            $stmt->execute($params);
+        }
+        $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        try {
+            if (tableExists($pdo, 'account_company') && columnExists($pdo, 'account', 'currency')) {
+                $stmt = $pdo->prepare("
+                    SELECT DISTINCT a.id, a.name, a.account_id
+                    FROM account a
+                    INNER JOIN account_company ac ON a.id = ac.account_id
+                    WHERE a.currency = ? AND ac.company_id = ?
+                    ORDER BY a.name ASC, a.account_id ASC
+                ");
+                $stmt->execute([$currencyCode, $companyId]);
+                $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } elseif (columnExists($pdo, 'account', 'currency') && columnExists($pdo, 'account', 'company_id')) {
+                $stmt = $pdo->prepare("
+                    SELECT DISTINCT a.id, a.name, a.account_id
+                    FROM account a
+                    WHERE a.currency = ? AND a.company_id = ?
+                    ORDER BY a.name ASC, a.account_id ASC
+                ");
+                $stmt->execute([$currencyCode, $companyId]);
+                $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+        } catch (PDOException $e) { /* ignore */ }
+    }
+
+    $normalized = [];
+    foreach ($accounts as $row) {
+        $normalized[] = [
+            'id' => (int)($row['id'] ?? 0),
+            'name' => (string)($row['name'] ?? ''),
+            'account_id' => (string)($row['account_id'] ?? ''),
+        ];
+    }
+    return $normalized;
+}
+
 function countAccountUsageLegacyByCode(PDO $pdo, string $currencyCode, int $companyId): int {
     $stmt = $pdo->prepare("
         SELECT COUNT(DISTINCT a.id)
@@ -273,11 +349,27 @@ try {
     }
 
     if (!empty($usageMessages)) {
-        $errorMsg = 'Cannot delete currency that is being used by: ' . implode(', ', $usageMessages);
+        $accountsInUse = getAccountsUsingCurrency($pdo, $currencyId, $company_id, $currency['code']);
+        $responseData = ['accounts_in_use' => $accountsInUse];
+
+        if (!empty($accountsInUse)) {
+            $accountLabels = array_map(function ($acc) {
+                $name = trim((string)($acc['name'] ?? ''));
+                $code = trim((string)($acc['account_id'] ?? ''));
+                if ($name !== '' && $code !== '') {
+                    return $name . ' (' . $code . ')';
+                }
+                return $name !== '' ? $name : $code;
+            }, $accountsInUse);
+            $errorMsg = 'Cannot delete currency. The following accounts are using it: ' . implode(', ', $accountLabels);
+        } else {
+            $errorMsg = 'Cannot delete currency that is being used by: ' . implode(', ', $usageMessages);
+        }
+
         if (!empty($debugInfo)) {
             $errorMsg .= ' [Debug: ' . implode(', ', $debugInfo) . ']';
         }
-        jsonResponse(false, $errorMsg, null);
+        jsonResponse(false, $errorMsg, $responseData);
         exit;
     }
 

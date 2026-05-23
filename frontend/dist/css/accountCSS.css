@@ -1460,6 +1460,26 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
     letter-spacing: -0.02em;
 }
 
+.account-currency-in-use-list {
+    margin: 0.75rem 0 0;
+    padding: 0.75rem 1rem;
+    max-height: 12rem;
+    overflow-y: auto;
+    text-align: left;
+    list-style: disc;
+    list-style-position: inside;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: var(--text-h3);
+    color: #334155;
+    line-height: 1.6;
+}
+
+.account-currency-in-use-list li + li {
+    margin-top: 0.35rem;
+}
+
 .account-confirm-message {
     text-align: center;
     font-size: var(--text-h3);
