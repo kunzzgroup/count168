@@ -1,9 +1,10 @@
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
-/** Clear scratch Rate cache (manual cell edits). Rate persists only via Rate Submit. */
+/** Clear scratch Rate caches. Committed Rate still restores from server after refresh. */
 export function clearUnsavedSummaryRateScratch() {
   try {
     localStorage.removeItem("capturedTableRateValues");
+    localStorage.removeItem("capturedTableRateValuesByProductId");
   } catch {
     /* ignore */
   }

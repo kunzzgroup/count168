@@ -1419,10 +1419,12 @@ function goBackToDataCapture() {
     window.location.href = buildApiUrl(backUrl);
 }
 
-// Refresh page function: save rate values and formula/source so they are restored after reload
+// Refresh page: reload templates; unsaved Rate Value is discarded (Rate Submit only).
 function refreshPage() {
-    saveRateValuesForRefresh();
-    saveFormulaSourceForRefresh();
+    try {
+        localStorage.removeItem('capturedTableRateValues');
+        localStorage.removeItem('capturedTableRateValuesByProductId');
+    } catch (e) { }
     if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_REFRESH__ === 'function') {
         window.__SUMMARY_REACT_REFRESH__();
         return;
@@ -12297,9 +12299,7 @@ function attachRateValueEditListener(cell, row) {
                 // Recalculate processed amount using the live DOM element explicitly 
                 recalculateAndRenderProcessedAmount(liveRow, { updateTotal: true });
 
-                // Immediately save the manual edits so they are persistent
-                if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
-                if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
+                // Rate Value persists only via Rate Submit — not on manual cell edit.
             } else {
                 // Cancel: restore original value
                 cellElement.textContent = savedOriginalValue;
