@@ -198,27 +198,8 @@ export default function AccountListPage() {
         setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 
         const url = new URL(window.location.href);
-        const queryCompany = url.searchParams.get("company_id");
-        let initialCompanyId = queryCompany || meJson.data.company_id || rows[0]?.id || null;
-        initialCompanyId = initialCompanyId ? Number(initialCompanyId) : null;
-
-        if (queryCompany && initialCompanyId && Number(initialCompanyId) !== Number(meJson.data.company_id)) {
-          try {
-            const syncRes = await fetch(
-              buildApiUrl(`api/session/update_company_session_api.php?company_id=${initialCompanyId}`),
-              { credentials: "include" }
-            );
-            const syncJson = await syncRes.json();
-            if (!syncJson.success) {
-              initialCompanyId = meJson.data.company_id ? Number(meJson.data.company_id) : initialCompanyId;
-            } else {
-              notifyCompanySessionUpdated();
-            }
-          } catch {
-            initialCompanyId = meJson.data.company_id ? Number(meJson.data.company_id) : initialCompanyId;
-          }
-        }
-
+        const cid = url.searchParams.get("company_id") || meJson.data.company_id || rows[0]?.id;
+        const initialCompanyId = cid ? Number(cid) : null;
         const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
         const initialShowAll = url.searchParams.get("showAll") === "1";
@@ -324,7 +305,7 @@ export default function AccountListPage() {
           if (sortColumn === "status") return account.status;
           if (sortColumn === "lastLogin") return account.last_login;
           if (sortColumn === "remark") return account.remark;
-          return account.display_account_id ?? account.account_id;
+          return account.account_id;
         };
         base = String(getValue(a) || "").localeCompare(String(getValue(b) || ""), undefined, { numeric: true, sensitivity: "base" });
       }
@@ -401,77 +382,41 @@ export default function AccountListPage() {
     if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
   }, [showInactive, showAll]);
 
-  const accountRowPk = (row) => {
-    const pk = Number(row?.id);
-    return Number.isFinite(pk) && pk > 0 ? pk : 0;
-  };
-
-  const accountRowLabel = (row) => toUpper(row?.display_account_id ?? row?.account_id ?? row?.name ?? "");
-
-  const appendAccountActionFields = (fd, row) => {
-    const pk = accountRowPk(row);
-    const rawCode = String(row?.account_id || "").trim();
-    const displayCode = String(row?.display_account_id || rawCode || "").trim();
-    if (pk) fd.append("account_id", String(pk));
-    if (rawCode) fd.append("account_code", rawCode);
-    if (displayCode) fd.append("display_account_code", displayCode);
-    if (companyId) fd.append("company_id", String(companyId));
-  };
-
-  const accountRowMatches = (a, row) => {
-    const pk = accountRowPk(row);
-    if (pk && accountRowPk(a) === pk) return true;
-    const rawCode = String(row?.account_id || "").trim().toUpperCase();
-    const displayCode = String(row?.display_account_id || rawCode || "").trim().toUpperCase();
-    const aRaw = String(a?.account_id || "").trim().toUpperCase();
-    const aDisplay = String(a?.display_account_id || aRaw || "").trim().toUpperCase();
-    return (rawCode && (aRaw === rawCode || aDisplay === rawCode))
-      || (displayCode && (aRaw === displayCode || aDisplay === displayCode));
-  };
-
-  const togglePaymentAlert = async (row) => {
+  const togglePaymentAlert = async (id) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    const pk = accountRowPk(row);
-    const rawCode = String(row?.account_id || "").trim();
-    const displayCode = String(row?.display_account_id || rawCode || "").trim();
-    if (!pk && !rawCode && !displayCode) return notify(t("toggleFailed"), "danger");
     try {
-      const fd = new FormData();
-      appendAccountActionFields(fd, row);
+      const fd = new FormData(); fd.append("id", id);
       const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notifyApi(json.message, "toggleFailed", "danger");
-      const next = json.data?.newPaymentAlert ?? json.newPaymentAlert;
-      setAccounts(prev => prev.map(a => accountRowMatches(a, row) ? { ...a, payment_alert: next } : a));
+      if (json.success) {
+        const next = json.data?.newPaymentAlert ?? json.newPaymentAlert;
+        setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, payment_alert: next } : a));
+      }
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
-  const toggleAccountStatus = async (row) => {
+  const toggleAccountStatus = async (id) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    const pk = accountRowPk(row);
-    const rawCode = String(row?.account_id || "").trim();
-    const displayCode = String(row?.display_account_id || rawCode || "").trim();
-    if (!pk && !rawCode && !displayCode) return notify(t("toggleFailed"), "danger");
     try {
-      const fd = new FormData();
-      appendAccountActionFields(fd, row);
+      const fd = new FormData(); fd.append("id", id);
       const res = await fetch(buildApiUrl("api/accounts/toggle_account_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notifyApi(json.message, "toggleFailed", "danger");
-      const next = json.newStatus || json.data?.newStatus;
-      setAccounts(prev => {
-        const updated = prev.map(a => accountRowMatches(a, row) ? { ...a, status: next } : a);
-        if (showInactive) return updated.filter(a => String(a.status || "").toLowerCase() === "inactive");
-        if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
-        return updated;
-      });
-      void fetchAccounts();
+      if (json.success) {
+        const next = json.newStatus || json.data?.newStatus;
+        setAccounts(prev => {
+          const updated = prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a);
+          if (showInactive) return updated.filter(a => String(a.status || "").toLowerCase() === "inactive");
+          if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
+          return updated;
+        });
+        void fetchAccounts();
+      }
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
@@ -528,23 +473,17 @@ export default function AccountListPage() {
     setSettingInitial(new Set());
   };
 
-  const openEdit = async (row) => {
+  const openEdit = async (id) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    const accountPk = accountRowPk(typeof row === "object" ? row : { id: row });
-    const rawCode = typeof row === "object" ? String(row?.account_id || "").trim() : "";
-    const displayCode = typeof row === "object" ? String(row?.display_account_id || rawCode || "").trim() : "";
-    if (!accountPk && !rawCode && !displayCode) {
-      return notify(t("errorLoadingAccount"), "danger");
-    }
     try {
-      const fd = new FormData();
-      appendAccountActionFields(fd, typeof row === "object" ? row : { id: row, account_id: rawCode, display_account_id: displayCode });
-      const res = await fetch(buildApiUrl("api/accounts/getaccount_api.php"), {
-        method: "POST",
-        body: fd,
+      const detailUrl = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
+      detailUrl.searchParams.set("id", String(id));
+      if (companyId) detailUrl.searchParams.set("company_id", String(companyId));
+      detailUrl.searchParams.set("_", String(Date.now()));
+      const res = await fetch(detailUrl.toString(), {
         credentials: "include",
         cache: "no-store",
         headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
@@ -558,11 +497,10 @@ export default function AccountListPage() {
       }
       if (!json.success) return notifyApi(json.message || json.error, "failedToLoadAccount", "danger");
       const d = json.data;
-      const resolvedPk = Number(d.id) > 0 ? Number(d.id) : accountPk;
       setIsEditMode(true);
       setHiddenCurrencyIds([]);
-      setForm({ id: d.id, account_id: toUpper(d.display_account_id ?? d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
-      await loadSelectionMeta(resolvedPk, true);
+      setForm({ id: d.id, account_id: toUpper(d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
+      await loadSelectionMeta(id, true);
       setEditModalOpen(true);
     } catch { notify(t("errorLoadingAccount"), "danger"); }
   };
@@ -1083,16 +1021,16 @@ export default function AccountListPage() {
                 return (
                   <div className="account-card account-list-row" key={a.id}>
                     <div className="account-card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
-                    <div className="account-card-item">{accountRowLabel(a)}</div>
+                    <div className="account-card-item">{toUpper(a.account_id)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
                     <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{toUpper(a.role) === "UPLINE" ? t("supplier") : toUpper(a.role)}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => togglePaymentAlert(a)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{alertOn ? "ON" : "OFF"}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{toUpper(a.status)}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => togglePaymentAlert(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{alertOn ? "ON" : "OFF"}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{toUpper(a.status)}</span></div>
                     <div className="account-card-item">{toUpper(a.last_login)}</div>
                     <div className="account-card-item">{toUpper(a.remark)}</div>
                     <div className="account-card-item">
-                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
-                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(accountRowPk(a))} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
+                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
+                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         </svg>

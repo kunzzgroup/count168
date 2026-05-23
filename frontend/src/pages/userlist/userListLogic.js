@@ -63,24 +63,9 @@ export function canInteractWithReadOnlyToggle(currentUserRole, targetUserRole) {
 }
 
 /** Edit User：Read Only 开启时整表只读（新建用户不受此锁，避免默认 read_only 卡住表单） */
-export function isUserModalPageReadOnlyLock(isEditMode, editingRow, readOnly) {
+export function isUserModalPageReadOnlyLock(isEditMode, editingRow, role, readOnly) {
   if (!isEditMode || editingRow?.is_owner_shadow) return false;
-  const savedRole = normRole(editingRow?.role);
-  return roleHasReadOnlyToggle(savedRole) && !!readOnly;
-}
-
-/** 去重并过滤无效的 company id（避免 save 时 API 校验失败） */
-export function normalizeCompanyIds(ids) {
-  const seen = new Set();
-  const out = [];
-  for (const raw of ids || []) {
-    const n = Number(raw);
-    if (Number.isFinite(n) && n > 0 && !seen.has(n)) {
-      seen.add(n);
-      out.push(n);
-    }
-  }
-  return out;
+  return roleHasReadOnlyToggle(role) && !!readOnly;
 }
 
 export function getCurrentUserRolePermissions(currentUserRole) {

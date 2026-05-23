@@ -64,21 +64,13 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// Snapshot session and release lock before DB work (dashboard refresh fires parallel API calls).
-$sessionUserId = (int) $_SESSION['user_id'];
-$sessionRole = (string) ($_SESSION['role'] ?? '');
-$sessionName = (string) ($_SESSION['name'] ?? '');
-$sessionLoginId = (string) ($_SESSION['login_id'] ?? '');
-$sessionCompanyCode = (string) ($_SESSION['company_code'] ?? '');
-$secondaryVerified = isset($_SESSION['secondary_password_verified'])
-    && $_SESSION['secondary_password_verified'] === true;
-
 $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
 if ($userType === '') {
-    $userType = strtolower($sessionRole) === 'owner' ? 'owner' : 'user';
+    $userType = isset($_SESSION['role']) && strtolower((string) $_SESSION['role']) === 'owner' ? 'owner' : 'user';
 }
 
-$needsOwnerSecondary = ($userType === 'owner') && !$secondaryVerified;
+$needsOwnerSecondary = ($userType === 'owner')
+    && (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true);
 $needsUserSecondary = false;
 
 $companyId = isset($_SESSION['company_id']) ? (int) $_SESSION['company_id'] : null;
@@ -92,13 +84,7 @@ $companyHasBank = false;
 $companyPermissionsList = [];
 $readOnlyForClient = isset($_SESSION['read_only']) ? (int) $_SESSION['read_only'] : 0;
 
-if ($userType === 'member' && $pdo instanceof PDO) {
-    member_ensure_login_session_fields();
-}
-
-session_write_close();
-
-if ($pdo instanceof PDO && $sessionUserId > 0 && function_exists('get_partnership_audit_read_only_flag')) {
+if ($pdo instanceof PDO && isset($_SESSION['user_id']) && function_exists('get_partnership_audit_read_only_flag')) {
     try {
         $readOnlyForClient = get_partnership_audit_read_only_flag($pdo);
     } catch (Throwable $e) {
@@ -110,12 +96,12 @@ if ($companyId && $pdo instanceof PDO) {
     try {
         if ($userType !== 'member') {
             $stmtPerm = $pdo->prepare("SELECT permissions FROM user WHERE id = ?");
-            $stmtPerm->execute([$sessionUserId]);
+            $stmtPerm->execute([$_SESSION['user_id']]);
             $userPermissions = $stmtPerm->fetchColumn();
             $permissions = $userPermissions ? (json_decode((string) $userPermissions, true) ?: []) : [];
         }
 
-        $companyCode = strtoupper(trim($sessionCompanyCode));
+        $companyCode = strtoupper(trim((string) ($_SESSION['company_code'] ?? '')));
         if ($companyCode === '') {
             $stmtCode = $pdo->prepare('SELECT company_id FROM company WHERE id = ? LIMIT 1');
             $stmtCode->execute([$companyId]);
@@ -128,13 +114,14 @@ if ($companyId && $pdo instanceof PDO) {
             $stmtC168->execute([$companyId]);
             $isCurrentCompanyC168 = ((int) $stmtC168->fetchColumn()) > 0;
         }
-        $hasC168DomainPageAccess = $isCurrentCompanyC168 && userHasC168DomainPageAccess(strtolower($sessionRole));
+        $hasC168DomainPageAccess = $isCurrentCompanyC168 && userHasC168DomainPageAccess(strtolower((string) ($_SESSION['role'] ?? '')));
 
         if ($userType === 'user' && $isCurrentCompanyC168) {
             $stmtUserSecondary = $pdo->prepare("SELECT secondary_password FROM user WHERE id = ?");
-            $stmtUserSecondary->execute([$sessionUserId]);
+            $stmtUserSecondary->execute([$_SESSION['user_id']]);
             $secondaryPassword = $stmtUserSecondary->fetchColumn();
-            $needsUserSecondary = !empty($secondaryPassword) && !$secondaryVerified;
+            $needsUserSecondary = !empty($secondaryPassword)
+                && (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true);
         }
 
         $stmtCompanyPerm = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
@@ -194,6 +181,7 @@ $memberViewId = null;
 $memberViewCode = '';
 $memberViewName = '';
 if ($userType === 'member' && $pdo instanceof PDO) {
+    member_ensure_login_session_fields();
     $memberLoginId = member_session_canonical_account_id();
     $memberViewId = member_session_winloss_view_account_id();
     try {
@@ -209,10 +197,14 @@ if ($userType === 'member' && $pdo instanceof PDO) {
     }
 }
 
-$responseUserId = $sessionUserId;
+$responseUserId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
 if ($userType === 'member' && $memberLoginId > 0) {
     $responseUserId = $memberLoginId;
 }
+$sessionName = (string) ($_SESSION['name'] ?? '');
+$sessionLoginId = (string) ($_SESSION['login_id'] ?? '');
+
+session_write_close();
 
 echo json_encode([
     'success' => true,
@@ -226,7 +218,7 @@ echo json_encode([
         'account_name' => $memberViewName,
         'name' => $sessionName,
         'login_id' => $sessionLoginId,
-        'role' => $sessionRole,
+        'role' => (string) ($_SESSION['role'] ?? ''),
         'user_type' => $userType,
         'permissions' => is_array($permissions) ? array_values($permissions) : [],
         'is_current_company_c168' => $isCurrentCompanyC168,

@@ -4,7 +4,6 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
-require_once __DIR__ . '/../../includes/account_zero_id_repair.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
@@ -274,10 +273,6 @@ try {
             'alert_amount' => $alert_amount,
             'remark' => $remark,
         ]);
-        $newAccountId = ensureAccountInsertId($pdo, $newAccountId, $account_id, $company_id);
-        if ($newAccountId <= 0) {
-            throw new Exception('账户创建失败：无法获取有效账户ID');
-        }
 
         $company_ids_to_link = [];
         if (isset($_POST['company_ids']) && $_POST['company_ids'] !== '') {

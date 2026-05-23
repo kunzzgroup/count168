@@ -18,7 +18,7 @@ USE `easycount`;
 -- NOTE: Keep this schema database-agnostic.
 -- Target database is selected by application provisioning logic.
 
--- Table structure for table `account`。
+-- Table structure for table `account`
 --
 
 CREATE TABLE `account` (

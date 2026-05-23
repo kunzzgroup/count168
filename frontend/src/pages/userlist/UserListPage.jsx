@@ -26,7 +26,6 @@ import {
   roleHasReadOnlyToggle,
   canInteractWithReadOnlyToggle,
   isUserModalPageReadOnlyLock,
-  normalizeCompanyIds,
 } from "./userListLogic.js";
 
 // Components
@@ -57,11 +56,8 @@ function isVirtualGroupLinkCompanyRow(c) {
 function buildModalCompanyList(raw) {
   const seen = new Set();
   return (Array.isArray(raw) ? raw : []).filter((c) => {
-    if (isVirtualGroupLinkCompanyRow(c)) return false;
     const key = String(c?.company_id || "").trim().toUpperCase();
     if (!key || seen.has(key)) return false;
-    const id = Number(c?.id);
-    if (!Number.isFinite(id) || id <= 0) return false;
     seen.add(key);
     return true;
   });
@@ -502,24 +498,24 @@ export default function UserListPage() {
     }
   }, [bootLoading, companyId, me, fetchModalAccountsProcesses]);
 
-  const loadCompaniesForModal = async (force = false) => {
-    if (!force && modalCompaniesCacheRef.current.length) {
+  const loadCompaniesForModal = async () => {
+    if (modalCompaniesCacheRef.current.length) {
       setModalCompanies(modalCompaniesCacheRef.current);
       return modalCompaniesCacheRef.current;
+    }
+    const currentList = buildModalCompanyList(companies);
+    if (currentList.length) {
+      modalCompaniesCacheRef.current = currentList;
+      setModalCompanies(currentList);
+      return currentList;
     }
     try {
       const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
       const json = await res.json();
-      const list = buildModalCompanyList(json.data || companies);
+      const list = buildModalCompanyList(json.data);
       modalCompaniesCacheRef.current = list;
-      setModalCompanies(list);
-      return list;
-    } catch {
-      const fallback = buildModalCompanyList(companies);
-      modalCompaniesCacheRef.current = fallback;
-      setModalCompanies(fallback);
-      return fallback;
-    }
+      setModalCompanies(list); return list;
+    } catch { setModalCompanies([]); return []; }
   };
 
   const markEditReady = useCallback((id) => {
@@ -580,11 +576,7 @@ export default function UserListPage() {
     try { if (detail.process_permissions != null) pp = typeof detail.process_permissions === "string" ? JSON.parse(detail.process_permissions) : detail.process_permissions; } catch { pp = []; }
     setSelectedAccountIds(ap === null ? new Set(accList.map(a => Number(a.id))) : new Set((Array.isArray(ap) ? ap : []).map(x => Number(x.id || x))));
     setSelectedProcessIds(pp === null ? new Set(procList.map(p => Number(p.id))) : new Set((Array.isArray(pp) ? pp : []).map(x => Number(x.id || x))));
-    if (Array.isArray(detail.company_ids) && (currentUserRole === "admin" || currentUserRole === "owner")) {
-      setSelectedCompanyIds(normalizeCompanyIds(detail.company_ids));
-    } else {
-      setSelectedCompanyIds(companyId ? normalizeCompanyIds([companyId]) : []);
-    }
+    if (Array.isArray(detail.company_ids) && (currentUserRole === "admin" || currentUserRole === "owner")) { setSelectedCompanyIds(detail.company_ids.map(Number)); } else { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
     if (row.is_owner_shadow) { setPermSelected(new Set(PERMISSION_KEYS)); setSelectedAccountIds(new Set(accList.map(a => Number(a.id)))); setSelectedProcessIds(new Set(procList.map(p => Number(p.id)))); setSelectedCompanyIds([]); }
   }, [companyId, currentUserRole]);
 
@@ -617,7 +609,7 @@ export default function UserListPage() {
     const initialAccess = cachedAccess || currentAccess || { accounts: [], processes: [] };
     if (!cachedAccess && !currentAccess) { setModalAccounts([]); setModalProcesses([]); }
     setSelectedAccountIds(new Set(initialAccess.accounts.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(initialAccess.processes.map((p) => Number(p.id))));
-    if (currentUserRole === "admin" || currentUserRole === "owner") { setSelectedCompanyIds(companyId ? normalizeCompanyIds([companyId]) : []); }
+    if (currentUserRole === "admin" || currentUserRole === "owner") { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
     setModalOpen(true);
     void fetchModalAccountsProcesses(companyId, true).then(({ accounts: accList, processes: procList }) => {
       if (loadSeq !== modalLoadSeqRef.current) return;
@@ -649,18 +641,12 @@ export default function UserListPage() {
     const curLevel = ROLE_HIERARCHY[currentUserRole] ?? 999; const editLevel = ROLE_HIERARCHY[normRole(row.role)] ?? 999;
     const isSelf = caps.isSelf; const isSame = !isSelf && curLevel === editLevel; const isLower = !isSelf && curLevel > editLevel;
     setFieldLocks({ name: isSame || isLower, email: isSame || isLower, role: isSame || isLower, password: false, sidebar: isSelf || isSame || isLower, company: isSelf || isSame || isLower || !(currentUserRole === "admin" || currentUserRole === "owner") });
-    void loadCompaniesForModal(true);
+    void loadCompaniesForModal();
     applyEditDetail(row, cachedDetail, cachedAccess.accounts, cachedAccess.processes);
     setModalOpen(true);
-    void Promise.all([fetchModalAccountsProcesses(companyId, true), fetchEditUserDetail(row.id, true), loadCompaniesForModal(true)]).then(([access, detail, companyList]) => {
+    void Promise.all([fetchModalAccountsProcesses(companyId, true), fetchEditUserDetail(row.id, true)]).then(([access, detail]) => {
       if (loadSeq !== modalLoadSeqRef.current || !detail) return;
       applyEditDetail(row, detail, access.accounts, access.processes);
-      const allowed = new Set((companyList || []).map((c) => Number(c.id)));
-      setSelectedCompanyIds((prev) => {
-        const next = normalizeCompanyIds(prev).filter((id) => allowed.has(id));
-        if (next.length) return next;
-        return companyId ? normalizeCompanyIds([companyId]) : [];
-      });
     });
   };
 
@@ -702,10 +688,7 @@ export default function UserListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    if (isUserModalPageReadOnlyLock(isEditMode, editingRow, form.read_only)) {
-      notify(t("readOnlyActionBlocked"), "danger");
-      return;
-    }
+    if (isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only)) return;
     if (!isEditMode && !form.password.trim()) { notify(t("passwordRequired"), "danger"); return; }
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
@@ -723,17 +706,7 @@ export default function UserListPage() {
     if (roleForReadOnly && roleHasReadOnlyToggle(roleForReadOnly) && canInteractWithReadOnlyToggle(currentUserRole, roleForReadOnly)) {
       payload.read_only = form.read_only ? 1 : 0;
     }
-    const companyIdsPayload = (() => {
-      const allowedList = modalCompaniesCacheRef.current.length ? modalCompaniesCacheRef.current : modalCompanies;
-      let ids = normalizeCompanyIds(selectedCompanyIds);
-      if ((currentUserRole === "admin" || currentUserRole === "owner") && allowedList.length > 0) {
-        const allowed = new Set(allowedList.map((c) => Number(c.id)));
-        ids = ids.filter((id) => allowed.has(id));
-      }
-      if (!ids.length && companyId) ids = normalizeCompanyIds([companyId]);
-      return ids;
-    })();
-    if (editingRow?.is_owner_shadow) { delete payload.role; } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = companyIdsPayload; } else {
+    if (editingRow?.is_owner_shadow) { delete payload.role; } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = selectedCompanyIds; } else {
       const caps = computeRowCapabilities(editingRow, currentUserId, currentUserRole);
       if (caps.isSelf || caps.isHigherLevel || caps.isSameLevel) {
         payload.account_permissions = accountPerms;
@@ -743,19 +716,11 @@ export default function UserListPage() {
         payload.account_permissions = accountPerms;
         payload.process_permissions = processPerms;
       }
-      if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) payload.company_ids = companyIdsPayload;
+      if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) payload.company_ids = selectedCompanyIds;
     }
     try {
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(payload) });
-      const json = await res.json();
-      if (!json.success) {
-        if (json.data) console.error("userlist save failed", json.data);
-        const dbg = json.data?.stage && json.data?.detail
-          ? ` [${json.data.stage}] ${json.data.detail}`
-          : (json.data?._build ? ` (build ${json.data._build})` : "");
-        notifyApi((json.message || "") + dbg, "saveFailed", "danger");
-        return;
-      }
+      const json = await res.json(); if (!json.success) { notifyApi(json.message, "saveFailed", "danger"); return; }
       if (isEditMode && form.id) {
         editUserDetailCacheRef.current.delete(String(form.id));
         setEditReadyIds((prev) => {

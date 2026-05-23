@@ -5,7 +5,6 @@ header('Cache-Control: no-store, no-cache, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
 require_once __DIR__ . '/../../includes/config.php';
-require_once __DIR__ . '/../../includes/account_zero_id_repair.php';
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
     $current_user_id = $_SESSION['user_id'] ?? null;
@@ -29,8 +28,17 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
     }
 }
 
-function readAccountRequestSource(): array {
-    return ($_SERVER['REQUEST_METHOD'] === 'POST') ? $_POST : $_GET;
+function formatAccountIdForDisplay(string $rawAccountId): string {
+    $rawAccountId = trim($rawAccountId);
+    if ($rawAccountId === '') {
+        return $rawAccountId;
+    }
+
+    if (preg_match('/^[^_]+_([0-9]+)(?:_[0-9]+)?$/', $rawAccountId, $matches)) {
+        return $matches[1];
+    }
+
+    return $rawAccountId;
 }
 
 try {
@@ -38,29 +46,20 @@ try {
         throw new Exception('用户未登录或缺少公司信息');
     }
 
-    $source = readAccountRequestSource();
-    $company_id = isset($source['company_id']) && $source['company_id'] !== ''
-        ? (int)$source['company_id']
+    $company_id = isset($_GET['company_id']) && $_GET['company_id'] !== ''
+        ? (int)$_GET['company_id']
         : (int)($_SESSION['company_id'] ?? 0);
     if (!$company_id) {
         throw new Exception('用户未登录或缺少公司信息');
     }
     validateCompanyAccess($pdo, $company_id);
 
-    $numericPk = 0;
-    if (isset($source['account_id']) && $source['account_id'] !== '') {
-        $numericPk = (int)$source['account_id'];
-    } elseif (isset($source['id']) && $source['id'] !== '') {
-        $numericPk = (int)$source['id'];
-    }
-    $account_code = trim((string)($source['account_code'] ?? ''));
-    $display_code = trim((string)($source['display_account_code'] ?? ''));
-
-    $account_id = resolveAccountPk($pdo, $company_id, $numericPk, $account_code, $display_code);
-    if ($account_id <= 0) {
+    $account_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+    
+    if (!$account_id) {
         throw new Exception('Account ID is required');
     }
-
+    
     $sql = "SELECT 
                 a.id,
                 a.account_id,
@@ -81,15 +80,15 @@ try {
             WHERE a.id = ? AND ac.company_id = ?";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$account_id, $company_id]);
-
+    
     $account = $stmt->fetch(PDO::FETCH_ASSOC);
-
+    
     if (!$account) {
         $debug_info = [];
         $check_stmt = $pdo->prepare("SELECT id FROM account WHERE id = ?");
         $check_stmt->execute([$account_id]);
         $account_exists = $check_stmt->fetchColumn();
-
+        
         if ($account_exists) {
             $ac_stmt = $pdo->prepare("SELECT company_id FROM account_company WHERE account_id = ?");
             $ac_stmt->execute([$account_id]);
@@ -103,14 +102,14 @@ try {
             $debug_info[] = "账户不存在";
         }
         $debug_info[] = "当前公司ID: " . $company_id;
-
+        
         $error_msg = 'Account not found';
         if (!empty($debug_info)) {
             $error_msg .= ' (' . implode('; ', $debug_info) . ')';
         }
         throw new Exception($error_msg);
     }
-
+    
     $sql_currencies = "SELECT 
                         ac.currency_id,
                         c.code AS currency_code
@@ -118,19 +117,19 @@ try {
                     INNER JOIN currency c ON ac.currency_id = c.id
                     WHERE ac.account_id = ?
                     ORDER BY ac.created_at ASC";
-
+    
     $stmt_currencies = $pdo->prepare($sql_currencies);
     $stmt_currencies->execute([$account_id]);
     $account_currencies = $stmt_currencies->fetchAll(PDO::FETCH_ASSOC);
-
+    
     $account['account_currencies'] = $account_currencies;
-    $account['display_account_id'] = accountFormatDomainAutoDisplayCode((string)($account['account_id'] ?? ''));
-
+    $account['account_id'] = formatAccountIdForDisplay((string)($account['account_id'] ?? ''));
+    
     echo json_encode([
         'success' => true,
         'data' => $account
     ]);
-
+    
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode([

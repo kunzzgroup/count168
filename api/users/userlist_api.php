@@ -11,8 +11,6 @@ header('Access-Control-Allow-Headers: Content-Type');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
-const USERLIST_API_BUILD = '20260522-6';
-
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
@@ -65,201 +63,6 @@ function canSetUserReadOnly(string $currentRole, string $targetUserRole): bool {
         return $cur === 'owner';
     }
     return false;
-}
-
-/** 去重、过滤无效的 company id，避免 IN 查询因重复 id 误判为 invalid */
-function normalizeCompanyIdList(array $ids): array {
-    $out = [];
-    foreach ($ids as $id) {
-        $n = (int) $id;
-        if ($n > 0) {
-            $out[$n] = $n;
-        }
-    }
-    return array_values($out);
-}
-
-function assertCompanyIdsExist(PDO $pdo, array $companyIds): void {
-    $missing = userlistFindMissingCompanyIds($pdo, $companyIds);
-    if (!empty($missing)) {
-        throw new RuntimeException('One or more selected companies are invalid: ' . implode(', ', $missing));
-    }
-}
-
-/** 返回 company 表中不存在的 id（用于保存前校验） */
-function userlistFindMissingCompanyIds(PDO $pdo, array $companyIds): array {
-    $companyIds = normalizeCompanyIdList($companyIds);
-    if (empty($companyIds)) {
-        return [];
-    }
-    $placeholders = str_repeat('?,', count($companyIds) - 1) . '?';
-    $stmt = $pdo->prepare("SELECT id FROM company WHERE id IN ($placeholders)");
-    $stmt->execute($companyIds);
-    $found = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-    $foundSet = array_fill_keys($found, true);
-    $missing = [];
-    foreach ($companyIds as $cid) {
-        if (!isset($foundSet[$cid])) {
-            $missing[] = $cid;
-        }
-    }
-    return $missing;
-}
-
-/** 仅保留 company 表真实存在的 id，保持原顺序 */
-function userlistResolveCompanyIdsForMap(PDO $pdo, array $companyIds): array {
-    $companyIds = normalizeCompanyIdList($companyIds);
-    if (empty($companyIds)) {
-        return [];
-    }
-    $missing = userlistFindMissingCompanyIds($pdo, $companyIds);
-    if (!empty($missing)) {
-        throw new RuntimeException('One or more selected companies are invalid: ' . implode(', ', $missing));
-    }
-    return $companyIds;
-}
-
-/** 增量更新 user_company_map，避免 DELETE 全量后 INSERT 无效 id */
-function userlistSyncUserCompanyMap(PDO $pdo, int $userId, array $companyIds): void {
-    $targetIds = userlistResolveCompanyIdsForMap($pdo, $companyIds);
-    $stmt = $pdo->prepare('SELECT company_id FROM user_company_map WHERE user_id = ?');
-    $stmt->execute([$userId]);
-    $currentIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-    $targetSet = array_fill_keys($targetIds, true);
-    $currentSet = array_fill_keys($currentIds, true);
-
-    $delStmt = $pdo->prepare('DELETE FROM user_company_map WHERE user_id = ? AND company_id = ?');
-    foreach ($currentIds as $cid) {
-        if (!isset($targetSet[$cid])) {
-            $delStmt->execute([$userId, $cid]);
-        }
-    }
-
-    $insStmt = $pdo->prepare('INSERT INTO user_company_map (user_id, company_id) VALUES (?, ?)');
-    foreach ($targetIds as $cid) {
-        if (!isset($currentSet[$cid])) {
-            $insStmt->execute([$userId, $cid]);
-        }
-    }
-}
-
-function encodeUserCompanyPermPayload($value, bool $provided): ?string {
-    if (!$provided) {
-        return null;
-    }
-    if (!is_array($value)) {
-        return '[]';
-    }
-    $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-    return $encoded === false ? '[]' : $encoded;
-}
-
-function upsertUserCompanyPermissions(PDO $pdo, int $userId, int $companyId, ?string $accountPerms, ?string $processPerms): void {
-    if ($accountPerms === null && $processPerms === null) {
-        return;
-    }
-    if (!userlistHasUserCompanyPermissionsTable($pdo)) {
-        return;
-    }
-    $existingAccount = null;
-    $existingProcess = null;
-    $existingId = null;
-    $stmt = $pdo->prepare('SELECT id, account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ? LIMIT 1');
-    $stmt->execute([$userId, $companyId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($row) {
-        $existingId = (int) $row['id'];
-        $existingAccount = $row['account_permissions'];
-        $existingProcess = $row['process_permissions'];
-    }
-    $finalAccount = $accountPerms ?? $existingAccount;
-    $finalProcess = $processPerms ?? $existingProcess;
-    if ($existingId !== null) {
-        $stmt = $pdo->prepare('UPDATE user_company_permissions SET account_permissions = ?, process_permissions = ? WHERE id = ?');
-        $stmt->execute([$finalAccount, $finalProcess, $existingId]);
-        return;
-    }
-    $stmt = $pdo->prepare('INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$userId, $companyId, $finalAccount, $finalProcess]);
-}
-
-function loadUserWithCompanyPermissions(PDO $pdo, int $userId, int $companyId): array {
-    $stmt = $pdo->prepare('SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?');
-    $stmt->execute([$userId]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$user) {
-        return ['id' => $userId];
-    }
-    if (!userlistHasUserCompanyPermissionsTable($pdo)) {
-        $user['account_permissions'] = null;
-        $user['process_permissions'] = null;
-        return $user;
-    }
-    $stmt = $pdo->prepare('SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?');
-    $stmt->execute([$userId, $companyId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    $user['account_permissions'] = $row['account_permissions'] ?? null;
-    $user['process_permissions'] = $row['process_permissions'] ?? null;
-    return $user;
-}
-
-function userlistHasUserCompanyPermissionsTable(PDO $pdo): bool {
-    static $cached = null;
-    if ($cached !== null) {
-        return $cached;
-    }
-    try {
-        $cached = $pdo->query("SHOW TABLES LIKE 'user_company_permissions'")->rowCount() > 0;
-    } catch (Throwable $e) {
-        $cached = false;
-    }
-    return $cached;
-}
-
-/** 确保 user.permissions 写入合法 JSON，避免 json_valid CHECK 导致 UPDATE 整行失败 */
-function userlistSendDbErrorResponse(Throwable $e, string $stage): void {
-    global $current_user_role;
-    error_log("Update user error [{$stage}]: " . $e->getMessage());
-    if ($e instanceof PDOException) {
-        error_log('SQL State: ' . $e->getCode());
-        error_log('Error Info: ' . print_r($e->errorInfo, true));
-    }
-    $data = [
-        '_build' => USERLIST_API_BUILD,
-        'stage' => $stage,
-    ];
-    if (strtolower((string) $current_user_role) === 'owner' && $e instanceof PDOException) {
-        $data['sqlstate'] = $e->errorInfo[0] ?? null;
-        $data['driver_code'] = $e->errorInfo[1] ?? null;
-        $data['detail'] = $e->errorInfo[2] ?? $e->getMessage();
-    }
-    if (!empty($GLOBALS['userlist_last_company_ids'])) {
-        $data['company_ids'] = $GLOBALS['userlist_last_company_ids'];
-    }
-    sendResponse(false, userlistFriendlyDbError($e), $data);
-}
-
-function userlistResolvePermissionsJsonForUpdate(PDO $pdo, int $userId, array $input): ?string {
-    if (array_key_exists('permissions', $input)) {
-        if ($input['permissions'] === null) {
-            return null;
-        }
-        if (is_array($input['permissions'])) {
-            $encoded = json_encode(array_values($input['permissions']), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-            return $encoded === false ? '[]' : $encoded;
-        }
-    }
-    $stmt = $pdo->prepare('SELECT permissions FROM user WHERE id = ? LIMIT 1');
-    $stmt->execute([$userId]);
-    $existing = $stmt->fetchColumn();
-    if ($existing === false || $existing === null || trim((string) $existing) === '') {
-        return null;
-    }
-    json_decode((string) $existing, true);
-    if (json_last_error() === JSON_ERROR_NONE) {
-        return (string) $existing;
-    }
-    return '[]';
 }
 
 // 获取当前登录用户（你需要根据你的登录系统调整这个逻辑）
@@ -348,12 +151,6 @@ function userlistFriendlyDbError(Throwable $e): string
     }
     if ($e instanceof PDOException) {
         error_log('userlist_api PDO: ' . $raw);
-        if (stripos($raw, 'json_valid') !== false || (stripos($raw, 'permissions') !== false && stripos($raw, 'CONSTRAINT') !== false)) {
-            return 'Invalid permissions data';
-        }
-        if (stripos($raw, 'user_company_permissions') !== false) {
-            return 'Could not save account/process permissions';
-        }
         return 'Could not save changes. Please try again.';
     }
     $prefixes = ['Failed to create user: ', 'Failed to create company association: ', 'Failed to update user: '];
@@ -487,19 +284,23 @@ try {
             
             // 验证 company_ids
             global $current_company_id;
-            $company_ids = isset($input['company_ids']) && is_array($input['company_ids']) ? normalizeCompanyIdList($input['company_ids']) : [];
+            $company_ids = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
             if (empty($company_ids)) {
                 // 如果没有提供 company_ids，使用当前 session 的 company_id
-                $company_ids = [(int) $current_company_id];
+                $company_ids = [$current_company_id];
             }
             
             // 验证所有 company_ids 是否存在
-            try {
-                assertCompanyIdsExist($pdo, $company_ids);
-            } catch (RuntimeException $e) {
-                sendResponse(false, $e->getMessage());
+            if (count($company_ids) > 0) {
+                $placeholders = str_repeat('?,', count($company_ids) - 1) . '?';
+                $stmt = $pdo->prepare("SELECT id FROM company WHERE id IN ($placeholders)");
+                $stmt->execute($company_ids);
+                $validCompanies = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                
+                if (count($validCompanies) !== count($company_ids)) {
+                    sendResponse(false, 'One or more selected companies are invalid');
+                }
             }
-            $company_ids = userlistResolveCompanyIdsForMap($pdo, $company_ids);
             
             // 使用第一个 company_id 作为主 company_id（用于兼容性）
             $primary_company_id = $company_ids[0];
@@ -604,7 +405,7 @@ try {
                 // 在 user_company_map 中创建所有关联
                 $mapStmt = $pdo->prepare("INSERT INTO user_company_map (user_id, company_id) VALUES (?, ?)");
                 foreach ($company_ids as $company_id) {
-                    $mapResult = $mapStmt->execute([$newUserId, (int) $company_id]);
+                    $mapResult = $mapStmt->execute([$newUserId, $company_id]);
                     if (!$mapResult) {
                         $mapErrorInfo = $mapStmt->errorInfo();
                         error_log("Failed to create user_company_map - SQL Error: " . print_r($mapErrorInfo, true));
@@ -830,9 +631,12 @@ try {
                 sendResponse(false, 'Duplicate email');
             }
             
-            // Prepare update query（login_id 编辑时不可改，不写入 UPDATE）
+            // Prepare update query
             $updateFields = [];
             $updateValues = [];
+            
+            $updateFields[] = "login_id = ?";
+            $updateValues[] = $input['login_id'];
             
             $updateFields[] = "name = ?";
             $updateValues[] = $input['name'];
@@ -852,14 +656,9 @@ try {
                 $updateValues[] = (int)$input['read_only'];
             }
 
-            // permissions 必须写入合法 JSON 字符串（user 表有 json_valid CHECK；勿用 CAST(? AS JSON)，MariaDB 会语法错误）
-            $permJson = userlistResolvePermissionsJsonForUpdate($pdo, (int) $input['id'], $input);
-            if ($permJson === null) {
-                $updateFields[] = 'permissions = NULL';
-            } else {
-                $updateFields[] = 'permissions = ?';
-                $updateValues[] = $permJson;
-            }
+            // 添加权限字段到更新列表（系统级权限仍然存储在 user 表）
+            $updateFields[] = "permissions = ?";
+            $updateValues[] = isset($input['permissions']) ? json_encode($input['permissions']) : null;
             
             // Account 和 Process 权限不再更新到 user 表，而是更新到 user_company_permissions 表
             // 这些字段保留在 $input 中，稍后在事务中处理
@@ -883,9 +682,6 @@ try {
             // 添加 WHERE 条件的参数
             $updateValues[] = $input['id'];
             
-            $will_lose_access = false;
-            $updateStage = 'user';
-            
             // 开始事务
             $pdo->beginTransaction();
             
@@ -906,63 +702,137 @@ try {
                 }
                 
                 // 如果提供了 company_ids，更新 company 关联
-                $updateStage = 'company_map';
-                if (isset($input['company_ids']) && is_array($input['company_ids'])) {
-                    $input['company_ids'] = normalizeCompanyIdList($input['company_ids']);
-                }
                 if (isset($input['company_ids']) && is_array($input['company_ids']) && count($input['company_ids']) > 0) {
-                    $GLOBALS['userlist_last_company_ids'] = $input['company_ids'];
-                    if ($belongsToCurrentCompany && !in_array((int) $current_company_id, array_map('intval', $input['company_ids']), true)) {
+                    // 验证所有 company_ids 是否存在
+                    $placeholders = str_repeat('?,', count($input['company_ids']) - 1) . '?';
+                    $stmt = $pdo->prepare("SELECT id FROM company WHERE id IN ($placeholders)");
+                    $stmt->execute($input['company_ids']);
+                    $validCompanies = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                    
+                    if (count($validCompanies) !== count($input['company_ids'])) {
+                        throw new Exception('One or more selected companies are invalid');
+                    }
+                    
+                    // 检查移除后用户是否还属于当前公司（用于提示）
+                    // 允许移除当前公司的关联，但会在响应中标记
+                    $will_lose_access = false;
+                    if ($belongsToCurrentCompany && !in_array($current_company_id, $input['company_ids'])) {
                         $will_lose_access = true;
                     }
-                    userlistSyncUserCompanyMap($pdo, (int) $input['id'], $input['company_ids']);
+                    
+                    // 删除旧的 company 关联
+                    $stmt = $pdo->prepare("DELETE FROM user_company_map WHERE user_id = ?");
+                    $stmt->execute([$input['id']]);
+                    
+                    // 创建新的 company 关联
+                    $mapStmt = $pdo->prepare("INSERT INTO user_company_map (user_id, company_id) VALUES (?, ?)");
+                    foreach ($input['company_ids'] as $company_id) {
+                        $mapStmt->execute([$input['id'], $company_id]);
+                    }
+                } else {
+                    // 如果没有提供 company_ids，保持原有的关联不变
+                    // 但需要确保用户至少属于当前公司（如果原本属于的话）
                 }
                 
                 // 保存 Account 和 Process 权限到 user_company_permissions 表（按当前公司）
-                $updateStage = 'company_permissions';
+                // 只有当提供了 account_permissions 或 process_permissions 时才更新
                 if (isset($input['account_permissions']) || isset($input['process_permissions'])) {
-                    upsertUserCompanyPermissions(
-                        $pdo,
-                        (int) $input['id'],
-                        (int) $current_company_id,
-                        encodeUserCompanyPermPayload($input['account_permissions'] ?? null, isset($input['account_permissions'])),
-                        encodeUserCompanyPermPayload($input['process_permissions'] ?? null, isset($input['process_permissions']))
-                    );
+                    // 准备权限值
+                    $accountPerms = null;
+                    $processPerms = null;
+                    
+                    if (isset($input['account_permissions'])) {
+                        if (is_array($input['account_permissions']) && count($input['account_permissions']) > 0) {
+                            $accountPerms = json_encode($input['account_permissions']);
+                        } else {
+                            // 空数组 [] 表示已设置但为空（不选任何账户）
+                            $accountPerms = json_encode([]);
+                        }
+                    }
+                    
+                    if (isset($input['process_permissions'])) {
+                        if (is_array($input['process_permissions']) && count($input['process_permissions']) > 0) {
+                            $processPerms = json_encode($input['process_permissions']);
+                        } else {
+                            // 空数组 [] 表示已设置但为空（不选任何流程）
+                            $processPerms = json_encode([]);
+                        }
+                    }
+                    
+                    // 使用 INSERT ... ON DUPLICATE KEY UPDATE 来更新或插入
+                    $stmt = $pdo->prepare("
+                        INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions) 
+                        VALUES (?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE 
+                            account_permissions = IF(? IS NOT NULL, VALUES(account_permissions), account_permissions),
+                            process_permissions = IF(? IS NOT NULL, VALUES(process_permissions), process_permissions),
+                            updated_at = CURRENT_TIMESTAMP
+                    ");
+                    $stmt->execute([
+                        $input['id'], 
+                        $current_company_id, 
+                        $accountPerms, 
+                        $processPerms,
+                        $accountPerms, // 用于条件判断
+                        $processPerms  // 用于条件判断
+                    ]);
                 }
                 
+                // 提交事务
                 $pdo->commit();
+                
+                // 获取更新后的用户信息，包括当前公司的权限
+                $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?");
+                $stmt->execute([$input['id']]);
+                $updatedUser = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                // 获取当前公司的权限（从 user_company_permissions 表）
+                $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
+                $stmt->execute([$input['id'], $current_company_id]);
+                $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($companyPermissions) {
+                    $updatedUser['account_permissions'] = $companyPermissions['account_permissions'];
+                    $updatedUser['process_permissions'] = $companyPermissions['process_permissions'];
+                } else {
+                    // 如果公司特定的权限不存在，使用 user 表中的全局权限作为后备
+                    $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user WHERE id = ?");
+                    $stmt->execute([$input['id']]);
+                    $userPerms = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($userPerms) {
+                        $updatedUser['account_permissions'] = $userPerms['account_permissions'];
+                        $updatedUser['process_permissions'] = $userPerms['process_permissions'];
+                    } else {
+                        $updatedUser['account_permissions'] = null;
+                        $updatedUser['process_permissions'] = null;
+                    }
+                }
+                
+                $message = 'User updated successfully';
+                if ($will_lose_access) {
+                    $message .= '。注意：移除后用户将不再属于当前公司，如需继续操作请切换到用户所属的其他公司';
+                }
+                
+                // 在响应中添加 will_lose_access 标志
+                $responseData = $updatedUser;
+                if (isset($responseData)) {
+                    $responseData = array_merge((array)$responseData, ['will_lose_access' => $will_lose_access]);
+                } else {
+                    $responseData = ['will_lose_access' => $will_lose_access];
+                }
+                
+                sendResponse(true, $message, $responseData);
             } catch (PDOException $e) {
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
-                }
-                userlistSendDbErrorResponse($e, $updateStage);
+                $pdo->rollBack();
+                error_log("Update user PDO error: " . $e->getMessage());
+                error_log("SQL State: " . $e->getCode());
+                error_log("Error Info: " . print_r($e->errorInfo, true));
+                sendResponse(false, userlistFriendlyDbError($e));
             } catch (Exception $e) {
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
-                }
-                userlistSendDbErrorResponse($e, $updateStage);
+                $pdo->rollBack();
+                error_log("Update user error: " . $e->getMessage());
+                sendResponse(false, userlistFriendlyDbError($e));
             }
-
-            try {
-                $updatedUser = loadUserWithCompanyPermissions($pdo, (int) $input['id'], (int) $current_company_id);
-            } catch (Throwable $e) {
-                error_log('userlist_api load after update: ' . $e->getMessage());
-                $updatedUser = [
-                    'id' => (int) $input['id'],
-                    'login_id' => $input['login_id'],
-                    'name' => $input['name'],
-                    'email' => $input['email'],
-                    'role' => $input['role'],
-                    'status' => $input['status'],
-                ];
-            }
-            $updatedUser['_build'] = USERLIST_API_BUILD;
-            $message = 'User updated successfully';
-            if ($will_lose_access) {
-                $message .= '。注意：移除后用户将不再属于当前公司，如需继续操作请切换到用户所属的其他公司';
-            }
-            $responseData = array_merge($updatedUser, ['will_lose_access' => $will_lose_access]);
-            sendResponse(true, $message, $responseData);
             break;
             
         case 'delete':
@@ -1315,13 +1185,8 @@ try {
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($user) {
-                    // 获取用户关联的所有 company_ids（仅返回仍存在于 company 表的记录）
-                    $stmt = $pdo->prepare("
-                        SELECT ucm.company_id
-                        FROM user_company_map ucm
-                        INNER JOIN company c ON c.id = ucm.company_id
-                        WHERE ucm.user_id = ?
-                    ");
+                    // 获取用户关联的所有 company_ids
+                    $stmt = $pdo->prepare("SELECT company_id FROM user_company_map WHERE user_id = ?");
                     $stmt->execute([$user['id']]);
                     $companyIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
                     $user['company_ids'] = $companyIds;
