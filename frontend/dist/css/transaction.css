@@ -2348,11 +2348,18 @@ body.transaction-page .transaction-container * {
     flex-direction: column;
 }
 
+.contra-inbox-popover.contra-inbox-popover--fixed {
+    position: fixed;
+    top: auto;
+    left: auto;
+    z-index: 10050;
+}
+
 .contra-inbox-popover::before {
     content: "";
     position: absolute;
     top: -7px;
-    left: 28px;
+    left: var(--contra-inbox-caret-left, 28px);
     width: 14px;
     height: 14px;
     background: #fff;
@@ -2630,13 +2637,13 @@ body.transaction-page .transaction-container * {
 }
 
 @media (max-width: 900px) {
-    .contra-inbox-popover {
+    .contra-inbox-popover:not(.contra-inbox-popover--fixed) {
         left: auto;
         right: 0;
         width: min(920px, calc(100vw - 24px));
     }
 
-    .contra-inbox-popover::before {
+    .contra-inbox-popover:not(.contra-inbox-popover--fixed)::before {
         left: auto;
         right: 28px;
     }

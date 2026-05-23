@@ -199,6 +199,28 @@ export default function TransactionPaymentPage() {
     search.runSearch({ silent: false });
   }, [search.runSearch]);
 
+  const toggleContraInbox = useCallback(() => {
+    ui.setContraInbox((s) => ({ ...s, open: !s.open }));
+  }, [ui.setContraInbox]);
+
+  const closeContraInbox = useCallback(() => {
+    ui.setContraInbox((s) => ({ ...s, open: false }));
+  }, [ui.setContraInbox]);
+
+  const refreshContraInbox = useCallback(() => {
+    void ui.refreshContraInboxBadge(filterSnapshot?.companyId);
+  }, [ui.refreshContraInboxBadge, filterSnapshot?.companyId]);
+
+  const onApproveContra = useCallback(
+    (opts) => ui.onApproveContra(opts.transactionId, opts.companyId, search.runSearch),
+    [ui.onApproveContra, search.runSearch],
+  );
+
+  const onRejectContra = useCallback(
+    (opts) => ui.onRejectContra(opts.transactionId, opts.companyId),
+    [ui.onRejectContra],
+  );
+
   if (forbidden) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -215,11 +237,11 @@ export default function TransactionPaymentPage() {
       <TransactionHeader
         canApproveContra={canApproveContra}
         contraInbox={ui.contraInbox}
-        toggleContraInbox={() => ui.setContraInbox((s) => ({ ...s, open: !s.open }))}
-        closeContraInbox={() => ui.setContraInbox((s) => ({ ...s, open: false }))}
-        refreshContraInbox={() => ui.refreshContraInboxBadge(filterSnapshot?.companyId)}
-        approveContra={(opts) => ui.onApproveContra(opts.transactionId, opts.companyId, search.runSearch)}
-        rejectContra={(opts) => ui.onRejectContra(opts.transactionId, opts.companyId)}
+        toggleContraInbox={toggleContraInbox}
+        closeContraInbox={closeContraInbox}
+        refreshContraInbox={refreshContraInbox}
+        approveContra={onApproveContra}
+        rejectContra={onRejectContra}
         fsCompanyId={filterSnapshot?.companyId}
         m={m}
         t={t}
