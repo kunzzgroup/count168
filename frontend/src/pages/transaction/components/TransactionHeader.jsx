@@ -27,7 +27,7 @@ export default function TransactionHeader({
   const popoverRef = useRef(null);
   const refreshRef = useRef(refreshContraInbox);
   const wasOpenRef = useRef(false);
-  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, width: 920, caretLeft: 28 });
+  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, width: 860, caretLeft: 28 });
 
   const itemCount = contraInbox.items.length;
   const isOpen = contraInbox.open;
@@ -38,7 +38,7 @@ export default function TransactionHeader({
     const btn = btnRef.current;
     if (!btn) return;
     const rect = btn.getBoundingClientRect();
-    const width = Math.min(920, Math.max(320, window.innerWidth - 48));
+    const width = Math.min(860, Math.max(320, window.innerWidth - 48));
     let left = rect.left;
     if (left + width > window.innerWidth - 24) {
       left = Math.max(24, window.innerWidth - width - 24);
@@ -171,7 +171,7 @@ export default function TransactionHeader({
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--amount" role="columnheader">
                   {m.amount}
                 </div>
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--submitter" role="columnheader">
                   {m.submittedBy}
                 </div>
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
@@ -192,19 +192,13 @@ export default function TransactionHeader({
                       key={it.id || `${it.transaction_id}-${it.transaction_date}`}
                     >
                       <div className="contra-inbox-grid-cell" role="cell">
-                        <span className="contra-inbox-date">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                            <rect x="3" y="4" width="18" height="18" rx="2" />
-                            <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
-                          </svg>
-                          {formatContraDate(it.transaction_date || it.date)}
-                        </span>
+                        {formatContraDate(it.transaction_date || it.date)}
                       </div>
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--from" role="cell">
-                        <span className="contra-inbox-account-badge contra-inbox-account-badge--from">{fromCode}</span>
+                        <span className="contra-inbox-account-code contra-inbox-account-code--from">{fromCode}</span>
                       </div>
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--to" role="cell">
-                        <span className="contra-inbox-account-badge contra-inbox-account-badge--to">{toCode}</span>
+                        <span className="contra-inbox-account-code contra-inbox-account-code--to">{toCode}</span>
                       </div>
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--currency" role="cell">
                         {toUpperDisplay(it.currency || "-")}
@@ -212,18 +206,10 @@ export default function TransactionHeader({
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--amount" role="cell">
                         {formatPaymentHistoryMoneyHalfUp(it.amount)}
                       </div>
-                      <div className="contra-inbox-grid-cell" role="cell">
-                        <span className="contra-inbox-submitter">
-                          <span className="contra-inbox-submitter-avatar" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <circle cx="12" cy="8" r="4" />
-                              <path d="M4 20c0-3.3 2.7-6 6-6h4c3.3 0 6 2.7 6 6" strokeLinecap="round" />
-                            </svg>
-                          </span>
-                          {submittedBy}
-                        </span>
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--submitter" role="cell">
+                        {submittedBy}
                       </div>
-                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--desc" role="cell">
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--desc" role="cell" title={toUpperDisplay(it.description || "-")}>
                         {toUpperDisplay(it.description || "-")}
                       </div>
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--action" role="cell">
@@ -237,9 +223,6 @@ export default function TransactionHeader({
                               await approveContra({ transactionId: tid, companyId: fsCompanyId });
                             }}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                              <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
                             {m.approve}
                           </button>
                           <button
@@ -252,9 +235,6 @@ export default function TransactionHeader({
                               await rejectContra({ transactionId: tid, companyId: fsCompanyId });
                             }}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                              <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
                             {m.reject}
                           </button>
                         </div>

@@ -145,11 +145,12 @@
    * Contra Inbox popover grid（Transaction Payment）
    * Header / cell 共用 --contra-inbox-text-cell，表头仅 uppercase + 字重区分
    */
-  --contra-inbox-grid-cols: 9.5rem 4.2rem 4.8rem 6rem 9rem minmax(8.5rem, 1fr) minmax(7.5rem, 1.15fr) 14rem;
-  --contra-inbox-grid-gap: clamp(0.6rem, 0.52vw, 0.8rem);
-  --contra-inbox-cell-pad-y: clamp(0.8rem, 0.65vw, 1rem);
-  --contra-inbox-cell-pad-x: clamp(1rem, 0.83vw, 1.2rem);
-  --contra-inbox-text-cell: var(--text-small);
+  --contra-inbox-grid-cols: minmax(0, 1.05fr) minmax(0, 0.42fr) minmax(0, 0.42fr) minmax(0, 0.5fr) minmax(0, 0.68fr) minmax(0, 0.82fr) minmax(0, 1.05fr) minmax(0, 0.95fr);
+  --contra-inbox-grid-gap: clamp(0.35rem, 0.35vw, 0.5rem);
+  --contra-inbox-cell-pad-y: clamp(0.55rem, 0.45vw, 0.75rem);
+  --contra-inbox-cell-pad-x: clamp(0.45rem, 0.42vw, 0.65rem);
+  --contra-inbox-text-cell: var(--text-tiny);
+  --contra-inbox-text-head: var(--text-tiny);
   --contra-inbox-text-action: var(--text-tiny);
   --contra-inbox-header-bg: #f4f7fc;
   --contra-inbox-header-fg: var(--color-heading);

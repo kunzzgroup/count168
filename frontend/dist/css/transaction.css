@@ -2450,7 +2450,8 @@ body.transaction-page .transaction-header-left .transaction-title {
 .contra-inbox-popover-body {
     flex: 1 1 auto;
     min-height: 0;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .contra-inbox-loading,
@@ -2478,7 +2479,7 @@ body.transaction-page .transaction-header-left .transaction-title {
     column-gap: var(--contra-inbox-grid-gap);
     align-items: center;
     width: 100%;
-    min-width: max-content;
+    min-width: 0;
 }
 
 /* Flat grid: row wrappers use display:contents so all cells share one column template (no subgrid). */
@@ -2520,21 +2521,25 @@ body.transaction-page .transaction-header-left .transaction-title {
 }
 
 .contra-inbox-grid-cell--head {
-    font-size: var(--contra-inbox-text-cell);
+    font-size: var(--contra-inbox-text-head);
     font-weight: var(--font-weight-bold);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--contra-inbox-header-fg);
     white-space: nowrap;
     background: var(--contra-inbox-header-bg);
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .contra-inbox-grid-cell--from,
 .contra-inbox-grid-cell--to,
 .contra-inbox-grid-cell--currency,
 .contra-inbox-grid-cell--amount,
+.contra-inbox-grid-cell--submitter,
 .contra-inbox-grid-cell--action {
     justify-content: center;
+    text-align: center;
 }
 
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--from,
@@ -2543,6 +2548,7 @@ body.transaction-page .transaction-header-left .transaction-title {
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--amount,
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--action {
     justify-content: center;
+    text-align: center;
 }
 
 .contra-inbox-grid-cell--amount {
@@ -2551,8 +2557,30 @@ body.transaction-page .transaction-header-left .transaction-title {
     white-space: nowrap;
 }
 
+.contra-inbox-grid-cell--submitter,
 .contra-inbox-grid-cell--desc {
-    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.contra-inbox-grid-cell--desc {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.contra-inbox-account-code {
+    font-size: var(--contra-inbox-text-cell);
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+}
+
+.contra-inbox-account-code--from {
+    color: #0369a1;
+}
+
+.contra-inbox-account-code--to {
+    color: #6d28d9;
 }
 
 .contra-inbox-grid-cell--action .contra-inbox-action-group {
@@ -2636,27 +2664,30 @@ body.transaction-page .transaction-header-left .transaction-title {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 4px;
     flex-wrap: nowrap;
+    width: 100%;
+    min-width: 0;
 }
 
 .contra-inbox-btn.contra-inbox-approve,
 .contra-inbox-btn.contra-inbox-reject {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
-    border-radius: 8px;
+    justify-content: center;
+    gap: 0;
+    padding: 3px 8px;
+    border-radius: 6px;
     font-size: var(--contra-inbox-text-action);
     font-weight: var(--font-weight-bold);
     white-space: nowrap;
     background: #fff;
+    min-width: 0;
 }
 
 .contra-inbox-btn.contra-inbox-approve svg,
 .contra-inbox-btn.contra-inbox-reject svg {
-    width: 14px;
-    height: 14px;
+    display: none;
 }
 
 .contra-inbox-approve {
