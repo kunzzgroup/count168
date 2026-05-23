@@ -1804,7 +1804,7 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     background-color: #f8fafc;
 }
 
-/* Payment History：挂 body portal + 随当前视口居中；内容少时收缩，行多时表体内滚动 */
+/* Payment History：对齐 legacy transaction.php — 约 88% 宽 × 80% 高，表体区域填满剩余空间 */
 #historyModal.transaction-modal {
     position: fixed;
     inset: 0;
@@ -1812,23 +1812,43 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     display: flex;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
-    align-items: safe center;
+    align-items: center;
     justify-content: center;
+    padding: clamp(8px, 2vh, 24px) clamp(8px, 1.5vw, 20px);
+    box-sizing: border-box;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
 }
 
-/* 必须高于 member.css 的 `.transaction-page .transaction-modal-content`（同特异性时 member 后加载会盖住宽度） */
+body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
 body.transaction-page .transaction-modal-content.transaction-history-modal,
+.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
 .transaction-page .transaction-modal-content.transaction-history-modal {
-    width: min(75vw, 1420px);
+    width: min(1600px, max(88vw, min(1050px, 100%)));
     max-width: calc(100% - 24px);
-    max-height: min(92vh, calc(100dvh - 24px));
-    height: auto;
-    min-height: 0;
-    margin: 0;
+    height: min(80vh, calc(100dvh - 40px));
+    min-height: min(480px, calc(100dvh - 40px));
+    max-height: min(80vh, calc(100dvh - 40px));
+    margin: auto;
     align-self: center;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
     animation: none;
-    border-radius: 10px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+body.transaction-page #historyModal .transaction-history-modal .transaction-modal-body,
+#historyModal .transaction-history-modal .transaction-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(10px, 1.04vw, 20px) clamp(16px, 2vw, 32px);
 }
 
 .transaction-history-modal .transaction-modal-header {
@@ -1844,75 +1864,81 @@ body.transaction-page .transaction-modal-content.transaction-history-modal,
     font-size: clamp(14px, 1.05vw, 19px);
 }
 
-.transaction-history-modal .transaction-modal-body {
-    flex: 0 1 auto;
+#historyModal .transaction-history-modal .transaction-history-table-frame {
+    flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    /* 列表左右贴齐弹窗内缘（与标题栏宽度对齐由 table-frame 铺满实现） */
-    padding: clamp(6px, 0.75vw, 12px) 0 clamp(12px, 1.05vw, 18px);
-}
-
-.transaction-history-modal .transaction-history-table-frame {
-    flex: 0 1 auto;
-    min-height: 0;
-    max-height: min(68vh, calc(100dvh - 160px));
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     border: 1px solid #cbd5e1;
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
+    border-radius: 10px;
+    background: #ffffff;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
-/* 平板 / 矮屏：宽度与高度跟当前视口，避免仍按 desktop 固定尺寸偏到屏幕外 */
+/* 平板：宽高跟随视口 */
 @media (max-width: 1280px) {
-    body.transaction-page .transaction-modal-content.transaction-history-modal,
-    .transaction-page .transaction-modal-content.transaction-history-modal {
-        width: min(94vw, 1420px);
+    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
+    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal {
+        width: calc(100% - 20px);
         max-width: calc(100% - 20px);
-        max-height: min(90vh, calc(100dvh - 20px));
+        height: min(82vh, calc(100dvh - 24px));
+        min-height: min(400px, calc(100dvh - 24px));
+        max-height: min(82vh, calc(100dvh - 24px));
     }
 
-    .transaction-history-modal .transaction-history-table-frame {
-        max-height: min(62vh, calc(100dvh - 150px));
+    #historyModal .transaction-history-modal .transaction-modal-body {
+        padding: clamp(8px, 1.2vw, 14px) clamp(10px, 1.5vw, 16px);
+    }
+
+    #historyModal .transaction-history-modal .transaction-modal-body .transaction-table {
+        min-width: 960px;
     }
 }
 
 @media (max-height: 800px) {
-    body.transaction-page .transaction-modal-content.transaction-history-modal,
-    .transaction-page .transaction-modal-content.transaction-history-modal {
+    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
+    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal {
+        height: calc(100dvh - 16px);
+        min-height: 0;
         max-height: calc(100dvh - 16px);
-    }
-
-    .transaction-history-modal .transaction-history-table-frame {
-        max-height: calc(100dvh - 140px);
     }
 }
 
 @media (max-width: 768px) {
     #historyModal.transaction-modal {
         padding: 8px;
-        align-items: flex-start;
+        align-items: stretch;
     }
 
-    body.transaction-page .transaction-modal-content.transaction-history-modal,
-    .transaction-page .transaction-modal-content.transaction-history-modal {
+    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
+    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal {
         width: 100%;
         max-width: 100%;
+        height: calc(100dvh - 16px);
+        min-height: 0;
         max-height: calc(100dvh - 16px);
-        border-radius: 8px;
+        border-radius: 10px;
     }
 
-    .transaction-history-modal .transaction-modal-header {
+    #historyModal .transaction-history-modal .transaction-modal-header {
         padding: 10px 12px;
     }
 
-    .transaction-history-modal .transaction-history-table-frame {
-        max-height: calc(100dvh - 120px);
+    #historyModal .transaction-history-modal .transaction-modal-body {
+        padding: 8px 10px 10px;
+    }
+
+    #historyModal .transaction-history-modal .transaction-modal-body .transaction-table {
+        min-width: 860px;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1180px) {
+    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
+    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal {
+        width: calc(100% - 16px);
+        max-width: calc(100% - 16px);
     }
 }
 
@@ -2087,13 +2113,16 @@ body.transaction-page .transaction-modal-content.transaction-history-modal,
     filter: brightness(0.97);
 }
 
-.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row td {
-    background-color: #ffffff !important;
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row td,
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-bf-row td {
+    background-color: #f0f0f0 !important;
+    font-weight: 700 !important;
 }
 
-.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover td {
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover td,
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-bf-row:hover td {
     filter: none;
-    background-color: #ffffff !important;
+    background-color: #f0f0f0 !important;
 }
 
 .transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover {

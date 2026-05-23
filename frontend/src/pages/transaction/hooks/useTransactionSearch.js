@@ -208,7 +208,7 @@ export function useTransactionSearch({
     scheduleAutoSearch,
   ]);
 
-  // Show Payment / Show Win/Loss / Show 0 balance 影响 search_api 参数与 (account×currency) 范围；与 legacy `js/transaction.js` 一致，变更后重新搜索。
+  // Show 0 balance 需重搜（后端 account×currency 范围变化）；Payment/Win-Loss 勾选时前端即时过滤，取消勾选时再拉全量。
   useEffect(() => {
     if (!initialSearchDoneRef.current) return;
     if (!filterSnapshot?.companyId) return;
@@ -227,13 +227,13 @@ export function useTransactionSearch({
     }
 
     const prev = prevServerSideFiltersRef.current;
-    const changed =
-      prev.showPaymentOnly !== current.showPaymentOnly ||
-      prev.showCaptureOnly !== current.showCaptureOnly ||
-      prev.showZeroBalance !== current.showZeroBalance;
+    const zeroBalanceChanged = prev.showZeroBalance !== current.showZeroBalance;
+    const paymentTurnedOff = prev.showPaymentOnly && !current.showPaymentOnly;
+    const captureTurnedOff = prev.showCaptureOnly && !current.showCaptureOnly;
 
     prevServerSideFiltersRef.current = current;
-    if (!changed) return;
+
+    if (!zeroBalanceChanged && !paymentTurnedOff && !captureTurnedOff) return;
 
     scheduleAutoSearch({ delayMs: 80 });
   }, [
@@ -365,7 +365,7 @@ export function useTransactionSearch({
       if (instantData) {
         setRawSearchData(instantData);
         setTablesVisible(true);
-      } else if (!isInitialLoad) {
+      } else if (!isInitialLoad && !silent) {
         setRawSearchData(null);
       }
 
