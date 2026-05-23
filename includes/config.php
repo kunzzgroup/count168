@@ -1,8 +1,8 @@
 <?php
 $host = 'localhost';
-$dbname = 'u857194726_count168_site';
-$dbuser = 'u857194726_count168_site';
-$dbpass = 'Kunzz_c168';
+$dbname = 'u857194726_c168site';
+$dbuser = 'u857194726_c168site';
+$dbpass = 'C168_site';
 
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
