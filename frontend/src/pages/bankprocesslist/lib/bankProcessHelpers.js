@@ -113,7 +113,7 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
  * 小屏：外层 .bank-virtual-table 横向滚动 + inner min-width，对齐 payment-maintenance 虚拟表。
  */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "minmax(40px,2fr) minmax(84px,6fr) minmax(84px,4fr) minmax(120px,10fr) minmax(96px,7fr) minmax(88px,6fr) minmax(92px,5fr) minmax(80px,5.5fr) minmax(56px,4fr) minmax(56px,4fr) minmax(56px,4fr) minmax(96px,7fr) minmax(64px,4.5fr) minmax(72px,5fr)";
+  "minmax(40px,2.7fr) minmax(88px,3.2fr) minmax(72px,2.4fr) minmax(120px,max-content) minmax(200px,max-content) minmax(100px,6fr) minmax(92px,5.5fr) minmax(80px,6fr) minmax(68px,5fr) minmax(68px,5fr) minmax(68px,5fr) minmax(96px,100px) minmax(64px,4fr) minmax(72px,4.5fr)";
 
 /** Bank Process 列表：BANK(TYPE)，如 RHB(BUSINESS) */
 export function formatBankWithTypeDisplay(bank, type) {

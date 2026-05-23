@@ -1,4 +1,5 @@
-import React, { createPortal } from "react";
+import React from "react";
+import { createPortal } from "react-dom";
 import AccountModal from "../../components/AccountModal.jsx";
 import { accountModalOverlayZIndex, processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
 import "../../../public/css/processCSS.css";
@@ -17,6 +18,7 @@ import ProfitSharingModal from "./components/ProfitSharingModal.jsx";
 import { BankNoteModal, BankRemarkModal } from "./components/bankProcessTextModals.jsx";
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
+import { bankProcessFrequencyNormalized } from "./lib/bankProcessHelpers.js";
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
 
 export default function BankProcessListPage() {

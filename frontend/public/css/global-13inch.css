@@ -247,7 +247,8 @@
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row.table-header,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row {
         display: grid !important;
-        grid-template-columns: var(--bank-virtual-grid-active) !important;
+        grid-column: 1 / -1 !important;
+        grid-template-columns: subgrid !important;
         column-gap: 0 !important;
         gap: 0 !important;
         padding: 0 !important;
