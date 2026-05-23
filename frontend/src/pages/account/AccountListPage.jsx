@@ -7,7 +7,7 @@ import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 
-// Logic & Constants
+// Logic & Constants..
 import {
   toUpper,
   normalizeAlertAmount,
