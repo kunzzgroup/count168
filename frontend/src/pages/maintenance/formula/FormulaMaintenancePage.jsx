@@ -3,6 +3,7 @@ import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N, getFormulaInputMethodOptions } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
@@ -273,10 +274,7 @@ export default function FormulaMaintenancePage() {
           return;
         }
 
-        const perms = Array.isArray(u.permissions) ? u.permissions : [];
-        const hasFull = perms.length === 0;
-        const canMaintenance = hasFull || perms.includes("maintenance");
-        if (!canMaintenance) {
+        if (!canAccessTransactionFormulaMaintenance(u)) {
           navigate("/dashboard", { replace: true });
           return;
         }

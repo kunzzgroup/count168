@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient, keepPreviousData, isCancelledError } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
@@ -348,10 +349,7 @@ export default function TransactionMaintenancePage() {
         }
 
         // Permissions check
-        const perms = Array.isArray(u.permissions) ? u.permissions : [];
-        const hasFull = perms.length === 0;
-        const canMaintenance = hasFull || perms.includes("maintenance");
-        if (!canMaintenance) {
+        if (!canAccessTransactionFormulaMaintenance(u)) {
           navigate("/dashboard", { replace: true });
           return;
         }
