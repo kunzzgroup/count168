@@ -369,12 +369,33 @@ function formatAccountInUseLabel(acc) {
   return name || code;
 }
 
+/** Parse account labels from delete_currency_api English message. */
+export function parseAccountsFromCurrencyDeleteMessage(message) {
+  const raw = String(message || "").trim();
+  const m = raw.match(/following accounts are using it:\s*(.+)$/i);
+  if (!m) return [];
+  return m[1]
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((label) => {
+      const match = label.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+      if (match) {
+        return { name: match[1].trim(), account_id: match[2].trim() };
+      }
+      return { name: label, account_id: label };
+    });
+}
+
 function translateAccountDynamicApiMessage(lang, message, data = null) {
   const raw = String(message || "").trim();
   if (!raw) return null;
   let m = raw.match(/^Cannot delete active accounts:\s*(.+)$/i);
   if (m) return getAccountText(lang, "apiCannotDeleteActiveAccounts") + ": " + m[1];
-  const accountsInUse = Array.isArray(data?.accounts_in_use) ? data.accounts_in_use : [];
+  let accountsInUse = Array.isArray(data?.accounts_in_use) ? data.accounts_in_use : [];
+  if (accountsInUse.length === 0) {
+    accountsInUse = parseAccountsFromCurrencyDeleteMessage(raw);
+  }
   if (accountsInUse.length > 0) {
     const labels = accountsInUse.map(formatAccountInUseLabel).filter(Boolean);
     if (labels.length > 0) {
