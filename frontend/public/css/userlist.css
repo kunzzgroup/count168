@@ -3526,23 +3526,33 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
         display: flex;
         flex-direction: row;
         flex-wrap: nowrap;
-        align-items: stretch;
-        justify-content: stretch;
-        gap: 6px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
         padding-top: 8px;
         margin-top: auto;
     }
 
     body.ec-auth-shell.user-page #userModal .btn-account-control,
     body.ec-auth-shell.user-page #userModal .btn-clearall {
-        flex: 1 1 0;
+        flex: 0 0 auto;
         min-width: 0;
         width: auto;
-        max-width: none;
-        padding: 6px 8px !important;
-        font-size: clamp(10px, 1.6vw, 12px) !important;
+        max-width: 100%;
+        padding: clamp(5px, 0.35vw, 7px) clamp(8px, 1vw, 12px) !important;
+        font-size: clamp(10px, 1.4vw, 12px) !important;
         line-height: 1.2;
         white-space: nowrap;
+    }
+
+    body.ec-auth-shell.user-page #userModal .btn-account-control {
+        min-width: clamp(68px, 12vw, 88px) !important;
+        width: auto !important;
+    }
+
+    body.ec-auth-shell.user-page #userModal .btn-clearall {
+        width: auto !important;
+        min-width: clamp(68px, 12vw, 88px) !important;
     }
 }
 
