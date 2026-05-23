@@ -807,15 +807,6 @@ export function useBankProcessListPage() {
     setResendDayEnd("");
   }, [resendModalOpen, resendFrequency]);
 
-  useEffect(() => {
-    if (!resendModalOpen) return;
-    if (bankProcessFrequencyNormalized(resendFrequency) === "once") return;
-    if (!String(resendDayEnd || "").trim()) return;
-    if (resendFrequency !== "1st_of_every_month") {
-      setResendFrequency("1st_of_every_month");
-    }
-  }, [resendModalOpen, resendDayEnd, resendFrequency]);
-
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
     if (companyId) url.searchParams.set("company_id", String(companyId));
