@@ -114,6 +114,7 @@ export default function ProcessListPage() {
     setCssReady(true);
     return () => {
       document.body.classList.remove("process-page");
+      document.body.classList.add("dashboard-page");
     };
   }, []);
 
