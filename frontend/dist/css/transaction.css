@@ -2543,6 +2543,8 @@ body.transaction-page .transaction-header-left .transaction-title {
 }
 
 .contra-inbox-grid-cell--transfer,
+.contra-inbox-grid-cell--from,
+.contra-inbox-grid-cell--to,
 .contra-inbox-grid-cell--currency,
 .contra-inbox-grid-cell--amount,
 .contra-inbox-grid-cell--submitter,
@@ -2551,12 +2553,17 @@ body.transaction-page .transaction-header-left .transaction-title {
     text-align: center;
 }
 
+.contra-inbox-grid-row:not(.contra-inbox-grid-row--head) .contra-inbox-grid-cell--transfer {
+    grid-column: 2 / 4;
+}
+
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--date {
     justify-content: flex-start;
     text-align: left;
 }
 
-.contra-inbox-grid-cell--head.contra-inbox-grid-cell--transfer,
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--from,
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--to,
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--currency,
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--amount,
 .contra-inbox-grid-cell--head.contra-inbox-grid-cell--submitter,
@@ -2565,7 +2572,6 @@ body.transaction-page .transaction-header-left .transaction-title {
     text-align: center;
 }
 
-.contra-inbox-head-transfer,
 .contra-inbox-transfer {
     display: inline-flex;
     align-items: center;
@@ -2575,7 +2581,6 @@ body.transaction-page .transaction-header-left .transaction-title {
     min-width: 0;
 }
 
-.contra-inbox-head-arrow,
 .contra-inbox-transfer-arrow {
     color: #94a3b8;
     font-weight: var(--font-weight-bold);

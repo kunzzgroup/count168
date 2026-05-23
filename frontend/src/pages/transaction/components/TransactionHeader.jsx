@@ -159,14 +159,11 @@ export default function TransactionHeader({
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--date" role="columnheader">
                   {m.date}
                 </div>
-                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--transfer" role="columnheader">
-                  <span className="contra-inbox-head-transfer">
-                    {m.from}
-                    <span className="contra-inbox-head-arrow" aria-hidden="true">
-                      →
-                    </span>
-                    {m.to}
-                  </span>
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--from" role="columnheader">
+                  {m.from}
+                </div>
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--to" role="columnheader">
+                  {m.to}
                 </div>
                 <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--currency" role="columnheader">
                   {m.currency}
