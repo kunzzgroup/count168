@@ -1804,9 +1804,8 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     background-color: #f8fafc;
 }
 
-/* Payment History：挂 body portal + 随当前视口居中；内容少时收缩，行多时表体内滚动（对齐 legacy transaction.php） */
-#historyModal.transaction-modal,
-#historyModal.transaction-history-modal-overlay {
+/* Payment History：挂 body portal + 随当前视口居中；内容少时收缩，行多时表体内滚动 */
+#historyModal.transaction-modal {
     position: fixed;
     inset: 0;
     z-index: 10050;
@@ -1815,33 +1814,21 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     -webkit-overflow-scrolling: touch;
     align-items: safe center;
     justify-content: center;
-    padding: clamp(12px, 2vh, 24px) clamp(12px, 2vw, 20px);
-    box-sizing: border-box;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
 }
 
-/* 必须高于 member.css 的 `.transaction-page .transaction-modal-content` / `.transaction-modal-body max-height:715px` */
-body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
+/* 必须高于 member.css 的 `.transaction-page .transaction-modal-content`（同特异性时 member 后加载会盖住宽度） */
 body.transaction-page .transaction-modal-content.transaction-history-modal,
-.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
 .transaction-page .transaction-modal-content.transaction-history-modal {
-    width: min(82vw, 1420px);
+    width: min(75vw, 1420px);
     max-width: calc(100% - 24px);
     max-height: min(92vh, calc(100dvh - 24px));
     height: auto;
     min-height: 0;
-    margin: auto;
+    margin: 0;
     align-self: center;
     animation: none;
     border-radius: 10px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-body.transaction-page #historyModal .transaction-history-modal .transaction-modal-body,
-#historyModal .transaction-history-modal .transaction-modal-body {
-    max-height: none;
-    overflow: hidden;
 }
 
 .transaction-history-modal .transaction-modal-header {
@@ -1863,43 +1850,35 @@ body.transaction-page #historyModal .transaction-history-modal .transaction-moda
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: clamp(10px, 1.04vw, 20px) clamp(16px, 2vw, 32px) clamp(12px, 1.05vw, 18px);
+    /* 列表左右贴齐弹窗内缘（与标题栏宽度对齐由 table-frame 铺满实现） */
+    padding: clamp(6px, 0.75vw, 12px) 0 clamp(12px, 1.05vw, 18px);
 }
 
 .transaction-history-modal .transaction-history-table-frame {
     flex: 0 1 auto;
     min-height: 0;
     max-height: min(68vh, calc(100dvh - 160px));
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    background: #ffffff;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
-/* 平板 / 矮屏：宽度与高度跟当前视口，表体横向滚动保留全部列 */
+/* 平板 / 矮屏：宽度与高度跟当前视口，避免仍按 desktop 固定尺寸偏到屏幕外 */
 @media (max-width: 1280px) {
-    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
     body.transaction-page .transaction-modal-content.transaction-history-modal,
-    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
     .transaction-page .transaction-modal-content.transaction-history-modal {
         width: min(94vw, 1420px);
         max-width: calc(100% - 20px);
         max-height: min(90vh, calc(100dvh - 20px));
     }
 
-    #historyModal .transaction-history-modal .transaction-modal-body {
-        padding: clamp(8px, 1.2vw, 14px) clamp(10px, 1.5vw, 16px) clamp(10px, 1.2vw, 14px);
-    }
-
-    #historyModal .transaction-history-modal .transaction-history-table-frame {
+    .transaction-history-modal .transaction-history-table-frame {
         max-height: min(62vh, calc(100dvh - 150px));
-    }
-
-    #historyModal .transaction-history-modal .transaction-modal-body .transaction-table {
-        min-width: 960px;
     }
 }
 
@@ -1915,46 +1894,25 @@ body.transaction-page #historyModal .transaction-history-modal .transaction-moda
 }
 
 @media (max-width: 768px) {
-    #historyModal.transaction-modal,
-    #historyModal.transaction-history-modal-overlay {
+    #historyModal.transaction-modal {
         padding: 8px;
         align-items: flex-start;
     }
 
-    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
     body.transaction-page .transaction-modal-content.transaction-history-modal,
-    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
     .transaction-page .transaction-modal-content.transaction-history-modal {
         width: 100%;
         max-width: 100%;
         max-height: calc(100dvh - 16px);
         border-radius: 8px;
-        margin-top: 0;
     }
 
-    #historyModal .transaction-history-modal .transaction-modal-header {
+    .transaction-history-modal .transaction-modal-header {
         padding: 10px 12px;
     }
 
-    #historyModal .transaction-history-modal .transaction-modal-body {
-        padding: 8px 10px 10px;
-    }
-
-    #historyModal .transaction-history-modal .transaction-history-table-frame {
+    .transaction-history-modal .transaction-history-table-frame {
         max-height: calc(100dvh - 120px);
-        border-radius: 8px;
-    }
-
-    #historyModal .transaction-history-modal .transaction-modal-body .transaction-table {
-        min-width: 860px;
-    }
-}
-
-/* iPad 横屏 / 中等平板 */
-@media (min-width: 769px) and (max-width: 1180px) {
-    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
-    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal {
-        width: min(96vw, 1420px);
     }
 }
 
@@ -2129,25 +2087,13 @@ body.transaction-page #historyModal .transaction-history-modal .transaction-moda
     filter: brightness(0.97);
 }
 
-/* B/F 行：与 legacy transaction.php 一致（灰底加粗） */
-.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row td,
-.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-bf-row td {
-    background-color: #f0f0f0 !important;
-    font-weight: 700 !important;
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row td {
+    background-color: #ffffff !important;
 }
 
-.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover td,
-.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-bf-row:hover td {
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover td {
     filter: none;
-    background-color: #f0f0f0 !important;
-}
-
-#historyModal .transaction-history-empty-cell {
-    text-align: center;
-    color: #64748b;
-    padding: 24px 12px !important;
-    font-weight: 500 !important;
-    background: #ffffff !important;
+    background-color: #ffffff !important;
 }
 
 .transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover {
