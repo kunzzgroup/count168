@@ -151,27 +151,45 @@ export default function TransactionHeader({
           {!contraInbox.loading && itemCount === 0 ? (
             <div className="contra-inbox-empty">{m.contraInboxEmpty}</div>
           ) : (
-            <table className="contra-inbox-table">
-              <thead>
-                <tr>
-                  <th>{m.date}</th>
-                  <th>{m.from}</th>
-                  <th>{m.to}</th>
-                  <th>{m.currency}</th>
-                  <th>{m.amount}</th>
-                  <th>{m.submittedBy}</th>
-                  <th>{m.description}</th>
-                  <th>{m.action}</th>
-                </tr>
-              </thead>
-              <tbody id="contraInboxTbody">
+            <div className="contra-inbox-grid" role="table">
+              <div className="contra-inbox-grid-header" role="row">
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                  {m.date}
+                </div>
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                  {m.from}
+                </div>
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                  {m.to}
+                </div>
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                  {m.currency}
+                </div>
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                  {m.amount}
+                </div>
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                  {m.submittedBy}
+                </div>
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head" role="columnheader">
+                  {m.description}
+                </div>
+                <div className="contra-inbox-grid-cell contra-inbox-grid-cell--head contra-inbox-grid-cell--action" role="columnheader">
+                  {m.action}
+                </div>
+              </div>
+              <div className="contra-inbox-grid-body" id="contraInboxTbody">
                 {contraInbox.items.map((it) => {
                   const fromCode = toUpperDisplay(it.from_account_code || "-");
                   const toCode = toUpperDisplay(it.to_account_code || "-");
                   const submittedBy = toUpperDisplay(it.submitted_by || it.created_by || "-");
                   return (
-                    <tr key={it.id || `${it.transaction_id}-${it.transaction_date}`}>
-                      <td>
+                    <div
+                      className="contra-inbox-grid-row"
+                      role="row"
+                      key={it.id || `${it.transaction_id}-${it.transaction_date}`}
+                    >
+                      <div className="contra-inbox-grid-cell" role="cell">
                         <span className="contra-inbox-date">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                             <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -179,21 +197,25 @@ export default function TransactionHeader({
                           </svg>
                           {formatContraDate(it.transaction_date || it.date)}
                         </span>
-                      </td>
-                      <td>
+                      </div>
+                      <div className="contra-inbox-grid-cell" role="cell">
                         <span className="contra-inbox-account-badge contra-inbox-account-badge--from">{fromCode}</span>
-                      </td>
-                      <td>
+                      </div>
+                      <div className="contra-inbox-grid-cell" role="cell">
                         <span className="contra-inbox-account-flow">
                           <span className="contra-inbox-account-arrow" aria-hidden="true">
                             →
                           </span>
                           <span className="contra-inbox-account-badge contra-inbox-account-badge--to">{toCode}</span>
                         </span>
-                      </td>
-                      <td>{toUpperDisplay(it.currency || "-")}</td>
-                      <td className="contra-inbox-amount">{formatPaymentHistoryMoneyHalfUp(it.amount)}</td>
-                      <td>
+                      </div>
+                      <div className="contra-inbox-grid-cell" role="cell">
+                        {toUpperDisplay(it.currency || "-")}
+                      </div>
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--amount" role="cell">
+                        {formatPaymentHistoryMoneyHalfUp(it.amount)}
+                      </div>
+                      <div className="contra-inbox-grid-cell" role="cell">
                         <span className="contra-inbox-submitter">
                           <span className="contra-inbox-submitter-avatar" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -203,9 +225,11 @@ export default function TransactionHeader({
                           </span>
                           {submittedBy}
                         </span>
-                      </td>
-                      <td className="contra-inbox-desc">{toUpperDisplay(it.description || "-")}</td>
-                      <td>
+                      </div>
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--desc" role="cell">
+                        {toUpperDisplay(it.description || "-")}
+                      </div>
+                      <div className="contra-inbox-grid-cell contra-inbox-grid-cell--action" role="cell">
                         <div className="contra-inbox-action-group">
                           <button
                             type="button"
@@ -237,12 +261,12 @@ export default function TransactionHeader({
                             {m.reject}
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            </div>
           )}
         </div>
 

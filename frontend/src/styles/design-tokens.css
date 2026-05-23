@@ -141,6 +141,21 @@
   /* Account 表头蓝条 padding（accountCSS .account-table-header） */
   --table-header-height: 6px 22px;
 
+  /*
+   * Contra Inbox popover grid（Transaction Payment）
+   * Header / cell 共用 --contra-inbox-text-cell，表头仅 uppercase + 字重区分
+   */
+  --contra-inbox-grid-cols: minmax(8rem, 0.95fr) minmax(3.2rem, 0.5fr) minmax(4.8rem, 0.62fr) minmax(3.6rem, 0.48fr) minmax(6rem, 0.72fr) minmax(7.5rem, 1fr) minmax(9rem, 1.3fr) minmax(12rem, 1.45fr);
+  --contra-inbox-grid-gap: clamp(0.6rem, 0.52vw, 0.8rem);
+  --contra-inbox-cell-pad-y: clamp(0.8rem, 0.65vw, 1rem);
+  --contra-inbox-cell-pad-x: clamp(1rem, 0.83vw, 1.2rem);
+  --contra-inbox-text-cell: var(--text-small);
+  --contra-inbox-text-action: var(--text-tiny);
+  --contra-inbox-header-bg: #f4f7fc;
+  --contra-inbox-header-fg: var(--color-heading);
+  --contra-inbox-row-border: #f1f5f9;
+  --contra-inbox-header-border: #e8edf5;
+
   /* --- 壳层背景图（background-color 仍用 --color-page-bg）--- */
   --app-shell-bg-image: radial-gradient(
       circle at 15% 20%,

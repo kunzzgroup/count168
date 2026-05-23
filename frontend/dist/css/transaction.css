@@ -2457,48 +2457,77 @@ body.transaction-page .transaction-header-left .transaction-title {
 .contra-inbox-empty {
     padding: 28px 16px;
     text-align: center;
-    color: #64748b;
-    font-size: clamp(11px, 0.83vw, 14px);
-    font-weight: 600;
+    color: var(--color-muted-fg);
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-semibold);
 }
 
-.contra-inbox-table {
+.contra-inbox-grid {
     width: 100%;
-    border-collapse: collapse;
+    min-width: max-content;
 }
 
-.contra-inbox-table thead th {
+.contra-inbox-grid-header,
+.contra-inbox-grid-row {
+    display: grid;
+    grid-template-columns: var(--contra-inbox-grid-cols);
+    column-gap: var(--contra-inbox-grid-gap);
+    align-items: center;
+}
+
+.contra-inbox-grid-header {
     position: sticky;
     top: 0;
     z-index: 1;
-    padding: 10px 12px;
-    background: #f4f7fc;
-    border-bottom: 1px solid #e8edf5;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
+    padding: var(--contra-inbox-cell-pad-y) var(--contra-inbox-cell-pad-x);
+    background: var(--contra-inbox-header-bg);
+    border-bottom: 1px solid var(--contra-inbox-header-border);
+}
+
+.contra-inbox-grid-cell {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    font-size: var(--contra-inbox-text-cell);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-body-strong);
+    line-height: 1.35;
+}
+
+.contra-inbox-grid-cell--head {
+    font-size: var(--contra-inbox-text-cell);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #1e3a5f;
-    text-align: left;
+    color: var(--contra-inbox-header-fg);
     white-space: nowrap;
 }
 
-.contra-inbox-table tbody td {
-    padding: 12px;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: clamp(11px, 0.78vw, 14px);
-    font-weight: 600;
-    color: #334155;
-    text-align: left;
-    vertical-align: middle;
+.contra-inbox-grid-row {
+    padding: var(--contra-inbox-cell-pad-y) var(--contra-inbox-cell-pad-x);
+    border-bottom: 1px solid var(--contra-inbox-row-border);
 }
 
-.contra-inbox-table tbody tr:last-child td {
+.contra-inbox-grid-body .contra-inbox-grid-row:last-child {
     border-bottom: none;
 }
 
-.contra-inbox-table tbody tr:hover {
+.contra-inbox-grid-row:hover {
     background: #fafbfd;
+}
+
+.contra-inbox-grid-cell--amount {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-heading);
+    white-space: nowrap;
+}
+
+.contra-inbox-grid-cell--desc {
+    word-break: break-word;
+}
+
+.contra-inbox-grid-cell--action {
+    justify-content: flex-start;
 }
 
 .contra-inbox-date {
@@ -2523,8 +2552,8 @@ body.transaction-page .transaction-header-left .transaction-title {
     min-width: 36px;
     padding: 4px 10px;
     border-radius: 8px;
-    font-size: clamp(11px, 0.78vw, 13px);
-    font-weight: 800;
+    font-size: var(--contra-inbox-text-cell);
+    font-weight: var(--font-weight-bold);
     letter-spacing: 0.02em;
 }
 
@@ -2546,14 +2575,8 @@ body.transaction-page .transaction-header-left .transaction-title {
 
 .contra-inbox-account-arrow {
     color: #94a3b8;
-    font-size: 14px;
+    font-size: var(--contra-inbox-text-cell);
     line-height: 1;
-}
-
-.contra-inbox-amount {
-    font-weight: 800 !important;
-    color: #000033 !important;
-    white-space: nowrap;
 }
 
 .contra-inbox-submitter {
@@ -2580,11 +2603,6 @@ body.transaction-page .transaction-header-left .transaction-title {
     height: 14px;
 }
 
-.contra-inbox-desc {
-    max-width: 180px;
-    word-break: break-word;
-}
-
 .contra-inbox-action-group {
     display: inline-flex;
     align-items: center;
@@ -2599,8 +2617,8 @@ body.transaction-page .transaction-header-left .transaction-title {
     gap: 5px;
     padding: 6px 12px;
     border-radius: 8px;
-    font-size: clamp(10px, 0.73vw, 13px);
-    font-weight: 700;
+    font-size: var(--contra-inbox-text-action);
+    font-weight: var(--font-weight-bold);
     white-space: nowrap;
     background: #fff;
 }
@@ -2638,9 +2656,9 @@ body.transaction-page .transaction-header-left .transaction-title {
     padding: 12px 16px;
     border-top: 1px solid #eef2f7;
     background: #fafbfd;
-    color: #64748b;
-    font-size: clamp(11px, 0.78vw, 13px);
-    font-weight: 600;
+    color: var(--color-muted-fg);
+    font-size: var(--text-tiny);
+    font-weight: var(--font-weight-semibold);
 }
 
 .contra-inbox-popover-footer svg {
@@ -3479,6 +3497,7 @@ body.transaction-page:not(.member-winloss-page) .transaction-main-content {
     flex-direction: row;
     gap: 24px;
     align-items: stretch;
+    margin-top: 20px;
     margin-bottom: 0;
     overflow: visible;
 }
