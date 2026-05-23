@@ -189,23 +189,25 @@ export default function AccountingDueModal({
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--contract" role="columnheader">
                   {t("contract")}
                 </div>
-                <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--delete" role="columnheader">
-                  <span className="accounting-due-inbox-delete-head">
-                    <span className="accounting-due-inbox-delete-head-label">{t("deleteCol")}</span>
-                    <input
-                      type="checkbox"
-                      title={t("selectAllForDelete")}
-                      className="accounting-due-inbox-delete-cb"
-                      checked={deleteAllChecked}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setAccountingDeleteSelected(() => {
-                          if (!checked) return new Set();
-                          return new Set(accountingRows.map((r) => Number(r.id)));
-                        });
-                      }}
-                    />
-                  </span>
+                <div
+                  className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--delete"
+                  role="columnheader"
+                  title={t("deleteCol")}
+                >
+                  <input
+                    type="checkbox"
+                    title={t("selectAllForDelete")}
+                    aria-label={`${t("deleteCol")} — ${t("selectAllForDelete")}`}
+                    className="accounting-due-inbox-delete-cb"
+                    checked={deleteAllChecked}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setAccountingDeleteSelected(() => {
+                        if (!checked) return new Set();
+                        return new Set(accountingRows.map((r) => Number(r.id)));
+                      });
+                    }}
+                  />
                 </div>
               </div>
 

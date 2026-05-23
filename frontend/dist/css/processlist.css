@@ -1318,6 +1318,15 @@
 
 .accounting-due-inbox-grid-row--head .accounting-due-inbox-grid-cell--head:last-child {
     box-shadow: none;
+    background: var(--accounting-due-header-bg);
+}
+
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--cb,
+.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--delete {
+    justify-content: center;
+    text-align: center;
+    padding: var(--accounting-due-head-pad-y) 0 !important;
+    background: var(--accounting-due-header-bg);
 }
 
 .accounting-due-inbox-grid-row:not(.accounting-due-inbox-grid-row--head) .accounting-due-inbox-grid-cell {
@@ -1380,14 +1389,6 @@
     text-align: center;
 }
 
-.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--cb,
-.accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--delete {
-    justify-content: center;
-    text-align: center;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-}
-
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--no,
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--date,
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--bank,
@@ -1415,23 +1416,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.accounting-due-inbox-delete-head {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    width: 100%;
-}
-
-.accounting-due-inbox-delete-head-label {
-    font-size: var(--accounting-due-text-head);
-    font-weight: var(--font-weight-bold);
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    line-height: 1.1;
 }
 
 .accounting-due-inbox-grid-cell input[type="checkbox"] {
