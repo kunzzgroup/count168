@@ -848,11 +848,16 @@ body.process-page {
     border: 0.0625rem solid #e0e0e0;
 }
 
-/* Bank Process List 专页：无纵滚；表格容器勿 flex:1 撑高，否则表下大块空白；表随内容增高，分页紧跟其下 */
+/* Bank Process List：表头固定，数据区在视口内纵向滚动（分页固定右下角） */
+.process-page.process-page--bank {
+    --bank-process-scroll-max: min(calc(100dvh - clamp(248px, 34vh, 400px)), calc(100vh - clamp(248px, 34vh, 400px)), 920px);
+}
+
 .process-page.process-page--bank .container {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    height: 100vh;
     max-height: 100vh;
     padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
     padding-left: var(--layout-main-offset);
@@ -872,6 +877,28 @@ body.process-page {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.process-page.process-page--bank .content > div:first-child,
+.process-page.process-page--bank .action-buttons-container {
+    flex-shrink: 0;
+}
+
+/* 列表滚动槽：占满标题/筛选下方的剩余高度 */
+.process-page.process-page--bank .bank-process-list-scroll-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
+}
+
+.process-page.process-page--bank .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
 }
 
 /* Bank 标题行字号与间距与 Games 完全统一（由 processlist.php 标题行的 inline margin-top/bottom: 20px 控制，此处不再 override） */
@@ -985,10 +1012,31 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: none;
+    max-height: var(--bank-process-scroll-max);
     overflow-x: visible;
     overflow-y: auto;
+    overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    border-radius: 0 0 8px 8px;
+    scrollbar-gutter: stable;
+}
+
+.process-page.process-page--bank .bank-virtual-scroll.process-cards::-webkit-scrollbar {
+    width: 10px;
+}
+
+.process-page.process-page--bank .bank-virtual-scroll.process-cards::-webkit-scrollbar-track {
+    background: rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+}
+
+.process-page.process-page--bank .bank-virtual-scroll.process-cards::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.55);
+    border-radius: 8px;
+}
+
+.process-page.process-page--bank .bank-virtual-scroll.process-cards::-webkit-scrollbar-thumb:hover {
+    background: rgba(71, 85, 105, 0.75);
 }
 
 .process-page.process-page--bank .bank-virtual-data-row.process-card {

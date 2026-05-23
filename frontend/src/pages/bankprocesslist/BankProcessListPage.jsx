@@ -501,29 +501,57 @@ export default function BankProcessListPage() {
           </div>
         </div>
 
-        <BankProcessTable
-          tableLoading={tableLoading} showAll={showAll}
-          showSelectColumn={showInactive || showAll || showOfficial || showEInvoice || showBlock}
-          pageRows={pageRows} currentPage={currentPage}
-          PAGE_SIZE={PAGE_SIZE} selectedIds={selectedIds} setSelectedIds={setSelectedIds}
-          showHeaderSelectAll={showInactive || showOfficial || showEInvoice || showBlock}
-          notify={notify} fetchRows={fetchRows} openEdit={openEdit} openRemarkModal={(row) => { setRemarkRow(row); setRemarkDraft(String(row.remark || "")); setRemarkModalOpen(true); }}
-          openResendModal={(row) => {
-            setResendInlineError("");
-            setResendTarget(row);
-            setResendDayStart(String(row.day_start || row.date || "").slice(0, 10));
-            const seedFq = bankProcessFrequencyNormalized(row.day_start_frequency);
-            setResendFrequency(seedFq);
-            setResendDayEnd(seedFq === "once" ? "" : String(row.day_end || "").slice(0, 10));
-            setResendModalOpen(true);
-          }}
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
-          onSort={handleBankTableSort}
-          lang={lang}
-          t={t}
-        />
-        {!showAll && <div className="pagination-container"><button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>◀</button><span className="pagination-info">{t("pageOf", { current: currentPage, total: totalPages })}</span><button type="button" className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>▶</button></div>}
+        <div className="bank-process-list-scroll-region" role="region" aria-label={t("bankProcessList")}>
+          <BankProcessTable
+            tableLoading={tableLoading}
+            showAll={showAll}
+            showSelectColumn={showInactive || showAll || showOfficial || showEInvoice || showBlock}
+            pageRows={pageRows}
+            currentPage={currentPage}
+            PAGE_SIZE={PAGE_SIZE}
+            selectedIds={selectedIds}
+            setSelectedIds={setSelectedIds}
+            showHeaderSelectAll={showInactive || showOfficial || showEInvoice || showBlock}
+            notify={notify}
+            fetchRows={fetchRows}
+            openEdit={openEdit}
+            openRemarkModal={(row) => {
+              setRemarkRow(row);
+              setRemarkDraft(String(row.remark || ""));
+              setRemarkModalOpen(true);
+            }}
+            openResendModal={(row) => {
+              setResendInlineError("");
+              setResendTarget(row);
+              setResendDayStart(String(row.day_start || row.date || "").slice(0, 10));
+              const seedFq = bankProcessFrequencyNormalized(row.day_start_frequency);
+              setResendFrequency(seedFq);
+              setResendDayEnd(seedFq === "once" ? "" : String(row.day_end || "").slice(0, 10));
+              setResendModalOpen(true);
+            }}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleBankTableSort}
+            lang={lang}
+            t={t}
+          />
+        </div>
+        {!showAll && (
+          <div className="pagination-container">
+            <button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+              ◀
+            </button>
+            <span className="pagination-info">{t("pageOf", { current: currentPage, total: totalPages })}</span>
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              ▶
+            </button>
+          </div>
+        )}
       </div>
 
       {modalOpen && (
