@@ -1,4 +1,5 @@
 import { parseAndFillHtmlTableForFormat } from "./dataCaptureFormatHtmlPaste.js";
+import { normalizeCaptureGridCellsForSubmit } from "../../lib/dataCaptureTableSnapshot.js";
 import {
   buildFormatPreviewFragmentFromClipboardHtml,
   clipboardLooksLikeTable,
@@ -45,6 +46,7 @@ function markFormatGridReady(ready) {
 
 function afterFormatPasteFilled(filled, area) {
   if (!filled) return false;
+  normalizeCaptureGridCellsForSubmit();
   markFormatGridReady(true);
   if (area) area.innerHTML = "";
   window.__DC_TOGGLE_FORMAT_DISPLAY__?.();

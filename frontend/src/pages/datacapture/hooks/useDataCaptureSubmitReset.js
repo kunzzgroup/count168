@@ -5,7 +5,7 @@ import {
   shouldRestoreFromUrl,
   stripRestoreParamFromUrl,
 } from "../lib/dataCaptureStorage.js";
-import { captureTableDataFromDom } from "../lib/dataCaptureTableSnapshot.js";
+import { captureTableDataFromDom, normalizeCaptureGridCellsForSubmit } from "../lib/dataCaptureTableSnapshot.js";
 import {
   getActiveDescriptions,
   isSubmitReady,
@@ -79,6 +79,7 @@ export function useDataCaptureSubmitReset({
   captureTypeRef.current = captureType;
 
   const recomputeSubmitState = useCallback(() => {
+    normalizeCaptureGridCellsForSubmit();
     const captureTypeNow =
       (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
         ? window.__DC_GET_CAPTURE_TYPE__()
@@ -150,6 +151,7 @@ export function useDataCaptureSubmitReset({
       (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
         ? window.__DC_GET_CAPTURE_TYPE__()
         : captureTypeRef.current) || captureTypeRef.current;
+    normalizeCaptureGridCellsForSubmit();
     const { selectedProcess, currencyId, descriptionDisplay } = readSubmitFormSnapshot(formRef);
     const tableData = captureTableDataFromDom(captureTypeNow);
     const validation = validateDataCaptureForm({

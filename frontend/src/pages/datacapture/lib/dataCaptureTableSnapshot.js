@@ -14,44 +14,50 @@ function readCellSnapshotText(cell) {
 
 function isHiddenCaptureCell(cell) {
   if (!cell) return true;
-  try {
-    const style = window.getComputedStyle(cell);
-    if (style.display === "none" || style.visibility === "hidden") return true;
-  } catch {
-    if (cell.style.display === "none") return true;
-  }
-  return false;
+  // Only skip colspan companion cells — Excel paste often sets visibility:hidden while
+  // contenteditable cells still render text, which caused false "empty table" on submit.
+  return cell.style.display === "none";
 }
 
-function isCaptureGridCell(cell) {
-  if (!cell || !cell.closest("#dataTable")) return false;
-  if (cell.classList.contains("row-header")) return false;
-  const tag = (cell.tagName || "").toLowerCase();
-  if (tag !== "td" && tag !== "th") return false;
-  if (isHiddenCaptureCell(cell)) return false;
-  return readCellSnapshotText(cell).trim() !== "";
+function forEachCaptureDataCell(callback) {
+  const table = document.getElementById("dataTable");
+  const tbody = table?.querySelector("tbody");
+  if (!tbody) return;
+
+  Array.from(tbody.rows).forEach((row) => {
+    for (let colIndex = 1; colIndex < row.cells.length; colIndex += 1) {
+      const cell = row.cells[colIndex];
+      if (!cell || cell.classList.contains("row-header")) continue;
+      if (isHiddenCaptureCell(cell)) continue;
+      callback(cell);
+    }
+  });
 }
 
 /** Live DOM check — used when snapshot read and grid disagree (2.Format styled cells). */
 export function domGridHasCaptureData() {
-  const table = document.getElementById("dataTable");
-  if (!table) return false;
-
-  if (Array.from(table.querySelectorAll("tbody td, tbody th")).some(isCaptureGridCell)) {
-    return true;
-  }
-
-  const tableBody = table.querySelector("tbody");
-  if (!tableBody) return false;
-
-  return Array.from(
-    tableBody.querySelectorAll("td[contenteditable='true'], td[contenteditable='plaintext-only']"),
-  ).some((cell) => !cell.classList.contains("row-header") && readCellSnapshotText(cell).trim() !== "");
+  let found = false;
+  forEachCaptureDataCell((cell) => {
+    if (readCellSnapshotText(cell).trim() !== "") found = true;
+  });
+  return found;
 }
 
 export function captureTableHasData(tableData) {
   if (tableSnapshotHasData(tableData)) return true;
   return domGridHasCaptureData();
+}
+
+/** Remove Excel layout artifacts that break submit validation on already-pasted cells. */
+export function normalizeCaptureGridCellsForSubmit() {
+  forEachCaptureDataCell((cell) => {
+    cell.style.removeProperty("display");
+    cell.style.removeProperty("visibility");
+    const attr = cell.getAttribute("style");
+    if (attr && !String(attr).trim()) {
+      cell.removeAttribute("style");
+    }
+  });
 }
 
 /**
