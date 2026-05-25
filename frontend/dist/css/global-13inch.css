@@ -804,7 +804,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
-    body.ec-auth-shell {
+    body.ec-auth-shell:not(.transaction-page) {
         background-attachment: fixed !important;
         background-size: cover !important;
     }
