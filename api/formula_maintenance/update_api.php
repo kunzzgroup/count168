@@ -286,6 +286,7 @@ try {
     $accountId = isset($input['account_id']) ? (int)$input['account_id'] : 0;
     $sourceColumns = isset($input['source_columns']) ? trim($input['source_columns']) : '';
     $sourceDisplay = isset($input['source_display']) ? trim($input['source_display']) : $sourceColumns;
+    $sourcePercentInput = isset($input['source_percent']) ? trim((string) $input['source_percent']) : '';
     $inputMethod = isset($input['input_method']) ? trim($input['input_method']) : '';
     $formulaRaw = isset($input['formula']) ? trim($input['formula']) : '';
     $description = isset($input['description']) ? trim($input['description']) : '';
@@ -306,6 +307,12 @@ try {
     $formulaBase = $parsed['base'];
     $sp = $parsed['source_percent'];
     $en = $parsed['enable_source_percent'];
+    // Source 列编辑的是 source_percent；显式传入时优先于从 formula 尾部解析的值
+    if ($sourcePercentInput !== '') {
+        $sp = $sourcePercentInput;
+        $compact = str_replace([' ', '%'], '', $sp);
+        $en = ($compact === '0' || $compact === '0.0' || $compact === '-0') ? 0 : 1;
+    }
 
     $pdo->beginTransaction();
     try {
