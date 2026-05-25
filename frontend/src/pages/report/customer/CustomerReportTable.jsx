@@ -14,7 +14,6 @@ function rowKey(it, idx) {
 
 export default function CustomerReportTable({
   reportData,
-  loading,
   reportSyncing = false,
   error,
   currencyList = [],
@@ -64,14 +63,18 @@ export default function CustomerReportTable({
     );
   }
 
-  if (loading && reportData == null) {
-    return renderEmpty(t("loading"));
-  }
-
   const isEmpty = !reportData?.data?.length;
   if (isEmpty) {
-    const busy = loading || reportSyncing;
-    return renderEmpty(busy ? t("updatingReport") : t("noDataFound"));
+    const awaitingData = reportData == null && !error;
+    if (awaitingData || reportSyncing) {
+      return (
+        <div className="customer-report-list-container">
+          {tableHeader}
+          <div className="customer-report-cards" />
+        </div>
+      );
+    }
+    return renderEmpty(t("noDataFound"));
   }
 
   const data = reportData.data;

@@ -1,6 +1,5 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import PageContentLoader from "../../../components/PageContentLoader.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   getCachedOwnerCompanies,
@@ -40,6 +39,14 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 const REPORT_PAGE_KEY = "domain";
 const REPORT_FETCH_DEBOUNCE_MS = 150;
 
+function resolveInitialCompanyId() {
+  const cached = getCachedOwnerCompanies();
+  const url = new URL(window.location.href);
+  const queryCompany = url.searchParams.get("company_id");
+  const id = queryCompany || cached?.[0]?.id || null;
+  return id ? Number(id) : null;
+}
+
 export default function DomainReportPage() {
   const navigate = useNavigate();
   const { me, sessionReady } = useAuthSession();
@@ -49,7 +56,7 @@ export default function DomainReportPage() {
 
   const [companies, setCompanies] = useState(() => getCachedOwnerCompanies() || []);
 
-  const [companyId, setCompanyId] = useState(null);
+  const [companyId, setCompanyId] = useState(resolveInitialCompanyId);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
   const [companyHighlightId, setCompanyHighlightId] = useState(null);
   const switchCompanySeqRef = useRef(0);
@@ -67,7 +74,6 @@ export default function DomainReportPage() {
   const [currencyList, setCurrencyList] = useState([]);
   const [reportData, setReportData] = useState(null);
   const reportDataRef = useRef(null);
-  const [loading, setLoading] = useState(false);
   const [reportSyncing, setReportSyncing] = useState(false);
   const [error, setError] = useState("");
 
@@ -217,7 +223,6 @@ export default function DomainReportPage() {
     if (!companyId || !dateFrom || !dateTo) return;
     const { signal, seq } = beginReportFetch();
     const quietRefresh = reportDataRef.current != null;
-    if (!quietRefresh) setLoading(true);
     if (quietRefresh) setReportSyncing(true);
     setError("");
     try {
@@ -240,7 +245,6 @@ export default function DomainReportPage() {
       });
     } finally {
       if (isReportFetchCurrent(seq)) {
-        setLoading(false);
         setReportSyncing(false);
       }
     }
@@ -335,7 +339,6 @@ export default function DomainReportPage() {
     const prev = prevCompanyIdRef.current;
     if (prev != null && Number(prev) !== Number(companyId)) {
       invalidateReportFetch();
-      setLoading(false);
       setReportSyncing(false);
       persistCurrencyPrefs(
         prev,
@@ -365,7 +368,6 @@ export default function DomainReportPage() {
   useEffect(() => {
     if (!currencyFilterReady) {
       invalidateReportFetch();
-      setLoading(false);
       setReportSyncing(false);
     }
   }, [currencyFilterReady, invalidateReportFetch]);
@@ -469,15 +471,6 @@ export default function DomainReportPage() {
 
   if (!sessionReady || !me) return null;
 
-  const showPageBoot =
-    companyId == null ||
-    !currencyFilterReady ||
-    (reportData == null && !error);
-
-  if (showPageBoot) {
-    return <PageContentLoader label={t("loading")} />;
-  }
-
   return (
     <div className="container">
       <div className="content">
@@ -512,15 +505,14 @@ export default function DomainReportPage() {
         />
 
         <div className="domain-report-table-region">
-          {reportSyncing && (
+          {reportSyncing && reportData != null && (
             <div className="domain-report-sync-track" aria-hidden>
               <div className="domain-report-sync-bar" />
             </div>
           )}
           <DomainReportTable
             reportData={reportData}
-            loading={loading}
-            reportSyncing={reportSyncing || !currencyFilterReady}
+            reportSyncing={reportSyncing}
             error={error}
             t={t}
           />
