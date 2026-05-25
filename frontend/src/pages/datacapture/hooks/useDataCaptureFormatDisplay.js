@@ -6,13 +6,14 @@ import {
   toggleTableDisplayForFormat,
 } from "../format/dataCaptureFormat.js";
 import { getFormatPreviewHtml } from "../format/dataCaptureFormat.js";
+import { readInitialCaptureType } from "../lib/dataCaptureFormRules.js";
 
 /**
  * Phase 5g: 2.Format display toggling + format grid ready bridges.
  */
 export function useDataCaptureFormatDisplay() {
   useLayoutEffect(() => {
-    if (readInitialFormatReady()) {
+    if (readInitialCaptureType() === "2.Format" && readInitialFormatReady()) {
       setFormatGridReady(true);
     }
 

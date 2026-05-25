@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "react";
 import DataCaptureGrid from "./DataCaptureGrid.jsx";
 import { CAPTURE_TYPE_OPTIONS } from "../lib/dataCaptureFormRules.js";
 
@@ -21,6 +22,10 @@ export default function DataCaptureTableSection({
   onSubmit,
   onReset,
 }) {
+  useLayoutEffect(() => {
+    window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
+  }, [captureType]);
+
   return (
     <div className="bottom-section">
       <div className={`excel-table-container${citibetMode ? " citibet-mode" : ""}`}>

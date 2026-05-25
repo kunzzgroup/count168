@@ -15,7 +15,7 @@ import {
 import { processTextPasteHtml, processTextPasteTsv } from "../paste/core/dataCaptureTextPaste.js";
 
 /**
- * Phase 4c: 1.Text paste area + 2.Format grid paste bridges in React.
+ * Phase 4c: 2.Format paste area + format pipeline bridges in React.
  */
 export function useDataCaptureFormatPaste() {
   useLayoutEffect(() => {

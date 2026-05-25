@@ -76,6 +76,8 @@ export function useDataCaptureCaptureType() {
       setCaptureType(s);
     };
 
+    handlersRef.current.applyCaptureType(captureTypeRef.current);
+
     return () => {
       delete window.__DC_APPLY_CAPTURE_TYPE__;
       delete window.__DC_GET_CAPTURE_TYPE__;
