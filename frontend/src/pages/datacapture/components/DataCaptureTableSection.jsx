@@ -2,7 +2,6 @@ import { useLayoutEffect } from "react";
 import DataCaptureGrid from "./DataCaptureGrid.jsx";
 import { CAPTURE_TYPE_OPTIONS } from "../lib/dataCaptureFormRules.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
-import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 
 function captureTypeLabel(opt, t) {
   if (opt === "1.Text") return t("captureTypeText");
@@ -22,31 +21,12 @@ export default function DataCaptureTableSection({
   onCaptureTypeChange,
   submitDisabled = true,
   submitBlockReason = "",
-  mutationsBlocked = false,
   onSubmit,
   onReset,
 }) {
   useLayoutEffect(() => {
     window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
   }, [captureType]);
-
-  const submitBlocked = submitDisabled || mutationsBlocked;
-  const blockReasonText =
-    submitBlockReason &&
-    translateDataCaptureMessage(localStorage.getItem("login_lang") === "zh" ? "zh" : "en", submitBlockReason);
-
-  const handleSubmitClick = () => {
-    window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
-    if (mutationsBlocked) {
-      pushDataCaptureNotification(t("readOnlyBlocked"), "danger");
-      return;
-    }
-    if (onSubmit) {
-      void onSubmit();
-      return;
-    }
-    void window.__DC_SUBMIT__?.();
-  };
 
   return (
     <div className="bottom-section">
@@ -80,21 +60,26 @@ export default function DataCaptureTableSection({
           id="dataCaptureSubmitBtn"
           type="button"
           className="btn btn-save"
-          aria-disabled={submitBlocked}
-          title={submitBlocked && blockReasonText ? blockReasonText : undefined}
+          disabled={submitDisabled}
+          title={
+            submitDisabled && submitBlockReason
+              ? translateDataCaptureMessage(localStorage.getItem("login_lang") === "zh" ? "zh" : "en", submitBlockReason)
+              : undefined
+          }
           style={{
-            opacity: submitBlocked ? 0.6 : 1,
-            cursor: "pointer",
+            opacity: submitDisabled ? 0.6 : 1,
+            cursor: submitDisabled ? "not-allowed" : "pointer",
           }}
-          onClick={handleSubmitClick}
+          onClick={() => {
+            if (onSubmit) {
+              void onSubmit();
+              return;
+            }
+            void window.submitDataCaptureForm?.();
+          }}
         >
           {t("submit")}
         </button>
-        {submitBlocked && blockReasonText ? (
-          <p className="dc-submit-block-hint" role="status">
-            {blockReasonText}
-          </p>
-        ) : null}
       </div>
     </div>
   );

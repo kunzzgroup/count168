@@ -225,10 +225,6 @@ export default function DataCapturePage() {
   useDataCaptureGlobalShims();
 
   useEffect(() => {
-    submitReset.recomputeSubmitState();
-  }, [formatGridReady, submitReset.recomputeSubmitState]);
-
-  useEffect(() => {
     if (!scriptsReady) return;
 
     const pageReadyTimer = setTimeout(() => {
@@ -880,9 +876,8 @@ export default function DataCapturePage() {
         captureType={captureType}
         citibetMode={citibetMode}
         onCaptureTypeChange={handleCaptureTypeChange}
-        submitDisabled={submitReset.submitDisabled}
+        submitDisabled={submitReset.submitDisabled || mutationsBlocked}
         submitBlockReason={submitReset.submitBlockReason}
-        mutationsBlocked={mutationsBlocked}
         onSubmit={() => void submitReset.submit()}
         onReset={submitReset.reset}
       />

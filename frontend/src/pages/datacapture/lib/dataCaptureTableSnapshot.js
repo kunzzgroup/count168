@@ -19,36 +19,14 @@ export function cellHasCaptureContent(cell) {
 
 /** Live DOM check — used when snapshot read and grid disagree (2.Format styled cells). */
 export function domGridHasCaptureData() {
-  const table = document.getElementById("dataTable");
-  if (!table) return false;
+  const tableBody = document.getElementById("tableBody");
+  if (!tableBody) return false;
 
-  const tableBody = table.querySelector("#tableBody") || table.querySelector("tbody");
-  if (tableBody) {
-    const bodyHasData = Array.from(tableBody.querySelectorAll("td")).some((cell) => {
-      if (cell.classList.contains("row-header")) return false;
-      if (cell.style.display === "none") return false;
-      return cellHasCaptureContent(cell);
-    });
-    if (bodyHasData) return true;
-  }
-
-  const headerRow = table.querySelector("#tableHeader tr") || table.querySelector("thead tr");
-  if (headerRow) {
-    return Array.from(headerRow.querySelectorAll("th")).some((cell, index) => {
-      if (index === 0) return false;
-      return cellHasCaptureContent(cell);
-    });
-  }
-
-  return false;
-}
-
-function cellIsEditableDataCell(cell) {
-  return Boolean(
-    cell &&
-      !cell.classList.contains("row-header") &&
-      (cell.isContentEditable || String(cell.contentEditable || "").toLowerCase() === "true"),
-  );
+  return Array.from(tableBody.querySelectorAll("td")).some((cell) => {
+    if (cell.classList.contains("row-header")) return false;
+    if (cell.style.display === "none") return false;
+    return cellHasCaptureContent(cell);
+  });
 }
 
 export function captureTableHasData(tableData, captureType) {
@@ -61,8 +39,8 @@ export function captureTableHasData(tableData, captureType) {
   if (normalized === "2.Format" && typeof document !== "undefined") {
     const tableBody = document.getElementById("tableBody");
     if (tableBody) {
-      const hasEditable = Array.from(tableBody.querySelectorAll("td")).some(
-        (cell) => cellIsEditableDataCell(cell) && cellHasCaptureContent(cell),
+      const hasEditable = Array.from(tableBody.querySelectorAll("td[contenteditable='true']")).some(
+        (cell) => cellHasCaptureContent(cell),
       );
       if (hasEditable) return true;
     }

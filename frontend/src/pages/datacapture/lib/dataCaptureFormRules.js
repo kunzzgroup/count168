@@ -71,17 +71,10 @@ export function validateDataCaptureForm({
     ? descriptions
     : getActiveDescriptions(descriptionDisplay);
 
-  const resolvedDescriptions =
-    activeDescriptions.length > 0
-      ? activeDescriptions
-      : selectedProcess?.description_name
-        ? [String(selectedProcess.description_name).trim()].filter(Boolean)
-        : [];
-
   if (!selectedProcess?.id) {
     return { ok: false, message: "Please select a process" };
   }
-  if (!resolvedDescriptions.length) {
+  if (!activeDescriptions.length) {
     return { ok: false, message: "Please select at least one description" };
   }
   if (!currencyId) {
