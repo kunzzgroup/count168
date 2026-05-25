@@ -225,6 +225,10 @@ export default function DataCapturePage() {
   useDataCaptureGlobalShims();
 
   useEffect(() => {
+    submitReset.recomputeSubmitState();
+  }, [formatGridReady, submitReset.recomputeSubmitState]);
+
+  useEffect(() => {
     if (!scriptsReady) return;
 
     const pageReadyTimer = setTimeout(() => {
