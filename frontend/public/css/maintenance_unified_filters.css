@@ -499,14 +499,14 @@ body.dashboard-page.maintenance-page #root::-webkit-scrollbar-corner {
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll,
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll--body {
     scrollbar-gutter: stable;
-    scrollbar-width: thin;
+    scrollbar-width: auto;
     scrollbar-color: #4b5563 #ececec;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar,
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll--body::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-button,
@@ -525,15 +525,15 @@ body.dashboard-page.maintenance-page .maintenance-virtual-scroll--body::-webkit-
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-track,
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll--body::-webkit-scrollbar-track {
     background: #ececec;
-    border-radius: 8px;
+    border-radius: 10px;
     margin: 6px 0;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll::-webkit-scrollbar-thumb,
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll--body::-webkit-scrollbar-thumb {
     background: #4b5563;
-    border-radius: 8px;
-    border: 2px solid #ececec;
+    border-radius: 10px;
+    border: 1px solid #ececec;
     min-height: 48px;
 }
 
