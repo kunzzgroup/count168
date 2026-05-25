@@ -1091,6 +1091,7 @@ body.process-page {
     grid-template-columns: subgrid;
     grid-auto-rows: auto;
     align-content: start;
+    min-height: 0;
     overflow: visible;
 }
 
@@ -1128,7 +1129,8 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
-    min-height: min-content;
+    /* min-content 会撑开 grid 行轨道，导致 .bank-virtual-scroll-clip 无法产生纵向溢出 */
+    min-height: 0;
     width: 100%;
     box-sizing: border-box;
 }
@@ -1142,6 +1144,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 
 .process-page.process-page--bank .bank-virtual-scroll .bank-virtual-data-row.process-card {
     flex-shrink: 0;
+    min-height: 0;
 }
 
 .process-page.process-page--bank .bank-virtual-scroll-clip::-webkit-scrollbar {
