@@ -1,5 +1,6 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import PageContentLoader from "../../../components/PageContentLoader.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   getCachedOwnerCompanies,
@@ -28,7 +29,16 @@ import DomainReportFilters from "./DomainReportFilters.jsx";
 import DomainReportTable from "./DomainReportTable.jsx";
 import { useReportGcSwitcher } from "../shared/useReportGcSwitcher.js";
 import { reportToastMaintenanceVariant } from "../shared/reportAmountFormat.js";
+import {
+  buildReportSnapshotKey,
+  getReportSnapshot,
+  setReportSnapshot,
+} from "../shared/reportPageSnapshotCache.js";
+import { useReportAbortSeq } from "../shared/useReportAbortSeq.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+
+const REPORT_PAGE_KEY = "domain";
+const REPORT_FETCH_DEBOUNCE_MS = 150;
 
 export default function DomainReportPage() {
   const navigate = useNavigate();
@@ -61,8 +71,8 @@ export default function DomainReportPage() {
 
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
-  const domainReportSeqRef = useRef(0);
-  const domainReportAbortRef = useRef(null);
+  const reportFetch = useReportAbortSeq();
+  const metaFetch = useReportAbortSeq();
   const pageBootOnceRef = useRef(false);
   const prevCompanyIdRef = useRef(null);
   /** Per-company currency filter: { [companyId]: { selectedCurrencies, showAllCurrencies } } */
@@ -187,37 +197,37 @@ export default function DomainReportPage() {
     };
   }, [sessionReady, me, navigate]);
 
+  const reportParams = useMemo(
+    () => ({
+      processId,
+      dateFrom,
+      dateTo,
+      companyId,
+      selectedCurrencies,
+      showAllCurrencies,
+    }),
+    [processId, dateFrom, dateTo, companyId, selectedCurrencies, showAllCurrencies],
+  );
+
   const loadReport = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;
-    domainReportAbortRef.current?.abort();
-    const ac = new AbortController();
-    domainReportAbortRef.current = ac;
-    const seq = ++domainReportSeqRef.current;
+    const { signal, seq } = reportFetch.begin();
     const quietRefresh = reportDataRef.current != null;
     if (!quietRefresh) setLoading(true);
     if (quietRefresh) setReportSyncing(true);
     setError("");
     try {
-      const data = await fetchDomainReport(
-        {
-          processId,
-          dateFrom,
-          dateTo,
-          companyId,
-          selectedCurrencies,
-          showAllCurrencies,
-        },
-        { signal: ac.signal },
-      );
-      if (seq !== domainReportSeqRef.current) return;
+      const data = await fetchDomainReport(reportParams, { signal });
+      if (!reportFetch.isCurrent(seq)) return;
       startTransition(() => {
         setReportData(data);
       });
+      setReportSnapshot(REPORT_PAGE_KEY, buildReportSnapshotKey(reportParams), data);
       if (!data?.data?.length) {
         notify(t("noDataAdjustSearch"), "info");
       }
     } catch (err) {
-      if (err?.name === "AbortError" || seq !== domainReportSeqRef.current) return;
+      if (err?.name === "AbortError" || !reportFetch.isCurrent(seq)) return;
       const msg = err.message || t("loadReportFailed");
       setError(msg);
       notify(msg, "error");
@@ -225,12 +235,12 @@ export default function DomainReportPage() {
         setReportData(null);
       });
     } finally {
-      if (seq === domainReportSeqRef.current) {
+      if (reportFetch.isCurrent(seq)) {
         setLoading(false);
         setReportSyncing(false);
       }
     }
-  }, [companyId, processId, dateFrom, dateTo, selectedCurrencies, showAllCurrencies, t, notify]);
+  }, [companyId, dateFrom, dateTo, reportParams, reportFetch, t, notify]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;
@@ -276,11 +286,13 @@ export default function DomainReportPage() {
 
   const loadMetaData = useCallback(async () => {
     if (!companyId) return;
+    const { signal, seq } = metaFetch.begin();
     try {
       const [procs, curs] = await Promise.all([
-        fetchProcesses(companyId),
-        fetchCurrencies(companyId),
+        fetchProcesses(companyId, { signal }),
+        fetchCurrencies(companyId, { signal }),
       ]);
+      if (!metaFetch.isCurrent(seq)) return;
       setProcesses(procs);
       setCurrencyList(curs);
 
@@ -295,6 +307,7 @@ export default function DomainReportPage() {
         persistCurrencyPrefs(companyId, codes, false);
       }
     } catch (err) {
+      if (err?.name === "AbortError" || !metaFetch.isCurrent(seq)) return;
       console.error("Meta data load error:", err);
     }
   }, [
@@ -303,12 +316,16 @@ export default function DomainReportPage() {
     showAllCurrencies,
     applySavedCurrencyPrefs,
     persistCurrencyPrefs,
+    metaFetch,
   ]);
 
   useEffect(() => {
     if (!companyId) return;
     const prev = prevCompanyIdRef.current;
     if (prev != null && Number(prev) !== Number(companyId)) {
+      reportFetch.invalidate();
+      setLoading(false);
+      setReportSyncing(false);
       persistCurrencyPrefs(
         prev,
         selectedCurrenciesRef.current,
@@ -329,24 +346,34 @@ export default function DomainReportPage() {
       if (reportDataRef.current != null) setReportSyncing(true);
     }
     prevCompanyIdRef.current = companyId;
-  }, [companyId, persistCurrencyPrefs]);
+  }, [companyId, persistCurrencyPrefs, reportFetch]);
 
   useEffect(() => {
     if (companyId) loadMetaData();
   }, [companyId, loadMetaData]);
 
   useEffect(() => {
-    if (companyId) {
-      const handler = setTimeout(() => {
-        loadReport();
-      }, 0);
-      return () => clearTimeout(handler);
-    }
-  }, [companyId, processId, dateFrom, dateTo, selectedCurrencies, showAllCurrencies, loadReport]);
+    if (!companyId) return undefined;
+    const handler = window.setTimeout(() => {
+      loadReport();
+    }, REPORT_FETCH_DEBOUNCE_MS);
+    return () => {
+      window.clearTimeout(handler);
+      reportFetch.invalidate();
+    };
+  }, [companyId, loadReport, reportFetch]);
 
-  useEffect(() => () => {
-    domainReportAbortRef.current?.abort();
-  }, []);
+  useEffect(() => {
+    if (!companyId) return;
+    const key = buildReportSnapshotKey(reportParams);
+    const snap = getReportSnapshot(REPORT_PAGE_KEY);
+    if (snap?.key === key && snap.data && reportDataRef.current == null) {
+      reportDataRef.current = snap.data;
+      startTransition(() => {
+        setReportData(snap.data);
+      });
+    }
+  }, [companyId, reportParams]);
 
   const onSwitchCompany = useCallback(async (c) => {
     const effectiveId = companyHighlightId ?? companyId;
@@ -418,7 +445,13 @@ export default function DomainReportPage() {
     }
   };
 
-  if (!sessionReady || !me) return null;
+  if (!sessionReady || !me) return <PageContentLoader />;
+
+  const showPageBoot = companyId == null || (loading && reportData == null);
+
+  if (showPageBoot) {
+    return <PageContentLoader label={t("loading")} />;
+  }
 
   return (
     <div className="container">
