@@ -247,7 +247,7 @@ body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-p
     padding: 0 0 6px;
     margin: 0 0 4px;
     border-top: none;
-    row-gap: 8px;
+    row-gap: var(--user-gc-inline-row-gap, 4px);
 }
 
 body.datacapture-page .process-form .dc-form-two-col {

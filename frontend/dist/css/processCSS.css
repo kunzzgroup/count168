@@ -1308,8 +1308,8 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     /* 上下留白接近，避免「控制列到 GroupID」空一大块、Currency 底下过紧 */
     flex: 0 0 auto;
     padding: 12px 18px 14px 18px;
-    column-gap: clamp(8px, 0.83vw, 16px);
-    row-gap: 12px;
+    column-gap: var(--user-gc-inline-column-gap, 4px);
+    row-gap: var(--user-gc-inline-row-gap, 4px);
 }
 
 body.process-page .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
@@ -1350,7 +1350,7 @@ body.lang-zh.process-page.process-page--bank .action-buttons-container .user-gc-
     z-index: 2 !important;
 }
 
-/* Bank Process List 顶栏：日期/Search 与 Delete/Add 同一行垂直居中；filter chip 在下一行 */
+/* Bank Process List 顶栏：日期 / Search / filter chip / Delete·Add 同一行 */
 body.process-page.process-page--bank .action-buttons {
     align-items: stretch;
 }
@@ -1359,8 +1359,8 @@ body.process-page.process-page--bank .action-buttons .bank-process-toolbar-main 
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: row;
+    align-items: center;
     width: 100%;
 }
 
@@ -1384,20 +1384,176 @@ body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar
     align-self: center;
 }
 
-/* Bank 操作栏：日期 + Search 单行；filter chip 在下一行 */
+/* Bank 操作栏：日期 + Search + filter chip 同一行 */
 body.process-page.process-page--bank .bank-process-toolbar-primary {
     flex-wrap: nowrap !important;
-    gap: clamp(4px, 0.5vw, 10px) !important;
+    gap: clamp(4px, 0.45vw, 8px) !important;
+    align-items: center;
+    min-width: 0;
 }
 
-.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
-    width: clamp(150px, 17vw, 240px);
-    max-width: clamp(150px, 17vw, 240px);
+body.process-page.process-page--bank .bank-process-filter-toolbar-slot {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: clamp(4px, 0.4vw, 8px);
 }
 
-.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
-    min-width: clamp(150px, 17vw, 240px);
-    width: clamp(150px, 17vw, 240px);
+body.process-page.process-page--bank .bank-process-filter-toggle {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 10px;
+    margin: 0;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 999px;
+    background: #f8fafc;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    color: #475569;
+    font-family: inherit;
+    font-size: clamp(11px, 0.72vw, 13px);
+    font-weight: var(--font-weight-semibold, 600);
+    line-height: 1.2;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        color 0.15s ease,
+        background-color 0.15s ease;
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle .fa-filter {
+    color: #3b82f6;
+    font-size: 12px;
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle.is-open,
+body.process-page.process-page--bank .bank-process-filter-toggle.has-active-filters {
+    border-color: rgba(13, 96, 255, 0.45);
+    color: #0d60ff;
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.12);
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel {
+    display: none;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel.is-open {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .userlist-filter-chips--bank-process {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+    gap: clamp(3px, 0.35vw, 6px);
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel.is-open .userlist-filter-chips--bank-process {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 1px;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
+    width: clamp(200px, 18vw, 280px) !important;
+    max-width: clamp(200px, 18vw, 280px) !important;
+    flex-shrink: 0;
+}
+
+/* Bank Process 窄屏（<1700px）：Search 更窄，filter 收进按钮展开，不越过 Delete */
+@media (max-width: 1699px) {
+    body.process-page.process-page--bank .bank-process-filter-toggle {
+        display: inline-flex;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
+        width: clamp(120px, 11vw, 180px) !important;
+        max-width: clamp(120px, 11vw, 180px) !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-toolbar-slot {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-panel.is-open {
+        max-width: 100%;
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-panel.is-open .userlist-filter-chips--bank-process {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar .userlist-search-input,
+body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar .search-input.userlist-search-input {
+    width: 100% !important;
+    max-width: none !important;
+    flex: 1 1 auto !important;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
+    min-width: clamp(120px, 11vw, 180px);
+    width: clamp(120px, 11vw, 180px);
+    flex-shrink: 0;
+}
+
+/* Bank Process 宽屏（≥1700px）：日期适中、Search 略长，filter 居中并略加宽 */
+@media (min-width: 1700px) {
+    body.process-page.process-page--bank .bank-process-filter-toolbar-slot {
+        display: contents;
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-panel {
+        display: contents;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
+        min-width: 220px;
+        width: clamp(220px, 12vw, 280px);
+        max-width: 280px;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
+        flex: 0 0 auto;
+        min-width: 240px;
+        width: clamp(240px, 14vw, 300px) !important;
+        max-width: 300px !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .userlist-filter-chips--bank-process {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin-left: 0;
+        justify-content: center;
+        padding-left: clamp(8px, 0.75vw, 16px);
+        padding-right: clamp(8px, 0.75vw, 16px);
+        gap: clamp(6px, 0.5vw, 10px);
+    }
 }
 
 /* Bank 操作栏：5 个 checkbox（比 Games 多 3 个）+ 日期选择器 + Search，laptop 下防止换行 */
@@ -1477,8 +1633,8 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
 
     .process-page .action-buttons-container .user-gc-inline-panel {
         padding: 8px 16px 12px 16px;
-        column-gap: clamp(8px, 0.83vw, 16px);
-        row-gap: 10px;
+        column-gap: var(--user-gc-inline-column-gap, 4px);
+        row-gap: var(--user-gc-inline-row-gap, 4px);
     }
 
     .process-page.process-page--bank .bank-table-wrapper,
