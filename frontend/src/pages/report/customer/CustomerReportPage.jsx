@@ -1,7 +1,12 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
-import { normalizeOwnerCompanyRow, persistDashboardGroupFilter } from "../../../utils/company/sharedCompanyFilter.js";
+import {
+  getCachedOwnerCompanies,
+  loadOwnerCompaniesCached,
+  normalizeOwnerCompanyRow,
+  persistDashboardGroupFilter,
+} from "../../../utils/company/sharedCompanyFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
@@ -24,7 +29,6 @@ import CustomerReportTable from "./CustomerReportTable.jsx";
 import { useReportGcSwitcher } from "../shared/useReportGcSwitcher.js";
 import { reportToastMaintenanceVariant } from "../shared/reportAmountFormat.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import PageContentLoader from "../../../components/PageContentLoader.jsx";
 
 export default function CustomerReportPage() {
   const navigate = useNavigate();
@@ -33,8 +37,7 @@ export default function CustomerReportPage() {
   const t = useCallback((key, params) => getReportText(lang, key, params), [lang]);
   const r = useMemo(() => REPORT_I18N[lang] || REPORT_I18N.en, [lang]);
 
-  const [bootLoading, setBootLoading] = useState(true);
-  const [companies, setCompanies] = useState([]);
+  const [companies, setCompanies] = useState(() => getCachedOwnerCompanies() || []);
 
   const [companyId, setCompanyId] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
@@ -60,7 +63,6 @@ export default function CustomerReportPage() {
   const [error, setError] = useState("");
 
   const [toast, setToast] = useState(null);
-  const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
   const customerReportSeqRef = useRef(0);
   const customerReportAbortRef = useRef(null);
@@ -115,82 +117,72 @@ export default function CustomerReportPage() {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "report-page");
 
-    let cancelled = false;
     const links = [
       "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
     ];
-
-    const waitForStylesheet = (href) =>
-      new Promise((resolve) => {
-        const markLoaded = (el) => {
-          try { el.dataset.loaded = "1"; } catch { /* ignore */ }
-          resolve(el);
-        };
-        const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-        if (existing) {
-          if (existing.dataset.loaded === "1" || existing.sheet) return resolve(existing);
-          const onLoad = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); markLoaded(existing); };
-          const onError = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); resolve(existing); };
-          existing.addEventListener("load", onLoad, { once: true });
-          existing.addEventListener("error", onError, { once: true });
-          return;
-        }
-        const l = document.createElement("link");
-        l.rel = "stylesheet";
-        l.href = href;
-        l.onload = () => markLoaded(l);
-        l.onerror = () => resolve(l);
-        document.head.appendChild(l);
-      });
-
-    Promise.all(links.map(waitForStylesheet)).then(() => {
-      if (!cancelled) setCssReady(true);
-    });
+    for (const href of links) {
+      if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) continue;
+      const l = document.createElement("link");
+      l.rel = "stylesheet";
+      l.href = href;
+      document.head.appendChild(l);
+    }
 
     return () => {
-      cancelled = true;
       document.body.classList.remove("report-page");
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
 
   useEffect(() => {
+    if (!me || companyId != null) return;
+    const cached = getCachedOwnerCompanies();
+    const url = new URL(window.location.href);
+    const queryCompany = url.searchParams.get("company_id");
+    let effective = queryCompany || me.company_id || cached?.[0]?.id || null;
+    effective = effective ? Number(effective) : null;
+    if (effective) setCompanyId(effective);
+  }, [me, companyId]);
+
+  useEffect(() => {
     if (!sessionReady || !me) return;
     if (pageBootOnceRef.current) return;
     pageBootOnceRef.current = true;
 
+    const u = me;
+    const perms = Array.isArray(u.permissions) ? u.permissions : [];
+    const hasFull = perms.length === 0;
+    const canReport = hasFull || perms.includes("report");
+    if (!canReport || !u.company_has_gambling) {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+
     let cancelled = false;
-    setBootLoading(true);
     (async () => {
       try {
-        const u = me;
-        const perms = Array.isArray(u.permissions) ? u.permissions : [];
-        const hasFull = perms.length === 0;
-        const canReport = hasFull || perms.includes("report");
-        if (!canReport || !u.company_has_gambling) {
-          navigate("/dashboard", { replace: true });
-          return;
-        }
-
-        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-        const compJson = await compRes.json();
-        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeOwnerCompanyRow) : [];
+        const rows = await loadOwnerCompaniesCached(async () => {
+          const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+            credentials: "include",
+          });
+          const compJson = await compRes.json();
+          return Array.isArray(compJson?.data) ? compJson.data.map(normalizeOwnerCompanyRow) : [];
+        });
+        if (cancelled) return;
         setCompanies(rows);
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
         let effective = queryCompany || u.company_id || rows[0]?.id || null;
         effective = effective ? Number(effective) : null;
-
-        setCompanyId(effective);
-        setGroupFilterKind("follow");
-        if (effective) await checkBankOnly(effective);
-
+        if (effective) {
+          setCompanyId((prev) => (prev != null ? prev : effective));
+          setGroupFilterKind("follow");
+          void checkBankOnly(effective);
+        }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
-      } finally {
-        if (!cancelled) setBootLoading(false);
       }
     })();
     return () => {
@@ -320,7 +312,7 @@ export default function CustomerReportPage() {
   ]);
 
   useEffect(() => {
-    if (bootLoading || !companyId) return;
+    if (!companyId) return;
     const prev = prevCompanyIdRef.current;
     if (prev != null && Number(prev) !== Number(companyId)) {
       persistCurrencyPrefs(
@@ -346,21 +338,20 @@ export default function CustomerReportPage() {
       if (reportDataRef.current != null) setReportSyncing(true);
     }
     prevCompanyIdRef.current = companyId;
-  }, [bootLoading, companyId, persistCurrencyPrefs]);
+  }, [companyId, persistCurrencyPrefs]);
 
   useEffect(() => {
-    if (!bootLoading && companyId) loadMetaData();
-  }, [bootLoading, companyId, loadMetaData]);
+    if (companyId) loadMetaData();
+  }, [companyId, loadMetaData]);
 
   useEffect(() => {
-    if (!bootLoading && companyId && currencyFilterReady) {
+    if (companyId && currencyFilterReady) {
       const handler = setTimeout(() => {
         loadReport();
       }, 0);
       return () => clearTimeout(handler);
     }
   }, [
-    bootLoading,
     companyId,
     currencyFilterReady,
     accountId,
@@ -446,7 +437,7 @@ export default function CustomerReportPage() {
     }
   };
 
-  if (bootLoading || !me || !cssReady) return <PageContentLoader />;
+  if (!sessionReady || !me) return null;
 
   return (
     <div className="container">
