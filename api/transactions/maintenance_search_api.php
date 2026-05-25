@@ -111,6 +111,28 @@ function maintenanceUnionNullTextCol(): string
     return "CONVERT((NULL) USING utf8mb4) COLLATE utf8mb4_unicode_ci";
 }
 
+/**
+ * data_capture_details.account_id 可能存 account.id 或 account.account_id（业务代码）。
+ * 与 history_api / get_accounts_api 一致，避免 INNER JOIN a.id 导致整批 Data Capture 查不到。
+ */
+function maintenanceDataCaptureAccountJoinSql(string $dcdAlias = 'dcd', string $aAlias = 'a'): string
+{
+    return "LEFT JOIN account {$aAlias} ON (
+        TRIM(CAST({$dcdAlias}.account_id AS CHAR)) = TRIM(CAST({$aAlias}.id AS CHAR))
+        OR (
+            TRIM(COALESCE({$dcdAlias}.account_id, '')) <> ''
+            AND TRIM(CAST({$dcdAlias}.account_id AS CHAR)) = TRIM({$aAlias}.account_id)
+        )
+    )";
+}
+
+function maintenanceDataCaptureAccountIdExpr(string $aAlias = 'a', string $dcdAlias = 'dcd'): string
+{
+    return maintenanceUnionTextExpr(
+        "COALESCE({$aAlias}.account_id, CAST({$dcdAlias}.account_id AS CHAR), '-')"
+    );
+}
+
 /** 缓存 transactions.source_bank_process_id 列是否存在（避免每次 SHOW COLUMNS）。 */
 function maintenanceHasSourceBankCol(PDO $pdo): bool
 {
@@ -276,7 +298,7 @@ function maintenanceBuildCaptureUnionBranch(
             dc.id AS capture_id,
             dcd.id AS capture_detail_id,
             " . maintenanceUnionTextExpr('p.process_id') . " AS process_id,
-            " . maintenanceUnionTextExpr('a.account_id') . " AS account_id,
+            " . maintenanceDataCaptureAccountIdExpr('a', 'dcd') . " AS account_id,
             " . maintenanceUnionNullTextCol() . " AS from_account,
             " . maintenanceUnionTextExpr("COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture')") . " AS description,
             " . maintenanceUnionTextExpr("COALESCE(dc.remark, '')") . " AS remark,
@@ -302,7 +324,7 @@ function maintenanceBuildCaptureUnionBranch(
         FROM data_capture_details dcd
         INNER JOIN data_captures dc ON dcd.capture_id = dc.id
         INNER JOIN process p ON dc.process_id = p.id
-        INNER JOIN account a ON dcd.account_id = a.id
+        " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
         INNER JOIN currency c ON dcd.currency_id = c.id
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
@@ -504,15 +526,20 @@ try {
     $catUpper = strtoupper($category);
     $is_bank_category = ($catUpper === 'BANK');
     $is_loan_rate_money = in_array($catUpper, ['LOAN', 'RATE', 'MONEY'], true);
+    // Loan/Rate/Money 无独立流水；与其它维护页共用 localStorage 时可能误传，按 Games 查询
+    if ($is_loan_rate_money) {
+        $category = 'Games';
+        $catUpper = 'GAMES';
+        $is_loan_rate_money = false;
+    }
+    if ($catUpper === 'GAMBLING') {
+        $category = 'Games';
+        $catUpper = 'GAMES';
+    }
 
     // 默认不在 Maintenance - Transaction 中显示已删除的交易记录；
     // 仅当显式传入 include_deleted=1 时，才附加 transactions_deleted / data_captures_deleted 的历史记录
     $includeDeleted = isset($_GET['include_deleted']) && $_GET['include_deleted'] === '1';
-
-    if ($is_loan_rate_money) {
-        echo json_encode(['success' => true, 'data' => []]);
-        return;
-    }
 
     // 常用路径：无已删除记录 + 分页 → SQL UNION（失败则回退 legacy 双查询）
     if (!$includeDeleted && $page_size > 0) {
@@ -668,7 +695,7 @@ try {
                 dcd.id AS capture_detail_id,
                 dc.id AS capture_id,
                 p.process_id,
-                a.account_id,
+                COALESCE(a.account_id, CAST(dcd.account_id AS CHAR), '-') AS account_id,
                 NULL AS from_account,
                 COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
                 COALESCE(dc.remark, '') AS remark,
@@ -693,7 +720,7 @@ try {
             FROM data_capture_details dcd
             INNER JOIN data_captures dc ON dcd.capture_id = dc.id
             INNER JOIN process p ON dc.process_id = p.id
-            INNER JOIN account a ON dcd.account_id = a.id
+            " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
@@ -870,7 +897,7 @@ try {
                     dcd.id AS capture_detail_id,
                     dcd.capture_id,
                     p.process_id,
-                    a.account_id,
+                    COALESCE(a.account_id, CAST(dcd.account_id AS CHAR), '-') AS account_id,
                     COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
                     COALESCE(dcd.remark, '') AS remark,
                     c.code AS currency_code,
@@ -892,7 +919,7 @@ try {
                     dcd.columns_value
                 FROM data_captures_deleted dcd
                 INNER JOIN process p ON dcd.process_id = p.id
-                INNER JOIN account a ON dcd.account_id = a.id
+                " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
                 INNER JOIN currency c ON dcd.currency_id = c.id
                 LEFT JOIN description d ON p.description_id = d.id
                 LEFT JOIN user u ON dcd.user_type = 'user' AND dcd.created_by = u.id

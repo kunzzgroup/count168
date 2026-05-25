@@ -24,6 +24,8 @@ import {
   fetchProcesses,
   isBankOnlyCategoryCompany,
   normalizeMaintenanceProcessFilter,
+  filterTransactionMaintenancePermissions,
+  pickTransactionMaintenancePermission,
   searchTransactionData,
   updateSessionCompany,
   isMaintenanceRecoverableError,
@@ -101,6 +103,11 @@ export default function TransactionMaintenancePage() {
   const processFilter = useMemo(
     () => normalizeMaintenanceProcessFilter(selectedProcess),
     [selectedProcess],
+  );
+
+  const visiblePermissions = useMemo(
+    () => filterTransactionMaintenancePermissions(permissions),
+    [permissions],
   );
 
   const maintenanceQueryKey = useMemo(
@@ -404,7 +411,7 @@ export default function TransactionMaintenancePage() {
           setProcesses(procList);
 
           const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
-          const initialActive = savedPerm && companyPerms.includes(savedPerm) ? savedPerm : (companyPerms.length > 0 ? companyPerms[0] : "");
+          const initialActive = pickTransactionMaintenancePermission(companyPerms, savedPerm);
           setActivePermission(initialActive);
 
           // Cache permissions so the meta-effect below skips redundant API call
@@ -471,12 +478,7 @@ export default function TransactionMaintenancePage() {
         if (cancelled) return;
         setPermissions(permList);
 
-        const saved = localStorage.getItem(`selectedPermission_${ccode}`);
-        if (saved && permList.includes(saved)) {
-          setActivePermission(saved);
-        } else if (permList.length > 0) {
-          setActivePermission(permList[0]);
-        }
+        setActivePermission(pickTransactionMaintenancePermission(permList, localStorage.getItem(`selectedPermission_${ccode}`)));
       } catch (err) {
         if (cancelled) return;
         console.error("Meta data load error:", err);
@@ -544,9 +546,7 @@ export default function TransactionMaintenancePage() {
         return;
       }
 
-      const saved = localStorage.getItem(`selectedPermission_${code}`);
-      const nextActive =
-        saved && perms.includes(saved) ? saved : perms.length > 0 ? perms[0] : "";
+      const nextActive = pickTransactionMaintenancePermission(perms, localStorage.getItem(`selectedPermission_${code}`));
       switchPermsCacheRef.current = { companyCode: code, perms };
       skipMetaAfterBootRef.current = true;
       setCompanyCode(code);
@@ -601,11 +601,11 @@ export default function TransactionMaintenancePage() {
     <div className="container">
       <div className="maintenance-header">
         <h1 id="maintenance-page-title">{m.pageTitleTransaction}</h1>
-        {permissions.length > 1 && (
+        {visiblePermissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
             <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
-              {permissions.map(p => (
+              {visiblePermissions.map(p => (
                 <button 
                   key={p} 
                   type="button" 

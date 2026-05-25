@@ -71,6 +71,51 @@ export async function fetchProcesses(companyId) {
   return fetchMaintenanceProcesses(companyId, { credentials: true });
 }
 
+/** Transaction Maintenance 仅 Games/Gambling/Bank 有数据；Loan/Rate/Money 与其它维护页共用 localStorage 时会误传。 */
+const TXN_MAINTENANCE_SEARCH_CATEGORIES = new Set(["games", "gambling", "bank"]);
+const TXN_MAINTENANCE_EMPTY_CATEGORIES = new Set(["loan", "rate", "money"]);
+
+/** 本页可选的 Category 按钮（过滤 Loan/Rate/Money）。 */
+export function filterTransactionMaintenancePermissions(permissions) {
+  const perms = Array.isArray(permissions) ? permissions : [];
+  const filtered = perms.filter((p) =>
+    TXN_MAINTENANCE_SEARCH_CATEGORIES.has(String(p).toLowerCase()),
+  );
+  return filtered.length > 0 ? filtered : perms;
+}
+
+/** 选择默认 Category：优先 Games/Gambling，忽略 Loan/Rate/Money 的 localStorage。 */
+export function pickTransactionMaintenancePermission(permissions, saved) {
+  const perms = filterTransactionMaintenancePermissions(permissions);
+  const savedLower = String(saved ?? "").toLowerCase();
+  if (
+    saved &&
+    perms.includes(saved) &&
+    !TXN_MAINTENANCE_EMPTY_CATEGORIES.has(savedLower)
+  ) {
+    return saved;
+  }
+  return (
+    perms.find((p) => {
+      const lower = String(p).toLowerCase();
+      return lower === "games" || lower === "gambling";
+    }) ||
+    perms.find((p) => String(p).toLowerCase() === "bank") ||
+    perms[0] ||
+    ""
+  );
+}
+
+/** 传给 maintenance_search_api 的 category（Loan/Rate/Money → Games）。 */
+export function resolveTransactionMaintenanceCategory(permission) {
+  const raw = String(permission ?? "").trim();
+  if (!raw) return "";
+  const lower = raw.toLowerCase();
+  if (TXN_MAINTENANCE_EMPTY_CATEGORIES.has(lower)) return "Games";
+  if (lower === "gambling") return "Games";
+  return raw;
+}
+
 /** Select All 误传占位文案时视为未选 Process。 */
 export function normalizeMaintenanceProcessFilter(process) {
   const raw = String(process ?? "").trim();
@@ -110,12 +155,13 @@ export async function searchTransactionData({
   onFirstPage,
 }) {
   const processFilter = normalizeMaintenanceProcessFilter(process);
+  const categoryFilter = resolveTransactionMaintenanceCategory(category);
   const merged = await fetchMaintenanceDateRangeResilient({
     dateFrom,
     dateTo,
     process: processFilter,
     companyId,
-    category,
+    category: categoryFilter,
     signal,
     onFirstPage: (partial) => {
       if (typeof onFirstPage === "function" && partial.length) {
