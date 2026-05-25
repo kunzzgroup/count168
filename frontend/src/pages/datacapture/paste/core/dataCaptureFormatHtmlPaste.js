@@ -8,7 +8,6 @@ import {
 
 
 import { ensurePasteGrid } from './dataCapturePasteApply.js';
-import { normalizeCaptureGridCellsForSubmit } from '../../lib/dataCaptureTableSnapshot.js';
 
 export function parseAndFillHtmlTableForFormat(htmlString) {
     try {
@@ -636,8 +635,6 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
                         if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
                             targetCell.style.border = '1px solid #d0d7de';
                         }
-                        targetCell.style.removeProperty('display');
-                        targetCell.style.removeProperty('visibility');
                         currentPasteChanges.push({
                             row: actualRowIndex,
                             col: currentCol,
@@ -680,7 +677,6 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
         window.__DC_PUSH_PASTE_HISTORY__?.(currentPasteChanges);
 
         if (successCount > 0) {
-            normalizeCaptureGridCellsForSubmit();
             window.showNotification?.(`成功粘贴表格 (${headerRows.length} 个表头行, ${dataRows.length} 个数据行 x ${maxCols} 列)，已保持完整表格结构!`, 'success');
             window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
             return true;

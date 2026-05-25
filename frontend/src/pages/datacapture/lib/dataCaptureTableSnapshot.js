@@ -12,52 +12,21 @@ function readCellSnapshotText(cell) {
   return String(raw);
 }
 
-function isHiddenCaptureCell(cell) {
-  if (!cell) return true;
-  // Only skip colspan companion cells — Excel paste often sets visibility:hidden while
-  // contenteditable cells still render text, which caused false "empty table" on submit.
-  return cell.style.display === "none";
-}
-
-function forEachCaptureDataCell(callback) {
-  const table = document.getElementById("dataTable");
-  const tbody = table?.querySelector("tbody");
-  if (!tbody) return;
-
-  Array.from(tbody.rows).forEach((row) => {
-    for (let colIndex = 1; colIndex < row.cells.length; colIndex += 1) {
-      const cell = row.cells[colIndex];
-      if (!cell || cell.classList.contains("row-header")) continue;
-      if (isHiddenCaptureCell(cell)) continue;
-      callback(cell);
-    }
-  });
-}
-
 /** Live DOM check — used when snapshot read and grid disagree (2.Format styled cells). */
 export function domGridHasCaptureData() {
-  let found = false;
-  forEachCaptureDataCell((cell) => {
-    if (readCellSnapshotText(cell).trim() !== "") found = true;
+  const tableBody = document.getElementById("tableBody");
+  if (!tableBody) return false;
+
+  return Array.from(tableBody.querySelectorAll("td")).some((cell) => {
+    if (cell.classList.contains("row-header")) return false;
+    if (cell.style.display === "none") return false;
+    return readCellSnapshotText(cell).trim() !== "";
   });
-  return found;
 }
 
 export function captureTableHasData(tableData) {
   if (tableSnapshotHasData(tableData)) return true;
   return domGridHasCaptureData();
-}
-
-/** Remove Excel layout artifacts that break submit validation on already-pasted cells. */
-export function normalizeCaptureGridCellsForSubmit() {
-  forEachCaptureDataCell((cell) => {
-    cell.style.removeProperty("display");
-    cell.style.removeProperty("visibility");
-    const attr = cell.getAttribute("style");
-    if (attr && !String(attr).trim()) {
-      cell.removeAttribute("style");
-    }
-  });
 }
 
 /**
@@ -100,7 +69,7 @@ export function captureTableDataFromDom(captureType) {
         rowData.push({ type: "header", value: cell.textContent });
         return;
       }
-      if (isHiddenCaptureCell(cell)) return;
+      if (cell.style.display === "none") return;
 
       let cellValue = convertBracketedToNegative(readCellSnapshotText(cell).toUpperCase());
       const colspan = parseInt(cell.getAttribute("colspan") || "1", 10);
@@ -136,6 +105,9 @@ export function captureTableDataFromDom(captureType) {
             const targetCol = cell.col;
             firstDataCell.col = targetCol;
             cell.col = firstCol;
+            console.log(
+              `${currentDataCaptureType}: Row ${rowIndex} - adjusted id product from column ${targetCol + 1} (value: "${targetValue}") to first column`
+            );
             break;
           }
         }

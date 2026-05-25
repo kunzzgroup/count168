@@ -56,20 +56,8 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot) {
 
   if (pd.description_names) {
     const arr = Array.isArray(pd.description_names) ? pd.description_names : [pd.description_names];
-    window.selectedDescriptions = [...arr.filter(Boolean)];
-    setDescriptionDisplay(arr.filter(Boolean).join(", "));
-  } else if (pd.description_name) {
-    const arr = [String(pd.description_name).trim()].filter(Boolean);
-    if (arr.length) {
-      window.selectedDescriptions = [...arr];
-      setDescriptionDisplay(arr.join(", "));
-    }
-  } else if (pd.description) {
-    const arr = [String(pd.description).trim()].filter(Boolean);
-    if (arr.length) {
-      window.selectedDescriptions = [...arr];
-      setDescriptionDisplay(arr.join(", "));
-    }
+    window.selectedDescriptions = [...arr];
+    setDescriptionDisplay(arr.join(", "));
   }
 
   const currencyIdStr = pd.currency_id != null ? String(pd.currency_id) : "";
@@ -86,13 +74,6 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot) {
     const match = list.find((c) => String(c.code).toUpperCase() === code);
     if (match) setCurrencyId(String(match.id));
   }
-}
-
-function applyDescriptionFromProcessRow(row, setDescriptionDisplay) {
-  const name = String(row?.description_name || "").trim();
-  if (!name) return;
-  window.selectedDescriptions = [name];
-  setDescriptionDisplay(name);
 }
 
 export function useDataCaptureFormEngine(companyId) {
@@ -219,7 +200,6 @@ export function useDataCaptureFormEngine(companyId) {
       process_id: row.process_id,
       description_name: row.description_name || null,
     });
-    applyDescriptionFromProcessRow(row, setDescriptionDisplay);
     setProcessOpen(false);
     setProcessFilter("");
     const cid = companyIdRef.current;
@@ -238,8 +218,9 @@ export function useDataCaptureFormEngine(companyId) {
         currenciesRef.current
       );
     }
-    queueMicrotask(() => window.updateSubmitButtonState?.());
-    setTimeout(() => window.updateSubmitButtonState?.(), 100);
+    setTimeout(() => {
+      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+    }, 0);
   }, []);
 
   const clearProcessSelection = useCallback(() => {
@@ -292,10 +273,8 @@ export function useDataCaptureFormEngine(companyId) {
     };
 
     window.__DC_ON_DESCRIPTIONS_CONFIRMED__ = (descriptions) => {
-      const arr = Array.isArray(descriptions) ? descriptions.filter(Boolean) : [];
-      window.selectedDescriptions = [...arr];
+      const arr = Array.isArray(descriptions) ? descriptions : [];
       setDescriptionDisplay(arr.join(", "));
-      queueMicrotask(() => window.updateSubmitButtonState?.());
     };
 
     window.__DC_POST_LEGACY_RESTORE_SYNC__ = async (processData) => {
