@@ -24,6 +24,7 @@ export function useProgressiveScrollExtent({
 }) {
   const [extentH, setExtentH] = useState(0);
   const rafRef = useRef(null);
+  const lastScrollTopRef = useRef(0);
   const enabled = rowCount > PROGRESSIVE_MIN_ROWS && actualTotalH > 0;
 
   const computeInitialExtent = useCallback(() => {
@@ -78,11 +79,22 @@ export function useProgressiveScrollExtent({
     const el = scrollRef.current;
     if (!el) return undefined;
 
+    lastScrollTopRef.current = el.scrollTop;
+
     const onScroll = () => {
+      const scrollTop = el.scrollTop;
+      // Keep spacer tall enough for thumb/track position (including drag upward).
+      revealExtentForScrollTop(scrollTop);
+
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = null;
-        growExtent();
+        const prevTop = lastScrollTopRef.current;
+        lastScrollTopRef.current = scrollTop;
+        // Growing extent while the user scrolls up fights native scrollbar drag.
+        if (scrollTop > prevTop + 0.5) {
+          growExtent();
+        }
       });
     };
 
@@ -91,7 +103,7 @@ export function useProgressiveScrollExtent({
       el.removeEventListener("scroll", onScroll);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [scrollRef, growExtent, enabled]);
+  }, [scrollRef, growExtent, revealExtentForScrollTop, enabled]);
 
   useEffect(() => {
     const el = scrollRef.current;

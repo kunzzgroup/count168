@@ -656,9 +656,8 @@ export default function TransactionMaintenancePage() {
 
   return (
     <div className="container">
+      {visiblePermissions.length > 1 ? (
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">{m.pageTitleTransaction}</h1>
-        {visiblePermissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
             <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
@@ -674,8 +673,8 @@ export default function TransactionMaintenancePage() {
               ))}
             </div>
           </div>
-        )}
       </div>
+      ) : null}
 
       <div className="transaction-maintenance-page-root">
         <TransactionMaintenanceFilters 

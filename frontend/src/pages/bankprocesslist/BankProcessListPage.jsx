@@ -241,7 +241,6 @@ export default function BankProcessListPage() {
       <div className="content">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 0, flexWrap: "wrap", gap: 12 }}>
           <div className="bank-process-header-left">
-            <h1 className="page-title">{t("bankProcessList")}</h1>
             <AccountingDueModal
               isOpen={accountingOpen}
               setOpen={setAccountingOpen}

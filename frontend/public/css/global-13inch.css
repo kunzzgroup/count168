@@ -8,22 +8,6 @@
     /* ----------------------------------------------------
        1. Base Typography & Hierarchy
        ---------------------------------------------------- */
-    /* Page title hierarchy - Must be the most obvious element */
-    body.ec-auth-shell h1,
-    .account-page-title,
-    .own-page-title,
-    .transaction-title,
-    .datacapture-title,
-    .page-title,
-    #maintenance-page-title,
-    .user-page .content > h1,
-    .dashboard-title,
-    body.datacapture-page h1,
-    body.domain-page .domain-react-page > h1 {
-        font-size: var(--text-page-title) !important;
-        margin-top: var(--text-page-title-mt) !important;
-    }
-
     /* Container / Margins - 保留左侧 sidebar 的空间 */
     body.ec-auth-shell .container,
     body.ec-auth-shell .transaction-container {
@@ -430,10 +414,6 @@
        必须用 !important 覆盖上方的全局 !important 规则（高特异性选择器取胜）
        ---------------------------------------------------- */
 
-    .process-page.process-page--bank .page-title {
-        margin-top: var(--text-page-title-mt) !important;
-    }
-
     .process-page.process-page--bank .bank-process-toolbar-primary {
         flex-wrap: nowrap !important;
         gap: clamp(4px, 0.45vw, 8px) !important;
@@ -492,22 +472,26 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
    Global SaaS "Premium Feel" Upgrades
    ========================================================================== */
 
-/* 1. Global Custom Scrollbars (Sleek MacOS style for Windows) */
-::-webkit-scrollbar {
+/* 1. Login / non-dashboard scrollbars (dashboard uses dashboard-scrollbar.css) */
+body:not(.dashboard-page)::-webkit-scrollbar,
+body:not(.dashboard-page) *::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 
-::-webkit-scrollbar-track {
+body:not(.dashboard-page)::-webkit-scrollbar-track,
+body:not(.dashboard-page) *::-webkit-scrollbar-track {
     background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
+body:not(.dashboard-page)::-webkit-scrollbar-thumb,
+body:not(.dashboard-page) *::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.4);
     border-radius: 10px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+body:not(.dashboard-page)::-webkit-scrollbar-thumb:hover,
+body:not(.dashboard-page) *::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.7);
 }
 

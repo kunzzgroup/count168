@@ -516,9 +516,8 @@ export default function PaymentMaintenancePage() {
 
   return (
     <div className="payment-maintenance-page-root container">
+      {permissions.length > 1 ? (
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">{m.pageTitlePayment}</h1>
-        {permissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
             <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
@@ -534,8 +533,8 @@ export default function PaymentMaintenancePage() {
               ))}
             </div>
           </div>
-        )}
       </div>
+      ) : null}
 
       <PaymentMaintenanceFilters 
         transactionType={transactionType}
