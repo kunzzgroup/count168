@@ -29,6 +29,15 @@ export function useDataCaptureGrid(scriptsReady) {
 
     buildDataCaptureTable(r, c);
 
+    const dataTable = document.getElementById("dataTable");
+    if (dataTable && dataTable.style.display === "none") {
+      const captureType =
+        typeof window.__DC_GET_CAPTURE_TYPE__ === "function" ? window.__DC_GET_CAPTURE_TYPE__() : "";
+      if (captureType !== "2.Format") {
+        dataTable.style.display = "table";
+      }
+    }
+
     window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
     window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
     return dimensionsRef.current;
@@ -49,6 +58,19 @@ export function useDataCaptureGrid(scriptsReady) {
         buildDataCaptureTable(r, c);
         dims = readGridDimensions();
         dimensionsRef.current = dims;
+      }
+
+      const dataTable = document.getElementById("dataTable");
+      if (dataTable && dataTable.style.display === "none") {
+        const captureType =
+          typeof window.__DC_GET_CAPTURE_TYPE__ === "function" ? window.__DC_GET_CAPTURE_TYPE__() : "";
+        const formatReady =
+          typeof window.__DC_GET_FORMAT_GRID_READY__ === "function"
+            ? window.__DC_GET_FORMAT_GRID_READY__()
+            : false;
+        if (captureType !== "2.Format" || formatReady) {
+          dataTable.style.display = "table";
+        }
       }
 
       window.__DC_TOGGLE_FORMAT_DISPLAY__?.();

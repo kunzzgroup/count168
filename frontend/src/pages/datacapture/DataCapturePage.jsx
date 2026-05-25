@@ -875,7 +875,6 @@ export default function DataCapturePage() {
         t={t}
         captureType={captureType}
         citibetMode={citibetMode}
-        formatGridReady={formatGridReady}
         onCaptureTypeChange={handleCaptureTypeChange}
         submitDisabled={submitReset.submitDisabled || mutationsBlocked}
         onSubmit={() => void submitReset.submit()}

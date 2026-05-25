@@ -16,24 +16,16 @@ export default function DataCaptureTableSection({
   t,
   captureType,
   citibetMode = false,
-  formatGridReady = false,
   onCaptureTypeChange,
   submitDisabled = true,
   onSubmit,
   onReset,
 }) {
-  const showFormatPasteHint = captureType === "1.Text" && !formatGridReady;
-
   return (
     <div className="bottom-section">
-      <div className={`excel-table-container${citibetMode ? " citibet-mode" : ""}${captureType === "1.Text" ? " text-paste-mode" : ""}`}>
+      <div className={`excel-table-container${citibetMode ? " citibet-mode" : ""}`}>
         <div className="excel-table-header">
           <span>{t("dataCaptureTable")}</span>
-          {showFormatPasteHint ? (
-            <span className="dc-format-paste-hint" style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>
-              {t("pasteFormattedTableHint")}
-            </span>
-          ) : null}
           <div className="dc-table-header-controls">
             <select
               id="dataCaptureTypeSelector"
