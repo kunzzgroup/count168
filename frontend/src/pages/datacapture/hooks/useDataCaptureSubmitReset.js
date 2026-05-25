@@ -146,7 +146,10 @@ export function useDataCaptureSubmitReset({
       pushDataCaptureNotification(t("readOnlyBlocked"), "danger");
       return;
     }
-    const captureTypeNow = captureTypeRef.current;
+    const captureTypeNow =
+      (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
+        ? window.__DC_GET_CAPTURE_TYPE__()
+        : captureTypeRef.current) || captureTypeRef.current;
     const { selectedProcess, currencyId, descriptionDisplay } = readSubmitFormSnapshot(formRef);
     const tableData = captureTableDataFromDom(captureTypeNow);
     const validation = validateDataCaptureForm({

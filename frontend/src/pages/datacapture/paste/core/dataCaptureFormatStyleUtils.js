@@ -10,7 +10,9 @@ export function sanitizeCopiedStyleString(styleString) {
         'bottom',
         'z-index',
         'float',
-        'transform'
+        'transform',
+        'display',
+        'visibility',
     ]);
 
     const parts = String(styleString).split(';')

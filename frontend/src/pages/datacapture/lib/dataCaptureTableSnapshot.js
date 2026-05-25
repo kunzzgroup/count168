@@ -12,16 +12,41 @@ function readCellSnapshotText(cell) {
   return String(raw);
 }
 
+function isHiddenCaptureCell(cell) {
+  if (!cell) return true;
+  try {
+    const style = window.getComputedStyle(cell);
+    if (style.display === "none" || style.visibility === "hidden") return true;
+  } catch {
+    if (cell.style.display === "none") return true;
+  }
+  return false;
+}
+
+function isCaptureGridCell(cell) {
+  if (!cell || !cell.closest("#dataTable")) return false;
+  if (cell.classList.contains("row-header")) return false;
+  const tag = (cell.tagName || "").toLowerCase();
+  if (tag !== "td" && tag !== "th") return false;
+  if (isHiddenCaptureCell(cell)) return false;
+  return readCellSnapshotText(cell).trim() !== "";
+}
+
 /** Live DOM check — used when snapshot read and grid disagree (2.Format styled cells). */
 export function domGridHasCaptureData() {
-  const tableBody = document.getElementById("tableBody");
+  const table = document.getElementById("dataTable");
+  if (!table) return false;
+
+  if (Array.from(table.querySelectorAll("tbody td, tbody th")).some(isCaptureGridCell)) {
+    return true;
+  }
+
+  const tableBody = table.querySelector("tbody");
   if (!tableBody) return false;
 
-  return Array.from(tableBody.querySelectorAll("td")).some((cell) => {
-    if (cell.classList.contains("row-header")) return false;
-    if (cell.style.display === "none") return false;
-    return readCellSnapshotText(cell).trim() !== "";
-  });
+  return Array.from(
+    tableBody.querySelectorAll("td[contenteditable='true'], td[contenteditable='plaintext-only']"),
+  ).some((cell) => !cell.classList.contains("row-header") && readCellSnapshotText(cell).trim() !== "");
 }
 
 export function captureTableHasData(tableData) {
@@ -69,7 +94,7 @@ export function captureTableDataFromDom(captureType) {
         rowData.push({ type: "header", value: cell.textContent });
         return;
       }
-      if (cell.style.display === "none") return;
+      if (isHiddenCaptureCell(cell)) return;
 
       let cellValue = convertBracketedToNegative(readCellSnapshotText(cell).toUpperCase());
       const colspan = parseInt(cell.getAttribute("colspan") || "1", 10);
@@ -105,9 +130,6 @@ export function captureTableDataFromDom(captureType) {
             const targetCol = cell.col;
             firstDataCell.col = targetCol;
             cell.col = firstCol;
-            console.log(
-              `${currentDataCaptureType}: Row ${rowIndex} - adjusted id product from column ${targetCol + 1} (value: "${targetValue}") to first column`
-            );
             break;
           }
         }
