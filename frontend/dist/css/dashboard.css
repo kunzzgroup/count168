@@ -961,6 +961,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     color: #ef4444;
 }
 
+.dashboard-kpi-card--expense .kpi-card-head-label {
+    font-weight: 700;
+}
+
 .dashboard-kpi-card--positive .kpi-card-head-icon {
     color: #22c55e;
 }

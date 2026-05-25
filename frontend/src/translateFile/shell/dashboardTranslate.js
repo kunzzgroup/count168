@@ -33,7 +33,7 @@ export const DASHBOARD_I18N = {
     earnings: "Earnings",
     profit: "Profit",
     expenses: "Expenses",
-    netProfit: "NET PROFIT",
+    netProfit: "Net Profit",
     netProfitChart: "Net Profit",
     trendChart: "Trend Chart",
     statistics: "Statistics",
