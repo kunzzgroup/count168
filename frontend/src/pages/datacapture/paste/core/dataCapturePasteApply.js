@@ -1,9 +1,33 @@
 import { MAX_GRID_ROWS } from "../../grid/dataCaptureGridMeta.js";
+import { readGridDimensions } from "../../grid/dataCaptureGridSnapshot.js";
+import { insertColumnAt, insertRowAt } from "../../grid/dataCaptureGridRowColumnCrud.js";
 
 /** Shared grid helpers for paste modules (no legacy script required). */
 export function ensurePasteGrid(rows, cols) {
-  if (typeof window.__DC_INITIALIZE_TABLE__ === "function") {
-    window.__DC_INITIALIZE_TABLE__(rows, cols);
+  const targetRows = Math.max(1, Math.min(Number(rows) || 1, MAX_GRID_ROWS));
+  const targetCols = Math.max(1, Number(cols) || 1);
+  const { rows: currentRows, cols: currentCols } = readGridDimensions();
+
+  if (currentRows === 0 || currentCols === 0) {
+    window.__DC_INITIALIZE_TABLE__?.(targetRows, targetCols);
+    return;
+  }
+
+  if (targetRows <= currentRows && targetCols <= currentCols) return;
+
+  const hasExistingData = findLastFilledGridRow() >= 0;
+
+  if (!hasExistingData) {
+    window.__DC_INITIALIZE_TABLE__?.(targetRows, targetCols);
+    return;
+  }
+
+  for (let colIndex = currentCols; colIndex < targetCols; colIndex += 1) {
+    insertColumnAt(colIndex);
+  }
+
+  for (let rowIndex = currentRows; rowIndex < targetRows; rowIndex += 1) {
+    insertRowAt(rowIndex);
   }
 }
 

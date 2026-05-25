@@ -1356,6 +1356,34 @@ body.datacapture-page .bottom-section .form-actions {
     min-height: 0;
     height: auto;
     scrollbar-gutter: stable;
+    position: relative;
+}
+
+.dc-grid-typing-status {
+    position: absolute;
+    left: 8px;
+    bottom: 6px;
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #1e40af;
+    background: rgba(219, 234, 254, 0.96);
+    border: 1px solid #93c5fd;
+    border-radius: 4px;
+    pointer-events: none;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.dc-grid-typing-status[hidden] {
+    display: none !important;
+}
+
+.excel-table-container.format-paste-mode .dc-grid-typing-status {
+    display: none !important;
 }
 
 body.datacapture-page .excel-table-container {

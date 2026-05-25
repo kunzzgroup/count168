@@ -2,7 +2,7 @@
  * Per-cell keyboard (Tab/Enter/arrows/Delete/Ctrl+Z) — extracted from js/datacapture.js.
  * Re-run: node frontend/scripts/extract-grid-cell-keydown.mjs
  */
-import { setActiveCell, setActiveCellWithoutFocus } from "./dataCaptureGridActiveCell.js";
+import { setActiveCell, setActiveCellForMouseEdit, setActiveCellWithoutFocus } from "./dataCaptureGridActiveCell.js";
 
 function hasPasteHistory() {
   return window.__DC_HAS_PASTE_HISTORY__?.() ?? false;
@@ -58,22 +58,25 @@ export function handleCellKeydown(e) {
     const row = cell.parentNode;
     const table = row.parentNode;
 
-    // 在编辑模式（typing mode）下，阻止 Ctrl+V 粘贴
+    // 在编辑模式（typing mode）下，2.Format 仍允许 Ctrl+V 走 format 粘贴
     const hasFocus = document.activeElement === cell;
     if (hasFocus && (e.ctrlKey || e.metaKey) && key === 'v') {
-        e.preventDefault();
-        e.stopPropagation();
+        const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "";
+        if (captureType !== "2.Format") {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         return;
     }
 
     // 处理 Backspace 和 Delete 键
     if (e.key === 'Backspace' || e.key === 'Delete') {
-        const hasFocus = document.activeElement === cell;
+        const hasFocusForDelete = document.activeElement === cell;
         const hasContent = cell.textContent.trim() !== '';
 
         // 获取当前光标位置（仅对 Backspace 有效）
         let cursorAtStart = false;
-        if (e.key === 'Backspace' && hasFocus) {
+        if (e.key === 'Backspace' && hasFocusForDelete) {
             try {
                 const selection = window.getSelection();
                 if (selection && selection.rangeCount > 0) {
@@ -96,7 +99,7 @@ export function handleCellKeydown(e) {
         }
 
         // 如果单元格高亮但没有焦点，清除整个内容
-        if (!hasFocus && (cell.classList.contains('selected') || getSelectedCells().includes(cell))) {
+        if (!hasFocusForDelete && (cell.classList.contains('selected') || getSelectedCells().includes(cell))) {
             e.preventDefault();
             cell.textContent = '';
             recomputeSubmitState();
@@ -104,7 +107,7 @@ export function handleCellKeydown(e) {
         }
 
         // 如果单元格有焦点
-        if (hasFocus) {
+        if (hasFocusForDelete) {
             // Backspace 在文本开头时，或者单元格为空时，清除整个单元格
             if (e.key === 'Backspace' && (cursorAtStart || !hasContent)) {
                 e.preventDefault();
@@ -154,28 +157,20 @@ export function handleCellKeydown(e) {
             e.preventDefault();
             const currentRowIndex = Array.from(table.children).indexOf(row);
             const currentCellIndex = Array.from(row.children).indexOf(cell);
-            const nextRow = table.children[currentRowIndex + 1];
+            let nextRow = table.children[currentRowIndex + 1];
+            if (!nextRow) {
+                const currentRows = table.children.length;
+                if (currentRows < 702) {
+                    const newRowIndex = addNewRow();
+                    if (newRowIndex !== null) {
+                        nextRow = table.children[newRowIndex];
+                    }
+                }
+            }
             if (nextRow) {
                 const nextRowCell = nextRow.children[currentCellIndex];
                 if (nextRowCell && nextRowCell.contentEditable === 'true') {
-                    setActiveCell(nextRowCell);
-                }
-            } else {
-                // 如果到达最后一行，添加新行（但限制最大行数）
-                const currentRows = table.children.length;
-                if (currentRows < 702) { // 限制最大702行 (ZZ)
-                    // Use addNewRow function instead of initializeTable to preserve existing data
-                    const newRowIndex = addNewRow();
-                    if (newRowIndex !== null) {
-                        // 聚焦到新行的相同列
-                        const newRow = table.children[newRowIndex];
-                        if (newRow) {
-                            const newCell = newRow.children[currentCellIndex];
-                            if (newCell && newCell.contentEditable === 'true') {
-                                setActiveCell(newCell);
-                            }
-                        }
-                    }
+                    setActiveCellForMouseEdit(nextRowCell);
                 }
             }
             break;

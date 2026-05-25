@@ -5,6 +5,7 @@ import {
   normalizeCaptureType,
   readInitialCaptureType,
 } from "../lib/dataCaptureFormRules.js";
+import { domGridHasEditableData } from "../lib/dataCaptureTableSnapshot.js";
 
 /**
  * Phase 2: Capture type switching + 2.Format view orchestration in React.
@@ -42,7 +43,11 @@ export function useDataCaptureCaptureType() {
           ? window.__DC_GET_FORMAT_GRID_READY__()
           : false;
 
-      if (previewHtml) {
+      if (domGridHasEditableData()) {
+        window.__DC_SYNC_FORMAT_PREVIEW_FROM_DOM__?.();
+        window.__DC_SET_FORMAT_GRID_READY__?.(true);
+        setFormatGridReady(true);
+      } else if (previewHtml) {
         if (legacyReady) {
           window.__DC_RENDER_FORMAT_PREVIEW__?.(previewHtml);
           window.__DC_SET_FORMAT_GRID_READY__?.(true);

@@ -2,7 +2,11 @@
  * 2.Format — preview storage, grid-ready flag, table visibility + style cleanup.
  */
 import { renderFormatPreview } from "../paste/core/dataCaptureFormatPreview.js";
-import { domGridHasEditableData } from "../lib/dataCaptureTableSnapshot.js";
+import {
+  buildFormatPreviewHtmlFromTableSnapshot,
+  captureTableDataFromDom,
+  domGridHasEditableData,
+} from "../lib/dataCaptureTableSnapshot.js";
 
 export const FORMAT_PREVIEW_HTML_KEY = "capturedFormatPreviewHtml";
 export const FORMAT_PREVIEW_HTML_KEY_LEGACY = "captured655PreviewHtml";
@@ -86,11 +90,21 @@ export function clearFormatStyles() {
   }
 }
 
+/** Keep preview cache aligned with the live grid (incl. append pastes). */
+export function syncFormatPreviewFromDom(captureType = "2.Format") {
+  const tableData = captureTableDataFromDom(captureType);
+  const html = buildFormatPreviewHtmlFromTableSnapshot(tableData);
+  if (!html) return false;
+  setFormatPreviewHtml(html);
+  renderFormatPreview(html);
+  return true;
+}
+
 function restoreFormatGridFromPreviewHtml(previewHtml) {
   if (!previewHtml || getFormatGridReady()) return getFormatGridReady();
 
   if (domGridHasEditableData()) {
-    renderFormatPreview(previewHtml);
+    syncFormatPreviewFromDom();
     setFormatGridReady(true);
     return true;
   }
@@ -116,6 +130,12 @@ export function prepareFormatSubmitSnapshot(captureType) {
 
   const dataTable = document.getElementById("dataTable");
   if (dataTable) dataTable.style.display = "table";
+
+  if (domGridHasEditableData()) {
+    syncFormatPreviewFromDom(type);
+    setFormatGridReady(true);
+    return true;
+  }
 
   if (getFormatGridReady()) return true;
 

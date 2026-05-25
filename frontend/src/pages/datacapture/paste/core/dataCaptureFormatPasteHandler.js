@@ -11,7 +11,7 @@ import {
   resolveFormatPasteStartRow,
 } from "./dataCapturePasteApply.js";
 import { domGridHasEditableData } from "../../lib/dataCaptureTableSnapshot.js";
-import { getFormatGridReady } from "../../format/dataCaptureFormat.js";
+import { getFormatGridReady, syncFormatPreviewFromDom } from "../../format/dataCaptureFormat.js";
 import { resolvePasteCell } from "./dataCaptureClipboard.js";
 
 function getCaptureType() {
@@ -27,6 +27,8 @@ function isFormatMode() {
 
 function isEditableFormField(el) {
   if (!el) return false;
+  if (el.closest("#dataTable")) return false;
+  if (el.id === "pasteAreaFormat") return false;
   const tag = (el.tagName || "").toLowerCase();
   return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable;
 }
@@ -53,6 +55,7 @@ function markFormatGridReady(ready) {
 function afterFormatPasteFilled(filled, area) {
   if (!filled) return false;
   markFormatGridReady(true);
+  syncFormatPreviewFromDom();
   if (area) area.innerHTML = "";
   window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
   window.__DC_RECOMPUTE_SUBMIT_STATE__?.();

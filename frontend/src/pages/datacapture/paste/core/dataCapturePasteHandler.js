@@ -141,8 +141,9 @@ function invokeGenericPasteFallback(e, pastedData) {
  */
 export function handleCellPasteEvent(e) {
   const cell = resolvePasteCell(e.target);
+  const captureTypeEarly = getCaptureType();
 
-  if (isTypingModeCell(cell)) {
+  if (isTypingModeCell(cell) && captureTypeEarly !== "2.Format") {
     e.preventDefault();
     e.stopPropagation();
     return;

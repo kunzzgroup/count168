@@ -4,6 +4,7 @@ import {
   getFormatGridReady,
   getFormatPreviewHtml,
   setFormatGridReady,
+  syncFormatPreviewFromDom,
   toggleTableDisplayForFormat,
 } from "../format/dataCaptureFormat.js";
 import { readInitialCaptureType } from "../lib/dataCaptureFormRules.js";
@@ -21,6 +22,7 @@ export function useDataCaptureFormatDisplay() {
     window.__DC_CLEAR_FORMAT_STYLES__ = clearFormatStyles;
     window.__DC_SET_FORMAT_GRID_READY__ = setFormatGridReady;
     window.__DC_GET_FORMAT_GRID_READY__ = getFormatGridReady;
+    window.__DC_SYNC_FORMAT_PREVIEW_FROM_DOM__ = syncFormatPreviewFromDom;
 
     return () => {
       if (window.__DC_TOGGLE_FORMAT_DISPLAY__ === toggleTableDisplayForFormat) {
@@ -34,6 +36,9 @@ export function useDataCaptureFormatDisplay() {
       }
       if (window.__DC_GET_FORMAT_GRID_READY__ === getFormatGridReady) {
         delete window.__DC_GET_FORMAT_GRID_READY__;
+      }
+      if (window.__DC_SYNC_FORMAT_PREVIEW_FROM_DOM__ === syncFormatPreviewFromDom) {
+        delete window.__DC_SYNC_FORMAT_PREVIEW_FROM_DOM__;
       }
     };
   }, []);
