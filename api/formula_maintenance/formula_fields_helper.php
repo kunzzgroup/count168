@@ -102,19 +102,70 @@ function buildFormulaEditFromParts($base, $sourcePercent, $enableSourcePercent) 
 }
 
 /**
- * 从库记录得到公式本体 + Source（本体仅剥 *(source) 展示后缀，不剥占成系数）。
+ * 与 Summary createFormulaDisplayFromExpression 一致：
+ * formula_display 末尾有 *(source) 则 Source 为该值；否则 Source 为 1（不展示 *(1)）。
+ *
+ * @return array{0:string,1:int}
+ */
+function resolveEffectiveSourcePercentForRow(array $row) {
+    $fd = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
+    $dbEn = isset($row['enable_source_percent']) ? (int) $row['enable_source_percent'] : 0;
+
+    if ($fd !== '' && strcasecmp($fd, 'Formula') !== 0) {
+        if (preg_match('/\*\(([0-9.+\-*\/()\s]+)\)\s*$/u', $fd, $m)) {
+            return [formatSourcePercentForMaintenanceList(trim($m[1])), $dbEn ?: 1];
+        }
+        return ['1', $dbEn ?: 1];
+    }
+
+    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
+    if ($dbPct === '') {
+        return ['1', 0];
+    }
+    return [formatSourcePercentForMaintenanceList($dbPct), $dbEn];
+}
+
+/**
+ * 用 formula_display 补全 formula_operators 中缺失的末尾占成系数（如 *0.90），
+ * 仅当 display 比 operators 多出尾段乘数时追加，不硬编码具体数值。
+ */
+function mergeFormulaBaseWithDisplayTail($operatorsBase, $formulaDisplay) {
+    $ops = trim((string) $operatorsBase);
+    $fd = removeTrailingSourcePercentSuffix(trim((string) $formulaDisplay));
+    if ($ops === '' || $fd === '') {
+        return $ops !== '' ? $ops : $fd;
+    }
+    if (!preg_match('/^(.*)(\*(?:\([^)]+\)|[0-9.]+))\s*$/u', $fd, $m)) {
+        return $ops;
+    }
+    $fdTail = trim($m[2]);
+    if ($fdTail === '') {
+        return $ops;
+    }
+    $opsNorm = preg_replace('/\s+/', '', $ops);
+    $tailNorm = preg_replace('/\s+/', '', $fdTail);
+    if ($tailNorm === '' || substr($opsNorm, -strlen($tailNorm)) === $tailNorm) {
+        return $ops;
+    }
+    return $ops . $fdTail;
+}
+
+/**
+ * 从库记录得到公式本体 + 有效 Source。
  *
  * @return array{0:string,1:string,2:int}
  */
 function resolveTemplateFormulaBaseAndPercent(array $row) {
-    $raw = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
-    if ($raw === '') {
-        $raw = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
+    $opsRaw = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
+    $fdRaw = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
+    $base = removeTrailingSourcePercentSuffix($opsRaw);
+    if ($base === '' && $fdRaw !== '') {
+        $base = removeTrailingSourcePercentSuffix($fdRaw);
+    } elseif ($fdRaw !== '' && strcasecmp($fdRaw, 'Formula') !== 0) {
+        $base = mergeFormulaBaseWithDisplayTail($base, $fdRaw);
     }
-    $base = removeTrailingSourcePercentSuffix($raw);
-    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
-    $dbEn = isset($row['enable_source_percent']) ? (int) $row['enable_source_percent'] : 0;
-    return [$base, $dbPct, $dbEn];
+    list($pct, $en) = resolveEffectiveSourcePercentForRow($row);
+    return [$base, $pct, $en];
 }
 
 function buildFormulaDisplayParenFromRow(array $row) {

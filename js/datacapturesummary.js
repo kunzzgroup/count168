@@ -6110,6 +6110,7 @@ function addFormulaValidation() {
                 previousValue = formulaValue;
                 // 即使来自 cell click，也要更新显示框
                 updateFormulaDisplay(formulaValue, processValue);
+                refreshEditFormulaModalDisplayWithSource();
                 return;
             }
 
@@ -6119,6 +6120,7 @@ function addFormulaValidation() {
             // 立即更新显示框：将 formula 中的 $数字 或列引用转换为实际值显示
             // 每次输入时立即更新，不需要等待
             updateFormulaDisplay(formulaValue, processValue);
+            refreshEditFormulaModalDisplayWithSource();
 
             // CRITICAL FIX: 同步更新 data-clicked-cell-refs，只保留 formula 中实际使用的引用
             // 这确保删除数据后，data-clicked-cell-refs 也被正确更新
@@ -6588,6 +6590,7 @@ function addFormulaValidation() {
             const formulaValue = this.value;
             const processValue = document.getElementById('process')?.value;
             updateFormulaDisplay(formulaValue, processValue);
+            refreshEditFormulaModalDisplayWithSource();
 
             // 当按下 Backspace 或 Delete 键后，确保值被正确更新
             if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -7031,12 +7034,45 @@ function addInputMethodChangeListeners() {
 
     if (sourcePercentInput) {
         sourcePercentInput.addEventListener('input', function () {
+            refreshEditFormulaModalDisplayWithSource();
             recalculateProcessedAmountInForm();
         });
     }
 }
 
 // Recalculate processed amount in the form (for preview)
+function refreshEditFormulaModalDisplayWithSource() {
+    const formulaInput = document.getElementById('formula');
+    const sourcePercentInput = document.getElementById('sourcePercent');
+    const formulaDisplayInput = document.getElementById('formulaDisplay');
+    const processInput = document.getElementById('process');
+    if (!formulaInput || !formulaDisplayInput) {
+        return;
+    }
+    const formulaValue = formulaInput.value.trim();
+    const processValue = processInput ? processInput.value.trim() : null;
+    if (!formulaValue) {
+        formulaDisplayInput.value = '';
+        return;
+    }
+    const convertedBase = formulaDisplayInput.value.trim();
+    const sourcePercentValue = sourcePercentInput ? sourcePercentInput.value.trim() : '1';
+    const enableSourcePercent = sourcePercentValue !== '';
+    const rowIdxOverride = typeof getEditFormulaDataCaptureRowIndexOverride === 'function'
+        ? getEditFormulaDataCaptureRowIndexOverride()
+        : null;
+    const clickedRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+    const display = createFormulaDisplayFromExpression(
+        convertedBase || formulaValue,
+        sourcePercentValue,
+        enableSourcePercent,
+        processValue,
+        clickedRefs || undefined,
+        rowIdxOverride
+    );
+    formulaDisplayInput.value = display;
+}
+
 function recalculateProcessedAmountInForm() {
     const sourcePercentInput = document.getElementById('sourcePercent');
     const formulaInput = document.getElementById('formula');
@@ -7172,6 +7208,7 @@ function populateFormWithData(data) {
 
                 if (hasNewFormat) {
                     updateFormulaDisplay(formulaValueToSet || '', processValue);
+                    refreshEditFormulaModalDisplayWithSource();
                 }
 
                 // Restore clicked columns if provided
@@ -7248,6 +7285,7 @@ function populateFormWithData(data) {
                                 // Just update display without conversion
                                 const processValue = document.getElementById('process')?.value;
                                 updateFormulaDisplay(currentFormula, processValue);
+                                refreshEditFormulaModalDisplayWithSource();
                             } else {
                                 // Get current editing row's id_product from the row itself, not from input
                                 // This ensures we get the complete value even if it contains special characters
@@ -7410,6 +7448,10 @@ function populateFormWithData(data) {
 
         // Update formula data grid after form is populated
         updateFormulaDataGrid();
+
+        if (data.formulaDisplay === undefined) {
+            refreshEditFormulaModalDisplayWithSource();
+        }
 
         // Set input method if provided
         if (data.inputMethod) {

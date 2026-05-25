@@ -981,6 +981,39 @@ function buildFormulaWithSourcePercent(rawFormula, rawSourcePercent) {
     return buildFormulaDisplayFromParts(base, rawSourcePercent);
 }
 
+function getMaintenanceFormulaBody(formulaText) {
+    return removeTrailingSourcePercentSuffix(formulaText == null ? '' : String(formulaText).trim());
+}
+
+/** 编辑区 Formula：本体 + Source 展示后缀，与列表列、Data Capture Summary 一致 */
+function syncMaintenanceFormulaDisplayWithSource(formulaInput, sourceInput) {
+    if (!formulaInput || !sourceInput) {
+        return;
+    }
+    const body = getMaintenanceFormulaBody(formulaInput.value);
+    formulaInput.value = buildFormulaDisplayFromParts(body, sourceInput.value.trim());
+}
+
+function bindMaintenanceFormulaSourceSync(formulaInput, sourceInput) {
+    if (!formulaInput || !sourceInput) {
+        return;
+    }
+    sourceInput.oninput = function () {
+        syncMaintenanceFormulaDisplayWithSource(formulaInput, sourceInput);
+    };
+}
+
+function getMaintenanceFormulaDisplayForEdit(rowData) {
+    const source = rowData.source != null && String(rowData.source).trim() !== ''
+        ? String(rowData.source)
+        : '1';
+    const body = rowData.formula_edit || getMaintenanceFormulaBody(rowData.formula || '');
+    if (rowData.formula && String(rowData.formula).trim() !== '') {
+        return String(rowData.formula).trim();
+    }
+    return buildFormulaDisplayFromParts(body, source);
+}
+
 // ==================== 编辑数据捕获行 ====================
 function editDataCaptureRow(rowId, editBtn) {
     const row = editBtn.closest('tr');
@@ -1006,11 +1039,11 @@ function editDataCaptureRow(rowId, editBtn) {
     // 加载 account 列表
     loadAccountList(accountSelect, accountCell.getAttribute('data-original-account-id')).then(() => {
         const rowDataForEdit = JSON.parse(row.getAttribute('data-row-data') || '{}');
-        formulaInput.value = rowDataForEdit.formula_edit || removeTrailingSourcePercentSuffix(rowDataForEdit.formula || '');
         sourceInput.value = rowDataForEdit.source != null && String(rowDataForEdit.source).trim() !== ''
             ? String(rowDataForEdit.source)
             : '1';
-        sourceInput.oninput = null;
+        formulaInput.value = getMaintenanceFormulaDisplayForEdit(rowDataForEdit);
+        bindMaintenanceFormulaSourceSync(formulaInput, sourceInput);
         // 显示输入框/下拉列表，隐藏显示文本
         accountDisplay.style.display = 'none';
         accountSelect.style.display = 'block';
@@ -1127,7 +1160,7 @@ function cancelEditDataCaptureRow(rowId, cancelBtn) {
         : '1';
     sourceInput.oninput = null;
     inputMethodSelect.value = rowData.input_method || '';
-    formulaInput.value = rowData.formula_edit || rowData.formula || '';
+    formulaInput.value = rowData.formula || getMaintenanceFormulaDisplayForEdit(rowData);
     descriptionInput.value = rowData.description || '';
     
     accountDisplay.textContent = toUpperDisplay(rowData.account);
@@ -1199,7 +1232,7 @@ function saveDataCaptureRow(rowId, saveBtn) {
     const sourceRef = sourceCell.getAttribute('data-source-ref') || prevRow.source_ref || '';
     const inputMethodValue = inputMethodSelect.value;
     const inputMethodText = inputMethodSelect.options[inputMethodSelect.selectedIndex]?.text || '';
-    const formulaBody = removeTrailingSourcePercentSuffix(formulaInput.value.trim());
+    const formulaBody = getMaintenanceFormulaBody(formulaInput.value);
     const descriptionValue = descriptionInput.value.trim();
     
     const saveData = {
@@ -1252,7 +1285,7 @@ function saveDataCaptureRow(rowId, saveBtn) {
             inputMethodDisplay.textContent = toUpperDisplay(inputMethodValue);
             formulaDisplay.textContent = toUpperDisplay(disp);
             formulaDisplay.title = disp || '';
-            formulaInput.value = edit;
+            formulaInput.value = disp;
             descriptionDisplay.textContent = toUpperDisplay(descriptionValue);
             
             // 隐藏输入框/下拉列表，显示显示文本
