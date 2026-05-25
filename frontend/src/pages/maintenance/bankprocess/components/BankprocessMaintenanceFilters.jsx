@@ -37,16 +37,14 @@ export default function BankprocessMaintenanceFilters({
   setConfirmDelete,
   selectedIds,
   onDelete,
-  pageTitle,
   m,
 }) {
   const periodPresets = useMemo(() => buildMaintenancePeriodPresets(m), [m]);
 
   return (
     <>
+      {permissions.length > 1 ? (
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">{pageTitle}</h1>
-        {permissions.length > 1 && (
           <div id="bankprocess-permission-filter" className="maintenance-permission-filter-header">
             <span className="maintenance-company-label">{m.category}</span>
             <div id="bankprocess-permission-buttons" className="maintenance-company-buttons">
@@ -62,8 +60,8 @@ export default function BankprocessMaintenanceFilters({
               ))}
             </div>
           </div>
-        )}
       </div>
+      ) : null}
 
       <div className="customer-report-filter-container">
         <div className="customer-report-filters">

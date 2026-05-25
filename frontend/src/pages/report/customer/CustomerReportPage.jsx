@@ -477,7 +477,6 @@ export default function CustomerReportPage() {
     <div className="container">
       <div className="content">
         <div className="report-header">
-          <h1 className="account-page-title">{t("customerReportTitle")}</h1>
         </div>
 
         <CustomerReportFilters

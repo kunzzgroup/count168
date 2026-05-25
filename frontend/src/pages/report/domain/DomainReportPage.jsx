@@ -475,7 +475,6 @@ export default function DomainReportPage() {
     <div className="container">
       <div className="content">
         <div className="report-header">
-          <h1 className="account-page-title">{t("domainReportTitle")}</h1>
         </div>
 
         <DomainReportFilters

@@ -84,11 +84,6 @@ export default function BankprocessMaintenancePage() {
   const searchSeqRef = useRef(0);
   const searchAbortRef = useRef(null);
 
-  const pageTitle = useMemo(
-    () => t("pageTitleBankProcess", { category: selectedPermission || m.bankProcessCategoryFallback }),
-    [t, selectedPermission, m.bankProcessCategoryFallback]
-  );
-
   const notify = useCallback((message, type = "success") => {
     const id = Date.now() + Math.random();
     setToasts((prev) => {
@@ -545,7 +540,6 @@ export default function BankprocessMaintenancePage() {
         setConfirmDelete={setConfirmDelete}
         selectedIds={selectedIds}
         onDelete={onDelete}
-        pageTitle={pageTitle}
         m={m}
       />
 
