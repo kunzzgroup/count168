@@ -9,10 +9,34 @@ function getGridAnchorCell() {
   return firstRow?.children?.[1] || null;
 }
 
-function afterTextPasteFilled(filled, area) {
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderPasteAreaPreviewFromMatrix(area, dataMatrix) {
+  if (!area || !dataMatrix?.length) return;
+  let html = '<table border="1" cellspacing="0" cellpadding="4"><tbody>';
+  dataMatrix.forEach((row) => {
+    html += "<tr>";
+    row.forEach((cell) => {
+      html += `<td>${escapeHtml(cell)}</td>`;
+    });
+    html += "</tr>";
+  });
+  html += "</tbody></table>";
+  area.innerHTML = html;
+}
+
+function afterTextPasteFilled(filled, area, previewMatrix) {
   if (!filled) return false;
   window.__DC_SET_FORMAT_GRID_READY__?.(true);
-  if (area) area.innerHTML = "";
+  if (area && previewMatrix?.length) {
+    renderPasteAreaPreviewFromMatrix(area, previewMatrix);
+  }
   window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
   window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
   return true;
@@ -58,7 +82,7 @@ export function processTextPasteTsv(text, { area = null } = {}) {
   notifyPasteSuccess(
     `成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${cols} 列)，已保持Excel原始格式!`,
   );
-  return afterTextPasteFilled(true, area);
+  return afterTextPasteFilled(true, area, dataMatrix);
 }
 
 /** 1.Text — fill grid from HTML table pasted into the text paste area. */
@@ -67,7 +91,18 @@ export function processTextPasteHtml(html, { area = null } = {}) {
   const anchorCell = getGridAnchorCell();
   if (!anchorCell) return false;
   const filled = parseAndFillHtmlTableForText(html, anchorCell);
-  return afterTextPasteFilled(filled, area);
+  if (!filled) return false;
+  if (area) {
+    try {
+      const temp = document.createElement("div");
+      temp.innerHTML = html;
+      const table = temp.querySelector("table");
+      if (table) area.innerHTML = table.outerHTML;
+    } catch {
+      /* keep grid data even if preview render fails */
+    }
+  }
+  return afterTextPasteFilled(true, area);
 }
 
 /** 1.Text — tab-separated Excel paste (always from column 0). */

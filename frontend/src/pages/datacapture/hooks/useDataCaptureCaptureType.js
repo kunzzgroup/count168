@@ -32,6 +32,8 @@ export function useDataCaptureCaptureType() {
     if (container) {
       if (isCitibetCaptureType(t)) container.classList.add("citibet-mode");
       else container.classList.remove("citibet-mode");
+      if (t === "1.Text") container.classList.add("text-paste-mode");
+      else container.classList.remove("text-paste-mode");
     }
 
     if (t === "1.Text") {

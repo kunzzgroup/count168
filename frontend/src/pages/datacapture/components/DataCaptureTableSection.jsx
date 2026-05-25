@@ -26,7 +26,7 @@ export default function DataCaptureTableSection({
 
   return (
     <div className="bottom-section">
-      <div className={`excel-table-container${citibetMode ? " citibet-mode" : ""}`}>
+      <div className={`excel-table-container${citibetMode ? " citibet-mode" : ""}${captureType === "1.Text" ? " text-paste-mode" : ""}`}>
         <div className="excel-table-header">
           <span>{t("dataCaptureTable")}</span>
           {showFormatPasteHint ? (

@@ -92,25 +92,20 @@ export function toggleTableDisplayForFormat() {
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "1.Text";
 
-  // 1.Text — paste whole table into contenteditable area first, then reveal grid.
+  // 1.Text (PHP 1.GENERAL) — always show paste area; grid stays hidden for submit snapshot only.
   if (captureType === "1.Text") {
-    if (getFormatGridReady()) {
-      if (dataTable) dataTable.style.display = "table";
-      if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
-      if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
-    } else {
-      if (dataTable) dataTable.style.display = "none";
-      if (pasteAreaFormat) {
-        pasteAreaFormat.style.display = "block";
-        pasteAreaFormat.innerHTML = "";
+    if (dataTable) dataTable.style.display = "none";
+    if (pasteAreaFormat) {
+      pasteAreaFormat.style.display = "block";
+      if (!pasteAreaFormat.textContent?.trim()) {
         setTimeout(() => {
           pasteAreaFormat.focus();
         }, 100);
       }
-      if (tablePreviewFormat) {
-        tablePreviewFormat.style.display = "none";
-        tablePreviewFormat.innerHTML = "";
-      }
+    }
+    if (tablePreviewFormat) {
+      tablePreviewFormat.style.display = "none";
+      tablePreviewFormat.innerHTML = "";
     }
   } else {
     // 2.Format (PHP 655) — always use editable grid; formatted paste fills cells directly.
