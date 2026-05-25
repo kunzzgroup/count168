@@ -62,6 +62,8 @@ export default function CustomerReportPage() {
   const toastTimerRef = useRef(null);
   const customerReportSeqRef = useRef(0);
   const customerReportAbortRef = useRef(null);
+  const pageBootOnceRef = useRef(false);
+  const prevCompanyIdRef = useRef(null);
 
   useEffect(() => {
     reportDataRef.current = reportData;
@@ -141,6 +143,8 @@ export default function CustomerReportPage() {
 
   useEffect(() => {
     if (!sessionReady || !me) return;
+    if (pageBootOnceRef.current) return;
+    pageBootOnceRef.current = true;
 
     let cancelled = false;
     setBootLoading(true);
@@ -261,6 +265,18 @@ export default function CustomerReportPage() {
   }, [companyId, selectedCurrencies.length, showAllCurrencies]);
 
   useEffect(() => {
+    if (bootLoading || !companyId) return;
+    const prev = prevCompanyIdRef.current;
+    if (prev != null && Number(prev) !== Number(companyId)) {
+      setAccountId("");
+      setSelectedCurrencies([]);
+      setShowAllCurrencies(false);
+      if (reportDataRef.current != null) setReportSyncing(true);
+    }
+    prevCompanyIdRef.current = companyId;
+  }, [bootLoading, companyId]);
+
+  useEffect(() => {
     if (!bootLoading && companyId) loadMetaData();
   }, [bootLoading, companyId, loadMetaData]);
 
@@ -291,6 +307,7 @@ export default function CustomerReportPage() {
         notify(json.error || t("switchFailed"), "danger");
         return;
       }
+      if (reportDataRef.current != null) setReportSyncing(true);
       setCompanyId(Number(c.id));
       setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
