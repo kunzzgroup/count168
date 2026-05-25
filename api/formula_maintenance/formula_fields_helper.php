@@ -212,7 +212,8 @@ function pickCanonicalFormulaDisplayRaw(array $row) {
 }
 
 /**
- * 去重时优先保留公式更完整的记录（避免 Maintenance 误存的新 id 覆盖 Summary 正确数据）。
+ * 去重时优先保留公式更完整、且 Source 正确的记录。
+ * 避免「带 *0.9 尾段但 source_percent=1」的误存行盖掉 Summary 写入 source=0.1/0.14 的行。
  */
 function scoreTemplateRowForMaintenanceDedup(array $row) {
     list($base, , ) = resolveTemplateFormulaBaseAndPercent($row);
@@ -220,10 +221,18 @@ function scoreTemplateRowForMaintenanceDedup(array $row) {
     if (preg_match('/\*(?:\([^)]+\)|[0-9.]+)\s*$/u', $base)) {
         $score += 100;
     }
+    list($resolvedPct, ) = resolveEffectiveSourcePercentForRow($row);
+    if ($resolvedPct !== '1' && !isLikelyMisplacedCommissionValue($resolvedPct)) {
+        $score += 200;
+    }
     $fd = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
     $ops = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
+    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
     if (recoverMisplacedCommissionFromDisplaySuffix($fd, $ops) !== null) {
         $score -= 200;
+    }
+    if (recoverMisplacedCommissionFromSourcePercent($ops, $dbPct) !== null) {
+        $score -= 150;
     }
     return $score;
 }
@@ -277,8 +286,10 @@ function formulaBaseHasBareMultiplierTail($base) {
 }
 
 function maintenancePeerCoefficientKey(array $row, $coreKey) {
+    $product = isset($row['product']) ? $row['product'] : ($row['id_product'] ?? '');
     return strtolower(trim((string) ($row['process'] ?? ''))) . '|'
-        . strtolower(trim((string) ($row['currency'] ?? ''))) . '|'
+        . strtolower(trim((string) ($row['currency'] ?? ($row['currency_code'] ?? '')))) . '|'
+        . strtolower(trim((string) $product)) . '|'
         . $coreKey;
 }
 
@@ -325,60 +336,48 @@ function collectFormulaMergeCandidates(array $row) {
 }
 
 /**
+ * 从公式文本末尾解析 Source 后缀 *(...)；占成误存 *(0.9) 不算 Source。
+ */
+function parseTrailingSourceSuffixFromText($text, $operatorsBase) {
+    $t = trim((string) $text);
+    if ($t === '' || strcasecmp($t, 'Formula') === 0 || strcasecmp($t, 'Source') === 0) {
+        return null;
+    }
+    if (!preg_match('/\*\s*\(([0-9.+\-*\/()\s]+)\)\s*$/u', $t, $m)) {
+        return null;
+    }
+    if (recoverMisplacedCommissionFromDisplaySuffix($t, $operatorsBase) !== null) {
+        return null;
+    }
+    return formatSourcePercentForMaintenanceList(trim($m[1]));
+}
+
+/**
  * 是否应从 last_source_value 等合并 row 占成（*0.90）。
- * 红股等真实 Source（0.1、0.14）且 formula 末尾已有 *(source) 时，不合并。
+ * 真实 Source（0.1、0.14）行：不合并 lsv，改由同 id_product 同行推断补 *0.90。
  */
 function maintenanceRowShouldMergeRowCoefficientCandidates(array $row) {
-    $opsRaw = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
-    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
-    $fd = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
-
-    if (recoverMisplacedCommissionFromSourcePercent($opsRaw, $dbPct) !== null) {
-        return true;
-    }
-
-    $formatted = formatSourcePercentForMaintenanceList($dbPct);
-    if ($formatted === '' || $formatted === '1') {
-        return true;
-    }
-
-    $num = evaluateMaintenanceNumericFragment($formatted);
-    if ($num === null) {
-        return true;
-    }
-
-    if ($fd !== '' && strcasecmp($fd, 'Formula') !== 0
-        && preg_match('/\*\s*\(([0-9.+\-*\/()\s]+)\)\s*$/u', $fd, $m)) {
-        if (recoverMisplacedCommissionFromDisplaySuffix($fd, $opsRaw) === null) {
-            $suffixNum = evaluateMaintenanceNumericFragment(trim($m[1]));
-            if ($suffixNum !== null && abs($suffixNum - $num) < 0.001) {
-                return false;
-            }
-        }
-    }
-
-    if ($num <= 0.85) {
+    list($resolvedPct, ) = resolveEffectiveSourcePercentForRow($row);
+    if ($resolvedPct !== '1' && !isLikelyMisplacedCommissionValue($resolvedPct)) {
         return false;
     }
 
-    return isLikelyMisplacedCommissionValue($formatted);
+    $opsRaw = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
+    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
+
+    return recoverMisplacedCommissionFromSourcePercent($opsRaw, $dbPct) !== null
+        || formatSourcePercentForMaintenanceList($dbPct) === '1'
+        || $dbPct === '';
 }
 
-/** 列表行是否允许同行 *0.90 推断（Source=0.1/0.14 等真实 Source 不允许） */
+/** 列表行是否允许同行 row 占成推断（仅排除误存 Source=0.9 这类） */
 function maintenanceRowEligibleForPeerRowCoefficient(array $row) {
     $src = isset($row['source']) ? trim((string) $row['source']) : '1';
     $formatted = formatSourcePercentForMaintenanceList($src);
     if ($formatted === '' || $formatted === '1') {
         return true;
     }
-    $num = evaluateMaintenanceNumericFragment($formatted);
-    if ($num === null) {
-        return false;
-    }
-    if ($num <= 0.85) {
-        return false;
-    }
-    return isLikelyMisplacedCommissionValue($formatted);
+    return !isLikelyMisplacedCommissionValue($formatted);
 }
 
 /** 尽可能从 last_source_value / formula_display / 误存 Source 等补全 row 占成尾段 */
@@ -461,26 +460,25 @@ function applyPeerRowCoefficientInferenceToDisplayRows(array &$rows) {
 function resolveEffectiveSourcePercentForRow(array $row) {
     $opsRaw = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
     $fdOriginal = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
+    $lsv = isset($row['last_source_value']) ? trim((string) $row['last_source_value']) : '';
+    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
     $dbEn = isset($row['enable_source_percent']) ? (int) $row['enable_source_percent'] : 0;
 
-    if ($fdOriginal !== '' && strcasecmp($fdOriginal, 'Formula') !== 0) {
-        if (preg_match('/\*\s*\(([0-9.+\-*\/()\s]+)\)\s*$/u', $fdOriginal, $m)) {
-            if (recoverMisplacedCommissionFromDisplaySuffix($fdOriginal, $opsRaw) === null) {
-                return [formatSourcePercentForMaintenanceList(trim($m[1])), $dbEn ?: 1];
-            }
-            return ['1', $dbEn ?: 1];
+    foreach ([$fdOriginal, $lsv] as $candidate) {
+        $parsed = parseTrailingSourceSuffixFromText($candidate, $opsRaw);
+        if ($parsed !== null && $parsed !== '1') {
+            return [$parsed, $dbEn ?: 1];
         }
-        return ['1', $dbEn ?: 1];
     }
 
-    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
     if (recoverMisplacedCommissionFromSourcePercent($opsRaw, $dbPct) !== null) {
         return ['1', $dbEn ?: 1];
     }
     if ($dbPct === '') {
         return ['1', 0];
     }
-    return [formatSourcePercentForMaintenanceList($dbPct), $dbEn];
+    $formatted = formatSourcePercentForMaintenanceList($dbPct);
+    return [$formatted, $dbEn ?: ($formatted !== '1' ? 1 : 0)];
 }
 
 /**
@@ -494,6 +492,8 @@ function resolveTemplateFormulaBaseAndPercent(array $row) {
     $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
     $dbEn = isset($row['enable_source_percent']) ? (int) $row['enable_source_percent'] : 0;
 
+    list($pct, $en) = resolveEffectiveSourcePercentForRow($row);
+
     $misplaced = recoverMisplacedCommissionFromDisplaySuffix($fdOriginal, $opsRaw);
     if ($misplaced === null) {
         $misplaced = recoverMisplacedCommissionFromSourcePercent($opsRaw, $dbPct);
@@ -503,13 +503,14 @@ function resolveTemplateFormulaBaseAndPercent(array $row) {
     if ($base === '' && $fdOriginal !== '' && strcasecmp($fdOriginal, 'Formula') !== 0) {
         $base = removeTrailingSourcePercentSuffix($fdOriginal);
     }
-    $base = mergeFormulaBaseFromAllCandidates($base !== '' ? $base : $opsRaw, $row);
+    if (maintenanceRowShouldMergeRowCoefficientCandidates($row)) {
+        $base = mergeFormulaBaseFromAllCandidates($base !== '' ? $base : $opsRaw, $row);
+    }
 
     if ($misplaced !== null) {
         return [$base, '1', $dbEn ?: 1];
     }
 
-    list($pct, $en) = resolveEffectiveSourcePercentForRow($row);
     return [$base, $pct, $en];
 }
 
