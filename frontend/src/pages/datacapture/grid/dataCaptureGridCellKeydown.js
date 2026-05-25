@@ -58,20 +58,18 @@ export function handleCellKeydown(e) {
     const row = cell.parentNode;
     const table = row.parentNode;
 
-    // 在编辑模式（typing mode）下，2.Format 仍允许 Ctrl+V 走 format 粘贴
-    const hasFocus = document.activeElement === cell;
-    if (hasFocus && (e.ctrlKey || e.metaKey) && key === 'v') {
-        const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "";
-        if (captureType !== "2.Format") {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        return;
-    }
-
     // 处理 Backspace 和 Delete 键
     if (e.key === 'Backspace' || e.key === 'Delete') {
         const hasFocusForDelete = document.activeElement === cell;
+        const isSelected = cell.classList.contains('selected') || getSelectedCells().includes(cell);
+
+        if (e.key === 'Delete' && (isSelected || hasFocusForDelete)) {
+            e.preventDefault();
+            cell.textContent = '';
+            recomputeSubmitState();
+            return;
+        }
+
         const hasContent = cell.textContent.trim() !== '';
 
         // 获取当前光标位置（仅对 Backspace 有效）
@@ -110,13 +108,6 @@ export function handleCellKeydown(e) {
         if (hasFocusForDelete) {
             // Backspace 在文本开头时，或者单元格为空时，清除整个单元格
             if (e.key === 'Backspace' && (cursorAtStart || !hasContent)) {
-                e.preventDefault();
-                cell.textContent = '';
-                recomputeSubmitState();
-                return;
-            }
-            // Delete 键在单元格末尾时，清除整个单元格
-            if (e.key === 'Delete' && !hasContent) {
                 e.preventDefault();
                 cell.textContent = '';
                 recomputeSubmitState();

@@ -84,6 +84,17 @@ export function getFormatPasteAnchorCell() {
   return null;
 }
 
+/** Selected/active grid cell, else first editable cell (row A, col 1). */
+export function getDefaultPasteAnchorCell() {
+  const anchor = getFormatPasteAnchorCell();
+  if (anchor) return anchor;
+
+  const tableBody = document.getElementById("tableBody");
+  const firstRow = tableBody?.children?.[0];
+  const firstCell = firstRow?.querySelector?.('td[contenteditable="true"]');
+  return firstCell || null;
+}
+
 /** Whether a tbody row has any non-empty editable cell. */
 export function rowHasEditableData(rowEl) {
   if (!rowEl) return false;

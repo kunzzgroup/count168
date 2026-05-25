@@ -10,6 +10,7 @@ import {
   resolveFormatPasteStartRow,
 } from "./dataCapturePasteApply.js";
 import { domGridHasEditableData } from "../../lib/dataCaptureTableSnapshot.js";
+import { isGridPasteBlockedTarget } from "./dataCaptureClipboard.js";
 import { showFormatEditableGrid, syncFormatPreviewFromDom } from "../../format/dataCaptureFormat.js";
 import { resolvePasteCell } from "./dataCaptureClipboard.js";
 
@@ -25,11 +26,7 @@ function isFormatMode() {
 }
 
 function isEditableFormField(el) {
-  if (!el) return false;
-  if (el.closest("#dataTable")) return false;
-  if (el.id === "pasteAreaFormat") return false;
-  const tag = (el.tagName || "").toLowerCase();
-  return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable;
+  return isGridPasteBlockedTarget(el);
 }
 
 function markFormatGridReady(ready) {
@@ -137,6 +134,8 @@ export function handleFormatPasteAreaEvent(e) {
 export function handleGlobalFormatPaste(e) {
   if (!isFormatMode()) return;
   if (isEditableFormField(e.target)) return;
+  if (e.target?.closest?.("#dataTable")) return;
+  if (e.defaultPrevented) return;
 
   const clipboard = e.clipboardData || window.clipboardData;
   if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
