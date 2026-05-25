@@ -174,6 +174,8 @@ export const BANK_PROCESS_I18N = {
     billingSchedule: "Billing schedule",
     billingScheduleHint: "These values apply only to this Resend (which month to reopen). They are not saved to the process record; Edit Process keeps its own billing until you click Update Process.",
     resendAction: "Resend",
+    resendLockedPostedToday: "This day start was already posted today. Remove it from Accounting Due or delete the bill in Maintenance to resend.",
+    resendLockChecking: "Checking…",
 
     notePlaceholder: "Enter notes for this process...",
     save: "Save",
@@ -402,6 +404,8 @@ export const BANK_PROCESS_I18N = {
     billingSchedule: "账单计划",
     billingScheduleHint: "这些值仅用于本次重发（决定重开月份），不会保存到流程记录；如需长期生效，请在 Edit Process 里点击 Update Process。",
     resendAction: "重发",
+    resendLockedPostedToday: "该起始日今日已入账。请从待入账删除，或在维护中删除对应账单后再重发。",
+    resendLockChecking: "检查中…",
 
     notePlaceholder: "输入该流程备注...",
     save: "保存",
