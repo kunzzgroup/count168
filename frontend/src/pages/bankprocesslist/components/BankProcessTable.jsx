@@ -104,7 +104,7 @@ export default function BankProcessTable({
 
   const bankColClass = (key) => `bank-col bank-col-${key}`;
 
-  /** <1600px：名称类最多两行（Bank 用 bank-cell-display 固定两行，不在此列） */
+  /** <1700px：名称类最多两行（Bank 用 bank-cell-display 固定两行，不在此列） */
   const bankNameWrapKeys = new Set(["supplier", "owner"]);
   /** <1600px：金额/日期/短码强制单行 */
   const bankSingleLineKeys = new Set([
