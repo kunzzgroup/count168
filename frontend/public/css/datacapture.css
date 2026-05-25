@@ -1364,6 +1364,21 @@ body.datacapture-page .excel-table-container {
     max-height: 100%;
 }
 
+body.datacapture-page .excel-table-container.format-paste-mode {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.datacapture-page .excel-table-container.format-paste-mode .paste-area-format {
+    flex: 1 1 auto;
+    min-height: min(42vh, 360px);
+}
+
+body.datacapture-page .excel-table-container.format-paste-mode #dataTable {
+    display: none !important;
+}
+
 .text-input-format {
     width: 100%;
     height: 100%;

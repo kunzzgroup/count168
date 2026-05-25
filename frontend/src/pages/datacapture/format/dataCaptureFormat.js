@@ -47,6 +47,19 @@ export function clearFormatPreviewHtml() {
   }
 }
 
+export function gridHasEditableData() {
+  const tableBody = document.getElementById("tableBody");
+  if (!tableBody) return false;
+  return Array.from(tableBody.querySelectorAll("td[contenteditable='true']")).some(
+    (cell) => String(cell.textContent || "").trim() !== "",
+  );
+}
+
+export function clearFormatPasteViewState() {
+  clearFormatPreviewHtml();
+  setFormatGridReady(false);
+}
+
 export function clearFormatStyles() {
   const tableBody = document.getElementById("tableBody");
   if (tableBody) {
@@ -90,38 +103,43 @@ export function toggleTableDisplayForFormat() {
   const tablePreviewFormat = document.getElementById("tablePreviewFormat");
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "1.Text";
+  const container = document.querySelector(".excel-table-container");
 
   if (captureType === "2.Format") {
-    let previewHtml = getFormatPreviewHtml();
+    // PHP 655: empty state = paste area; after format paste / restore = editable grid.
+    let showGrid = getFormatGridReady() && gridHasEditableData();
 
-    if (previewHtml && !getFormatGridReady()) {
-      renderFormatPreview(previewHtml);
-      setFormatGridReady(true);
+    if (!showGrid && getFormatPreviewHtml()) {
+      clearFormatPasteViewState();
+      showGrid = false;
     }
 
-    if (getFormatGridReady() || previewHtml) {
+    if (showGrid) {
       if (dataTable) dataTable.style.display = "table";
       if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
       if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
+      container?.classList.remove("format-paste-mode");
     } else {
       if (dataTable) dataTable.style.display = "none";
       if (pasteAreaFormat) {
         pasteAreaFormat.style.display = "block";
-        pasteAreaFormat.innerHTML = "";
-        setTimeout(() => {
-          pasteAreaFormat.focus();
-        }, 100);
+        if (!pasteAreaFormat.textContent?.trim()) {
+          setTimeout(() => {
+            pasteAreaFormat.focus();
+          }, 100);
+        }
       }
       if (tablePreviewFormat) {
         tablePreviewFormat.style.display = "none";
         tablePreviewFormat.innerHTML = "";
       }
+      container?.classList.add("format-paste-mode");
     }
   } else {
-    // 1.Text (PHP 1.GENERAL) — always show editable grid, no paste-area panel.
     if (dataTable) dataTable.style.display = "table";
     if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
     if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
+    container?.classList.remove("format-paste-mode");
   }
 
   window.__DC_ON_FORMAT_GRID_READY__?.(getFormatGridReady());

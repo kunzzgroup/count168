@@ -1,5 +1,10 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { getFormatPreviewHtml } from "../format/dataCaptureFormat.js";
+import {
+  clearFormatPasteViewState,
+  getFormatGridReady,
+  gridHasEditableData,
+  setFormatGridReady as setModuleFormatGridReady,
+} from "../format/dataCaptureFormat.js";
 import {
   isCitibetCaptureType,
   normalizeCaptureType,
@@ -12,10 +17,7 @@ import {
  */
 export function useDataCaptureCaptureType() {
   const [captureType, setCaptureType] = useState(readInitialCaptureType);
-  const [formatGridReady, setFormatGridReady] = useState(() => {
-    if (readInitialCaptureType() !== "2.Format") return false;
-    return Boolean(getFormatPreviewHtml());
-  });
+  const [formatGridReady, setFormatGridReady] = useState(false);
 
   const captureTypeRef = useRef(captureType);
   captureTypeRef.current = captureType;
@@ -25,6 +27,7 @@ export function useDataCaptureCaptureType() {
   const applyCaptureType = useCallback((nextType) => {
     const t = normalizeCaptureType(nextType) || "1.Text";
     const previous = captureTypeRef.current;
+    const restoring = window.__DC_IS_RESTORING__ === true;
 
     setCaptureType(t);
 
@@ -35,25 +38,16 @@ export function useDataCaptureCaptureType() {
     }
 
     if (t === "2.Format") {
-      const previewHtml = getFormatPreviewHtml();
-      const legacyReady =
-        typeof window.__DC_GET_FORMAT_GRID_READY__ === "function"
-          ? window.__DC_GET_FORMAT_GRID_READY__()
-          : false;
-
-      if (previewHtml) {
-        window.__DC_RENDER_FORMAT_PREVIEW__?.(previewHtml);
-        window.__DC_SET_FORMAT_GRID_READY__?.(true);
-        setFormatGridReady(true);
-      } else if (legacyReady) {
-        setFormatGridReady(true);
+      if (!restoring && previous !== "2.Format") {
+        clearFormatPasteViewState();
+        window.__DC_CLEAR_GRID_CELLS__?.();
+      } else if (gridHasEditableData() && getFormatGridReady()) {
+        setModuleFormatGridReady(true);
       } else {
-        window.__DC_SET_FORMAT_GRID_READY__?.(false);
-        setFormatGridReady(false);
+        clearFormatPasteViewState();
       }
     } else {
-      window.__DC_SET_FORMAT_GRID_READY__?.(false);
-      setFormatGridReady(false);
+      setModuleFormatGridReady(false);
       if (previous === "2.Format") {
         window.__DC_CLEAR_FORMAT_STYLES__?.();
       }

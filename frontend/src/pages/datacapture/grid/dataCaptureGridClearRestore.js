@@ -77,6 +77,7 @@ export function clearCaptureTableForReset() {
 
   setFormatGridReady(false);
   clearAllSelections();
+  toggleTableDisplayForFormat();
 }
 
 export async function restoreCaptureTableFromData(tableData, savedType) {
