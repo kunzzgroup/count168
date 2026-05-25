@@ -4,6 +4,7 @@ import {
   getFormatGridReady,
   getFormatPreviewHtml,
   setFormatGridReady,
+  shouldRestoreFormatFromPreview,
   syncFormatPreviewFromDom,
   toggleTableDisplayForFormat,
 } from "../format/dataCaptureFormat.js";
@@ -46,5 +47,6 @@ export function useDataCaptureFormatDisplay() {
 
 function readInitialFormatReady() {
   if (readInitialCaptureType() !== "2.Format") return false;
+  if (!shouldRestoreFormatFromPreview()) return false;
   return Boolean(getFormatPreviewHtml());
 }

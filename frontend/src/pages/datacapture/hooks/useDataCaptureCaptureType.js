@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { getFormatPreviewHtml } from "../format/dataCaptureFormat.js";
+import { getFormatPreviewHtml, shouldRestoreFormatFromPreview } from "../format/dataCaptureFormat.js";
 import {
   isCitibetCaptureType,
   normalizeCaptureType,
@@ -15,6 +15,7 @@ export function useDataCaptureCaptureType() {
   const [captureType, setCaptureType] = useState(readInitialCaptureType);
   const [formatGridReady, setFormatGridReady] = useState(() => {
     if (readInitialCaptureType() !== "2.Format") return false;
+    if (!shouldRestoreFormatFromPreview()) return false;
     return Boolean(getFormatPreviewHtml());
   });
 
@@ -47,7 +48,7 @@ export function useDataCaptureCaptureType() {
         window.__DC_SYNC_FORMAT_PREVIEW_FROM_DOM__?.();
         window.__DC_SET_FORMAT_GRID_READY__?.(true);
         setFormatGridReady(true);
-      } else if (previewHtml) {
+      } else if (previewHtml && shouldRestoreFormatFromPreview()) {
         const filled =
           typeof window.__DC_PARSE_HTML_FORMAT__ === "function"
             ? window.__DC_PARSE_HTML_FORMAT__(previewHtml)

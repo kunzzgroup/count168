@@ -14,6 +14,44 @@ import {
 export const FORMAT_PREVIEW_HTML_KEY = "capturedFormatPreviewHtml";
 export const FORMAT_PREVIEW_HTML_KEY_LEGACY = "captured655PreviewHtml";
 
+/** Preview HTML is session-only; legacy keys lived in localStorage and caused reload residue. */
+const formatPreviewStorage =
+  typeof sessionStorage !== "undefined" ? sessionStorage : null;
+
+export function isHardPageReload() {
+  try {
+    const nav = performance.getEntriesByType?.("navigation")?.[0];
+    return nav?.type === "reload";
+  } catch {
+    return false;
+  }
+}
+
+/** Drop stale preview on hard refresh (not on ?restore=1 Back flow). */
+export function clearStaleFormatPreviewForFreshEntry(shouldRestore = false) {
+  try {
+    localStorage.removeItem(FORMAT_PREVIEW_HTML_KEY);
+    localStorage.removeItem(FORMAT_PREVIEW_HTML_KEY_LEGACY);
+  } catch {
+    /* ignore */
+  }
+  if (shouldRestore) return;
+  if (!isHardPageReload()) return;
+  clearFormatPreviewHtml();
+  setFormatGridReady(false);
+}
+
+/** Whether switching to 2.Format may hydrate the grid from cached preview HTML. */
+export function shouldRestoreFormatFromPreview() {
+  if (window.__DC_IS_RESTORING__) return true;
+  try {
+    if (new URLSearchParams(window.location.search).get("restore") === "1") return true;
+  } catch {
+    /* ignore */
+  }
+  return !isHardPageReload();
+}
+
 /** Whether 2.Format grid has been filled from a paste (legacy `isFormatGridReady`). */
 let formatGridReady = false;
 
@@ -28,9 +66,10 @@ export function setFormatGridReady(value) {
 
 export function getFormatPreviewHtml() {
   try {
+    if (!formatPreviewStorage) return "";
     return (
-      localStorage.getItem(FORMAT_PREVIEW_HTML_KEY) ||
-      localStorage.getItem(FORMAT_PREVIEW_HTML_KEY_LEGACY) ||
+      formatPreviewStorage.getItem(FORMAT_PREVIEW_HTML_KEY) ||
+      formatPreviewStorage.getItem(FORMAT_PREVIEW_HTML_KEY_LEGACY) ||
       ""
     );
   } catch {
@@ -40,7 +79,8 @@ export function getFormatPreviewHtml() {
 
 export function setFormatPreviewHtml(html) {
   try {
-    localStorage.setItem(FORMAT_PREVIEW_HTML_KEY, html ? String(html) : "");
+    if (!formatPreviewStorage) return;
+    formatPreviewStorage.setItem(FORMAT_PREVIEW_HTML_KEY, html ? String(html) : "");
   } catch {
     /* ignore */
   }
@@ -48,6 +88,8 @@ export function setFormatPreviewHtml(html) {
 
 export function clearFormatPreviewHtml() {
   try {
+    formatPreviewStorage?.removeItem(FORMAT_PREVIEW_HTML_KEY);
+    formatPreviewStorage?.removeItem(FORMAT_PREVIEW_HTML_KEY_LEGACY);
     localStorage.removeItem(FORMAT_PREVIEW_HTML_KEY);
     localStorage.removeItem(FORMAT_PREVIEW_HTML_KEY_LEGACY);
   } catch {
@@ -130,7 +172,7 @@ function flushPendingFormatPasteArea() {
 }
 
 function restoreFormatGridFromPreviewHtml(previewHtml) {
-  if (!previewHtml) return false;
+  if (!previewHtml || !shouldRestoreFormatFromPreview()) return false;
 
   if (domGridHasEditableData()) {
     syncFormatPreviewFromDom();
@@ -208,4 +250,14 @@ export function toggleTableDisplayForFormat() {
   }
 
   window.__DC_ON_FORMAT_GRID_READY__?.(getFormatGridReady());
+}
+
+if (typeof window !== "undefined") {
+  try {
+    const shouldRestore =
+      new URLSearchParams(window.location.search).get("restore") === "1";
+    clearStaleFormatPreviewForFreshEntry(shouldRestore);
+  } catch {
+    /* ignore */
+  }
 }
