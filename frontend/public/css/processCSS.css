@@ -2193,8 +2193,28 @@ body.process-page.process-page--bank .bank-cell-display__type {
     display: inline;
 }
 
-/* 视口 < 1600px：表头/数据最多两行换行，完整展示内容 */
-@media (max-width: 1599px) {
+/* 视口 < 1700px：表头/数据最多两行换行，列表区内滚动，分页固定底部 */
+@media (max-width: 1699px) {
+    .process-page.process-page--bank .bank-process-list-body,
+    .process-page.process-page--bank .bank-process-list-scroll-region {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .process-page.process-page--bank .bank-virtual-scroll-clip {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: 100%;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .process-page.process-page--bank .bank-virtual-data-row.process-card {
+        flex-shrink: 0;
+        overflow: hidden;
+        isolation: isolate;
+    }
     .process-page.process-page--bank {
         --bank-list-cell-padding-x: clamp(3px, 0.38vw, 6px);
         --bank-list-cell-padding-y: clamp(4px, 0.38vw, 7px);
@@ -2284,15 +2304,15 @@ body.process-page.process-page--bank .bank-cell-display__type {
         text-align: left;
     }
 
-    /* Bank：<1600px 固定两行（银行名 / 类型），完整展示、不省略 */
+    /* Bank：<1700px 固定两行（银行名 / 类型），行高随内容撑开、不压住下一行 */
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-bank.bank-virtual-cell {
         display: flex !important;
         flex-wrap: nowrap !important;
-        align-self: center !important;
+        align-self: stretch !important;
         align-items: center !important;
         justify-content: flex-start !important;
         white-space: normal !important;
-        overflow: visible !important;
+        overflow: hidden !important;
         text-overflow: clip !important;
     }
 
@@ -2305,7 +2325,7 @@ body.process-page.process-page--bank .bank-cell-display__type {
         min-width: 0;
         min-height: calc(2 * var(--bank-list-cell-line-height, 1.22) * 1em);
         line-height: var(--bank-list-cell-line-height, 1.22);
-        overflow: visible;
+        overflow: hidden;
     }
 
     body.process-page.process-page--bank .bank-cell-display__name,
@@ -2314,8 +2334,8 @@ body.process-page.process-page--bank .bank-cell-display__type {
         width: 100%;
         max-width: 100%;
         white-space: nowrap;
-        overflow: visible;
-        text-overflow: clip;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
