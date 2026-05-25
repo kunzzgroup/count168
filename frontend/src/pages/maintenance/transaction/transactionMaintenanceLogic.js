@@ -326,7 +326,9 @@ async function fetchAllPagesForRange(params, pageSizeIndex, onProgress) {
     }
     if (!result.pagination?.has_more) break;
     const nextCursor = result.pagination?.next_cursor;
-    if (!nextCursor) break;
+    if (!nextCursor) {
+      break;
+    }
     cursor = nextCursor;
     isFirstPage = false;
     loops += 1;
