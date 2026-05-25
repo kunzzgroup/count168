@@ -280,7 +280,8 @@ body.transaction-page .transaction-add-section .tx-add-winlose-heading {
 body.transaction-page .transaction-bottom-filters .user-gc-inline-panel {
     display: grid;
     grid-template-columns: auto 1fr;
-    column-gap: 14px;
+    column-gap: var(--user-gc-inline-column-gap, 4px);
+    row-gap: var(--user-gc-inline-row-gap, 4px);
     align-items: center;
     border-top: none;
     padding: 0 0 4px;
@@ -309,7 +310,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-pills {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     flex: 1 1 0;
     min-width: 0;
 }
@@ -317,7 +318,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-pills {
 body.transaction-page .transaction-bottom-filters .user-gc-inline-pills--segment-scroll {
     flex-wrap: nowrap;
     overflow-x: auto;
-    gap: 0;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     padding-top: 2px;
     padding-bottom: 6px;
     scrollbar-gutter: stable;
@@ -2991,7 +2992,7 @@ body.transaction-page .transaction-header-left {
 .transaction-company-buttons {
     display: inline-flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     align-items: center;
 }
 

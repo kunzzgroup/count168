@@ -435,11 +435,23 @@
         flex-shrink: 0 !important;
     }
 
-    /* Search 框：覆盖全局 max-width: 250px，给 checkbox 腾出空间 */
+    /* Search 框：旧 checkbox 行；勿缩小 bank-process-toolbar-primary 内 userlist 药丸搜索 */
     .process-page.process-page--bank #searchInput,
-    .process-page.process-page--bank .action-controls-row .search-input {
+    .process-page.process-page--bank .action-controls-row:not(.bank-process-toolbar-primary) .search-input {
         width: clamp(100px, 7.5vw, 150px) !important;
         max-width: clamp(100px, 7.5vw, 150px) !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
+        width: clamp(200px, 22vw, 280px) !important;
+        max-width: clamp(200px, 22vw, 280px) !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar .userlist-search-input,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar .userlist-search-input.search-input {
+        width: 100% !important;
+        max-width: none !important;
+        flex: 1 1 auto !important;
     }
 
     /* Games / Bank 顶栏 Add、Delete 与 processCSS 一致，不在此单独缩小 Bank */

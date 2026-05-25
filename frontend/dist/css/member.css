@@ -1251,8 +1251,8 @@ body.lang-zh.member-winloss-page .member-dash-col-filters .member-winloss-gc-pan
 body.member-winloss-page .member-dash-col-filters .user-gc-inline-panel.member-winloss-gc-panel {
     display: grid;
     grid-template-columns: var(--member-winloss-label-w, 5.75rem) minmax(0, 1fr);
-    column-gap: 10px;
-    row-gap: 22px;
+    column-gap: var(--user-gc-inline-column-gap, 4px);
+    row-gap: var(--user-gc-inline-row-gap, 4px);
     /* start：多行 Currency 时标签与首行（All 所在行）顶对齐；勿用 center 否则标签会相对整列垂直居中而偏低 */
     align-items: start;
     /* 勿用 padding:0 覆盖 .member-winloss-gc-panel 的顶内边距，否则 Account 会贴顶部分割线 */
@@ -1268,7 +1268,7 @@ body.member-winloss-page .member-dash-col-filters .user-gc-inline-panel.member-w
 
 /* Account 与 Currency 之间再拉开一些，Currency 整块下移 */
 body.member-winloss-page #member_currency_filter {
-    margin-top: 10px;
+    margin-top: 0;
 }
 
 /* Account / Currency：标签右对齐 + 与选项条统一间距（display:contents 行无法用 row gap） */
@@ -1286,7 +1286,7 @@ body.member-winloss-page #member_account_buttons.member-winloss-account-pills {
     align-self: stretch;
     overflow-x: hidden;
     overflow-y: visible;
-    gap: 6px;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -1303,7 +1303,7 @@ body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills 
     align-self: stretch;
     overflow-x: auto;
     overflow-y: visible;
-    gap: 6px;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     width: 100%;
     max-width: 100%;
     min-width: 0;
