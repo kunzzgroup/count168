@@ -421,6 +421,7 @@ function DataCaptureSummaryPageInner() {
       <SummarySubmitBar
         t={t}
         submitting={pageActions.submitting}
+        refreshing={pageActions.refreshing || dataPopulating}
         onSubmit={pageActions.handleSubmitSummary}
         onBack={pageActions.handleBack}
         onRefresh={pageActions.handleRefresh}

@@ -584,7 +584,28 @@ function getRateValueTextFromCell(rateValueCell) {
 function getRateValueTextFromSummaryRow(row) {
     if (!row) return '';
     const cells = row.querySelectorAll('td');
-    return getRateValueTextFromCell(cells[7]);
+    const fromCell = getRateValueTextFromCell(cells[7]);
+    if (fromCell !== '') return fromCell;
+    const draft = row.getAttribute('data-draft-rate-value');
+    return draft != null ? String(draft).trim() : '';
+}
+
+function readPriorSummaryRateValuesFromStorage() {
+    try {
+        const raw = localStorage.getItem('capturedTableRateValues');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function resolveSummaryRowRateForRefreshSave(row, priorRowData) {
+    const fromDom = getRateValueTextFromSummaryRow(row);
+    if (fromDom !== '') return fromDom;
+    const priorRate = priorRowData && priorRowData.rateValue != null ? String(priorRowData.rateValue).trim() : '';
+    return priorRate;
 }
 
 // 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
@@ -747,6 +768,10 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
 function saveRateValuesForRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
+    const priorSaved = readPriorSummaryRateValuesFromStorage();
+    const priorByStable = priorSaved && priorSaved.byStableKey && typeof priorSaved.byStableKey === 'object' ? priorSaved.byStableKey : null;
+    const priorByRowUid = priorSaved && priorSaved.byRowUid && typeof priorSaved.byRowUid === 'object' ? priorSaved.byRowUid : null;
+    const priorByFp = priorSaved && priorSaved.byRateFingerprint && typeof priorSaved.byRateFingerprint === 'object' ? priorSaved.byRateFingerprint : null;
     const rows = summaryTableBody.querySelectorAll('tr');
     const byStableKey = {};
     const byRowUid = {};
@@ -761,10 +786,43 @@ function saveRateValuesForRefresh() {
         const val = getRateValueTextFromSummaryRow(row);
         const rateFp = typeof getSummaryRowRateFingerprintKey === 'function' ? getSummaryRowRateFingerprintKey(row) : '';
         const rateFpNorm = rateFp && typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(rateFp) : rateFp;
-        if (val !== '' && stableKey) byStableKey[stableKey] = val;
-        if (val !== '' && rowUid) byRowUid[rowUid] = val;
-        if (val !== '' && rateFpNorm) byRateFingerprint[rateFpNorm] = val;
+        const stableKeyBase = typeof getSummaryRowStableKeyBase === 'function' ? getSummaryRowStableKeyBase(row) : '';
+        function assignRate(map, key, nextVal) {
+            if (!key) return;
+            const nextText = nextVal != null ? String(nextVal).trim() : '';
+            const priorText = map[key] != null ? String(map[key]).trim() : '';
+            if (nextText !== '') map[key] = nextText;
+            else if (priorText !== '') map[key] = priorText;
+        }
+        assignRate(byStableKey, stableKey, val);
+        if (stableKeyBase && stableKeyBase !== stableKey) assignRate(byStableKey, stableKeyBase, val);
+        if (rowUid) assignRate(byRowUid, rowUid, val);
+        if (rateFpNorm) assignRate(byRateFingerprint, rateFpNorm, val);
     });
+    if (priorByStable) {
+        Object.keys(priorByStable).forEach(function (k) {
+            if (byStableKey[k] == null || String(byStableKey[k]).trim() === '') {
+                const priorText = String(priorByStable[k]).trim();
+                if (priorText !== '') byStableKey[k] = priorText;
+            }
+        });
+    }
+    if (priorByRowUid) {
+        Object.keys(priorByRowUid).forEach(function (k) {
+            if (byRowUid[k] == null || String(byRowUid[k]).trim() === '') {
+                const priorText = String(priorByRowUid[k]).trim();
+                if (priorText !== '') byRowUid[k] = priorText;
+            }
+        });
+    }
+    if (priorByFp) {
+        Object.keys(priorByFp).forEach(function (k) {
+            if (byRateFingerprint[k] == null || String(byRateFingerprint[k]).trim() === '') {
+                const priorText = String(priorByFp[k]).trim();
+                if (priorText !== '') byRateFingerprint[k] = priorText;
+            }
+        });
+    }
     try {
         localStorage.setItem('capturedTableRateValues', JSON.stringify({
             byStableKey: byStableKey,
@@ -819,19 +877,25 @@ function saveFormulaSourceForRefresh(opts) {
             ? getSavedSummaryRowData(row, priorSaved.rowsByKey, priorSaved.rowsByStableKey, priorSaved.rowsByRowUid)
             : null;
         const rateValue = includeRateValue
-            ? getRateValueTextFromSummaryRow(row)
+            ? resolveSummaryRowRateForRefreshSave(row, priorRowData)
             : (priorRowData && priorRowData.rateValue != null ? String(priorRowData.rateValue) : '');
         const originalDescription = row.getAttribute('data-original-description') || '';
         const existing = byKey[normKey];
         // 若已存在记录且其中公式/来源/Rate 有有效值，而当前行为空，避免用“空值”覆盖已有数据
         const nextFormula = formula || '';
         const nextSource = source || '';
-        const nextRateValue = rateValue || '';
+        const priorRateValue = priorRowData && priorRowData.rateValue != null ? String(priorRowData.rateValue).trim() : '';
+        const nextRateValue = rateValue || priorRateValue || '';
         const nextDescription = originalDescription || '';
         const shouldPreferExisting =
             existing &&
             (existing.formula || existing.source || existing.rateValue) &&
-            !nextFormula && !nextSource && !nextRateValue;
+            !nextFormula && !nextSource && !nextRateValue && !nextDescription;
+        const shouldPreferPrior =
+            !shouldPreferExisting &&
+            priorRowData &&
+            (priorRowData.formula || priorRowData.source || priorRowData.rateValue) &&
+            !nextFormula && !nextSource && !nextRateValue && !nextDescription;
 
         // Prefer data-template-formula-operators (original $notation) over data-formula-operators (resolved display text)
         const templateFormulaOps = (row.getAttribute('data-template-formula-operators') || '').trim();
@@ -846,6 +910,13 @@ function saveFormulaSourceForRefresh(opts) {
         let nextData;
         if (shouldPreferExisting) {
             nextData = existing;
+            nextData.rowUid = rowUid;
+            nextData.accountDbId = accountDbIdRaw || (nextData.accountDbId != null ? String(nextData.accountDbId).trim() : '');
+            nextData.accountDisplay = accountDisplayRaw || (nextData.accountDisplay != null ? String(nextData.accountDisplay).trim() : '');
+            nextData.currencyDbId = currencyDbIdRaw || (nextData.currencyDbId != null ? String(nextData.currencyDbId).trim() : '');
+            nextData.currencyText = currencyTextRaw || (nextData.currencyText != null ? String(nextData.currencyText).trim() : '');
+        } else if (shouldPreferPrior) {
+            nextData = Object.assign({}, priorRowData);
             nextData.rowUid = rowUid;
             nextData.accountDbId = accountDbIdRaw || (nextData.accountDbId != null ? String(nextData.accountDbId).trim() : '');
             nextData.accountDisplay = accountDisplayRaw || (nextData.accountDisplay != null ? String(nextData.accountDisplay).trim() : '');
@@ -888,7 +959,10 @@ function saveFormulaSourceForRefresh(opts) {
         rows.forEach(row => {
             const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
             if (!stableKey) return;
-            const rv = getRateValueTextFromSummaryRow(row);
+            const priorRowData = priorSaved
+                ? getSavedSummaryRowData(row, priorSaved.rowsByKey, priorSaved.rowsByStableKey, priorSaved.rowsByRowUid)
+                : null;
+            const rv = resolveSummaryRowRateForRefreshSave(row, priorRowData);
             rateValuesByKey[stableKey] = rv;
             const stableKeyBase = typeof getSummaryRowStableKeyBase === 'function' ? getSummaryRowStableKeyBase(row) : '';
             if (stableKeyBase && stableKeyBase !== stableKey) rateValuesByKey[stableKeyBase] = rv;
@@ -898,6 +972,19 @@ function saveFormulaSourceForRefresh(opts) {
             const rateFpNorm = rateFp && typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(rateFp) : rateFp;
             if (rateFpNorm) rateValuesByRateFingerprint[rateFpNorm] = rv;
         });
+        if (priorSaved && typeof priorSaved === 'object') {
+            ['rateValuesByKey', 'rateValuesByRowUid', 'rateValuesByRateFingerprint'].forEach(function (bucketKey) {
+                const priorBucket = priorSaved[bucketKey];
+                const targetBucket = bucketKey === 'rateValuesByKey' ? rateValuesByKey
+                    : (bucketKey === 'rateValuesByRowUid' ? rateValuesByRowUid : rateValuesByRateFingerprint);
+                if (!priorBucket || typeof priorBucket !== 'object') return;
+                Object.keys(priorBucket).forEach(function (mapKey) {
+                    const priorText = priorBucket[mapKey] != null ? String(priorBucket[mapKey]).trim() : '';
+                    const currentText = targetBucket[mapKey] != null ? String(targetBucket[mapKey]).trim() : '';
+                    if (priorText !== '' && currentText === '') targetBucket[mapKey] = priorText;
+                });
+            });
+        }
     } else if (priorSaved && typeof priorSaved === 'object') {
         Object.assign(rateValuesByKey, priorSaved.rateValuesByKey || {});
         Object.assign(rateValuesByRowUid, priorSaved.rateValuesByRowUid || {});
@@ -1534,6 +1621,10 @@ function restoreRateValuesFromRefresh() {
 function finalizeSummaryRefreshRestoreAfterReactSync(options) {
     if (window.__summaryFreshFromCapture === true) return;
     const shouldClearCache = !!(options && options.clearCache === true);
+    const refreshGen = options && options.refreshGen != null ? options.refreshGen : null;
+    if (refreshGen != null && window.__summaryRefreshGeneration__ != null && refreshGen !== window.__summaryRefreshGeneration__) {
+        return;
+    }
     try {
         window.restoreFormulaSourceFromRefresh?.();
         window.restoreRateValuesFromRefresh?.();
@@ -1542,11 +1633,26 @@ function finalizeSummaryRefreshRestoreAfterReactSync(options) {
     }
     if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
     if (shouldClearCache && window.__summaryRefreshRestorePendingClear__) {
+        if (refreshGen != null && window.__summaryRefreshGeneration__ != null && refreshGen !== window.__summaryRefreshGeneration__) {
+            return;
+        }
         clearSummaryRefreshRestoreCaches();
         window.__summaryRefreshRestorePendingClear__ = false;
     }
 }
+
+async function awaitSummaryRefreshRestoreAfterReactSync(refreshGen) {
+    if (!window.__SUMMARY_REACT_TABLE__ || window.__summaryFreshFromCapture === true) return;
+    finalizeSummaryRefreshRestoreAfterReactSync({ refreshGen: refreshGen });
+    await new Promise(function (resolve) { window.setTimeout(resolve, 80); });
+    if (refreshGen != null && window.__summaryRefreshGeneration__ != null && refreshGen !== window.__summaryRefreshGeneration__) {
+        return;
+    }
+    finalizeSummaryRefreshRestoreAfterReactSync({ clearCache: true, refreshGen: refreshGen });
+    if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
+}
 window.finalizeSummaryRefreshRestoreAfterReactSync = finalizeSummaryRefreshRestoreAfterReactSync;
+window.awaitSummaryRefreshRestoreAfterReactSync = awaitSummaryRefreshRestoreAfterReactSync;
 
 // Go back to datacapture page, preserving localStorage data
 // 离开前先保存当前 Rate/Formula/行顺序，以便用户再次进入 Summary 时能恢复（不清除缓存）
@@ -1566,6 +1672,7 @@ function goBackToDataCapture() {
 
 // Refresh page: save draft Rate/Formula so they restore after reload (before final Submit).
 function refreshPage() {
+    if (window.__SUMMARY_REFRESH_IN_FLIGHT__ || window.__SUMMARY_POPULATE_IN_FLIGHT__) return;
     saveRateValuesForRefresh();
     saveFormulaSourceForRefresh();
     if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ && typeof window.__SUMMARY_REACT_REFRESH__ === 'function') {

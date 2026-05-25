@@ -17,7 +17,7 @@ const MAX_POPULATE_ATTEMPTS = 4;
 
 let populateInFlight = false;
 
-async function executeSummaryPopulate({ tableData, syncFromDom, onTableVisible }) {
+async function executeSummaryPopulate({ tableData, syncFromDom, onTableVisible, refreshGen = null }) {
   if (!tableData) return false;
 
   if (populateInFlight) {
@@ -37,13 +37,8 @@ async function executeSummaryPopulate({ tableData, syncFromDom, onTableVisible }
     await runSummaryTablePostPopulate(idProducts, { skipPreReadyWait: true });
     syncFromDom?.();
     if (window.__SUMMARY_REACT_TABLE__) {
-      window.finalizeSummaryRefreshRestoreAfterReactSync?.();
+      await window.awaitSummaryRefreshRestoreAfterReactSync?.(refreshGen);
       rebindAllSummaryTableRows();
-      window.setTimeout(() => {
-        window.finalizeSummaryRefreshRestoreAfterReactSync?.({ clearCache: true });
-        rebindAllSummaryTableRows();
-        window.updateProcessedAmountTotal?.();
-      }, 80);
     }
     window.updateHeaderCurrencyFromSummaryTable?.();
     return !summaryTableNeedsTemplatePopulate();
@@ -60,6 +55,7 @@ async function runPopulateAttempts({
   resetToInitialRows,
   fromExplicitReset,
   onTableVisible,
+  refreshGen = null,
 }) {
   const maxAttempts = fromExplicitReset ? 1 : MAX_POPULATE_ATTEMPTS;
 
@@ -75,6 +71,7 @@ async function runPopulateAttempts({
       tableData,
       syncFromDom,
       onTableVisible: attempt === 0 ? onTableVisible : undefined,
+      refreshGen,
     });
     if (populated) return true;
   }
@@ -103,6 +100,7 @@ export function useSummaryTablePopulate({
 
   const runPopulate = useCallback(async (options = {}) => {
     const shouldReset = options?.reset === true;
+    const refreshGen = options?.refreshGen ?? null;
     onPopulatingChange?.(true);
     try {
       if (shouldReset) {
@@ -121,6 +119,7 @@ export function useSummaryTablePopulate({
         resetToInitialRows,
         fromExplicitReset: shouldReset,
         onTableVisible,
+        refreshGen,
       });
       if (!populated) {
         console.warn("Summary template populate incomplete after retries");
