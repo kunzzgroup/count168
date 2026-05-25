@@ -871,7 +871,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .kpi-card-head-label {
     font-size: clamp(13px, 0.95vw, 15px);
-    font-weight: 500;
+    font-weight: 700;
     color: #6b7280;
     font-family: var(--font-heading-page);
     letter-spacing: 0.01em;
@@ -959,10 +959,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .dashboard-kpi-card--expense .kpi-card-head-icon {
     color: #ef4444;
-}
-
-.dashboard-kpi-card--expense .kpi-card-head-label {
-    font-weight: 700;
 }
 
 .dashboard-kpi-card--positive .kpi-card-head-icon {
