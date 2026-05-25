@@ -64,6 +64,18 @@ export default function CustomerReportPage() {
   const customerReportAbortRef = useRef(null);
   const pageBootOnceRef = useRef(false);
   const prevCompanyIdRef = useRef(null);
+  /** Per-company currency filter: { [companyId]: { selectedCurrencies, showAllCurrencies } } */
+  const currencyPrefsByCompanyRef = useRef({});
+  const selectedCurrenciesRef = useRef(selectedCurrencies);
+  const showAllCurrenciesRef = useRef(showAllCurrencies);
+
+  useEffect(() => {
+    selectedCurrenciesRef.current = selectedCurrencies;
+  }, [selectedCurrencies]);
+
+  useEffect(() => {
+    showAllCurrenciesRef.current = showAllCurrencies;
+  }, [showAllCurrencies]);
 
   useEffect(() => {
     reportDataRef.current = reportData;
@@ -243,6 +255,35 @@ export default function CustomerReportPage() {
     }
   }, [companies]);
 
+  const persistCurrencyPrefs = useCallback((compId, currencies, showAll) => {
+    if (!compId) return;
+    currencyPrefsByCompanyRef.current[Number(compId)] = {
+      selectedCurrencies: currencies,
+      showAllCurrencies: showAll,
+    };
+  }, []);
+
+  const applySavedCurrencyPrefs = useCallback((compId, curs) => {
+    const saved = currencyPrefsByCompanyRef.current[Number(compId)];
+    if (!saved) return false;
+    if (saved.showAllCurrencies) {
+      setShowAllCurrencies(true);
+      setSelectedCurrencies([]);
+      return true;
+    }
+    if (saved.selectedCurrencies?.length > 0) {
+      const valid = saved.selectedCurrencies.filter((code) =>
+        curs.some((c) => c.code === code),
+      );
+      if (valid.length > 0) {
+        setSelectedCurrencies(valid);
+        setShowAllCurrencies(false);
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
   const loadMetaData = useCallback(async () => {
     if (!companyId) return;
     try {
@@ -253,28 +294,52 @@ export default function CustomerReportPage() {
       setAccounts(accs);
       setCurrencyList(curs);
 
+      if (applySavedCurrencyPrefs(companyId, curs)) return;
+
       if (curs.length > 0 && selectedCurrencies.length === 0 && !showAllCurrencies) {
         const myr = curs.find(c => c.code === "MYR");
         const def = myr || curs[0];
-        setSelectedCurrencies([def.code]);
+        const codes = [def.code];
+        setSelectedCurrencies(codes);
         setShowAllCurrencies(false);
+        persistCurrencyPrefs(companyId, codes, false);
       }
     } catch (err) {
       console.error("Meta data load error:", err);
     }
-  }, [companyId, selectedCurrencies.length, showAllCurrencies]);
+  }, [
+    companyId,
+    selectedCurrencies.length,
+    showAllCurrencies,
+    applySavedCurrencyPrefs,
+    persistCurrencyPrefs,
+  ]);
 
   useEffect(() => {
     if (bootLoading || !companyId) return;
     const prev = prevCompanyIdRef.current;
     if (prev != null && Number(prev) !== Number(companyId)) {
+      persistCurrencyPrefs(
+        prev,
+        selectedCurrenciesRef.current,
+        showAllCurrenciesRef.current,
+      );
+      const saved = currencyPrefsByCompanyRef.current[Number(companyId)];
+      if (saved?.showAllCurrencies) {
+        setShowAllCurrencies(true);
+        setSelectedCurrencies([]);
+      } else if (saved?.selectedCurrencies?.length) {
+        setSelectedCurrencies([...saved.selectedCurrencies]);
+        setShowAllCurrencies(false);
+      } else {
+        setSelectedCurrencies([]);
+        setShowAllCurrencies(false);
+      }
       setAccountId("");
-      setSelectedCurrencies([]);
-      setShowAllCurrencies(false);
       if (reportDataRef.current != null) setReportSyncing(true);
     }
     prevCompanyIdRef.current = companyId;
-  }, [bootLoading, companyId]);
+  }, [bootLoading, companyId, persistCurrencyPrefs]);
 
   useEffect(() => {
     if (!bootLoading && companyId) loadMetaData();
@@ -345,15 +410,22 @@ export default function CustomerReportPage() {
 
   const toggleCurrency = (code) => {
     setShowAllCurrencies(false);
-    setSelectedCurrencies(prev => {
-      if (prev.includes(code)) return prev.filter(c => c !== code);
-      return [...prev, code];
+    setSelectedCurrencies((prev) => {
+      const next = prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code];
+      persistCurrencyPrefs(companyId, next, false);
+      return next;
     });
   };
 
   const toggleAllCurrencies = () => {
-    setShowAllCurrencies(!showAllCurrencies);
-    if (!showAllCurrencies) setSelectedCurrencies([]);
+    const nextAll = !showAllCurrencies;
+    setShowAllCurrencies(nextAll);
+    if (nextAll) {
+      setSelectedCurrencies([]);
+      persistCurrencyPrefs(companyId, [], true);
+    } else {
+      persistCurrencyPrefs(companyId, selectedCurrenciesRef.current, false);
+    }
   };
 
   if (bootLoading || !me || !cssReady) return <PageContentLoader />;
