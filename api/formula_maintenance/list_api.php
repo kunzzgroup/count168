@@ -214,6 +214,7 @@ function mapRowsToDisplay(array $rows) {
         $row['id'] = (int)$row['id'];
         $data[] = $row;
     }
+    applyPeerRowCoefficientInferenceToDisplayRows($data);
     return $data;
 }
 

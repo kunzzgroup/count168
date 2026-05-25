@@ -119,6 +119,7 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
                 input_method = :input_method,
                 formula_display = :formula_display,
                 formula_operators = :formula_operators,
+                last_source_value = :last_source_value,
                 source_percent = :source_percent,
                 enable_source_percent = :enable_source_percent,
                 description = :description,
@@ -133,6 +134,7 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
             ':input_method' => $inputMethod ?: null,
             ':formula_display' => $formulaDisplay,
             ':formula_operators' => $formulaBase,
+            ':last_source_value' => $formulaBase,
             ':source_percent' => (string) $sourcePercent,
             ':enable_source_percent' => (int) $enableSourcePercent,
             ':description' => $description,
@@ -148,6 +150,7 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
                 input_method = :input_method,
                 formula_display = :formula_display,
                 formula_operators = :formula_operators,
+                last_source_value = :last_source_value,
                 description = :description,
                 updated_at = NOW()
             WHERE id = :id";
@@ -160,6 +163,7 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
         ':input_method' => $inputMethod ?: null,
         ':formula_display' => $formulaDisplay,
         ':formula_operators' => $formulaBase,
+        ':last_source_value' => $formulaBase,
         ':description' => $description,
         ':id' => $templateId
     ]);
@@ -209,6 +213,7 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
             input_method = ?,
             formula_display = ?,
             formula_operators = ?,
+            last_source_value = ?,
             source_percent = ?,
             enable_source_percent = ?,
             description = ?,
@@ -225,6 +230,7 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
             input_method = ?,
             formula_display = ?,
             formula_operators = ?,
+            last_source_value = ?,
             description = ?,
             updated_at = NOW()
         WHERE id = ?
@@ -256,6 +262,7 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
                     $inputMethod ?: null,
                     $formulaDisplay,
                     $formulaBase,
+                    $formulaBase,
                     (string) $sourcePercent,
                     (int) $enableSourcePercent,
                     $description,
@@ -269,6 +276,7 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
                     $sourceDisplay,
                     $inputMethod ?: null,
                     $formulaDisplay,
+                    $formulaBase,
                     $formulaBase,
                     $description,
                     $target['id']

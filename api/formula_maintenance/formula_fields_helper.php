@@ -240,6 +240,142 @@ function mergeFormulaBaseWithDisplayTail($operatorsBase, $formulaDisplay) {
     return $ops . $fdTail;
 }
 
+/** 公式去掉 Source 后缀与末尾 row 占成（*0.90 等）后的核心段，用于同 Process 同行互相推断 */
+function getFormulaCorePrefixKey($base) {
+    $b = removeTrailingSourcePercentSuffix(trim((string) $base));
+    while ($b !== '' && preg_match('/\*(?:\([^)]+\)|[0-9.]+)\s*$/u', $b)) {
+        $b = preg_replace('/\*(?:\([^)]+\)|[0-9.]+)\s*$/u', '', $b);
+        $b = trim($b);
+    }
+    return preg_replace('/\s+/', '', strtolower($b));
+}
+
+/** 提取公式末尾 row 占成尾段（*0.90），不含 Source 后缀 *(0.14) */
+function extractLastBareMultiplierTail($formulaText) {
+    $fd = removeTrailingSourcePercentSuffix(trim((string) $formulaText));
+    if ($fd === '' || !preg_match('/(\*(?:\([^)]+\)|[0-9.]+))\s*$/u', $fd, $m)) {
+        return null;
+    }
+    return trim($m[1]);
+}
+
+function formulaBaseHasBareMultiplierTail($base) {
+    return extractLastBareMultiplierTail($base) !== null;
+}
+
+function maintenancePeerCoefficientKey(array $row, $coreKey) {
+    return strtolower(trim((string) ($row['process'] ?? ''))) . '|'
+        . strtolower(trim((string) ($row['currency'] ?? ''))) . '|'
+        . $coreKey;
+}
+
+/**
+ * 从 DB 各字段收集可用来补 row 系数（*0.90）的候选串。
+ *
+ * @return string[]
+ */
+function collectFormulaMergeCandidates(array $row) {
+    $opsRaw = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
+    $fd = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
+    $lsv = isset($row['last_source_value']) ? trim((string) $row['last_source_value']) : '';
+    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
+
+    $candidates = [];
+    $seen = [];
+    $push = function ($v) use (&$candidates, &$seen) {
+        $v = trim((string) $v);
+        if ($v === '' || strcasecmp($v, 'Formula') === 0 || strcasecmp($v, 'Source') === 0) {
+            return;
+        }
+        $k = preg_replace('/\s+/', '', $v);
+        if (isset($seen[$k])) {
+            return;
+        }
+        $seen[$k] = true;
+        $candidates[] = $v;
+    };
+
+    $push($lsv);
+    $push($fd);
+    $push($opsRaw);
+
+    $misplacedFd = recoverMisplacedCommissionFromDisplaySuffix($fd, $opsRaw);
+    if ($misplacedFd !== null) {
+        $push('*' . formatSourcePercentForMaintenanceList($misplacedFd));
+    }
+    $misplacedSp = recoverMisplacedCommissionFromSourcePercent($opsRaw, $dbPct);
+    if ($misplacedSp !== null) {
+        $push('*' . formatSourcePercentForMaintenanceList($misplacedSp));
+    }
+
+    return $candidates;
+}
+
+/** 尽可能从 last_source_value / formula_display / 误存 Source 等补全 row 占成尾段 */
+function mergeFormulaBaseFromAllCandidates($base, array $row) {
+    $result = removeTrailingSourcePercentSuffix(trim((string) $base));
+    foreach (collectFormulaMergeCandidates($row) as $candidate) {
+        $result = mergeFormulaBaseWithDisplayTail($result, $candidate);
+    }
+    return $result;
+}
+
+/**
+ * 同 Process + Currency 下，若 ELCS 等行已有 *0.90，给缺尾段的 H99166 等同核心公式行补上。
+ */
+function applyPeerRowCoefficientInferenceToDisplayRows(array &$rows) {
+    $tailsByPeerKey = [];
+    foreach ($rows as $row) {
+        $edit = isset($row['formula_edit']) ? trim((string) $row['formula_edit']) : '';
+        if ($edit === '') {
+            continue;
+        }
+        $core = getFormulaCorePrefixKey($edit);
+        if ($core === '') {
+            continue;
+        }
+        $tail = extractLastBareMultiplierTail($edit);
+        if ($tail === null) {
+            continue;
+        }
+        $peerKey = maintenancePeerCoefficientKey($row, $core);
+        $tailsByPeerKey[$peerKey] = $tail;
+    }
+
+    foreach ($rows as &$row) {
+        $edit = isset($row['formula_edit']) ? trim((string) $row['formula_edit']) : '';
+        if ($edit === '' || formulaBaseHasBareMultiplierTail($edit)) {
+            continue;
+        }
+        $core = getFormulaCorePrefixKey($edit);
+        if ($core === '') {
+            continue;
+        }
+        $peerKey = maintenancePeerCoefficientKey($row, $core);
+        if (!isset($tailsByPeerKey[$peerKey])) {
+            continue;
+        }
+        $tail = $tailsByPeerKey[$peerKey];
+        $newBase = mergeFormulaBaseWithDisplayTail($edit, $edit . $tail);
+        $src = isset($row['source']) ? trim((string) $row['source']) : '1';
+        if (recoverMisplacedCommissionFromSourcePercent($edit, $src) !== null) {
+            $src = '1';
+        } else {
+            $tailBare = preg_replace('/^\*/', '', $tail);
+            $tailBare = trim($tailBare, '() ');
+            $tailNum = evaluateMaintenanceNumericFragment($tailBare);
+            $srcNum = evaluateMaintenanceNumericFragment($src);
+            if ($tailNum !== null && $srcNum !== null && abs($tailNum - $srcNum) < 0.001) {
+                $src = '1';
+            }
+        }
+        $row['formula_edit'] = $newBase;
+        $row['source'] = formatSourcePercentForMaintenanceList($src);
+        $row['formula'] = buildFormulaDisplayParenFromParts($newBase, $src, 1);
+    }
+    unset($row);
+}
+
 /**
  * 与 Summary createFormulaDisplayFromExpression 一致：
  * formula_display 末尾有 *(source) 则 Source 为该值；否则 Source 为 1（不展示 *(1)）。
@@ -279,29 +415,22 @@ function resolveEffectiveSourcePercentForRow(array $row) {
 function resolveTemplateFormulaBaseAndPercent(array $row) {
     $opsRaw = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
     $fdOriginal = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
-    $fdRaw = pickCanonicalFormulaDisplayRaw($row);
-    $base = removeTrailingSourcePercentSuffix($opsRaw);
+    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
     $dbEn = isset($row['enable_source_percent']) ? (int) $row['enable_source_percent'] : 0;
 
     $misplaced = recoverMisplacedCommissionFromDisplaySuffix($fdOriginal, $opsRaw);
-    if ($misplaced === null && $fdOriginal === '') {
-        $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
+    if ($misplaced === null) {
         $misplaced = recoverMisplacedCommissionFromSourcePercent($opsRaw, $dbPct);
     }
-    if ($misplaced !== null) {
-        $seed = $base !== '' ? $base : removeTrailingSourcePercentSuffix($opsRaw);
-        if ($fdRaw !== '' && strcasecmp($fdRaw, 'Formula') !== 0) {
-            $base = mergeFormulaBaseWithDisplayTail($seed, $fdRaw);
-        } else {
-            $base = appendBareMultiplierTailIfMissing($seed, $misplaced);
-        }
-        return [$base, '1', $dbEn ?: 1];
-    }
 
-    if ($base === '' && $fdRaw !== '') {
-        $base = removeTrailingSourcePercentSuffix($fdRaw);
-    } elseif ($fdRaw !== '' && strcasecmp($fdRaw, 'Formula') !== 0) {
-        $base = mergeFormulaBaseWithDisplayTail($base, $fdRaw);
+    $base = removeTrailingSourcePercentSuffix($opsRaw);
+    if ($base === '' && $fdOriginal !== '' && strcasecmp($fdOriginal, 'Formula') !== 0) {
+        $base = removeTrailingSourcePercentSuffix($fdOriginal);
+    }
+    $base = mergeFormulaBaseFromAllCandidates($base !== '' ? $base : $opsRaw, $row);
+
+    if ($misplaced !== null) {
+        return [$base, '1', $dbEn ?: 1];
     }
 
     list($pct, $en) = resolveEffectiveSourcePercentForRow($row);
