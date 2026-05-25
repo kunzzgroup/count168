@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { buildColumnAEntries } from "../table/summaryColumnAData.js";
 import {
   runSummaryTablePostPopulate,
+  rebindAllSummaryTableRows,
   showSummarySuccessNotificationIfNeeded,
   summaryTableNeedsTemplatePopulate,
   waitForSummaryPopulateIdle,
@@ -35,6 +36,15 @@ async function executeSummaryPopulate({ tableData, syncFromDom, onTableVisible }
     window.rebuildUsedAccountIds?.();
     await runSummaryTablePostPopulate(idProducts, { skipPreReadyWait: true });
     syncFromDom?.();
+    if (window.__SUMMARY_REACT_TABLE__) {
+      window.finalizeSummaryRefreshRestoreAfterReactSync?.();
+      rebindAllSummaryTableRows();
+      window.setTimeout(() => {
+        window.finalizeSummaryRefreshRestoreAfterReactSync?.({ clearCache: true });
+        rebindAllSummaryTableRows();
+        window.updateProcessedAmountTotal?.();
+      }, 80);
+    }
     window.updateHeaderCurrencyFromSummaryTable?.();
     return !summaryTableNeedsTemplatePopulate();
   } finally {
