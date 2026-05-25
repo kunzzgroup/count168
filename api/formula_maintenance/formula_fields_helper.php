@@ -119,6 +119,15 @@ function evaluateMaintenanceNumericFragment($value) {
     return (float) $valueStr;
 }
 
+/** 占成系数误存为 Source 的典型区间（如 0.9），非真实 Source（0.1、0.14） */
+function isLikelyMisplacedCommissionValue($value) {
+    $num = evaluateMaintenanceNumericFragment($value);
+    if ($num === null) {
+        return false;
+    }
+    return $num > 0.85 && $num < 1;
+}
+
 function appendBareMultiplierTailIfMissing($base, $multiplier) {
     $b = trim((string) $base);
     $mult = trim((string) $multiplier);
@@ -150,7 +159,11 @@ function recoverMisplacedCommissionFromDisplaySuffix($formulaDisplay, $operators
     if (preg_match('/\*(?:\([^)]+\)|[0-9.]+)\s*$/u', $ops)) {
         return null;
     }
-    return trim($m[1]);
+    $suffixVal = trim($m[1]);
+    if (!isLikelyMisplacedCommissionValue($suffixVal)) {
+        return null;
+    }
+    return $suffixVal;
 }
 
 /**
@@ -311,9 +324,69 @@ function collectFormulaMergeCandidates(array $row) {
     return $candidates;
 }
 
+/**
+ * 是否应从 last_source_value 等合并 row 占成（*0.90）。
+ * 红股等真实 Source（0.1、0.14）且 formula 末尾已有 *(source) 时，不合并。
+ */
+function maintenanceRowShouldMergeRowCoefficientCandidates(array $row) {
+    $opsRaw = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
+    $dbPct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
+    $fd = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
+
+    if (recoverMisplacedCommissionFromSourcePercent($opsRaw, $dbPct) !== null) {
+        return true;
+    }
+
+    $formatted = formatSourcePercentForMaintenanceList($dbPct);
+    if ($formatted === '' || $formatted === '1') {
+        return true;
+    }
+
+    $num = evaluateMaintenanceNumericFragment($formatted);
+    if ($num === null) {
+        return true;
+    }
+
+    if ($fd !== '' && strcasecmp($fd, 'Formula') !== 0
+        && preg_match('/\*\s*\(([0-9.+\-*\/()\s]+)\)\s*$/u', $fd, $m)) {
+        if (recoverMisplacedCommissionFromDisplaySuffix($fd, $opsRaw) === null) {
+            $suffixNum = evaluateMaintenanceNumericFragment(trim($m[1]));
+            if ($suffixNum !== null && abs($suffixNum - $num) < 0.001) {
+                return false;
+            }
+        }
+    }
+
+    if ($num <= 0.85) {
+        return false;
+    }
+
+    return isLikelyMisplacedCommissionValue($formatted);
+}
+
+/** 列表行是否允许同行 *0.90 推断（Source=0.1/0.14 等真实 Source 不允许） */
+function maintenanceRowEligibleForPeerRowCoefficient(array $row) {
+    $src = isset($row['source']) ? trim((string) $row['source']) : '1';
+    $formatted = formatSourcePercentForMaintenanceList($src);
+    if ($formatted === '' || $formatted === '1') {
+        return true;
+    }
+    $num = evaluateMaintenanceNumericFragment($formatted);
+    if ($num === null) {
+        return false;
+    }
+    if ($num <= 0.85) {
+        return false;
+    }
+    return isLikelyMisplacedCommissionValue($formatted);
+}
+
 /** 尽可能从 last_source_value / formula_display / 误存 Source 等补全 row 占成尾段 */
 function mergeFormulaBaseFromAllCandidates($base, array $row) {
     $result = removeTrailingSourcePercentSuffix(trim((string) $base));
+    if (!maintenanceRowShouldMergeRowCoefficientCandidates($row)) {
+        return $result;
+    }
     foreach (collectFormulaMergeCandidates($row) as $candidate) {
         $result = mergeFormulaBaseWithDisplayTail($result, $candidate);
     }
@@ -343,6 +416,9 @@ function applyPeerRowCoefficientInferenceToDisplayRows(array &$rows) {
     }
 
     foreach ($rows as &$row) {
+        if (!maintenanceRowEligibleForPeerRowCoefficient($row)) {
+            continue;
+        }
         $edit = isset($row['formula_edit']) ? trim((string) $row['formula_edit']) : '';
         if ($edit === '' || formulaBaseHasBareMultiplierTail($edit)) {
             continue;
