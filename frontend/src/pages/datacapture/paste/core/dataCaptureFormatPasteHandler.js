@@ -2,7 +2,6 @@ import { parseAndFillHtmlTableForFormat } from "./dataCaptureFormatHtmlPaste.js"
 import {
   buildFormatPreviewFragmentFromClipboardHtml,
   clipboardLooksLikeTable,
-  renderFormatPreview,
   sanitizePastedHTML,
   tsvToHtmlTable,
 } from "./dataCaptureFormatPreview.js";
@@ -11,7 +10,7 @@ import {
   resolveFormatPasteStartRow,
 } from "./dataCapturePasteApply.js";
 import { domGridHasEditableData } from "../../lib/dataCaptureTableSnapshot.js";
-import { getFormatGridReady, syncFormatPreviewFromDom } from "../../format/dataCaptureFormat.js";
+import { showFormatEditableGrid, syncFormatPreviewFromDom } from "../../format/dataCaptureFormat.js";
 import { resolvePasteCell } from "./dataCaptureClipboard.js";
 
 function getCaptureType() {
@@ -33,21 +32,6 @@ function isEditableFormField(el) {
   return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable;
 }
 
-function placeCaretAtEnd(el) {
-  try {
-    el.focus();
-    const selection = window.getSelection?.();
-    if (!selection) return;
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    range.collapse(false);
-    selection.removeAllRanges();
-    selection.addRange(range);
-  } catch {
-    /* ignore */
-  }
-}
-
 function markFormatGridReady(ready) {
   window.__DC_SET_FORMAT_GRID_READY__?.(ready);
 }
@@ -57,6 +41,7 @@ function afterFormatPasteFilled(filled, area) {
   markFormatGridReady(true);
   syncFormatPreviewFromDom();
   if (area) area.innerHTML = "";
+  showFormatEditableGrid();
   window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
   window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
   return true;
@@ -67,15 +52,11 @@ export function processFormatTableHtml(html, { area = null, startRow = null, anc
   if (!html) return false;
   const resolvedStartRow =
     startRow != null ? startRow : resolveFormatPasteStartRow(anchorCell || getFormatPasteAnchorCell());
-  const isAppend = resolvedStartRow > 0;
 
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(html);
   const sanitized = sanitizePastedHTML(html);
   if (!previewFragment && !sanitized) return false;
 
-  if (!isAppend) {
-    renderFormatPreview(previewFragment || sanitized);
-  }
   const filled = parseAndFillHtmlTableForFormat(sanitized || previewFragment, {
     startRow: resolvedStartRow,
   });
@@ -169,18 +150,7 @@ export function handleGlobalFormatPaste(e) {
   const startRow = appendMode ? resolveFormatPasteStartRow(anchorCell) : 0;
 
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
-  const dataTable = document.getElementById("dataTable");
-
-  if (appendMode) {
-    if (dataTable) dataTable.style.display = "table";
-    if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
-  } else {
-    if (dataTable) dataTable.style.display = "none";
-    if (pasteAreaFormat) {
-      pasteAreaFormat.style.display = "block";
-      placeCaretAtEnd(pasteAreaFormat);
-    }
-  }
+  showFormatEditableGrid();
 
   const { html, text } = readClipboard(clipboard);
 

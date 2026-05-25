@@ -48,23 +48,16 @@ export function useDataCaptureCaptureType() {
         window.__DC_SET_FORMAT_GRID_READY__?.(true);
         setFormatGridReady(true);
       } else if (previewHtml) {
-        if (legacyReady) {
-          window.__DC_RENDER_FORMAT_PREVIEW__?.(previewHtml);
+        const filled =
+          typeof window.__DC_PARSE_HTML_FORMAT__ === "function"
+            ? window.__DC_PARSE_HTML_FORMAT__(previewHtml)
+            : false;
+        if (filled || legacyReady) {
           window.__DC_SET_FORMAT_GRID_READY__?.(true);
           setFormatGridReady(true);
         } else {
-          const filled =
-            typeof window.__DC_PARSE_HTML_FORMAT__ === "function"
-              ? window.__DC_PARSE_HTML_FORMAT__(previewHtml)
-              : false;
-          if (filled) {
-            window.__DC_RENDER_FORMAT_PREVIEW__?.(previewHtml);
-            window.__DC_SET_FORMAT_GRID_READY__?.(true);
-            setFormatGridReady(true);
-          } else {
-            window.__DC_SET_FORMAT_GRID_READY__?.(false);
-            setFormatGridReady(false);
-          }
+          window.__DC_SET_FORMAT_GRID_READY__?.(false);
+          setFormatGridReady(false);
         }
       } else if (legacyReady) {
         setFormatGridReady(true);
