@@ -167,6 +167,16 @@ export default function TransactionMaintenanceTable({
     rowVirtualizer.measure();
   }, [rows, rowVirtualizer]);
 
+  const vItems = rowVirtualizer.getVirtualItems();
+  const totalH = rowVirtualizer.getTotalSize();
+  const { displayTotalH } = useProgressiveScrollExtent({
+    scrollRef,
+    actualTotalH: totalH,
+    rowCount: rows.length,
+    rowHeightEstimate: ROW_HEIGHT,
+    resetDeps: [rows],
+  });
+
   if (rows.length === 0 && (showSkeleton || statusMessage)) {
     const label = statusMessage || m.loading;
     return (
@@ -192,15 +202,6 @@ export default function TransactionMaintenanceTable({
     );
   }
 
-  const vItems = rowVirtualizer.getVirtualItems();
-  const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH } = useProgressiveScrollExtent({
-    scrollRef,
-    actualTotalH: totalH,
-    rowCount: rows.length,
-    rowHeightEstimate: ROW_HEIGHT,
-    resetDeps: [rows],
-  });
   const showBlueBar = showSkeleton || Boolean(isPlaceholderData);
 
   return (
