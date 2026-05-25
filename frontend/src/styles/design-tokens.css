@@ -26,7 +26,18 @@
   --sidebar-menu-text: #ffffff;
 
   /* 基础侧边栏布局 */
-  --sidebar-lock-width: clamp(160px, 12.98vw, 235px);
+  --sidebar-icon-gap: clamp(0.55rem, 0.5rem + 0.08vw, 0.75rem);
+  /* 菜单文字区：以 “Transaction Payment” 为基准，右侧留 trailing gap */
+  --sidebar-menu-text-track: clamp(6.75rem, 6.35rem + 0.35vw, 8.05rem);
+  --sidebar-menu-trailing-gap: clamp(0.4rem, 0.38rem + 0.06vw, 0.55rem);
+  --sidebar-menu-arrow-gap: 0.12rem;
+  --sidebar-lock-width: calc(
+    (var(--sidebar-menu-pad-x) * 2)
+    + var(--sidebar-icon-size)
+    + var(--sidebar-icon-gap)
+    + var(--sidebar-menu-text-track)
+    + var(--sidebar-menu-trailing-gap)
+  );
   --sidebar-logo-height: clamp(2.8rem, 2.67rem + 0.2vw, 3.6rem);
   --sidebar-avatar-lock: clamp(3.2rem, 4.09rem + 0.18vw, 4rem);
 
@@ -45,7 +56,7 @@
 
   /* 菜单内边距 (Padding) */  
   --sidebar-menu-pad-y: clamp(0.95rem, 0.92rem + 0.05vw, 1.2rem);
-  --sidebar-menu-pad-x: clamp(1.3rem, 1.25rem + 0.08vw, 1.6rem);
+  --sidebar-menu-pad-x: clamp(0.7rem, 0.68rem + 0.06vw, 0.95rem);
   --sidebar-submenu-pad-y: clamp(0.6rem, 0.57rem + 0.05vw, 0.8rem);
 
   /* 头部内边距 (Header Padding) */
@@ -401,7 +412,7 @@
   }
 
   body.ec-auth-shell {
-    --layout-sidebar-width: 16.5rem;
+    --layout-sidebar-width: var(--sidebar-lock-width);
     --layout-main-gap: 1.2rem;
     --layout-main-offset: calc(var(--layout-sidebar-width) + var(--layout-main-gap));
   }

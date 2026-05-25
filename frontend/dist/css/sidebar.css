@@ -362,7 +362,7 @@
 }
 
 .informationmenu-header {
-    padding: 10px 6px 8px;
+    padding: 10px 10px 8px;
     border-bottom: 0px solid rgba(255, 255, 255, 0.1);
     display: flex;
     flex-direction: column;
@@ -578,12 +578,14 @@
 }
 
 .informationmenu-section-title {
-    padding: 10px 8px;
+    padding: var(--sidebar-menu-pad-y, 0.95rem) var(--sidebar-menu-pad-x, 0.85rem);
     font-size: 16px;
     font-weight: 600;
     color: white;
     cursor: pointer;
-    display: flex;
+    display: grid;
+    grid-template-columns: var(--sidebar-icon-size, 18px) minmax(0, 1fr);
+    column-gap: var(--sidebar-icon-gap, 0.65rem);
     align-items: center;
     justify-content: flex-start;
     transition: all 0.3s ease;
@@ -591,9 +593,16 @@
     margin: 0;
     position: relative;
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    white-space: normal;
+    text-overflow: clip;
     min-width: 0;
+}
+
+.informationmenu-section-title:has(.section-arrow) {
+    grid-template-columns:
+        var(--sidebar-icon-size, 18px)
+        var(--sidebar-menu-text-track, 8rem)
+        auto;
 }
 
 .informationmenu-section-title::before {
@@ -660,19 +669,17 @@
 }
 
 .section-arrow {
+    grid-column: 3;
     font-size: 10px;
     transition: transform 0.3s ease;
-    margin-left: 4px;
+    margin-left: var(--sidebar-menu-arrow-gap, 0.12rem);
     flex-shrink: 0;
+    align-self: center;
     color: rgba(255, 255, 255, 0.8);
 }
 
-.informationmenu-section-title:has(.section-arrow) .sidebar-menu-label {
-    flex: 0 1 auto;
-}
-
 .informationmenu-section--transaction-payment {
-    margin-bottom: 0.45rem;
+    margin-bottom: 0.35rem;
 }
 
 .account-arrow {
@@ -693,9 +700,10 @@
 }
 
 .section-icon {
-    width: 18px;
-    height: 18px;
-    margin-right: 8px;
+    grid-column: 1;
+    width: var(--sidebar-icon-size, 18px);
+    height: var(--sidebar-icon-size, 18px);
+    margin-right: 0;
     vertical-align: middle;
     flex-shrink: 0;
     object-fit: contain;
@@ -862,7 +870,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 18px 12px;
+    padding: 25px;
     border-top: none;
     background: rgba(255, 255, 255, 0);
     margin-top: auto;
@@ -1403,7 +1411,7 @@ body.ec-auth-shell .informationmenu .sidebar-lang-option {
 body.ec-auth-shell .informationmenu .section-icon {
     width: var(--sidebar-icon-size, 1.8rem) !important;
     height: var(--sidebar-icon-size, 1.8rem) !important;
-    margin-right: 0.75rem !important;
+    margin-right: 0 !important;
 }
 
 body.ec-auth-shell .informationmenu .informationmenu-section-title {
@@ -1464,16 +1472,16 @@ body.ec-auth-shell .informationmenu .submenu-item {
     body.ec-auth-shell .informationmenu .section-icon {
         width: 1.6rem !important;
         height: 1.6rem !important;
-        margin-right: 0.8rem !important;
+        margin-right: 0 !important;
     }
 
     body.ec-auth-shell .informationmenu .informationmenu-section-title {
-        padding: 1rem 0.8rem !important;
+        padding: 1rem 1.2rem !important;
         font-size: 1.4rem !important;
     }
 
     body.ec-auth-shell .informationmenu .informationmenu-item {
-        padding: 0.6rem 0.8rem !important;
+        padding: 0.6rem 1.2rem !important;
         font-size: 1.1rem !important;
     }
 
@@ -1567,8 +1575,17 @@ body.ec-auth-shell .informationmenu .submenu-item {
 }
 
 .sidebar-menu-label {
-    flex: 1;
+    grid-column: 2;
+    flex: unset;
     min-width: 0;
+    max-width: var(--sidebar-menu-text-track, 8rem);
+    line-height: 1.25;
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+.informationmenu-section-title:has(.section-arrow) .sidebar-menu-label {
+    max-width: none;
 }
 
 @media (max-width: 1280px) {
@@ -1619,7 +1636,7 @@ body.ec-auth-shell .informationmenu .submenu-item {
 
     body.ec-auth-shell .informationmenu:not(.is-collapsed) .informationmenu-section-title {
         font-size: 1.25rem !important;
-        padding: 0.85rem 0.7rem !important;
+        padding: 0.85rem 1rem !important;
         white-space: normal !important;
         text-overflow: clip !important;
         overflow: visible !important;
@@ -1684,6 +1701,8 @@ body.ec-auth-shell .informationmenu .submenu-item {
     }
 
     .informationmenu.is-collapsed .informationmenu-section-title {
+        display: flex;
+        grid-template-columns: unset;
         justify-content: center;
         padding: 10px 0;
         border-radius: 12px;
