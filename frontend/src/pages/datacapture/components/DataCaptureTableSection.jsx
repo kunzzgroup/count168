@@ -22,7 +22,7 @@ export default function DataCaptureTableSection({
   onSubmit,
   onReset,
 }) {
-  const showFormatPasteHint = captureType === "2.Format" && !formatGridReady;
+  const showFormatPasteHint = captureType === "1.Text" && !formatGridReady;
 
   return (
     <div className="bottom-section">

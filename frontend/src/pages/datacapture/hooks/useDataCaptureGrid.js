@@ -64,7 +64,7 @@ export function useDataCaptureGrid(scriptsReady) {
           typeof window.__DC_GET_FORMAT_GRID_READY__ === "function"
             ? window.__DC_GET_FORMAT_GRID_READY__()
             : false;
-        if (captureType !== "2.Format" || formatReady) {
+        if (captureType !== "1.Text" || formatReady) {
           dataTable.style.display = "table";
         }
       }

@@ -12,9 +12,10 @@ import {
   processFormatTableHtml,
   processFormatTsv,
 } from "../paste/core/dataCaptureFormatPasteHandler.js";
+import { processTextPasteHtml, processTextPasteTsv } from "../paste/core/dataCaptureTextPaste.js";
 
 /**
- * Phase 4c: 2.Format paste area + global table-paste intercept in React.
+ * Phase 4c: 1.Text paste area + 2.Format grid paste bridges in React.
  */
 export function useDataCaptureFormatPaste() {
   useLayoutEffect(() => {
@@ -24,6 +25,8 @@ export function useDataCaptureFormatPaste() {
     window.__DC_SANITIZE_PASTED_HTML__ = sanitizePastedHTML;
     window.__DC_PROCESS_FORMAT_HTML__ = processFormatTableHtml;
     window.__DC_PROCESS_FORMAT_TSV__ = processFormatTsv;
+    window.__DC_PROCESS_TEXT_PASTE_HTML__ = processTextPasteHtml;
+    window.__DC_PROCESS_TEXT_PASTE_TSV__ = processTextPasteTsv;
     window.__DC_HANDLE_FORMAT_CLIPBOARD__ = handleFormatPasteFromClipboard;
     window.__DC_INIT_FORMAT_PASTE__ = () => {};
 
@@ -33,6 +36,8 @@ export function useDataCaptureFormatPaste() {
       delete window.__DC_SANITIZE_PASTED_HTML__;
       delete window.__DC_PROCESS_FORMAT_HTML__;
       delete window.__DC_PROCESS_FORMAT_TSV__;
+      delete window.__DC_PROCESS_TEXT_PASTE_HTML__;
+      delete window.__DC_PROCESS_TEXT_PASTE_TSV__;
       delete window.__DC_HANDLE_FORMAT_CLIPBOARD__;
       delete window.__DC_INIT_FORMAT_PASTE__;
     };

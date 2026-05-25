@@ -13,7 +13,7 @@ import {
 export function useDataCaptureCaptureType() {
   const [captureType, setCaptureType] = useState(readInitialCaptureType);
   const [formatGridReady, setFormatGridReady] = useState(() => {
-    if (readInitialCaptureType() !== "2.Format") return false;
+    if (readInitialCaptureType() !== "1.Text") return false;
     return Boolean(getFormatPreviewHtml());
   });
 
@@ -34,7 +34,7 @@ export function useDataCaptureCaptureType() {
       else container.classList.remove("citibet-mode");
     }
 
-    if (t === "2.Format") {
+    if (t === "1.Text") {
       const previewHtml = getFormatPreviewHtml();
       const legacyReady =
         typeof window.__DC_GET_FORMAT_GRID_READY__ === "function"
@@ -54,8 +54,16 @@ export function useDataCaptureCaptureType() {
     } else {
       window.__DC_SET_FORMAT_GRID_READY__?.(false);
       setFormatGridReady(false);
-      if (previous === "2.Format") {
+      if (previous === "1.Text") {
         window.__DC_CLEAR_FORMAT_STYLES__?.();
+      }
+      if (t === "2.Format") {
+        const previewHtml = getFormatPreviewHtml();
+        if (previewHtml) {
+          window.__DC_RENDER_FORMAT_PREVIEW__?.(previewHtml);
+          window.__DC_SET_FORMAT_GRID_READY__?.(true);
+          setFormatGridReady(true);
+        }
       }
     }
 

@@ -71,7 +71,7 @@ export function clearCaptureTableForReset() {
   renderFormatPreview("");
 
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "1.Text";
-  if (captureType === "2.Format") {
+  if (captureType === "1.Text") {
     clearFormatPreviewHtml();
   }
 
@@ -177,7 +177,12 @@ export async function restoreCaptureTableFromData(tableData, savedType) {
   }
 
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || type;
-  if (captureType === "2.Format") {
+  if (captureType === "1.Text") {
+    setTimeout(() => {
+      toggleTableDisplayForFormat();
+    }, 100);
+  } else if (captureType === "2.Format") {
+    setFormatGridReady(true);
     setTimeout(() => {
       toggleTableDisplayForFormat();
     }, 100);

@@ -14,6 +14,10 @@ function getCaptureType() {
   return "1.Text";
 }
 
+function isTextPasteAreaMode() {
+  return getCaptureType() === "1.Text";
+}
+
 function isFormatMode() {
   return getCaptureType() === "2.Format";
 }
@@ -86,9 +90,9 @@ function readClipboard(clipboard) {
   };
 }
 
-/** Paste handler for #pasteAreaFormat (direct paste into format area). */
+/** Paste handler for #pasteAreaFormat when 1.Text is active. */
 export function handleFormatPasteAreaEvent(e) {
-  if (!isFormatMode()) return;
+  if (!isTextPasteAreaMode()) return;
 
   const clipboard = e.clipboardData || window.clipboardData;
   const { html, text } = readClipboard(clipboard);
@@ -97,21 +101,21 @@ export function handleFormatPasteAreaEvent(e) {
   if (html && /<table\b/i.test(html)) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTableHtml(html, { area });
+    window.__DC_PROCESS_TEXT_PASTE_HTML__?.(html, { area });
     return;
   }
 
   if (text && /<table\b/i.test(text)) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTableHtml(text, { area });
+    window.__DC_PROCESS_TEXT_PASTE_HTML__?.(text, { area });
     return;
   }
 
   if (text && text.includes("\t")) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTsv(text, { area });
+    window.__DC_PROCESS_TEXT_PASTE_TSV__?.(text, { area });
     return;
   }
 
@@ -119,7 +123,7 @@ export function handleFormatPasteAreaEvent(e) {
     try {
       const pastedHTML = area?.innerHTML || "";
       if (pastedHTML && /<table\b/i.test(pastedHTML)) {
-        processFormatTableHtml(pastedHTML, { area });
+        window.__DC_PROCESS_TEXT_PASTE_HTML__?.(pastedHTML, { area });
       }
     } catch {
       /* ignore */
@@ -128,15 +132,32 @@ export function handleFormatPasteAreaEvent(e) {
 }
 
 /**
- * Global bubble-phase intercept: route table paste to format pipeline
- * instead of letting <table> land elsewhere on the page.
+ * Global bubble-phase intercept: route table paste to the active capture pipeline.
  */
 export function handleGlobalFormatPaste(e) {
-  if (!isFormatMode()) return;
   if (isEditableFormField(e.target)) return;
 
   const clipboard = e.clipboardData || window.clipboardData;
   if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
+
+  if (isFormatMode()) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const { html, text } = readClipboard(clipboard);
+
+    if (html && /<table\b/i.test(html)) {
+      processFormatTableHtml(html);
+      return;
+    }
+
+    if (text && text.includes("\t")) {
+      processFormatTsv(text);
+    }
+    return;
+  }
+
+  if (!isTextPasteAreaMode()) return;
 
   e.preventDefault();
   e.stopPropagation();
@@ -152,12 +173,12 @@ export function handleGlobalFormatPaste(e) {
   const { html, text } = readClipboard(clipboard);
 
   if (html && /<table\b/i.test(html)) {
-    processFormatTableHtml(html, { area: pasteAreaFormat });
+    window.__DC_PROCESS_TEXT_PASTE_HTML__?.(html, { area: pasteAreaFormat });
     return;
   }
 
   if (text && text.includes("\t")) {
-    processFormatTsv(text, { area: pasteAreaFormat });
+    window.__DC_PROCESS_TEXT_PASTE_TSV__?.(text, { area: pasteAreaFormat });
   }
 }
 

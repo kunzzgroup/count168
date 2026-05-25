@@ -69,6 +69,13 @@ export function validateDataCaptureForm({
   if (isCitibetCaptureType(captureType) && !tableSnapshotHasData(tableData)) {
     return { ok: false, message: "Please enter data in the table" };
   }
+  const normalizedType = normalizeCaptureType(captureType);
+  if (
+    (normalizedType === "1.Text" || normalizedType === "2.Format") &&
+    !tableSnapshotHasData(tableData)
+  ) {
+    return { ok: false, message: "Please enter data in the table" };
+  }
   return { ok: true };
 }
 

@@ -1,5 +1,6 @@
 /**
  * 2.Format — preview storage, grid-ready flag, table visibility + style cleanup.
+ * Note: formatGridReady tracks 1.Text paste-area completion (legacy name retained).
  */
 import { renderFormatPreview } from "../paste/core/dataCaptureFormatPreview.js";
 
@@ -91,15 +92,9 @@ export function toggleTableDisplayForFormat() {
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "1.Text";
 
-  if (captureType === "2.Format") {
-    let previewHtml = getFormatPreviewHtml();
-
-    if (previewHtml && !getFormatGridReady()) {
-      renderFormatPreview(previewHtml);
-      setFormatGridReady(true);
-    }
-
-    if (getFormatGridReady() || previewHtml) {
+  // 1.Text — paste whole table into contenteditable area first, then reveal grid.
+  if (captureType === "1.Text") {
+    if (getFormatGridReady()) {
       if (dataTable) dataTable.style.display = "table";
       if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
       if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
@@ -118,6 +113,12 @@ export function toggleTableDisplayForFormat() {
       }
     }
   } else {
+    // 2.Format (PHP 655) — always use editable grid; formatted paste fills cells directly.
+    let previewHtml = getFormatPreviewHtml();
+    if (captureType === "2.Format" && previewHtml && !getFormatGridReady()) {
+      renderFormatPreview(previewHtml);
+      setFormatGridReady(true);
+    }
     if (dataTable) dataTable.style.display = "table";
     if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
     if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
