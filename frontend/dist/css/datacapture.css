@@ -877,7 +877,17 @@ body.datacapture-page .bottom-section .form-actions {
     padding-top: 0;
     border-top: none;
     justify-content: center !important;
+    align-items: center;
+    flex-direction: column;
     width: 100%;
+}
+
+.dc-submit-block-hint {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: #b45309;
+    text-align: center;
+    max-width: 420px;
 }
 
 .input-with-icon {
@@ -1373,19 +1383,17 @@ body.datacapture-page .excel-table-container.format-paste-mode {
 body.datacapture-page .excel-table-container.format-paste-mode .paste-area-format {
     flex: 1 1 auto;
     min-height: min(42vh, 360px);
+    display: block;
 }
 
 body.datacapture-page .excel-table-container.format-paste-mode #dataTable {
-    display: none !important;
+    display: none;
 }
 
-/* 1.Text / 2.Format grid: never show paste area unless format-paste-mode is active */
+/* Visibility for 2.Format grid vs paste area is driven by JS (toggleTableDisplayForFormat).
+   Do NOT force #dataTable visible with !important — that breaks format-paste-mode sync. */
 body.datacapture-page .excel-table-container:not(.format-paste-mode) .paste-area-format {
-    display: none !important;
-}
-
-body.datacapture-page .excel-table-container:not(.format-paste-mode) #dataTable {
-    display: table !important;
+    display: none;
 }
 
 .text-input-format {

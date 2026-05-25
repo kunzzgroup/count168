@@ -206,7 +206,7 @@ export function parseAndFillHtmlTableForInvoice(htmlString, startCell) {
 
         if (successCount > 0) {
             showNotification(`2.10 INVOICE: 成功粘贴 ${successCount} 个单元格 (${allRows.length} 行 x ${maxCols} 列)，已保持PDF原始格式!`, 'success');
-            setTimeout(updateSubmitButtonState, 0);
+            setTimeout(() => window.__DC_RECOMPUTE_SUBMIT_STATE__?.(), 0);
             return true;
         } else {
             console.log('2.10 INVOICE: No cells were pasted');
