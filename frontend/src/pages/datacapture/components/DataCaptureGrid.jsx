@@ -56,9 +56,6 @@ function DataCaptureGrid() {
         suppressContentEditableWarning
         data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
       />
-      <div id="dcGridTypingStatus" className="dc-grid-typing-status" hidden aria-live="polite">
-        Typing
-      </div>
     </>
   );
 }

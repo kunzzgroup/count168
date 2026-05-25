@@ -3,7 +3,6 @@
  */
 import { highlightHeadersForCell } from "./dataCaptureGridActiveCell.js";
 import { formatMoneyDisplay } from "../paste/core/dataCapturePasteMoneyUtils.js";
-import { showGridTypingStatus, syncGridTypingStatus } from "./dataCaptureGridTypingStatus.js";
 
 function shouldSkipBlurMoneyFormat() {
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "";
@@ -13,12 +12,10 @@ function shouldSkipBlurMoneyFormat() {
 function onCellFocus() {
   this.classList.add("selected");
   highlightHeadersForCell(this);
-  showGridTypingStatus();
 }
 
 function onCellBlur() {
   this.classList.remove("selected");
-  setTimeout(() => syncGridTypingStatus(), 0);
   if (shouldSkipBlurMoneyFormat()) return;
 
   const t = (this.textContent || "").trim();
