@@ -342,44 +342,20 @@ export function clipboardLooksLikeTable(clipboard) {
     return false;
 }
 
-/** Ensure preview iframe exists (toggle/reset must not destroy it via innerHTML). */
-export function ensureFormatPreviewFrame() {
-    let frame = document.getElementById('tablePreviewFrameFormat');
-    if (frame) return frame;
-
-    const container = document.getElementById('tablePreviewFormat');
-    if (!container) return null;
-
-    frame = document.createElement('iframe');
-    frame.id = 'tablePreviewFrameFormat';
-    frame.className = 'table-preview-frame-format';
-    frame.title = 'Format Table Preview';
-    container.appendChild(frame);
-    return frame;
-}
-
 export function renderFormatPreview(tableHtml) {
-    const safeTable = tableHtml ? String(tableHtml) : '';
-    setFormatPreviewHtml(safeTable);
-
-    if (!safeTable.trim()) {
-        const previewContainer = document.getElementById('tablePreviewFormat');
-        if (previewContainer) previewContainer.style.display = 'none';
-        const frame = document.getElementById('tablePreviewFrameFormat');
-        if (frame) {
-            try {
-                frame.removeAttribute('srcdoc');
-                frame.src = 'about:blank';
-            } catch (_) { /* ignore */ }
-        }
-        return;
-    }
-
-    const frame = ensureFormatPreviewFrame();
+    const frame = document.getElementById('tablePreviewFrameFormat');
     if (!frame) {
-        // Grid shell not mounted yet; HTML is cached in localStorage for restore.
+        console.error('Format: tablePreviewFrameFormat not found');
         return;
     }
+
+    const safeTable = tableHtml ? String(tableHtml) : '';
+    console.log('Format: renderFormatPreview called, tableHtml length:', safeTable.length);
+
+    // Cache preview HTML for restore/back flow
+    try {
+        localStorage.setItem('capturedFormatPreviewHtml', safeTable);
+    } catch (_) { }
 
     const docHtml = `<!doctype html>
 <html>
@@ -399,9 +375,12 @@ export function renderFormatPreview(tableHtml) {
   </body>
 </html>`;
 
+    // 确保预览容器可见
     const previewContainer = document.getElementById('tablePreviewFormat');
     if (previewContainer) {
         previewContainer.style.display = 'block';
+        console.log('Format: Preview container set to block in renderFormatPreview');
+        setFormatPreviewHtml(safeTable);
     }
 
     // Prefer srcdoc (works in modern browsers)

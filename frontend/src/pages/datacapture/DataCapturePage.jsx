@@ -225,10 +225,6 @@ export default function DataCapturePage() {
   useDataCaptureGlobalShims();
 
   useEffect(() => {
-    submitReset.recomputeSubmitState();
-  }, [formatGridReady, submitReset.recomputeSubmitState]);
-
-  useEffect(() => {
     if (!scriptsReady) return;
 
     const pageReadyTimer = setTimeout(() => {
@@ -667,14 +663,9 @@ export default function DataCapturePage() {
                         ? {
                             "data-value": form.selectedProcess.id,
                             "data-process-code": form.selectedProcess.process_id || "",
-                            "data-description-name":
-                              form.selectedProcess.description_name ||
-                              (() => {
-                                const m = String(form.selectedProcess.displayText || "").match(
-                                  /\(([^)]+)\)\s*$/,
-                                );
-                                return m ? m[1].trim() : "";
-                              })(),
+                            ...(form.selectedProcess.description_name
+                              ? { "data-description-name": form.selectedProcess.description_name }
+                              : {}),
                           }
                         : {})}
                       onClick={(e) => {
@@ -885,9 +876,8 @@ export default function DataCapturePage() {
         captureType={captureType}
         citibetMode={citibetMode}
         onCaptureTypeChange={handleCaptureTypeChange}
-        submitDisabled={submitReset.submitDisabled}
+        submitDisabled={submitReset.submitDisabled || mutationsBlocked}
         submitBlockReason={submitReset.submitBlockReason}
-        mutationsBlocked={mutationsBlocked}
         onSubmit={() => void submitReset.submit()}
         onReset={submitReset.reset}
       />
