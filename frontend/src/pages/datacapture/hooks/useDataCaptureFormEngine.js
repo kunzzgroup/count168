@@ -202,13 +202,6 @@ export function useDataCaptureFormEngine(companyId) {
     });
     setProcessOpen(false);
     setProcessFilter("");
-
-    const rowDescription = String(row.description_name || "").trim();
-    if (rowDescription) {
-      window.selectedDescriptions = [rowDescription];
-      setDescriptionDisplay(rowDescription);
-    }
-
     const cid = companyIdRef.current;
     const res = await fetchProcessDetail(row.id, cid);
     if (res.success && res.data) {
@@ -224,10 +217,6 @@ export function useDataCaptureFormEngine(companyId) {
         },
         currenciesRef.current
       );
-      if (!window.selectedDescriptions?.length && rowDescription) {
-        window.selectedDescriptions = [rowDescription];
-        setDescriptionDisplay(rowDescription);
-      }
     }
     setTimeout(() => {
       if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();

@@ -876,8 +876,7 @@ export default function DataCapturePage() {
         captureType={captureType}
         citibetMode={citibetMode}
         onCaptureTypeChange={handleCaptureTypeChange}
-        submitDisabled={mutationsBlocked}
-        submitReady={!submitReset.submitDisabled}
+        submitDisabled={submitReset.submitDisabled || mutationsBlocked}
         onSubmit={() => void submitReset.submit()}
         onReset={submitReset.reset}
       />
