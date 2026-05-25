@@ -45,12 +45,12 @@
 
   /* 菜单内边距 (Padding) */  
   --sidebar-menu-pad-y: clamp(0.95rem, 0.92rem + 0.05vw, 1.2rem);
-  --sidebar-menu-pad-x: clamp(1rem, 0.95rem + 0.08vw, 1.25rem);
+  --sidebar-menu-pad-x: clamp(0.75rem, 0.7rem + 0.08vw, 1rem);
   --sidebar-submenu-pad-y: clamp(0.6rem, 0.57rem + 0.05vw, 0.8rem);
 
   /* 头部内边距 (Header Padding) */
   --sidebar-header-pad-t: clamp(0.8rem, 0.77rem + 0.05vw, 1rem);
-  --sidebar-header-pad-x: clamp(0.8rem, 0.77rem + 0.05vw, 1rem);
+  --sidebar-header-pad-x: clamp(0.65rem, 0.62rem + 0.05vw, 0.85rem);
   --sidebar-header-pad-b: clamp(0.6rem, 0.57rem + 0.05vw, 0.8rem);
 
   /* 主内容区水平偏移（侧栏宽 + 间距；User List 等试点页 padding-left） */
