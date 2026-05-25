@@ -139,7 +139,6 @@ export function toggleTableDisplayForFormat() {
       }
       if (tablePreviewFormat) {
         tablePreviewFormat.style.display = "none";
-        tablePreviewFormat.innerHTML = "";
       }
       container?.classList.add("format-paste-mode");
     }

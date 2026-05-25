@@ -19,14 +19,28 @@ export function cellHasCaptureContent(cell) {
 
 /** Live DOM check — used when snapshot read and grid disagree (2.Format styled cells). */
 export function domGridHasCaptureData() {
-  const tableBody = document.getElementById("tableBody");
-  if (!tableBody) return false;
+  const table = document.getElementById("dataTable");
+  if (!table) return false;
 
-  return Array.from(tableBody.querySelectorAll("td")).some((cell) => {
-    if (cell.classList.contains("row-header")) return false;
-    if (cell.style.display === "none") return false;
-    return cellHasCaptureContent(cell);
-  });
+  const tableBody = table.querySelector("#tableBody") || table.querySelector("tbody");
+  if (tableBody) {
+    const bodyHasData = Array.from(tableBody.querySelectorAll("td")).some((cell) => {
+      if (cell.classList.contains("row-header")) return false;
+      if (cell.style.display === "none") return false;
+      return cellHasCaptureContent(cell);
+    });
+    if (bodyHasData) return true;
+  }
+
+  const headerRow = table.querySelector("#tableHeader tr") || table.querySelector("thead tr");
+  if (headerRow) {
+    return Array.from(headerRow.querySelectorAll("th")).some((cell, index) => {
+      if (index === 0) return false;
+      return cellHasCaptureContent(cell);
+    });
+  }
+
+  return false;
 }
 
 export function captureTableHasData(tableData, captureType) {

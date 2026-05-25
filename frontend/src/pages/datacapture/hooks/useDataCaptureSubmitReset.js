@@ -5,9 +5,10 @@ import {
   shouldRestoreFromUrl,
   stripRestoreParamFromUrl,
 } from "../lib/dataCaptureStorage.js";
-import { captureTableDataFromDom } from "../lib/dataCaptureTableSnapshot.js";
+import { captureTableDataFromDom, domGridHasCaptureData } from "../lib/dataCaptureTableSnapshot.js";
 import {
   getActiveDescriptions,
+  normalizeCaptureType,
   validateDataCaptureForm,
 } from "../lib/dataCaptureFormRules.js";
 import { fetchProcessDetail } from "../lib/dataCaptureApi.js";
@@ -16,6 +17,23 @@ import { buildSpaPath } from "../../../utils/core/apiUrl.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { markSummaryFreshNavigation } from "../../datacapturesummary/lib/summaryStorage.js";
+import { processFormatTableHtml } from "../paste/core/dataCaptureFormatPasteHandler.js";
+import { gridHasEditableData, setFormatGridReady } from "../format/dataCaptureFormat.js";
+
+function ensureFormatPasteSynced(captureType) {
+  if (normalizeCaptureType(captureType) !== "2.Format") return;
+  if (domGridHasCaptureData() || gridHasEditableData()) {
+    setFormatGridReady(true);
+    return;
+  }
+  const area = document.getElementById("pasteAreaFormat");
+  const html = area?.innerHTML?.trim() || "";
+  if (html && /<table\b/i.test(html)) {
+    processFormatTableHtml(html, { area });
+    setFormatGridReady(true);
+    window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
+  }
+}
 
 function readSubmitFormSnapshot(formRef) {
   const f = formRef.current;
@@ -35,6 +53,12 @@ function readSubmitFormSnapshot(formRef) {
         description_name: processBtn.getAttribute("data-description-name") || null,
       };
     }
+  } else if (!selectedProcess.description_name) {
+    const processBtn = document.getElementById("capture_process");
+    const descName = processBtn?.getAttribute("data-description-name") || "";
+    if (descName) {
+      selectedProcess = { ...selectedProcess, description_name: descName };
+    }
   }
 
   let descriptions = Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : [];
@@ -42,6 +66,13 @@ function readSubmitFormSnapshot(formRef) {
     descriptions = getActiveDescriptions(descriptionDisplay);
     if (descriptions.length) {
       window.selectedDescriptions = [...descriptions];
+    }
+  }
+  if (!descriptions.length && selectedProcess?.description_name) {
+    const name = String(selectedProcess.description_name).trim();
+    if (name) {
+      descriptions = [name];
+      window.selectedDescriptions = [name];
     }
   }
 
@@ -91,6 +122,7 @@ export function useDataCaptureSubmitReset({
       (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
         ? window.__DC_GET_CAPTURE_TYPE__()
         : captureTypeRef.current) || captureTypeRef.current;
+    ensureFormatPasteSynced(captureTypeNow);
     const { selectedProcess, currencyId, descriptionDisplay, descriptions } = readSubmitFormSnapshot(formRef);
     const tableData = captureTableDataFromDom(captureTypeNow);
     const validation = validateDataCaptureForm({
@@ -156,6 +188,7 @@ export function useDataCaptureSubmitReset({
       return;
     }
     const captureTypeNow = captureTypeRef.current;
+    ensureFormatPasteSynced(captureTypeNow);
     const { selectedProcess, currencyId, descriptionDisplay, descriptions } = readSubmitFormSnapshot(formRef);
     const tableData = captureTableDataFromDom(captureTypeNow);
     const validation = validateDataCaptureForm({

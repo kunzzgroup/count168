@@ -64,7 +64,6 @@ export function clearCaptureTableForReset() {
 
   const tablePreviewFormat = document.getElementById("tablePreviewFormat");
   if (tablePreviewFormat) {
-    tablePreviewFormat.innerHTML = "";
     tablePreviewFormat.style.display = "none";
   }
 

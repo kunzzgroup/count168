@@ -9,6 +9,10 @@ import {
 
 import { ensurePasteGrid } from './dataCapturePasteApply.js';
 
+function isGridEditableCell(cell) {
+    return Boolean(cell && (cell.isContentEditable || String(cell.contentEditable).toLowerCase() === 'true'));
+}
+
 export function parseAndFillHtmlTableForFormat(htmlString) {
     try {
         // 在解析前先检查原始HTML是否包含<br>标签
@@ -442,7 +446,7 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
                     // Fill first row (current row) - use top data
                     if (currentCol < actualCols) {
                         const targetCell = tableRow.children[currentCol + 1];
-                        if (targetCell && targetCell.contentEditable === 'true') {
+                        if (targetCell && isGridEditableCell(targetCell)) {
                             const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                             targetCell.textContent = topData;
 
@@ -486,7 +490,7 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
                     // Fill second row (next row) - use bottom data
                     if (currentCol < actualCols) {
                         const targetCell = nextTableRow.children[currentCol + 1];
-                        if (targetCell && targetCell.contentEditable === 'true') {
+                        if (targetCell && isGridEditableCell(targetCell)) {
                             const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                             targetCell.textContent = bottomData;
 
@@ -533,12 +537,12 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
                         if (currentCol < actualCols) {
                             // 第一行
                             const targetCell1 = tableRow.children[currentCol + 1];
-                            if (targetCell1 && targetCell1.contentEditable === 'true') {
+                            if (targetCell1 && isGridEditableCell(targetCell1)) {
                                 targetCell1.textContent = '';
                             }
                             // 第二行
                             const targetCell2 = nextTableRow.children[currentCol + 1];
-                            if (targetCell2 && targetCell2.contentEditable === 'true') {
+                            if (targetCell2 && isGridEditableCell(targetCell2)) {
                                 targetCell2.textContent = '';
                             }
                         }
@@ -584,7 +588,7 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
                 if (currentCol < actualCols) {
                     const targetCell = tableRow.children[currentCol + 1];
 
-                    if (targetCell && targetCell.contentEditable === 'true') {
+                    if (targetCell && isGridEditableCell(targetCell)) {
                         const oldValue = targetCell.textContent || targetCell.innerHTML || '';
 
                         let cleanContent = cellContent
@@ -653,7 +657,7 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
                     currentCol++;
                     if (currentCol < actualCols) {
                         const targetCell = tableRow.children[currentCol + 1];
-                        if (targetCell && targetCell.contentEditable === 'true') {
+                        if (targetCell && isGridEditableCell(targetCell)) {
                             const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                             targetCell.textContent = '';
                             currentPasteChanges.push({
