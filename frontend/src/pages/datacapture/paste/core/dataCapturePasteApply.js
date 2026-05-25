@@ -30,6 +30,49 @@ export function resolvePasteAnchor(cell) {
   };
 }
 
+/** Last tbody row index that has any editable cell content. */
+export function findLastFilledGridRow() {
+  const tableBody = document.getElementById("tableBody");
+  if (!tableBody) return -1;
+
+  const rows = Array.from(tableBody.children);
+  for (let rowIndex = rows.length - 1; rowIndex >= 0; rowIndex -= 1) {
+    const hasData = Array.from(rows[rowIndex].querySelectorAll('td[contenteditable="true"]')).some(
+      (cell) => String(cell.textContent || "").trim() !== ""
+    );
+    if (hasData) return rowIndex;
+  }
+  return -1;
+}
+
+/** Active/selected grid cell used as 2.Format paste anchor, if any. */
+export function getFormatPasteAnchorCell() {
+  const active = document.activeElement;
+  if (active?.contentEditable === "true" && active.closest("#dataTable")) {
+    return active;
+  }
+
+  const selected = window.__DC_GET_SELECTED_CELLS__?.()?.[0];
+  if (selected?.contentEditable === "true" && selected.closest("#dataTable")) {
+    return selected;
+  }
+
+  return null;
+}
+
+/**
+ * 2.Format paste start row: anchor cell row when set, else append after last filled row.
+ */
+export function resolveFormatPasteStartRow(anchorCell = null) {
+  const cell = anchorCell || getFormatPasteAnchorCell();
+  if (cell?.closest?.("#tableBody")) {
+    return resolvePasteAnchor(cell).startRow;
+  }
+
+  const lastFilled = findLastFilledGridRow();
+  return lastFilled >= 0 ? lastFilled + 1 : 0;
+}
+
 export function ensureGridFits(startRow, startCol, matrixRows, matrixCols) {
   const { rows: currentRows, cols: currentCols } = getGridSize();
   const requiredRows = startRow + matrixRows;

@@ -6,6 +6,13 @@ import {
   sanitizePastedHTML,
   tsvToHtmlTable,
 } from "./dataCaptureFormatPreview.js";
+import {
+  getFormatPasteAnchorCell,
+  resolveFormatPasteStartRow,
+} from "./dataCapturePasteApply.js";
+import { domGridHasEditableData } from "../../lib/dataCaptureTableSnapshot.js";
+import { getFormatGridReady } from "../../format/dataCaptureFormat.js";
+import { resolvePasteCell } from "./dataCaptureClipboard.js";
 
 function getCaptureType() {
   if (typeof window.__DC_GET_CAPTURE_TYPE__ === "function") {
@@ -53,23 +60,29 @@ function afterFormatPasteFilled(filled, area) {
 }
 
 /** Process HTML/TSV clipboard content into preview + editable grid. */
-export function processFormatTableHtml(html, { area = null } = {}) {
+export function processFormatTableHtml(html, { area = null, startRow = null, anchorCell = null } = {}) {
   if (!html) return false;
+  const resolvedStartRow =
+    startRow != null ? startRow : resolveFormatPasteStartRow(anchorCell || getFormatPasteAnchorCell());
+  const isAppend = resolvedStartRow > 0;
+
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(html);
   const sanitized = sanitizePastedHTML(html);
   if (!previewFragment && !sanitized) return false;
 
-  renderFormatPreview(previewFragment || sanitized);
-  const filled = parseAndFillHtmlTableForFormat(sanitized || previewFragment);
+  if (!isAppend) {
+    renderFormatPreview(previewFragment || sanitized);
+  }
+  const filled = parseAndFillHtmlTableForFormat(sanitized || previewFragment, {
+    startRow: resolvedStartRow,
+  });
   return afterFormatPasteFilled(filled, area);
 }
 
-export function processFormatTsv(text, { area = null } = {}) {
+export function processFormatTsv(text, { area = null, startRow = null, anchorCell = null } = {}) {
   if (!text || !text.includes("\t")) return false;
   const tableHtml = tsvToHtmlTable(text);
-  renderFormatPreview(tableHtml);
-  const filled = parseAndFillHtmlTableForFormat(tableHtml);
-  return afterFormatPasteFilled(filled, area);
+  return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
 }
 
 function readClipboard(clipboard) {
@@ -141,40 +154,52 @@ export function handleGlobalFormatPaste(e) {
   e.preventDefault();
   e.stopPropagation();
 
+  const gridReady = getFormatGridReady();
+  const hasExistingData = domGridHasEditableData();
+  const anchorCell = getFormatPasteAnchorCell();
+  const appendMode = gridReady && hasExistingData;
+  const startRow = appendMode ? resolveFormatPasteStartRow(anchorCell) : 0;
+
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
   const dataTable = document.getElementById("dataTable");
-  if (dataTable) dataTable.style.display = "none";
-  if (pasteAreaFormat) {
-    pasteAreaFormat.style.display = "block";
-    placeCaretAtEnd(pasteAreaFormat);
+
+  if (appendMode) {
+    if (dataTable) dataTable.style.display = "table";
+    if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
+  } else {
+    if (dataTable) dataTable.style.display = "none";
+    if (pasteAreaFormat) {
+      pasteAreaFormat.style.display = "block";
+      placeCaretAtEnd(pasteAreaFormat);
+    }
   }
 
   const { html, text } = readClipboard(clipboard);
 
   if (html && /<table\b/i.test(html)) {
-    processFormatTableHtml(html, { area: pasteAreaFormat });
+    processFormatTableHtml(html, { area: pasteAreaFormat, startRow, anchorCell });
     return;
   }
 
   if (text && text.includes("\t")) {
-    processFormatTsv(text, { area: pasteAreaFormat });
+    processFormatTsv(text, { area: pasteAreaFormat, startRow, anchorCell });
   }
 }
 
 /** Legacy-compatible entry used by handleFormatPasteFromClipboard. */
-export function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
+export function handleFormatPasteFromClipboard(clipboard, fallbackHTML, options = {}) {
   if (!isFormatMode() || !clipboard) return false;
 
   const { html, text } = readClipboard(clipboard);
   const htmlToUse = html && /<table\b/i.test(html) ? html : fallbackHTML || "";
 
   if (htmlToUse && /<table\b/i.test(htmlToUse)) {
-    setTimeout(() => processFormatTableHtml(htmlToUse), 10);
+    setTimeout(() => processFormatTableHtml(htmlToUse, options), 10);
     return true;
   }
 
   if (text && text.includes("\t")) {
-    setTimeout(() => processFormatTsv(text), 10);
+    setTimeout(() => processFormatTsv(text, options), 10);
     return true;
   }
 
@@ -186,8 +211,11 @@ export function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
  * instead of the full legacy paste body.
  */
 export function handleFormatCellPaste(e, pastedData) {
+  const anchorCell = resolvePasteCell(e.target);
+  const startRow = resolveFormatPasteStartRow(anchorCell);
+
   const clipboard = e.clipboardData || window.clipboardData;
-  if (clipboard && handleFormatPasteFromClipboard(clipboard)) {
+  if (clipboard && handleFormatPasteFromClipboard(clipboard, null, { startRow, anchorCell })) {
     return true;
   }
 
@@ -200,11 +228,11 @@ export function handleFormatCellPaste(e, pastedData) {
   })();
 
   if (html && /<table\b/i.test(html)) {
-    return processFormatTableHtml(html);
+    return processFormatTableHtml(html, { startRow, anchorCell });
   }
 
   if (pastedData && pastedData.includes("\t")) {
-    return processFormatTsv(pastedData);
+    return processFormatTsv(pastedData, { startRow, anchorCell });
   }
 
   return false;
