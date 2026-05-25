@@ -27,7 +27,7 @@
     border-color: #80bdff;
 }
 
-/* 注意：searchInput 和 descriptionSearch 不使用 CSS text-transform，保持实际值的显示 */
+/* 注意：searchInput 和 descriptionSearch 不使用 CSS text-transform，保持实际值的显示. */
 /* 描述列表删除按钮样式 */
 .description-item {
     display: flex;
