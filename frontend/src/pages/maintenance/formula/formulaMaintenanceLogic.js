@@ -119,16 +119,44 @@ export function buildFormulaEditString(base) {
   return String(base ?? "").trim();
 }
 
-/** Source 列变更：编辑框仍只存 base；Formula 展示列由 API/列表解析。 */
-export function syncEditFormSourcePercent(form, newSourcePercent) {
-  const { base } = parseFormulaEditTail(form.formula);
-  const source = formatSourcePercent(newSourcePercent);
+/** Formula 编辑框展示 = base +（Source≠1 时）* (source)，与列表 Formula 列一致。 */
+export function buildEditFormFormulaDisplay(base, sourcePercent) {
+  const b = normalizeMaintenanceFormulaInput(base);
+  const source = formatSourcePercent(sourcePercent ?? "1");
   const enable = source !== "1" && source !== "" ? 1 : 0;
+  return buildFormulaDisplayParenFromParts(b, source, enable);
+}
+
+export function resolveFormulaBaseFromRow(row) {
+  const fromEdit = String(row?.formula_edit ?? "").trim();
+  if (fromEdit) return normalizeMaintenanceFormulaInput(fromEdit);
+  return normalizeMaintenanceFormulaInput(row?.formula ?? "");
+}
+
+export function createFormulaEditFormFromRow(row) {
+  const sourcePercent =
+    row?.source != null && String(row.source).trim() !== "" && String(row.source).trim() !== "-"
+      ? String(row.source).trim()
+      : "1";
+  const base = resolveFormulaBaseFromRow(row);
+  return {
+    account_id: row?.account_id || "",
+    source_ref: row?.source_ref != null ? String(row.source_ref) : "",
+    source_percent: formatSourcePercent(sourcePercent),
+    input_method: row?.input_method || "",
+    formula: buildEditFormFormulaDisplay(base, sourcePercent),
+    description: row?.description || "",
+  };
+}
+
+/** Source 列变更：同步更新 Formula 编辑框里的 * (source) 后缀。 */
+export function syncEditFormSourcePercent(form, newSourcePercent) {
+  const base = normalizeMaintenanceFormulaInput(form.formula);
+  const source = formatSourcePercent(newSourcePercent);
   return {
     ...form,
     source_percent: source,
-    formula: base,
-    _previewFormulaDisplay: buildFormulaDisplayParenFromParts(base, source, enable),
+    formula: buildEditFormFormulaDisplay(base, source),
   };
 }
 
