@@ -84,17 +84,43 @@ export function getFormatPasteAnchorCell() {
   return null;
 }
 
+/** Whether a tbody row has any non-empty editable cell. */
+export function rowHasEditableData(rowEl) {
+  if (!rowEl) return false;
+  return Array.from(rowEl.querySelectorAll('td[contenteditable="true"]')).some(
+    (cell) => String(cell.textContent || "").trim() !== ""
+  );
+}
+
 /**
- * 2.Format paste start row: anchor cell row when set, else append after last filled row.
+ * 2.Format paste start row.
+ * When grid already has data, append after the last filled row unless the anchor
+ * sits on an empty row below all existing data.
  */
 export function resolveFormatPasteStartRow(anchorCell = null) {
+  const lastFilled = findLastFilledGridRow();
+  const appendRow = lastFilled >= 0 ? lastFilled + 1 : 0;
+
   const cell = anchorCell || getFormatPasteAnchorCell();
-  if (cell?.closest?.("#tableBody")) {
-    return resolvePasteAnchor(cell).startRow;
+  if (!cell?.closest?.("#tableBody")) {
+    return appendRow;
   }
 
-  const lastFilled = findLastFilledGridRow();
-  return lastFilled >= 0 ? lastFilled + 1 : 0;
+  const anchorRow = resolvePasteAnchor(cell).startRow;
+  if (lastFilled < 0) {
+    return anchorRow;
+  }
+
+  if (anchorRow > lastFilled) {
+    return anchorRow;
+  }
+
+  const anchorRowEl = cell.closest("tr");
+  if (anchorRowEl && !rowHasEditableData(anchorRowEl) && anchorRow >= appendRow) {
+    return anchorRow;
+  }
+
+  return appendRow;
 }
 
 export function ensureGridFits(startRow, startCol, matrixRows, matrixCols) {

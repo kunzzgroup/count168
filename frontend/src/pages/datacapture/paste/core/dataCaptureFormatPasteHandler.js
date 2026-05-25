@@ -157,10 +157,9 @@ export function handleGlobalFormatPaste(e) {
   e.preventDefault();
   e.stopPropagation();
 
-  const gridReady = getFormatGridReady();
   const hasExistingData = domGridHasEditableData();
   const anchorCell = getFormatPasteAnchorCell();
-  const appendMode = gridReady && hasExistingData;
+  const appendMode = hasExistingData;
   const startRow = appendMode ? resolveFormatPasteStartRow(anchorCell) : 0;
 
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
