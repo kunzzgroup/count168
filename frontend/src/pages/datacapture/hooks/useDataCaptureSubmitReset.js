@@ -8,6 +8,7 @@ import {
 import { captureTableDataFromDom, domGridHasCaptureData } from "../lib/dataCaptureTableSnapshot.js";
 import {
   getActiveDescriptions,
+  normalizeCaptureType,
   validateDataCaptureForm,
 } from "../lib/dataCaptureFormRules.js";
 import { fetchProcessDetail } from "../lib/dataCaptureApi.js";
@@ -17,25 +18,14 @@ import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { markSummaryFreshNavigation } from "../../datacapturesummary/lib/summaryStorage.js";
 import { processFormatTableHtml } from "../paste/core/dataCaptureFormatPasteHandler.js";
-import {
-  gridHasEditableData,
-  setFormatGridReady,
-} from "../format/dataCaptureFormat.js";
+import { gridHasEditableData, setFormatGridReady } from "../format/dataCaptureFormat.js";
 
 function ensureFormatPasteSynced(captureType) {
-  const type =
-    (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
-      ? window.__DC_GET_CAPTURE_TYPE__()
-      : captureType) || captureType;
-  if (type !== "2.Format" && type !== "655") return;
-
-  window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
-
+  if (normalizeCaptureType(captureType) !== "2.Format") return;
   if (domGridHasCaptureData() || gridHasEditableData()) {
     setFormatGridReady(true);
     return;
   }
-
   const area = document.getElementById("pasteAreaFormat");
   const html = area?.innerHTML?.trim() || "";
   if (html && /<table\b/i.test(html)) {
@@ -63,6 +53,12 @@ function readSubmitFormSnapshot(formRef) {
         description_name: processBtn.getAttribute("data-description-name") || null,
       };
     }
+  } else if (!selectedProcess.description_name) {
+    const processBtn = document.getElementById("capture_process");
+    const descName = processBtn?.getAttribute("data-description-name") || "";
+    if (descName) {
+      selectedProcess = { ...selectedProcess, description_name: descName };
+    }
   }
 
   let descriptions = Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : [];
@@ -72,7 +68,6 @@ function readSubmitFormSnapshot(formRef) {
       window.selectedDescriptions = [...descriptions];
     }
   }
-
   if (!descriptions.length && selectedProcess?.description_name) {
     const name = String(selectedProcess.description_name).trim();
     if (name) {

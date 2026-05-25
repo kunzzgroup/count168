@@ -36,14 +36,11 @@ export default function DataCaptureTableSection({
     translateDataCaptureMessage(localStorage.getItem("login_lang") === "zh" ? "zh" : "en", submitBlockReason);
 
   const handleSubmitClick = () => {
-    window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
     window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
-
     if (mutationsBlocked) {
       pushDataCaptureNotification(t("readOnlyBlocked"), "danger");
       return;
     }
-
     if (onSubmit) {
       void onSubmit();
       return;
@@ -83,11 +80,11 @@ export default function DataCaptureTableSection({
           id="dataCaptureSubmitBtn"
           type="button"
           className="btn btn-save"
-          aria-disabled={submitBlocked || undefined}
+          aria-disabled={submitBlocked}
           title={submitBlocked && blockReasonText ? blockReasonText : undefined}
           style={{
             opacity: submitBlocked ? 0.6 : 1,
-            cursor: "pointer",
+            cursor: submitBlocked ? "not-allowed" : "pointer",
           }}
           onClick={handleSubmitClick}
         >
