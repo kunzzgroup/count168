@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient, keepPreviousData, isCancelledError } from "@tanstack/react-query";
+import { useQuery, useQueryClient, isCancelledError } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
@@ -24,10 +24,15 @@ import {
   fetchProcesses,
   isBankOnlyCategoryCompany,
   normalizeMaintenanceProcessFilter,
+  filterTransactionMaintenancePermissions,
+  pickTransactionMaintenancePermission,
   searchTransactionData,
   updateSessionCompany,
   isMaintenanceRecoverableError,
   getMaintenanceSearchUserMessage,
+  packMaintenanceCache,
+  getMaintenanceCacheRows,
+  isMaintenanceCacheComplete,
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
@@ -103,6 +108,11 @@ export default function TransactionMaintenancePage() {
     [selectedProcess],
   );
 
+  const visiblePermissions = useMemo(
+    () => filterTransactionMaintenancePermissions(permissions),
+    [permissions],
+  );
+
   const maintenanceQueryKey = useMemo(
     () => [
       "transaction-maintenance",
@@ -124,30 +134,60 @@ export default function TransactionMaintenancePage() {
     (permissions.length === 0 || activePermission),
   );
 
+  const maintenancePlaceholder = useCallback(
+    (previousData, previousQuery) => {
+      const cached = queryClient.getQueryData(maintenanceQueryKey);
+      const cachedRows = getMaintenanceCacheRows(cached);
+      if (cachedRows.length > 0) {
+        return packMaintenanceCache(cachedRows, isMaintenanceCacheComplete(cached));
+      }
+      const prevCompanyId = previousQuery?.queryKey?.[1];
+      const prevRows = getMaintenanceCacheRows(previousData);
+      if (prevCompanyId === companyId && prevRows.length > 0) {
+        return packMaintenanceCache(prevRows, isMaintenanceCacheComplete(previousData));
+      }
+      return undefined;
+    },
+    [queryClient, maintenanceQueryKey, companyId],
+  );
+
   const transactionQuery = useQuery({
     queryKey: maintenanceQueryKey,
-    queryFn: ({ signal }) =>
-      searchTransactionData({
+    queryFn: async ({ signal }) => {
+      const rows = await searchTransactionData({
         dateFrom,
         dateTo,
         process: processFilter,
         companyId,
         category: activePermission,
         signal,
-        onFirstPage: (rows) => {
-          queryClient.setQueryData(maintenanceQueryKey, rows);
+        onProgress: (progressRows) => {
+          const existing = queryClient.getQueryData(maintenanceQueryKey);
+          const existingRows = getMaintenanceCacheRows(existing);
+          const existingComplete = isMaintenanceCacheComplete(existing);
+          if (existingComplete && existingRows.length > progressRows.length) return;
+          queryClient.setQueryData(
+            maintenanceQueryKey,
+            packMaintenanceCache(progressRows, false),
+          );
         },
-      }),
+      });
+      return packMaintenanceCache(rows, true);
+    },
     enabled: listQueryEnabled && searchDeferredReady,
-    staleTime: 2 * 60 * 1000,
+    staleTime: (query) =>
+      isMaintenanceCacheComplete(query.state.data) ? 30 * 60 * 1000 : 0,
     gcTime: 30 * 60 * 1000,
-    placeholderData: keepPreviousData,
+    refetchOnMount: (query) => !isMaintenanceCacheComplete(query.state.data),
+    refetchOnReconnect: false,
+    placeholderData: maintenancePlaceholder,
     retry: (failureCount, error) =>
       error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 5,
     retryDelay: (attempt) => Math.min(2500, 500 * (attempt + 1)),
   });
 
-  const transactionData = transactionQuery.data ?? [];
+  const transactionData = getMaintenanceCacheRows(transactionQuery.data);
+  const maintenanceDataComplete = isMaintenanceCacheComplete(transactionQuery.data);
   const listRowCount = transactionData.length;
   const searchRecoverable =
     transactionQuery.isError &&
@@ -404,7 +444,7 @@ export default function TransactionMaintenancePage() {
           setProcesses(procList);
 
           const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
-          const initialActive = savedPerm && companyPerms.includes(savedPerm) ? savedPerm : (companyPerms.length > 0 ? companyPerms[0] : "");
+          const initialActive = pickTransactionMaintenancePermission(companyPerms, savedPerm);
           setActivePermission(initialActive);
 
           // Cache permissions so the meta-effect below skips redundant API call
@@ -471,12 +511,7 @@ export default function TransactionMaintenancePage() {
         if (cancelled) return;
         setPermissions(permList);
 
-        const saved = localStorage.getItem(`selectedPermission_${ccode}`);
-        if (saved && permList.includes(saved)) {
-          setActivePermission(saved);
-        } else if (permList.length > 0) {
-          setActivePermission(permList[0]);
-        }
+        setActivePermission(pickTransactionMaintenancePermission(permList, localStorage.getItem(`selectedPermission_${ccode}`)));
       } catch (err) {
         if (cancelled) return;
         console.error("Meta data load error:", err);
@@ -490,13 +525,23 @@ export default function TransactionMaintenancePage() {
   }, [companyId, companyCode, notify, t]);
 
   useEffect(() => {
-    if (!transactionQuery.isSuccess || !transactionData.length) return;
+    if (!transactionQuery.isSuccess || !maintenanceDataComplete || !transactionData.length) return;
     if (transactionQuery.isPlaceholderData) return;
+    if (transactionQuery.isFetching) return;
     const key = `${transactionQuery.dataUpdatedAt}:${transactionData.length}`;
     if (lastToastKeyRef.current === key) return;
     lastToastKeyRef.current = key;
     notify(t("foundRecords", { n: transactionData.length }), "success");
-  }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt, transactionQuery.isPlaceholderData, transactionData.length, notify, t]);
+  }, [
+    transactionQuery.isSuccess,
+    transactionQuery.isFetching,
+    transactionQuery.dataUpdatedAt,
+    transactionQuery.isPlaceholderData,
+    maintenanceDataComplete,
+    transactionData.length,
+    notify,
+    t,
+  ]);
 
   useEffect(() => {
     if (!listQueryEnabled) return;
@@ -526,6 +571,14 @@ export default function TransactionMaintenancePage() {
     else sessionStorage.removeItem("dashboard_group_filter");
     setSelectedGroup(newGroup);
 
+    const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+    switchPermsCacheRef.current = null;
+    skipMetaAfterBootRef.current = true;
+    setCompanyCode(code);
+    setCompanyId(nextCompanyId);
+    setSelectedProcess("");
+    if (savedPerm) setActivePermission(savedPerm);
+
     try {
       const res = await updateSessionCompany(c.id);
 
@@ -544,17 +597,11 @@ export default function TransactionMaintenancePage() {
         return;
       }
 
-      const saved = localStorage.getItem(`selectedPermission_${code}`);
-      const nextActive =
-        saved && perms.includes(saved) ? saved : perms.length > 0 ? perms[0] : "";
+      const nextActive = pickTransactionMaintenancePermission(perms, savedPerm);
       switchPermsCacheRef.current = { companyCode: code, perms };
-      skipMetaAfterBootRef.current = true;
-      setCompanyCode(code);
-      setCompanyId(nextCompanyId);
       setActivePermission(nextActive);
       setPermissions(perms);
       setProcesses(procList);
-      setSelectedProcess("");
 
       followGroupRef.current();
 
@@ -595,17 +642,18 @@ export default function TransactionMaintenancePage() {
   if (!sessionReady || !me) return null;
 
   const listSyncing =
-    transactionQuery.isFetching && (transactionQuery.isPlaceholderData || listRowCount > 0);
+    transactionQuery.isFetching &&
+    (transactionQuery.isPlaceholderData || listRowCount > 0 || !maintenanceDataComplete);
 
   return (
     <div className="container">
       <div className="maintenance-header">
         <h1 id="maintenance-page-title">{m.pageTitleTransaction}</h1>
-        {permissions.length > 1 && (
+        {visiblePermissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
             <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
-              {permissions.map(p => (
+              {visiblePermissions.map(p => (
                 <button 
                   key={p} 
                   type="button" 

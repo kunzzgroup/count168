@@ -111,6 +111,28 @@ function maintenanceUnionNullTextCol(): string
     return "CONVERT((NULL) USING utf8mb4) COLLATE utf8mb4_unicode_ci";
 }
 
+/**
+ * data_capture_details.account_id 可能存 account.id 或 account.account_id（业务代码）。
+ * 与 history_api / get_accounts_api 一致，避免 INNER JOIN a.id 导致整批 Data Capture 查不到。
+ */
+function maintenanceDataCaptureAccountJoinSql(string $dcdAlias = 'dcd', string $aAlias = 'a'): string
+{
+    return "LEFT JOIN account {$aAlias} ON (
+        TRIM(CAST({$dcdAlias}.account_id AS CHAR)) = TRIM(CAST({$aAlias}.id AS CHAR))
+        OR (
+            TRIM(COALESCE({$dcdAlias}.account_id, '')) <> ''
+            AND TRIM(CAST({$dcdAlias}.account_id AS CHAR)) = TRIM({$aAlias}.account_id)
+        )
+    )";
+}
+
+function maintenanceDataCaptureAccountIdExpr(string $aAlias = 'a', string $dcdAlias = 'dcd'): string
+{
+    return maintenanceUnionTextExpr(
+        "COALESCE({$aAlias}.account_id, CAST({$dcdAlias}.account_id AS CHAR), '-')"
+    );
+}
+
 /** 缓存 transactions.source_bank_process_id 列是否存在（避免每次 SHOW COLUMNS）。 */
 function maintenanceHasSourceBankCol(PDO $pdo): bool
 {
@@ -276,7 +298,7 @@ function maintenanceBuildCaptureUnionBranch(
             dc.id AS capture_id,
             dcd.id AS capture_detail_id,
             " . maintenanceUnionTextExpr('p.process_id') . " AS process_id,
-            " . maintenanceUnionTextExpr('a.account_id') . " AS account_id,
+            " . maintenanceDataCaptureAccountIdExpr('a', 'dcd') . " AS account_id,
             " . maintenanceUnionNullTextCol() . " AS from_account,
             " . maintenanceUnionTextExpr("COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture')") . " AS description,
             " . maintenanceUnionTextExpr("COALESCE(dc.remark, '')") . " AS remark,
@@ -302,7 +324,7 @@ function maintenanceBuildCaptureUnionBranch(
         FROM data_capture_details dcd
         INNER JOIN data_captures dc ON dcd.capture_id = dc.id
         INNER JOIN process p ON dc.process_id = p.id
-        INNER JOIN account a ON dcd.account_id = a.id
+        " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
         INNER JOIN currency c ON dcd.currency_id = c.id
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
@@ -313,8 +335,75 @@ function maintenanceBuildCaptureUnionBranch(
     return ['sql' => $sql, 'params' => $captureParams];
 }
 
+/** 与 SQL ORDER BY 一致：返回负数表示 $a 应排在 $b 之前（全局降序）。 */
+function maintenanceCompareUnionRows(array $a, array $b): int
+{
+    $dateA = (string)($a['transaction_date'] ?? '');
+    $dateB = (string)($b['transaction_date'] ?? '');
+    if ($dateA !== $dateB) {
+        return strcmp($dateB, $dateA);
+    }
+
+    $tsA = strtotime((string)($a['sort_created_at'] ?? '')) ?: 0;
+    $tsB = strtotime((string)($b['sort_created_at'] ?? '')) ?: 0;
+    if ($tsA !== $tsB) {
+        return $tsB <=> $tsA;
+    }
+
+    $capA = (int)($a['capture_id'] ?? 0);
+    $capB = (int)($b['capture_id'] ?? 0);
+    if ($capA !== $capB) {
+        return $capB <=> $capA;
+    }
+
+    $detA = (int)($a['capture_detail_id'] ?? 0);
+    $detB = (int)($b['capture_detail_id'] ?? 0);
+    if ($detA !== $detB) {
+        return $detB <=> $detA;
+    }
+
+    return ((int)($b['transaction_id'] ?? 0)) <=> ((int)($a['transaction_id'] ?? 0));
+}
+
 /**
- * SQL 层分页：UNION + COUNT + ORDER BY + LIMIT，避免 PHP 全量加载与二次排序。
+ * 多路归并：各分支已按 maintenance 排序键降序，取全局前 $maxRows 行（避免 UNION 全表排序）。
+ *
+ * @param array<int, array<int, array>> $lists
+ */
+function maintenanceMergeSortedRowLists(array $lists, int $maxRows): array
+{
+    if ($maxRows <= 0) {
+        return [];
+    }
+    $indices = array_fill(0, count($lists), 0);
+    $merged = [];
+
+    while (count($merged) < $maxRows) {
+        $bestIdx = -1;
+        $bestRow = null;
+        foreach ($lists as $listIdx => $list) {
+            $pos = $indices[$listIdx];
+            if ($pos >= count($list)) {
+                continue;
+            }
+            $row = $list[$pos];
+            if ($bestRow === null || maintenanceCompareUnionRows($row, $bestRow) < 0) {
+                $bestRow = $row;
+                $bestIdx = $listIdx;
+            }
+        }
+        if ($bestRow === null) {
+            break;
+        }
+        $merged[] = $bestRow;
+        $indices[$bestIdx]++;
+    }
+
+    return $merged;
+}
+
+/**
+ * SQL 层分页：各分支 LIMIT + PHP 归并，避免 UNION 子查询全量 filesort。
  */
 function maintenanceSearchPaginatedFast(
     PDO $pdo,
@@ -328,11 +417,10 @@ function maintenanceSearchPaginatedFast(
     int $page_size
 ): void {
     $has_source_bank_col = maintenanceHasSourceBankCol($pdo);
-    $branches = [];
-    $params = [];
+    $branchDefs = [];
 
     if (empty($process)) {
-        $tx = maintenanceBuildTransactionUnionBranch(
+        $branchDefs[] = maintenanceBuildTransactionUnionBranch(
             $company_id,
             $date_from_db,
             $date_to_db,
@@ -340,27 +428,23 @@ function maintenanceSearchPaginatedFast(
             $is_bank_category,
             $has_source_bank_col
         );
-        $branches[] = $tx['sql'];
-        $params = array_merge($params, $tx['params']);
     }
 
     if (!$is_bank_category) {
         try {
-            $cap = maintenanceBuildCaptureUnionBranch(
+            $branchDefs[] = maintenanceBuildCaptureUnionBranch(
                 $pdo,
                 $company_id,
                 $date_from_db,
                 $date_to_db,
                 $process
             );
-            $branches[] = $cap['sql'];
-            $params = array_merge($params, $cap['params']);
         } catch (Exception $e) {
             error_log('maintenance_search capture branch: ' . $e->getMessage());
         }
     }
 
-    if (count($branches) === 0) {
+    if (count($branchDefs) === 0) {
         echo json_encode([
             'success' => true,
             'data' => [],
@@ -374,26 +458,30 @@ function maintenanceSearchPaginatedFast(
         return;
     }
 
-    $unionSql = '(' . implode(') UNION ALL (', $branches) . ')';
     $orderSql = 'transaction_date DESC, sort_created_at DESC, '
         . 'IFNULL(capture_id, 0) DESC, IFNULL(capture_detail_id, 0) DESC, IFNULL(transaction_id, 0) DESC';
 
     $offset = ($page - 1) * $page_size;
-    $fetchLimit = $page_size + 1;
-    $dataStmt = $pdo->prepare(
-        "SELECT * FROM (SELECT * FROM ($unionSql) AS union_rows) AS merged "
-        . "ORDER BY $orderSql LIMIT " . (int)$fetchLimit . ' OFFSET ' . (int)$offset
-    );
-    $dataStmt->execute($params);
-    $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
-    $hasMore = count($rows) > $page_size;
-    if ($hasMore) {
-        $rows = array_slice($rows, 0, $page_size);
+    $needRows = $offset + $page_size + 1;
+    $branchLists = [];
+
+    foreach ($branchDefs as $def) {
+        $branchSql = $def['sql'] . ' ORDER BY ' . $orderSql . ' LIMIT ' . (int)$needRows;
+        $stmt = $pdo->prepare($branchSql);
+        $stmt->execute($def['params']);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
+            $branchLists[] = $rows;
+        }
     }
+
+    $merged = maintenanceMergeSortedRowLists($branchLists, $needRows);
+    $pageRows = array_slice($merged, $offset, $page_size);
+    $hasMore = count($merged) > $offset + $page_size;
 
     $formatted = [];
     $baseNo = $offset + 1;
-    foreach ($rows as $i => $row) {
+    foreach ($pageRows as $i => $row) {
         $item = maintenanceFormatUnionRow($row);
         $item['no'] = $baseNo + $i;
         $formatted[] = $item;
@@ -504,15 +592,20 @@ try {
     $catUpper = strtoupper($category);
     $is_bank_category = ($catUpper === 'BANK');
     $is_loan_rate_money = in_array($catUpper, ['LOAN', 'RATE', 'MONEY'], true);
+    // Loan/Rate/Money 无独立流水；与其它维护页共用 localStorage 时可能误传，按 Games 查询
+    if ($is_loan_rate_money) {
+        $category = 'Games';
+        $catUpper = 'GAMES';
+        $is_loan_rate_money = false;
+    }
+    if ($catUpper === 'GAMBLING') {
+        $category = 'Games';
+        $catUpper = 'GAMES';
+    }
 
     // 默认不在 Maintenance - Transaction 中显示已删除的交易记录；
     // 仅当显式传入 include_deleted=1 时，才附加 transactions_deleted / data_captures_deleted 的历史记录
     $includeDeleted = isset($_GET['include_deleted']) && $_GET['include_deleted'] === '1';
-
-    if ($is_loan_rate_money) {
-        echo json_encode(['success' => true, 'data' => []]);
-        return;
-    }
 
     // 常用路径：无已删除记录 + 分页 → SQL UNION（失败则回退 legacy 双查询）
     if (!$includeDeleted && $page_size > 0) {
@@ -668,7 +761,7 @@ try {
                 dcd.id AS capture_detail_id,
                 dc.id AS capture_id,
                 p.process_id,
-                a.account_id,
+                COALESCE(a.account_id, CAST(dcd.account_id AS CHAR), '-') AS account_id,
                 NULL AS from_account,
                 COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
                 COALESCE(dc.remark, '') AS remark,
@@ -693,7 +786,7 @@ try {
             FROM data_capture_details dcd
             INNER JOIN data_captures dc ON dcd.capture_id = dc.id
             INNER JOIN process p ON dc.process_id = p.id
-            INNER JOIN account a ON dcd.account_id = a.id
+            " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
@@ -870,7 +963,7 @@ try {
                     dcd.id AS capture_detail_id,
                     dcd.capture_id,
                     p.process_id,
-                    a.account_id,
+                    COALESCE(a.account_id, CAST(dcd.account_id AS CHAR), '-') AS account_id,
                     COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
                     COALESCE(dcd.remark, '') AS remark,
                     c.code AS currency_code,
@@ -892,7 +985,7 @@ try {
                     dcd.columns_value
                 FROM data_captures_deleted dcd
                 INNER JOIN process p ON dcd.process_id = p.id
-                INNER JOIN account a ON dcd.account_id = a.id
+                " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
                 INNER JOIN currency c ON dcd.currency_id = c.id
                 LEFT JOIN description d ON p.description_id = d.id
                 LEFT JOIN user u ON dcd.user_type = 'user' AND dcd.created_by = u.id
