@@ -527,7 +527,7 @@ export default function AuthenticatedLayout() {
             </div>
           )}
           {canAccess("payment") && (
-            <div className="informationmenu-section informationmenu-section--transaction-payment">
+            <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
                 title={sidebarMenuTitle(i18n.sidebarTransactionPayment)}
