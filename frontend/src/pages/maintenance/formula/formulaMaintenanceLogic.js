@@ -116,6 +116,42 @@ export function formulaRowIdsMatch(a, b) {
   return String(a) === String(b);
 }
 
+/** Strip trailing *sourcePercent from formula edit string (mirrors PHP parseMaintenanceFormulaInput). */
+export function parseFormulaEditTail(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return { base: "", tail: null };
+  const lastStar = s.lastIndexOf("*");
+  if (lastStar === -1) return { base: s, tail: null };
+  const base = s.slice(0, lastStar).trim();
+  const rate = s.slice(lastStar + 1).trim();
+  if (!base || !rate || rate.includes("$")) return { base: s, tail: null };
+  const unwrapped = /^\((.+)\)$/.exec(rate);
+  const rateVal = (unwrapped ? unwrapped[1] : rate).trim();
+  const compact = rateVal.replace(/[\s%]/g, "");
+  if (!compact || !/^[0-9./+\-]+$/.test(compact)) return { base: s, tail: null };
+  return { base, tail: rateVal };
+}
+
+/** Rebuild formula edit suffix from base + source percent (mirrors PHP buildFormulaEditFromParts). */
+export function buildFormulaEditString(base, sourcePercent) {
+  const b = String(base ?? "").trim();
+  const pct = String(sourcePercent ?? "").trim();
+  if (!b) return "";
+  if (!pct || pct === "1" || pct === "1.0" || pct === "1.00") return b;
+  if (pct === "0" || pct === "0.0") return `${b}*0`;
+  return `${b}*${pct}`;
+}
+
+/** When Source (source_percent) changes in edit mode, keep formula suffix in sync for save + display. */
+export function syncEditFormSourcePercent(form, newSourcePercent) {
+  const { base } = parseFormulaEditTail(form.formula);
+  return {
+    ...form,
+    source_percent: newSourcePercent,
+    formula: buildFormulaEditString(base, newSourcePercent),
+  };
+}
+
 /** Merge save payload + API response into one list row (keeps scroll position; no full reload). */
 export function patchFormulaRowAfterSave(row, { id, editForm, accountLabel, serverData }) {
   if (!formulaRowIdsMatch(row.id, id)) return row;
@@ -123,8 +159,8 @@ export function patchFormulaRowAfterSave(row, { id, editForm, accountLabel, serv
     ...row,
     account_id: editForm.account_id,
     account: accountLabel || row.account,
-    source_ref: serverData?.source_ref ?? editForm.source_columns,
-    source: serverData?.source_summary_display ?? editForm.source_columns ?? row.source,
+    source_ref: serverData?.source_ref ?? editForm.source_ref ?? row.source_ref,
+    source: serverData?.source_summary_display ?? editForm.source_percent ?? row.source,
     input_method: editForm.input_method ?? "",
     formula: serverData?.formula_display_paren ?? editForm.formula,
     formula_edit: serverData?.formula_edit ?? editForm.formula,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { toUpperDisplay } from "../formulaMaintenanceLogic.js";
+import { toUpperDisplay, syncEditFormSourcePercent } from "../formulaMaintenanceLogic.js";
 import { assetUrl } from "../../../../utils/core/apiUrl.js";
 import FormulaVirtualRows from "./FormulaVirtualRows.jsx";
 
@@ -45,12 +45,17 @@ export default function FormulaMaintenanceTable({
 
   const handleEdit = (row) => {
     setEditingId(row.id);
+    const sourcePercent =
+      row.source != null && String(row.source).trim() !== "" && String(row.source).trim() !== "-"
+        ? String(row.source).trim()
+        : "1";
     setEditForm({
       account_id: row.account_id || "",
-      source_columns: row.source_ref != null ? String(row.source_ref) : "",
+      source_ref: row.source_ref != null ? String(row.source_ref) : "",
+      source_percent: sourcePercent,
       input_method: row.input_method || "",
       formula: row.formula_edit || row.formula || "",
-      description: row.description || ""
+      description: row.description || "",
     });
   };
 
@@ -161,8 +166,8 @@ export default function FormulaMaintenanceTable({
             <input
               type="text"
               className="source-input"
-              value={editForm.source_columns}
-              onChange={(e) => setEditForm({ ...editForm, source_columns: e.target.value })}
+              value={editForm.source_percent ?? ""}
+              onChange={(e) => setEditForm((prev) => syncEditFormSourcePercent(prev, e.target.value))}
               style={{ display: "block", width: "100%" }}
             />
           ) : (

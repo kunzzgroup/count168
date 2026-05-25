@@ -636,7 +636,12 @@ export default function FormulaMaintenancePage() {
       const payload = {
         template_id: id,
         company_id: companyId,
-        ...editForm,
+        account_id: editForm.account_id,
+        source_columns: editForm.source_ref ?? "",
+        source_percent: editForm.source_percent ?? "",
+        input_method: editForm.input_method ?? "",
+        formula: editForm.formula ?? "",
+        description: editForm.description ?? "",
       };
       const serverData = await updateFormulaTemplate(payload);
       notify(t("updateSuccessful"), "success");
