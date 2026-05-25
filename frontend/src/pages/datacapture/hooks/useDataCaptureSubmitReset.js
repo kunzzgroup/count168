@@ -40,16 +40,17 @@ function readSubmitFormSnapshot(formRef) {
   return { selectedProcess, currencyId, descriptionDisplay };
 }
 
-function buildProcessCapturePayload(form, captureType, currencies) {
-  const currencyOpt = (currencies || []).find((c) => String(c.id) === String(form.currencyId));
+function buildProcessCapturePayload(formSnapshot, form, captureType, currencies) {
+  const { selectedProcess, currencyId, descriptionDisplay } = formSnapshot;
+  const currencyOpt = (currencies || []).find((c) => String(c.id) === String(currencyId));
   return {
     date: form.captureDate,
-    process: form.selectedProcess?.id,
-    processName: form.selectedProcess?.displayText || "",
-    processCode: form.selectedProcess?.process_id || "",
+    process: selectedProcess?.id,
+    processName: selectedProcess?.displayText || "",
+    processCode: selectedProcess?.process_id || "",
     dataCaptureType: captureType,
-    descriptions: getActiveDescriptions(form.descriptionDisplay),
-    currency: form.currencyId,
+    descriptions: getActiveDescriptions(descriptionDisplay),
+    currency: currencyId,
     currencyName: currencyOpt?.code || "",
     removeWord: form.removeWord || "",
     replaceWordFrom: form.replaceFrom || "",
@@ -164,7 +165,13 @@ export function useDataCaptureSubmitReset({
     convertTableFormatOnSubmit(captureTypeNow);
 
     try {
-      const processData = buildProcessCapturePayload(formRef.current, captureTypeNow, formRef.current.currencies);
+      const formSnapshot = readSubmitFormSnapshot(formRef);
+      const processData = buildProcessCapturePayload(
+        formSnapshot,
+        formRef.current,
+        captureTypeNow,
+        formRef.current.currencies,
+      );
       const finalTableData = captureTableDataFromDom(captureTypeNow);
       saveCaptureSession(finalTableData, processData, captureTypeNow);
 

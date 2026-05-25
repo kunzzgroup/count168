@@ -18,7 +18,8 @@ export default function DataCaptureTableSection({
   captureType,
   citibetMode = false,
   onCaptureTypeChange,
-  submitDisabled = true,
+  submitDisabled = false,
+  submitReady = true,
   onSubmit,
   onReset,
 }) {
@@ -60,10 +61,11 @@ export default function DataCaptureTableSection({
           className="btn btn-save"
           disabled={submitDisabled}
           style={{
-            opacity: submitDisabled ? 0.6 : 1,
+            opacity: submitDisabled ? 0.6 : submitReady ? 1 : 0.85,
             cursor: submitDisabled ? "not-allowed" : "pointer",
           }}
           onClick={() => {
+            if (submitDisabled) return;
             if (onSubmit) {
               void onSubmit();
               return;
