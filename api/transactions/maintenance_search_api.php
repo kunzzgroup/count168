@@ -490,31 +490,61 @@ function maintenanceBranchCursorParams(array $cursor): array
     return [$td, $td, $sc, $td, $sc, $cid, $td, $sc, $cid, $did, $td, $sc, $cid, $did, $tid];
 }
 
-function maintenanceDecodeCursor(?string $raw): ?array
+function maintenanceNormalizeRowCursor(array $row): array
 {
-    if ($raw === null || $raw === '') {
-        return null;
-    }
-    $json = base64_decode(strtr($raw, '-_', '+/'), true);
-    if ($json === false) {
-        return null;
-    }
-    $data = json_decode($json, true);
-    if (!is_array($data) || !isset($data['td'], $data['sc'])) {
-        return null;
-    }
-    return $data;
-}
-
-function maintenanceEncodeCursor(array $row): string
-{
-    $payload = [
+    return [
         'td' => (string)($row['transaction_date'] ?? ''),
         'sc' => (string)($row['sort_created_at'] ?? ''),
         'cid' => (int)($row['capture_id'] ?? 0),
         'did' => (int)($row['capture_detail_id'] ?? 0),
         'tid' => (int)($row['transaction_id'] ?? 0),
     ];
+}
+
+/**
+ * 分页游标：按分支独立推进，避免双分支归并时丢弃未合并行导致总数提前结束。
+ *
+ * @return array{t: ?array, c: ?array}
+ */
+function maintenanceDecodePageCursor(?string $raw): array
+{
+    $empty = ['t' => null, 'c' => null];
+    if ($raw === null || $raw === '') {
+        return $empty;
+    }
+    $json = base64_decode(strtr($raw, '-_', '+/'), true);
+    if ($json === false) {
+        return $empty;
+    }
+    $data = json_decode($json, true);
+    if (!is_array($data)) {
+        return $empty;
+    }
+    if (isset($data['t']) || isset($data['c'])) {
+        return [
+            't' => (is_array($data['t'] ?? null) && isset($data['t']['td'])) ? $data['t'] : null,
+            'c' => (is_array($data['c'] ?? null) && isset($data['c']['td'])) ? $data['c'] : null,
+        ];
+    }
+    if (isset($data['td'], $data['sc'])) {
+        return ['t' => $data, 'c' => $data];
+    }
+    return $empty;
+}
+
+/** @param array{t: ?array, c: ?array} $perBranch */
+function maintenanceEncodePageCursor(array $perBranch): ?string
+{
+    $payload = [];
+    if (!empty($perBranch['t'])) {
+        $payload['t'] = $perBranch['t'];
+    }
+    if (!empty($perBranch['c'])) {
+        $payload['c'] = $perBranch['c'];
+    }
+    if ($payload === []) {
+        return null;
+    }
     return rtrim(strtr(base64_encode(json_encode($payload, JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
 }
 
@@ -549,14 +579,15 @@ function maintenanceCompareUnionRows(array $a, array $b): int
 }
 
 /**
- * 多路归并：各分支已按 maintenance 排序键降序，取全局前 $maxRows 行（避免 UNION 全表排序）。
+ * 多路归并：各分支已按 maintenance 排序键降序，取全局前 $maxRows 行。
  *
  * @param array<int, array<int, array>> $lists
+ * @return array{rows: array<int, array>, indices: array<int, int>}
  */
 function maintenanceMergeSortedRowLists(array $lists, int $maxRows): array
 {
     if ($maxRows <= 0) {
-        return [];
+        return ['rows' => [], 'indices' => []];
     }
     $indices = array_fill(0, count($lists), 0);
     $merged = [];
@@ -582,7 +613,7 @@ function maintenanceMergeSortedRowLists(array $lists, int $maxRows): array
         $indices[$bestIdx]++;
     }
 
-    return $merged;
+    return ['rows' => $merged, 'indices' => $indices];
 }
 
 /**
@@ -602,10 +633,10 @@ function maintenanceSearchPaginatedFast(
 ): void {
     $has_source_bank_col = maintenanceHasSourceBankCol($pdo);
     $branchDefs = [];
-    $cursor = maintenanceDecodeCursor($cursor_raw);
+    $perBranchCursor = maintenanceDecodePageCursor($cursor_raw);
 
     if (empty($process)) {
-        $branchDefs[] = maintenanceBuildTransactionFastBranch(
+        $tx = maintenanceBuildTransactionFastBranch(
             $company_id,
             $date_from_db,
             $date_to_db,
@@ -613,16 +644,18 @@ function maintenanceSearchPaginatedFast(
             $is_bank_category,
             $has_source_bank_col
         );
+        $branchDefs[] = ['key' => 't', 'sql' => $tx['sql'], 'params' => $tx['params']];
     }
 
     if (!$is_bank_category) {
         try {
-            $branchDefs[] = maintenanceBuildCaptureFastBranch(
+            $cap = maintenanceBuildCaptureFastBranch(
                 $company_id,
                 $date_from_db,
                 $date_to_db,
                 $process
             );
+            $branchDefs[] = ['key' => 'c', 'sql' => $cap['sql'], 'params' => $cap['params']];
         } catch (Exception $e) {
             error_log('maintenance_search capture branch: ' . $e->getMessage());
         }
@@ -646,27 +679,40 @@ function maintenanceSearchPaginatedFast(
     $orderSql = 'transaction_date DESC, sort_created_at DESC, '
         . 'IFNULL(capture_id, 0) DESC, IFNULL(capture_detail_id, 0) DESC, IFNULL(transaction_id, 0) DESC';
 
-    $fetchLimit = $page_size + 1;
+    $branchCount = count($branchDefs);
+    $fetchLimit = ($page_size + 1) * max(1, $branchCount);
     $branchLists = [];
 
     foreach ($branchDefs as $def) {
+        $branchKey = $def['key'];
         $branchParams = $def['params'];
         $branchSql = $def['sql'];
-        if ($cursor !== null) {
+        $branchCursor = $perBranchCursor[$branchKey] ?? null;
+        if ($branchCursor !== null) {
             $branchSql .= ' AND ' . maintenanceBranchCursorClause();
-            $branchParams = array_merge($branchParams, maintenanceBranchCursorParams($cursor));
+            $branchParams = array_merge($branchParams, maintenanceBranchCursorParams($branchCursor));
         }
         $branchSql .= ' ORDER BY ' . $orderSql . ' LIMIT ' . (int)$fetchLimit;
         $stmt = $pdo->prepare($branchSql);
         $stmt->execute($branchParams);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        if ($rows) {
-            $branchLists[] = $rows;
+        $branchLists[] = $rows ?: [];
+    }
+
+    $mergeResult = maintenanceMergeSortedRowLists($branchLists, $page_size + 1);
+    $merged = $mergeResult['rows'];
+    $indices = $mergeResult['indices'];
+
+    $hasMore = count($merged) > $page_size;
+    foreach ($branchLists as $i => $list) {
+        $consumed = $indices[$i] ?? 0;
+        if ($consumed < count($list)) {
+            $hasMore = true;
+        } elseif (count($list) >= $fetchLimit) {
+            $hasMore = true;
         }
     }
 
-    $merged = maintenanceMergeSortedRowLists($branchLists, $fetchLimit);
-    $hasMore = count($merged) > $page_size;
     $pageRows = array_slice($merged, 0, $page_size);
 
     $formatted = [];
@@ -676,10 +722,18 @@ function maintenanceSearchPaginatedFast(
         $formatted[] = $item;
     }
 
-    $nextCursor = null;
-    if ($hasMore && !empty($pageRows)) {
-        $nextCursor = maintenanceEncodeCursor($pageRows[count($pageRows) - 1]);
+    $nextPerBranch = ['t' => $perBranchCursor['t'], 'c' => $perBranchCursor['c']];
+    foreach ($branchDefs as $i => $def) {
+        $branchKey = $def['key'];
+        $list = $branchLists[$i];
+        $consumed = $indices[$i] ?? 0;
+        if ($consumed > 0) {
+            $nextPerBranch[$branchKey] = maintenanceNormalizeRowCursor($list[$consumed - 1]);
+        } elseif (count($list) >= $fetchLimit && !empty($list)) {
+            $nextPerBranch[$branchKey] = maintenanceNormalizeRowCursor($list[count($list) - 1]);
+        }
     }
+    $nextCursor = $hasMore ? maintenanceEncodePageCursor($nextPerBranch) : null;
 
     $returned = count($formatted);
     echo json_encode([
