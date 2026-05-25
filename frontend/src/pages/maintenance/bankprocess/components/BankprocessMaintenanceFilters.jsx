@@ -6,6 +6,7 @@ import {
 } from "../../shared/maintenanceDateHelpers.js";
 import ReportDatePicker from "../../../report/common/ReportDatePicker.jsx";
 import ReportGcFilterPanel from "../../../report/shared/ReportGcFilterPanel.jsx";
+import { normalizeMaintenanceSearchInput } from "../../shared/maintenanceSearchInput.js";
 
 export default function BankprocessMaintenanceFilters({
   permissions,
@@ -102,7 +103,8 @@ export default function BankprocessMaintenanceFilters({
                     autoComplete="off"
                     value={query}
                     aria-labelledby="bankprocess-maint-search-legend"
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => setQuery(normalizeMaintenanceSearchInput(e.target.value))}
+                    style={{ textTransform: "uppercase" }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();

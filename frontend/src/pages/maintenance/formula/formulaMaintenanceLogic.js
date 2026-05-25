@@ -42,9 +42,8 @@ export async function listFormulaTemplates({ companyId, category, process, searc
   if (companyId) params.append("company_id", companyId);
   if (category) params.append("category", category);
   if (process) params.append("process", process);
-  if (search) params.append("search", search);
+  if (search) params.append("search", String(search).toUpperCase());
   params.append("_t", Date.now());
-
   const url = buildApiUrl(`api/formula_maintenance/list_api.php?${params.toString()}`);
   const response = await fetch(url, { cache: "no-cache" });
   const data = await response.json();

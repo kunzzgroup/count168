@@ -115,7 +115,7 @@ export async function searchBankprocessData({
   if (!allCurrencies && codes.length) {
     params.set("currency", codes.join(","));
   }
-  if (query?.trim()) params.set("q", query.trim());
+  if (query?.trim()) params.set("q", query.trim().toUpperCase());
 
   const response = await fetch(buildApiUrl(`api/bankprocess_maintenance/search_api.php?${params.toString()}`), {
     credentials: "include",
