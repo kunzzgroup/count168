@@ -1,58 +1,75 @@
 import { convertBracketedToNegative } from "./dataCaptureBracket.js";
 import { normalizeStoredCaptureType } from "./dataCaptureStorage.js";
 
-export function readCellSnapshotText(cell) {
+const FORMAT_LABEL_FIRST_COLUMNS = new Set(["AGENT", "PLAYER", "MEMBER", "USER"]);
+
+function resolveSnapshotCaptureType(captureType) {
+  return (
+    normalizeStoredCaptureType(captureType) ||
+    normalizeStoredCaptureType(window.__DC_GET_CAPTURE_TYPE__?.()) ||
+    "1.Text"
+  );
+}
+
+function readEditableCellValue(cell) {
   if (!cell) return "";
-  let raw = cell.textContent || cell.innerText || "";
-  if (!String(raw).trim() && cell.innerHTML) {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = cell.innerHTML;
-    raw = tmp.textContent || tmp.innerText || "";
+  const text = (cell.textContent || cell.innerText || "").trim();
+  if (text) return text;
+  const html = cell.innerHTML || "";
+  if (!html.includes("<")) return "";
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  return (temp.textContent || temp.innerText || "").trim();
+}
+
+function isPlaceholderIdColumn(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return true;
+  if (/^\d{1,2}$/.test(trimmed)) return true;
+  return FORMAT_LABEL_FIRST_COLUMNS.has(trimmed.toUpperCase());
+}
+
+function swapRowDataCells(a, b) {
+  const tempValue = a.value;
+  a.value = b.value;
+  b.value = tempValue;
+  const tempColspan = a.colspan;
+  a.colspan = b.colspan;
+  b.colspan = tempColspan;
+  const tempCol = a.col;
+  a.col = b.col;
+  b.col = tempCol;
+}
+
+/** Move first real id product into column A for Text / Format / Return rows. */
+function normalizeIdProductColumnForRow(rowData, captureType, rowIndex) {
+  if (!["1.Text", "2.Format", "4.RETURN"].includes(captureType) || rowData.length <= 1) {
+    return;
   }
-  return String(raw);
-}
 
-export function cellHasCaptureContent(cell) {
-  if (!cell) return false;
-  return readCellSnapshotText(cell).trim() !== "";
-}
+  const firstDataCell = rowData[1];
+  if (firstDataCell?.type !== "data") return;
 
-/** Live DOM check — used when snapshot read and grid disagree (2.Format styled cells). */
-export function domGridHasCaptureData() {
-  const tableBody = document.getElementById("tableBody");
-  if (!tableBody) return false;
-
-  return Array.from(tableBody.querySelectorAll("td")).some((cell) => {
-    if (cell.classList.contains("row-header")) return false;
-    if (cell.style.display === "none") return false;
-    return cellHasCaptureContent(cell);
-  });
-}
-
-export function captureTableHasData(tableData, captureType) {
-  if (tableSnapshotHasData(tableData)) return true;
-  if (domGridHasCaptureData()) return true;
-  const normalized =
-    captureType === "2.Format" || captureType === "655"
-      ? "2.Format"
-      : String(captureType || "").trim();
-  if (normalized === "2.Format" && typeof document !== "undefined") {
-    const tableBody = document.getElementById("tableBody");
-    if (tableBody) {
-      const hasEditable = Array.from(tableBody.querySelectorAll("td[contenteditable='true']")).some(
-        (cell) => cellHasCaptureContent(cell),
+  if (isPlaceholderIdColumn(firstDataCell.value)) {
+    for (let i = 2; i < rowData.length; i += 1) {
+      const cell = rowData[i];
+      if (cell?.type !== "data") continue;
+      const candidate = String(cell.value || "").trim();
+      if (!candidate || FORMAT_LABEL_FIRST_COLUMNS.has(candidate.toUpperCase())) continue;
+      swapRowDataCells(firstDataCell, cell);
+      console.log(
+        `${captureType}: Row ${rowIndex} - adjusted id product from column ${cell.col + 1} (value: "${candidate}") to first column`
       );
-      if (hasEditable) return true;
+      return;
     }
   }
-  return false;
 }
 
 /**
  * Reads the Excel grid DOM for submit / restore snapshots.
  */
 export function captureTableDataFromDom(captureType) {
-  const currentDataCaptureType = normalizeStoredCaptureType(captureType);
+  const currentDataCaptureType = resolveSnapshotCaptureType(captureType);
   const table = document.getElementById("dataTable");
   const tableData = {
     headers: [],
@@ -88,9 +105,12 @@ export function captureTableDataFromDom(captureType) {
         rowData.push({ type: "header", value: cell.textContent });
         return;
       }
-      if (cell.style.display === "none") return;
 
-      let cellValue = convertBracketedToNegative(readCellSnapshotText(cell).toUpperCase());
+      const hidden = cell.style.display === "none";
+      const rawValue = readEditableCellValue(cell);
+      if (hidden && !rawValue) return;
+
+      let cellValue = convertBracketedToNegative(rawValue.toUpperCase());
       const colspan = parseInt(cell.getAttribute("colspan") || "1", 10);
 
       rowData.push({
@@ -101,37 +121,7 @@ export function captureTableDataFromDom(captureType) {
       });
     });
 
-    if (
-      (currentDataCaptureType === "1.Text" ||
-        currentDataCaptureType === "2.Format" ||
-        currentDataCaptureType === "4.RETURN") &&
-      rowData.length > 1
-    ) {
-      const firstDataCell = rowData[1];
-      if (firstDataCell?.type === "data" && (firstDataCell.value || "").trim() === "") {
-        for (let i = 2; i < rowData.length; i += 1) {
-          const cell = rowData[i];
-          if (cell?.type === "data" && (cell.value || "").trim() !== "") {
-            const firstValue = firstDataCell.value;
-            const targetValue = cell.value;
-            firstDataCell.value = targetValue;
-            cell.value = firstValue;
-            const firstColspan = firstDataCell.colspan;
-            const targetColspan = cell.colspan;
-            firstDataCell.colspan = targetColspan;
-            cell.colspan = firstColspan;
-            const firstCol = firstDataCell.col;
-            const targetCol = cell.col;
-            firstDataCell.col = targetCol;
-            cell.col = firstCol;
-            console.log(
-              `${currentDataCaptureType}: Row ${rowIndex} - adjusted id product from column ${targetCol + 1} (value: "${targetValue}") to first column`
-            );
-            break;
-          }
-        }
-      }
-    }
+    normalizeIdProductColumnForRow(rowData, currentDataCaptureType, rowIndex);
 
     const dataCols = rowData.length - 1;
     if (dataCols > maxDataCols) maxDataCols = dataCols;
@@ -168,5 +158,39 @@ export function tableSnapshotHasData(tableData) {
   if (!tableData?.rows?.length) return false;
   return tableData.rows.some((row) =>
     row.some((cell) => cell.type === "data" && String(cell.value || "").trim() !== "")
+  );
+}
+
+/** DOM column index for a snapshot data cell (children[0] is row header). */
+export function snapshotDataCellDomIndex(cellData, rowDataIndex) {
+  if (cellData?.type !== "data") return null;
+  if (typeof cellData.col === "number") return cellData.col + 1;
+  return rowDataIndex >= 1 ? rowDataIndex : null;
+}
+
+/** Build 2.Format preview HTML from snapshot — data cells only, no row labels. */
+export function buildFormatPreviewHtmlFromTableSnapshot(tableData) {
+  if (!tableData?.rows?.length) return "";
+
+  let html = '<table border="1" cellspacing="0" cellpadding="2"><tbody>';
+  tableData.rows.forEach((rowData) => {
+    html += "<tr>";
+    rowData.forEach((cell) => {
+      if (cell.type !== "data") return;
+      const v =
+        cell.value != null ? String(cell.value) : "";
+      html += `<td>${v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>`;
+    });
+    html += "</tr>";
+  });
+  html += "</tbody></table>";
+  return html;
+}
+
+export function domGridHasEditableData() {
+  const tableBody = document.getElementById("tableBody");
+  if (!tableBody) return false;
+  return Array.from(tableBody.querySelectorAll('td[contenteditable="true"]')).some((cell) =>
+    String(cell.textContent || "").trim()
   );
 }

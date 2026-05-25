@@ -5,48 +5,19 @@ import {
   shouldRestoreFromUrl,
   stripRestoreParamFromUrl,
 } from "../lib/dataCaptureStorage.js";
-import { captureTableDataFromDom } from "../lib/dataCaptureTableSnapshot.js";
+import { captureTableDataFromDom, tableSnapshotHasData } from "../lib/dataCaptureTableSnapshot.js";
 import {
   getActiveDescriptions,
+  isSubmitReady,
   validateDataCaptureForm,
 } from "../lib/dataCaptureFormRules.js";
 import { fetchProcessDetail } from "../lib/dataCaptureApi.js";
 import { convertTableFormatOnSubmit } from "../lib/dataCaptureConvertTableOnSubmit.js";
+import { prepareFormatSubmitSnapshot } from "../format/dataCaptureFormat.js";
 import { buildSpaPath } from "../../../utils/core/apiUrl.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { markSummaryFreshNavigation } from "../../datacapturesummary/lib/summaryStorage.js";
-
-function readSubmitFormSnapshot(formRef) {
-  const f = formRef.current;
-  const currencyId = f.currencyId || document.getElementById("capture_currency")?.value || "";
-  const descriptionDisplay =
-    f.descriptionDisplay || document.getElementById("capture_description")?.value || "";
-
-  let selectedProcess = f.selectedProcess;
-  if (!selectedProcess?.id) {
-    const processBtn = document.getElementById("capture_process");
-    const processId = processBtn?.getAttribute("data-value") || "";
-    if (processId) {
-      selectedProcess = {
-        id: processId,
-        displayText: processBtn.textContent?.trim() || "",
-        process_id: processBtn.getAttribute("data-process-code") || "",
-        description_name: processBtn.getAttribute("data-description-name") || null,
-      };
-    }
-  }
-
-  let descriptions = Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : [];
-  if (!descriptions.length && descriptionDisplay) {
-    descriptions = getActiveDescriptions(descriptionDisplay);
-    if (descriptions.length) {
-      window.selectedDescriptions = [...descriptions];
-    }
-  }
-
-  return { selectedProcess, currencyId, descriptionDisplay, descriptions };
-}
 
 function buildProcessCapturePayload(form, captureType, currencies) {
   const currencyOpt = (currencies || []).find((c) => String(c.id) === String(form.currencyId));
@@ -79,41 +50,38 @@ export function useDataCaptureSubmitReset({
   t,
 }) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
-  const [submitBlockReason, setSubmitBlockReason] = useState("");
   const restoreInFlightRef = useRef(false);
-  const formRef = useRef(form);
-  formRef.current = form;
   const captureTypeRef = useRef(captureType);
   captureTypeRef.current = captureType;
 
   const recomputeSubmitState = useCallback(() => {
-    const captureTypeNow =
-      (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
-        ? window.__DC_GET_CAPTURE_TYPE__()
-        : captureTypeRef.current) || captureTypeRef.current;
-    const { selectedProcess, currencyId, descriptionDisplay, descriptions } = readSubmitFormSnapshot(formRef);
-    const tableData = captureTableDataFromDom(captureTypeNow);
-    const validation = validateDataCaptureForm({
-      selectedProcess,
-      descriptions,
-      descriptionDisplay,
-      currencyId,
-      captureType: captureTypeNow,
+    const activeCaptureType = captureTypeRef.current;
+    const tableData = captureTableDataFromDom(activeCaptureType);
+
+    if (
+      activeCaptureType === "2.Format" &&
+      tableSnapshotHasData(tableData) &&
+      typeof window.__DC_GET_FORMAT_GRID_READY__ === "function" &&
+      !window.__DC_GET_FORMAT_GRID_READY__()
+    ) {
+      window.__DC_SET_FORMAT_GRID_READY__?.(true);
+      window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
+    }
+
+    const ready = isSubmitReady({
+      selectedProcess: form.selectedProcess,
+      descriptions: window.selectedDescriptions || [],
+      descriptionDisplay: form.descriptionDisplay,
+      currencyId: form.currencyId,
+      captureType: activeCaptureType,
       tableData,
     });
-    setSubmitDisabled(!validation.ok);
-    setSubmitBlockReason(validation.ok ? "" : validation.message || "");
-  }, []);
+    setSubmitDisabled(!ready);
+  }, [form.selectedProcess, form.currencyId, form.descriptionDisplay]);
 
   useEffect(() => {
     recomputeSubmitState();
-  }, [
-    recomputeSubmitState,
-    form.selectedProcess,
-    form.currencyId,
-    form.descriptionDisplay,
-    captureType,
-  ]);
+  }, [recomputeSubmitState]);
 
   useEffect(() => {
     let observer;
@@ -155,15 +123,16 @@ export function useDataCaptureSubmitReset({
       pushDataCaptureNotification(t("readOnlyBlocked"), "danger");
       return;
     }
-    const captureTypeNow = captureTypeRef.current;
-    const { selectedProcess, currencyId, descriptionDisplay, descriptions } = readSubmitFormSnapshot(formRef);
-    const tableData = captureTableDataFromDom(captureTypeNow);
+
+    const activeCaptureType = captureTypeRef.current;
+
+    const tableData = captureTableDataFromDom(activeCaptureType);
     const validation = validateDataCaptureForm({
-      selectedProcess,
-      descriptions,
-      descriptionDisplay,
-      currencyId,
-      captureType: captureTypeNow,
+      selectedProcess: form.selectedProcess,
+      descriptions: window.selectedDescriptions || [],
+      descriptionDisplay: form.descriptionDisplay,
+      currencyId: form.currencyId,
+      captureType: activeCaptureType,
       tableData,
     });
     if (!validation.ok) {
@@ -171,12 +140,20 @@ export function useDataCaptureSubmitReset({
       return;
     }
 
-    convertTableFormatOnSubmit(captureTypeNow);
+    if (activeCaptureType === "2.Format") {
+      prepareFormatSubmitSnapshot(activeCaptureType);
+    }
+
+    convertTableFormatOnSubmit(activeCaptureType);
 
     try {
-      const processData = buildProcessCapturePayload(formRef.current, captureTypeNow, formRef.current.currencies);
-      const finalTableData = captureTableDataFromDom(captureTypeNow);
-      saveCaptureSession(finalTableData, processData, captureTypeNow);
+      const processData = buildProcessCapturePayload(form, activeCaptureType, form.currencies);
+      const finalTableData = captureTableDataFromDom(activeCaptureType);
+      if (activeCaptureType === "2.Format" && !tableSnapshotHasData(finalTableData)) {
+        pushDataCaptureNotification(t("pleaseEnterTableData"), "danger");
+        return;
+      }
+      saveCaptureSession(finalTableData, processData, activeCaptureType);
 
       markSummaryFreshNavigation();
       if (typeof navigate === "function") {
@@ -188,7 +165,7 @@ export function useDataCaptureSubmitReset({
       console.error("Error submitting data:", error);
       pushDataCaptureNotification(t("failedCaptureData"), "danger");
     }
-  }, [mutationsBlocked, navigate, t]);
+  }, [form, captureType, mutationsBlocked, navigate, t]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {
@@ -303,7 +280,6 @@ export function useDataCaptureSubmitReset({
 
   return {
     submitDisabled,
-    submitBlockReason,
     submit,
     reset,
     restoreFromStorage,

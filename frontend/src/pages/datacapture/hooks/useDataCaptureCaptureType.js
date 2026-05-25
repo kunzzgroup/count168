@@ -1,10 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import {
-  clearFormatPasteViewState,
-  getFormatGridReady,
-  gridHasEditableData,
-  setFormatGridReady as setModuleFormatGridReady,
-} from "../format/dataCaptureFormat.js";
+import { getFormatPreviewHtml } from "../format/dataCaptureFormat.js";
 import {
   isCitibetCaptureType,
   normalizeCaptureType,
@@ -17,7 +12,10 @@ import {
  */
 export function useDataCaptureCaptureType() {
   const [captureType, setCaptureType] = useState(readInitialCaptureType);
-  const [formatGridReady, setFormatGridReady] = useState(false);
+  const [formatGridReady, setFormatGridReady] = useState(() => {
+    if (readInitialCaptureType() !== "2.Format") return false;
+    return Boolean(getFormatPreviewHtml());
+  });
 
   const captureTypeRef = useRef(captureType);
   captureTypeRef.current = captureType;
@@ -27,9 +25,9 @@ export function useDataCaptureCaptureType() {
   const applyCaptureType = useCallback((nextType) => {
     const t = normalizeCaptureType(nextType) || "1.Text";
     const previous = captureTypeRef.current;
-    const restoring = window.__DC_IS_RESTORING__ === true;
 
     setCaptureType(t);
+    captureTypeRef.current = t;
 
     const container = document.querySelector(".excel-table-container");
     if (container) {
@@ -38,16 +36,40 @@ export function useDataCaptureCaptureType() {
     }
 
     if (t === "2.Format") {
-      if (!restoring && previous !== "2.Format") {
-        clearFormatPasteViewState();
-        window.__DC_CLEAR_GRID_CELLS__?.();
-      } else if (gridHasEditableData() && getFormatGridReady()) {
-        setModuleFormatGridReady(true);
+      const previewHtml = getFormatPreviewHtml();
+      const legacyReady =
+        typeof window.__DC_GET_FORMAT_GRID_READY__ === "function"
+          ? window.__DC_GET_FORMAT_GRID_READY__()
+          : false;
+
+      if (previewHtml) {
+        if (legacyReady) {
+          window.__DC_RENDER_FORMAT_PREVIEW__?.(previewHtml);
+          window.__DC_SET_FORMAT_GRID_READY__?.(true);
+          setFormatGridReady(true);
+        } else {
+          const filled =
+            typeof window.__DC_PARSE_HTML_FORMAT__ === "function"
+              ? window.__DC_PARSE_HTML_FORMAT__(previewHtml)
+              : false;
+          if (filled) {
+            window.__DC_RENDER_FORMAT_PREVIEW__?.(previewHtml);
+            window.__DC_SET_FORMAT_GRID_READY__?.(true);
+            setFormatGridReady(true);
+          } else {
+            window.__DC_SET_FORMAT_GRID_READY__?.(false);
+            setFormatGridReady(false);
+          }
+        }
+      } else if (legacyReady) {
+        setFormatGridReady(true);
       } else {
-        clearFormatPasteViewState();
+        window.__DC_SET_FORMAT_GRID_READY__?.(false);
+        setFormatGridReady(false);
       }
     } else {
-      setModuleFormatGridReady(false);
+      window.__DC_SET_FORMAT_GRID_READY__?.(false);
+      setFormatGridReady(false);
       if (previous === "2.Format") {
         window.__DC_CLEAR_FORMAT_STYLES__?.();
       }
@@ -70,16 +92,12 @@ export function useDataCaptureCaptureType() {
   useLayoutEffect(() => {
     window.__DC_APPLY_CAPTURE_TYPE__ = (t) => handlersRef.current.applyCaptureType(t);
     window.__DC_GET_CAPTURE_TYPE__ = () => captureTypeRef.current;
-    window.__DC_ON_FORMAT_GRID_READY__ = (ready) => {
-      setFormatGridReady(Boolean(ready));
-      queueMicrotask(() => window.__DC_RECOMPUTE_SUBMIT_STATE__?.());
-    };
+    window.__DC_ON_FORMAT_GRID_READY__ = (ready) => setFormatGridReady(Boolean(ready));
     window.__DC_ON_CAPTURE_TYPE_APPLIED__ = (t) => {
       const s = normalizeCaptureType(t) || "1.Text";
       setCaptureType(s);
+      captureTypeRef.current = s;
     };
-
-    handlersRef.current.applyCaptureType(captureTypeRef.current);
 
     return () => {
       delete window.__DC_APPLY_CAPTURE_TYPE__;
@@ -88,6 +106,10 @@ export function useDataCaptureCaptureType() {
       delete window.__DC_ON_CAPTURE_TYPE_APPLIED__;
     };
   }, []);
+
+  useLayoutEffect(() => {
+    window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
+  }, [captureType, formatGridReady]);
 
   return {
     captureType,

@@ -2,11 +2,10 @@ import { useLayoutEffect } from "react";
 import {
   clearFormatStyles,
   getFormatGridReady,
-  gridHasEditableData,
+  getFormatPreviewHtml,
   setFormatGridReady,
   toggleTableDisplayForFormat,
 } from "../format/dataCaptureFormat.js";
-import { getFormatPreviewHtml } from "../format/dataCaptureFormat.js";
 import { readInitialCaptureType } from "../lib/dataCaptureFormRules.js";
 
 /**
@@ -14,7 +13,7 @@ import { readInitialCaptureType } from "../lib/dataCaptureFormRules.js";
  */
 export function useDataCaptureFormatDisplay() {
   useLayoutEffect(() => {
-    if (readInitialCaptureType() === "2.Format" && readInitialFormatReady()) {
+    if (readInitialFormatReady()) {
       setFormatGridReady(true);
     }
 
@@ -41,5 +40,6 @@ export function useDataCaptureFormatDisplay() {
 }
 
 function readInitialFormatReady() {
-  return Boolean(getFormatPreviewHtml()) && gridHasEditableData();
+  if (readInitialCaptureType() !== "2.Format") return false;
+  return Boolean(getFormatPreviewHtml());
 }

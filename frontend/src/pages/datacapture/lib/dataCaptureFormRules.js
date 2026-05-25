@@ -1,4 +1,4 @@
-import { captureTableHasData, tableSnapshotHasData } from "./dataCaptureTableSnapshot.js";
+import { tableSnapshotHasData } from "./dataCaptureTableSnapshot.js";
 
 export const CAPTURE_TYPE_OPTIONS = ["1.Text", "2.Format", "CITIBET", "4.RETURN"];
 
@@ -33,30 +33,16 @@ export function isCitibetCaptureType(captureType) {
   return normalizeCaptureType(captureType) === "CITIBET";
 }
 
-const DESCRIPTION_PLACEHOLDER_PATTERNS = [
-  /^click\s*\+\s*to\s*select/i,
-  /^select\s*description/i,
-  /^点击.*选择.*描述/i,
-  /^请选择.*描述/i,
-];
-
-function isDescriptionPlaceholder(text) {
-  const s = String(text || "").trim();
-  if (!s) return true;
-  return DESCRIPTION_PLACEHOLDER_PATTERNS.some((re) => re.test(s));
-}
-
 /** Descriptions from modal/global state, with fallback when display text is set but array is empty. */
 export function getActiveDescriptions(descriptionDisplay) {
   const fromWindow = Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : [];
-  const cleanedWindow = fromWindow.map((s) => String(s || "").trim()).filter((s) => s && !isDescriptionPlaceholder(s));
-  if (cleanedWindow.length) return cleanedWindow;
+  if (fromWindow.length) return fromWindow.filter(Boolean);
   const display = String(descriptionDisplay || "").trim();
-  if (!display || isDescriptionPlaceholder(display)) return [];
+  if (!display) return [];
   return display
     .split(",")
     .map((s) => s.trim())
-    .filter((s) => s && !isDescriptionPlaceholder(s));
+    .filter(Boolean);
 }
 
 export function validateDataCaptureForm({
@@ -80,14 +66,9 @@ export function validateDataCaptureForm({
   if (!currencyId) {
     return { ok: false, message: "Please select a currency" };
   }
-  if (isCitibetCaptureType(captureType) && !captureTableHasData(tableData, captureType)) {
-    return { ok: false, message: "Please enter data in the table" };
-  }
-  const normalizedType = normalizeCaptureType(captureType);
-  if (
-    (normalizedType === "1.Text" || normalizedType === "2.Format") &&
-    !captureTableHasData(tableData, captureType)
-  ) {
+  // Match legacy PHP: only CITIBET blocks Submit until the grid has data.
+  // 2.Format table checks run at submit time (after prepareFormatSubmitSnapshot).
+  if (isCitibetCaptureType(captureType) && !tableSnapshotHasData(tableData)) {
     return { ok: false, message: "Please enter data in the table" };
   }
   return { ok: true };

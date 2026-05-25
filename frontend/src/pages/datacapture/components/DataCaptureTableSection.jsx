@@ -1,7 +1,5 @@
-import { useLayoutEffect } from "react";
 import DataCaptureGrid from "./DataCaptureGrid.jsx";
 import { CAPTURE_TYPE_OPTIONS } from "../lib/dataCaptureFormRules.js";
-import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 
 function captureTypeLabel(opt, t) {
   if (opt === "1.Text") return t("captureTypeText");
@@ -18,21 +16,28 @@ export default function DataCaptureTableSection({
   t,
   captureType,
   citibetMode = false,
+  formatGridReady = false,
   onCaptureTypeChange,
   submitDisabled = true,
-  submitBlockReason = "",
   onSubmit,
   onReset,
 }) {
-  useLayoutEffect(() => {
-    window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
-  }, [captureType]);
+  const formatPasteMode = captureType === "2.Format" && !formatGridReady;
+  const containerClass = [
+    "excel-table-container",
+    citibetMode ? "citibet-mode" : "",
+    formatPasteMode ? "format-paste-mode" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="bottom-section">
-      <div className={`excel-table-container${citibetMode ? " citibet-mode" : ""}`}>
-        <div className="excel-table-header">
-          <span>{t("dataCaptureTable")}</span>
+      <div className={containerClass}>
+        <div className="excel-table-header dc-table-header-bar">
+          <div className="dc-table-header-main">
+            <span className="dc-table-header-title">{t("dataCaptureTable")}</span>
+          </div>
           <div className="dc-table-header-controls">
             <select
               id="dataCaptureTypeSelector"
@@ -61,11 +66,6 @@ export default function DataCaptureTableSection({
           type="button"
           className="btn btn-save"
           disabled={submitDisabled}
-          title={
-            submitDisabled && submitBlockReason
-              ? translateDataCaptureMessage(localStorage.getItem("login_lang") === "zh" ? "zh" : "en", submitBlockReason)
-              : undefined
-          }
           style={{
             opacity: submitDisabled ? 0.6 : 1,
             cursor: submitDisabled ? "not-allowed" : "pointer",

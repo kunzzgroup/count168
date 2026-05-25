@@ -60,7 +60,7 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
         }
 
         // 确保表格有足够的行和列
-        let tableBody = document.getElementById('tableBody');
+        const tableBody = document.getElementById('tableBody');
         const tableHeader = document.getElementById('tableHeader');
         if (!tableBody || !tableHeader) {
             return false;
@@ -117,7 +117,7 @@ export function parseAndFillHtmlTableForFormat(htmlString) {
 
         // 重新获取表头和表体（因为可能被重新初始化）
         const headerRow = tableHeader.querySelector('tr');
-        let actualCols = document.querySelectorAll('#tableHeader th').length - 1;
+        const actualCols = document.querySelectorAll('#tableHeader th').length - 1;
         const currentPasteChanges = [];
         let successCount = 0;
 

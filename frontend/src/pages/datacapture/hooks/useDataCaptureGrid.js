@@ -33,7 +33,11 @@ export function useDataCaptureGrid(scriptsReady) {
     if (dataTable && dataTable.style.display === "none") {
       const captureType =
         typeof window.__DC_GET_CAPTURE_TYPE__ === "function" ? window.__DC_GET_CAPTURE_TYPE__() : "";
-      if (captureType !== "2.Format") {
+      const formatReady =
+        typeof window.__DC_GET_FORMAT_GRID_READY__ === "function"
+          ? window.__DC_GET_FORMAT_GRID_READY__()
+          : false;
+      if (captureType !== "2.Format" || formatReady) {
         dataTable.style.display = "table";
       }
     }

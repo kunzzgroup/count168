@@ -1,4 +1,4 @@
-/* Ensure modals and popups are hidden before main CSS loads */
+﻿/* Ensure modals and popups are hidden before main CSS loads */
 #descriptionSelectionModal:not(.show),
 #contextMenu:not(.show) {
     display: none;
@@ -1364,30 +1364,6 @@ body.datacapture-page .excel-table-container {
     max-height: 100%;
 }
 
-body.datacapture-page .excel-table-container.format-paste-mode {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-body.datacapture-page .excel-table-container.format-paste-mode .paste-area-format {
-    flex: 1 1 auto;
-    min-height: min(42vh, 360px);
-}
-
-body.datacapture-page .excel-table-container.format-paste-mode #dataTable {
-    display: none !important;
-}
-
-/* 1.Text / 2.Format grid: never show paste area unless format-paste-mode is active */
-body.datacapture-page .excel-table-container:not(.format-paste-mode) .paste-area-format {
-    display: none !important;
-}
-
-body.datacapture-page .excel-table-container:not(.format-paste-mode) #dataTable {
-    display: table !important;
-}
-
 .text-input-format {
     width: 100%;
     height: 100%;
@@ -1404,6 +1380,22 @@ body.datacapture-page .excel-table-container:not(.format-paste-mode) #dataTable 
 
 .text-input-format:focus {
     outline: none;
+}
+
+/* 2.Format 未粘贴前：隐藏网格，显示粘贴区（与 count168.com 一致） */
+.excel-table-container.format-paste-mode {
+    display: flex;
+    flex-direction: column;
+}
+
+.excel-table-container.format-paste-mode #dataTable {
+    display: none !important;
+}
+
+.excel-table-container.format-paste-mode #pasteAreaFormat {
+    display: block !important;
+    flex: 1 1 auto;
+    min-height: min(42vh, 360px);
 }
 
 /* 2.Format模式：可粘贴整张表格的区域（contenteditable） */

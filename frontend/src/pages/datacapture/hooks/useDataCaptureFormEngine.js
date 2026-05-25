@@ -202,18 +202,6 @@ export function useDataCaptureFormEngine(companyId) {
     });
     setProcessOpen(false);
     setProcessFilter("");
-
-    if (row.description_name) {
-      const name = String(row.description_name).trim();
-      window.selectedDescriptions = [name];
-      setDescriptionDisplay(name);
-    }
-
-    const recomputeSubmit = () => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    };
-    queueMicrotask(recomputeSubmit);
-
     const cid = companyIdRef.current;
     const res = await fetchProcessDetail(row.id, cid);
     if (res.success && res.data) {
@@ -230,7 +218,9 @@ export function useDataCaptureFormEngine(companyId) {
         currenciesRef.current
       );
     }
-    setTimeout(recomputeSubmit, 0);
+    setTimeout(() => {
+      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+    }, 0);
   }, []);
 
   const clearProcessSelection = useCallback(() => {
@@ -283,8 +273,7 @@ export function useDataCaptureFormEngine(companyId) {
     };
 
     window.__DC_ON_DESCRIPTIONS_CONFIRMED__ = (descriptions) => {
-      const arr = Array.isArray(descriptions) ? descriptions.filter(Boolean) : [];
-      window.selectedDescriptions = [...arr];
+      const arr = Array.isArray(descriptions) ? descriptions : [];
       setDescriptionDisplay(arr.join(", "));
     };
 

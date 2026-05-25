@@ -1,8 +1,8 @@
 /**
  * 2.Format — preview storage, grid-ready flag, table visibility + style cleanup.
  */
-import { cellHasCaptureContent } from "../lib/dataCaptureTableSnapshot.js";
 import { renderFormatPreview } from "../paste/core/dataCaptureFormatPreview.js";
+import { domGridHasEditableData } from "../lib/dataCaptureTableSnapshot.js";
 
 export const FORMAT_PREVIEW_HTML_KEY = "capturedFormatPreviewHtml";
 export const FORMAT_PREVIEW_HTML_KEY_LEGACY = "captured655PreviewHtml";
@@ -48,19 +48,6 @@ export function clearFormatPreviewHtml() {
   }
 }
 
-export function gridHasEditableData() {
-  const tableBody = document.getElementById("tableBody");
-  if (!tableBody) return false;
-  return Array.from(tableBody.querySelectorAll("td[contenteditable='true']")).some((cell) =>
-    cellHasCaptureContent(cell),
-  );
-}
-
-export function clearFormatPasteViewState() {
-  clearFormatPreviewHtml();
-  setFormatGridReady(false);
-}
-
 export function clearFormatStyles() {
   const tableBody = document.getElementById("tableBody");
   if (tableBody) {
@@ -99,55 +86,89 @@ export function clearFormatStyles() {
   }
 }
 
+function restoreFormatGridFromPreviewHtml(previewHtml) {
+  if (!previewHtml || getFormatGridReady()) return getFormatGridReady();
+
+  if (domGridHasEditableData()) {
+    renderFormatPreview(previewHtml);
+    setFormatGridReady(true);
+    return true;
+  }
+
+  const filled =
+    typeof window.__DC_PARSE_HTML_FORMAT__ === "function"
+      ? window.__DC_PARSE_HTML_FORMAT__(previewHtml)
+      : false;
+
+  if (filled) {
+    renderFormatPreview(previewHtml);
+    setFormatGridReady(true);
+    return true;
+  }
+
+  return false;
+}
+
+/** Ensure 2.Format grid is filled and visible before submit snapshot. */
+export function prepareFormatSubmitSnapshot(captureType) {
+  const type = window.__DC_GET_CAPTURE_TYPE__?.() || captureType || "1.Text";
+  if (type !== "2.Format") return true;
+
+  const dataTable = document.getElementById("dataTable");
+  if (dataTable) dataTable.style.display = "table";
+
+  if (getFormatGridReady()) return true;
+
+  const pasteArea = document.getElementById("pasteAreaFormat");
+  const pasteHtml = pasteArea?.innerHTML || "";
+  if (pasteHtml && /<table\b/i.test(pasteHtml)) {
+    const processed = window.__DC_PROCESS_FORMAT_HTML__?.(pasteHtml, { area: pasteArea });
+    if (processed) return true;
+  }
+
+  const previewHtml = getFormatPreviewHtml();
+  if (previewHtml) {
+    return restoreFormatGridFromPreviewHtml(previewHtml);
+  }
+
+  return false;
+}
+
 export function toggleTableDisplayForFormat() {
   const dataTable = document.getElementById("dataTable");
   const tablePreviewFormat = document.getElementById("tablePreviewFormat");
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "1.Text";
-  const container = document.querySelector(".excel-table-container");
 
   if (captureType === "2.Format") {
-    // Empty state = paste area; after format paste / restore = editable grid.
-    let showGrid = getFormatGridReady() && gridHasEditableData();
+    const previewHtml = getFormatPreviewHtml();
 
-    // Grid has pasted data but ready flag was cleared — recover instead of wiping preview/grid.
-    if (!showGrid && gridHasEditableData()) {
-      setFormatGridReady(true);
-      showGrid = true;
+    if (previewHtml && !getFormatGridReady()) {
+      restoreFormatGridFromPreviewHtml(previewHtml);
     }
 
-    // Only drop stale preview HTML when the grid is still empty.
-    if (!showGrid && getFormatPreviewHtml() && !gridHasEditableData()) {
-      clearFormatPasteViewState();
-      showGrid = false;
-    }
-
-    if (showGrid) {
+    if (getFormatGridReady()) {
       if (dataTable) dataTable.style.display = "table";
       if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
       if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
-      container?.classList.remove("format-paste-mode");
     } else {
       if (dataTable) dataTable.style.display = "none";
       if (pasteAreaFormat) {
         pasteAreaFormat.style.display = "block";
-        if (!pasteAreaFormat.textContent?.trim()) {
-          setTimeout(() => {
-            pasteAreaFormat.focus();
-          }, 100);
-        }
+        pasteAreaFormat.innerHTML = "";
+        setTimeout(() => {
+          pasteAreaFormat.focus();
+        }, 100);
       }
       if (tablePreviewFormat) {
         tablePreviewFormat.style.display = "none";
         tablePreviewFormat.innerHTML = "";
       }
-      container?.classList.add("format-paste-mode");
     }
   } else {
     if (dataTable) dataTable.style.display = "table";
     if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
     if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
-    container?.classList.remove("format-paste-mode");
   }
 
   window.__DC_ON_FORMAT_GRID_READY__?.(getFormatGridReady());

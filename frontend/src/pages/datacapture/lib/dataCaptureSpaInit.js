@@ -19,13 +19,11 @@ export async function initDataCaptureSpaPage() {
 
   // One-time setup (grid shell, submitted list). Restore may re-run when SPA re-inits
   // after company metadata loads — do not gate the whole function on dcPageInit.
-  const initialCaptureType = readInitialCaptureType();
-  window.__DC_APPLY_CAPTURE_TYPE__?.(initialCaptureType);
-
   if (!alreadyInit) {
     dcFormGate.dataset.dcPageInit = "1";
 
     if (!shouldRestore) {
+      window.__DC_APPLY_CAPTURE_TYPE__?.(readInitialCaptureType());
       await window.__DC_ENSURE_GRID_READY__?.(DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS);
       await window.__DC_REFRESH_SUBMITTED_PROCESSES__?.();
     }
