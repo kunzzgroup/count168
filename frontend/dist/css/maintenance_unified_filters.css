@@ -397,29 +397,53 @@ body.maintenance-page .maintenance-table td.maintenance-table-cell {
     text-align: left !important;
 }
 
-/* Dashboard scrollbars — report (blue theme) */
-body.dashboard-page.report-page {
+/* Report — page-level scroll (html / body / #root), same as maintenance */
+html:has(body.dashboard-page.report-page),
+body.dashboard-page.report-page,
+body.dashboard-page.report-page #root {
     scrollbar-width: thin;
-    scrollbar-color: #2563eb #bfdbfe;
+    scrollbar-color: #4b5563 #ececec;
 }
 
-body.dashboard-page.report-page::-webkit-scrollbar {
-    width: 10px;
+html:has(body.dashboard-page.report-page)::-webkit-scrollbar,
+body.dashboard-page.report-page::-webkit-scrollbar,
+body.dashboard-page.report-page #root::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
-body.dashboard-page.report-page::-webkit-scrollbar-track {
-    background: #bfdbfe;
-    border-radius: 10px;
+html:has(body.dashboard-page.report-page)::-webkit-scrollbar-track,
+body.dashboard-page.report-page::-webkit-scrollbar-track,
+body.dashboard-page.report-page #root::-webkit-scrollbar-track {
+    background: #ececec;
+    border-radius: 8px;
 }
 
-body.dashboard-page.report-page::-webkit-scrollbar-thumb {
-    background: #2563eb;
-    border-radius: 10px;
-    border: 2px solid #bfdbfe;
+html:has(body.dashboard-page.report-page)::-webkit-scrollbar-thumb,
+body.dashboard-page.report-page::-webkit-scrollbar-thumb,
+body.dashboard-page.report-page #root::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 8px;
+    border: 2px solid #ececec;
+    min-height: 48px;
 }
 
-body.dashboard-page.report-page::-webkit-scrollbar-thumb:hover {
-    background: #1d4ed8;
+html:has(body.dashboard-page.report-page)::-webkit-scrollbar-thumb:hover,
+body.dashboard-page.report-page::-webkit-scrollbar-thumb:hover,
+body.dashboard-page.report-page #root::-webkit-scrollbar-thumb:hover {
+    background: #374151;
+}
+
+html:has(body.dashboard-page.report-page)::-webkit-scrollbar-thumb:active,
+body.dashboard-page.report-page::-webkit-scrollbar-thumb:active,
+body.dashboard-page.report-page #root::-webkit-scrollbar-thumb:active {
+    background: #1f2937;
+}
+
+html:has(body.dashboard-page.report-page)::-webkit-scrollbar-corner,
+body.dashboard-page.report-page::-webkit-scrollbar-corner,
+body.dashboard-page.report-page #root::-webkit-scrollbar-corner {
+    background: #ececec;
 }
 
 /* Maintenance — page-level scroll (html / body / #root), same colors as virtual list */

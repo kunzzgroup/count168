@@ -434,9 +434,15 @@ body.process-page .user-gc-segment,
 body.report-page .user-gc-segment,
 body.datacapture-page .user-gc-segment,
 body.member-winloss-page .user-gc-segment,
-body.dashboard-page .user-gc-segment {
+body.dashboard-page .user-gc-segment,
+body.transaction-page .user-gc-segment,
+body.domain-page .user-gc-segment,
+body.ownership-page .user-gc-segment,
+body.announcement-page .user-gc-segment,
+body.datacapture-summary-page .user-gc-segment,
+body.ec-auth-shell .user-gc-segment {
     margin: 0;
-    padding: 8px clamp(10px, 1.2vw, 18px);
+    padding: var(--user-gc-segment-padding);
     border: none;
     border-right: 1px solid var(--color-border, #e5e7eb);
     background: var(--color-surface, #ffffff);

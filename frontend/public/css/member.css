@@ -1361,7 +1361,7 @@ body.member-winloss-page #member_currency_buttons .member-winloss-currency-segme
 }
 
 body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment {
-    padding: 5px clamp(8px, 0.85vw, 12px);
+    padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
     box-sizing: border-box;
     min-height: clamp(28px, 1.85vw, 32px);
     width: auto;
@@ -1385,7 +1385,7 @@ body.member-winloss-page #member_account_buttons .member-winloss-account-segment
 }
 
 body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment {
-    padding: 5px 8px;
+    padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
     box-sizing: border-box;
     min-height: clamp(28px, 1.85vw, 32px);
     min-width: 0;

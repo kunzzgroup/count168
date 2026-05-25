@@ -32,7 +32,7 @@
   --sidebar-menu-trailing-gap: clamp(0.35rem, 0.32rem + 0.06vw, 0.48rem);
   --sidebar-menu-arrow-gap: 0.15rem;
   --sidebar-menu-arrow-size: 0.65rem;
-  --sidebar-lock-width: clamp(155px, calc((var(--sidebar-menu-pad-x) * 2) + var(--sidebar-icon-size) + var(--sidebar-icon-gap) + var(--sidebar-menu-text-track) + var(--sidebar-menu-arrow-gap) + var(--sidebar-menu-arrow-size) + var(--sidebar-menu-trailing-gap)), 218px);
+  --sidebar-lock-width: clamp(180px, calc((var(--sidebar-menu-pad-x) * 2) + var(--sidebar-icon-size) + var(--sidebar-icon-gap) + var(--sidebar-menu-text-track) + var(--sidebar-menu-arrow-gap) + var(--sidebar-menu-arrow-size) + var(--sidebar-menu-trailing-gap)), 218px);
   --sidebar-logo-height: clamp(2.8rem, 2.67rem + 0.2vw, 3.6rem);
   --sidebar-avatar-lock: clamp(3.2rem, 4.09rem + 0.18vw, 4rem);
 
@@ -47,7 +47,7 @@
 
   /* 图标与菜单字体 */
   --sidebar-icon-size: clamp(1.4rem, 1.35rem + 0.09vw, 1.8rem);
-  --sidebar-menu-font: clamp(1.12rem, 1.1rem + 0.05vw, 1.28rem);
+  --sidebar-menu-font: clamp(1.3rem, 1.35rem + .08vw, 1.6rem);
 
   /* 菜单内边距 (Padding) */  
   --sidebar-menu-pad-y: clamp(0.95rem, 0.92rem + 0.05vw, 1.2rem);
@@ -73,6 +73,9 @@
   --color-border: #e5e7eb;
   --color-border-muted: #d0d7de;
   --color-muted-fg: #6b7280;
+
+  /* Group / Company / Currency 药丸按钮内边距（全站统一） */
+  --user-gc-segment-padding: 4px clamp(10px, 1.2vw, 18px);
 
   /* --- 语义色 --- */
   --color-primary: #3b82f6;

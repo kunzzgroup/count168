@@ -4192,7 +4192,7 @@ body.process-page > .process-modal {
 .process-page .modal .day-use-pill-row .user-gc-segment-group .user-gc-segment {
     flex: 1 1 0;
     min-width: 0;
-    padding: 8px clamp(10px, 1.2vw, 18px);
+    padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
     font-size: var(--text-medium) !important;
     font-weight: var(--font-weight-semibold) !important;
 }
