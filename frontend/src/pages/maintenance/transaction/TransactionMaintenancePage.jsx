@@ -6,6 +6,10 @@ import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/side
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import {
+  getCachedOwnerCompanies,
+  loadOwnerCompaniesCached,
+} from "../../../utils/company/sharedCompanyFilter.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
@@ -31,7 +35,6 @@ import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pag
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
 import TransactionMaintenanceTable from "./components/TransactionMaintenanceTable.jsx";
-import PageContentLoader from "../../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 /**
@@ -60,9 +63,7 @@ export default function TransactionMaintenancePage() {
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
-  // -- Boot State --
-  const [bootLoading, setBootLoading] = useState(true);
-  const [companies, setCompanies] = useState([]);
+  const [companies, setCompanies] = useState(() => getCachedOwnerCompanies() || []);
   const [permissions, setPermissions] = useState([]);
 
   // -- Filter State --
@@ -83,13 +84,12 @@ export default function TransactionMaintenancePage() {
   const [dateTo, setDateTo] = useState(todayDmy);
 
   const [toasts, setToasts] = useState([]);
-  const [cssReady, setCssReady] = useState(false);
   /** Boot finished metadata; date picker synced — avoids racing search with boot/meta fetches. */
   const [filtersReady, setFiltersReady] = useState(false);
   const [dateRangeReady, setDateRangeReady] = useState(false);
   const [searchDeferredReady, setSearchDeferredReady] = useState(false);
-  const [switchingCompany, setSwitchingCompany] = useState(false);
   const followGroupRef = useRef(() => {});
+  const pageBootOnceRef = useRef(false);
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -116,13 +116,11 @@ export default function TransactionMaintenancePage() {
   );
 
   const listQueryEnabled = Boolean(
-    !bootLoading &&
     filtersReady &&
     dateRangeReady &&
     companyId &&
     dateFrom &&
     dateTo &&
-    cssReady &&
     (permissions.length === 0 || activePermission),
   );
 
@@ -140,7 +138,7 @@ export default function TransactionMaintenancePage() {
           queryClient.setQueryData(maintenanceQueryKey, rows);
         },
       }),
-    enabled: listQueryEnabled && searchDeferredReady && !switchingCompany,
+    enabled: listQueryEnabled && searchDeferredReady,
     staleTime: 2 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
@@ -279,13 +277,8 @@ export default function TransactionMaintenancePage() {
 
     removeOtherMaintenanceStylesheets("transaction_maintenance.css");
     ensureMaintenanceDateRangePicker();
-    // Fonts/icons are in index.html; page CSS is bundled via imports — do not block on third-party CDN
-    // (some networks/devices block or stall fonts.googleapis.com / cdnjs → blank page + "failed to load resource").
-    setCssReady(true);
-
     return () => {
       cancelled = true;
-      setCssReady(false);
       originalStyles.forEach((item) => {
         const { el } = item;
         if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
@@ -306,9 +299,19 @@ export default function TransactionMaintenancePage() {
   }, []);
 
   useEffect(() => {
-    if (bootLoading || !me || !cssReady) return;
+    if (!sessionReady || !me) return;
     setDateRangeReady(true);
-  }, [bootLoading, me, cssReady]);
+  }, [sessionReady, me]);
+
+  useEffect(() => {
+    if (!me || companyId != null) return;
+    const cached = getCachedOwnerCompanies();
+    let initialCompanyId = me.company_id ? Number(me.company_id) : (cached?.[0]?.id ? Number(cached[0].id) : null);
+    if (initialCompanyId && cached?.length && !cached.some((c) => Number(c.id) === initialCompanyId)) {
+      initialCompanyId = cached[0]?.id ? Number(cached[0].id) : null;
+    }
+    if (initialCompanyId) setCompanyId(initialCompanyId);
+  }, [me, companyId]);
 
   // Defer first search one tick after filters are ready (align with Payment/Capture maintenance).
   useEffect(() => {
@@ -324,20 +327,21 @@ export default function TransactionMaintenancePage() {
   }, [listQueryEnabled]);
 
   useEffect(() => {
-    if (bootLoading || !me || !cssReady) return;
+    if (!sessionReady || !me) return;
     window.MaintenanceDateRangePicker?.setLocaleStrings?.({
       placeholder: t("selectDateRange"),
       selectEndDateHint: t("selectEndDate"),
       monthLabels: m.monthsShort,
     });
-  }, [bootLoading, me, cssReady, lang, t, m]);
+  }, [sessionReady, me, lang, t, m]);
 
   // -- Boot Logic --
   useEffect(() => {
     if (!sessionReady || !me) return;
+    if (pageBootOnceRef.current) return;
+    pageBootOnceRef.current = true;
 
     let cancelled = false;
-    setBootLoading(true);
     (async () => {
       try {
         const u = me;
@@ -354,12 +358,14 @@ export default function TransactionMaintenancePage() {
           return;
         }
 
-        // Load Companies
-        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-        const compJson = await compRes.json();
-        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
-        
-        const filtered = rows;
+        const filtered = await loadOwnerCompaniesCached(async () => {
+          const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+            credentials: "include",
+          });
+          const compJson = await compRes.json();
+          return Array.isArray(compJson?.data) ? compJson.data : [];
+        });
+        if (cancelled) return;
         setCompanies(filtered);
 
         // Set Initial Company
@@ -423,10 +429,7 @@ export default function TransactionMaintenancePage() {
         console.error("Boot error:", err);
         if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        if (!cancelled) {
-          setFiltersReady(true);
-          setBootLoading(false);
-        }
+        if (!cancelled) setFiltersReady(true);
       }
     })();
     return () => {
@@ -436,7 +439,7 @@ export default function TransactionMaintenancePage() {
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
-    if (bootLoading || !companyId) return;
+    if (!companyId) return;
     if (skipMetaAfterBootRef.current) {
       skipMetaAfterBootRef.current = false;
       return;
@@ -484,7 +487,7 @@ export default function TransactionMaintenancePage() {
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, companyId, companyCode, notify, t]);
+  }, [companyId, companyCode, notify, t]);
 
   useEffect(() => {
     if (!transactionQuery.isSuccess || !transactionData.length) return;
@@ -516,9 +519,14 @@ export default function TransactionMaintenancePage() {
   // -- Handlers --
   const handleSwitchCompany = useCallback(async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
-    setSwitchingCompany(true);
+    const nextCompanyId = Number(c.id);
+    const code = c.company_id || "";
+    const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
+    else sessionStorage.removeItem("dashboard_group_filter");
+    setSelectedGroup(newGroup);
+
     try {
-      const nextCompanyId = Number(c.id);
       const res = await updateSessionCompany(c.id);
 
       if (res.has_gambling === false) {
@@ -526,33 +534,27 @@ export default function TransactionMaintenancePage() {
         return;
       }
 
-      const perms = await fetchCompanyPermissions(c.company_id);
+      const [perms, procList] = await Promise.all([
+        fetchCompanyPermissions(code),
+        fetchProcesses(nextCompanyId),
+      ]);
 
       if (isBankOnlyCategoryCompany(perms)) {
         navigate("/process-list", { replace: true });
         return;
       }
 
-      const procList = await fetchProcesses(nextCompanyId);
-
-      const code = c.company_id || "";
       const saved = localStorage.getItem(`selectedPermission_${code}`);
       const nextActive =
         saved && perms.includes(saved) ? saved : perms.length > 0 ? perms[0] : "";
       switchPermsCacheRef.current = { companyCode: code, perms };
       skipMetaAfterBootRef.current = true;
+      setCompanyCode(code);
+      setCompanyId(nextCompanyId);
       setActivePermission(nextActive);
       setPermissions(perms);
       setProcesses(procList);
       setSelectedProcess("");
-
-      setCompanyId(nextCompanyId);
-      setCompanyCode(code);
-
-      const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-      setSelectedGroup(newGroup);
-      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
-      else sessionStorage.removeItem("dashboard_group_filter");
 
       followGroupRef.current();
 
@@ -565,8 +567,6 @@ export default function TransactionMaintenancePage() {
         return;
       }
       notify(err.message || t("switchFailed"), "error");
-    } finally {
-      setSwitchingCompany(false);
     }
   }, [companyId, navigate, notify, t]);
 
@@ -583,7 +583,6 @@ export default function TransactionMaintenancePage() {
     selectedGroup,
     setSelectedGroup,
     switchCompany: handleSwitchCompany,
-    switchingCompany,
   });
 
   followGroupRef.current = followCurrentCompanyGroup;
@@ -593,7 +592,10 @@ export default function TransactionMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
   };
 
-  if (bootLoading || !me || !cssReady) return <PageContentLoader />;
+  if (!sessionReady || !me) return null;
+
+  const listSyncing =
+    transactionQuery.isFetching && (transactionQuery.isPlaceholderData || listRowCount > 0);
 
   return (
     <div className="container">
@@ -642,9 +644,9 @@ export default function TransactionMaintenancePage() {
 
         <TransactionMaintenanceTable
           data={transactionData}
-          showSkeleton={showListSkeleton}
+          showSkeleton={showListSkeleton && !listSyncing}
           statusMessage={listStatusMessage}
-          isPlaceholderData={transactionQuery.isPlaceholderData}
+          isPlaceholderData={transactionQuery.isPlaceholderData || listSyncing}
           m={m}
         />
       </div>
