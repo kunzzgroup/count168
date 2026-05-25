@@ -3,6 +3,10 @@
  */
 import { renderFormatPreview } from "../paste/core/dataCaptureFormatPreview.js";
 import {
+  getFormatPasteAnchorCell,
+  resolveFormatPasteStartRow,
+} from "../paste/core/dataCapturePasteApply.js";
+import {
   buildFormatPreviewHtmlFromTableSnapshot,
   captureTableDataFromDom,
   domGridHasEditableData,
@@ -96,12 +100,31 @@ export function syncFormatPreviewFromDom(captureType = "2.Format") {
   const html = buildFormatPreviewHtmlFromTableSnapshot(tableData);
   if (!html) return false;
   setFormatPreviewHtml(html);
-  renderFormatPreview(html);
+  if (!getFormatGridReady()) {
+    renderFormatPreview(html);
+  }
   return true;
 }
 
+/** Merge table HTML still in #pasteAreaFormat into the editable grid (append when grid has data). */
+function flushPendingFormatPasteArea() {
+  const pasteArea = document.getElementById("pasteAreaFormat");
+  const pasteHtml = pasteArea?.innerHTML || "";
+  if (!pasteHtml || !/<table\b/i.test(pasteHtml)) return false;
+
+  const startRow = domGridHasEditableData()
+    ? resolveFormatPasteStartRow(getFormatPasteAnchorCell())
+    : 0;
+
+  const processed = window.__DC_PROCESS_FORMAT_HTML__?.(pasteHtml, {
+    area: pasteArea,
+    startRow,
+  });
+  return !!processed;
+}
+
 function restoreFormatGridFromPreviewHtml(previewHtml) {
-  if (!previewHtml || getFormatGridReady()) return getFormatGridReady();
+  if (!previewHtml) return false;
 
   if (domGridHasEditableData()) {
     syncFormatPreviewFromDom();
@@ -129,7 +152,14 @@ export function prepareFormatSubmitSnapshot(captureType) {
   if (type !== "2.Format") return true;
 
   const dataTable = document.getElementById("dataTable");
+  const pasteAreaFormat = document.getElementById("pasteAreaFormat");
+  const tablePreviewFormat = document.getElementById("tablePreviewFormat");
+
   if (dataTable) dataTable.style.display = "table";
+  if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
+  if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
+
+  flushPendingFormatPasteArea();
 
   if (domGridHasEditableData()) {
     syncFormatPreviewFromDom(type);
@@ -137,18 +167,23 @@ export function prepareFormatSubmitSnapshot(captureType) {
     return true;
   }
 
-  if (getFormatGridReady()) return true;
-
-  const pasteArea = document.getElementById("pasteAreaFormat");
-  const pasteHtml = pasteArea?.innerHTML || "";
+  const pasteHtml = pasteAreaFormat?.innerHTML || "";
   if (pasteHtml && /<table\b/i.test(pasteHtml)) {
-    const processed = window.__DC_PROCESS_FORMAT_HTML__?.(pasteHtml, { area: pasteArea });
-    if (processed) return true;
+    const processed = window.__DC_PROCESS_FORMAT_HTML__?.(pasteHtml, { area: pasteAreaFormat });
+    if (processed) {
+      syncFormatPreviewFromDom(type);
+      setFormatGridReady(true);
+      return true;
+    }
   }
 
   const previewHtml = getFormatPreviewHtml();
   if (previewHtml) {
-    return restoreFormatGridFromPreviewHtml(previewHtml);
+    const restored = restoreFormatGridFromPreviewHtml(previewHtml);
+    if (restored && domGridHasEditableData()) {
+      syncFormatPreviewFromDom(type);
+    }
+    return restored;
   }
 
   return false;
@@ -163,7 +198,7 @@ export function toggleTableDisplayForFormat() {
   if (captureType === "2.Format") {
     const previewHtml = getFormatPreviewHtml();
 
-    if (previewHtml && !getFormatGridReady()) {
+    if (previewHtml && !getFormatGridReady() && !domGridHasEditableData()) {
       restoreFormatGridFromPreviewHtml(previewHtml);
     }
 

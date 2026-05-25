@@ -110,24 +110,27 @@ export function handleFormatPasteAreaEvent(e) {
   const { html, text } = readClipboard(clipboard);
   const area = document.getElementById("pasteAreaFormat");
 
+  const hasExistingData = domGridHasEditableData();
+  const startRow = hasExistingData ? resolveFormatPasteStartRow(getFormatPasteAnchorCell()) : 0;
+
   if (html && /<table\b/i.test(html)) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTableHtml(html, { area });
+    processFormatTableHtml(html, { area, startRow });
     return;
   }
 
   if (text && /<table\b/i.test(text)) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTableHtml(text, { area });
+    processFormatTableHtml(text, { area, startRow });
     return;
   }
 
   if (text && text.includes("\t")) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTsv(text, { area });
+    processFormatTsv(text, { area, startRow });
     return;
   }
 
@@ -135,7 +138,10 @@ export function handleFormatPasteAreaEvent(e) {
     try {
       const pastedHTML = area?.innerHTML || "";
       if (pastedHTML && /<table\b/i.test(pastedHTML)) {
-        processFormatTableHtml(pastedHTML, { area });
+        const appendStartRow = domGridHasEditableData()
+          ? resolveFormatPasteStartRow(getFormatPasteAnchorCell())
+          : 0;
+        processFormatTableHtml(pastedHTML, { area, startRow: appendStartRow });
       }
     } catch {
       /* ignore */
