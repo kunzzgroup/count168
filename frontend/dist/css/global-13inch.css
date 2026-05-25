@@ -763,7 +763,8 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll-clip {
-        min-height: 0 !important;
+        flex: 1 1 0 !important;
+        min-height: var(--bank-list-scroll-body-min-height) !important;
         max-height: 100% !important;
         overflow-x: hidden !important;
         overflow-y: auto !important;
@@ -875,7 +876,8 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll-clip {
-        min-height: 0 !important;
+        flex: 1 1 0 !important;
+        min-height: var(--bank-list-scroll-body-min-height) !important;
         max-height: 100% !important;
         overflow-x: hidden !important;
         overflow-y: auto !important;
