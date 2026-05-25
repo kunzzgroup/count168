@@ -190,6 +190,7 @@ export default function BankProcessListPage() {
     loadCurrencyMeta,
     syncUrl,
     fetchRows,
+    handleBankStatusUpdated,
     loadAccountingInbox,
     resetForm,
     onSwitchCompany,
@@ -523,6 +524,7 @@ export default function BankProcessListPage() {
             showHeaderSelectAll={showInactive || showOfficial || showEInvoice || showBlock}
             notify={notify}
             fetchRows={fetchRows}
+            onBankStatusUpdated={handleBankStatusUpdated}
             loadAccountingInbox={loadAccountingInbox}
             openEdit={openEdit}
             openRemarkModal={(row) => {

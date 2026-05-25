@@ -767,14 +767,23 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         min-height: var(--bank-list-scroll-body-min-height) !important;
         max-height: 100% !important;
         overflow-x: hidden !important;
-        overflow-y: auto !important;
+        overflow-y: visible !important;
         -webkit-overflow-scrolling: touch !important;
     }
 
+    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll-clip.bank-virtual-scroll-clip--cap-rows {
+        max-height: min(100%, var(--bank-list-scroll-body-max-height)) !important;
+        overflow-y: auto !important;
+    }
+
     body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll.process-cards {
-        min-height: 0 !important;
+        min-height: min-content !important;
         max-height: none !important;
         overflow: visible !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll .bank-virtual-data-row.process-card {
+        min-height: var(--bank-list-data-row-estimate) !important;
     }
 
     body.user-page:not(.user-page--show-all) .user-cards {
@@ -880,14 +889,23 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         min-height: var(--bank-list-scroll-body-min-height) !important;
         max-height: 100% !important;
         overflow-x: hidden !important;
-        overflow-y: auto !important;
+        overflow-y: visible !important;
         -webkit-overflow-scrolling: touch !important;
     }
 
+    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll-clip.bank-virtual-scroll-clip--cap-rows {
+        max-height: min(100%, var(--bank-list-scroll-body-max-height)) !important;
+        overflow-y: auto !important;
+    }
+
     body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll.process-cards {
-        min-height: 0 !important;
+        min-height: min-content !important;
         max-height: none !important;
         overflow: visible !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll .bank-virtual-data-row.process-card {
+        min-height: var(--bank-list-data-row-estimate) !important;
     }
 }
 
