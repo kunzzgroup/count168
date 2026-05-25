@@ -1358,10 +1358,19 @@ body.datacapture-page .bottom-section .form-actions {
     scrollbar-gutter: stable;
 }
 
-body.datacapture-page .excel-table-container {
+body.datacapture-page .excel-table-container.text-paste-mode {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.datacapture-page .excel-table-container.text-paste-mode .paste-area-format {
     flex: 1 1 auto;
-    min-height: 0;
-    max-height: 100%;
+    min-height: min(42vh, 360px);
+}
+
+body.datacapture-page .excel-table-container.text-paste-mode #dataTable {
+    display: none !important;
 }
 
 .text-input-format {
@@ -1382,7 +1391,7 @@ body.datacapture-page .excel-table-container {
     outline: none;
 }
 
-/* 2.Format模式：可粘贴整张表格的区域（contenteditable） */
+/* 1.Text模式：可粘贴整张表格的区域（contenteditable，对齐 PHP 1.GENERAL） */
 .paste-area-format {
     width: 100%;
     height: 100%;
