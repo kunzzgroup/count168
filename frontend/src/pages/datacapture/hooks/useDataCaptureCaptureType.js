@@ -70,7 +70,10 @@ export function useDataCaptureCaptureType() {
   useLayoutEffect(() => {
     window.__DC_APPLY_CAPTURE_TYPE__ = (t) => handlersRef.current.applyCaptureType(t);
     window.__DC_GET_CAPTURE_TYPE__ = () => captureTypeRef.current;
-    window.__DC_ON_FORMAT_GRID_READY__ = (ready) => setFormatGridReady(Boolean(ready));
+    window.__DC_ON_FORMAT_GRID_READY__ = (ready) => {
+      setFormatGridReady(Boolean(ready));
+      queueMicrotask(() => window.__DC_RECOMPUTE_SUBMIT_STATE__?.());
+    };
     window.__DC_ON_CAPTURE_TYPE_APPLIED__ = (t) => {
       const s = normalizeCaptureType(t) || "1.Text";
       setCaptureType(s);

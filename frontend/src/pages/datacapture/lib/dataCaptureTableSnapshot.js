@@ -1,6 +1,34 @@
 import { convertBracketedToNegative } from "./dataCaptureBracket.js";
 import { normalizeStoredCaptureType } from "./dataCaptureStorage.js";
 
+function readCellSnapshotText(cell) {
+  if (!cell) return "";
+  let raw = cell.textContent || cell.innerText || "";
+  if (!String(raw).trim() && cell.innerHTML) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = cell.innerHTML;
+    raw = tmp.textContent || tmp.innerText || "";
+  }
+  return String(raw);
+}
+
+/** Live DOM check — used when snapshot read and grid disagree (2.Format styled cells). */
+export function domGridHasCaptureData() {
+  const tableBody = document.getElementById("tableBody");
+  if (!tableBody) return false;
+
+  return Array.from(tableBody.querySelectorAll("td")).some((cell) => {
+    if (cell.classList.contains("row-header")) return false;
+    if (cell.style.display === "none") return false;
+    return readCellSnapshotText(cell).trim() !== "";
+  });
+}
+
+export function captureTableHasData(tableData) {
+  if (tableSnapshotHasData(tableData)) return true;
+  return domGridHasCaptureData();
+}
+
 /**
  * Reads the Excel grid DOM for submit / restore snapshots.
  */
@@ -43,7 +71,7 @@ export function captureTableDataFromDom(captureType) {
       }
       if (cell.style.display === "none") return;
 
-      let cellValue = convertBracketedToNegative((cell.textContent || "").toUpperCase());
+      let cellValue = convertBracketedToNegative(readCellSnapshotText(cell).toUpperCase());
       const colspan = parseInt(cell.getAttribute("colspan") || "1", 10);
 
       rowData.push({

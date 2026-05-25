@@ -48,7 +48,9 @@ function afterFormatPasteFilled(filled, area) {
   markFormatGridReady(true);
   if (area) area.innerHTML = "";
   window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
-  window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+  queueMicrotask(() => {
+    window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+  });
   return true;
 }
 

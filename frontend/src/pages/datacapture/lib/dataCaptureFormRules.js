@@ -1,4 +1,4 @@
-import { tableSnapshotHasData } from "./dataCaptureTableSnapshot.js";
+import { captureTableHasData, tableSnapshotHasData } from "./dataCaptureTableSnapshot.js";
 
 export const CAPTURE_TYPE_OPTIONS = ["1.Text", "2.Format", "CITIBET", "4.RETURN"];
 
@@ -66,13 +66,13 @@ export function validateDataCaptureForm({
   if (!currencyId) {
     return { ok: false, message: "Please select a currency" };
   }
-  if (isCitibetCaptureType(captureType) && !tableSnapshotHasData(tableData)) {
+  if (isCitibetCaptureType(captureType) && !captureTableHasData(tableData)) {
     return { ok: false, message: "Please enter data in the table" };
   }
   const normalizedType = normalizeCaptureType(captureType);
   if (
     (normalizedType === "1.Text" || normalizedType === "2.Format") &&
-    !tableSnapshotHasData(tableData)
+    !captureTableHasData(tableData)
   ) {
     return { ok: false, message: "Please enter data in the table" };
   }

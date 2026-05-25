@@ -18,6 +18,28 @@ import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { markSummaryFreshNavigation } from "../../datacapturesummary/lib/summaryStorage.js";
 
+function readSubmitFormSnapshot(formRef) {
+  const f = formRef.current;
+  const currencyId = f.currencyId || document.getElementById("capture_currency")?.value || "";
+  const descriptionDisplay =
+    f.descriptionDisplay || document.getElementById("capture_description")?.value || "";
+
+  let selectedProcess = f.selectedProcess;
+  if (!selectedProcess?.id) {
+    const processBtn = document.getElementById("capture_process");
+    const processId = processBtn?.getAttribute("data-value") || "";
+    if (processId) {
+      selectedProcess = {
+        id: processId,
+        displayText: processBtn.textContent?.trim() || "",
+        process_id: processBtn.getAttribute("data-process-code") || "",
+      };
+    }
+  }
+
+  return { selectedProcess, currencyId, descriptionDisplay };
+}
+
 function buildProcessCapturePayload(form, captureType, currencies) {
   const currencyOpt = (currencies || []).find((c) => String(c.id) === String(form.currencyId));
   return {
@@ -50,25 +72,38 @@ export function useDataCaptureSubmitReset({
 }) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreInFlightRef = useRef(false);
+  const formRef = useRef(form);
+  formRef.current = form;
   const captureTypeRef = useRef(captureType);
   captureTypeRef.current = captureType;
 
   const recomputeSubmitState = useCallback(() => {
-    const tableData = captureTableDataFromDom(captureType);
+    const captureTypeNow =
+      (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
+        ? window.__DC_GET_CAPTURE_TYPE__()
+        : captureTypeRef.current) || captureTypeRef.current;
+    const { selectedProcess, currencyId, descriptionDisplay } = readSubmitFormSnapshot(formRef);
+    const tableData = captureTableDataFromDom(captureTypeNow);
     const ready = isSubmitReady({
-      selectedProcess: form.selectedProcess,
+      selectedProcess,
       descriptions: window.selectedDescriptions || [],
-      descriptionDisplay: form.descriptionDisplay,
-      currencyId: form.currencyId,
-      captureType,
+      descriptionDisplay,
+      currencyId,
+      captureType: captureTypeNow,
       tableData,
     });
     setSubmitDisabled(!ready);
-  }, [form.selectedProcess, form.currencyId, form.descriptionDisplay, captureType]);
+  }, []);
 
   useEffect(() => {
     recomputeSubmitState();
-  }, [recomputeSubmitState]);
+  }, [
+    recomputeSubmitState,
+    form.selectedProcess,
+    form.currencyId,
+    form.descriptionDisplay,
+    captureType,
+  ]);
 
   useEffect(() => {
     let observer;
@@ -110,13 +145,15 @@ export function useDataCaptureSubmitReset({
       pushDataCaptureNotification(t("readOnlyBlocked"), "danger");
       return;
     }
-    const tableData = captureTableDataFromDom(captureType);
+    const captureTypeNow = captureTypeRef.current;
+    const { selectedProcess, currencyId, descriptionDisplay } = readSubmitFormSnapshot(formRef);
+    const tableData = captureTableDataFromDom(captureTypeNow);
     const validation = validateDataCaptureForm({
-      selectedProcess: form.selectedProcess,
+      selectedProcess,
       descriptions: window.selectedDescriptions || [],
-      descriptionDisplay: form.descriptionDisplay,
-      currencyId: form.currencyId,
-      captureType,
+      descriptionDisplay,
+      currencyId,
+      captureType: captureTypeNow,
       tableData,
     });
     if (!validation.ok) {
@@ -124,12 +161,12 @@ export function useDataCaptureSubmitReset({
       return;
     }
 
-    convertTableFormatOnSubmit(captureType);
+    convertTableFormatOnSubmit(captureTypeNow);
 
     try {
-      const processData = buildProcessCapturePayload(form, captureType, form.currencies);
-      const finalTableData = captureTableDataFromDom(captureType);
-      saveCaptureSession(finalTableData, processData, captureType);
+      const processData = buildProcessCapturePayload(formRef.current, captureTypeNow, formRef.current.currencies);
+      const finalTableData = captureTableDataFromDom(captureTypeNow);
+      saveCaptureSession(finalTableData, processData, captureTypeNow);
 
       markSummaryFreshNavigation();
       if (typeof navigate === "function") {
@@ -141,7 +178,7 @@ export function useDataCaptureSubmitReset({
       console.error("Error submitting data:", error);
       pushDataCaptureNotification(t("failedCaptureData"), "danger");
     }
-  }, [form, captureType, mutationsBlocked, navigate, t]);
+  }, [mutationsBlocked, navigate, t]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {
