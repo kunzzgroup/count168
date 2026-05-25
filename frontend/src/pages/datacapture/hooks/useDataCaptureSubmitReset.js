@@ -5,7 +5,7 @@ import {
   shouldRestoreFromUrl,
   stripRestoreParamFromUrl,
 } from "../lib/dataCaptureStorage.js";
-import { captureTableDataFromDom } from "../lib/dataCaptureTableSnapshot.js";
+import { captureTableDataFromDom, domGridHasCaptureData } from "../lib/dataCaptureTableSnapshot.js";
 import {
   getActiveDescriptions,
   validateDataCaptureForm,
@@ -16,6 +16,34 @@ import { buildSpaPath } from "../../../utils/core/apiUrl.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { markSummaryFreshNavigation } from "../../datacapturesummary/lib/summaryStorage.js";
+import { processFormatTableHtml } from "../paste/core/dataCaptureFormatPasteHandler.js";
+import {
+  gridHasEditableData,
+  setFormatGridReady,
+} from "../format/dataCaptureFormat.js";
+
+function ensureFormatPasteSynced(captureType) {
+  const type =
+    (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
+      ? window.__DC_GET_CAPTURE_TYPE__()
+      : captureType) || captureType;
+  if (type !== "2.Format" && type !== "655") return;
+
+  window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
+
+  if (domGridHasCaptureData() || gridHasEditableData()) {
+    setFormatGridReady(true);
+    return;
+  }
+
+  const area = document.getElementById("pasteAreaFormat");
+  const html = area?.innerHTML?.trim() || "";
+  if (html && /<table\b/i.test(html)) {
+    processFormatTableHtml(html, { area });
+    setFormatGridReady(true);
+    window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
+  }
+}
 
 function readSubmitFormSnapshot(formRef) {
   const f = formRef.current;
@@ -42,6 +70,14 @@ function readSubmitFormSnapshot(formRef) {
     descriptions = getActiveDescriptions(descriptionDisplay);
     if (descriptions.length) {
       window.selectedDescriptions = [...descriptions];
+    }
+  }
+
+  if (!descriptions.length && selectedProcess?.description_name) {
+    const name = String(selectedProcess.description_name).trim();
+    if (name) {
+      descriptions = [name];
+      window.selectedDescriptions = [name];
     }
   }
 
@@ -91,6 +127,7 @@ export function useDataCaptureSubmitReset({
       (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
         ? window.__DC_GET_CAPTURE_TYPE__()
         : captureTypeRef.current) || captureTypeRef.current;
+    ensureFormatPasteSynced(captureTypeNow);
     const { selectedProcess, currencyId, descriptionDisplay, descriptions } = readSubmitFormSnapshot(formRef);
     const tableData = captureTableDataFromDom(captureTypeNow);
     const validation = validateDataCaptureForm({
@@ -156,6 +193,7 @@ export function useDataCaptureSubmitReset({
       return;
     }
     const captureTypeNow = captureTypeRef.current;
+    ensureFormatPasteSynced(captureTypeNow);
     const { selectedProcess, currencyId, descriptionDisplay, descriptions } = readSubmitFormSnapshot(formRef);
     const tableData = captureTableDataFromDom(captureTypeNow);
     const validation = validateDataCaptureForm({

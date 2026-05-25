@@ -29,21 +29,20 @@ export function domGridHasCaptureData() {
   });
 }
 
+function pasteAreaHasFormatTableDom() {
+  const area = document.getElementById("pasteAreaFormat");
+  if (!area) return false;
+  return Array.from(area.querySelectorAll("table td, table th")).some((cell) =>
+    cellHasCaptureContent(cell),
+  );
+}
+
 export function captureTableHasData(tableData, captureType) {
   if (tableSnapshotHasData(tableData)) return true;
   if (domGridHasCaptureData()) return true;
-  const normalized =
-    captureType === "2.Format" || captureType === "655"
-      ? "2.Format"
-      : String(captureType || "").trim();
-  if (normalized === "2.Format" && typeof document !== "undefined") {
-    const tableBody = document.getElementById("tableBody");
-    if (tableBody) {
-      const hasEditable = Array.from(tableBody.querySelectorAll("td[contenteditable='true']")).some(
-        (cell) => cellHasCaptureContent(cell),
-      );
-      if (hasEditable) return true;
-    }
+  const type = String(captureType || "").trim();
+  if (type === "2.Format" || type === "655") {
+    if (pasteAreaHasFormatTableDom()) return true;
   }
   return false;
 }

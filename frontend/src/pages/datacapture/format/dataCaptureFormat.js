@@ -1,7 +1,10 @@
 /**
  * 2.Format — preview storage, grid-ready flag, table visibility + style cleanup.
  */
-import { cellHasCaptureContent } from "../lib/dataCaptureTableSnapshot.js";
+import {
+  cellHasCaptureContent,
+  domGridHasCaptureData,
+} from "../lib/dataCaptureTableSnapshot.js";
 import { renderFormatPreview } from "../paste/core/dataCaptureFormatPreview.js";
 
 export const FORMAT_PREVIEW_HTML_KEY = "capturedFormatPreviewHtml";
@@ -49,9 +52,21 @@ export function clearFormatPreviewHtml() {
 }
 
 export function gridHasEditableData() {
+  if (domGridHasCaptureData()) return true;
   const tableBody = document.getElementById("tableBody");
   if (!tableBody) return false;
-  return Array.from(tableBody.querySelectorAll("td[contenteditable='true']")).some((cell) =>
+  return Array.from(tableBody.querySelectorAll("td")).some((cell) => {
+    if (cell.classList.contains("row-header")) return false;
+    if (!cell.isContentEditable) return false;
+    return cellHasCaptureContent(cell);
+  });
+}
+
+/** Paste area still holds an HTML table (visible to user but not yet in #tableBody). */
+export function pasteAreaHasFormatTable() {
+  const area = document.getElementById("pasteAreaFormat");
+  if (!area) return false;
+  return Array.from(area.querySelectorAll("table td, table th")).some((cell) =>
     cellHasCaptureContent(cell),
   );
 }
@@ -107,23 +122,17 @@ export function toggleTableDisplayForFormat() {
   const container = document.querySelector(".excel-table-container");
 
   if (captureType === "2.Format") {
-    // Empty state = paste area; after format paste / restore = editable grid.
-    let showGrid = getFormatGridReady() && gridHasEditableData();
+    const domHasGridData = gridHasEditableData();
+    let showGrid = domHasGridData;
 
-    // Grid has pasted data but ready flag was cleared — recover instead of wiping preview/grid.
-    if (!showGrid && gridHasEditableData()) {
+    if (showGrid) {
       setFormatGridReady(true);
-      showGrid = true;
-    }
-
-    // Only drop stale preview HTML when the grid is still empty.
-    if (!showGrid && getFormatPreviewHtml() && !gridHasEditableData()) {
+    } else if (!showGrid && getFormatPreviewHtml() && !pasteAreaHasFormatTable()) {
       clearFormatPasteViewState();
-      showGrid = false;
     }
 
     if (showGrid) {
-      if (dataTable) dataTable.style.display = "table";
+      if (dataTable) dataTable.style.display = "";
       if (pasteAreaFormat) pasteAreaFormat.style.display = "none";
       if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
       container?.classList.remove("format-paste-mode");
@@ -131,16 +140,13 @@ export function toggleTableDisplayForFormat() {
       if (dataTable) dataTable.style.display = "none";
       if (pasteAreaFormat) {
         pasteAreaFormat.style.display = "block";
-        if (!pasteAreaFormat.textContent?.trim()) {
+        if (!pasteAreaFormat.textContent?.trim() && !pasteAreaHasFormatTable()) {
           setTimeout(() => {
             pasteAreaFormat.focus();
           }, 100);
         }
       }
-      if (tablePreviewFormat) {
-        tablePreviewFormat.style.display = "none";
-        tablePreviewFormat.innerHTML = "";
-      }
+      if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
       container?.classList.add("format-paste-mode");
     }
   } else {
