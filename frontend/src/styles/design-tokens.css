@@ -64,7 +64,7 @@
   --layout-main-gap: var(--space-gap);
   --layout-main-offset: calc(var(--layout-sidebar-width) + var(--layout-main-gap));
   /* 各业务页主容器顶边距（去掉页面 h1 标题后的统一留白） */
-  --layout-page-top-gap: 15px;
+  --layout-page-top-gap: 10px;
 
   /* --- 品牌 / 文本色（列表页与 dashboard 壳层对齐，供 var 消重）--- */
   --color-page-bg: #e9f1ff;
