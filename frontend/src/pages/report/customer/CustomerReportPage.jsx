@@ -304,7 +304,11 @@ export default function CustomerReportPage() {
 
       if (applySavedCurrencyPrefs(companyId, curs)) return;
 
-      if (curs.length > 0 && selectedCurrencies.length === 0 && !showAllCurrencies) {
+      if (
+        curs.length > 0 &&
+        selectedCurrenciesRef.current.length === 0 &&
+        !showAllCurrenciesRef.current
+      ) {
         const myr = curs.find(c => c.code === "MYR");
         const def = myr || curs[0];
         const codes = [def.code];
@@ -322,8 +326,6 @@ export default function CustomerReportPage() {
     }
   }, [
     companyId,
-    selectedCurrencies.length,
-    showAllCurrencies,
     applySavedCurrencyPrefs,
     persistCurrencyPrefs,
     beginMetaFetch,
@@ -467,12 +469,12 @@ export default function CustomerReportPage() {
     }
   };
 
-  if (!sessionReady || !me) return <PageContentLoader />;
+  if (!sessionReady || !me) return null;
 
   const showPageBoot =
     companyId == null ||
-    (!currencyFilterReady && reportData == null) ||
-    (loading && reportData == null);
+    !currencyFilterReady ||
+    (reportData == null && !error);
 
   if (showPageBoot) {
     return <PageContentLoader label={t("loading")} />;

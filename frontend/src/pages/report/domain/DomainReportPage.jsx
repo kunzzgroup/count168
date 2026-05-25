@@ -56,6 +56,8 @@ export default function DomainReportPage() {
   const [processId, setProcessId] = useState("");
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
+  /** Avoid report fetch before currency filter is resolved (prevents double load on entry). */
+  const [currencyFilterReady, setCurrencyFilterReady] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const [dateFrom, setDateFrom] = useState(formatYmd(today));
@@ -300,7 +302,11 @@ export default function DomainReportPage() {
 
       if (applySavedCurrencyPrefs(companyId, curs)) return;
 
-      if (curs.length > 0 && selectedCurrencies.length === 0 && !showAllCurrencies) {
+      if (
+        curs.length > 0 &&
+        selectedCurrenciesRef.current.length === 0 &&
+        !showAllCurrenciesRef.current
+      ) {
         const myr = curs.find((c) => c.code === "MYR");
         const def = myr || curs[0];
         const codes = [def.code];
@@ -311,11 +317,13 @@ export default function DomainReportPage() {
     } catch (err) {
       if (err?.name === "AbortError" || !isMetaFetchCurrent(seq)) return;
       console.error("Meta data load error:", err);
+    } finally {
+      if (isMetaFetchCurrent(seq)) {
+        setCurrencyFilterReady(true);
+      }
     }
   }, [
     companyId,
-    selectedCurrencies.length,
-    showAllCurrencies,
     applySavedCurrencyPrefs,
     persistCurrencyPrefs,
     beginMetaFetch,
@@ -338,12 +346,15 @@ export default function DomainReportPage() {
       if (saved?.showAllCurrencies) {
         setShowAllCurrencies(true);
         setSelectedCurrencies([]);
+        setCurrencyFilterReady(true);
       } else if (saved?.selectedCurrencies?.length) {
         setSelectedCurrencies([...saved.selectedCurrencies]);
         setShowAllCurrencies(false);
+        setCurrencyFilterReady(true);
       } else {
         setSelectedCurrencies([]);
         setShowAllCurrencies(false);
+        setCurrencyFilterReady(false);
       }
       setProcessId("");
       if (reportDataRef.current != null) setReportSyncing(true);
@@ -352,11 +363,19 @@ export default function DomainReportPage() {
   }, [companyId, persistCurrencyPrefs, invalidateReportFetch]);
 
   useEffect(() => {
+    if (!currencyFilterReady) {
+      invalidateReportFetch();
+      setLoading(false);
+      setReportSyncing(false);
+    }
+  }, [currencyFilterReady, invalidateReportFetch]);
+
+  useEffect(() => {
     if (companyId) loadMetaData();
   }, [companyId, loadMetaData]);
 
   useEffect(() => {
-    if (!companyId) return undefined;
+    if (!companyId || !currencyFilterReady) return undefined;
     const handler = window.setTimeout(() => {
       loadReport();
     }, REPORT_FETCH_DEBOUNCE_MS);
@@ -364,10 +383,10 @@ export default function DomainReportPage() {
       window.clearTimeout(handler);
       invalidateReportFetch();
     };
-  }, [companyId, loadReport, invalidateReportFetch]);
+  }, [companyId, currencyFilterReady, loadReport, invalidateReportFetch]);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId || !currencyFilterReady) return;
     const key = buildReportSnapshotKey(reportParams);
     const snap = getReportSnapshot(REPORT_PAGE_KEY);
     if (snap?.key === key && snap.data && reportDataRef.current == null) {
@@ -376,7 +395,7 @@ export default function DomainReportPage() {
         setReportData(snap.data);
       });
     }
-  }, [companyId, reportParams]);
+  }, [companyId, currencyFilterReady, reportParams]);
 
   const onSwitchCompany = useCallback(async (c) => {
     const effectiveId = companyHighlightId ?? companyId;
@@ -448,9 +467,12 @@ export default function DomainReportPage() {
     }
   };
 
-  if (!sessionReady || !me) return <PageContentLoader />;
+  if (!sessionReady || !me) return null;
 
-  const showPageBoot = companyId == null || (loading && reportData == null);
+  const showPageBoot =
+    companyId == null ||
+    !currencyFilterReady ||
+    (reportData == null && !error);
 
   if (showPageBoot) {
     return <PageContentLoader label={t("loading")} />;
@@ -498,7 +520,7 @@ export default function DomainReportPage() {
           <DomainReportTable
             reportData={reportData}
             loading={loading}
-            reportSyncing={reportSyncing}
+            reportSyncing={reportSyncing || !currencyFilterReady}
             error={error}
             t={t}
           />
