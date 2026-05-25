@@ -30,6 +30,9 @@ import {
   updateSessionCompany,
   isMaintenanceRecoverableError,
   getMaintenanceSearchUserMessage,
+  packMaintenanceCache,
+  getMaintenanceCacheRows,
+  isMaintenanceCacheComplete,
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
@@ -134,10 +137,14 @@ export default function TransactionMaintenancePage() {
   const maintenancePlaceholder = useCallback(
     (previousData, previousQuery) => {
       const cached = queryClient.getQueryData(maintenanceQueryKey);
-      if (Array.isArray(cached) && cached.length > 0) return cached;
+      const cachedRows = getMaintenanceCacheRows(cached);
+      if (cachedRows.length > 0) {
+        return packMaintenanceCache(cachedRows, isMaintenanceCacheComplete(cached));
+      }
       const prevCompanyId = previousQuery?.queryKey?.[1];
-      if (prevCompanyId === companyId && Array.isArray(previousData) && previousData.length > 0) {
-        return previousData;
+      const prevRows = getMaintenanceCacheRows(previousData);
+      if (prevCompanyId === companyId && prevRows.length > 0) {
+        return packMaintenanceCache(prevRows, isMaintenanceCacheComplete(previousData));
       }
       return undefined;
     },
@@ -146,24 +153,32 @@ export default function TransactionMaintenancePage() {
 
   const transactionQuery = useQuery({
     queryKey: maintenanceQueryKey,
-    queryFn: ({ signal }) =>
-      searchTransactionData({
+    queryFn: async ({ signal }) => {
+      const rows = await searchTransactionData({
         dateFrom,
         dateTo,
         process: processFilter,
         companyId,
         category: activePermission,
         signal,
-        onProgress: (rows) => {
+        onProgress: (progressRows) => {
           const existing = queryClient.getQueryData(maintenanceQueryKey);
-          if (Array.isArray(existing) && existing.length > rows.length) return;
-          queryClient.setQueryData(maintenanceQueryKey, rows);
+          const existingRows = getMaintenanceCacheRows(existing);
+          const existingComplete = isMaintenanceCacheComplete(existing);
+          if (existingComplete && existingRows.length > progressRows.length) return;
+          queryClient.setQueryData(
+            maintenanceQueryKey,
+            packMaintenanceCache(progressRows, false),
+          );
         },
-      }),
+      });
+      return packMaintenanceCache(rows, true);
+    },
     enabled: listQueryEnabled && searchDeferredReady,
-    staleTime: 30 * 60 * 1000,
+    staleTime: (query) =>
+      isMaintenanceCacheComplete(query.state.data) ? 30 * 60 * 1000 : 0,
     gcTime: 30 * 60 * 1000,
-    refetchOnMount: false,
+    refetchOnMount: (query) => !isMaintenanceCacheComplete(query.state.data),
     refetchOnReconnect: false,
     placeholderData: maintenancePlaceholder,
     retry: (failureCount, error) =>
@@ -171,7 +186,8 @@ export default function TransactionMaintenancePage() {
     retryDelay: (attempt) => Math.min(2500, 500 * (attempt + 1)),
   });
 
-  const transactionData = transactionQuery.data ?? [];
+  const transactionData = getMaintenanceCacheRows(transactionQuery.data);
+  const maintenanceDataComplete = isMaintenanceCacheComplete(transactionQuery.data);
   const listRowCount = transactionData.length;
   const searchRecoverable =
     transactionQuery.isError &&
@@ -509,13 +525,23 @@ export default function TransactionMaintenancePage() {
   }, [companyId, companyCode, notify, t]);
 
   useEffect(() => {
-    if (!transactionQuery.isSuccess || !transactionData.length) return;
+    if (!transactionQuery.isSuccess || !maintenanceDataComplete || !transactionData.length) return;
     if (transactionQuery.isPlaceholderData) return;
+    if (transactionQuery.isFetching) return;
     const key = `${transactionQuery.dataUpdatedAt}:${transactionData.length}`;
     if (lastToastKeyRef.current === key) return;
     lastToastKeyRef.current = key;
     notify(t("foundRecords", { n: transactionData.length }), "success");
-  }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt, transactionQuery.isPlaceholderData, transactionData.length, notify, t]);
+  }, [
+    transactionQuery.isSuccess,
+    transactionQuery.isFetching,
+    transactionQuery.dataUpdatedAt,
+    transactionQuery.isPlaceholderData,
+    maintenanceDataComplete,
+    transactionData.length,
+    notify,
+    t,
+  ]);
 
   useEffect(() => {
     if (!listQueryEnabled) return;
@@ -616,7 +642,8 @@ export default function TransactionMaintenancePage() {
   if (!sessionReady || !me) return null;
 
   const listSyncing =
-    transactionQuery.isFetching && (transactionQuery.isPlaceholderData || listRowCount > 0);
+    transactionQuery.isFetching &&
+    (transactionQuery.isPlaceholderData || listRowCount > 0 || !maintenanceDataComplete);
 
   return (
     <div className="container">

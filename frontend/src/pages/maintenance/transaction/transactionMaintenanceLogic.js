@@ -516,3 +516,21 @@ export function formatAmount(value) {
     maximumFractionDigits: 2,
   });
 }
+
+/** React Query 缓存：区分「加载完成」与「中途切换公司被中断的半成品」。 */
+export function packMaintenanceCache(rows, complete = false) {
+  return { rows: Array.isArray(rows) ? rows : [], complete: Boolean(complete) };
+}
+
+export function getMaintenanceCacheRows(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+/** 仅 complete===true 视为可长期复用的完整结果；数组旧缓存视为未完成。 */
+export function isMaintenanceCacheComplete(data) {
+  if (!data) return true;
+  if (Array.isArray(data)) return false;
+  return data.complete === true;
+}
