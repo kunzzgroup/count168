@@ -7,12 +7,13 @@ import {
 } from "../shared/maintenanceCompanyApi.js";
 
 /** 宽日期兜底分片（后端已 SQL 分页，默认整段查询；仅超大范围才分片）。 */
-const MAINTENANCE_CHUNK_DAYS = 45;
-const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 120;
-const MAINTENANCE_PARALLEL_CHUNKS = 2;
-/** Page sizes tried in order when a response is still too large. */
-const MAINTENANCE_PAGE_SIZES = [1500, 1000, 750, 500, 250];
-const MAINTENANCE_MAX_PAGES = 40;
+const MAINTENANCE_CHUNK_DAYS = 31;
+const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 90;
+/** 首屏优先：第一页较小以便尽快展示列表。 */
+const MAINTENANCE_FIRST_PAGE_SIZE = 400;
+/** 后续分页批量拉取。 */
+const MAINTENANCE_PAGE_SIZES = [1200, 800, 500, 250];
+const MAINTENANCE_MAX_PAGES = 50;
 const MAINTENANCE_FETCH_RETRIES = 4;
 const MAINTENANCE_RETRY_BASE_MS = 400;
 
@@ -132,13 +133,43 @@ export function normalizeMaintenanceProcessFilter(process) {
   return raw;
 }
 
+function renumberMaintenanceRows(rows) {
+  rows.forEach((row, index) => {
+    row.no = index + 1;
+  });
+  return rows;
+}
+
 function finalizeMaintenanceRows(rows) {
   const merged = [...rows];
   merged.sort(compareMaintenanceRows);
-  merged.forEach((row, index) => {
-    row.no = index + 1;
-  });
-  return merged;
+  return renumberMaintenanceRows(merged);
+}
+
+/** 两段均已按 compareMaintenanceRows 降序时 O(n) 归并。 */
+function mergeSortedMaintenanceRows(left, right) {
+  if (!left.length) return renumberMaintenanceRows([...right]);
+  if (!right.length) return renumberMaintenanceRows([...left]);
+  const out = [];
+  let i = 0;
+  let j = 0;
+  while (i < left.length && j < right.length) {
+    if (compareMaintenanceRows(left[i], right[j]) <= 0) {
+      out.push(left[i++]);
+    } else {
+      out.push(right[j++]);
+    }
+  }
+  while (i < left.length) out.push(left[i++]);
+  while (j < right.length) out.push(right[j++]);
+  return renumberMaintenanceRows(out);
+}
+
+/** 同日期段内分页结果可直接追加（API 已全局降序）。 */
+function appendMaintenancePageRows(existing, pageRows) {
+  if (!pageRows.length) return existing;
+  if (!existing.length) return renumberMaintenanceRows([...pageRows]);
+  return renumberMaintenanceRows(existing.concat(pageRows));
 }
 
 /**
@@ -153,9 +184,16 @@ export async function searchTransactionData({
   category,
   signal,
   onFirstPage,
+  onProgress,
 }) {
   const processFilter = normalizeMaintenanceProcessFilter(process);
   const categoryFilter = resolveTransactionMaintenanceCategory(category);
+  const emitProgress = (rows) => {
+    if (!rows.length) return;
+    const snapshot = renumberMaintenanceRows([...rows]);
+    if (typeof onProgress === "function") onProgress(snapshot);
+    else if (typeof onFirstPage === "function") onFirstPage(snapshot);
+  };
   const merged = await fetchMaintenanceDateRangeResilient({
     dateFrom,
     dateTo,
@@ -163,11 +201,7 @@ export async function searchTransactionData({
     companyId,
     category: categoryFilter,
     signal,
-    onFirstPage: (partial) => {
-      if (typeof onFirstPage === "function" && partial.length) {
-        onFirstPage(finalizeMaintenanceRows(partial));
-      }
-    },
+    onProgress: emitProgress,
   });
   return finalizeMaintenanceRows(merged);
 }
@@ -179,97 +213,100 @@ async function fetchMaintenanceDateRangeResilient({
   companyId,
   category,
   signal,
-  onFirstPage,
+  onProgress,
 }) {
   const daySpan = maintenanceDateSpanDays(dateFrom, dateTo);
   const ranges =
     daySpan > MAINTENANCE_CHUNK_THRESHOLD_DAYS
       ? splitMaintenanceDateRange(dateFrom, dateTo, MAINTENANCE_CHUNK_DAYS)
       : [{ dateFrom, dateTo }];
+  const rangesNewestFirst = [...ranges].reverse();
 
-  if (ranges.length === 1) {
+  if (rangesNewestFirst.length === 1) {
     return fetchMaintenanceRangeWithSplit({
-      dateFrom: ranges[0].dateFrom,
-      dateTo: ranges[0].dateTo,
+      dateFrom: rangesNewestFirst[0].dateFrom,
+      dateTo: rangesNewestFirst[0].dateTo,
       process,
       companyId,
       category,
       signal,
-      onFirstPage,
+      onProgress,
     });
   }
 
-  const merged = [];
-  for (let i = 0; i < ranges.length; i += MAINTENANCE_PARALLEL_CHUNKS) {
+  let merged = [];
+  for (const range of rangesNewestFirst) {
     if (signal?.aborted) {
       throw new DOMException("The operation was aborted.", "AbortError");
     }
-    const batch = ranges.slice(i, i + MAINTENANCE_PARALLEL_CHUNKS);
-    const parts = await Promise.all(
-      batch.map((range) =>
-        fetchMaintenanceRangeWithSplit({
-          dateFrom: range.dateFrom,
-          dateTo: range.dateTo,
-          process,
-          companyId,
-          category,
-          signal,
-          onFirstPage: i === 0 ? onFirstPage : undefined,
-        }),
-      ),
-    );
-    for (const part of parts) {
-      if (part.length) merged.push(...part);
-    }
+    const part = await fetchMaintenanceRangeWithSplit({
+      dateFrom: range.dateFrom,
+      dateTo: range.dateTo,
+      process,
+      companyId,
+      category,
+      signal,
+    });
+    if (!part.length) continue;
+    merged = merged.length
+      ? mergeSortedMaintenanceRows(merged, finalizeMaintenanceRows(part))
+      : finalizeMaintenanceRows(part);
+    if (typeof onProgress === "function") onProgress(merged);
   }
   return merged;
 }
 
 async function fetchMaintenanceRangeWithSplit(params) {
-  const { onFirstPage, ...rest } = params;
+  const { onProgress, ...rest } = params;
   try {
-    return await fetchAllPagesForRange(rest, 0, onFirstPage);
+    return await fetchAllPagesForRange(rest, 0, onProgress);
   } catch (err) {
     rethrowIfAborted(err, params.signal);
     if (!isMaintenanceTransferError(err)) throw err;
 
     const daySpan = maintenanceDateSpanDays(params.dateFrom, params.dateTo);
     if (daySpan <= 1) {
-      return fetchAllPagesForRange(rest, MAINTENANCE_PAGE_SIZES.length - 1, onFirstPage);
+      return fetchAllPagesForRange(rest, MAINTENANCE_PAGE_SIZES.length - 1, onProgress);
     }
 
-    const [leftRange, rightRange] = splitMaintenanceDateRangeHalf(params.dateFrom, params.dateTo);
-    const left = await fetchMaintenanceRangeWithSplit({
+    const [olderRange, newerRange] = splitMaintenanceDateRangeHalf(params.dateFrom, params.dateTo);
+    const newer = await fetchMaintenanceRangeWithSplit({
       ...rest,
-      dateFrom: leftRange.dateFrom,
-      dateTo: leftRange.dateTo,
-      onFirstPage,
+      dateFrom: newerRange.dateFrom,
+      dateTo: newerRange.dateTo,
+      onProgress,
     });
-    const right = await fetchMaintenanceRangeWithSplit({
+    const older = await fetchMaintenanceRangeWithSplit({
       ...rest,
-      dateFrom: rightRange.dateFrom,
-      dateTo: rightRange.dateTo,
+      dateFrom: olderRange.dateFrom,
+      dateTo: olderRange.dateTo,
     });
-    return left.concat(right);
+    if (!newer.length) return finalizeMaintenanceRows(older);
+    if (!older.length) return newer;
+    return mergeSortedMaintenanceRows(newer, finalizeMaintenanceRows(older));
   }
 }
 
-async function fetchAllPagesForRange(params, pageSizeIndex, onFirstPage) {
-  const pageSize = MAINTENANCE_PAGE_SIZES[Math.min(pageSizeIndex, MAINTENANCE_PAGE_SIZES.length - 1)];
+function maintenancePageSizeForRequest(page, pageSizeIndex) {
+  if (page === 1) return MAINTENANCE_FIRST_PAGE_SIZE;
+  return MAINTENANCE_PAGE_SIZES[Math.min(pageSizeIndex, MAINTENANCE_PAGE_SIZES.length - 1)];
+}
 
+async function fetchAllPagesForRange(params, pageSizeIndex, onProgress) {
   const fetchPage = async (page) => {
+    const pageSize = maintenancePageSizeForRequest(page, pageSizeIndex);
     try {
       return await fetchMaintenancePageWithRetries({ ...params, page, pageSize });
     } catch (err) {
       rethrowIfAborted(err, params.signal);
       if (isMaintenanceTransferError(err) && pageSizeIndex < MAINTENANCE_PAGE_SIZES.length - 1) {
-        return fetchAllPagesForRange(params, pageSizeIndex + 1, onFirstPage);
+        return fetchAllPagesForRange(params, pageSizeIndex + 1, onProgress);
       }
       throw err;
     }
   };
 
-  const all = [];
+  let all = [];
   let page = 1;
 
   while (page <= MAINTENANCE_MAX_PAGES) {
@@ -277,9 +314,9 @@ async function fetchAllPagesForRange(params, pageSizeIndex, onFirstPage) {
       throw new DOMException("The operation was aborted.", "AbortError");
     }
     const result = await fetchPage(page);
-    if (result.data?.length) all.push(...result.data);
-    if (page === 1 && typeof onFirstPage === "function" && all.length) {
-      onFirstPage(all);
+    if (result.data?.length) {
+      all = appendMaintenancePageRows(all, result.data);
+      if (typeof onProgress === "function") onProgress(all);
     }
     if (!result.pagination?.has_more) break;
     page += 1;
@@ -383,7 +420,7 @@ async function searchTransactionMaintenanceOnce({
   category,
   signal,
   page = 1,
-  pageSize = MAINTENANCE_PAGE_SIZES[0],
+  pageSize = MAINTENANCE_FIRST_PAGE_SIZE,
 }) {
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);

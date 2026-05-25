@@ -141,7 +141,7 @@ export default function TransactionMaintenancePage() {
         companyId,
         category: activePermission,
         signal,
-        onFirstPage: (rows) => {
+        onProgress: (rows) => {
           queryClient.setQueryData(maintenanceQueryKey, rows);
         },
       }),
