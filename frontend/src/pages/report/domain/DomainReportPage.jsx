@@ -71,8 +71,10 @@ export default function DomainReportPage() {
 
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
-  const reportFetch = useReportAbortSeq();
-  const metaFetch = useReportAbortSeq();
+  const { begin: beginReportFetch, invalidate: invalidateReportFetch, isCurrent: isReportFetchCurrent } =
+    useReportAbortSeq();
+  const { begin: beginMetaFetch, invalidate: invalidateMetaFetch, isCurrent: isMetaFetchCurrent } =
+    useReportAbortSeq();
   const pageBootOnceRef = useRef(false);
   const prevCompanyIdRef = useRef(null);
   /** Per-company currency filter: { [companyId]: { selectedCurrencies, showAllCurrencies } } */
@@ -211,14 +213,14 @@ export default function DomainReportPage() {
 
   const loadReport = useCallback(async () => {
     if (!companyId || !dateFrom || !dateTo) return;
-    const { signal, seq } = reportFetch.begin();
+    const { signal, seq } = beginReportFetch();
     const quietRefresh = reportDataRef.current != null;
     if (!quietRefresh) setLoading(true);
     if (quietRefresh) setReportSyncing(true);
     setError("");
     try {
       const data = await fetchDomainReport(reportParams, { signal });
-      if (!reportFetch.isCurrent(seq)) return;
+      if (!isReportFetchCurrent(seq)) return;
       startTransition(() => {
         setReportData(data);
       });
@@ -227,7 +229,7 @@ export default function DomainReportPage() {
         notify(t("noDataAdjustSearch"), "info");
       }
     } catch (err) {
-      if (err?.name === "AbortError" || !reportFetch.isCurrent(seq)) return;
+      if (err?.name === "AbortError" || !isReportFetchCurrent(seq)) return;
       const msg = err.message || t("loadReportFailed");
       setError(msg);
       notify(msg, "error");
@@ -235,12 +237,12 @@ export default function DomainReportPage() {
         setReportData(null);
       });
     } finally {
-      if (reportFetch.isCurrent(seq)) {
+      if (isReportFetchCurrent(seq)) {
         setLoading(false);
         setReportSyncing(false);
       }
     }
-  }, [companyId, dateFrom, dateTo, reportParams, reportFetch, t, notify]);
+  }, [companyId, dateFrom, dateTo, reportParams, beginReportFetch, isReportFetchCurrent, t, notify]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;
@@ -286,13 +288,13 @@ export default function DomainReportPage() {
 
   const loadMetaData = useCallback(async () => {
     if (!companyId) return;
-    const { signal, seq } = metaFetch.begin();
+    const { signal, seq } = beginMetaFetch();
     try {
       const [procs, curs] = await Promise.all([
         fetchProcesses(companyId, { signal }),
         fetchCurrencies(companyId, { signal }),
       ]);
-      if (!metaFetch.isCurrent(seq)) return;
+      if (!isMetaFetchCurrent(seq)) return;
       setProcesses(procs);
       setCurrencyList(curs);
 
@@ -307,7 +309,7 @@ export default function DomainReportPage() {
         persistCurrencyPrefs(companyId, codes, false);
       }
     } catch (err) {
-      if (err?.name === "AbortError" || !metaFetch.isCurrent(seq)) return;
+      if (err?.name === "AbortError" || !isMetaFetchCurrent(seq)) return;
       console.error("Meta data load error:", err);
     }
   }, [
@@ -316,14 +318,15 @@ export default function DomainReportPage() {
     showAllCurrencies,
     applySavedCurrencyPrefs,
     persistCurrencyPrefs,
-    metaFetch,
+    beginMetaFetch,
+    isMetaFetchCurrent,
   ]);
 
   useEffect(() => {
     if (!companyId) return;
     const prev = prevCompanyIdRef.current;
     if (prev != null && Number(prev) !== Number(companyId)) {
-      reportFetch.invalidate();
+      invalidateReportFetch();
       setLoading(false);
       setReportSyncing(false);
       persistCurrencyPrefs(
@@ -346,7 +349,7 @@ export default function DomainReportPage() {
       if (reportDataRef.current != null) setReportSyncing(true);
     }
     prevCompanyIdRef.current = companyId;
-  }, [companyId, persistCurrencyPrefs, reportFetch]);
+  }, [companyId, persistCurrencyPrefs, invalidateReportFetch]);
 
   useEffect(() => {
     if (companyId) loadMetaData();
@@ -359,9 +362,9 @@ export default function DomainReportPage() {
     }, REPORT_FETCH_DEBOUNCE_MS);
     return () => {
       window.clearTimeout(handler);
-      reportFetch.invalidate();
+      invalidateReportFetch();
     };
-  }, [companyId, loadReport, reportFetch]);
+  }, [companyId, loadReport, invalidateReportFetch]);
 
   useEffect(() => {
     if (!companyId) return;

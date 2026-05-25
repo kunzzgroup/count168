@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 /** AbortController + monotonic seq for stale async completion guards. */
 export function useReportAbortSeq() {
@@ -23,5 +23,8 @@ export function useReportAbortSeq() {
 
   useEffect(() => () => invalidate(), [invalidate]);
 
-  return { begin, invalidate, isCurrent, seqRef };
+  return useMemo(
+    () => ({ begin, invalidate, isCurrent, seqRef }),
+    [begin, invalidate, isCurrent],
+  );
 }
