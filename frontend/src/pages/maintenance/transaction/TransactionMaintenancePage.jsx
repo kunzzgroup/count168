@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient, keepPreviousData, isCancelledError } from "@tanstack/react-query";
+import { useQuery, useQueryClient, isCancelledError } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
@@ -131,6 +131,19 @@ export default function TransactionMaintenancePage() {
     (permissions.length === 0 || activePermission),
   );
 
+  const maintenancePlaceholder = useCallback(
+    (previousData, previousQuery) => {
+      const cached = queryClient.getQueryData(maintenanceQueryKey);
+      if (Array.isArray(cached) && cached.length > 0) return cached;
+      const prevCompanyId = previousQuery?.queryKey?.[1];
+      if (prevCompanyId === companyId && Array.isArray(previousData) && previousData.length > 0) {
+        return previousData;
+      }
+      return undefined;
+    },
+    [queryClient, maintenanceQueryKey, companyId],
+  );
+
   const transactionQuery = useQuery({
     queryKey: maintenanceQueryKey,
     queryFn: ({ signal }) =>
@@ -142,13 +155,17 @@ export default function TransactionMaintenancePage() {
         category: activePermission,
         signal,
         onProgress: (rows) => {
+          const existing = queryClient.getQueryData(maintenanceQueryKey);
+          if (Array.isArray(existing) && existing.length > rows.length) return;
           queryClient.setQueryData(maintenanceQueryKey, rows);
         },
       }),
     enabled: listQueryEnabled && searchDeferredReady,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    placeholderData: keepPreviousData,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    placeholderData: maintenancePlaceholder,
     retry: (failureCount, error) =>
       error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 5,
     retryDelay: (attempt) => Math.min(2500, 500 * (attempt + 1)),
@@ -528,6 +545,14 @@ export default function TransactionMaintenancePage() {
     else sessionStorage.removeItem("dashboard_group_filter");
     setSelectedGroup(newGroup);
 
+    const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+    switchPermsCacheRef.current = null;
+    skipMetaAfterBootRef.current = true;
+    setCompanyCode(code);
+    setCompanyId(nextCompanyId);
+    setSelectedProcess("");
+    if (savedPerm) setActivePermission(savedPerm);
+
     try {
       const res = await updateSessionCompany(c.id);
 
@@ -546,15 +571,11 @@ export default function TransactionMaintenancePage() {
         return;
       }
 
-      const nextActive = pickTransactionMaintenancePermission(perms, localStorage.getItem(`selectedPermission_${code}`));
+      const nextActive = pickTransactionMaintenancePermission(perms, savedPerm);
       switchPermsCacheRef.current = { companyCode: code, perms };
-      skipMetaAfterBootRef.current = true;
-      setCompanyCode(code);
-      setCompanyId(nextCompanyId);
       setActivePermission(nextActive);
       setPermissions(perms);
       setProcesses(procList);
-      setSelectedProcess("");
 
       followGroupRef.current();
 
