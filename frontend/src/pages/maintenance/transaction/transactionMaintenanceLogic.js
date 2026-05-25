@@ -7,12 +7,12 @@ import {
 } from "../shared/maintenanceCompanyApi.js";
 
 /** 宽日期兜底分片（游标分页下通常整段一次查完；仅超范围或失败再分片）。 */
-const MAINTENANCE_CHUNK_DAYS = 60;
+const MAINTENANCE_CHUNK_DAYS = 90;
 const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 400;
-/** 首屏较小以便尽快出表；后续用游标大批量拉取（每页只扫 page_size 行）。 */
-const MAINTENANCE_FIRST_PAGE_SIZE = 600;
-const MAINTENANCE_PAGE_SIZES = [3000, 2000, 1200, 600, 300];
-const MAINTENANCE_MAX_PAGES = 80;
+/** 首屏尽快出表；后续大批量游标拉取（后端 UNION 单查询，每页只扫 page_size 行）。 */
+const MAINTENANCE_FIRST_PAGE_SIZE = 800;
+const MAINTENANCE_PAGE_SIZES = [5000, 3500, 2000, 1000, 500];
+const MAINTENANCE_MAX_PAGES = 100;
 const MAINTENANCE_FETCH_RETRIES = 4;
 const MAINTENANCE_RETRY_BASE_MS = 400;
 
@@ -202,7 +202,7 @@ export async function searchTransactionData({
     signal,
     onProgress: emitProgress,
   });
-  return finalizeMaintenanceRows(merged);
+  return renumberMaintenanceRows(merged);
 }
 
 async function fetchMaintenanceDateRangeResilient({
@@ -552,4 +552,22 @@ export function isMaintenanceCacheComplete(data) {
   if (!data) return true;
   if (Array.isArray(data)) return false;
   return data.complete === true;
+}
+
+/** React Query queryKey（与 TransactionMaintenancePage 一致）。 */
+export function buildTransactionMaintenanceQueryKey({
+  companyId,
+  dateFrom,
+  dateTo,
+  process,
+  category,
+}) {
+  return [
+    "transaction-maintenance",
+    companyId,
+    dateFrom,
+    dateTo,
+    normalizeMaintenanceProcessFilter(process),
+    category || "",
+  ];
 }

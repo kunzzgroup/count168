@@ -33,6 +33,7 @@ import {
   packMaintenanceCache,
   getMaintenanceCacheRows,
   isMaintenanceCacheComplete,
+  buildTransactionMaintenanceQueryKey,
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
@@ -114,14 +115,14 @@ export default function TransactionMaintenancePage() {
   );
 
   const maintenanceQueryKey = useMemo(
-    () => [
-      "transaction-maintenance",
-      companyId,
-      dateFrom,
-      dateTo,
-      processFilter,
-      activePermission || "",
-    ],
+    () =>
+      buildTransactionMaintenanceQueryKey({
+        companyId,
+        dateFrom,
+        dateTo,
+        process: processFilter,
+        category: activePermission || "",
+      }),
     [companyId, dateFrom, dateTo, processFilter, activePermission],
   );
 
@@ -163,21 +164,29 @@ export default function TransactionMaintenancePage() {
         signal,
         onProgress: (progressRows) => {
           const existing = queryClient.getQueryData(maintenanceQueryKey);
-          const existingRows = getMaintenanceCacheRows(existing);
-          const existingComplete = isMaintenanceCacheComplete(existing);
-          if (existingComplete && existingRows.length > progressRows.length) return;
+          if (isMaintenanceCacheComplete(existing)) return;
           queryClient.setQueryData(
             maintenanceQueryKey,
             packMaintenanceCache(progressRows, false),
           );
         },
       });
-      return packMaintenanceCache(rows, true);
+      const packed = packMaintenanceCache(rows, true);
+      queryClient.setQueryData(maintenanceQueryKey, packed);
+      return packed;
     },
     enabled: listQueryEnabled && searchDeferredReady,
+    initialData: () => {
+      const cached = queryClient.getQueryData(maintenanceQueryKey);
+      return isMaintenanceCacheComplete(cached) ? cached : undefined;
+    },
+    initialDataUpdatedAt: () => {
+      const state = queryClient.getQueryState(maintenanceQueryKey);
+      return state?.dataUpdatedAt;
+    },
     staleTime: (query) =>
-      isMaintenanceCacheComplete(query.state.data) ? 30 * 60 * 1000 : 0,
-    gcTime: 30 * 60 * 1000,
+      isMaintenanceCacheComplete(query.state.data) ? 60 * 60 * 1000 : 0,
+    gcTime: 60 * 60 * 1000,
     refetchOnMount: (query) => !isMaintenanceCacheComplete(query.state.data),
     refetchOnReconnect: false,
     placeholderData: maintenancePlaceholder,

@@ -422,29 +422,53 @@ body.dashboard-page.report-page::-webkit-scrollbar-thumb:hover {
     background: #1d4ed8;
 }
 
-/* Maintenance — dark gray thumb, white-gray track */
-body.dashboard-page.maintenance-page {
+/* Maintenance — page-level scroll (html / body / #root), same colors as virtual list */
+html:has(body.dashboard-page.maintenance-page),
+body.dashboard-page.maintenance-page,
+body.dashboard-page.maintenance-page #root {
     scrollbar-width: thin;
     scrollbar-color: #4b5563 #ececec;
 }
 
-body.dashboard-page.maintenance-page::-webkit-scrollbar {
-    width: 10px;
+html:has(body.dashboard-page.maintenance-page)::-webkit-scrollbar,
+body.dashboard-page.maintenance-page::-webkit-scrollbar,
+body.dashboard-page.maintenance-page #root::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
-body.dashboard-page.maintenance-page::-webkit-scrollbar-track {
+html:has(body.dashboard-page.maintenance-page)::-webkit-scrollbar-track,
+body.dashboard-page.maintenance-page::-webkit-scrollbar-track,
+body.dashboard-page.maintenance-page #root::-webkit-scrollbar-track {
     background: #ececec;
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
-body.dashboard-page.maintenance-page::-webkit-scrollbar-thumb {
+html:has(body.dashboard-page.maintenance-page)::-webkit-scrollbar-thumb,
+body.dashboard-page.maintenance-page::-webkit-scrollbar-thumb,
+body.dashboard-page.maintenance-page #root::-webkit-scrollbar-thumb {
     background: #4b5563;
-    border-radius: 10px;
+    border-radius: 8px;
     border: 2px solid #ececec;
+    min-height: 48px;
 }
 
-body.dashboard-page.maintenance-page::-webkit-scrollbar-thumb:hover {
+html:has(body.dashboard-page.maintenance-page)::-webkit-scrollbar-thumb:hover,
+body.dashboard-page.maintenance-page::-webkit-scrollbar-thumb:hover,
+body.dashboard-page.maintenance-page #root::-webkit-scrollbar-thumb:hover {
     background: #374151;
+}
+
+html:has(body.dashboard-page.maintenance-page)::-webkit-scrollbar-thumb:active,
+body.dashboard-page.maintenance-page::-webkit-scrollbar-thumb:active,
+body.dashboard-page.maintenance-page #root::-webkit-scrollbar-thumb:active {
+    background: #1f2937;
+}
+
+html:has(body.dashboard-page.maintenance-page)::-webkit-scrollbar-corner,
+body.dashboard-page.maintenance-page::-webkit-scrollbar-corner,
+body.dashboard-page.maintenance-page #root::-webkit-scrollbar-corner {
+    background: #ececec;
 }
 
 /* Maintenance virtual list — slim scrollbar (no OS arrow buttons) */
