@@ -17,7 +17,6 @@ import "../../../../public/css/maintenance_notifications.css";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
 import BankprocessMaintenanceTable from "./components/BankprocessMaintenanceTable.jsx";
 import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
-import PageContentLoader from "../../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import {
   deleteBankprocessData,
@@ -511,7 +510,8 @@ export default function BankprocessMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me) return <PageContentLoader />;
+  const tableLoading =
+    loading || bootLoading || !currenciesReady || (!hasSearched && Boolean(companyId));
 
   return (
     <div className="bankprocess-maintenance-page-root container">
@@ -551,7 +551,7 @@ export default function BankprocessMaintenancePage() {
 
       <BankprocessMaintenanceTable
         key={bankprocessDataSourceCompanyId ?? companyId ?? "no-company"}
-        loading={loading}
+        loading={tableLoading}
         rows={rows}
         hasSearched={hasSearched}
         listEpoch={bankprocessListEpoch}
