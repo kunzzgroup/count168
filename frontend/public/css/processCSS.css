@@ -860,6 +860,11 @@ body.process-page {
 /* Bank Process List：表头固定，数据区在视口内纵向滚动（分页固定右下角） */
 .process-page.process-page--bank {
     --bank-process-scroll-max: 100%;
+    --bank-list-scroll-min-visible-rows: 2;
+    --bank-list-data-row-estimate: var(--bank-list-cell-min-height);
+    --bank-list-scroll-body-min-height: calc(
+        var(--bank-list-scroll-min-visible-rows) * var(--bank-list-data-row-estimate)
+    );
     --bank-list-scrollbar-width: 5px;
     --bank-list-scrollbar-gutter: 6px;
     --bank-list-scrollbar-thumb: #6b7280;
@@ -925,12 +930,13 @@ body.process-page {
 }
 
 .process-page.process-page--bank .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     height: 100%;
     max-height: 100%;
     width: 100%;
     align-self: stretch;
+    overflow: hidden;
 }
 
 /* Bank 标题行字号与间距与 Games 完全统一（由 processlist.php 标题行的 inline margin-top/bottom: 20px 控制，此处不再 override） */
@@ -994,13 +1000,12 @@ body.process-page {
 .process-page.process-page--bank .bank-virtual-table {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     height: 100%;
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden;
-    overflow-y: hidden;
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -1011,9 +1016,10 @@ body.process-page {
     display: grid;
     grid-template-columns: var(--bank-virtual-grid-active);
     grid-template-rows: auto minmax(0, 1fr);
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     height: 100%;
+    overflow: hidden;
     box-sizing: border-box;
 }
 
@@ -1060,7 +1066,8 @@ body.process-page {
     grid-column: 1 / -1;
     grid-row: 2;
     align-self: stretch;
-    min-height: 0;
+    flex: 1 1 0;
+    min-height: var(--bank-list-scroll-body-min-height);
     max-height: 100%;
     display: grid;
     grid-template-columns: subgrid;
@@ -2197,14 +2204,19 @@ body.process-page.process-page--bank .bank-cell-display__type {
 @media (max-width: 1699px) {
     .process-page.process-page--bank .bank-process-list-body,
     .process-page.process-page--bank .bank-process-list-scroll-region {
-        flex: 1 1 auto;
+        flex: 1 1 0;
         min-height: 0;
         overflow: hidden;
     }
 
+    .process-page.process-page--bank .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
+    .process-page.process-page--bank .bank-virtual-table {
+        flex: 1 1 0;
+    }
+
     .process-page.process-page--bank .bank-virtual-scroll-clip {
-        flex: 1 1 auto;
-        min-height: 0;
+        flex: 1 1 0;
+        min-height: var(--bank-list-scroll-body-min-height);
         max-height: 100%;
         overflow-y: auto;
         overscroll-behavior: contain;
@@ -2221,6 +2233,10 @@ body.process-page.process-page--bank .bank-cell-display__type {
         --bank-list-cell-line-height: 1.22;
         --bank-list-cell-min-height: clamp(42px, 3vw, 54px);
         --bank-list-header-row-height: clamp(40px, 2.9vw, 48px);
+        --bank-list-data-row-estimate: max(
+            var(--bank-list-cell-min-height),
+            calc(2 * var(--bank-list-cell-padding-y) + 2 * var(--bank-list-cell-line-height) * 1em)
+        );
         --bank-header-th-font-size: clamp(9px, 0.65vw, 11px);
         /* 列宽按表头完整词 + 排序图标预留（No…Action） */
         --bank-virtual-grid-columns:
