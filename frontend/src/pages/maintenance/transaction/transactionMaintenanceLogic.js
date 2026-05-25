@@ -6,14 +6,13 @@ import {
   isBankOnlyCategoryCompany,
 } from "../shared/maintenanceCompanyApi.js";
 
-/** 宽日期兜底分片（后端已 SQL 分页，默认整段查询；仅超大范围才分片）。 */
-const MAINTENANCE_CHUNK_DAYS = 31;
-const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 90;
-/** 首屏优先：第一页较小以便尽快展示列表。 */
-const MAINTENANCE_FIRST_PAGE_SIZE = 400;
-/** 后续分页批量拉取。 */
-const MAINTENANCE_PAGE_SIZES = [1200, 800, 500, 250];
-const MAINTENANCE_MAX_PAGES = 50;
+/** 宽日期兜底分片（游标分页下通常整段一次查完；仅超范围或失败再分片）。 */
+const MAINTENANCE_CHUNK_DAYS = 60;
+const MAINTENANCE_CHUNK_THRESHOLD_DAYS = 400;
+/** 首屏较小以便尽快出表；后续用游标大批量拉取（每页只扫 page_size 行）。 */
+const MAINTENANCE_FIRST_PAGE_SIZE = 600;
+const MAINTENANCE_PAGE_SIZES = [3000, 2000, 1200, 600, 300];
+const MAINTENANCE_MAX_PAGES = 80;
 const MAINTENANCE_FETCH_RETRIES = 4;
 const MAINTENANCE_RETRY_BASE_MS = 400;
 
@@ -287,16 +286,21 @@ async function fetchMaintenanceRangeWithSplit(params) {
   }
 }
 
-function maintenancePageSizeForRequest(page, pageSizeIndex) {
-  if (page === 1) return MAINTENANCE_FIRST_PAGE_SIZE;
+function maintenancePageSizeForRequest(isFirstPage, pageSizeIndex) {
+  if (isFirstPage) return MAINTENANCE_FIRST_PAGE_SIZE;
   return MAINTENANCE_PAGE_SIZES[Math.min(pageSizeIndex, MAINTENANCE_PAGE_SIZES.length - 1)];
 }
 
 async function fetchAllPagesForRange(params, pageSizeIndex, onProgress) {
-  const fetchPage = async (page) => {
-    const pageSize = maintenancePageSizeForRequest(page, pageSizeIndex);
+  const fetchBatch = async ({ cursor, isFirstPage }) => {
+    const pageSize = maintenancePageSizeForRequest(isFirstPage, pageSizeIndex);
     try {
-      return await fetchMaintenancePageWithRetries({ ...params, page, pageSize });
+      return await fetchMaintenancePageWithRetries({
+        ...params,
+        cursor,
+        pageSize,
+        page: isFirstPage ? 1 : undefined,
+      });
     } catch (err) {
       rethrowIfAborted(err, params.signal);
       if (isMaintenanceTransferError(err) && pageSizeIndex < MAINTENANCE_PAGE_SIZES.length - 1) {
@@ -307,19 +311,25 @@ async function fetchAllPagesForRange(params, pageSizeIndex, onProgress) {
   };
 
   let all = [];
-  let page = 1;
+  let cursor = null;
+  let isFirstPage = true;
+  let loops = 0;
 
-  while (page <= MAINTENANCE_MAX_PAGES) {
+  while (loops < MAINTENANCE_MAX_PAGES) {
     if (params.signal?.aborted) {
       throw new DOMException("The operation was aborted.", "AbortError");
     }
-    const result = await fetchPage(page);
+    const result = await fetchBatch({ cursor, isFirstPage });
     if (result.data?.length) {
       all = appendMaintenancePageRows(all, result.data);
       if (typeof onProgress === "function") onProgress(all);
     }
     if (!result.pagination?.has_more) break;
-    page += 1;
+    const nextCursor = result.pagination?.next_cursor;
+    if (!nextCursor) break;
+    cursor = nextCursor;
+    isFirstPage = false;
+    loops += 1;
   }
 
   return all;
@@ -421,12 +431,18 @@ async function searchTransactionMaintenanceOnce({
   signal,
   page = 1,
   pageSize = MAINTENANCE_FIRST_PAGE_SIZE,
+  cursor = null,
 }) {
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);
   params.append("date_to", dateTo);
-  params.append("page", String(page));
   params.append("page_size", String(pageSize));
+  if (cursor) {
+    params.append("cursor", cursor);
+    params.append("page", "1");
+  } else {
+    params.append("page", String(page));
+  }
   if (process) params.append("process", process);
   if (companyId) params.append("company_id", companyId);
   if (category) params.append("category", category);
@@ -475,6 +491,7 @@ async function searchTransactionMaintenanceOnce({
     page_size: pageSize,
     total: rows.length,
     has_more: false,
+    next_cursor: null,
   };
 
   return { data: rows, pagination };

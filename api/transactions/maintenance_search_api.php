@@ -335,6 +335,189 @@ function maintenanceBuildCaptureUnionBranch(
     return ['sql' => $sql, 'params' => $captureParams];
 }
 
+/**
+ * 快速分支查询（无 UNION COLLATE 包装，供分页归并路径专用）。
+ * @return array{sql: string, params: array}
+ */
+function maintenanceBuildTransactionFastBranch(
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    string $category,
+    bool $is_bank_category,
+    bool $has_source_bank_col
+): array {
+    $where = ["t.company_id = ?", "t.transaction_date BETWEEN ? AND ?"];
+    $params = [$company_id, $date_from_db, $date_to_db];
+
+    if ($category !== '') {
+        if ($is_bank_category) {
+            if ($has_source_bank_col) {
+                $where[] = "t.source_bank_process_id IS NOT NULL AND t.source_bank_process_id != 0";
+            } else {
+                $where[] = "1 = 0";
+            }
+        } elseif ($has_source_bank_col) {
+            $where[] = "(t.source_bank_process_id IS NULL OR t.source_bank_process_id = 0)";
+        }
+    }
+
+    $where[] = "t.transaction_type NOT IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'ADJUSTMENT', 'WIN', 'LOSE')";
+    $whereSql = 'WHERE ' . implode(' AND ', $where);
+
+    $sql = "
+        SELECT
+            'transaction' AS data_type,
+            t.id AS transaction_id,
+            NULL AS capture_id,
+            NULL AS capture_detail_id,
+            NULL AS process_id,
+            a.account_id AS account_id,
+            fa.account_id AS from_account,
+            t.description AS description,
+            COALESCE(t.sms, '') AS remark,
+            COALESCE(c.code, '') AS currency_code,
+            COALESCE(t.amount, 0) AS amount,
+            t.transaction_date,
+            t.created_at AS sort_created_at,
+            DATE_FORMAT(t.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
+            COALESCE(u.login_id, o.owner_code, '-') AS created_by,
+            0 AS is_deleted,
+            NULL AS deleted_by,
+            NULL AS dts_deleted,
+            NULL AS source_value,
+            NULL AS source_percent,
+            NULL AS rate,
+            NULL AS id_product,
+            NULL AS id_product_main,
+            NULL AS id_product_sub,
+            NULL AS product_type,
+            NULL AS description_main,
+            NULL AS description_sub,
+            NULL AS columns_value
+        FROM transactions t
+        INNER JOIN account a ON t.account_id = a.id
+        LEFT JOIN account fa ON t.from_account_id = fa.id
+        LEFT JOIN currency c ON t.currency_id = c.id
+        LEFT JOIN user u ON t.created_by = u.id
+        LEFT JOIN owner o ON t.created_by_owner = o.id
+        $whereSql
+    ";
+
+    return ['sql' => $sql, 'params' => $params];
+}
+
+/**
+ * @return array{sql: string, params: array}
+ */
+function maintenanceBuildCaptureFastBranch(
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    ?string $process
+): array {
+    $captureWhere = [
+        "dc.company_id = ?",
+        "dc.capture_date BETWEEN ? AND ?",
+    ];
+    $captureParams = [$company_id, $date_from_db, $date_to_db];
+
+    if ($process) {
+        $captureWhere[] = "p.process_id = ?";
+        $captureParams[] = $process;
+    }
+
+    $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere);
+
+    $sql = "
+        SELECT
+            'datacapture' AS data_type,
+            NULL AS transaction_id,
+            dc.id AS capture_id,
+            dcd.id AS capture_detail_id,
+            p.process_id AS process_id,
+            COALESCE(a.account_id, CAST(dcd.account_id AS CHAR), '-') AS account_id,
+            NULL AS from_account,
+            COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
+            COALESCE(dc.remark, '') AS remark,
+            c.code AS currency_code,
+            dcd.processed_amount AS amount,
+            dc.capture_date AS transaction_date,
+            dc.created_at AS sort_created_at,
+            DATE_FORMAT(dc.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
+            COALESCE(u.login_id, o.owner_code, '-') AS created_by,
+            0 AS is_deleted,
+            NULL AS deleted_by,
+            NULL AS dts_deleted,
+            dcd.source_value AS source_value,
+            dcd.source_percent AS source_percent,
+            dcd.rate,
+            dcd.id_product AS id_product,
+            dcd.id_product_main AS id_product_main,
+            dcd.id_product_sub AS id_product_sub,
+            dcd.product_type AS product_type,
+            dcd.description_main AS description_main,
+            dcd.description_sub AS description_sub,
+            dcd.columns_value AS columns_value
+        FROM data_captures dc
+        INNER JOIN data_capture_details dcd ON dcd.capture_id = dc.id
+        INNER JOIN process p ON dc.process_id = p.id
+        LEFT JOIN account a ON a.id = dcd.account_id
+        INNER JOIN currency c ON dcd.currency_id = c.id
+        LEFT JOIN description d ON p.description_id = d.id
+        LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
+        LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
+        $captureWhereSql
+    ";
+
+    return ['sql' => $sql, 'params' => $captureParams];
+}
+
+function maintenanceBranchCursorClause(): string
+{
+    return '(transaction_date < ? OR (transaction_date = ? AND sort_created_at < ?) OR (transaction_date = ? AND sort_created_at = ? AND IFNULL(capture_id, 0) < ?) OR (transaction_date = ? AND sort_created_at = ? AND IFNULL(capture_id, 0) = ? AND IFNULL(capture_detail_id, 0) < ?) OR (transaction_date = ? AND sort_created_at = ? AND IFNULL(capture_id, 0) = ? AND IFNULL(capture_detail_id, 0) = ? AND IFNULL(transaction_id, 0) < ?))';
+}
+
+/** @return array<int, mixed> */
+function maintenanceBranchCursorParams(array $cursor): array
+{
+    $td = (string)($cursor['td'] ?? '');
+    $sc = (string)($cursor['sc'] ?? '');
+    $cid = (int)($cursor['cid'] ?? 0);
+    $did = (int)($cursor['did'] ?? 0);
+    $tid = (int)($cursor['tid'] ?? 0);
+
+    return [$td, $td, $sc, $td, $sc, $cid, $td, $sc, $cid, $did, $td, $sc, $cid, $did, $tid];
+}
+
+function maintenanceDecodeCursor(?string $raw): ?array
+{
+    if ($raw === null || $raw === '') {
+        return null;
+    }
+    $json = base64_decode(strtr($raw, '-_', '+/'), true);
+    if ($json === false) {
+        return null;
+    }
+    $data = json_decode($json, true);
+    if (!is_array($data) || !isset($data['td'], $data['sc'])) {
+        return null;
+    }
+    return $data;
+}
+
+function maintenanceEncodeCursor(array $row): string
+{
+    $payload = [
+        'td' => (string)($row['transaction_date'] ?? ''),
+        'sc' => (string)($row['sort_created_at'] ?? ''),
+        'cid' => (int)($row['capture_id'] ?? 0),
+        'did' => (int)($row['capture_detail_id'] ?? 0),
+        'tid' => (int)($row['transaction_id'] ?? 0),
+    ];
+    return rtrim(strtr(base64_encode(json_encode($payload, JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
+}
+
 /** 与 SQL ORDER BY 一致：返回负数表示 $a 应排在 $b 之前（全局降序）。 */
 function maintenanceCompareUnionRows(array $a, array $b): int
 {
@@ -414,13 +597,15 @@ function maintenanceSearchPaginatedFast(
     string $category,
     bool $is_bank_category,
     int $page,
-    int $page_size
+    int $page_size,
+    ?string $cursor_raw = null
 ): void {
     $has_source_bank_col = maintenanceHasSourceBankCol($pdo);
     $branchDefs = [];
+    $cursor = maintenanceDecodeCursor($cursor_raw);
 
     if (empty($process)) {
-        $branchDefs[] = maintenanceBuildTransactionUnionBranch(
+        $branchDefs[] = maintenanceBuildTransactionFastBranch(
             $company_id,
             $date_from_db,
             $date_to_db,
@@ -432,8 +617,7 @@ function maintenanceSearchPaginatedFast(
 
     if (!$is_bank_category) {
         try {
-            $branchDefs[] = maintenanceBuildCaptureUnionBranch(
-                $pdo,
+            $branchDefs[] = maintenanceBuildCaptureFastBranch(
                 $company_id,
                 $date_from_db,
                 $date_to_db,
@@ -453,6 +637,7 @@ function maintenanceSearchPaginatedFast(
                 'page_size' => $page_size,
                 'total' => 0,
                 'has_more' => false,
+                'next_cursor' => null,
             ],
         ], JSON_UNESCAPED_UNICODE);
         return;
@@ -461,30 +646,39 @@ function maintenanceSearchPaginatedFast(
     $orderSql = 'transaction_date DESC, sort_created_at DESC, '
         . 'IFNULL(capture_id, 0) DESC, IFNULL(capture_detail_id, 0) DESC, IFNULL(transaction_id, 0) DESC';
 
-    $offset = ($page - 1) * $page_size;
-    $needRows = $offset + $page_size + 1;
+    $fetchLimit = $page_size + 1;
     $branchLists = [];
 
     foreach ($branchDefs as $def) {
-        $branchSql = $def['sql'] . ' ORDER BY ' . $orderSql . ' LIMIT ' . (int)$needRows;
+        $branchParams = $def['params'];
+        $branchSql = $def['sql'];
+        if ($cursor !== null) {
+            $branchSql .= ' AND ' . maintenanceBranchCursorClause();
+            $branchParams = array_merge($branchParams, maintenanceBranchCursorParams($cursor));
+        }
+        $branchSql .= ' ORDER BY ' . $orderSql . ' LIMIT ' . (int)$fetchLimit;
         $stmt = $pdo->prepare($branchSql);
-        $stmt->execute($def['params']);
+        $stmt->execute($branchParams);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if ($rows) {
             $branchLists[] = $rows;
         }
     }
 
-    $merged = maintenanceMergeSortedRowLists($branchLists, $needRows);
-    $pageRows = array_slice($merged, $offset, $page_size);
-    $hasMore = count($merged) > $offset + $page_size;
+    $merged = maintenanceMergeSortedRowLists($branchLists, $fetchLimit);
+    $hasMore = count($merged) > $page_size;
+    $pageRows = array_slice($merged, 0, $page_size);
 
     $formatted = [];
-    $baseNo = $offset + 1;
     foreach ($pageRows as $i => $row) {
         $item = maintenanceFormatUnionRow($row);
-        $item['no'] = $baseNo + $i;
+        $item['no'] = $i + 1;
         $formatted[] = $item;
+    }
+
+    $nextCursor = null;
+    if ($hasMore && !empty($pageRows)) {
+        $nextCursor = maintenanceEncodeCursor($pageRows[count($pageRows) - 1]);
     }
 
     $returned = count($formatted);
@@ -494,8 +688,9 @@ function maintenanceSearchPaginatedFast(
         'pagination' => [
             'page' => $page,
             'page_size' => $page_size,
-            'total' => $hasMore ? -1 : ($offset + $returned),
+            'total' => $hasMore ? -1 : $returned,
             'has_more' => $hasMore,
+            'next_cursor' => $nextCursor,
         ],
     ], JSON_UNESCAPED_UNICODE);
 }
@@ -544,8 +739,9 @@ try {
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 0;
     $page_size = isset($_GET['page_size']) ? (int)$_GET['page_size'] : 0;
     if ($page_size > 0) {
-        $page_size = min(5000, max(200, $page_size));
+        $page_size = min(5000, max(100, $page_size));
     }
+    $cursor_raw = isset($_GET['cursor']) ? trim((string)$_GET['cursor']) : '';
 
     // 统一 process 为 process_id（代码）：前端可能传 "SPORT (SPORT)" 或数字 id
     if ($process !== null && $process !== '') {
@@ -620,7 +816,8 @@ try {
                 $category,
                 $is_bank_category,
                 $page,
-                $page_size
+                $page_size,
+                $cursor_raw !== '' ? $cursor_raw : null
             );
             return;
         } catch (Throwable $fastErr) {
