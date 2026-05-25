@@ -44,6 +44,8 @@ export default function CustomerReportPage() {
   const [showAll, setShowAll] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
+  /** Avoid report fetch before currency filter is resolved (prevents ALL-data flash). */
+  const [currencyFilterReady, setCurrencyFilterReady] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const [dateFrom, setDateFrom] = useState(formatYmd(today));
@@ -306,6 +308,8 @@ export default function CustomerReportPage() {
       }
     } catch (err) {
       console.error("Meta data load error:", err);
+    } finally {
+      setCurrencyFilterReady(true);
     }
   }, [
     companyId,
@@ -328,12 +332,15 @@ export default function CustomerReportPage() {
       if (saved?.showAllCurrencies) {
         setShowAllCurrencies(true);
         setSelectedCurrencies([]);
+        setCurrencyFilterReady(true);
       } else if (saved?.selectedCurrencies?.length) {
         setSelectedCurrencies([...saved.selectedCurrencies]);
         setShowAllCurrencies(false);
+        setCurrencyFilterReady(true);
       } else {
         setSelectedCurrencies([]);
         setShowAllCurrencies(false);
+        setCurrencyFilterReady(false);
       }
       setAccountId("");
       if (reportDataRef.current != null) setReportSyncing(true);
@@ -346,13 +353,24 @@ export default function CustomerReportPage() {
   }, [bootLoading, companyId, loadMetaData]);
 
   useEffect(() => {
-    if (!bootLoading && companyId) {
+    if (!bootLoading && companyId && currencyFilterReady) {
       const handler = setTimeout(() => {
         loadReport();
       }, 0);
       return () => clearTimeout(handler);
     }
-  }, [bootLoading, companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies, loadReport]);
+  }, [
+    bootLoading,
+    companyId,
+    currencyFilterReady,
+    accountId,
+    dateFrom,
+    dateTo,
+    showAll,
+    selectedCurrencies,
+    showAllCurrencies,
+    loadReport,
+  ]);
 
   useEffect(() => () => {
     customerReportAbortRef.current?.abort();
@@ -474,9 +492,11 @@ export default function CustomerReportPage() {
           <CustomerReportTable
             reportData={reportData}
             loading={loading}
-            reportSyncing={reportSyncing}
+            reportSyncing={reportSyncing || !currencyFilterReady}
             error={error}
             currencyList={currencyList}
+            showAllCurrencies={showAllCurrencies}
+            selectedCurrencies={selectedCurrencies}
             t={t}
           />
         </div>
