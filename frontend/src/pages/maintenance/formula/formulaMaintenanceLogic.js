@@ -116,8 +116,24 @@ export function formulaRowIdsMatch(a, b) {
   return String(a) === String(b);
 }
 
+/** Normalize trailing *token or source_percent for comparison (mirrors PHP helper). */
+export function normalizeFormulaTailToken(value) {
+  let s = String(value ?? "").trim().replace(/[\s%]/g, "");
+  const m = /^\((.+)\)$/.exec(s);
+  if (m) s = m[1].trim();
+  return s;
+}
+
+/** True when trailing *segment duplicates stored source_percent. */
+export function formulaTailMatchesSourcePercent(tail, sourcePercent) {
+  const tailNorm = normalizeFormulaTailToken(tail);
+  const pctNorm = normalizeFormulaTailToken(sourcePercent);
+  if (!tailNorm || !pctNorm) return false;
+  return tailNorm === pctNorm;
+}
+
 /** Strip trailing *sourcePercent from formula edit string (mirrors PHP parseMaintenanceFormulaInput). */
-export function parseFormulaEditTail(raw) {
+export function parseFormulaEditTail(raw, sourcePercent = null) {
   const s = String(raw ?? "").trim();
   if (!s) return { base: "", tail: null };
   const lastStar = s.lastIndexOf("*");
@@ -129,6 +145,10 @@ export function parseFormulaEditTail(raw) {
   const rateVal = (unwrapped ? unwrapped[1] : rate).trim();
   const compact = rateVal.replace(/[\s%]/g, "");
   if (!compact || !/^[0-9./+\-]+$/.test(compact)) return { base: s, tail: null };
+  const pct = sourcePercent != null ? String(sourcePercent).trim() : "";
+  if (pct !== "" && !formulaTailMatchesSourcePercent(rateVal, pct)) {
+    return { base: s, tail: null };
+  }
   return { base, tail: rateVal };
 }
 
@@ -144,7 +164,7 @@ export function buildFormulaEditString(base, sourcePercent) {
 
 /** When Source (source_percent) changes in edit mode, keep formula suffix in sync for save + display. */
 export function syncEditFormSourcePercent(form, newSourcePercent) {
-  const { base } = parseFormulaEditTail(form.formula);
+  const { base } = parseFormulaEditTail(form.formula, form.source_percent);
   return {
     ...form,
     source_percent: newSourcePercent,

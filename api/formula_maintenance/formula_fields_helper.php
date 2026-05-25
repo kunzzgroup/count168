@@ -62,6 +62,32 @@ function buildFormulaEditFromParts($base, $sourcePercent, $enableSourcePercent) 
 }
 
 /**
+ * Normalize a trailing *token or source_percent for equality checks.
+ */
+function normalizeMaintenanceFormulaTailToken($value) {
+    $s = trim(str_replace([' ', '%'], '', (string) $value));
+    if ($s === '') {
+        return '';
+    }
+    if (preg_match('/^\((.+)\)$/', $s, $m)) {
+        $s = trim($m[1]);
+    }
+    return $s;
+}
+
+/**
+ * True when the trailing *segment duplicates stored source_percent (legacy embedded format).
+ */
+function maintenanceFormulaTailMatchesSourcePercent($tail, $sourcePercent) {
+    $tailNorm = normalizeMaintenanceFormulaTailToken($tail);
+    $pctNorm = normalizeMaintenanceFormulaTailToken($sourcePercent);
+    if ($tailNorm === '' || $pctNorm === '') {
+        return false;
+    }
+    return $tailNorm === $pctNorm;
+}
+
+/**
  * 从行数据得到「公式本体 + 比例」：若 formula 字段末尾仍带 *系数（旧数据），先剥掉再以库 source_percent 为准。
  */
 function resolveTemplateFormulaBaseAndPercent(array $row) {
@@ -77,7 +103,12 @@ function resolveTemplateFormulaBaseAndPercent(array $row) {
         if ($tailCompact !== '' && strpos($tail, '$') === false && preg_match('/^[0-9.\/()+-]+$/', $tailCompact)) {
             $strippedBase = trim($m[1]);
             if ($dbPct !== '') {
-                return [$strippedBase, $dbPct, $dbEn];
+                // Only strip when tail matches DB source_percent (e.g. *(0.5)).
+                // Do not strip formula multipliers like *0.8 when source_percent is 0.5.
+                if (maintenanceFormulaTailMatchesSourcePercent($tail, $dbPct)) {
+                    return [$strippedBase, $dbPct, $dbEn];
+                }
+                return [$raw, $dbPct, $dbEn];
             }
             return [$strippedBase, $tail, 1];
         }
