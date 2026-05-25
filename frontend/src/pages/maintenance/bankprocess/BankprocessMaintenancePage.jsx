@@ -24,7 +24,9 @@ import {
   fetchCompanyCurrencies,
   fetchCompanyPermissions,
   formatDmy,
+  isBankprocessMaintenanceRowSelectable,
   searchBankprocessData,
+  toggleBankprocessMaintenanceBatchSelection,
   updateSessionCompany,
 } from "./bankprocessMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
@@ -463,26 +465,23 @@ export default function BankprocessMaintenancePage() {
     setSelectedCurrencies([]);
   }, []);
 
-  const selectableRows = useMemo(
-    () => rows.filter((r) => !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true)),
-    [rows]
-  );
+  const selectableRows = useMemo(() => rows.filter((r) => isBankprocessMaintenanceRowSelectable(r)), [rows]);
 
   const selectAll = selectableRows.length > 0 && selectedIds.length === selectableRows.length;
 
   const onToggleSelectAll = useCallback(() => {
     setSelectedIds((prev) => {
-      const selectable = rowsRef.current.filter(
-        (r) => !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true),
-      );
+      const selectable = rowsRef.current.filter((r) => isBankprocessMaintenanceRowSelectable(r));
       if (prev.length === selectable.length && selectable.length > 0) return [];
       return selectable.map((r) => r.transaction_id);
     });
   }, []);
 
-  const onToggleRow = (transactionId) => {
-    setSelectedIds((prev) => (prev.includes(transactionId) ? prev.filter((id) => id !== transactionId) : [...prev, transactionId]));
-  };
+  const onToggleRow = useCallback((transactionId) => {
+    setSelectedIds((prev) =>
+      toggleBankprocessMaintenanceBatchSelection(prev, rowsRef.current, transactionId),
+    );
+  }, []);
 
   const onDelete = async () => {
     if (selectedIds.length === 0) {
