@@ -2,6 +2,7 @@ import { useLayoutEffect } from "react";
 import {
   clearFormatStyles,
   getFormatGridReady,
+  gridHasEditableData,
   setFormatGridReady,
   toggleTableDisplayForFormat,
 } from "../format/dataCaptureFormat.js";
@@ -40,5 +41,5 @@ export function useDataCaptureFormatDisplay() {
 }
 
 function readInitialFormatReady() {
-  return Boolean(getFormatPreviewHtml());
+  return Boolean(getFormatPreviewHtml()) && gridHasEditableData();
 }

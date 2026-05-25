@@ -48,9 +48,16 @@ function afterFormatPasteFilled(filled, area) {
   markFormatGridReady(true);
   if (area) area.innerHTML = "";
   window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
-  queueMicrotask(() => {
-    window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
-  });
+  const recompute = () => window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+  queueMicrotask(recompute);
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => {
+      recompute();
+      requestAnimationFrame(recompute);
+    });
+  } else {
+    setTimeout(recompute, 50);
+  }
   return true;
 }
 

@@ -1,6 +1,7 @@
 import { useLayoutEffect } from "react";
 import DataCaptureGrid from "./DataCaptureGrid.jsx";
 import { CAPTURE_TYPE_OPTIONS } from "../lib/dataCaptureFormRules.js";
+import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 
 function captureTypeLabel(opt, t) {
   if (opt === "1.Text") return t("captureTypeText");
@@ -19,6 +20,7 @@ export default function DataCaptureTableSection({
   citibetMode = false,
   onCaptureTypeChange,
   submitDisabled = true,
+  submitBlockReason = "",
   onSubmit,
   onReset,
 }) {
@@ -59,6 +61,11 @@ export default function DataCaptureTableSection({
           type="button"
           className="btn btn-save"
           disabled={submitDisabled}
+          title={
+            submitDisabled && submitBlockReason
+              ? translateDataCaptureMessage(localStorage.getItem("login_lang") === "zh" ? "zh" : "en", submitBlockReason)
+              : undefined
+          }
           style={{
             opacity: submitDisabled ? 0.6 : 1,
             cursor: submitDisabled ? "not-allowed" : "pointer",

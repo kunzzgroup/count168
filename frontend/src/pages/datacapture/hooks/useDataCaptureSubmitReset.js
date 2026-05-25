@@ -8,7 +8,6 @@ import {
 import { captureTableDataFromDom } from "../lib/dataCaptureTableSnapshot.js";
 import {
   getActiveDescriptions,
-  isSubmitReady,
   validateDataCaptureForm,
 } from "../lib/dataCaptureFormRules.js";
 import { fetchProcessDetail } from "../lib/dataCaptureApi.js";
@@ -33,11 +32,20 @@ function readSubmitFormSnapshot(formRef) {
         id: processId,
         displayText: processBtn.textContent?.trim() || "",
         process_id: processBtn.getAttribute("data-process-code") || "",
+        description_name: processBtn.getAttribute("data-description-name") || null,
       };
     }
   }
 
-  return { selectedProcess, currencyId, descriptionDisplay };
+  let descriptions = Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : [];
+  if (!descriptions.length && descriptionDisplay) {
+    descriptions = getActiveDescriptions(descriptionDisplay);
+    if (descriptions.length) {
+      window.selectedDescriptions = [...descriptions];
+    }
+  }
+
+  return { selectedProcess, currencyId, descriptionDisplay, descriptions };
 }
 
 function buildProcessCapturePayload(form, captureType, currencies) {
@@ -71,6 +79,7 @@ export function useDataCaptureSubmitReset({
   t,
 }) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
+  const [submitBlockReason, setSubmitBlockReason] = useState("");
   const restoreInFlightRef = useRef(false);
   const formRef = useRef(form);
   formRef.current = form;
@@ -82,17 +91,18 @@ export function useDataCaptureSubmitReset({
       (typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
         ? window.__DC_GET_CAPTURE_TYPE__()
         : captureTypeRef.current) || captureTypeRef.current;
-    const { selectedProcess, currencyId, descriptionDisplay } = readSubmitFormSnapshot(formRef);
+    const { selectedProcess, currencyId, descriptionDisplay, descriptions } = readSubmitFormSnapshot(formRef);
     const tableData = captureTableDataFromDom(captureTypeNow);
-    const ready = isSubmitReady({
+    const validation = validateDataCaptureForm({
       selectedProcess,
-      descriptions: window.selectedDescriptions || [],
+      descriptions,
       descriptionDisplay,
       currencyId,
       captureType: captureTypeNow,
       tableData,
     });
-    setSubmitDisabled(!ready);
+    setSubmitDisabled(!validation.ok);
+    setSubmitBlockReason(validation.ok ? "" : validation.message || "");
   }, []);
 
   useEffect(() => {
@@ -146,11 +156,11 @@ export function useDataCaptureSubmitReset({
       return;
     }
     const captureTypeNow = captureTypeRef.current;
-    const { selectedProcess, currencyId, descriptionDisplay } = readSubmitFormSnapshot(formRef);
+    const { selectedProcess, currencyId, descriptionDisplay, descriptions } = readSubmitFormSnapshot(formRef);
     const tableData = captureTableDataFromDom(captureTypeNow);
     const validation = validateDataCaptureForm({
       selectedProcess,
-      descriptions: window.selectedDescriptions || [],
+      descriptions,
       descriptionDisplay,
       currencyId,
       captureType: captureTypeNow,
@@ -293,6 +303,7 @@ export function useDataCaptureSubmitReset({
 
   return {
     submitDisabled,
+    submitBlockReason,
     submit,
     reset,
     restoreFromStorage,

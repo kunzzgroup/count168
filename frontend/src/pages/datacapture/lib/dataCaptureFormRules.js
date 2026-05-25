@@ -33,16 +33,30 @@ export function isCitibetCaptureType(captureType) {
   return normalizeCaptureType(captureType) === "CITIBET";
 }
 
+const DESCRIPTION_PLACEHOLDER_PATTERNS = [
+  /^click\s*\+\s*to\s*select/i,
+  /^select\s*description/i,
+  /^点击.*选择.*描述/i,
+  /^请选择.*描述/i,
+];
+
+function isDescriptionPlaceholder(text) {
+  const s = String(text || "").trim();
+  if (!s) return true;
+  return DESCRIPTION_PLACEHOLDER_PATTERNS.some((re) => re.test(s));
+}
+
 /** Descriptions from modal/global state, with fallback when display text is set but array is empty. */
 export function getActiveDescriptions(descriptionDisplay) {
   const fromWindow = Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : [];
-  if (fromWindow.length) return fromWindow.filter(Boolean);
+  const cleanedWindow = fromWindow.map((s) => String(s || "").trim()).filter((s) => s && !isDescriptionPlaceholder(s));
+  if (cleanedWindow.length) return cleanedWindow;
   const display = String(descriptionDisplay || "").trim();
-  if (!display) return [];
+  if (!display || isDescriptionPlaceholder(display)) return [];
   return display
     .split(",")
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter((s) => s && !isDescriptionPlaceholder(s));
 }
 
 export function validateDataCaptureForm({
@@ -66,13 +80,13 @@ export function validateDataCaptureForm({
   if (!currencyId) {
     return { ok: false, message: "Please select a currency" };
   }
-  if (isCitibetCaptureType(captureType) && !captureTableHasData(tableData)) {
+  if (isCitibetCaptureType(captureType) && !captureTableHasData(tableData, captureType)) {
     return { ok: false, message: "Please enter data in the table" };
   }
   const normalizedType = normalizeCaptureType(captureType);
   if (
     (normalizedType === "1.Text" || normalizedType === "2.Format") &&
-    !captureTableHasData(tableData)
+    !captureTableHasData(tableData, captureType)
   ) {
     return { ok: false, message: "Please enter data in the table" };
   }

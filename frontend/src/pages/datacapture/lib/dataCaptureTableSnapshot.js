@@ -1,7 +1,7 @@
 import { convertBracketedToNegative } from "./dataCaptureBracket.js";
 import { normalizeStoredCaptureType } from "./dataCaptureStorage.js";
 
-function readCellSnapshotText(cell) {
+export function readCellSnapshotText(cell) {
   if (!cell) return "";
   let raw = cell.textContent || cell.innerText || "";
   if (!String(raw).trim() && cell.innerHTML) {
@@ -12,6 +12,11 @@ function readCellSnapshotText(cell) {
   return String(raw);
 }
 
+export function cellHasCaptureContent(cell) {
+  if (!cell) return false;
+  return readCellSnapshotText(cell).trim() !== "";
+}
+
 /** Live DOM check — used when snapshot read and grid disagree (2.Format styled cells). */
 export function domGridHasCaptureData() {
   const tableBody = document.getElementById("tableBody");
@@ -20,13 +25,27 @@ export function domGridHasCaptureData() {
   return Array.from(tableBody.querySelectorAll("td")).some((cell) => {
     if (cell.classList.contains("row-header")) return false;
     if (cell.style.display === "none") return false;
-    return readCellSnapshotText(cell).trim() !== "";
+    return cellHasCaptureContent(cell);
   });
 }
 
-export function captureTableHasData(tableData) {
+export function captureTableHasData(tableData, captureType) {
   if (tableSnapshotHasData(tableData)) return true;
-  return domGridHasCaptureData();
+  if (domGridHasCaptureData()) return true;
+  const normalized =
+    captureType === "2.Format" || captureType === "655"
+      ? "2.Format"
+      : String(captureType || "").trim();
+  if (normalized === "2.Format" && typeof document !== "undefined") {
+    const tableBody = document.getElementById("tableBody");
+    if (tableBody) {
+      const hasEditable = Array.from(tableBody.querySelectorAll("td[contenteditable='true']")).some(
+        (cell) => cellHasCaptureContent(cell),
+      );
+      if (hasEditable) return true;
+    }
+  }
+  return false;
 }
 
 /**
