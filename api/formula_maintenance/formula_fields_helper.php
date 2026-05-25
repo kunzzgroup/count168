@@ -44,7 +44,8 @@ function parseSourcePercentEnable($sourcePercent, $base) {
         return ['base' => $base, 'source_percent' => null, 'enable_source_percent' => null];
     }
     $enable = ($rateCompact === '0' || $rateCompact === '0.0' || $rateCompact === '-0') ? 0 : 1;
-    return ['base' => $base, 'source_percent' => $sp, 'enable_source_percent' => $enable];
+    $normalized = formatSourcePercentForMaintenanceList($sp);
+    return ['base' => $base, 'source_percent' => $normalized, 'enable_source_percent' => $enable];
 }
 
 /**
@@ -79,15 +80,18 @@ function parseMaintenanceFormulaInput($raw, $sourcePercentOverride = null) {
 
 function buildFormulaDisplayParenFromParts($base, $sourcePercent, $enableSourcePercent) {
     $b = trim((string) $base);
-    $pct = trim((string) $sourcePercent);
     $en = (int) $enableSourcePercent;
     if ($b === '') {
         return '';
     }
-    if (!$en || $pct === '' || $pct === '1' || $pct === '1.0' || $pct === '1.00') {
+    if (!$en) {
         return $b;
     }
-    return $b . ' * (' . $pct . ')';
+    $pctDisplay = formatSourcePercentForMaintenanceList($sourcePercent);
+    if ($pctDisplay === '' || $pctDisplay === '1') {
+        return $b;
+    }
+    return $b . ' * (' . $pctDisplay . ')';
 }
 
 /**

@@ -907,11 +907,56 @@ function removeTrailingSourcePercentSuffix(formulaText) {
 
 function buildFormulaDisplayFromParts(base, sourcePercent) {
     const b = base == null ? '' : String(base).trim();
-    const sp = sourcePercent == null ? '' : String(sourcePercent).trim();
-    if (!b || !sp || sp === '1' || sp === '1.0' || sp === '1.00') {
+    const en = sourcePercent != null && String(sourcePercent).trim() !== '';
+    if (!b || !en) {
+        return b;
+    }
+    const sp = formatSourcePercentForMaintenanceDisplay(sourcePercent);
+    if (!sp || sp === '1') {
         return b;
     }
     return `${b} * (${sp})`;
+}
+
+function formatSourcePercentForMaintenanceDisplay(value) {
+    if (value == null || value === '') {
+        return '1';
+    }
+    const valueStr = String(value).trim().replace(/%/g, '');
+    if (!valueStr) {
+        return '1';
+    }
+    if (/[+\-*/]/.test(valueStr)) {
+        try {
+            const sanitized = valueStr.replace(/,/g, '');
+            const result = Function('"use strict"; return (' + sanitized + ')')();
+            if (typeof result !== 'number' || !Number.isFinite(result)) {
+                return valueStr;
+            }
+            return formatDecimalForMaintenanceDisplay(result);
+        } catch (_) {
+            return valueStr;
+        }
+    }
+    const num = parseFloat(valueStr);
+    if (Number.isNaN(num) || !Number.isFinite(num)) {
+        return valueStr;
+    }
+    return formatDecimalForMaintenanceDisplay(num);
+}
+
+function formatDecimalForMaintenanceDisplay(num) {
+    if (Math.abs(num - Math.round(num)) < 1e-9) {
+        return String(Math.round(num));
+    }
+    let s = num.toFixed(6).replace(/\.?0+$/, '');
+    if (s.startsWith('.')) {
+        s = '0' + s;
+    }
+    if (s.startsWith('-.')) {
+        s = '-0' + s.slice(1);
+    }
+    return s;
 }
 
 function splitFormulaSourcePercent(rawFormula) {
