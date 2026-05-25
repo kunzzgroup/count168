@@ -871,44 +871,69 @@ function toUpperDisplay(value) {
     return str ? str.toUpperCase() : '-';
 }
 
+/**
+ * 与 datacapturesummary.js removeTrailingSourcePercentExpression 一致。
+ * 只移除末尾 *(source) 展示后缀，保留 *0.9 等公式内乘数。
+ */
+function removeTrailingSourcePercentSuffix(formulaText) {
+    if (formulaText == null) {
+        return '';
+    }
+    let result = String(formulaText).trim();
+    if (!result) {
+        return '';
+    }
+    let previous = '';
+    while (result && previous !== result) {
+        previous = result;
+        const lastStarIndex = result.lastIndexOf('*');
+        if (lastStarIndex < 0) {
+            break;
+        }
+        const beforeStar = result.substring(0, lastStarIndex);
+        const afterStar = result.substring(lastStarIndex);
+        const openParens = (beforeStar.match(/\(/g) || []).length;
+        const closeParens = (beforeStar.match(/\)/g) || []).length;
+        const isStarInsideParens = openParens > closeParens;
+        const trailingPattern = /^\*\s*\(([0-9.+\-*/()\s]+)\)\s*$/;
+        if (!isStarInsideParens && trailingPattern.test(afterStar)) {
+            result = beforeStar.trim();
+            continue;
+        }
+        break;
+    }
+    return result;
+}
+
+function buildFormulaDisplayFromParts(base, sourcePercent) {
+    const b = base == null ? '' : String(base).trim();
+    const sp = sourcePercent == null ? '' : String(sourcePercent).trim();
+    if (!b || !sp || sp === '1' || sp === '1.0' || sp === '1.00') {
+        return b;
+    }
+    return `${b} * (${sp})`;
+}
+
 function splitFormulaSourcePercent(rawFormula) {
     const formula = rawFormula == null ? '' : String(rawFormula).trim();
     if (!formula) {
         return { base: '', sourcePercent: '' };
     }
-
-    const lastStar = formula.lastIndexOf('*');
-    if (lastStar === -1) {
-        return { base: formula, sourcePercent: '' };
+    const match = formula.match(/^(.*)\*\(([0-9.+\-*/()\s]+)\)\s*$/);
+    if (match) {
+        const beforeStar = match[1].trim();
+        const openParens = (beforeStar.match(/\(/g) || []).length;
+        const closeParens = (beforeStar.match(/\)/g) || []).length;
+        if (openParens <= closeParens) {
+            return { base: beforeStar, sourcePercent: match[2].trim() };
+        }
     }
-
-    const base = formula.slice(0, lastStar).trim();
-    let rate = formula.slice(lastStar + 1).trim();
-    if (!base || !rate || rate.includes('$')) {
-        return { base: formula, sourcePercent: '' };
-    }
-
-    const wrapped = rate.match(/^\((.+)\)$/);
-    if (wrapped) {
-        rate = wrapped[1].trim();
-    }
-
-    const rateCompact = rate.replace(/[%\s]/g, '');
-    if (!rateCompact || !/^[0-9.\/()+-]+$/.test(rateCompact)) {
-        return { base: formula, sourcePercent: '' };
-    }
-
-    return { base, sourcePercent: rate };
+    return { base: removeTrailingSourcePercentSuffix(formula), sourcePercent: '' };
 }
 
 function buildFormulaWithSourcePercent(rawFormula, rawSourcePercent) {
-    const { base } = splitFormulaSourcePercent(rawFormula);
-    const sourcePercent = rawSourcePercent == null ? '' : String(rawSourcePercent).trim();
-    const sourceCompact = sourcePercent.replace(/[%\s]/g, '');
-    if (!base || !sourceCompact) {
-        return base;
-    }
-    return `${base}*${sourcePercent}`;
+    const base = removeTrailingSourcePercentSuffix(rawFormula);
+    return buildFormulaDisplayFromParts(base, rawSourcePercent);
 }
 
 // ==================== 编辑数据捕获行 ====================
@@ -936,13 +961,11 @@ function editDataCaptureRow(rowId, editBtn) {
     // 加载 account 列表
     loadAccountList(accountSelect, accountCell.getAttribute('data-original-account-id')).then(() => {
         const rowDataForEdit = JSON.parse(row.getAttribute('data-row-data') || '{}');
-        formulaInput.value = rowDataForEdit.formula_edit || rowDataForEdit.formula || '';
+        formulaInput.value = rowDataForEdit.formula_edit || removeTrailingSourcePercentSuffix(rowDataForEdit.formula || '');
         sourceInput.value = rowDataForEdit.source != null && String(rowDataForEdit.source).trim() !== ''
             ? String(rowDataForEdit.source)
             : '1';
-        sourceInput.oninput = function() {
-            formulaInput.value = buildFormulaWithSourcePercent(formulaInput.value, sourceInput.value);
-        };
+        sourceInput.oninput = null;
         // 显示输入框/下拉列表，隐藏显示文本
         accountDisplay.style.display = 'none';
         accountSelect.style.display = 'block';
@@ -1131,8 +1154,7 @@ function saveDataCaptureRow(rowId, saveBtn) {
     const sourceRef = sourceCell.getAttribute('data-source-ref') || prevRow.source_ref || '';
     const inputMethodValue = inputMethodSelect.value;
     const inputMethodText = inputMethodSelect.options[inputMethodSelect.selectedIndex]?.text || '';
-    const formulaValue = buildFormulaWithSourcePercent(formulaInput.value.trim(), sourceValue);
-    formulaInput.value = formulaValue;
+    const formulaBody = removeTrailingSourcePercentSuffix(formulaInput.value.trim());
     const descriptionValue = descriptionInput.value.trim();
     
     const saveData = {
@@ -1141,7 +1163,8 @@ function saveDataCaptureRow(rowId, saveBtn) {
         source_columns: sourceRef,
         source_display: sourceRef,
         input_method: inputMethodValue,
-        formula: formulaValue,
+        formula: formulaBody,
+        source_percent: sourceValue,
         description: descriptionValue
     };
     
@@ -1171,15 +1194,15 @@ function saveDataCaptureRow(rowId, saveBtn) {
     .then(data => {
         if (data.success) {
             const norm = data.data || {};
-            const disp = norm.formula_display_paren != null ? norm.formula_display_paren : formulaValue;
-            const edit = norm.formula_edit != null ? norm.formula_edit : formulaValue;
+            const disp = norm.formula_display_paren != null ? norm.formula_display_paren : buildFormulaDisplayFromParts(formulaBody, sourceValue);
+            const edit = norm.formula_edit != null ? norm.formula_edit : formulaBody;
             // 更新显示文本
             accountDisplay.textContent = accountText ? toUpperDisplay(accountText.split(' (')[0]) : '-';
-            const sumSrc = norm.source_summary_display != null ? String(norm.source_summary_display) : (prevRow.source || '');
-            const refNext = norm.source_ref != null ? String(norm.source_ref).trim() : sourceValue;
+            const sumSrc = norm.source_summary_display != null ? String(norm.source_summary_display) : sourceValue;
+            const refNext = norm.source_ref != null ? String(norm.source_ref).trim() : sourceRef;
             sourceDisplay.textContent = toUpperDisplay(sumSrc !== '' ? sumSrc : '1');
             sourceDisplay.title = sumSrc !== '' ? sumSrc : '1';
-            sourceInput.value = refNext;
+            sourceInput.value = sumSrc !== '' ? sumSrc : sourceValue;
             sourceCell.setAttribute('data-source-ref', refNext);
             inputMethodDisplay.textContent = toUpperDisplay(inputMethodValue);
             formulaDisplay.textContent = toUpperDisplay(disp);
@@ -1219,13 +1242,13 @@ function saveDataCaptureRow(rowId, saveBtn) {
             sourceInput.oninput = null;
             
             // 更新保存的数据
-            const sumSrcFinal = norm.source_summary_display != null ? String(norm.source_summary_display) : (prevRow.source || '');
-            const refFinal = norm.source_ref != null ? String(norm.source_ref).trim() : sourceValue;
+            const sumSrcFinal = norm.source_summary_display != null ? String(norm.source_summary_display) : sourceValue;
+            const refFinal = norm.source_ref != null ? String(norm.source_ref).trim() : sourceRef;
             const newRowData = {
                 id: rowId,
                 account: accountText.split(' (')[0] || '',
                 account_id: accountId || null,
-                source: sumSrcFinal !== '' ? sumSrcFinal : (prevRow.source || '1'),
+                source: sumSrcFinal !== '' ? sumSrcFinal : sourceValue,
                 source_ref: refFinal,
                 input_method: inputMethodValue,
                 formula: disp,

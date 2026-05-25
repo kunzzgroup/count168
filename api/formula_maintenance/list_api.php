@@ -128,10 +128,9 @@ function mapRowsToDisplay(array $rows) {
     $displayRowsByKey = [];
     foreach ($rows as $row) {
         $sourceRef = $row['columns_display'] ?? $row['source_columns'] ?? '';
-        // Source 列与 Data Capture Summary 一致：展示 source_percent（列引用仍放在 source_ref 供保存）
-        $sourceDisplay = formatSourcePercentForMaintenanceList($row['source_percent'] ?? null);
-        // 列表展示：$5 * (0.18)；编辑框用 $5*0.18（与 update 解析一致）
-        $formulaDisplayParen = buildFormulaDisplayParenFromRow($row);
+        list($base, $sourcePct, $sourceEn) = resolveTemplateFormulaBaseAndPercent($row);
+        $sourceDisplay = formatSourcePercentForMaintenanceList($sourcePct);
+        $formulaDisplayParen = buildFormulaDisplayParenFromParts($base, $sourcePct, $sourceEn);
         $formulaEdit = buildFormulaEditFromRow($row);
         $processCode = $row['process_code'] ?? '';
         $descriptionName = $row['description_name'] ?? '';
