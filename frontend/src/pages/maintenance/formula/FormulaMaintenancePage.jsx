@@ -34,7 +34,6 @@ import {
 import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.jsx";
 import FormulaMaintenanceTable from "./components/FormulaMaintenanceTable.jsx";
 import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
-import PageContentLoader from "../../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function FormulaMaintenancePage() {
@@ -660,7 +659,7 @@ export default function FormulaMaintenancePage() {
     setScrollRestoreRowId(null);
   }, []);
 
-  if (bootLoading || !me) return <PageContentLoader />;
+  const tableLoading = loading || bootLoading;
 
   return (
     <div className="formula-maintenance-page-root container">
@@ -715,7 +714,7 @@ export default function FormulaMaintenancePage() {
         )}
       <FormulaMaintenanceTable
         data={formulaData}
-        loading={loading}
+        loading={tableLoading}
         listSyncing={listSyncing}
         listHydrating={listHydrating}
         totalRowCount={totalRowCount}

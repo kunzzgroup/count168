@@ -23,7 +23,6 @@ import {
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
-import PageContentLoader from "../../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 // Componentss
@@ -510,7 +509,7 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  if (bootLoading || !sessionReady || !me || !cssReady) return <PageContentLoader />;
+  const tableLoading = loading || bootLoading || !cssReady;
 
   return (
     <div className="container">
@@ -572,7 +571,7 @@ export default function CaptureMaintenancePage() {
             data={captureData}
             listEpoch={captureListEpoch}
             rowKeyCompanyId={captureDataSourceCompanyId ?? companyId}
-            loading={loading}
+            loading={tableLoading}
             listSyncing={listSyncing}
             selectedIds={selectedIds}
             toggleSelect={toggleSelect}

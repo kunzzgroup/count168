@@ -25,7 +25,6 @@ import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pag
 import PaymentMaintenanceFilters from "./components/PaymentMaintenanceFilters.jsx";
 import PaymentMaintenanceTable from "./components/PaymentMaintenanceTable.jsx";
 import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
-import PageContentLoader from "../../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function PaymentMaintenancePage() {
@@ -513,7 +512,7 @@ export default function PaymentMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me || !cssReady) return <PageContentLoader />;
+  const tableLoading = loading || bootLoading || !cssReady;
 
   return (
     <div className="payment-maintenance-page-root container">
@@ -575,7 +574,7 @@ export default function PaymentMaintenancePage() {
           data={paymentData}
           listEpoch={paymentListEpoch}
           rowKeyCompanyId={paymentDataSourceCompanyId ?? companyId}
-          loading={loading}
+          loading={tableLoading}
           listSyncing={listSyncing}
           selectedIds={selectedIds}
           toggleSelect={toggleSelect}
