@@ -378,26 +378,28 @@ export default function CompanySettingsModal({
               </div>
               {/* Start Date + Period */}
               <div className="company-settings-date-row">
-                <div className="form-group company-settings-field-half company-settings-start-date-field">
+                <div className="company-settings-field-half company-settings-start-date-field">
                   <FormDateField
                     fieldKey={START_DATE_FIELD_KEY}
                     htmlFor="expDateStartDate"
                     label={t("startDate")}
+                    labelClassName="cs-company-field-label"
                     value={startDate}
                     placeholder={t("pickDate")}
                     allowClear={false}
                     className="company-settings-form-date-field"
                     wrapClassName="company-settings-form-datepicker-wrap"
-                    inputClassName="company-settings-form-datepicker-input"
+                    inputClassName="company-settings-date-row-control company-settings-form-datepicker-input"
                   />
                   <small id="expDateStartDateHelp" className="company-settings-start-hint">
                     {t("selectStartDateHint")}
                   </small>
                 </div>
-                <div className="form-group company-settings-field-half company-settings-field-half--period">
+                <div className="company-settings-field-half company-settings-field-half--period">
                   <label className="cs-company-field-label" htmlFor="expDatePeriod">{t("period")}</label>
                   <select
                     id="expDatePeriod"
+                    className="company-settings-date-row-control"
                     value={period}
                     onChange={(e) => setPeriod(e.target.value)}
                   >

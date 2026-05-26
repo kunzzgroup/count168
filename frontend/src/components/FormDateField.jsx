@@ -27,6 +27,7 @@ export default function FormDateField({
   srSpanClassName = "form-datepicker-sr-span",
   showCalendarIcon = true,
   allowClear = true,
+  labelClassName = "",
 }) {
   const fromId = `${fieldKey}_drp_from`;
   const toId = `${fieldKey}_drp_to`;
@@ -62,7 +63,7 @@ export default function FormDateField({
 
   return (
     <div className={`form-group ${className}`.trim()}>
-      {label ? <label htmlFor={htmlFor || fieldKey}>{label}</label> : null}
+      {label ? <label className={labelClassName || undefined} htmlFor={htmlFor || fieldKey}>{label}</label> : null}
       <div className={`form-datepicker-wrap ${wrapClassName}`.trim()}>
         <input
           id={htmlFor || fieldKey}
