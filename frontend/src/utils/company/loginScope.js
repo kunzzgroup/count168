@@ -45,22 +45,49 @@ export function resolveCompanyLoginGroupId(me, companies = []) {
   return gid || null;
 }
 
-/** Company login: keep full owner list (AP+IG when linked). Group login: that group only. */
-export function companyMatchesLoginScope(company, me) {
+/** Linked group ids for filter pills (AP+IG when domain/ownership links). */
+export function resolveAccessibleGroupIds(me, companies = []) {
+  const fromSession = readAccessibleGroupIds(me);
+  const set = new Set(fromSession);
+  const ident = getLoginIdentifier(me);
+  if (ident) set.add(ident);
+  if (isCompanyLogin(me)) {
+    const loginGroup = resolveCompanyLoginGroupId(me, companies);
+    if (loginGroup) set.add(loginGroup);
+  }
+  for (const c of companies || []) {
+    const g = String(c?.group_id || "").trim().toUpperCase();
+    if (g) set.add(g);
+    const link = c?.link_source_group ? String(c.link_source_group).trim().toUpperCase() : "";
+    if (link) set.add(link);
+  }
+  return [...set].sort();
+}
+
+/** Company login: full owner list. Group login: login group + linked groups (AP+IG). */
+export function companyMatchesLoginScope(company, me, companies = []) {
   const scope = getLoginScope(me);
   const ident = getLoginIdentifier(me);
-  if (!scope || !ident || !company) return true;
+  if (!scope || !company) return true;
+  if (!ident && scope !== LOGIN_SCOPE_COMPANY) return true;
 
   if (scope === LOGIN_SCOPE_COMPANY) return true;
 
   const gid = String(company.group_id || "").trim().toUpperCase();
-  return gid === ident;
+  const linkSrc = company.link_source_group
+    ? String(company.link_source_group).trim().toUpperCase()
+    : "";
+  const accessible = resolveAccessibleGroupIds(me, companies);
+  if (accessible.length) {
+    return accessible.some((g) => g === gid || g === linkSrc);
+  }
+  return ident != null && (gid === ident || linkSrc === ident);
 }
 
 export function filterCompaniesForLoginScope(companies, me) {
   if (!Array.isArray(companies) || !getLoginScope(me)) return companies || [];
   if (isCompanyLogin(me)) return companies;
-  return companies.filter((c) => companyMatchesLoginScope(c, me));
+  return companies.filter((c) => companyMatchesLoginScope(c, me, companies));
 }
 
 export function canUseGroupOnlyMode(me) {
@@ -72,21 +99,25 @@ export function canClearCompanySelection(me) {
 }
 
 /**
- * Group pills: group login → one group; company login → linked groups (AP+IG) from session/API.
+ * Group pills: group/company login → login group + linked groups (AP+IG) from session/API.
  */
-export function resolveVisibleGroupIds(groupIds, me) {
+export function resolveVisibleGroupIds(groupIds, me, companies = []) {
   const ids = Array.isArray(groupIds) ? groupIds : [];
   const scope = getLoginScope(me);
-  const ident = getLoginIdentifier(me);
-  if (!scope || !ident) return ids;
+  if (!scope) return ids;
 
-  if (scope === LOGIN_SCOPE_GROUP) {
-    return ids.includes(ident) ? [ident] : ident ? [ident] : ids;
+  const accessible = resolveAccessibleGroupIds(me, companies);
+  if (accessible.length) {
+    const set = new Set([...ids, ...accessible]);
+    return [...set].sort();
   }
 
-  const extra = readAccessibleGroupIds(me);
-  const set = new Set([...ids, ...extra]);
-  return [...set].sort();
+  const ident = getLoginIdentifier(me);
+  if (scope === LOGIN_SCOPE_GROUP && ident) {
+    return ids.includes(ident) ? [ident] : [ident];
+  }
+
+  return ids;
 }
 
 export function loginScopeBodyClass(me) {

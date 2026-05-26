@@ -7,7 +7,7 @@
  *   login_identifier — uppercased group id or company code from the login form
  *   login_group_id   — native group_id of the login company (UI default; not a visibility fence)
  *
- * Group login: group-only mode + companies in that group only.
+ * Group login: group-only mode; companies in login group + linked groups (e.g. AP+IG).
  * Company login: all companies/groups the owner already has (AP+IG when linked);
  *                 no group-only aggregate; may switch companies across linked groups.
  */
@@ -97,7 +97,21 @@ function gc_company_row_matches_login_scope(array $companyRow): bool
     }
 
     $gid = strtoupper(trim((string) ($companyRow['group_id'] ?? '')));
-    return $gid === $ident;
+    $linkSrc = strtoupper(trim((string) ($companyRow['link_source_group'] ?? '')));
+
+    $accessible = gc_session_accessible_group_ids();
+    if (!empty($accessible)) {
+        if ($gid !== '' && in_array($gid, $accessible, true)) {
+            return true;
+        }
+        if ($linkSrc !== '' && in_array($linkSrc, $accessible, true)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    return $ident !== null && ($gid === $ident || $linkSrc === $ident);
 }
 
 /**
@@ -177,14 +191,26 @@ function gc_session_accessible_group_ids(): array
  */
 function gc_hydrate_accessible_group_ids(PDO $pdo, array $companies): void
 {
-    if (!gc_is_company_login()) {
+    if (gc_session_login_scope() === null) {
         return;
     }
-    if (isset($_SESSION['accessible_group_ids']) && is_array($_SESSION['accessible_group_ids'])) {
+    if (
+        isset($_SESSION['accessible_group_ids'])
+        && is_array($_SESSION['accessible_group_ids'])
+        && $_SESSION['accessible_group_ids'] !== []
+    ) {
         return;
     }
 
     $groups = [];
+
+    if (gc_is_group_login()) {
+        $ident = gc_session_login_identifier();
+        if ($ident !== null) {
+            $groups[$ident] = true;
+        }
+    }
+
     foreach ($companies as $c) {
         $g = strtoupper(trim((string) ($c['group_id'] ?? '')));
         if ($g !== '') {
@@ -196,9 +222,11 @@ function gc_hydrate_accessible_group_ids(PDO $pdo, array $companies): void
         }
     }
 
-    $loginGroup = gc_session_login_group_id();
-    if ($loginGroup !== null) {
-        $groups[$loginGroup] = true;
+    if (gc_is_company_login()) {
+        $loginGroup = gc_session_login_group_id();
+        if ($loginGroup !== null) {
+            $groups[$loginGroup] = true;
+        }
     }
 
     $ownerIds = gc_resolve_owner_ids_for_group_links($pdo, $companies);
@@ -230,11 +258,24 @@ function gc_resolve_owner_ids_for_group_links(PDO $pdo, array $companies): array
 
     $ident = gc_session_login_identifier();
     if ($ident !== null) {
-        $stmt = $pdo->prepare('SELECT owner_id FROM company WHERE UPPER(company_id) = ? LIMIT 1');
-        $stmt->execute([$ident]);
-        $oid = $stmt->fetchColumn();
-        if ($oid) {
-            $ownerIds[] = (int) $oid;
+        if (gc_is_group_login()) {
+            $stmt = $pdo->prepare(
+                'SELECT DISTINCT owner_id FROM company
+                 WHERE UPPER(TRIM(group_id)) = ? AND owner_id IS NOT NULL'
+            );
+            $stmt->execute([$ident]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $oid) {
+                if ($oid) {
+                    $ownerIds[] = (int) $oid;
+                }
+            }
+        } else {
+            $stmt = $pdo->prepare('SELECT owner_id FROM company WHERE UPPER(company_id) = ? LIMIT 1');
+            $stmt->execute([$ident]);
+            $oid = $stmt->fetchColumn();
+            if ($oid) {
+                $ownerIds[] = (int) $oid;
+            }
         }
     }
 

@@ -11,6 +11,7 @@ import {
   getLoginScope,
   isCompanyLogin,
   isGroupLogin,
+  resolveAccessibleGroupIds,
 } from "./loginScope.js";
 
 export {
@@ -373,14 +374,16 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
   const groups = sortedUniqueGroupIds(companies);
   let selGroup = null;
 
-  if (
-    loginMe?.login_scope === "group" &&
-    loginMe?.login_identifier &&
-    groups.includes(String(loginMe.login_identifier).trim().toUpperCase())
-  ) {
+  if (loginMe?.login_scope === "group" && loginMe?.login_identifier) {
+    const visible = resolveAccessibleGroupIds(loginMe, companies);
+    if (savedGroup && visible.includes(savedGroup)) {
+      return savedGroup;
+    }
     const g = String(loginMe.login_identifier).trim().toUpperCase();
-    sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, g);
-    return g;
+    if (visible.includes(g) || groups.includes(g)) {
+      sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, g);
+      return g;
+    }
   }
 
   if (isDashboardGroupOnlyMode() && savedGroup && groups.includes(savedGroup)) {
