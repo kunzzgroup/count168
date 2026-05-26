@@ -977,7 +977,7 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     --member-winloss-matrix-inline-gutter: 10px;
     --member-mini-ccy-min: clamp(3.75rem, 5vw, 5rem);
     --member-dash-total-col-min: 15rem;
-    /* 须容纳 "Currency:" / "Account:"，过窄会溢出压到右侧胶囊 */
+    /* 标签列宽由内容撑开（同 transaction-bottom-filters），勿固定 rem 截断 Account:/Currency: */
     --member-winloss-label-w: 6.75rem;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -1276,7 +1276,8 @@ body.lang-zh.member-winloss-page .member-dash-col-filters .member-winloss-gc-pan
 
 body.member-winloss-page .member-dash-col-filters .user-gc-inline-panel.member-winloss-gc-panel {
     display: grid;
-    grid-template-columns: var(--user-gc-inline-label-w, var(--member-winloss-label-w, 6.75rem)) minmax(0, 1fr);
+    /* 与 transaction / dashboard 一致：首列 auto，标签 min-width 撑满后不压胶囊 */
+    grid-template-columns: auto minmax(0, 1fr);
     column-gap: var(--user-gc-inline-column-gap, 4px);
     row-gap: var(--user-gc-inline-row-gap, 4px);
     /* start：多行 Currency 时标签与首行（All 所在行）顶对齐；勿用 center 否则标签会相对整列垂直居中而偏低 */
@@ -1297,18 +1298,20 @@ body.member-winloss-page #member_currency_filter {
     margin-top: 0;
 }
 
-/* Account / Currency：标签限制在首列内右对齐，避免文字压到胶囊列 */
+/* Account / Currency：同 transaction-bottom-filters 标签列（完整显示 + 与胶囊 column-gap 分隔） */
 body.member-winloss-page #member_account_filter > .user-gc-inline-label,
-body.member-winloss-page #member_currency_filter > .user-gc-inline-label {
-    justify-self: stretch;
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
+body.member-winloss-page #member_currency_filter > .user-gc-inline-label,
+body.member-winloss-page #member_company_filter > .user-gc-inline-label {
+    justify-self: start;
+    width: auto;
+    min-width: var(--member-winloss-label-w, 6.75rem);
+    max-width: none;
     box-sizing: border-box;
-    padding-right: clamp(6px, 0.65vw, 10px);
-    text-align: right;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding-right: 0;
+    text-align: left;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
 }
 
 body.member-winloss-page #member_account_buttons.member-winloss-account-pills {
@@ -1449,16 +1452,25 @@ body.member-winloss-page #member_currency_buttons .member-winloss-currency-segme
 }
 
 body.member-winloss-page .member-dash-col-filters .user-gc-inline-label {
-    justify-self: stretch;
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
+    justify-self: start;
+    width: auto;
+    min-width: var(--member-winloss-label-w, 6.75rem);
+    max-width: none;
     box-sizing: border-box;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
     font-size: var(--text-base);
-    text-align: right;
+    font-weight: var(--font-weight-bold);
+    color: #1f2937;
+    text-align: left;
+}
+
+body.lang-zh.member-winloss-page .member-dash-col-filters .user-gc-inline-label,
+body.lang-zh.member-winloss-page #member_account_filter > .user-gc-inline-label,
+body.lang-zh.member-winloss-page #member_currency_filter > .user-gc-inline-label,
+body.lang-zh.member-winloss-page #member_company_filter > .user-gc-inline-label {
+    min-width: var(--member-winloss-label-w, 4.75rem);
 }
 
 .member-winloss-page .member-dash-filter-trigger {
