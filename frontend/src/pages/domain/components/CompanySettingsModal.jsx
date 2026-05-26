@@ -69,7 +69,11 @@ export default function CompanySettingsModal({
   // Local copy of company being edited
   const [company, setCompany] = useState(() => JSON.parse(JSON.stringify(initCompany)));
   const [period, setPeriod] = useState("");
-  const [startDate, setStartDate] = useState(initCompany.startDate || new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(() => {
+    const raw = initCompany.startDate || "";
+    const ymd = raw.includes("-") ? raw.split("T")[0] : parseDdMmYyyyToYmd(raw);
+    return ymd || new Date().toISOString().split("T")[0];
+  });
   const [expDisplay, setExpDisplay] = useState(initCompany.expiration_date ? formatDate(initCompany.expiration_date) : t("notSet"));
   const [permissions, setPermissions] = useState(Array.isArray(initCompany.permissions) ? initCompany.permissions : []);
   const [chargeOnSave, setChargeOnSave] = useState(!!initCompany.apply_commission_payments_on_domain_save);

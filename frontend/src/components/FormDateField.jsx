@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useCallback } from "react";
 import { ensureMaintenanceDateRangePicker } from "../utils/date/dateRangePicker.js";
-import { formatDmy, parseYmd } from "../utils/date/dateUtils.js";
+import { formatDmy, parseDdMmYyyyToYmd, parseYmd, formatYmd } from "../utils/date/dateUtils.js";
 
 function isoToDmy(iso) {
   const d = parseYmd(String(iso || "").trim());
@@ -48,7 +48,7 @@ export default function FormDateField({
 
     const handler = () => {
       const fromDmy = document.getElementById(fromId)?.value?.trim() || "";
-      const iso = parseYmd(fromDmy);
+      const iso = parseDdMmYyyyToYmd(fromDmy);
       if (iso) onValueChange(iso);
     };
 

@@ -1,5 +1,7 @@
 // domainHelpers.js — Pure utility functions extracted from domain.js
 
+import { formatYmd, parseDdMmYyyyToYmd, parseYmd } from "../../utils/date/dateUtils.js";
+
 // ★★★ SINGLE_CATEGORY_MODE ★★★
 // true: Company Settings 弹窗中 Permissions 只能选择一个分类（互斥）
 export const SINGLE_CATEGORY_MODE = true;
@@ -16,7 +18,19 @@ export const MAX_VISIBLE_CHIPS = 3;
  * @returns {string} YYYY-MM-DD
  */
 export function calculateExpirationDate(period, startDate = null) {
-  const baseDate = startDate ? new Date(startDate) : new Date();
+  let baseDate = null;
+  if (startDate) {
+    if (typeof startDate === "string") {
+      const ymd = startDate.includes("-") ? startDate : parseDdMmYyyyToYmd(startDate);
+      baseDate = ymd ? parseYmd(ymd) : null;
+    } else if (startDate instanceof Date) {
+      baseDate = Number.isNaN(startDate.getTime()) ? null : new Date(startDate);
+    }
+  }
+  if (!baseDate || Number.isNaN(baseDate.getTime())) {
+    baseDate = new Date();
+  }
+  baseDate.setHours(0, 0, 0, 0);
   const expDate = new Date(baseDate);
 
   switch (period) {
@@ -39,7 +53,10 @@ export function calculateExpirationDate(period, startDate = null) {
       expDate.setMonth(baseDate.getMonth() + 1);
   }
 
-  return expDate.toISOString().split("T")[0];
+  if (Number.isNaN(expDate.getTime())) {
+    return formatYmd(new Date());
+  }
+  return formatYmd(expDate);
 }
 
 /** 格式化日期显示 */
