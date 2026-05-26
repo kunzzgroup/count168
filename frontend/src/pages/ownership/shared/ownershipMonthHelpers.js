@@ -7,6 +7,14 @@ export function isOwnershipHistoricalMonth(monthKey) {
   return monthKey < getOwnershipCurrentMonthKey();
 }
 
+export function formatOwnershipMonthShort(monthKey, lang = "en") {
+  if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return monthKey || "";
+  const [y, m] = monthKey.split("-").map(Number);
+  const d = new Date(y, m - 1, 1);
+  const locale = lang === "zh" ? "zh-CN" : "en-US";
+  return d.toLocaleDateString(locale, { year: "numeric", month: "short" });
+}
+
 export function formatOwnershipMonthLabel(monthKey, lang = "en") {
   if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return monthKey || "";
   const [y, m] = monthKey.split("-").map(Number);

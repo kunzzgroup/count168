@@ -72,6 +72,8 @@ export const OWNERSHIP_I18N = {
     historicalView: "Historical",
     noSnapshotForMonth: "No ownership snapshot saved for {month}.",
     historicalSnapshotSaved: "{month} snapshot (saved {savedAt})",
+    noSnapshotShort: "No snapshot this month",
+    snapshotSavedShort: "Saved {savedAt}",
   },
   zh: {
     accountOwnership: "账号归属",
@@ -144,6 +146,8 @@ export const OWNERSHIP_I18N = {
     historicalView: "历史记录",
     noSnapshotForMonth: "{month} 暂无归属比例存档。",
     historicalSnapshotSaved: "{month} 存档（保存于 {savedAt}）",
+    noSnapshotShort: "该月无存档",
+    snapshotSavedShort: "保存于 {savedAt}",
   },
 };
 
