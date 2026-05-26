@@ -138,7 +138,7 @@ export default function DomainFormModal({
                 co.originalExpirationDate = co.expiration_date || null;
                 co.selectedPeriod = null;
                 co.startDate = new Date().toISOString().split("T")[0];
-                co.isExtending = !!co.expiration_date;
+                co.isExtending = false;
                 validCompanies.push(co);
               }
             });
