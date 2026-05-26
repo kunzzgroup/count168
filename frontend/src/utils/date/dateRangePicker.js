@@ -594,11 +594,26 @@ export function ensureMaintenanceDateRangePicker() {
       syncRangeStateFromHiddenInputs();
       let rect = picker.getBoundingClientRect();
       let barWidth = rect.width;
-      const bankWrap = picker.closest(".bank-form-datepicker-wrap") || picker.closest(".form-datepicker-wrap");
+      const bankWrap =
+        picker.closest(".bank-form-datepicker-wrap") || picker.closest(".form-datepicker-wrap");
+      const bankListDateAnchor = picker.closest(
+        ".bank-process-toolbar-primary .transaction-date-range-group",
+      );
+      const matchToolbarDateAnchor = !!bankListDateAnchor && !!activeRangeBinding.hidePresets;
       const shell = picker.closest(".report-outlined-shell");
       if (bankWrap) {
         rect = bankWrap.getBoundingClientRect();
         barWidth = rect.width;
+      } else if (matchToolbarDateAnchor) {
+        const anchorEl = picker.classList?.contains("date-range-picker")
+          ? picker
+          : bankListDateAnchor;
+        rect = anchorEl.getBoundingClientRect();
+        barWidth = rect.width;
+        document.body.style.setProperty(
+          "--bank-toolbar-date-width",
+          `${Math.max(1, Math.round(barWidth))}px`,
+        );
       } else if (shell) {
         rect = shell.getBoundingClientRect();
         barWidth = rect.width;
@@ -617,7 +632,7 @@ export function ensureMaintenanceDateRangePicker() {
         }
       }
       if (popup.classList.contains("calendar-popup--transaction-range")) {
-        if (bankWrap) {
+        if (bankWrap || matchToolbarDateAnchor) {
           const anchorWidth = Math.max(1, Math.round(barWidth));
           popup.classList.add("calendar-popup--match-anchor");
           popup.style.left = `${rect.left}px`;

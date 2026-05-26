@@ -66,6 +66,7 @@ export default function BankProcessListPage() {
     setShowEInvoice,
     showBlock,
     setShowBlock,
+    clearBankProcessFilters,
     deleteConfirmOpen,
     setDeleteConfirmOpen,
     deleteSubmitting,
@@ -235,8 +236,32 @@ export default function BankProcessListPage() {
   } = useBankProcessListPage();
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const [isNarrowToolbar, setIsNarrowToolbar] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 1699px)").matches,
+  );
   const filterToolbarRef = useRef(null);
+  const searchBarRef = useRef(null);
+  const searchInputRef = useRef(null);
   const hasActiveFilters = showInactive || showAll || showOfficial || showEInvoice || showBlock;
+  const isSearchCollapsed = isNarrowToolbar && !searchExpanded && !search.trim();
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1699px)");
+    const onChange = () => {
+      setIsNarrowToolbar(mq.matches);
+      if (!mq.matches) setSearchExpanded(false);
+    };
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!searchExpanded || !isNarrowToolbar) return undefined;
+    const id = window.requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(id);
+  }, [searchExpanded, isNarrowToolbar]);
 
   useEffect(() => {
     if (!filterPanelOpen) return undefined;
@@ -247,6 +272,28 @@ export default function BankProcessListPage() {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [filterPanelOpen]);
+
+  const handleFilterToggleClick = (e) => {
+    if (e.detail > 1) return;
+    setFilterPanelOpen((open) => !open);
+  };
+
+  const handleFilterToggleDoubleClick = (e) => {
+    e.preventDefault();
+    if (!hasActiveFilters) return;
+    clearBankProcessFilters();
+    setFilterPanelOpen(false);
+  };
+
+  useEffect(() => {
+    if (!isNarrowToolbar || !searchExpanded || search.trim()) return undefined;
+    const onDoc = (e) => {
+      if (searchBarRef.current?.contains(e.target)) return;
+      setSearchExpanded(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [isNarrowToolbar, searchExpanded, search]);
 
   if (loading || !cssReady) return <PageContentLoader />;
 
@@ -295,30 +342,72 @@ export default function BankProcessListPage() {
                     <input type="hidden" id="date_from" defaultValue="" />
                     <input type="hidden" id="date_to" defaultValue="" />
                   </div>
-                  <div className="search-container userlist-search-bar">
-                    <span className="userlist-search-bar__icon" aria-hidden="true">
-                      <svg fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                      </svg>
-                    </span>
-                    <input
-                      type="text"
-                      className="search-input userlist-search-input"
-                      placeholder={t("search")}
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
+                  <div
+                    ref={searchBarRef}
+                    className={[
+                      "search-container userlist-search-bar bank-process-search-bar",
+                      isNarrowToolbar && isSearchCollapsed ? "is-collapsed" : "",
+                      isNarrowToolbar && !isSearchCollapsed ? "is-expanded" : "",
+                    ].filter(Boolean).join(" ")}
+                  >
+                    {isSearchCollapsed ? (
+                      <button
+                        type="button"
+                        className="bank-process-search-toggle"
+                        aria-label={t("search")}
+                        aria-expanded={false}
+                        onClick={() => setSearchExpanded(true)}
+                      >
+                        <span className="userlist-search-bar__icon" aria-hidden="true">
+                          <svg fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                          </svg>
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <span className="userlist-search-bar__icon" aria-hidden="true">
+                          <svg fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                          </svg>
+                        </span>
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          className="search-input userlist-search-input"
+                          placeholder={t("search")}
+                          value={search}
+                          aria-expanded={isNarrowToolbar ? searchExpanded || Boolean(search.trim()) : undefined}
+                          onChange={(e) => setSearch(e.target.value)}
+                          onBlur={() => {
+                            if (isNarrowToolbar && !search.trim()) setSearchExpanded(false);
+                          }}
+                        />
+                      </>
+                    )}
                   </div>
                   <div ref={filterToolbarRef} className="bank-process-filter-toolbar-slot">
                     <button
                       type="button"
-                      className={`bank-process-filter-toggle${filterPanelOpen ? " is-open" : ""}${hasActiveFilters ? " has-active-filters" : ""}`}
+                      className={[
+                        "bank-process-filter-toggle",
+                        filterPanelOpen ? "is-open" : "",
+                        hasActiveFilters ? "has-active-filters" : "",
+                        isNarrowToolbar ? "bank-process-filter-toggle--icon-only" : "",
+                      ].filter(Boolean).join(" ")}
                       aria-expanded={filterPanelOpen}
                       aria-controls="bank-process-filter-panel"
-                      onClick={() => setFilterPanelOpen((open) => !open)}
+                      aria-label={t("filter")}
+                      title={hasActiveFilters ? t("filterDoubleClickClear") : t("filter")}
+                      onClick={handleFilterToggleClick}
+                      onDoubleClick={handleFilterToggleDoubleClick}
                     >
-                      <i className="fas fa-filter" aria-hidden="true" />
-                      <span>{t("filter")}</span>
+                      <span className="bank-process-filter-toggle__icon" aria-hidden="true">
+                        <svg fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M4.25 6h15.5c.41 0 .64.47.4.8L14 13.2v5.3a.75.75 0 0 1-1.1.67l-2.9-1.45a.75.75 0 0 1-.4-.67v-4.3L3.85 6.8a.75.75 0 0 1 .4-1.2z" />
+                        </svg>
+                      </span>
+                      <span className="bank-process-filter-toggle__label">{t("filter")}</span>
                     </button>
                     <div
                       id="bank-process-filter-panel"

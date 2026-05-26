@@ -359,8 +359,8 @@ body.maintenance-page .quick-select-dropdown .dropdown-item:hover {
 }
 
 
-/* Maintenance Page Date Picker Parity Styles */
-body.process-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets,
+/* Maintenance Page Date Picker Parity Styles（Bank Process 顶栏由 processCSS 单独控制宽度） */
+body.process-page:not(.process-page--bank) .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets,
 body.transaction-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets,
 body.maintenance-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets , body.dashboard-page.report-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets , body.domain-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets {
     grid-template-columns: 1fr;
