@@ -1,12 +1,26 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
-import { clearDataCaptureRoundLocalStorage } from "../utils/dataCaptureRoundStorage.js";
+import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
+import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
+import AppBootLoading from "./AppBootLoading.jsx";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
+import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
-import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
-import { applyLoginLang } from "../utils/useLoginLang.js";
+import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
+import { applyLoginLang } from "../utils/i18n/useLoginLang.js";
+import {
+  canAccessFullMaintenance,
+  canAccessLimitedMaintenance,
+  canAccessPermission,
+  showMaintenanceInSidebar,
+} from "../utils/auth/sidebarPermissions.js";
 import "../../public/css/modal-close-unified.css";
+
+function formatSidebarExpirationHint(hint, i18n) {
+  if (!hint || hint === "-") return "-";
+  if (hint === "No expiration date") return i18n.expNoDate;
+  return hint;
+}
 
 function readCookie(name) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -74,16 +88,15 @@ export default function AuthenticatedLayout() {
   const sidebarIconOnly = isTabletViewport && sidebarCollapsed;
   const sidebarTabletExpanded = isTabletViewport && !sidebarCollapsed;
 
-  /* Only switch off login shell after session is confirmed for dashboard — avoids bg/layout flash when redirecting to secondary password. */
+  /* Enter dashboard chrome immediately so refresh/route changes never flash login tile bg. */
   useLayoutEffect(() => {
-    if (loading || !me) return undefined;
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page", "ec-auth-shell");
     return () => {
       document.body.classList.remove("dashboard-page", "ec-auth-shell");
       document.body.classList.add("bg");
     };
-  }, [loading, me]);
+  }, []);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -152,10 +165,17 @@ export default function AuthenticatedLayout() {
   const sidebarMenuTitle = (label) => (sidebarIconOnly ? label : undefined);
 
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 25000);
     (async () => {
       try {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), {
+          credentials: "include",
+          signal: controller.signal,
+        });
         const json = await res.json();
+        if (cancelled) return;
         if (!res.ok || !json.success || !json.data) {
           navigate("/login", { replace: true });
           return;
@@ -174,29 +194,44 @@ export default function AuthenticatedLayout() {
           return;
         }
         setMe(u);
-      } catch {
+      } catch (err) {
+        if (cancelled || err?.name === "AbortError") return;
         navigate("/login", { replace: true });
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          window.clearTimeout(timeoutId);
+          setLoading(false);
+        }
       }
     })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
   }, [navigate]);
 
-  useEffect(() => {
-    const onCompanySession = async () => {
-      try {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const json = await res.json();
-        if (res.ok && json.success && json.data) {
-          setMe(json.data);
-        }
-      } catch {
-        /* ignore */
+  const refreshSession = useCallback(async () => {
+    try {
+      const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        setMe(json.data);
+        return json.data;
       }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    const onCompanySession = () => {
+      void refreshSession();
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
     return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
-  }, []);
+  }, [refreshSession]);
 
   useEffect(() => {
     setHoverSection(null);
@@ -260,9 +295,10 @@ export default function AuthenticatedLayout() {
     document.cookie = `selectedAvatar=${encodeURIComponent(avatarId)}; path=/; max-age=31536000; SameSite=Lax`;
   };
 
-  const permissions = Array.isArray(me?.permissions) ? me.permissions : [];
-  const hasFullPermissions = permissions.length === 0;
-  const canAccess = (key) => hasFullPermissions || permissions.includes(key);
+  const canAccess = (key) => canAccessPermission(me, key);
+  const showFullMaintenanceMenu = canAccessFullMaintenance(me);
+  const showLimitedMaintenanceMenu = canAccessLimitedMaintenance(me);
+  const showMaintenanceMenu = showMaintenanceInSidebar(me);
   
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
@@ -304,10 +340,21 @@ export default function AuthenticatedLayout() {
     setHoverSection(section);
   };
 
-  if (loading) return null;
+  const sessionContextValue = useMemo(
+    () => ({
+      me,
+      sessionReady: !loading && Boolean(me),
+      refreshSession,
+      lang,
+    }),
+    [me, loading, refreshSession, lang]
+  );
+
+  if (loading) return <AppBootLoading label={lang === "zh" ? "正在加载…" : "Loading…"} />;
   if (!me) return <Navigate to="/login" replace />;
 
   return (
+    <AuthSessionProvider value={sessionContextValue}>
     <>
       <div
         className={`informationmenu-overlay sidebar-dismiss-overlay${sidebarTabletExpanded ? " show" : ""}`}
@@ -421,34 +468,34 @@ export default function AuthenticatedLayout() {
             </div>
           )}
           {canAccess("account") && (
-            <>
-              <div className="informationmenu-section">
-                <div
-                  className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
-                  title={sidebarMenuTitle(i18n.sidebarAccount)}
-                  onClick={() => navigate("/account-list")}
-                  role="presentation"
-                >
-                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                  <span className="sidebar-menu-label">{i18n.sidebarAccount}</span>
-                </div>
+            <div className="informationmenu-section">
+              <div
+                className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
+                title={sidebarMenuTitle(i18n.sidebarAccount)}
+                onClick={() => navigate("/account-list")}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                </svg>
+                <span className="sidebar-menu-label">{i18n.sidebarAccount}</span>
               </div>
-              <div className="informationmenu-section">
-                <div
-                  className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
-                  title={sidebarMenuTitle(i18n.sidebarOwnership)}
-                  onClick={() => navigate("/ownership")}
-                  role="presentation"
-                >
-                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-                  </svg>
-                  <span className="sidebar-menu-label">{i18n.sidebarOwnership}</span>
-                </div>
+            </div>
+          )}
+          {canAccess("ownership") && (
+            <div className="informationmenu-section">
+              <div
+                className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
+                title={sidebarMenuTitle(i18n.sidebarOwnership)}
+                onClick={() => navigate("/ownership")}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                </svg>
+                <span className="sidebar-menu-label">{i18n.sidebarOwnership}</span>
               </div>
-            </>
+            </div>
           )}
           {canAccess("process") && (
             <div className="informationmenu-section">
@@ -486,7 +533,7 @@ export default function AuthenticatedLayout() {
             </div>
           )}
           {canAccess("payment") && (
-            <div className="informationmenu-section">
+            <div className="informationmenu-section informationmenu-section--transaction-payment">
               <div
                 className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
                 title={sidebarMenuTitle(i18n.sidebarTransactionPayment)}
@@ -559,7 +606,7 @@ export default function AuthenticatedLayout() {
               </div>
             </div>
           )}
-          {canAccess("maintenance") && (
+          {showMaintenanceMenu && (
             <div className="informationmenu-section">
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
                 <div
@@ -593,7 +640,7 @@ export default function AuthenticatedLayout() {
                   onMouseLeave={() => setHoverSection(null)}
                 >
                   <div className="submenu-content">
-                    {me?.company_has_gambling && (
+                    {showFullMaintenanceMenu && me?.company_has_gambling && (
                       <a
                         href={webHref("/capture-maintenance")}
                         className={`submenu-item ${path === "/capture-maintenance" ? "current-page" : ""}`}
@@ -605,7 +652,7 @@ export default function AuthenticatedLayout() {
                         <span>{i18n.sidebarDataCapture}</span>
                       </a>
                     )}
-                    {me?.company_has_gambling && (
+                    {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
                         href={webHref("/transaction-maintenance")}
                         className={`submenu-item ${path === "/transaction-maintenance" ? "current-page" : ""}`}
@@ -617,17 +664,19 @@ export default function AuthenticatedLayout() {
                         <span>{i18n.sidebarTransaction}</span>
                       </a>
                     )}
-                    <a
-                      href={webHref("/payment-maintenance")}
-                      className={`submenu-item ${path === "/payment-maintenance" ? "current-page" : ""}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigate("/payment-maintenance");
-                      }}
-                    >
-                      <span>{i18n.sidebarPayment}</span>
-                    </a>
-                    {me?.company_has_gambling && (
+                    {showFullMaintenanceMenu && (
+                      <a
+                        href={webHref("/payment-maintenance")}
+                        className={`submenu-item ${path === "/payment-maintenance" ? "current-page" : ""}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate("/payment-maintenance");
+                        }}
+                      >
+                        <span>{i18n.sidebarPayment}</span>
+                      </a>
+                    )}
+                    {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
                         href={webHref("/formula-maintenance")}
                         className={`submenu-item ${path === "/formula-maintenance" ? "current-page" : ""}`}
@@ -639,7 +688,7 @@ export default function AuthenticatedLayout() {
                         <span>{i18n.sidebarFormula}</span>
                       </a>
                     )}
-                    {me?.company_has_bank && (
+                    {showFullMaintenanceMenu && me?.company_has_bank && (
                       <a
                         href={webHref("/bankprocess-maintenance")}
                         className={`submenu-item ${path === "/bankprocess-maintenance" ? "current-page" : ""}`}
@@ -666,7 +715,9 @@ export default function AuthenticatedLayout() {
             </svg>
             <div className="expiration-content">
               <span className="expiration-label">{i18n.exp}</span>
-              <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>{me?.expiration_hint || "-"}</span>
+              <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>
+                {formatSidebarExpirationHint(me?.expiration_hint, i18n)}
+              </span>
             </div>
           </div>
           <button
@@ -731,5 +782,6 @@ export default function AuthenticatedLayout() {
 
       <Outlet />
     </>
+    </AuthSessionProvider>
   );
 }

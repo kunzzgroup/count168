@@ -20,7 +20,7 @@
         .container {
             max-width: none;
             margin: 0;
-            padding: 1px 40px 20px var(--layout-main-offset);
+            padding: var(--layout-page-top-gap) 40px 20px var(--layout-main-offset);
             width: 100%;
             min-height: 100vh !important;
             height: auto !important;
@@ -62,7 +62,7 @@
         }
         
         .batch-controls-group .batch-input {
-            width: clamp(80px, 6.25vw, 120px);
+            width: clamp(120px, 10.25vw, 150px);
             padding: clamp(4px, 0.42vw, 8px) clamp(8px, 0.83vw, 16px);
             border: 1px solid #d1d5db;
             border-radius: 6px;
@@ -75,127 +75,16 @@
             border-color: #007bff;
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
         }
-        
-        .batch-controls-group .btn-update {
-            background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-            color: white;
-            font-family: var(--font-heading-page);
-            width: clamp(80px, 6.25vw, 120px);
-            padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1.04vw, 20px);
-            font-size: clamp(10px, 0.83vw, 16px);
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-        }
-        
-        .batch-controls-group .btn-update:hover {
-            background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
-            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
-            transform: translateY(-1px);
-        }
-        
-        .batch-controls-group .btn-update:active {
-            transform: translateY(0);
-        }
-        
-        .batch-controls-group .btn-update-all {
-            background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-            color: white;
-            font-family: var(--font-heading-page);
-            width: clamp(90px, 7.03vw, 135px);
-            padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1.04vw, 20px);
-            font-size: clamp(10px, 0.83vw, 16px);
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-        }
-        
-        .batch-controls-group .btn-update-all:hover {
-            background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
-            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
-            transform: translateY(-1px);
-        }
-        
-        .batch-controls-group .btn-update-all:active {
-            transform: translateY(0);
-        }
 
         /* Submit Button Container - Between Tables */
         .summary-submit-container {
             display: flex;
-            justify-content: left;
+            justify-content: flex-start !important;
             align-items: center;
+            gap: 12px;
             margin-top: clamp(10px, 1.04vw, 20px);
             margin-bottom: clamp(10px, 1.04vw, 20px);
             padding: 0;
-        }
-
-        /* Submit Button Styles - Same as datacapture.php save button */
-        .btn-submit {
-            background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-            color: white;
-            font-family: var(--font-heading-page);
-            width: clamp(80px, 6.25vw, 120px);
-            padding: clamp(6px, 0.42vw, 8px) 20px;
-            font-size: clamp(10px, 0.83vw, 16px);
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-            --sweep-color: rgba(255, 255, 255, 0.2);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .btn-submit:hover {
-            background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
-            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
-            transform: translateY(-1px);
-        }
-
-        .btn-submit:active {
-            transform: translateY(0);
-        }
-
-        .btn-submit:disabled {
-            background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
-            color: #999;
-            cursor: not-allowed;
-            opacity: 0.6;
-            transform: none;
-            box-shadow: 0 2px 4px rgba(88, 88, 88, 0.2);
-        }
-
-        .btn-submit:disabled:hover {
-            background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
-            transform: none;
-            box-shadow: 0 2px 4px rgba(88, 88, 88, 0.2);
-        }
-
-        /* Back button style - match userlist.php .btn-cancel */
-        .btn-cancel {
-            background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
-            color: white;
-            font-family: var(--font-heading-page);
-            width: clamp(80px, 6.25vw, 120px);
-            padding: clamp(6px, 0.42vw, 8px) 20px;
-            font-size: clamp(10px, 0.83vw, 16px);
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
-            --sweep-color: rgba(255, 255, 255, 0.2);
-            cursor: pointer;
-        }
-
-        .btn-cancel:hover {
-            background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
-            box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
-            transform: translateY(-1px);
         }
 
         /* Refresh button style */
@@ -220,57 +109,6 @@
             width: 20px;
             height: 20px;
             display: block;
-        }
-
-        .summary-btn {
-            padding: clamp(6px, 0.52vw, 10px) clamp(12px, 1.04vw, 20px);
-            border: none;
-            border-radius: 6px;
-            font-size: clamp(10px, 0.83vw, 16px);
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-family: var(--font-heading-page);
-        }
-
-        .summary-btn-delete {
-            background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
-            color: white;
-            font-family: var(--font-heading-page);
-            width: clamp(80px, 6.25vw, 120px);
-            padding: clamp(6px, 0.42vw, 8px) 20px;
-            font-size: clamp(10px, 0.83vw, 16px);
-            margin-left: 10px;
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
-            --sweep-color: rgba(255, 255, 255, 0.2);
-            cursor: pointer;
-        }
-
-        .summary-btn-delete:hover:not(:disabled) {
-            background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
-            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
-            transform: translateY(-1px);
-        }
-
-        .summary-btn-delete:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .summary-btn-cancel {
-            background: linear-gradient(180deg, #6c757d 0%, #495057 100%);
-            color: white;
-            box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
-        }
-
-        .summary-btn-cancel:hover {
-            background: linear-gradient(180deg, #495057 0%, #6c757d 100%);
-            box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
-            transform: translateY(-1px);
         }
 
         .summary-table-container {
@@ -620,21 +458,20 @@
             justify-content: center;
         }
 
-        /* Position Edit Formula modal slightly towards the top
-           and horizontally center within the right content area (exclude sidebar) */
+        /* Center Edit Formula modal within main content area (exclude sidebar) */
         #editFormulaModal.summary-modal {
-            align-items: flex-start;
-            margin-top: clamp(103px, 6vw, 115px);
-            padding-top: clamp(20px, 8vh, 80px);
+            align-items: center;
+            margin-top: 0;
+            padding-top: clamp(12px, 2vh, 24px);
+            padding-bottom: clamp(12px, 2vh, 24px);
             /* Shift overlay content area to the right by sidebar width,
                so centering occurs within the main content area */
             padding-left: clamp(150px, 13.02vw, 250px);
-            padding-right: 20px; /* Add right padding to prevent overflow */
+            padding-right: 20px;
             box-sizing: border-box;
-            justify-content: center; /* keep horizontal centering within content area */
-            /* Allow clicks to pass through background to reach table cells */
+            justify-content: center;
             pointer-events: none;
-            overflow: visible; /* Allow dropdown to overflow modal */
+            overflow: visible;
         }
         
         /* Make modal content clickable while allowing background clicks to pass through */
@@ -697,7 +534,7 @@
 
         .summary-confirm-modal-content {
             background: linear-gradient(to bottom, #ffffff 0%, #f8fafc 100%);
-            margin-top: clamp(110px, 7.3vw, 140px);
+            margin-top: 0;
             padding: 0;
             border: none;
             border-radius: 16px;
@@ -726,7 +563,7 @@
             width: clamp(900px, 75vw, 1400px);
             max-width: calc(100vw - clamp(150px, 13.02vw, 250px) - 40px); /* Account for sidebar and padding */
             /* Prevent modal content from creating scrollbar - use max-height to fit viewport */
-            max-height: calc(100vh - clamp(123px, 14vw, 195px)); /* Account for top margin and padding */
+            max-height: calc(100vh - clamp(32px, 6vh, 64px));
             display: flex;
             flex-direction: column;
         }
@@ -796,17 +633,17 @@
 
         .summary-confirm-actions {
             display: flex;
-            gap: 0;
-            padding: clamp(25px, 2.08vw, 40px);
+            gap: clamp(8px, 0.63vw, 12px);
+            padding: clamp(20px, 1.67vw, 32px);
             justify-content: center;
             background: rgba(248, 250, 252, 0.8);
-            margin-top: clamp(18px, 1.67vw, 32px);
+            margin-top: clamp(12px, 1.04vw, 20px);
         }
 
         .summary-confirm-cancel,
         .summary-confirm-delete {
-            flex: 1;
-            max-width: 150px;
+            flex: 0 0 auto;
+            max-width: none;
         }
 
         /* Scrollbar for long messages */
@@ -935,7 +772,7 @@
         /* Responsive Design */
         @media (max-width: 768px) {
             .container {
-                padding: 1px 20px 20px var(--layout-main-offset);
+                padding: var(--layout-page-top-gap) 20px 20px var(--layout-main-offset);
             }
             
             .edit-formula-form-container .form-layout {
@@ -1041,7 +878,7 @@
 
         /* Add Account Button Styles */
         .add-account-btn {
-            background: #007bff;
+            background: var(--btn-add-gradient);
             color: white;
             border: none;
             border-radius: 50%;
@@ -1054,22 +891,23 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
-            float: right; /* 靠右对齐 */
+            float: right;
+            box-shadow: 0 1px 3px rgba(0, 123, 255, 0.3);
+        }
+
+        .add-account-btn:hover {
+            background: var(--btn-add-gradient-hover);
+            transform: scale(1.05);
+        }
+
+        .add-account-btn:active {
+            transform: scale(0.95);
         }
 
         /* Add column cell alignment - center the button within the column */
         .summary-table td:nth-child(3) {
             text-align: center;
             position: relative;
-        }
-
-        .add-account-btn:hover {
-            background: #0056b3;
-            transform: scale(1.1);
-        }
-
-        .add-account-btn:active {
-            transform: scale(0.95);
         }
 
         /* Edit Formula Form Styles */
@@ -1089,6 +927,8 @@
             background: #f1f1f1;
             border: 1px solid #d0d7de;
             border-radius: 8px;
+            display: flex;
+            flex-direction: column;
         }
 
         .edit-formula-form-container .form-header {
@@ -1105,15 +945,17 @@
         }
 
         .edit-formula-form-container .form-content {
-            padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
+            padding: clamp(8px, 0.8vw, 14px) clamp(16px, 1.25vw, 24px) clamp(4px, 0.42vw, 8px);
             overflow: visible;
             width: 100%;
             box-sizing: border-box;
+            flex: 1 1 auto;
+            min-height: 0;
         }
 
         .edit-formula-form-container .form-layout {
             display: flex;
-            gap: clamp(20px, 1.56vw, 30px);
+            gap: clamp(12px, 1.04vw, 20px);
             flex-wrap: nowrap;
             overflow: visible;
             justify-content: flex-start;
@@ -1129,6 +971,9 @@
             flex-shrink: 1;
             box-sizing: border-box;
             overflow: visible;
+            display: flex;
+            flex-direction: column;
+            gap: clamp(6px, 0.52vw, 10px);
         }
         
         
@@ -1222,6 +1067,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
+            gap: clamp(6px, 0.52vw, 10px);
             margin-left: 0;
             padding-left: 0px;
             box-sizing: border-box;
@@ -1345,10 +1191,9 @@
         }
 
         .edit-formula-form-container .form-row {
-            margin-bottom: clamp(6px, 0.63vw, 12px);
             display: flex;
-            gap: clamp(12px, 1.04vw, 20px);
-            align-items: flex-end;
+            gap: clamp(8px, 0.73vw, 14px);
+            align-items: center;
             overflow: visible;
         }
         
@@ -1370,6 +1215,7 @@
             flex: 1;
             overflow: visible;
             position: relative;
+            margin-bottom: 0;
         }
         
         /* Ensure account form group allows dropdown overflow */
@@ -1387,7 +1233,6 @@
             font-size: clamp(10px, 0.73vw, 14px);
             min-width: clamp(80px, 6.25vw, 120px);
             flex-shrink: 0;
-            margin-bottom: 4px;
         }
 
         .edit-formula-form-container .form-group input,
@@ -1596,47 +1441,66 @@
             transform: scale(0.95) !important;
         }
 
-        .edit-formula-form-container .form-actions {
+        .edit-formula-form-container .form-actions,
+        .edit-formula-form-container .edit-formula-form-actions {
             display: flex;
             gap: clamp(8px, 0.63vw, 12px);
-            justify-content: center;
+            justify-content: center !important;
+            align-items: center;
+            margin: 0;
+            margin-top: clamp(8px, 0.73vw, 12px) !important;
+            padding: clamp(6px, 0.52vw, 10px) clamp(16px, 1.25vw, 24px) clamp(12px, 1.04vw, 16px);
+            padding-top: clamp(6px, 0.52vw, 10px) !important;
+            border-top: none !important;
+            width: 100%;
+            box-sizing: border-box;
+            flex-shrink: 0;
         }
 
-        .edit-formula-form-container .btn-save {
-            background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-            color: white;
-            font-family: var(--font-heading-page);
-            width: clamp(80px, 6.25vw, 120px);
+        #editFormulaModal .edit-formula-form-actions .btn-save,
+        #editFormulaModal .edit-formula-form-actions .btn-cancel {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: var(--userlist-btn-add-width);
+            width: auto;
             padding: clamp(6px, 0.42vw, 8px) 20px;
-            font-size: clamp(10px, 0.83vw, 16px);
+            font-size: var(--text-medium, clamp(10px, 0.83vw, 16px));
+            font-weight: var(--font-weight-semibold, 600);
             border: none;
             border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-            --sweep-color: rgba(255, 255, 255, 0.2);
             cursor: pointer;
         }
 
-        .edit-formula-form-container .btn-save:hover {
-            background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+        #editFormulaModal .edit-formula-form-actions .btn-save {
+            background: var(--btn-add-gradient);
+            color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        }
+
+        #editFormulaModal .edit-formula-form-actions .btn-save:hover:not(:disabled) {
+            background: var(--btn-add-gradient-hover);
             box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
             transform: translateY(-1px);
         }
 
-        .edit-formula-form-container .btn-cancel {
-            background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
-            color: white;
-            font-family: var(--font-heading-page);
-            width: clamp(80px, 6.25vw, 120px);
-            padding: clamp(6px, 0.42vw, 8px) 20px;
-            font-size: clamp(10px, 0.83vw, 16px);
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
-            --sweep-color: rgba(255, 255, 255, 0.2);
-            cursor: pointer;
+        #editFormulaModal .edit-formula-form-actions .btn-save:disabled,
+        #editFormulaModal .edit-formula-form-actions .btn-save:disabled:hover {
+            background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%) !important;
+            color: #f8fafc !important;
+            box-shadow: none !important;
+            transform: none !important;
+            cursor: not-allowed;
+            opacity: 0.9;
         }
 
-        .edit-formula-form-container .btn-cancel:hover {
+        #editFormulaModal .edit-formula-form-actions .btn-cancel {
+            background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
+            color: #fff;
+            box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
+        }
+
+        #editFormulaModal .edit-formula-form-actions .btn-cancel:hover {
             background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
             box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
             transform: translateY(-1px);
@@ -1888,7 +1752,7 @@
         }
 
         .account-add-btn {
-            background: #007bff;
+            background: var(--btn-add-gradient);
             color: white;
             border: none;
             border-radius: 4px;
@@ -1905,6 +1769,7 @@
             position: relative;
             z-index: 10003;
             pointer-events: auto;
+            box-shadow: 0 1px 3px rgba(0, 123, 255, 0.3);
         }
 
         #editFormulaModal .account-add-btn {
@@ -1912,7 +1777,7 @@
         }
 
         .account-add-btn:hover {
-            background: #0056b3;
+            background: var(--btn-add-gradient-hover);
             transform: scale(1.05);
         }
 
@@ -1933,7 +1798,7 @@
         }
 
         .description-add-btn {
-            background: #007bff;
+            background: var(--btn-add-gradient);
             color: white;
             border: none;
             border-radius: 4px;
@@ -1947,10 +1812,11 @@
             transition: all 0.2s ease;
             flex-shrink: 0;
             white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0, 123, 255, 0.3);
         }
 
         .description-add-btn:hover {
-            background: #0056b3;
+            background: var(--btn-add-gradient-hover);
             transform: scale(1.05);
         }
 
@@ -2049,5 +1915,31 @@
             .loading-container {
                 display: none !important;
             }
+        }
+
+        /* Edit Formula — compact vertical rhythm (gap between rows, not zero margin) */
+        #editFormulaModal .edit-formula-form-container .form-left-column,
+        #editFormulaModal .edit-formula-form-container .form-middle-column {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: clamp(6px, 0.52vw, 10px) !important;
+        }
+
+        #editFormulaModal .edit-formula-form-container .form-row {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        #editFormulaModal .edit-formula-form-container .form-group,
+        #editFormulaModal .edit-formula-form-container .form-group label {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        #editFormulaModal .edit-formula-form-actions.form-actions {
+            margin-top: clamp(8px, 0.73vw, 12px) !important;
+            margin-bottom: 0 !important;
+            padding-top: clamp(6px, 0.52vw, 10px) !important;
+            border-top: none !important;
         }
 

@@ -1,6 +1,6 @@
 /** Account List Logic Helpers */
 
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 
 export const PAGE_SIZE = 20;
 
@@ -89,4 +89,10 @@ export function buildAccountsUrl(companyId, searchTerm, showInactive, showAll) {
   if (showInactive) url.searchParams.set("showInactive", "1");
   if (showAll) url.searchParams.set("showAll", "1");
   return url;
+}
+
+/** Add Account：列表中有 MYR 时默认勾选 */
+export function pickDefaultAddCurrencyIds(currencies) {
+  const myr = (currencies || []).find((c) => toUpper(c.code) === "MYR");
+  return myr ? [Number(myr.id)] : [];
 }

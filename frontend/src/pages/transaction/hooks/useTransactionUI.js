@@ -1,12 +1,12 @@
 import { useState, useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import {
   getHistory,
   loadContraInbox,
   approveContra as approveContraApi,
   rejectContra as rejectContraApi,
-} from "../transactionApi.js";
+  transactionQueryKeys,
+} from "../lib/transactionApi.js";
 
 export function useTransactionUI() {
   const queryClient = useQueryClient();
@@ -26,11 +26,23 @@ export function useTransactionUI() {
     }, 2500);
   }, []);
 
-  const paymentHistoryTitle = useCallback((row, accountMeta) => {
-    const code = String(accountMeta?.account_id ?? row?.account_id ?? "").trim();
-    const name = String(accountMeta?.name ?? row?.account_name ?? code ?? "").trim() || code;
-    return `Payment History - ${code} (${name})`;
+  const resolveHistoryAccountName = useCallback((row, accountMeta) => {
+    const rowName = String(row?.account_name ?? "").trim();
+    const apiName = String(accountMeta?.name ?? "").trim();
+    const bad = (n) => !n || n.toUpperCase() === "CURRENCY";
+    if (!bad(rowName)) return rowName;
+    if (!bad(apiName)) return apiName;
+    return String(accountMeta?.account_id ?? row?.account_id ?? "").trim();
   }, []);
+
+  const paymentHistoryTitle = useCallback(
+    (row, accountMeta) => {
+      const code = String(accountMeta?.account_id ?? row?.account_id ?? "").trim();
+      const name = resolveHistoryAccountName(row, accountMeta) || code;
+      return `Payment History - ${code} (${name})`;
+    },
+    [resolveHistoryAccountName],
+  );
 
   const onViewHistory = useCallback(
     async (row, dateFrom, dateTo, companyId, opts = {}) => {
@@ -72,7 +84,8 @@ export function useTransactionUI() {
         });
         if (res?.success) {
           const rows = Array.isArray(res.data) ? res.data : [];
-          const nextTitle = res.account ? paymentHistoryTitle(row, res.account) : title;
+          const meta = res.account ? { ...res.account, name: resolveHistoryAccountName(row, res.account) } : null;
+          const nextTitle = meta ? paymentHistoryTitle(row, meta) : title;
           setHistory((s) => ({ ...s, rows, loading: false, title: nextTitle }));
         } else {
           pushToast(res?.message || "Failed to load history", "error");
@@ -83,7 +96,7 @@ export function useTransactionUI() {
         setHistory((s) => ({ ...s, loading: false }));
       }
     },
-    [pushToast, paymentHistoryTitle, queryClient],
+    [pushToast, paymentHistoryTitle, resolveHistoryAccountName, queryClient],
   );
 
   const refreshContraInboxBadge = useCallback(
@@ -100,7 +113,7 @@ export function useTransactionUI() {
         if (res?.success) {
           setContraInbox((s) => ({ ...s, loading: false, items: Array.isArray(res.data) ? res.data : [] }));
         } else {
-          setContraInbox((s) => ({ ...s, loading: false }));
+          setContraInbox((s) => ({ ...s, loading: false, items: [] }));
         }
         return res;
       } catch {

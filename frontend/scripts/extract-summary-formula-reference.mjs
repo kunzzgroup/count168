@@ -32,7 +32,7 @@ const header = `/**
  * Phase 9b: Reference formula resolution + evaluation (extracted from datacapturesummary.js).
  * Regenerate: node frontend/scripts/extract-summary-formula-reference.mjs
  */
-import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
+import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 import { evaluateExpression } from "./summaryFormulaEvaluate.js";
 import { removeThousandsSeparators } from "./summaryFormulaParseUtils.js";
 

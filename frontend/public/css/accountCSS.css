@@ -25,7 +25,7 @@
 .account-page .container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 20px var(--layout-main-offset);
+    padding: var(--layout-page-top-gap) 40px 20px var(--layout-main-offset);
     width: 100%;
     height: 100vh;
     box-sizing: border-box;
@@ -57,10 +57,6 @@ body.account-page:not(.account-page--show-all) .content {
     flex-direction: column;
     overflow: hidden;
     min-height: 0;
-}
-
-body.account-page:not(.account-page--show-all) .content > .account-page-title {
-    margin-top: 8px !important;
 }
 
 body.account-page .action-buttons-container {
@@ -131,8 +127,8 @@ body.account-page .action-controls-row {
 body.account-page .action-buttons-container .user-gc-inline-panel {
     flex: 0 0 auto;
     padding: 12px 18px 14px 18px;
-    column-gap: clamp(8px, 0.83vw, 16px);
-    row-gap: 12px;
+    column-gap: var(--user-gc-inline-column-gap, 4px);
+    row-gap: var(--user-gc-inline-row-gap, 4px);
 }
 
 body.account-page .account-table-wrapper {
@@ -222,7 +218,7 @@ body.account-page .account-table-wrapper {
 .account-list-table .account-list-row .account-card-item:nth-child(4),
 .account-list-table .account-list-row .account-card-item:nth-child(5),
 .account-list-table .account-list-row .account-card-item:nth-child(6) {
-    justify-content: center;
+    justify-content: left;
 }
 
 .account-list-table .account-list-table-header .account-header-item:last-child,
@@ -285,17 +281,6 @@ body.account-page:not(.account-page--show-all) .account-pagination-container {
 
 .page-header {
     display: none;
-}
-
-.account-page-title {
-    color: var(--color-heading);
-    text-align: left;
-    margin: 0;
-    margin-top: var(--text-page-title-mt) !important;
-    font-size: var(--text-page-title);
-    font-weight: var(--font-weight-page-title);
-    letter-spacing: var(--letter-spacing-page-title);
-    font-family: var(--font-heading-page);
 }
 
 /* Search Section */
@@ -1369,7 +1354,8 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 }
 
 /* Confirm Delete Modal — match userlist #confirmModal (flex center, compact card) */
-#confirmDeleteModal.account-modal {
+#confirmDeleteModal.account-modal,
+#accountAlertModal.account-modal {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1458,6 +1444,26 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
     margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
     font-family: var(--font-heading-page), -apple-system, sans-serif;
     letter-spacing: -0.02em;
+}
+
+.account-currency-in-use-list {
+    margin: 0.75rem 0 0;
+    padding: 0.75rem 1rem;
+    max-height: 12rem;
+    overflow-y: auto;
+    text-align: left;
+    list-style: disc;
+    list-style-position: inside;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: var(--text-h3);
+    color: #334155;
+    line-height: 1.6;
+}
+
+.account-currency-in-use-list li + li {
+    margin-top: 0.35rem;
 }
 
 .account-confirm-message {
@@ -1650,6 +1656,39 @@ body.account-page #confirmDeleteModal .confirm-delete {
     color: #334155;
     font-size: 16px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Other Currency: row 1 = label + input; row 2 = currency tags (always below) */
+#account-addModal .account-other-currency:not(.account-other-currency--company),
+#account-editModal .account-other-currency:not(.account-other-currency--company) {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, auto) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+#account-addModal .account-other-currency:not(.account-other-currency--company) > label,
+#account-editModal .account-other-currency:not(.account-other-currency--company) > label {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+}
+
+#account-addModal .account-other-currency:not(.account-other-currency--company) .account-currency-input-group,
+#account-editModal .account-other-currency:not(.account-other-currency--company) .account-currency-input-group {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+}
+
+#account-addModal .account-other-currency:not(.account-other-currency--company) .account-currency-list,
+#account-editModal .account-other-currency:not(.account-other-currency--company) .account-currency-list {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    margin-top: 4px;
 }
 
 #account-addModal .account-other-currency--company,
@@ -2954,8 +2993,8 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
 
     body.account-page .action-buttons-container .user-gc-inline-panel {
         padding: 8px 16px 12px 16px;
-        column-gap: clamp(8px, 0.83vw, 16px);
-        row-gap: 10px;
+        column-gap: var(--user-gc-inline-column-gap, 4px);
+        row-gap: var(--user-gc-inline-row-gap, 4px);
     }
 }
 
@@ -3141,6 +3180,31 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
         gap: 0.4rem !important;
     }
 
+    #account-addModal .account-other-currency:not(.account-other-currency--company),
+    #account-editModal .account-other-currency:not(.account-other-currency--company) {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+    }
+
+    #account-addModal .account-other-currency:not(.account-other-currency--company) > label,
+    #account-editModal .account-other-currency:not(.account-other-currency--company) > label {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    #account-addModal .account-other-currency:not(.account-other-currency--company) .account-currency-input-group,
+    #account-editModal .account-other-currency:not(.account-other-currency--company) .account-currency-input-group {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    #account-addModal .account-other-currency:not(.account-other-currency--company) .account-currency-list,
+    #account-editModal .account-other-currency:not(.account-other-currency--company) .account-currency-list {
+        grid-column: 1;
+        grid-row: 3;
+        margin-top: 6px;
+    }
+
     /* 矮屏：货币 chip 略缩小，但保持可点、可辨认 */
     #account-addModal .account-currency-item.currency-toggle-item,
     #account-editModal .account-currency-item.currency-toggle-item {
@@ -3212,7 +3276,8 @@ body > #userModal.modal {
 }
 
 body > #confirmModal.modal,
-body > #confirmDeleteModal.account-modal {
+body > #confirmDeleteModal.account-modal,
+body > #accountAlertModal.account-modal {
     z-index: 20100;
 }
 

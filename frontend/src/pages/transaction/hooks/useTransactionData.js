@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   dedupeOwnerCompaniesByCode,
   filterCompaniesWithDisplayId,
@@ -11,16 +11,16 @@ import {
   persistDashboardGroupFilter,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
-} from "../../../utils/sharedCompanyFilter.js";
+} from "../../../utils/company/sharedCompanyFilter.js";
 import {
   getAccounts,
   getCategories,
   getCompanyCurrencies,
   getUserCurrencyOrder,
-} from "../transactionApi.js";
-import { isPartnershipAuditReadOnlyLocked } from "../../../utils/partnershipAuditReadOnly.js";
-import { transactionQueryKeys } from "../transactionQueryKeys.js";
-import { orderCurrencyRows, readTransactionCurrencyFilterState } from "../transactionPaymentLogic.js";
+  transactionQueryKeys,
+} from "../lib/transactionApi.js";
+import { isPartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
+import { orderCurrencyRows, readTransactionCurrencyFilterState } from "../lib/transactionPaymentLogic.js";
 
 export function useTransactionData({
   todayDmy,
@@ -201,17 +201,7 @@ export function useTransactionData({
     return () => {
       cancelled = true;
     };
-  }, [
-    loading,
-    forbidden,
-    filterSnapshot,
-    todayDmy,
-    queryClient,
-    setCategories,
-    setAccountOptions,
-    setCurrencyOptions,
-    setCurrencyRowsOrdered,
-  ]);
+  }, [loading, forbidden, filterSnapshot?.companyId, todayDmy, queryClient]);
 
   const onCompanyButtonClick = useCallback(
     async (comp) => {

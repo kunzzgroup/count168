@@ -114,7 +114,7 @@ function ReadOnlyToggleInline({ readOnlyToggleCanInteract, pageReadOnlyLock, for
         <input
           type="checkbox"
           checked={form.read_only}
-          disabled={!readOnlyToggleCanInteract || pageReadOnlyLock}
+          disabled={!readOnlyToggleCanInteract}
           onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))}
         />
         <span className="toggle-slider" />
@@ -170,6 +170,7 @@ export default function UserModal({
   applyPermTemplate,
   onSave,
   sessionMutationsBlocked = false,
+  currentUserId = null,
   t,
 }) {
   const cardRef = useRef(null);
@@ -328,7 +329,9 @@ export default function UserModal({
 
   const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
   const readOnlyToggleCanInteract = canInteractWithReadOnlyToggle(currentUserRole, form.role);
-  const pageReadOnlyLock = Boolean(sessionMutationsBlocked) || isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only);
+  const pageReadOnlyLock =
+    Boolean(sessionMutationsBlocked) ||
+    isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only, currentUserId);
 
   useEffect(() => {
     if (!open || !pageReadOnlyLock) return;

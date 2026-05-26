@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/date-range-picker.css";
@@ -18,23 +18,24 @@ import {
   updateSessionCompany,
   isPaymentMaintenanceRowSelectable,
 } from "./paymentMaintenanceLogic.js";
-import { useLoginLang } from "../../../utils/useLoginLang.js";
-import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
+import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 
 // Components
 import PaymentMaintenanceFilters from "./components/PaymentMaintenanceFilters.jsx";
 import PaymentMaintenanceTable from "./components/PaymentMaintenanceTable.jsx";
-import ConfirmDeleteModal from "../capture/components/ConfirmDeleteModal.jsx"; // Reuse from capture
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function PaymentMaintenancePage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
   // -- Boot State --
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [permissions, setPermissions] = useState([]);
 
@@ -197,24 +198,19 @@ export default function PaymentMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
-        
+        const u = me;
+
         // Member check
         if (String(u.user_type || "").toLowerCase() === "member") {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
         }
-
-        // Legacy parity: payment_maintenance.php only enforced logged-in session.
-        setMe(u);
 
         // Load Companies
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
@@ -263,12 +259,15 @@ export default function PaymentMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, navigate, me]);
 
   // -- Load Meta Data (Permissions & Currencies) --
   useEffect(() => {
@@ -513,13 +512,12 @@ export default function PaymentMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me || !cssReady) return null;
+  const tableLoading = loading || bootLoading || !cssReady;
 
   return (
     <div className="payment-maintenance-page-root container">
+      {permissions.length > 1 ? (
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">{m.pageTitlePayment}</h1>
-        {permissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
             <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
@@ -535,8 +533,8 @@ export default function PaymentMaintenancePage() {
               ))}
             </div>
           </div>
-        )}
       </div>
+      ) : null}
 
       <PaymentMaintenanceFilters 
         transactionType={transactionType}
@@ -575,7 +573,7 @@ export default function PaymentMaintenancePage() {
           data={paymentData}
           listEpoch={paymentListEpoch}
           rowKeyCompanyId={paymentDataSourceCompanyId ?? companyId}
-          loading={loading}
+          loading={tableLoading}
           listSyncing={listSyncing}
           selectedIds={selectedIds}
           toggleSelect={toggleSelect}
@@ -586,7 +584,7 @@ export default function PaymentMaintenancePage() {
       </div>
 
       {/* Modal & Notifications */}
-      <ConfirmDeleteModal
+      <MaintenanceDeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}

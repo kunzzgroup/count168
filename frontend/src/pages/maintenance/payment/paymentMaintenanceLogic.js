@@ -1,26 +1,8 @@
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { fetchDomainCompanyPermissions } from "../shared/maintenanceCompanyApi.js";
 
-/**
- * Fetch permissions for a specific company
- */
 export async function fetchCompanyPermissions(companyCode) {
-  if (!companyCode) return [];
-  if (String(companyCode).trim().toUpperCase() === 'C168') return [];
-  try {
-    const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get_company_permissions", company_id: companyCode })
-    });
-    const result = await response.json();
-    if (result.success && result.data && Array.isArray(result.data.permissions)) {
-      return result.data.permissions;
-    }
-    return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
-  } catch (err) {
-    console.error("Error fetching company permissions:", err);
-    return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
-  }
+  return fetchDomainCompanyPermissions(companyCode, { emptyForC168: true });
 }
 
 /**

@@ -8,7 +8,7 @@ import {
 import {
   parseProfitSharingToRows,
   serializeProfitSharingRows,
-  parseBankContractTermMonths,
+  parseBankContractRentalMonthsForDayEnd,
   contractBillingEndYmdForBankForm,
   bankProcessFrequencyNormalized,
   BANK_PROCESS_CONTRACT_OPTIONS,
@@ -16,7 +16,7 @@ import {
   formatBankAccountDisplay,
   formatBankMoneyFixed2,
   sanitizeBankMoneyTyping,
-} from "../bankProcessHelpers.js";
+} from "../lib/bankProcessHelpers.js";
 
 export default function BankProcessFormModal({
   editMode,
@@ -64,7 +64,7 @@ export default function BankProcessFormModal({
 
   let dayEndMin = dayStart || undefined;
   if (!isOnce && dayStart && contract) {
-    const term = parseBankContractTermMonths(contract);
+    const term = parseBankContractRentalMonthsForDayEnd(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(dayStart, term, frequency) : null;
     if (calculated) {
       dayEndMin = calculated;

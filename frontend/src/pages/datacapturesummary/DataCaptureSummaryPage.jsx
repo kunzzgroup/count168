@@ -1,7 +1,6 @@
-import { Component, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
-import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import SummaryProcessInfo from "./components/SummaryProcessInfo.jsx";
 import SummaryTable, { SummaryEmptyState } from "./components/SummaryTable.jsx";
 import EditFormulaModal from "./components/EditFormulaModal.jsx";
@@ -26,91 +25,23 @@ import {
 } from "./hooks/useSummaryTableBridge.js";
 import { useSummaryTablePopulate } from "./hooks/useSummaryTablePopulate.js";
 import { useSummaryFormulaEngine } from "./hooks/useSummaryFormulaEngine.js";
-import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
+import { clearSummaryCaptureRoundStorage } from "./lib/summaryStorage.js";
+import { applySummaryDomLabels } from "./lib/summaryDomI18n.js";
+import {
+  getDataCaptureSummaryText,
+  getSummaryRateSelectLabels,
+  translateDataCaptureSummaryNotification,
+} from "../../translateFile/pages/dataCaptureSummaryTranslate.js";
+import {
+  areSummaryLegacyScriptsLoaded,
+  ensureSummaryLegacyScriptsLoaded,
+} from "./lib/preloadSummaryLegacyScripts.js";
 
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/datacapturesummary.css";
 import "../../../public/css/global-13inch.css";
-
-/** Legacy engine present (SPA revisit or full page load after prior visit). */
-function areSummaryLegacyScriptsLoaded() {
-  return (
-    typeof window.Decimal !== "undefined" &&
-    typeof window.MoneyDecimal !== "undefined" &&
-    typeof window.initDataCaptureSummaryPage === "function"
-  );
-}
-
-/** Avoid hanging when `load` already fired before listeners attach (SPA revisit / cache). */
-function loadScriptOnce(src, isAlreadyLoaded) {
-  return new Promise((resolve, reject) => {
-    const clean = src.split(/[?#]/)[0];
-    const finish = (node) => {
-      if (node) node.dataset.loaded = "1";
-      resolve();
-    };
-
-    if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
-      resolve();
-      return;
-    }
-
-    const nodes = document.querySelectorAll("script[src]");
-    for (let i = 0; i < nodes.length; i += 1) {
-      const n = nodes[i];
-      const ns = n.getAttribute("src") || "";
-      if (ns.split(/[?#]/)[0] !== clean) continue;
-      if (n.dataset.loaded === "1") {
-        resolve();
-        return;
-      }
-      if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
-        finish(n);
-        return;
-      }
-      const onLoad = () => finish(n);
-      const timeoutId = window.setTimeout(() => {
-        n.removeEventListener("load", onLoad);
-        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) {
-          finish(n);
-          return;
-        }
-        n.remove();
-        loadScriptOnce(src, isAlreadyLoaded).then(resolve).catch(reject);
-      }, 10000);
-      n.addEventListener(
-        "load",
-        () => {
-          window.clearTimeout(timeoutId);
-          onLoad();
-        },
-        { once: true }
-      );
-      n.addEventListener(
-        "error",
-        () => {
-          window.clearTimeout(timeoutId);
-          n.remove();
-          loadScriptOnce(src, isAlreadyLoaded).then(resolve).catch(reject);
-        },
-        { once: true }
-      );
-      queueMicrotask(() => {
-        if (n.dataset.loaded === "1") return;
-        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) finish(n);
-      });
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = false;
-    s.onload = () => finish(s);
-    s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-    document.head.appendChild(s);
-  });
-}
 
 class SummaryPageErrorBoundary extends Component {
   constructor(props) {
@@ -124,11 +55,11 @@ class SummaryPageErrorBoundary extends Component {
 
   render() {
     if (this.state.error) {
+      const lang = localStorage.getItem("login_lang") === "zh" ? "zh" : "en";
       return (
         <div className="container">
-          <h1>Data Capture Summary</h1>
           <p role="alert" style={{ color: "#b91c1c", padding: "12px 0" }}>
-            Failed to load Data Capture Summary. Please refresh the page or return to Data Capture.
+            {getDataCaptureSummaryText(lang, "loadPageFailed")}
           </p>
         </div>
       );
@@ -140,7 +71,40 @@ class SummaryPageErrorBoundary extends Component {
 function DataCaptureSummaryPageInner() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { companyId, bootLoading: sessionBootLoading, bootError } = useSummaryBoot();
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params) => getDataCaptureSummaryText(lang, key, params), [lang]);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    const onLangUpdated = (e) => {
+      const next = e?.detail?.lang;
+      setLang(next === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    window.__SUMMARY_RATE_SELECT_LABELS__ = getSummaryRateSelectLabels(lang);
+    window.__SUMMARY_TRANSLATE_NOTIFICATION__ = ({ title, message }) =>
+      translateDataCaptureSummaryNotification(lang, title, message);
+    window.__SUMMARY_I18N_TEXT__ = (key, params) => getDataCaptureSummaryText(lang, key, params);
+    window.__SUMMARY_SYNC_DELETE_BUTTON_LABEL__?.();
+    window.updateDeleteButton?.();
+    return () => {
+      delete window.__SUMMARY_RATE_SELECT_LABELS__;
+      delete window.__SUMMARY_TRANSLATE_NOTIFICATION__;
+      delete window.__SUMMARY_I18N_TEXT__;
+    };
+  }, [lang]);
+
+  const { companyId, mutationsBlocked, bootLoading: sessionBootLoading, bootError } = useSummaryBoot();
 
   const [scriptsReady, setScriptsReady] = useState(() => areSummaryLegacyScriptsLoaded());
   const [engineError, setEngineError] = useState("");
@@ -183,8 +147,8 @@ function DataCaptureSummaryPageInner() {
     }
   }, [capture.hasCaptureData, scriptsReady]);
 
-  const pageActions = useSummaryPageActions({ companyId, scriptsReady });
-  const editFormula = useSummaryEditFormula({ scriptsReady });
+  const pageActions = useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked, t });
+  const editFormula = useSummaryEditFormula({ scriptsReady, t });
   const overlays = useSummaryOverlays();
   const addAccount = useSummaryAddAccount({
     companyId,
@@ -193,6 +157,11 @@ function DataCaptureSummaryPageInner() {
   });
   useSummaryFormulaEngine();
   useSummaryLegacyChrome(scriptsReady);
+
+  useEffect(() => {
+    if (!scriptsReady) return;
+    applySummaryDomLabels(t);
+  }, [lang, t, scriptsReady, legacyInitDone, editFormula.open]);
 
   const showEmptyState =
     sessionReady &&
@@ -214,11 +183,11 @@ function DataCaptureSummaryPageInner() {
   const legacyInitDoneRef = useRef(false);
 
   useLayoutEffect(() => {
-    document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page");
-    document.body.classList.add("dashboard-page");
+    document.body.classList.remove("bg", "account-page", "announcement-page", "transaction-page", "process-page", "datacapture-page", "datacapture-summary-page");
+    document.body.classList.add("dashboard-page", "datacapture-summary-page");
     purgeLegacySummaryAddAccountModal();
     return () => {
-      document.body.classList.remove("page-ready");
+      document.body.classList.remove("page-ready", "datacapture-summary-page");
     };
   }, []);
 
@@ -227,6 +196,10 @@ function DataCaptureSummaryPageInner() {
 
     window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__ = true;
     setEngineError("");
+
+    void injectStylesheet("https://fonts.googleapis.com/css?family=Amaranth").catch(() => {
+      /* non-blocking */
+    });
 
     if (areSummaryLegacyScriptsLoaded()) {
       setScriptsReady(true);
@@ -237,17 +210,7 @@ function DataCaptureSummaryPageInner() {
 
     (async () => {
       try {
-        await injectStylesheet("https://fonts.googleapis.com/css?family=Amaranth");
-      } catch {
-        /* ignore */
-      }
-
-      try {
-        await Promise.all([
-          loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined"),
-          loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined"),
-          loadScriptOnce(buildApiUrl("js/datacapturesummary.js"), () => typeof window.initDataCaptureSummaryPage === "function"),
-        ]);
+        await ensureSummaryLegacyScriptsLoaded();
         if (alive) setScriptsReady(true);
       } catch (e) {
         if (!alive) return;
@@ -256,7 +219,7 @@ function DataCaptureSummaryPageInner() {
           return;
         }
         console.error(e);
-        setEngineError("Failed to load Data Capture Summary scripts.");
+        setEngineError(t("loadScriptsFailed"));
       }
     })();
 
@@ -291,9 +254,7 @@ function DataCaptureSummaryPageInner() {
       setLegacyInitDone(true);
     };
 
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(runInit);
-    });
+    const id = requestAnimationFrame(runInit);
     return () => {
       cancelled = true;
       cancelAnimationFrame(id);
@@ -391,8 +352,6 @@ function DataCaptureSummaryPageInner() {
 
   return (
     <div className="container">
-      <h1>Data Capture Summary</h1>
-
       {showPageBootOverlay ? (
         <div
           className="loading-container"
@@ -400,7 +359,7 @@ function DataCaptureSummaryPageInner() {
           aria-busy="true"
         >
           <div className="loading-spinner" />
-          <p style={{ margin: "12px 0 0" }}>Loading…</p>
+          <p style={{ margin: "12px 0 0" }}>{t("loading")}</p>
         </div>
       ) : null}
 
@@ -416,10 +375,12 @@ function DataCaptureSummaryPageInner() {
         style={{ display: showDataLoading ? undefined : "none" }}
       >
         <div className="loading-spinner" />
-        <p>Loading data...</p>
+        <p>{t("loadingData")}</p>
       </div>
 
       <SummaryActionBar
+        t={t}
+        lang={lang}
         rateInput={pageActions.rateInput}
         onRateInputChange={pageActions.setRateInput}
         rateSelectAllLabel={pageActions.rateSelectAllLabel}
@@ -432,17 +393,19 @@ function DataCaptureSummaryPageInner() {
       />
 
       <div className="summary-table-container" id="summaryTableContainer" style={{ display: "none" }}>
-        <SummaryProcessInfo processData={capture.processData} visible={capture.hasCaptureData} />
+        <SummaryProcessInfo t={t} processData={capture.processData} visible={capture.hasCaptureData} />
         <SummaryTable
+          t={t}
           tableData={capture.transformedTableData}
           rows={summaryRows}
           visible={capture.hasCaptureData}
         />
       </div>
 
-      {showEmptyState ? <SummaryEmptyState /> : null}
+      {showEmptyState ? <SummaryEmptyState t={t} /> : null}
 
       <EditFormulaModal
+        t={t}
         key={editFormula.sessionKey}
         open={editFormula.open}
         productValue={editFormula.productValue}
@@ -453,7 +416,9 @@ function DataCaptureSummaryPageInner() {
       <AccountModal {...addAccount.accountModalProps} />
 
       <SummarySubmitBar
+        t={t}
         submitting={pageActions.submitting}
+        refreshing={pageActions.refreshing || dataPopulating}
         onSubmit={pageActions.handleSubmitSummary}
         onBack={pageActions.handleBack}
         onRefresh={pageActions.handleRefresh}
@@ -466,6 +431,7 @@ function DataCaptureSummaryPageInner() {
       />
 
       <SummaryConfirmDeleteModal
+        t={t}
         open={overlays.confirmOpen}
         message={overlays.confirmMessage}
         onCancel={overlays.closeConfirmDelete}

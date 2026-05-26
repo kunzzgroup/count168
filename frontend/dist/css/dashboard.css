@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --scd-background: #e9f1ff;
     --scd-foreground: #334155;
     --scd-card: #ffffff;
@@ -153,36 +153,13 @@ body.dashboard-page {
 .dashboard-container {
     max-width: none;
     margin: 0;
-    padding: clamp(8px, 1vw, 12px) clamp(12px, 1.5vw, 40px) clamp(8px, 1vw, 12px) var(--layout-main-offset);
+    padding: var(--layout-page-top-gap) clamp(12px, 1.5vw, 40px) clamp(8px, 1vw, 12px) var(--layout-main-offset);
     width: 100%;
     height: 100vh;
     box-sizing: border-box;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-}
-
-.dashboard-title {
-    color: var(--color-heading);
-    text-align: left;
-    margin: 0;
-    margin-top: var(--text-page-title-mt) !important;
-    font-size: var(--text-page-title);
-    font-family: var(--font-heading-page);
-    font-weight: var(--font-weight-page-title);
-    letter-spacing: var(--letter-spacing-page-title);
-    flex-shrink: 0;
-}
-
-/* —— 頁首：僅標題（日期已移至 Filters 工具列） */
-.dashboard-page-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 12px 20px;
-    flex-shrink: 0;
-    margin-bottom: clamp(4px, 0.4vw, 8px);
 }
 
 .dashboard-date-range-bar {
@@ -294,7 +271,7 @@ body.dashboard-page {
 .transaction-company-filter {
     display: none;
     align-items: center;
-    gap: clamp(8px, 0.83vw, 16px);
+    gap: var(--user-gc-inline-pills-gap, 4px);
     flex-wrap: wrap;
     margin-top: clamp(8px, 1vw, 10px);
 }
@@ -313,7 +290,7 @@ body.dashboard-page {
 .transaction-company-buttons {
     display: inline-flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     align-items: center;
 }
 
@@ -359,6 +336,7 @@ body.dashboard-page {
 
 /* 与 User List .action-buttons-container 同款白卡 */
 body.dashboard-page .dashboard-filter-panel.action-buttons-container {
+    margin-top: 10px;
     background: var(--color-surface, #ffffff);
     border: 1px solid var(--color-border, #e5e7eb);
     box-shadow: var(--shadow-card, 0 2px 8px rgba(0, 0, 0, 0.1));
@@ -390,7 +368,7 @@ body.dashboard-page {
 body.dashboard-page .dashboard-filter-date-row {
     display: grid;
     grid-template-columns: var(--user-gc-inline-label-w, 9rem) auto;
-    column-gap: 14px;
+    column-gap: var(--user-gc-inline-column-gap, 4px);
     align-items: center;
     padding: 10px 20px;
     margin: 0;
@@ -438,13 +416,13 @@ body.dashboard-page.transaction-page .dashboard-filter-date-row .report-outlined
     max-width: 100%;
 }
 
-/* Group / Company / Currency：沿用 userlist.css 中 body.dashboard-page .user-gc-inline-panel（12px 20px 14px / row-gap 10px） */
+/* Group / Company / Currency：间距见 --user-gc-inline-*-gap（4px） */
 body.dashboard-page.transaction-page .dashboard-filter-panel .transaction-bottom-filters .user-gc-inline-panel,
 body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-panel {
     display: grid;
     grid-template-columns: var(--user-gc-inline-label-w, 9rem) 1fr;
-    column-gap: 14px;
-    row-gap: 10px;
+    column-gap: var(--user-gc-inline-column-gap, 4px);
+    row-gap: var(--user-gc-inline-row-gap, 4px);
     align-items: center;
     padding: 12px 20px 14px;
     border-top: 1px solid rgba(15, 23, 42, 0.06);
@@ -870,7 +848,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .kpi-card-head-label {
     font-size: clamp(13px, 0.95vw, 15px);
-    font-weight: 500;
+    font-weight: 700;
     color: #6b7280;
     font-family: var(--font-heading-page);
     letter-spacing: 0.01em;
@@ -1080,29 +1058,9 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-panel-card--summary {
-    gap: clamp(12px, 1vw, 16px);
-}
-
-.dashboard-summary-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-.dashboard-summary-label {
-    font-size: clamp(13px, 0.95vw, 15px);
-    font-weight: 500;
-    color: #6b7280;
-    font-family: var(--font-heading-page);
-}
-
-.dashboard-summary-foot-muted {
-    font-size: clamp(11px, 0.8vw, 13px);
-    color: #9ca3af;
-    font-weight: 500;
-    white-space: nowrap;
+    gap: clamp(8px, 0.65vw, 12px);
+    padding: clamp(14px, 1.1vw, 18px) clamp(16px, 1.2vw, 20px);
+    overflow: visible;
 }
 
 .dashboard-summary-hero {
@@ -1110,6 +1068,65 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     align-items: center;
     flex-wrap: wrap;
     gap: 8px 10px;
+}
+
+.dashboard-summary-layout {
+    display: grid;
+    grid-template-columns: minmax(130px, 46%) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0 clamp(8px, 0.85vw, 14px);
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+    overflow: visible;
+}
+
+.dashboard-summary-left-col {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: visible;
+}
+
+.dashboard-summary-hero--compact {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    flex-shrink: 0;
+    padding-bottom: clamp(4px, 0.35vw, 8px);
+}
+
+.dashboard-summary-pie-wrap {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    min-height: clamp(140px, 12vw, 180px);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    user-select: none;
+}
+
+.dashboard-summary-pie-chart-shell {
+    position: relative;
+    width: 100%;
+    height: clamp(168px, 15vw, 180px);
+    max-width: 100%;
+    flex-shrink: 0;
+    overflow: visible;
+}
+
+.dashboard-summary-pie-wrap .recharts-responsive-container,
+.dashboard-summary-pie-chart-shell .recharts-responsive-container {
+    width: 100% !important;
+    height: 100% !important;
+    overflow: visible !important;
 }
 
 .dashboard-summary-hero-block {
@@ -1120,19 +1137,31 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-hero-caption {
-    font-size: clamp(12px, 0.85vw, 14px);
+    font-size: var(--text-tiny, clamp(11px, 0.78vw, 13px));
     font-weight: 500;
-    color: #6b7280;
+    color: var(--color-muted-fg, #6b7280);
     font-family: var(--font-heading-page);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
 }
 
 .dashboard-summary-hero-value {
-    font-size: clamp(26px, 2vw, 36px);
+    font-size: clamp(24px, 1.85vw, 32px);
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text-ink-strong, #111827);
     font-family: var(--font-heading-page);
     line-height: 1.1;
     letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-summary-hero-conversion-note {
+    margin-top: 2px;
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
+    font-weight: 400;
+    color: var(--color-text-caption, #64748b);
+    font-family: var(--font-ui);
+    line-height: 1.3;
 }
 
 .dashboard-summary-compare {
@@ -1188,51 +1217,306 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     transition: width 0.35s ease;
 }
 
-.dashboard-summary-earnings-panel {
+.dashboard-summary-pie-center {
+    position: absolute;
+    inset: 0;
     display: flex;
-    align-items: stretch;
-    gap: clamp(10px, 1vw, 16px);
-    flex: 1;
-    min-height: 0;
-    margin-top: auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    pointer-events: none;
+    z-index: 6;
+    animation: dashboard-pie-center-in 0.48s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
 }
 
-.dashboard-summary-pie-wrap {
-    flex: 0 0 46%;
-    min-width: 140px;
-    min-height: 160px;
-    max-height: 210px;
+.dashboard-summary-pie-center-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 52px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--color-surface, #ffffff);
+    box-shadow: 0 0 0 5px var(--color-surface, #ffffff);
 }
 
-.dashboard-summary-pie-wrap .recharts-pie-sector {
+.dashboard-summary-pie-center-pct {
+    font-size: clamp(18px, 1.35vw, 22px);
+    font-weight: 700;
+    color: var(--color-text-ink-strong, #111827);
+    font-family: var(--font-heading-page);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-summary-pie-center-code {
+    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
+    font-weight: 600;
+    color: var(--color-text-caption, #64748b);
+    font-family: var(--font-heading-page);
+    letter-spacing: 0.04em;
+}
+
+@keyframes dashboard-pie-center-in {
+    from {
+        opacity: 0;
+        transform: scale(0.88);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.dashboard-summary-pie-wrap .recharts-pie-sector,
+.dashboard-summary-pie-chart-shell .recharts-pie-sector {
     outline: none;
+    cursor: default;
+    transition: opacity var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
+}
+
+.dashboard-summary-pie-wrap .recharts-responsive-container,
+.dashboard-summary-pie-chart-shell .recharts-responsive-container,
+.dashboard-summary-pie-wrap .recharts-wrapper,
+.dashboard-summary-pie-chart-shell .recharts-wrapper,
+.dashboard-summary-pie-wrap .recharts-surface,
+.dashboard-summary-pie-chart-shell .recharts-surface,
+.dashboard-summary-pie-wrap svg,
+.dashboard-summary-pie-chart-shell svg {
+    outline: none !important;
+    border: none !important;
+    overflow: visible !important;
+}
+
+.dashboard-summary-pie-wrap .recharts-responsive-container:focus,
+.dashboard-summary-pie-chart-shell .recharts-responsive-container:focus,
+.dashboard-summary-pie-wrap .recharts-wrapper:focus,
+.dashboard-summary-pie-chart-shell .recharts-wrapper:focus,
+.dashboard-summary-pie-wrap svg:focus,
+.dashboard-summary-pie-chart-shell svg:focus,
+.dashboard-summary-pie-wrap svg:focus-visible,
+.dashboard-summary-pie-chart-shell svg:focus-visible,
+.dashboard-summary-pie-wrap path:focus,
+.dashboard-summary-pie-chart-shell path:focus,
+.dashboard-summary-pie-wrap path:focus-visible,
+.dashboard-summary-pie-chart-shell path:focus-visible,
+.dashboard-summary-pie-wrap .recharts-pie-sector:focus,
+.dashboard-summary-pie-chart-shell .recharts-pie-sector:focus,
+.dashboard-summary-pie-wrap .recharts-pie-sector:focus-visible,
+.dashboard-summary-pie-chart-shell .recharts-pie-sector:focus-visible {
+    outline: none !important;
+}
+
+.dashboard-summary-pie-wrap .recharts-tooltip-wrapper,
+.dashboard-summary-pie-chart-shell .recharts-tooltip-wrapper {
+    display: none !important;
+}
+
+.dashboard-summary-pie-tooltip-anchor {
+    position: absolute;
+    z-index: 20;
+    pointer-events: none;
+    transform: translate(-50%, calc(-100% - 6px));
+    animation: dashboard-pie-tooltip-anchor-in 0.18s var(--ease-out-soft, ease) both;
+}
+
+.dashboard-summary-pie-tooltip-anchor.is-radial {
+    transform: translate(-50%, -50%);
+    animation-name: dashboard-pie-tooltip-anchor-radial-in;
+}
+
+.dashboard-summary-pie-tooltip-anchor.is-below {
+    transform: translate(-50%, 6px);
+    animation-name: dashboard-pie-tooltip-anchor-below-in;
+}
+
+.dashboard-summary-pie-tooltip-anchor.is-radial .dashboard-summary-pie-tooltip-arrow {
+    display: none;
+}
+
+.dashboard-summary-pie-tooltip-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dashboard-summary-pie-tooltip-stack.is-below {
+    flex-direction: column-reverse;
+}
+
+.dashboard-summary-pie-tooltip {
+    padding: 6px 10px;
+    border-radius: var(--radius-panel, 8px);
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
+    font-family: var(--font-ui);
+    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
+    color: var(--color-body-strong, #1f2937);
+    line-height: 1.35;
+    white-space: nowrap;
+}
+
+.dashboard-summary-pie-tooltip-arrow {
+    width: 0;
+    height: 0;
+    margin-top: -1px;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 7px solid var(--color-surface, #ffffff);
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.06));
+}
+
+.dashboard-summary-pie-tooltip-stack.is-below .dashboard-summary-pie-tooltip-arrow {
+    margin-top: 0;
+    margin-bottom: -1px;
+    border-top: none;
+    border-bottom: 7px solid var(--color-surface, #ffffff);
+    filter: drop-shadow(0 -1px 1px rgba(0, 0, 0, 0.06));
+}
+
+@keyframes dashboard-pie-tooltip-anchor-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, calc(-100% - 2px));
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, calc(-100% - 6px));
+    }
+}
+
+@keyframes dashboard-pie-tooltip-anchor-radial-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+@keyframes dashboard-pie-tooltip-anchor-below-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 2px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 6px);
+    }
+}
+
+.dashboard-summary-pie-tooltip-label {
+    font-weight: var(--font-weight-semibold, 600);
+    color: var(--color-heading, #002c49);
+    margin-bottom: 2px;
+}
+
+.dashboard-summary-pie-tooltip-value {
+    font-weight: 600;
+    color: var(--color-text-ink-strong, #111827);
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-summary-pie-tooltip-converted {
+    margin-top: 1px;
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
+    font-weight: 400;
+    color: var(--color-text-caption, #64748b);
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-summary-pie-tooltip-pct {
+    margin-top: 2px;
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
+    font-weight: 600;
+    color: var(--color-text-caption, #64748b);
+    font-variant-numeric: tabular-nums;
 }
 
 .dashboard-summary-currency-list {
+    --breakdown-cols: minmax(3.75rem, auto) minmax(0, 1fr) minmax(4.75rem, 5.25rem);
+    grid-column: 2;
+    grid-row: 1;
     flex: 1;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: clamp(6px, 0.55vw, 10px);
+    justify-content: flex-start;
+    gap: 0;
+    overflow: hidden;
+    max-height: 100%;
+    align-self: stretch;
+}
+
+.dashboard-summary-currency-list-head {
+    display: grid;
+    grid-template-columns: var(--breakdown-cols);
+    column-gap: 10px;
+    padding: 0 8px 6px;
+    margin: 0;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--color-surface, #ffffff);
+    border-bottom: 1px solid var(--color-border-slate, #e2e8f0);
+}
+
+.dashboard-summary-currency-list-head span {
+    font-size: var(--text-tiny, clamp(11px, 0.78vw, 13px));
+    font-weight: 500;
+    color: var(--color-muted-fg, #6b7280);
+    font-family: var(--font-heading-page);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.dashboard-summary-currency-list-head span:not(:first-child) {
+    text-align: right;
+}
+
+.dashboard-summary-currency-list-body {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
-    max-height: 200px;
-    padding-right: 2px;
+    padding: 4px 2px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .dashboard-summary-currency-row {
     display: grid;
-    grid-template-columns: 10px 1fr auto;
+    grid-template-columns: var(--breakdown-cols);
     align-items: center;
-    gap: 8px;
+    column-gap: 10px;
     padding: 6px 8px;
-    border-radius: 8px;
+    border-radius: var(--radius-panel, 8px);
     font-family: var(--font-heading-page);
+    border-left: none;
+    background: transparent;
+    transition: background-color var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
 }
 
 .dashboard-summary-currency-row.is-active {
-    background: rgba(15, 23, 42, 0.04);
-    padding-left: 5px;
+    background: var(--color-surface-subtle, #f8fafc);
+}
+
+.dashboard-summary-currency-row.is-active .dashboard-summary-currency-dot {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--currency-accent, var(--color-primary-strong, #2563eb)) 35%, transparent);
+}
+
+.dashboard-summary-currency-row.is-active .dashboard-summary-currency-code {
+    color: var(--color-text-ink-strong, #111827);
+    font-weight: 700;
 }
 
 .dashboard-summary-currency-dot {
@@ -1242,21 +1526,109 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     flex-shrink: 0;
 }
 
-.dashboard-summary-currency-code {
-    font-size: clamp(12px, 0.85vw, 14px);
-    font-weight: 600;
-    color: #374151;
+.dashboard-summary-currency-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
 }
 
-.dashboard-summary-currency-row.is-active .dashboard-summary-currency-code {
-    color: #111827;
+.dashboard-summary-currency-code {
+    font-size: clamp(12px, 0.82vw, 13px);
+    font-weight: 600;
+    color: var(--color-text-label, #374151);
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.dashboard-summary-currency-amount-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 1px;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: right;
 }
 
 .dashboard-summary-currency-amount {
     font-size: clamp(12px, 0.85vw, 14px);
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text-ink-strong, #111827);
     white-space: nowrap;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dashboard-summary-currency-converted {
+    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
+    font-weight: 400;
+    color: var(--color-text-caption, #64748b);
+    font-family: var(--font-heading-page);
+    white-space: nowrap;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dashboard-summary-currency-rate {
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
+    font-weight: 600;
+    color: var(--color-text-caption, #64748b);
+    font-family: var(--font-heading-page);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    justify-self: stretch;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dashboard-summary-rate-footnote {
+    margin-top: 0;
+    padding: 5px 8px;
+    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
+    font-weight: 400;
+    color: var(--color-text-caption, #64748b);
+    font-family: var(--font-ui);
+    line-height: 1.35;
+    background: var(--color-surface-slate-100, #f1f5f9);
+    border: 1px solid var(--color-border-slate, #e2e8f0);
+    border-radius: var(--radius-panel, 8px);
+    flex-shrink: 0;
+}
+
+.dashboard-summary-rate-footnote.is-warn {
+    color: var(--color-warning-text-amber, #b45309);
+    background: var(--color-surface-warn-tint, #fffbeb);
+    border-color: var(--color-warning-border-soft, #fde68a);
+}
+
+.dashboard-summary-rate-footnote.is-muted {
+    color: var(--color-text-placeholder, #94a3b8);
+    background: transparent;
+    border-color: transparent;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.kpi-card-foot-note {
+    display: block;
+    width: 100%;
+    margin-top: 2px;
+    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
+    font-weight: 400;
+    color: var(--color-muted-fg, #6b7280);
+    font-family: var(--font-ui);
+    line-height: 1.3;
 }
 
 /* 图表区域 - 占满剩余高度，保证最小可视高度（旧 class 保留兼容） */
@@ -1367,7 +1739,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     .dashboard-container {
         padding-left: var(--layout-main-offset);
         padding-right: 20px;
-        padding-top: 10px;
+        padding-top: var(--layout-page-top-gap);
         padding-bottom: 16px;
         max-width: 100vw;
 
@@ -1403,7 +1775,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
     .transaction-company-buttons {
         flex-wrap: wrap;
-        gap: 6px;
+        gap: var(--user-gc-inline-pills-gap, 4px);
     }
 
     .dashboard-kpi-grid {
@@ -1483,7 +1855,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
         flex-direction: column;
         padding-left: var(--layout-main-offset);
         padding-right: 20px;
-        padding-top: 10px;
+        padding-top: var(--layout-page-top-gap);
         padding-bottom: 16px;
     }
 
@@ -1514,7 +1886,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     }
 
     .transaction-company-buttons {
-        gap: 4px;
+        gap: var(--user-gc-inline-pills-gap, 4px);
     }
 
     .dashboard-kpi-grid {

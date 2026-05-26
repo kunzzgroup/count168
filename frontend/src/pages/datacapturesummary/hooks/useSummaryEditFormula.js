@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { applySummaryDomLabels } from "../lib/summaryDomI18n.js";
 
 const EMPTY_FORM = {
   productValue: "",
@@ -10,7 +11,7 @@ const EMPTY_FORM = {
  * Phase 8–9c: React owns Edit Formula modal visibility + form shell.
  * React saveFormula (Phase 9c) handles Save; legacy initEditFormulaFormAfterMount handles form init.
  */
-export function useSummaryEditFormula({ scriptsReady }) {
+export function useSummaryEditFormula({ scriptsReady, t }) {
   const [open, setOpen] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
   const [formSession, setFormSession] = useState(EMPTY_FORM);
@@ -54,6 +55,9 @@ export function useSummaryEditFormula({ scriptsReady }) {
 
       if (typeof window.initEditFormulaFormAfterMount !== "function") return;
       window.initEditFormulaFormAfterMount(prePopulatedRef.current);
+      if (typeof t === "function") {
+        window.setTimeout(() => applySummaryDomLabels(t), 200);
+      }
     };
 
     const id = requestAnimationFrame(() => {
@@ -63,7 +67,7 @@ export function useSummaryEditFormula({ scriptsReady }) {
     return () => {
       cancelAnimationFrame(id);
     };
-  }, [open, scriptsReady, formSession.productValue]);
+  }, [open, scriptsReady, formSession.productValue, t]);
 
   useEffect(() => {
     if (!scriptsReady) return undefined;

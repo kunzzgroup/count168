@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { toUpperDisplay } from "../formulaMaintenanceLogic.js";
-import { assetUrl } from "../../../../utils/apiUrl.js";
+import { assetUrl } from "../../../../utils/core/apiUrl.js";
 
 /**
  * Memoized formula table row (virtual list). Avoids re-rendering all visible rows on parent updates.

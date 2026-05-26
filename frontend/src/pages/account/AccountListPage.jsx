@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
+import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 
-// Logic & Constants
+// Logic & Constants..
 import {
   toUpper,
   normalizeAlertAmount,
@@ -19,6 +19,7 @@ import {
   isVirtualGroupLinkCompanyRow,
   buildAccountsFetchKey,
   buildAccountsUrl,
+  pickDefaultAddCurrencyIds,
 } from "./accountLogic.js";
 
 // Components
@@ -29,10 +30,18 @@ import {
   CurrencySettingModal,
   LinkAccountModal,
 } from "./components/accountModals.jsx";
-import { getAccountText, translateAccountApiMessage } from "../../translateFile/accountTranslate.js";
+import {
+  getAccountText,
+  parseAccountsFromCurrencyDeleteMessage,
+  translateAccountApiMessage,
+} from "../../translateFile/pages/accountTranslate.js";
+import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 
 export default function AccountListPage() {
   const navigate = useNavigate();
+  const { me: sessionMe, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const langRef = useRef(lang);
   langRef.current = lang;
@@ -51,8 +60,6 @@ export default function AccountListPage() {
   const [roles, setRoles] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
-  /** current_user_api.data —用于 Partnership/Audit read_only 时禁用账号页写操作 */
-  const [sessionMe, setSessionMe] = useState(null);
 
   // -- Filters --
   const [searchTerm, setSearchTerm] = useState("");
@@ -104,12 +111,13 @@ export default function AccountListPage() {
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 1800);
+    const durationMs = type === "danger" ? 4000 : 1800;
+    toastTimerRef.current = setTimeout(() => setToast(null), durationMs);
   }, []);
 
   const notifyApi = useCallback(
-    (apiMessage, fallbackKey, type = "success", params = {}) => {
-      notify(translateAccountApiMessage(lang, apiMessage, fallbackKey, params), type);
+    (apiMessage, fallbackKey, type = "success", params = {}, apiData = null) => {
+      notify(translateAccountApiMessage(lang, apiMessage, fallbackKey, params, apiData), type);
     },
     [lang, notify],
   );
@@ -179,26 +187,24 @@ export default function AccountListPage() {
 
   // -- Boot --
   useEffect(() => {
+    if (!sessionReady || !sessionMe) return;
+    let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meJson.success || !meJson.data) return navigate("/login", { replace: true });
-        setSessionMe(meJson.data);
-
         const [compRes, editRes] = await Promise.all([
           fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
           fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }),
         ]);
         const compJson = await compRes.json();
         const editJson = await editRes.json();
+        if (cancelled) return;
 
         const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
         setCompanies(rows);
         setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 
         const url = new URL(window.location.href);
-        const cid = url.searchParams.get("company_id") || meJson.data.company_id || rows[0]?.id;
+        const cid = url.searchParams.get("company_id") || sessionMe.company_id || rows[0]?.id;
         const initialCompanyId = cid ? Number(cid) : null;
         const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
@@ -206,6 +212,7 @@ export default function AccountListPage() {
         if (initialCompanyId) {
           const accountRes = await fetch(buildAccountsUrl(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll).toString(), { credentials: "include" });
           const accountJson = await accountRes.json();
+          if (cancelled) return;
           if (accountJson.success) {
             setAccounts(Array.isArray(accountJson?.data?.accounts) ? accountJson.data.accounts : []);
             bootFetchedAccountsKeyRef.current = buildAccountsFetchKey(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll);
@@ -215,11 +222,16 @@ export default function AccountListPage() {
         setSearchTerm(initialSearchTerm);
         setShowInactive(initialShowInactive);
         setShowAll(initialShowAll);
-
-      } catch { navigate("/login"); }
-      finally { setBootLoading(false); }
+      } catch {
+        if (!cancelled) navigate("/login");
+      } finally {
+        if (!cancelled) setBootLoading(false);
+      }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, sessionMe, navigate]);
 
   useEffect(() => {
     if (!bootLoading && companyId) {
@@ -231,20 +243,6 @@ export default function AccountListPage() {
       fetchAccounts();
     }
   }, [bootLoading, companyId, searchTerm, showInactive, showAll, fetchAccounts]);
-
-  useEffect(() => {
-    const onCompanySession = async () => {
-      try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (meJson.success && meJson.data) setSessionMe(meJson.data);
-      } catch {
-        /* ignore */
-      }
-    };
-    window.addEventListener("eazycount:company-session-updated", onCompanySession);
-    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
-  }, []);
 
   // -- Computed --
   const allCompanyButtons = useMemo(
@@ -324,13 +322,7 @@ export default function AccountListPage() {
     return sortedAccounts;
   }, [sortedAccounts]);
 
-  const accountMutationsBlocked = useMemo(() => {
-    if (!sessionMe) return false;
-    const r = String(sessionMe.role || "").trim().toLowerCase();
-    if (r !== "partnership" && r !== "audit") return false;
-    const ro = sessionMe.read_only;
-    return ro === 1 || ro === true || ro === "1";
-  }, [sessionMe]);
+  const accountMutationsBlocked = usePartnershipAuditReadOnlyLocked(sessionMe);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredForMode.length / PAGE_SIZE)), [filteredForMode]);
   const pageRows = useMemo(() => {
@@ -436,6 +428,8 @@ export default function AccountListPage() {
           const ids = curJ.data.filter(c => c.is_linked).map(c => Number(c.id));
           setSelectedCurrencyIds(ids);
           setInitialEditCurrencyIds(ids);
+        } else {
+          setSelectedCurrencyIds(pickDefaultAddCurrencyIds(curJ.data));
         }
       }
       if (compJ.success) {
@@ -547,6 +541,18 @@ export default function AccountListPage() {
       const res = await fetch(buildApiUrl(ep), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "saveFailed", "danger");
+      if (!isEditMode && json?.data?.id && selectedCurrencyIds.length) {
+        for (const cid of selectedCurrencyIds) {
+          const currencyRes = await fetch(accountCurrencyApiUrl("add_currency"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ account_id: Number(json.data.id), currency_id: Number(cid) }),
+            credentials: "include",
+          });
+          const currencyJson = await currencyRes.json();
+          if (!currencyRes.ok || !currencyJson.success) return notifyApi(currencyJson.message, "saveFailed", "danger");
+        }
+      }
       if (isEditMode && form.id) {
         const before = new Set(initialEditCurrencyIds.map(Number));
         const after = new Set(selectedCurrencyIds.map(Number));
@@ -619,47 +625,123 @@ export default function AccountListPage() {
     [companyId]
   );
 
+  const fetchAccountsUsingCurrency = async (currencyId) => {
+    try {
+      const params = new URLSearchParams({
+        action: "get_linked_accounts_by_currency",
+        currency_id: String(currencyId),
+      });
+      if (companyId) params.set("company_id", String(companyId));
+      const res = await fetch(
+        buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`),
+        { method: "POST", credentials: "include" },
+      );
+      const json = await res.json();
+      if (!json.success) return [];
+      const fromApi = Array.isArray(json.data?.linked_accounts) ? json.data.linked_accounts : [];
+      if (fromApi.length > 0) {
+        return fromApi.map((a) => ({
+          id: Number(a.id),
+          name: String(a.name ?? ""),
+          account_id: String(a.account_id ?? ""),
+        }));
+      }
+      const linkedIds = new Set((json.data?.linked_account_ids || []).map(Number));
+      return accounts
+        .filter((a) => linkedIds.has(Number(a.id)))
+        .map((a) => ({
+          id: Number(a.id),
+          name: String(a.name ?? ""),
+          account_id: String(a.account_id ?? ""),
+        }));
+    } catch {
+      return [];
+    }
+  };
+
+  const handleCurrencyDeleteBlocked = async (currencyId, json, msg) => {
+    const editingAccountId = isEditMode ? Number(form.id) : 0;
+    let accountsInUse = Array.isArray(json?.data?.accounts_in_use) ? json.data.accounts_in_use : [];
+    if (accountsInUse.length === 0) {
+      accountsInUse = await fetchAccountsUsingCurrency(currencyId);
+    }
+    if (accountsInUse.length === 0) {
+      accountsInUse = parseAccountsFromCurrencyDeleteMessage(msg);
+    }
+    if (editingAccountId > 0) {
+      accountsInUse = accountsInUse.filter((a) => Number(a.id) !== editingAccountId);
+    }
+    const apiData =
+      accountsInUse.length > 0 ? { ...(json?.data || {}), accounts_in_use: accountsInUse } : json?.data ?? null;
+    notifyApi(msg, "failedDeleteCurrency", "danger", {}, apiData);
+  };
+
+  /** Permanently delete currency; only when deselected. Unlink from current account if still linked in DB. */
   const removeModalCurrency = async (currencyId) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
     const id = Number(currencyId);
-    const wasLinked = initialEditCurrencyIds.map(Number).includes(id);
+    const accountId = isEditMode ? Number(form.id) : 0;
 
-    const hideFromModal = () => {
+    if (selectedCurrencyIds.map(Number).includes(id)) {
+      notify(t("deselectCurrencyBeforeDelete"), "danger");
+      return;
+    }
+
+    const dropCurrencyFromUi = () => {
       setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
       setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    };
-
-    const dropCurrency = () => {
-      hideFromModal();
       setCurrencies((prev) => prev.filter((c) => Number(c.id) !== id));
     };
 
-    if (isEditMode && form.id && wasLinked) {
-      hideFromModal();
+    const unlinkCurrentAccountFromCurrency = async () => {
+      const wasSavedOnAccount = accountId > 0 && initialEditCurrencyIds.map(Number).includes(id);
+
+      if (!accountId) return true;
+
+      let needsUnlink = wasSavedOnAccount;
+      if (!needsUnlink) {
+        const using = await fetchAccountsUsingCurrency(id);
+        needsUnlink = using.some((a) => Number(a.id) === accountId);
+      }
+      if (!needsUnlink) {
+        if (wasSavedOnAccount) {
+          setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+        }
+        return true;
+      }
+
       try {
         const res = await fetch(accountCurrencyApiUrl("remove_currency"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ account_id: Number(form.id), currency_id: id }),
+          body: JSON.stringify({ account_id: accountId, currency_id: id }),
           credentials: "include",
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          setHiddenCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
-          setSelectedCurrencyIds((prev) => (prev.map(Number).includes(id) ? prev : [...prev, id]));
-          notifyApi(json.message || json.error, "saveFailed", "danger");
-          return;
+          notifyApi(json.message, "saveFailed", "danger");
+          return false;
         }
         setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+        setCurrencies((prev) =>
+          prev.map((c) => (Number(c.id) === id ? { ...c, is_linked: false } : c)),
+        );
+        return true;
       } catch {
-        setHiddenCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
-        setSelectedCurrencyIds((prev) => (prev.map(Number).includes(id) ? prev : [...prev, id]));
         notify(t("saveFailed"), "danger");
+        return false;
       }
-      return;
+    };
+
+    const unlinked = await unlinkCurrentAccountFromCurrency();
+    if (!unlinked) return;
+
+    let otherAccountsInUse = await fetchAccountsUsingCurrency(id);
+    if (accountId > 0) {
+      otherAccountsInUse = otherAccountsInUse.filter((a) => Number(a.id) !== accountId);
     }
 
     try {
@@ -671,15 +753,16 @@ export default function AccountListPage() {
       });
       const json = await res.json();
       if (json.success) {
-        dropCurrency();
+        dropCurrencyFromUi();
+        notifyApi(json.message, "currencyDeleted", "success");
         return;
       }
       const msg = String(json.message || json.error || "");
-      if (/being used|正在使用|Cannot delete/i.test(msg)) {
-        hideFromModal();
-        return;
-      }
-      notifyApi(msg, "failedDeleteCurrency", "danger");
+      const apiData =
+        otherAccountsInUse.length > 0
+          ? { ...(json?.data || {}), accounts_in_use: otherAccountsInUse }
+          : json?.data ?? null;
+      await handleCurrencyDeleteBlocked(id, { ...json, data: apiData }, msg);
     } catch {
       notify(t("failedDeleteCurrency"), "danger");
     }
@@ -826,7 +909,7 @@ export default function AccountListPage() {
     }
   };
 
-  if (bootLoading || !cssReady) return null;
+  if (bootLoading || !sessionReady || !cssReady) return <PageContentLoader />;
 
   const handleSort = (column) => {
     setSortDirection((direction) => (sortColumn === column && direction === "asc" ? "desc" : "asc"));
@@ -862,7 +945,6 @@ export default function AccountListPage() {
     <>
       <div className="container">
         <div className="content">
-          <h1 className="account-page-title">{t("accountList")}</h1>
           <div className="action-buttons-container">
             <div className="action-buttons">
               <div className="account-toolbar-top-row">
@@ -1092,6 +1174,7 @@ export default function AccountListPage() {
           createCurrency();
         }}
         onRemoveCurrency={removeModalCurrency}
+        currencyDeleteOnlyWhenDeselected
         onSubmit={saveForm}
         onClose={() => {
           setAddModalOpen(false);

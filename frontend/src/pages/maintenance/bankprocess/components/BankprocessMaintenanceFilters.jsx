@@ -1,20 +1,12 @@
 import { useMemo } from "react";
+import {
+  buildMaintenancePeriodPresets,
+  formatDmyFromYmd,
+  parseDmy,
+} from "../../shared/maintenanceDateHelpers.js";
 import ReportDatePicker from "../../../report/common/ReportDatePicker.jsx";
-import ReportGcFilterPanel from "../../../report/components/ReportGcFilterPanel.jsx";
-
-const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"];
-
-function parseDmy(dmy) {
-  const match = String(dmy || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) return "";
-  return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
-}
-
-function formatDmy(ymd) {
-  const [y, m, d] = (ymd || "").split("-");
-  if (!y || !m || !d) return "";
-  return `${d}/${m}/${y}`;
-}
+import ReportGcFilterPanel from "../../../report/shared/ReportGcFilterPanel.jsx";
+import { normalizeMaintenanceSearchInput } from "../../shared/maintenanceSearchInput.js";
 
 export default function BankprocessMaintenanceFilters({
   permissions,
@@ -46,19 +38,14 @@ export default function BankprocessMaintenanceFilters({
   setConfirmDelete,
   selectedIds,
   onDelete,
-  pageTitle,
   m,
 }) {
-  const periodPresets = useMemo(
-    () => QUICK_RANGE_KEYS.map((key) => ({ key, label: m[key] || key })),
-    [m],
-  );
+  const periodPresets = useMemo(() => buildMaintenancePeriodPresets(m), [m]);
 
   return (
     <>
+      {permissions.length > 1 ? (
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">{pageTitle}</h1>
-        {permissions.length > 1 && (
           <div id="bankprocess-permission-filter" className="maintenance-permission-filter-header">
             <span className="maintenance-company-label">{m.category}</span>
             <div id="bankprocess-permission-buttons" className="maintenance-company-buttons">
@@ -74,8 +61,8 @@ export default function BankprocessMaintenanceFilters({
               ))}
             </div>
           </div>
-        )}
       </div>
+      ) : null}
 
       <div className="customer-report-filter-container">
         <div className="customer-report-filters">
@@ -83,8 +70,8 @@ export default function BankprocessMaintenanceFilters({
             dateFrom={parseDmy(dateFrom || today)}
             dateTo={parseDmy(dateTo || today)}
             onRangeChange={(start, end) => {
-              setDateFrom(formatDmy(start));
-              setDateTo(formatDmy(end));
+              setDateFrom(formatDmyFromYmd(start));
+              setDateTo(formatDmyFromYmd(end));
             }}
             containerClass="customer-report-filter-group"
             label={m.dateRange}
@@ -116,7 +103,8 @@ export default function BankprocessMaintenanceFilters({
                     autoComplete="off"
                     value={query}
                     aria-labelledby="bankprocess-maint-search-legend"
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => setQuery(normalizeMaintenanceSearchInput(e.target.value))}
+                    style={{ textTransform: "uppercase" }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();

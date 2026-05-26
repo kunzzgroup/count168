@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import {
   SINGLE_CATEGORY_MODE,
@@ -15,7 +15,7 @@ import {
   formatShareRowAmount2,
 } from "../domainHelpers.js";
 import AddAccountModal from "./AddAccountModal.jsx";
-import { getDomainText } from "../../../translateFile/domainTranslate.js";
+import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 
 const PERMISSION_LIST = [

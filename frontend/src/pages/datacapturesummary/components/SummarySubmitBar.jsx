@@ -1,7 +1,9 @@
-import { assetUrl } from "../../../utils/apiUrl.js";
+import { assetUrl } from "../../../utils/core/apiUrl.js";
 
 export default function SummarySubmitBar({
+  t,
   submitting = false,
+  refreshing = false,
   onSubmit,
   onBack,
   onRefresh,
@@ -10,20 +12,27 @@ export default function SummarySubmitBar({
     <div className="summary-submit-container" id="summarySubmitContainer" style={{ display: "none" }}>
       <button
         type="button"
-        className="btn btn-submit"
+        className="btn btn-save"
         id="summarySubmitBtn"
         onClick={onSubmit}
         disabled={submitting}
       >
-        {submitting ? "提交中..." : "Submit"}
+        {submitting ? t("submitting") : t("submit")}
       </button>
-      <button type="button" className="btn btn-cancel" onClick={onBack} style={{ marginLeft: 10 }}>
-        Back
+      <button type="button" className="btn btn-cancel" onClick={onBack}>
+        {t("back")}
       </button>
-      <button type="button" className="btn btn-refresh" onClick={onRefresh} title="Refresh page">
+      <button
+        type="button"
+        className="btn btn-refresh"
+        onClick={onRefresh}
+        title={t("refreshPage")}
+        disabled={refreshing}
+        aria-busy={refreshing || undefined}
+      >
         <img
           src={assetUrl("images/refresh.svg")}
-          alt="Refresh"
+          alt={t("refresh")}
           style={{ width: "clamp(23px, 1.8vw, 35px)", height: "clamp(23px, 1.8vw, 35px)" }}
         />
       </button>

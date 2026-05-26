@@ -1,8 +1,8 @@
-import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
-import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { injectStylesheet } from "../../utils/injectStylesheet.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
+import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import {
   applySharedGroupClickWithCompanySwitch,
   dedupeOwnerCompaniesByCode,
@@ -12,38 +12,42 @@ import {
   persistDashboardGroupFilter,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
-} from "../../utils/sharedCompanyFilter.js";
+} from "../../utils/company/sharedCompanyFilter.js";
 
-import "../../../public/css/datacapture.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
+import "../../../public/css/datacapture.css";
 
-import { formatSubmittedProcessDateTime } from "./dataCaptureApi.js";
+import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
 import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
   syncDataCaptureCompanySession,
-} from "./dataCaptureCompanyAccess.js";
-import DataCaptureContextMenus from "./DataCaptureContextMenus.jsx";
-import DataCaptureDeleteDialog from "./DataCaptureDeleteDialog.jsx";
-import DataCaptureTableSection from "./DataCaptureTableSection.jsx";
-import DescriptionSelectionModal from "./DescriptionSelectionModal.jsx";
-import ProcessNotificationContainer from "./ProcessNotificationContainer.jsx";
-import { useDataCaptureCategoryPermissions } from "./useDataCaptureCategoryPermissions.js";
-import { useDataCaptureFormEngine } from "./useDataCaptureFormEngine.js";
-import { useDataCaptureGrid } from "./useDataCaptureGrid.js";
-import { useDataCaptureGridChrome } from "./useDataCaptureGridChrome.js";
-import { useDataCaptureGridInteraction } from "./useDataCaptureGridInteraction.js";
-import { useDataCapturePaste } from "./useDataCapturePaste.js";
-import { useDataCaptureCaptureType } from "./useDataCaptureCaptureType.js";
-import { useDataCaptureFormatPaste } from "./useDataCaptureFormatPaste.js";
-import { useDataCaptureFormatDisplay } from "./useDataCaptureFormatDisplay.js";
-import { useDataCaptureSpaInit } from "./useDataCaptureSpaInit.js";
-import { useDataCaptureGlobalShims } from "./useDataCaptureGlobalShims.js";
-import { useDataCaptureGridHeader } from "./useDataCaptureGridHeader.js";
-import { useDataCaptureLegacyChrome } from "./useDataCaptureLegacyChrome.js";
-import { useDataCaptureSubmitReset } from "./useDataCaptureSubmitReset.js";
-import { useDataCaptureSubmittedList } from "./useDataCaptureSubmittedList.js";
+} from "./lib/dataCaptureCompanyAccess.js";
+import DataCaptureContextMenus from "./components/DataCaptureContextMenus.jsx";
+import DataCaptureDeleteDialog from "./components/DataCaptureDeleteDialog.jsx";
+import DataCaptureTableSection from "./components/DataCaptureTableSection.jsx";
+import DescriptionSelectionModal from "./components/DescriptionSelectionModal.jsx";
+import ProcessNotificationContainer from "./components/ProcessNotificationContainer.jsx";
+import { useDataCaptureCategoryPermissions } from "./hooks/useDataCaptureCategoryPermissions.js";
+import { useDataCaptureFormEngine } from "./hooks/useDataCaptureFormEngine.js";
+import { useDataCaptureGrid } from "./hooks/useDataCaptureGrid.js";
+import { useDataCaptureGridInteraction } from "./hooks/useDataCaptureGridInteraction.js";
+import { useDataCapturePaste } from "./hooks/useDataCapturePaste.js";
+import { useDataCaptureCaptureType } from "./hooks/useDataCaptureCaptureType.js";
+import { useDataCaptureFormatPaste } from "./hooks/useDataCaptureFormatPaste.js";
+import { useDataCaptureFormatDisplay } from "./hooks/useDataCaptureFormatDisplay.js";
+import { useDataCaptureGlobalShims } from "./hooks/useDataCaptureGlobalShims.js";
+import { useDataCaptureGridHeader } from "./hooks/useDataCaptureGridHeader.js";
+import { useDataCaptureLegacyChrome } from "./hooks/useDataCaptureLegacyChrome.js";
+import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
+import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
+import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
+import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmittedPanelHeight.js";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { preloadSummaryLegacyScriptsInBackground } from "../datacapturesummary/lib/preloadSummaryLegacyScripts.js";
+import { getDataCaptureText } from "../../translateFile/pages/dataCaptureTranslate.js";
 
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
@@ -95,15 +99,16 @@ class DataCaptureErrorBoundary extends Component {
 
   render() {
     if (this.state.error) {
+      const lang = localStorage.getItem("login_lang") === "zh" ? "zh" : "en";
       const msg = this.state.error?.message || String(this.state.error);
       return (
         <div className="container" style={{ padding: "24px" }}>
-          <h2 style={{ marginTop: 0 }}>Data Capture failed to render</h2>
+          <h2 style={{ marginTop: 0 }}>{getDataCaptureText(lang, "renderFailedTitle")}</h2>
           <p style={{ color: "#b91c1c", marginBottom: 12 }} role="alert">
             {msg}
           </p>
           <p style={{ margin: 0, color: "#666", fontSize: 14 }}>
-            Refresh the page. If it keeps happening, open the browser console (F12) and share the first error line with support.
+            {getDataCaptureText(lang, "renderFailedHint")}
           </p>
         </div>
       );
@@ -115,12 +120,30 @@ class DataCaptureErrorBoundary extends Component {
 export default function DataCapturePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { me, sessionReady } = useAuthSession();
   const companyIdFromUrl = searchParams.get("company_id");
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const t = useCallback((key, params) => getDataCaptureText(lang, key, params), [lang]);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") setLang(e.newValue === "zh" ? "zh" : "en");
+    };
+    const onLangUpdated = (e) => {
+      const next = e?.detail?.lang;
+      setLang(next === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
+    };
+  }, []);
 
   const [bootLoading, setBootLoading] = useState(true);
   const [engineError, setEngineError] = useState("");
   const [scriptsReady, setScriptsReady] = useState(false);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -164,6 +187,8 @@ export default function DataCapturePage() {
 
   const { submittedItems } = useDataCaptureSubmittedList(companyId, form.captureDate);
 
+  const { topSectionRef, formColumnRef } = useDataCaptureSubmittedPanelHeight();
+
   const { permissions, selectedPermission, selectPermission, showPermissionFilter } =
     useDataCaptureCategoryPermissions(companyCode);
 
@@ -182,16 +207,46 @@ export default function DataCapturePage() {
     closeDeleteDialog,
   } = useDataCaptureLegacyChrome();
 
-  const submitReset = useDataCaptureSubmitReset({ companyId, form, captureType });
+  const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
+  const submitReset = useDataCaptureSubmitReset({
+    companyId,
+    form,
+    captureType,
+    mutationsBlocked,
+    navigate,
+    t,
+  });
 
   useDataCaptureGrid(scriptsReady);
-  useDataCaptureGridChrome(scriptsReady);
   useDataCaptureGridInteraction(scriptsReady);
   useDataCapturePaste();
   useDataCaptureFormatPaste();
   useDataCaptureFormatDisplay();
-  useDataCaptureSpaInit();
   useDataCaptureGlobalShims();
+
+  useEffect(() => {
+    if (!scriptsReady) return;
+
+    const pageReadyTimer = setTimeout(() => {
+      document.body.classList.add("page-ready");
+    }, 50);
+
+    const updateMenuPosition = () => {
+      if (typeof window.updateActiveContextMenuPosition === "function") {
+        window.updateActiveContextMenuPosition();
+      }
+    };
+
+    const scrollContainer = document.querySelector(".excel-table-container");
+    scrollContainer?.addEventListener("scroll", updateMenuPosition, { passive: true });
+    window.addEventListener("resize", updateMenuPosition);
+
+    return () => {
+      clearTimeout(pageReadyTimer);
+      scrollContainer?.removeEventListener("scroll", updateMenuPosition);
+      window.removeEventListener("resize", updateMenuPosition);
+    };
+  }, [scriptsReady]);
   useDataCaptureGridHeader();
 
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
@@ -254,7 +309,10 @@ export default function DataCapturePage() {
   }, []);
 
   useEffect(() => {
-    let alive = true;
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
         await injectStylesheet("https://fonts.googleapis.com/css?family=Amaranth");
@@ -262,24 +320,19 @@ export default function DataCapturePage() {
         /* ignore */
       }
       try {
-        const [meRes, companiesRes] = await Promise.all([
-          fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-        ]);
-        const meJson = await meRes.json();
-        if (!alive) return;
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
+        const u = me;
+        const companiesRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+          credentials: "include",
+        });
+        const companiesJson = await companiesRes.json();
+
         const perms = Array.isArray(u.company_permissions) ? u.company_permissions : [];
+        if (cancelled) return;
         if (perms.length === 0) {
           navigate("/process-list?error=no_permission", { replace: true });
           return;
         }
 
-        const companiesJson = await companiesRes.json();
         const raw = Array.isArray(companiesJson?.data) ? companiesJson.data.map(normalizeOwnerCompanyRow) : [];
 
         const url = new URL(window.location.href);
@@ -315,7 +368,7 @@ export default function DataCapturePage() {
           companyCode: pickCode,
           sessionUser: u,
         });
-        if (!alive) return;
+        if (cancelled) return;
         if (!hasGamesAccess) {
           navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
           return;
@@ -323,21 +376,19 @@ export default function DataCapturePage() {
 
         const initialGroup = resolveInitialSelectedGroupFromSession(raw, rowForPick);
 
-        setMe(u);
         setCompanies(raw);
         setCompanyId(effectiveCompany);
         setSelectedGroup(initialGroup);
       } catch {
-        if (!alive) return;
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        if (alive) setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
     return () => {
-      alive = false;
+      cancelled = true;
     };
-  }, [navigate]);
+  }, [sessionReady, me, navigate]);
 
   useEffect(() => {
     if (bootLoading || !companyIdFromUrl || companies.length === 0) return;
@@ -452,6 +503,11 @@ export default function DataCapturePage() {
   }, [bootLoading, me, companyId, switchCompanySessionAndNavigate]);
 
   useEffect(() => {
+    if (!scriptsReady) return;
+    preloadSummaryLegacyScriptsInBackground();
+  }, [scriptsReady]);
+
+  useEffect(() => {
     if (!companyId) return;
     window.DATACAPTURE_COMPANY_ID = companyId;
     window.DATACAPTURE_COMPANY_CODE = companyCode || String(companyId);
@@ -475,11 +531,7 @@ export default function DataCapturePage() {
   };
 
   if (bootLoading) {
-    return (
-      <div className="container" style={{ padding: "24px" }}>
-        <p style={{ margin: 0 }}>Loading…</p>
-      </div>
-    );
+    return <PageContentLoader />;
   }
 
   const list = filterCompaniesWithDisplayId(companiesDeduped);
@@ -487,15 +539,7 @@ export default function DataCapturePage() {
   return (
     <DataCaptureErrorBoundary key={companyId ?? "none"}>
       <div className="container" key={companyId ?? "none"}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 20,
-        }}
-      >
-        <h1 style={{ margin: 0 }}>Data Capture</h1>
+      <div className="dc-page-toolbar">
 
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div
@@ -503,7 +547,7 @@ export default function DataCapturePage() {
             className="data-capture-company-filter data-capture-permission-filter-header"
             style={{ display: showPermissionFilter ? "flex" : "none" }}
           >
-            <span className="data-capture-company-label">Category:</span>
+            <span className="data-capture-company-label">{t("category")}</span>
             <div id="data-capture-permission-buttons" className="data-capture-company-buttons">
               {permissions.map((p) => (
                 <button
@@ -527,8 +571,8 @@ export default function DataCapturePage() {
         </div>
       ) : null}
 
-      <div className="top-section">
-        <div className="form-column">
+      <div className="top-section" ref={topSectionRef}>
+        <div className="form-column" ref={formColumnRef}>
           <div className="form-container">
             <form
               id="dataCaptureForm"
@@ -543,9 +587,9 @@ export default function DataCapturePage() {
                 <div className="user-gc-inline-panel dc-data-capture-gc-panel">
                   {groups.length > 0 ? (
                     <div id="group-buttons-wrapper" className="user-gc-inline-row shared-group-wrapper">
-                      <span className="user-gc-inline-label">GroupID:</span>
+                      <span className="user-gc-inline-label">{t("groupId")}</span>
                       <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                        <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label="Group ID">
+                        <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label={t("groupAria")}>
                           {groups.map((gid) => (
                             <button
                               key={gid}
@@ -564,9 +608,9 @@ export default function DataCapturePage() {
 
                   {list.length > 0 ? (
                     <div id="company-buttons-wrapper" className="user-gc-inline-row shared-company-wrapper">
-                      <span className="user-gc-inline-label">Company:</span>
+                      <span className="user-gc-inline-label">{t("company")}</span>
                       <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                        <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label="Company">
+                        <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label={t("companyAria")}>
                           {list.map((comp) => {
                             const gid = String(comp.group_id || "").trim().toUpperCase();
                             const visible = isCompanyVisibleForSharedFilter(comp, selectedGroup, false, "follow");
@@ -595,7 +639,7 @@ export default function DataCapturePage() {
 
               <div className="dc-form-two-col dc-form-two-col--stacked">
                 <div className="form-group">
-                  <label htmlFor="capture_date">Date</label>
+                  <label htmlFor="capture_date">{t("date")}</label>
                   <select id="capture_date" name="capture_date" required value={form.captureDate} onChange={(e) => void form.onDateChange(e)}>
                     {form.dateOptions.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -606,13 +650,13 @@ export default function DataCapturePage() {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="capture_process">Process</label>
+                  <label htmlFor="capture_process">{t("process")}</label>
                   <div className="custom-select-wrapper">
                     <button
                       type="button"
                       className={`custom-select-button${form.processOpen ? " open" : ""}`.trim()}
                       id="capture_process"
-                      data-placeholder="Select Process"
+                      data-placeholder={t("selectProcess")}
                       name="process"
                       {...(form.selectedProcess?.id
                         ? {
@@ -629,7 +673,7 @@ export default function DataCapturePage() {
                         form.setProcessOpen((o) => !o);
                       }}
                     >
-                      {form.selectedProcess?.displayText || "Select Process"}
+                      {form.selectedProcess?.displayText || t("selectProcess")}
                     </button>
                     <div
                       className={`custom-select-dropdown${form.processOpen ? " show" : ""}`.trim()}
@@ -639,7 +683,7 @@ export default function DataCapturePage() {
                         <input
                           ref={form.processSearchInputRef}
                           type="text"
-                          placeholder="Search process..."
+                          placeholder={t("searchProcess")}
                           autoComplete="off"
                           value={form.processFilter}
                           onChange={(e) => form.setProcessFilter(e.target.value)}
@@ -663,7 +707,7 @@ export default function DataCapturePage() {
                       <div className="custom-select-options dc-react-process-options">
                         {form.processListTruncated ? (
                           <div className="custom-select-option custom-select-option--hint" style={{ cursor: "default", opacity: 0.85 }}>
-                            Type to search ({form.processRowsCount} processes)
+                            {t("typeToSearchProcesses", { count: form.processRowsCount })}
                           </div>
                         ) : null}
                         {form.visibleProcesses.map((row) => (
@@ -684,7 +728,7 @@ export default function DataCapturePage() {
 
               <div className="dc-form-two-col dc-form-two-col--stacked">
                 <div className="form-group">
-                  <label htmlFor="capture_description">Description</label>
+                  <label htmlFor="capture_description">{t("description")}</label>
                   <div className="input-with-icon">
                     <input
                       type="text"
@@ -692,14 +736,14 @@ export default function DataCapturePage() {
                       name="description"
                       required
                       readOnly
-                      placeholder="Click + to select descriptions"
+                      placeholder={t("clickToSelectDescriptions")}
                       value={form.descriptionDisplay}
                     />
                     <button
                       type="button"
                       className="add-icon"
                       onClick={() => openDescriptionModal()}
-                      title="Select descriptions"
+                      title={t("selectDescriptions")}
                     >
                       +
                     </button>
@@ -707,7 +751,7 @@ export default function DataCapturePage() {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="capture_currency">Currency</label>
+                  <label htmlFor="capture_currency">{t("currency")}</label>
                   <select
                     id="capture_currency"
                     name="currency"
@@ -717,7 +761,7 @@ export default function DataCapturePage() {
                       setTimeout(() => window.updateSubmitButtonState?.(), 0);
                     }}
                   >
-                    <option value="">Select Currency</option>
+                    <option value="">{t("selectCurrency")}</option>
                     {form.currencies.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.code}
@@ -729,13 +773,13 @@ export default function DataCapturePage() {
 
               <div className="dc-form-bottom-block">
                 <div className="form-group replace-word-group dc-replace-word-field">
-                  <label htmlFor="capture_replace_word_from">Replace Word</label>
+                  <label htmlFor="capture_replace_word_from">{t("replaceWord")}</label>
                   <div className="replace-word-fields">
                     <input
                       type="text"
                       id="capture_replace_word_from"
                       name="replace_word_from"
-                      placeholder="Old word"
+                      placeholder={t("oldWord")}
                       value={form.replaceFrom}
                       onChange={(e) => form.setReplaceFrom(e.target.value.toUpperCase())}
                     />
@@ -744,7 +788,7 @@ export default function DataCapturePage() {
                       type="text"
                       id="capture_replace_word_to"
                       name="replace_word_to"
-                      placeholder="New word"
+                      placeholder={t("newWord")}
                       value={form.replaceTo}
                       onChange={(e) => form.setReplaceTo(e.target.value.toUpperCase())}
                     />
@@ -753,17 +797,17 @@ export default function DataCapturePage() {
 
                 <div className="dc-form-remove-remark-grid">
                   <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
-                    Remove Word
+                    {t("removeWord")}
                   </label>
                   <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk">
-                    Remark
+                    {t("remark")}
                   </label>
                   <input
                     type="text"
                     id="capture_remove_word"
                     name="remove_word"
                     className="dc-remove-remark__input dc-remove-remark__input--rm"
-                    placeholder="Enter words to remove"
+                    placeholder={t("enterWordsToRemove")}
                     value={form.removeWord}
                     onChange={(e) => form.setRemoveWord(e.target.value.toUpperCase())}
                   />
@@ -772,12 +816,12 @@ export default function DataCapturePage() {
                     id="capture_remark"
                     name="remark"
                     className="dc-remove-remark__input dc-remove-remark__input--mk"
-                    placeholder="Enter remark"
+                    placeholder={t("enterRemark")}
                     value={form.remark}
                     onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
                   />
                   <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
-                    (Use semicolon to separate multiple words, e.g. abc;cde;efg)
+                    {t("removeWordHelp")}
                   </small>
                   <div className="dc-remove-remark__slot" aria-hidden="true" />
                 </div>
@@ -788,13 +832,13 @@ export default function DataCapturePage() {
 
         <div className="submitted-column">
           <div className="submitted-container">
-            <h2 className="submitted-title">Submitted Processes</h2>
+            <h2 className="submitted-title">{t("submittedProcesses")}</h2>
             <div className="submitted-list">
               {/* Legacy `renderSubmittedProcesses` sets innerHTML on `#submittedProcessesList` — decoy only. */}
               <div id="submittedProcessesList" className="dc-legacy-submitted-host" aria-hidden="true" style={{ display: "none" }} />
               <div className="dc-react-submitted-list">
               {submittedItems.length === 0 ? (
-                <div className="no-data">No processes submitted for this date</div>
+                <div className="no-data">{t("noProcessesSubmitted")}</div>
               ) : (
                 submittedItems.map((process, index) => (
                   <div
@@ -827,16 +871,18 @@ export default function DataCapturePage() {
       </div>
 
       <DataCaptureTableSection
+        t={t}
         captureType={captureType}
         citibetMode={citibetMode}
         formatGridReady={formatGridReady}
         onCaptureTypeChange={handleCaptureTypeChange}
-        submitDisabled={submitReset.submitDisabled}
+        submitDisabled={submitReset.submitDisabled || mutationsBlocked}
         onSubmit={() => void submitReset.submit()}
         onReset={submitReset.reset}
       />
 
       <DescriptionSelectionModal
+        t={t}
         open={descriptionModalOpen}
         onClose={closeDescriptionModal}
         companyId={companyId}
@@ -845,9 +891,10 @@ export default function DataCapturePage() {
 
       <ProcessNotificationContainer />
 
-      <DataCaptureContextMenus />
+      <DataCaptureContextMenus t={t} />
 
       <DataCaptureDeleteDialog
+        t={t}
         open={deleteOpen}
         deleteOption={deleteOption}
         onDeleteOptionChange={setDeleteOption}

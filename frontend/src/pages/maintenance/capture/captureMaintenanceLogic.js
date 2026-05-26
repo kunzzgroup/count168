@@ -1,44 +1,15 @@
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import {
+  fetchDomainCompanyPermissions,
+  fetchMaintenanceProcesses,
+} from "../shared/maintenanceCompanyApi.js";
 
-/**
- * Fetch permissions for a specific company
- */
 export async function fetchCompanyPermissions(companyCode) {
-  if (!companyCode) return [];
-  try {
-    const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get_company_permissions", company_id: companyCode })
-    });
-    const result = await response.json();
-    if (result.success && result.data && Array.isArray(result.data.permissions)) {
-      return result.data.permissions;
-    }
-    // Default fallback if API fails or returns no permissions
-    return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
-  } catch (err) {
-    console.error("Error fetching company permissions:", err);
-    return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
-  }
+  return fetchDomainCompanyPermissions(companyCode);
 }
 
-/**
- * Fetch process list for a specific company
- */
 export async function fetchProcesses(companyId) {
-  const params = new URLSearchParams();
-  if (companyId) {
-    params.append("company_id", companyId);
-  }
-  const url = buildApiUrl(`api/processes/processlist_api.php?${params.toString()}`);
-  
-  const response = await fetch(url);
-  const data = await response.json();
-  if (!data.success) {
-    throw new Error(data.error || 'Failed to load process list');
-  }
-  return data.data || [];
+  return fetchMaintenanceProcesses(companyId);
 }
 
 /**

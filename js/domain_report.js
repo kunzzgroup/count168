@@ -81,7 +81,7 @@ function isBankOnlyCategoryCompany(permissions) {
     return hasBank && !hasGames;
 }
 
-// Company filtering is now handled by SSR includes/company_filter.php
+// Company filtering: React sharedCompanyFilter.js (legacy SSR was api/company/company_filter.php)
 async function switchCompany(companyId, companyCode) {
     // 先更新 session
     try {

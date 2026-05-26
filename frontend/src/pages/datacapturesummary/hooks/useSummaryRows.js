@@ -4,7 +4,7 @@ import {
   buildInitialSummaryRows,
   insertSubRowInModel,
   readSummaryRowsFromDom,
-} from "../summaryRowModel.js";
+} from "../table/summaryRowModel.js";
 
 /**
  * React-owned summary row list. Legacy mutates cell content in place; new sub-rows go through

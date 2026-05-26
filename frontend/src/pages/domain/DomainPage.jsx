@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useState, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/domain.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
@@ -19,17 +19,18 @@ import DomainConfirmModal from "./components/DomainConfirmModal.jsx";
 import DomainFeeModal from "./components/DomainFeeModal.jsx";
 import CompanyExpirationModal from "./components/CompanyExpirationModal.jsx";
 import DomainFormModal from "./components/DomainFormModal.jsx";
-import { getDomainText } from "../../translateFile/domainTranslate.js";
+import { getDomainText } from "../../translateFile/pages/domainTranslate.js";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
 
 export default function DomainPage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
-  const isZh = lang === "zh";
   const t = (key, params) => getDomainText(lang, key, params);
 
-  // ── Session / auth ─────────────────────────────────────────────────────────
-  const [me, setMe] = useState(null);
-  const [ready, setReady] = useState(false);
+  // ── Boot / domain data ───────────────────────────────────────────────────────
+  const [bootDone, setBootDone] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
@@ -80,38 +81,42 @@ export default function DomainPage() {
   const [domainFeePrice, setDomainFeePrice] = useState(0);
   const [feeInlineSummary, setFeeInlineSummary] = useState("");
 
-  // ── Auth + initial data load ───────────────────────────────────────────────
+  // ── Initial data load (session from AuthenticatedLayout) ─────────────────────
   useEffect(() => {
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootDone(false);
     (async () => {
       try {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const json = await res.json();
-        if (!res.ok || !json.success || !json.data) return navigate("/login", { replace: true });
-        const u = json.data;
-        if (!u.has_c168_domain_page_access) { navigate("/dashboard", { replace: true }); return; }
-        setMe(u);
-        setReady(true);
+        if (!me.has_c168_domain_page_access) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
 
-        // Load domain list
         const r2 = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-          method: "POST", credentials: "include",
+          method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "list" }),
         });
         const j2 = await r2.json();
         if (!r2.ok || !j2?.success) {
-          setLoadError(j2?.message || t("failedToLoadDomainData")); return;
+          if (!cancelled) setLoadError(j2?.message || t("failedToLoadDomainData"));
+          return;
         }
-        setDomains(Array.isArray(j2?.data?.domains) ? j2.data.domains : []);
-
-        // Load fee summary
+        if (!cancelled) setDomains(Array.isArray(j2?.data?.domains) ? j2.data.domains : []);
         refreshFeeSummary();
       } catch {
-        setReady(true);
-        setLoadError(t("failedToLoadDomainData"));
+        if (!cancelled) setLoadError(t("failedToLoadDomainData"));
+      } finally {
+        if (!cancelled) setBootDone(true);
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, me, navigate]);
 
   // ── Fee summary ────────────────────────────────────────────────────────────
   function refreshFeeSummary() {
@@ -123,9 +128,14 @@ export default function DomainPage() {
       .then((r) => r.json())
       .then((res) => {
         if (res.success && res.data) {
-          const p2 = formatDomainFeeDisplay2(res.data.price);
-          setFeeInlineSummary(p2 !== "—" ? t("feeSummary", { price: p2 }) : "");
-          setDomainFeePrice(Number(res.data.price) || 0);
+          const g = formatDomainFeeDisplay2(res.data.group_price ?? res.data.price);
+          const c = formatDomainFeeDisplay2(res.data.company_price ?? res.data.price);
+          if (g !== "—" && c !== "—") {
+            setFeeInlineSummary(t("feeInlineSummary", { group: g, company: c }));
+          } else {
+            setFeeInlineSummary("");
+          }
+          setDomainFeePrice(Number(res.data.company_price ?? res.data.price) || 0);
         }
       })
       .catch(() => {});
@@ -247,14 +257,13 @@ export default function DomainPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (!ready) return null;
+  if (!bootDone) return <PageContentLoader />;
 
   const isOwnerOrAdmin = ["owner", "admin"].includes(String(me?.role || "").toLowerCase());
 
   return (
     <>
       <div className="container domain-react-page">
-        <h1>{t("domainList")}</h1>
         {loadError && (
           <div style={{ marginBottom: 10, color: "#b91c1c", fontWeight: 600 }}>{loadError}</div>
         )}
@@ -469,9 +478,14 @@ export default function DomainPage() {
           lang={lang}
           onClose={() => setFeeModal(false)}
           onFeeSaved={(data) => {
-            const p2 = formatDomainFeeDisplay2(data.price);
-            setFeeInlineSummary(p2 !== "—" ? t("feeSummary", { price: p2 }) : "");
-            setDomainFeePrice(Number(data.price) || 0);
+            const g = formatDomainFeeDisplay2(data.group_price ?? data.price);
+            const c = formatDomainFeeDisplay2(data.company_price ?? data.price);
+            if (g !== "—" && c !== "—") {
+              setFeeInlineSummary(t("feeInlineSummary", { group: g, company: c }));
+            } else {
+              setFeeInlineSummary("");
+            }
+            setDomainFeePrice(Number(data.company_price ?? data.price) || 0);
           }}
         />
       )}

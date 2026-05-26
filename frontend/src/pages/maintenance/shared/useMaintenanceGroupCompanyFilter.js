@@ -4,7 +4,7 @@ import {
   filterMaintenanceVisibleCompanies,
   sortedUniqueGroupIds,
   toggleGroupFilterKind,
-} from "../../../utils/sharedCompanyFilter.js";
+} from "../../../utils/company/sharedCompanyFilter.js";
 
 /**
  * Maintenance 各页 Group / Company 筛选（对齐 Process List、Account List 的 groupFilterKind 行为）。

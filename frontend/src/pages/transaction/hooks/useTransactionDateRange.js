@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import "../../../../public/css/date-range-picker.css";
 
 export function useTransactionDateRange({
@@ -27,6 +27,12 @@ export function useTransactionDateRange({
     const t = dateTo || todayDmy;
     if (df.value !== f) df.value = f;
     if (dt.value !== t) dt.value = t;
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.({
+      dateFromId: "date_from",
+      dateToId: "date_to",
+      displayId: "date-range-display",
+    });
   }, [dateFrom, dateTo, todayDmy]);
 
   /** Load shared date-range-picker (same as transaction.php) + init Capture Date popup. */
@@ -61,6 +67,11 @@ export function useTransactionDateRange({
           /* 搜索由 useTransactionSearch 在 dateFrom/dateTo 写入 state 后的 effect 触发，避免 queueMicrotask 读到旧 effectiveDate */
         },
       });
+      window.MaintenanceDateRangePicker.refreshInputsDisplay?.({
+        dateFromId: "date_from",
+        dateToId: "date_to",
+        displayId: "date-range-display",
+      });
       txDateRangePickerReadyRef.current = true;
     })();
 
@@ -68,7 +79,7 @@ export function useTransactionDateRange({
       cancelled = true;
       txDateRangePickerReadyRef.current = false;
     };
-  }, [loading, forbidden, filterSnapshot, setDateFrom, setDateTo, setTxDate, setRateDate, todayDmy]);
+  }, [loading, forbidden, filterSnapshot?.companyId, setDateFrom, setDateTo, setTxDate, setRateDate, todayDmy]);
 
   /** Keep add-form hidden range + label in sync with txDate */
   useEffect(() => {
@@ -85,7 +96,7 @@ export function useTransactionDateRange({
       dateToId: "add_tx_date_to",
       displayId: "add-tx-date-range-display",
     });
-  }, [txDate, todayDmy, loading, forbidden, filterSnapshot]);
+  }, [txDate, todayDmy, loading, forbidden, filterSnapshot?.companyId]);
 
   /** RATE: same UX — MaintenanceDateRangePicker; submit uses range start via existing rateDate */
   useEffect(() => {
@@ -102,5 +113,5 @@ export function useTransactionDateRange({
       dateToId: "rate_tx_date_to",
       displayId: "rate-tx-date-range-display",
     });
-  }, [rateDate, todayDmy, loading, forbidden, filterSnapshot]);
+  }, [rateDate, todayDmy, loading, forbidden, filterSnapshot?.companyId]);
 }

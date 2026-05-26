@@ -1,5 +1,5 @@
 import React from "react";
-import { assetUrl } from "../../../utils/apiUrl.js";
+import { assetUrl } from "../../../utils/core/apiUrl.js";
 
 function upperCell(val) {
   if (val == null || val === "") return "";

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
-import { injectStylesheet } from "../../../utils/injectStylesheet.js";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
+import { injectStylesheet } from "../../../utils/core/injectStylesheet.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
@@ -16,17 +16,20 @@ import "../../../../public/css/bankprocess_maintenance.css";
 import "../../../../public/css/maintenance_notifications.css";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
 import BankprocessMaintenanceTable from "./components/BankprocessMaintenanceTable.jsx";
-import BankprocessDeleteModal from "./components/BankprocessDeleteModal.jsx";
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import {
   deleteBankprocessData,
   fetchCompanyCurrencies,
   fetchCompanyPermissions,
   formatDmy,
+  isBankprocessMaintenanceRowSelectable,
   searchBankprocessData,
+  toggleBankprocessMaintenanceBatchSelection,
   updateSessionCompany,
 } from "./bankprocessMaintenanceLogic.js";
-import { useLoginLang } from "../../../utils/useLoginLang.js";
-import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
+import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 
 /** Dedupe empty-result toast (Strict Mode remount + back-to-back searches with same filters). */
 const bankprocessNoDataToastKeys = new Set();
@@ -44,11 +47,11 @@ function consumeNoDataToastDedupeKey(key) {
 
 export default function BankprocessMaintenancePage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [companyCode, setCompanyCode] = useState("");
@@ -80,11 +83,6 @@ export default function BankprocessMaintenancePage() {
   const initialBankprocessSearchDoneRef = useRef(false);
   const searchSeqRef = useRef(0);
   const searchAbortRef = useRef(null);
-
-  const pageTitle = useMemo(
-    () => t("pageTitleBankProcess", { category: selectedPermission || m.bankProcessCategoryFallback }),
-    [t, selectedPermission, m.bankProcessCategoryFallback]
-  );
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now() + Math.random();
@@ -171,18 +169,18 @@ export default function BankprocessMaintenancePage() {
   }, [bootLoading, me, lang, t, m]);
 
   useEffect(() => {
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
-        const [meRes, compRes] = await Promise.all([
-          fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-        ]);
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const user = meJson.data;
+        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
+
+        const compJson = await compRes.json();
+        const compRows = Array.isArray(compJson?.data) ? compJson.data.filter((c) => c.company_id) : [];
+
+        const user = me;
         if (String(user.user_type || "").toLowerCase() === "member") {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
@@ -195,9 +193,6 @@ export default function BankprocessMaintenancePage() {
           return;
         }
 
-        const compJson = await compRes.json();
-        const compRows = Array.isArray(compJson?.data) ? compJson.data.filter((c) => c.company_id) : [];
-        setMe(user);
         setCompanies(compRows);
 
         let initialCompanyId = user.company_id ? Number(user.company_id) : (compRows[0]?.id ? Number(compRows[0].id) : null);
@@ -248,12 +243,15 @@ export default function BankprocessMaintenancePage() {
           sessionStorage.removeItem("dashboard_group_filter");
         }
       } catch {
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, navigate, me]);
 
   useEffect(() => {
     if (bootLoading || !companyId || !companyCode) return;
@@ -461,26 +459,23 @@ export default function BankprocessMaintenancePage() {
     setSelectedCurrencies([]);
   }, []);
 
-  const selectableRows = useMemo(
-    () => rows.filter((r) => !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true)),
-    [rows]
-  );
+  const selectableRows = useMemo(() => rows.filter((r) => isBankprocessMaintenanceRowSelectable(r)), [rows]);
 
   const selectAll = selectableRows.length > 0 && selectedIds.length === selectableRows.length;
 
   const onToggleSelectAll = useCallback(() => {
     setSelectedIds((prev) => {
-      const selectable = rowsRef.current.filter(
-        (r) => !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true),
-      );
+      const selectable = rowsRef.current.filter((r) => isBankprocessMaintenanceRowSelectable(r));
       if (prev.length === selectable.length && selectable.length > 0) return [];
       return selectable.map((r) => r.transaction_id);
     });
   }, []);
 
-  const onToggleRow = (transactionId) => {
-    setSelectedIds((prev) => (prev.includes(transactionId) ? prev.filter((id) => id !== transactionId) : [...prev, transactionId]));
-  };
+  const onToggleRow = useCallback((transactionId) => {
+    setSelectedIds((prev) =>
+      toggleBankprocessMaintenanceBatchSelection(prev, rowsRef.current, transactionId),
+    );
+  }, []);
 
   const onDelete = async () => {
     if (selectedIds.length === 0) {
@@ -510,7 +505,8 @@ export default function BankprocessMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me) return null;
+  const tableLoading =
+    loading || bootLoading || !currenciesReady || (!hasSearched && Boolean(companyId));
 
   return (
     <div className="bankprocess-maintenance-page-root container">
@@ -544,13 +540,12 @@ export default function BankprocessMaintenancePage() {
         setConfirmDelete={setConfirmDelete}
         selectedIds={selectedIds}
         onDelete={onDelete}
-        pageTitle={pageTitle}
         m={m}
       />
 
       <BankprocessMaintenanceTable
         key={bankprocessDataSourceCompanyId ?? companyId ?? "no-company"}
-        loading={loading}
+        loading={tableLoading}
         rows={rows}
         hasSearched={hasSearched}
         listEpoch={bankprocessListEpoch}
@@ -570,11 +565,12 @@ export default function BankprocessMaintenancePage() {
         ))}
       </div>
 
-      <BankprocessDeleteModal
+      <MaintenanceDeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={onConfirmDelete}
         count={selectedIds.length}
+        messageKey="deleteConfirmBankProcess"
         t={t}
       />
     </div>

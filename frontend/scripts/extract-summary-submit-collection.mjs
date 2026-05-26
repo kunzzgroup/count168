@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, "../..");
 const legacyPath = path.join(root, "js/datacapturesummary.js");
 const outPath = path.join(
   root,
-  "frontend/src/pages/datacapturesummary/summarySubmitRowCollection.js"
+  "frontend/src/pages/datacapturesummary/submit/summarySubmitRowCollection.js"
 );
 
 let s = fs.readFileSync(legacyPath, "utf8");

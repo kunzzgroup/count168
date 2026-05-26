@@ -8,7 +8,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 session_start();
@@ -189,7 +189,7 @@ function validateUserData($data, $isUpdate = false) {
     }
     
     // Validate role
-    $validRoles = ['partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
+    $validRoles = ['owner', 'partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
     if (!in_array($data['role'], $validRoles)) {
         return "Invalid role";
     }

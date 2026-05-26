@@ -1,6 +1,6 @@
 import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
-import { bankProcessFrequencyNormalized } from "../bankProcessHelpers.js";
+import { bankProcessFrequencyNormalized } from "../lib/bankProcessHelpers.js";
 import { BankFormDateField } from "./bankProcessFormFields.jsx";
 
 export default function ResendModal({
@@ -11,6 +11,8 @@ export default function ResendModal({
   setResendFrequency,
   resendInlineError,
   setResendInlineError,
+  resendConfirmDisabled = false,
+  resendLockChecking = false,
   onResend,
   onClose,
   t,
@@ -92,8 +94,15 @@ export default function ResendModal({
           >
             {t("cancel")}
           </button>
-          <button type="button" className="process-btn process-btn-resend confirm-bank-resend-confirm" id="confirmBankResendBtn" onClick={onResend}>
-            {t("resendAction")}
+          <button
+            type="button"
+            className="process-btn process-btn-resend confirm-bank-resend-confirm"
+            id="confirmBankResendBtn"
+            disabled={resendConfirmDisabled || resendLockChecking}
+            title={resendConfirmDisabled ? t("resendLockedPostedToday") : (resendLockChecking ? t("resendLockChecking") : "")}
+            onClick={onResend}
+          >
+            {resendLockChecking ? t("resendLockChecking") : t("resendAction")}
           </button>
         </div>
       </div>

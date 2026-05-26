@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { parseRateExpression, buildClientRequestId, parseBalanceValue, countRateDecimalPlaces } from "../transactionFormat.js";
-import { formatRateAmount } from "../transactionFormat.js";
-import { buildRatePayload, toNumberLike } from "../transactionSubmitHelpers.js";
-import { submitTransaction } from "../transactionApi.js";
-import { transactionQueryKeys } from "../transactionQueryKeys.js";
-import { MoneyDecimal } from "../../../utils/moneyDecimal.js";
-import { resolveGridRowToAccountOption } from "../transactionPaymentLogic.js";
+import {
+  parseRateExpression,
+  buildClientRequestId,
+  parseBalanceValue,
+  countRateDecimalPlaces,
+  formatRateAmount,
+} from "../lib/transactionFormat.js";
+import { buildRatePayload, toNumberLike } from "../lib/transactionSubmitHelpers.js";
+import { submitTransaction, transactionQueryKeys } from "../lib/transactionApi.js";
+import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
+import { resolveGridRowToAccountOption } from "../lib/transactionPaymentLogic.js";
 
 export function useTransactionForm({
   todayDmy,
@@ -341,7 +345,7 @@ export function useTransactionForm({
           } else {
             pushToast(res?.message || m.rateTransactionSubmitted, "success");
           }
-          await refreshContraInboxBadge();
+          await refreshContraInboxBadge(companyId);
           setTxConfirm(false);
           setRateCurrencyFromAmount("");
           setRateExchangeRateRaw("");
@@ -427,7 +431,7 @@ export function useTransactionForm({
         } else {
           pushToast(res?.message || m.transactionSubmitted, "success");
         }
-        await refreshContraInboxBadge();
+        await refreshContraInboxBadge(companyId);
         setTxAmount("");
         setTxConfirm(false);
         await onSearch({ forceRefresh: true });

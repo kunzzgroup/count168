@@ -1,43 +1,35 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
-} from "../../datacapture/dataCaptureCompanyAccess.js";
-import { fetchSummarySessionUser } from "../summaryApi.js";
-import { summaryQueryKeys } from "../summaryQueryKeys.js";
+} from "../../datacapture/lib/dataCaptureCompanyAccess.js";
+import { consumeSummaryFreshNavigation } from "../lib/summaryStorage.js";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { usePartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
 
 /**
- * Session boot for Summary SPA — mirrors Data Capture access rules.
+ * Session boot for Summary SPA — reuses AuthenticatedLayout session (no duplicate API).
  */
 export function useSummaryBoot() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
 
-  const query = useQuery({
-    queryKey: summaryQueryKeys.session(),
-    queryFn: fetchSummarySessionUser,
-    staleTime: 60_000,
-    retry: 1,
-  });
-
-  const me = query.data ?? null;
+  const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
   const companyId =
     me?.company_id != null && Number.isFinite(Number(me.company_id)) ? Number(me.company_id) : null;
 
   useEffect(() => {
-    if (query.isLoading) return;
-    if (query.isError || !me) {
-      navigate("/login", { replace: true });
-    }
-  }, [query.isLoading, query.isError, me, navigate]);
+    if (!sessionReady || !me || companyId == null) return;
 
-  useEffect(() => {
-    if (!me || companyId == null) return;
+    const freshNav =
+      consumeSummaryFreshNavigation() ||
+      window.isNavigatingAwayByBackOrSubmit ||
+      new URLSearchParams(window.location.search).get("success") === "1";
 
-    if (window.isNavigatingAwayByBackOrSubmit) {
+    if (freshNav) {
       window.isNavigatingAwayByBackOrSubmit = false;
-      return;
+      return undefined;
     }
 
     let cancelled = false;
@@ -60,7 +52,7 @@ export function useSummaryBoot() {
     return () => {
       cancelled = true;
     };
-  }, [me, companyId, navigate]);
+  }, [me, companyId, sessionReady, navigate]);
 
   useLayoutEffect(() => {
     window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
@@ -72,7 +64,8 @@ export function useSummaryBoot() {
   return {
     me,
     companyId,
-    bootLoading: query.isLoading,
-    bootError: query.isError,
+    mutationsBlocked,
+    bootLoading: !sessionReady,
+    bootError: sessionReady && !me,
   };
 }

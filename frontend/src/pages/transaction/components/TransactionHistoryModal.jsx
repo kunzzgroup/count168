@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../transactionFormat.js";
+import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../lib/transactionFormat.js";
 
 export default function TransactionHistoryModal({
   history,
@@ -37,8 +37,20 @@ export default function TransactionHistoryModal({
   if (!history.open) return null;
 
   const modal = (
-    <div id="historyModal" className="transaction-modal" style={{ display: "flex" }}>
-      <div className="transaction-modal-content transaction-history-modal">
+    <div
+      id="historyModal"
+      className="transaction-modal"
+      style={{ display: "flex" }}
+      role="presentation"
+      onClick={closeModal}
+    >
+      <div
+        className="transaction-modal-content transaction-history-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal_title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="transaction-modal-header">
           <h3 id="modal_title">{history.title}</h3>
           <button

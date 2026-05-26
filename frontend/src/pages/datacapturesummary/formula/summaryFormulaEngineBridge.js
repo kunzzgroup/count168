@@ -18,7 +18,8 @@ import {
 import {
   registerSummarySubTemplatePopulate,
   unregisterSummarySubTemplatePopulate,
-} from "../summarySubTemplatePopulate.js";
+} from "../table/summarySubTemplatePopulate.js";
+import { removeTrailingSourcePercentExpression } from "../../../shared/formula/index.js";
 
 /** Register React formula utilities for legacy datacapturesummary.js (Strangler). */
 export function registerSummaryFormulaEngineShims() {
@@ -34,6 +35,7 @@ export function registerSummaryFormulaEngineShims() {
 
   window.removeThousandsSeparators = removeThousandsSeparators;
   window.evaluateExpression = evaluateExpression;
+  window.removeTrailingSourcePercentExpression = removeTrailingSourcePercentExpression;
 
   registerSummaryFormulaReferenceEngine();
   registerSummarySaveFormula();

@@ -57,7 +57,7 @@ body.datacapture-page #root {
 body.datacapture-page .container {
     max-width: none;
     margin: 0;
-    padding: 1px clamp(24px, 2.2vw, 36px) 12px var(--layout-main-offset);
+    padding: var(--layout-page-top-gap) clamp(24px, 2.2vw, 36px) 12px var(--layout-main-offset);
     width: 100%;
     height: 100vh;
     height: 100dvh;
@@ -70,8 +70,8 @@ body.datacapture-page .container {
     overflow: hidden;
 }
 
-/* Laptop / short viewport (≤1440w or ≤920h): full-page scroll — table + Submit stay reachable */
-@media (max-width: 1440px), (max-height: 920px) {
+/* Very short viewport only: allow full-page scroll so Submit stays reachable */
+@media (max-height: 640px) {
     html:has(body.datacapture-page) {
         height: auto;
         min-height: 100%;
@@ -102,6 +102,10 @@ body.datacapture-page .container {
         min-height: 100dvh;
         max-height: none;
         overflow: visible;
+    }
+
+    body.datacapture-page .top-section {
+        max-height: none;
     }
 
     body.datacapture-page .bottom-section {
@@ -137,17 +141,6 @@ body.datacapture-page .dc-page-toolbar {
     min-width: 0;
 }
 
-body.datacapture-page h1 {
-    color: var(--color-heading);
-    text-align: left;
-    margin: 0;
-    margin-top: var(--text-page-title-mt) !important;
-    font-size: var(--text-page-title);
-    font-family: var(--font-heading-page);
-    font-weight: var(--font-weight-page-title);
-    letter-spacing: var(--letter-spacing-page-title);
-}
-
 .top-section {
     display: flex;
     gap: clamp(18px, 2.2vw, 32px);
@@ -169,12 +162,17 @@ body.datacapture-page h1 {
     }
 }
 
-/* Equal columns + aligned with Submitted Processes card; extra form density for table area */
+/* Equal columns: form shows all fields; submitted list scrolls inside matched card height */
 body.datacapture-page .top-section {
     display: grid;
     grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
     align-items: stretch;
     column-gap: clamp(18px, 2.2vw, 32px);
+    grid-template-rows: auto;
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    max-height: none;
+    overflow: visible;
 }
 
 body.datacapture-page .top-section .form-column,
@@ -184,18 +182,64 @@ body.datacapture-page .top-section .submitted-column {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    min-height: 0;
 }
 
-body.datacapture-page .top-section .form-column > .form-container,
-body.datacapture-page .top-section .submitted-column > .submitted-container {
+body.datacapture-page .top-section .form-column {
+    min-height: auto;
+}
+
+/* Card height synced to .form-container via --dc-form-band-height (useDataCaptureSubmittedPanelHeight) */
+body.datacapture-page .top-section .submitted-column {
+    min-height: var(--dc-form-band-height, auto);
+    height: var(--dc-form-band-height, auto);
+    max-height: var(--dc-form-band-height, none);
+    align-self: stretch;
+    overflow: hidden;
+}
+
+body.datacapture-page .top-section .form-column > .form-container {
     flex: 1 1 auto;
+    min-height: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+body.datacapture-page .form-container .process-form {
+    overflow-x: hidden;
+    overflow-y: visible;
+    flex: 0 0 auto;
+    min-height: auto;
+}
+
+body.datacapture-page .top-section .submitted-column > .submitted-container {
+    flex: 1 1 0;
+    min-height: 100%;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+body.datacapture-page .submitted-list {
+    flex: 1 1 0;
     min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 @media (max-width: 900px) {
     body.datacapture-page .top-section {
         grid-template-columns: 1fr;
+    }
+
+    body.datacapture-page .top-section .submitted-column {
+        height: auto;
+        max-height: none;
+    }
+
+    body.datacapture-page .submitted-list {
+        max-height: min(42dvh, 400px);
     }
 }
 
@@ -203,7 +247,7 @@ body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-p
     padding: 0 0 6px;
     margin: 0 0 4px;
     border-top: none;
-    row-gap: 8px;
+    row-gap: var(--user-gc-inline-row-gap, 4px);
 }
 
 body.datacapture-page .process-form .dc-form-two-col {
@@ -696,13 +740,19 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
 
 .submitted-list {
     flex: 1 1 auto;
+    overflow-x: hidden;
     overflow-y: auto;
     min-height: 0;
+    max-height: 100%;
     border: 1px solid var(--dc-border, #e2e8f0);
     border-radius: 8px;
     padding: clamp(10px, 0.75vw, 14px);
     background-color: #f8fafc;
     scrollbar-gutter: stable;
+}
+
+body.datacapture-page .dc-react-submitted-list {
+    min-height: 0;
 }
 
 .no-data {
@@ -813,75 +863,10 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
 body.datacapture-page .bottom-section .form-actions {
     flex-shrink: 0;
     margin-top: 0;
-}
-
-.btn-save {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--dc-accent, #2563eb);
-    color: #fff;
-    font-family: inherit;
-    font-weight: 600;
-    width: clamp(88px, 6.25vw, 128px);
-    padding: 10px 22px;
-    font-size: clamp(11px, 0.83vw, 16px);
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    cursor: pointer;
-    transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.btn-save:hover:not(:disabled) {
-    background: var(--dc-accent-hover, #1d4ed8);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-    transform: translateY(-1px);
-}
-
-.btn-save:disabled {
-    background: #cbd5e1;
-    color: #475569;
-    cursor: not-allowed;
-    opacity: 1;
-    transform: none;
-    box-shadow: none;
-}
-
-.btn-save:disabled:hover {
-    background: #cbd5e1;
-    transform: none;
-    box-shadow: none;
-}
-
-.btn-cancel {
-    background: #f1f5f9;
-    color: #334155;
-    font-family: inherit;
-    font-weight: 600;
-    width: clamp(88px, 6.25vw, 128px);
-    padding: 10px 22px;
-    font-size: clamp(11px, 0.83vw, 16px);
-    border: 1px solid var(--dc-border, #e2e8f0);
-    border-radius: 8px;
-    box-shadow: none;
-    cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.btn-cancel:hover {
-    background: #e2e8f0;
-    border-color: #cbd5e1;
-    color: #0f172a;
-}
-
-.btn-cancel:disabled,
-.btn-cancel:disabled:hover {
-    background: #eceff3;
-    color: #94a3b8;
-    border-color: #e2e8f0;
-    cursor: not-allowed;
-    opacity: 0.85;
+    padding-top: 0;
+    border-top: none;
+    justify-content: center !important;
+    width: 100%;
 }
 
 .input-with-icon {
@@ -1357,8 +1342,16 @@ body.datacapture-page .bottom-section .form-actions {
     width: 100%;
     flex: 1 1 auto;
     min-height: 140px;
+    min-height: 0;
     height: auto;
     scrollbar-gutter: stable;
+    position: relative;
+}
+
+body.datacapture-page .excel-table-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 100%;
 }
 
 .text-input-format {
@@ -1377,6 +1370,22 @@ body.datacapture-page .bottom-section .form-actions {
 
 .text-input-format:focus {
     outline: none;
+}
+
+/* 2.Format 未粘贴前：隐藏网格，显示粘贴区（与 count168.com 一致） */
+.excel-table-container.format-paste-mode {
+    display: flex;
+    flex-direction: column;
+}
+
+.excel-table-container.format-paste-mode #dataTable {
+    display: none !important;
+}
+
+.excel-table-container.format-paste-mode #pasteAreaFormat {
+    display: block !important;
+    flex: 1 1 auto;
+    min-height: min(42vh, 360px);
 }
 
 /* 2.Format模式：可粘贴整张表格的区域（contenteditable） */
@@ -1577,8 +1586,10 @@ body.datacapture-page .bottom-section .form-actions {
     color: #0f172a;
 }
 
-.excel-table-header .btn-cancel {
-    margin-left: auto;
+.excel-table-header .dc-table-header-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .data-capture-type-selector {

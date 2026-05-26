@@ -7,11 +7,11 @@ import "../../../../public/css/transaction.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/capture_maintenance.css";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
-import { formatYmd } from "../../../utils/dateUtils.js";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
+import { formatYmd } from "../../../utils/date/dateUtils.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
   fetchCompanyPermissions,
@@ -20,23 +20,25 @@ import {
   deleteCaptureItems,
   updateSessionCompany,
 } from "./captureMaintenanceLogic.js";
-import { useLoginLang } from "../../../utils/useLoginLang.js";
-import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/maintenanceTranslate.js";
+import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
+import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
 import CaptureMaintenanceTable from "./components/CaptureMaintenanceTable.jsx";
-import ConfirmDeleteModal from "./components/ConfirmDeleteModal.jsx";
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
 
 export default function CaptureMaintenancePage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
   // -- Boot State ---
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [permissions, setPermissions] = useState([]);
 
@@ -96,6 +98,8 @@ export default function CaptureMaintenancePage() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 2000);
   }, []);
+
+  const { guardWrite } = usePartnershipAuditWriteGuard(me, notify);
 
   // -- Initialization --
   useEffect(() => {
@@ -173,54 +177,45 @@ export default function CaptureMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
+    if (!sessionReady || !me) return;
+    let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
-        
-        // Member check
-        if (String(u.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
-          return;
-        }
+        const u = me;
 
         // Permissions check
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
         const hasFull = perms.length === 0;
         const canMaintenance = hasFull || perms.includes("maintenance");
-        
+
         // Sidebar visibility check
         if (!canMaintenance) {
           navigate("/dashboard", { replace: true });
           return;
         }
-        setMe(u);
 
         // Load Companies
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
+        if (cancelled) return;
         const rows = Array.isArray(compJson?.data) ? compJson.data : [];
         setCompanies(rows);
 
         // Set Initial Company
         let initialCompanyId = u.company_id ? Number(u.company_id) : (rows[0]?.id ? Number(rows[0].id) : null);
         setCompanyId(initialCompanyId);
-        
+
         const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
-          
+
           // Fetch initial metadata here to ensure the first query starts with the correct activePermission
           const [procList, companyPerms] = await Promise.all([
             fetchProcesses(initialCompanyId),
             fetchCompanyPermissions(code)
           ]);
+          if (cancelled) return;
 
           const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
           const bankOnly = companyPerms.includes("Bank") && !hasGames;
@@ -239,29 +234,32 @@ export default function CaptureMaintenancePage() {
           const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
           const initialActive = savedPerm && companyPerms.includes(savedPerm) ? savedPerm : (companyPerms.length > 0 ? companyPerms[0] : "");
           setActivePermission(initialActive);
-          
+
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
           const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-          
+
           let selGroup = null;
           if (savedGroup && groups.includes(savedGroup) && currentComp.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
             selGroup = savedGroup;
           } else if (currentComp.group_id?.trim()) {
             selGroup = String(currentComp.group_id).toUpperCase().trim();
           }
-          
+
           setSelectedGroup(selGroup);
           if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
         }
 
       } catch (err) {
         console.error("Boot error:", err);
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, me, navigate]);
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
@@ -476,6 +474,7 @@ export default function CaptureMaintenancePage() {
   const selectAll = selectedIds.length > 0 && selectedIds.length === selectableRowsCount;
 
   const handleDeleteClick = () => {
+    if (guardWrite()) return;
     if (selectedIds.length === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -484,6 +483,7 @@ export default function CaptureMaintenancePage() {
   };
 
   const confirmDeleteAction = async () => {
+    if (guardWrite()) return;
     setShowDeleteModal(false);
     try {
       const itemsToDelete = captureData
@@ -509,13 +509,12 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me || !cssReady) return null;
+  const tableLoading = loading || bootLoading || !cssReady;
 
   return (
     <div className="container">
+      {permissions.length > 1 ? (
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">{m.pageTitleDataCapture}</h1>
-        {permissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
             <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
@@ -531,8 +530,8 @@ export default function CaptureMaintenancePage() {
               ))}
             </div>
           </div>
-        )}
       </div>
+      ) : null}
 
       {/* Scope table CSS: other maintenance pages share .maintenance-* and win in bundle order */}
       <div className="capture-maintenance-page-root">
@@ -571,7 +570,7 @@ export default function CaptureMaintenancePage() {
             data={captureData}
             listEpoch={captureListEpoch}
             rowKeyCompanyId={captureDataSourceCompanyId ?? companyId}
-            loading={loading}
+            loading={tableLoading}
             listSyncing={listSyncing}
             selectedIds={selectedIds}
             toggleSelect={toggleSelect}
@@ -591,7 +590,7 @@ export default function CaptureMaintenancePage() {
         ))}
       </div>
       {/* Confirm Modal */}
-      <ConfirmDeleteModal
+      <MaintenanceDeleteConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDeleteAction}

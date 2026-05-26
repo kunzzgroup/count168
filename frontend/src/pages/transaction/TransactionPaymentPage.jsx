@@ -5,7 +5,7 @@ import TransactionHeader from "./components/TransactionHeader.jsx";
 import TransactionHistoryModal from "./components/TransactionHistoryModal.jsx";
 import TransactionSearchSection from "./components/TransactionSearchSection.jsx";
 import TransactionTablesSection from "./components/TransactionTablesSection.jsx";
-import { formatDmy, formatHistoryMoney } from "./transactionFormat.js";
+import { formatDmy, formatHistoryMoney } from "./lib/transactionFormat.js";
 import { useTransactionData } from "./hooks/useTransactionData.js";
 import { useTransactionUI } from "./hooks/useTransactionUI.js";
 import { useTransactionSearch } from "./hooks/useTransactionSearch.js";
@@ -13,14 +13,15 @@ import { useTransactionForm } from "./hooks/useTransactionForm.js";
 import { useTransactionSync } from "./hooks/useTransactionSync.js";
 import { useTransactionDateRange } from "./hooks/useTransactionDateRange.js";
 import { useTransactionInitialization } from "./hooks/useTransactionInitialization.js";
-import { installTransactionExcelCopy } from "./transactionExcelCopy.js";
-import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./transactionPaymentPageUtils.js";
-import { getRoleClass } from "./transactionPaymentLogic.js";
+import { installTransactionExcelCopy } from "./lib/transactionExcelCopy.js";
+import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./lib/transactionPaymentPageUtils.js";
+import { getRoleClass } from "./lib/transactionPaymentLogic.js";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
-import { useLoginLang } from "../../utils/useLoginLang.js";
-import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/transactionTranslate.js";
+import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
+import PageContentLoader from "../../components/PageContentLoader.jsx";
+import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 
 /** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
 const ROUTE_BODY_CLASSES_TO_CLEAR = [
@@ -136,23 +137,22 @@ export default function TransactionPaymentPage() {
     refreshContraInboxBadge: ui.refreshContraInboxBadge,
   });
 
-  useLayoutEffect(() => {
-    document.body.classList.remove(...ROUTE_BODY_CLASSES_TO_CLEAR);
+  const applyTransactionBodyClasses = useCallback(() => {
+    document.body.classList.remove(...ROUTE_BODY_CLASSES_TO_CLEAR, "bg");
     document.body.classList.add("dashboard-page", "transaction-page");
+  }, []);
+
+  useLayoutEffect(() => {
+    applyTransactionBodyClasses();
     return () => {
       document.body.classList.remove("transaction-page", "page-ready");
     };
-  }, []);
+  }, [applyTransactionBodyClasses]);
 
-  /** Re-apply after stale passive cleanups (e.g. Home dashboard useEffect unmount) that run after our layout effect. */
+  /** Re-apply after company switch or stale passive cleanups (e.g. Home dashboard unmount re-adds `bg`). */
   useEffect(() => {
-    document.body.classList.add("transaction-page");
-  }, []);
-
-  /** Runs after previous route's `useEffect` cleanup (User/Account used to re-add `bg`). `body.bg::before` blocks clicks site-wide. */
-  useEffect(() => {
-    document.body.classList.remove("bg");
-  }, []);
+    applyTransactionBodyClasses();
+  }, [applyTransactionBodyClasses, filterSnapshot?.companyId]);
 
   useEffect(() => {
     return installTransactionExcelCopy();
@@ -198,11 +198,37 @@ export default function TransactionPaymentPage() {
     search.runSearch({ silent: false });
   }, [search.runSearch]);
 
+  const toggleContraInbox = useCallback(() => {
+    ui.setContraInbox((s) => ({ ...s, open: !s.open }));
+  }, [ui.setContraInbox]);
+
+  const closeContraInbox = useCallback(() => {
+    ui.setContraInbox((s) => ({ ...s, open: false }));
+  }, [ui.setContraInbox]);
+
+  const refreshContraInbox = useCallback(() => {
+    void ui.refreshContraInboxBadge(filterSnapshot?.companyId);
+  }, [ui.refreshContraInboxBadge, filterSnapshot?.companyId]);
+
+  const onApproveContra = useCallback(
+    (opts) => ui.onApproveContra(opts.transactionId, opts.companyId, search.runSearch),
+    [ui.onApproveContra, search.runSearch],
+  );
+
+  const onRejectContra = useCallback(
+    (opts) => ui.onRejectContra(opts.transactionId, opts.companyId),
+    [ui.onRejectContra],
+  );
+
   if (forbidden) {
     return <Navigate to="/dashboard" replace />;
   }
   if (loading || !filterSnapshot) {
-    return null;
+    return (
+      <div className="transaction-container transaction-container--boot">
+        <PageContentLoader label={m.loadingData || m.loading || "Loading…"} />
+      </div>
+    );
   }
 
   return (
@@ -210,11 +236,13 @@ export default function TransactionPaymentPage() {
       <TransactionHeader
         canApproveContra={canApproveContra}
         contraInbox={ui.contraInbox}
-        toggleContraInbox={() => ui.setContraInbox((s) => ({ ...s, open: !s.open }))}
-        refreshContraInbox={() => ui.refreshContraInboxBadge(filterSnapshot?.companyId)}
-        approveContra={(opts) => ui.onApproveContra(opts.transactionId, opts.companyId, search.runSearch)}
-        rejectContra={(opts) => ui.onRejectContra(opts.transactionId, opts.companyId)}
+        toggleContraInbox={toggleContraInbox}
+        closeContraInbox={closeContraInbox}
+        refreshContraInbox={refreshContraInbox}
+        approveContra={onApproveContra}
+        rejectContra={onRejectContra}
         fsCompanyId={filterSnapshot?.companyId}
+        mutationsBlocked={Boolean(filterSnapshot?.mutationsBlocked)}
         m={m}
         t={t}
       />
@@ -237,9 +265,6 @@ export default function TransactionPaymentPage() {
         ) : null}
         <div className="transaction-main-content">
           <TransactionSearchSection
-            dateFrom={search.dateFrom}
-            dateTo={search.dateTo}
-            effectiveDateRangeText={search.effectiveDateRangeText}
             categoryOpen={search.categoryOpen}
             toggleCategory={search.toggleCategory}
             categories={data.categories}

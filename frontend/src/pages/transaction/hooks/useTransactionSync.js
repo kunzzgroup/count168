@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { TX_LIST_INVALIDATE_LS_KEY, TX_DATA_CHANGED_EVENT, buildTxListSessionKey } from "../transactionPaymentLogic.js";
+import { TX_LIST_INVALIDATE_LS_KEY, TX_DATA_CHANGED_EVENT, buildTxListSessionKey } from "../lib/transactionPaymentLogic.js";
+import { clearTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
 
 export function useTransactionSync({
   filterSnapshot,
@@ -39,6 +40,7 @@ export function useTransactionSync({
         return;
       }
       setHistory((h) => (h.open ? { ...h, open: false } : h));
+      clearTxSearchCache();
       try {
         const key = buildTxListSessionKey({
           companyId: filterSnapshot?.companyId,

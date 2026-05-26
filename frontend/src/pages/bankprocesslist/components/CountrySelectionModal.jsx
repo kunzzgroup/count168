@@ -1,6 +1,6 @@
 import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
-import { sanitizeCapitalLettersOnly } from "../../../utils/sanitizeCapitalLettersOnly.js";
+import { sanitizeCapitalLettersOnly } from "../../../utils/input/sanitizeCapitalLettersOnly.js";
 
 function TrashRemoveIcon() {
   return (

@@ -1,10 +1,12 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLoginLang } from "../../../utils/useLoginLang.js";
-import { getMaintenanceText, MAINTENANCE_I18N, getFormulaInputMethodOptions } from "../../../translateFile/maintenanceTranslate.js";
+import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N, getFormulaInputMethodOptions } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
+import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
+import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
@@ -31,10 +33,12 @@ import {
 // Components
 import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.jsx";
 import FormulaMaintenanceTable from "./components/FormulaMaintenanceTable.jsx";
-import ConfirmDeleteModal from "../capture/components/ConfirmDeleteModal.jsx";
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function FormulaMaintenancePage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
@@ -42,7 +46,6 @@ export default function FormulaMaintenancePage() {
 
   // -- Boot State --
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [permissions, setPermissions] = useState([]);
 
@@ -98,6 +101,8 @@ export default function FormulaMaintenancePage() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 2000);
   }, []);
+
+  const { guardWrite, mutationsBlocked } = usePartnershipAuditWriteGuard(me, notify);
 
   // -- Initialization --
   useEffect(() => {
@@ -258,29 +263,23 @@ export default function FormulaMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
-        
+        const u = me;
+
         if (String(u.user_type || "").toLowerCase() === "member") {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
         }
 
-        const perms = Array.isArray(u.permissions) ? u.permissions : [];
-        const hasFull = perms.length === 0;
-        const canMaintenance = hasFull || perms.includes("maintenance");
-        if (!canMaintenance) {
+        if (!canAccessTransactionFormulaMaintenance(u)) {
           navigate("/dashboard", { replace: true });
           return;
         }
-        setMe(u);
 
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
@@ -338,12 +337,15 @@ export default function FormulaMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, navigate, me]);
 
   // -- Load Meta Data --
   useEffect(() => {
@@ -607,6 +609,7 @@ export default function FormulaMaintenancePage() {
   }, [selectAllChecked, selectAllIndeterminate]);
 
   const handleDeleteClick = () => {
+    if (guardWrite()) return;
     if (selectedCount === 0) {
       notify(t("pleaseSelectOneRecord"), "error");
       return;
@@ -615,6 +618,7 @@ export default function FormulaMaintenancePage() {
   };
 
   const handleConfirmDelete = async () => {
+    if (guardWrite()) return;
     setIsDeleteModalOpen(false);
     const idsToDelete = resolveSelectedIds();
     try {
@@ -627,11 +631,17 @@ export default function FormulaMaintenancePage() {
   };
 
   const handleSaveRow = async (id, editForm) => {
+    if (guardWrite()) return;
     try {
       const payload = {
         template_id: id,
         company_id: companyId,
-        ...editForm,
+        account_id: editForm.account_id,
+        source_columns: editForm.source_ref ?? "",
+        source_percent: editForm.source_percent ?? "",
+        input_method: editForm.input_method ?? "",
+        formula: editForm.formula ?? "",
+        description: editForm.description ?? "",
       };
       const serverData = await updateFormulaTemplate(payload);
       notify(t("updateSuccessful"), "success");
@@ -654,13 +664,12 @@ export default function FormulaMaintenancePage() {
     setScrollRestoreRowId(null);
   }, []);
 
-  if (bootLoading || !me) return null;
+  const tableLoading = loading || bootLoading;
 
   return (
     <div className="formula-maintenance-page-root container">
+      {permissions.length > 1 ? (
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">{m.pageTitleFormula}</h1>
-        {permissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
             <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
@@ -676,8 +685,8 @@ export default function FormulaMaintenancePage() {
               ))}
             </div>
           </div>
-        )}
       </div>
+      ) : null}
 
       <FormulaMaintenanceFilters 
         processes={processes}
@@ -709,7 +718,7 @@ export default function FormulaMaintenancePage() {
         )}
       <FormulaMaintenanceTable
         data={formulaData}
-        loading={loading}
+        loading={tableLoading}
         listSyncing={listSyncing}
         listHydrating={listHydrating}
         totalRowCount={totalRowCount}
@@ -730,7 +739,7 @@ export default function FormulaMaintenancePage() {
       </div>
 
       {/* Modal & Notifications */}
-      <ConfirmDeleteModal
+      <MaintenanceDeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}

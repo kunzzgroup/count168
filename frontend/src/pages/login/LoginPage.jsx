@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LOGIN_I18N } from "../../translateFile/loginTranslate.js";
+import { LOGIN_I18N } from "../../translateFile/auth/authTranslate.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 
 function escapeHtml(text) {
@@ -133,11 +133,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const res = await fetch("/api/session/current_user_api.php", {
           credentials: "include",
           cache: "no-store",
+          signal: controller.signal,
         });
         const json = await res.json();
         if (cancelled || !res.ok || !json?.success || !json?.data) return;
@@ -157,12 +159,14 @@ export default function LoginPage() {
           return;
         }
         navigate("/dashboard", { replace: true });
-      } catch {
+      } catch (err) {
+        if (err?.name === "AbortError") return;
         // stay on login page when not authenticated
       }
     })();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [navigate]);
 

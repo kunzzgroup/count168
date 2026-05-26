@@ -12,7 +12,7 @@ if (PHP_VERSION_ID >= 70300) {
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
 // Helper function to convert PHP ini size values to bytes

@@ -26,7 +26,7 @@ header('Content-Type: application/json');
 // 开启输出缓冲，防止意外输出（必须在 header 之后）
 ob_start();
 
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 
 // 检查 $pdo 是否已定义
 if (!isset($pdo) || !$pdo) {

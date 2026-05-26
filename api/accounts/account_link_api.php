@@ -2,8 +2,8 @@
 /**
  * 账户关联 API：获取/建立/解除账户关联及连接类型
  */
-require_once __DIR__ . '/../../session_check.php';
-require_once __DIR__ . '/../../includes/deleted_log.php';
+require_once __DIR__ . '/../../includes/session_check.php';
+require_once __DIR__ . '/../deleted_log/deleted_log.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 header('Content-Type: application/json');
 

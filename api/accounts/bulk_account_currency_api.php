@@ -8,8 +8,8 @@
 session_start();
 session_write_close(); // 释放 session 锁
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/deleted_log.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../deleted_log/deleted_log.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
@@ -141,20 +141,32 @@ try {
         $hasLegacyCurrencyId = (bool)getAccountCurrencyIdColumn($pdo);
         $legacyCondition = $hasLegacyCurrencyId ? " OR a.currency_id = ?" : "";
         $stmt = $pdo->prepare("
-            SELECT DISTINCT a.id 
+            SELECT DISTINCT a.id, a.name, a.account_id
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             LEFT JOIN account_currency accurr ON a.id = accurr.account_id AND accurr.currency_id = ?
             WHERE ac.company_id = ? AND (accurr.currency_id IS NOT NULL{$legacyCondition})
+            ORDER BY a.name ASC, a.account_id ASC
         ");
         $params = [$currency_id, $company_id];
         if ($hasLegacyCurrencyId) {
             $params[] = $currency_id;
         }
         $stmt->execute($params);
-        $linked_account_ids = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id');
+        $linkedRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $linked_account_ids = array_map('intval', array_column($linkedRows, 'id'));
+        $linked_accounts = array_map(function ($row) {
+            return [
+                'id' => (int)($row['id'] ?? 0),
+                'name' => (string)($row['name'] ?? ''),
+                'account_id' => (string)($row['account_id'] ?? ''),
+            ];
+        }, $linkedRows);
         
-        jsonResponse(true, '成功获取关联账户', ['linked_account_ids' => $linked_account_ids]);
+        jsonResponse(true, '成功获取关联账户', [
+            'linked_account_ids' => $linked_account_ids,
+            'linked_accounts' => $linked_accounts,
+        ]);
         exit;
     }
     

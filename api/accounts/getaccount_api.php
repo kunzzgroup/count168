@@ -4,7 +4,7 @@ header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
     $current_user_id = $_SESSION['user_id'] ?? null;

@@ -62,10 +62,44 @@ export function canInteractWithReadOnlyToggle(currentUserRole, targetUserRole) {
   return false;
 }
 
-/** Edit User：Read Only 开启时整表只读（新建用户不受此锁，避免默认 read_only 卡住表单） */
-export function isUserModalPageReadOnlyLock(isEditMode, editingRow, role, readOnly) {
+/**
+ * Edit User：Partnership/Audit 用户在被设为 Read Only 时，仅「本人编辑自己」锁定整表。
+ * Owner / Manager 等上级编辑下级只读账号时仍可修改（含关闭 Read Only）。
+ */
+export function isUserModalPageReadOnlyLock(isEditMode, editingRow, role, readOnly, currentUserId) {
   if (!isEditMode || editingRow?.is_owner_shadow) return false;
-  return roleHasReadOnlyToggle(role) && !!readOnly;
+  if (!roleHasReadOnlyToggle(role) || !readOnly) return false;
+  if (!currentUserId || editingRow?.id == null) return false;
+  return Number(editingRow.id) === Number(currentUserId);
+}
+
+/** Owner 登录后编辑列表中的 Owner 影子行（本人公司 Owner 资料） */
+export function isOwnerEditingOwnerShadow(row, currentUserRole) {
+  return !!row?.is_owner_shadow && normRole(currentUserRole) === "owner";
+}
+
+/**
+ * 编辑弹窗字段锁。Owner 影子行仅允许改姓名、邮箱、密码（权限/账户/流程由 UI 单独禁用）。
+ */
+export function getUserEditFieldLocks(row, currentUserId, currentUserRole) {
+  if (isOwnerEditingOwnerShadow(row, currentUserRole)) {
+    return { name: false, email: false, role: true, password: false, sidebar: true, company: true };
+  }
+  const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
+  const curLevel = ROLE_HIERARCHY[normRole(currentUserRole)] ?? 999;
+  const editLevel = ROLE_HIERARCHY[normRole(row.role)] ?? 999;
+  const isSelf = caps.isSelf;
+  const isSame = !isSelf && curLevel === editLevel;
+  const isLower = !isSelf && curLevel > editLevel;
+  const canPickCompany = currentUserRole === "admin" || currentUserRole === "owner";
+  return {
+    name: isSame || isLower,
+    email: isSame || isLower,
+    role: isSame || isLower,
+    password: false,
+    sidebar: isSelf || isSame || isLower,
+    company: isSelf || isSame || isLower || !canPickCompany,
+  };
 }
 
 export function getCurrentUserRolePermissions(currentUserRole) {

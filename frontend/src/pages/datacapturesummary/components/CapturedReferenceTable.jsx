@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { bindCapturedCellClick } from "../summaryTablePostPopulate.js";
+import { bindCapturedCellClick } from "../table/summaryTablePostPopulate.js";
 
 /**
  * Hidden reference table — used when building formulas (cell click → insert into formula).

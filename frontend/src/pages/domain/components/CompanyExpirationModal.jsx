@@ -1,5 +1,5 @@
 import { calculateCountdown, formatDate } from "../domainHelpers.js";
-import { getDomainText } from "../../../translateFile/domainTranslate.js";
+import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 
 /** Inline z-index — production Tailwind may omit arbitrary z-[…], hiding the overlay under the sidebar */

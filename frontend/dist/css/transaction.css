@@ -3,38 +3,46 @@
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    background-color: #e9f1ff;
-    background-image:
+    background-color: var(--color-page-bg, #e9f1ff);
+    background-image: var(--app-shell-bg-image,
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
         radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
         radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
         radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
-        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
+        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%));
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
     overflow-y: auto;
 }
 
+/* Short result sets leave a tall empty canvas — paint the workspace shell too (not only body). */
+body.transaction-page .transaction-container {
+    background-color: var(--color-page-bg, #e9f1ff);
+    background-image: var(--app-shell-bg-image,
+        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
+        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%));
+    background-blend-mode: screen, screen, multiply, screen, normal;
+}
+
+/* global-13inch.css uses cover+fixed on ec-auth-shell; that washes the lower viewport to near-white on sparse pages. */
+@media screen and (max-width: 1440px) {
+    body.transaction-page.ec-auth-shell {
+        background-attachment: scroll !important;
+        background-size: auto !important;
+    }
+}
 
 .transaction-page .transaction-container {
     max-width: none;
     margin: 0;
-    padding: 1px clamp(20px, 2.08vw, 40px) 20px var(--layout-main-offset);
+    padding: var(--layout-page-top-gap) clamp(20px, 2.08vw, 40px) 20px var(--layout-main-offset);
     width: 100%;
     min-height: 100vh;
     box-sizing: border-box;
-}
-
-.transaction-page .transaction-title {
-    color: var(--color-heading);
-    text-align: left;
-    margin: 0;
-    margin-top: var(--text-page-title-mt) !important;
-    font-size: var(--text-page-title);
-    font-family: var(--font-heading-page);
-    font-weight: var(--font-weight-page-title);
-    letter-spacing: var(--letter-spacing-page-title);
 }
 
 .transaction-page .transaction-main {
@@ -272,7 +280,8 @@ body.transaction-page .transaction-add-section .tx-add-winlose-heading {
 body.transaction-page .transaction-bottom-filters .user-gc-inline-panel {
     display: grid;
     grid-template-columns: auto 1fr;
-    column-gap: 14px;
+    column-gap: var(--user-gc-inline-column-gap, 4px);
+    row-gap: var(--user-gc-inline-row-gap, 4px);
     align-items: center;
     border-top: none;
     padding: 0 0 4px;
@@ -301,7 +310,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-pills {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     flex: 1 1 0;
     min-width: 0;
 }
@@ -309,7 +318,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-pills {
 body.transaction-page .transaction-bottom-filters .user-gc-inline-pills--segment-scroll {
     flex-wrap: nowrap;
     overflow-x: auto;
-    gap: 0;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     padding-top: 2px;
     padding-bottom: 6px;
     scrollbar-gutter: stable;
@@ -333,7 +342,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment {
     flex: 0 0 auto;
     flex-shrink: 0;
     margin: 0;
-    padding: 8px clamp(10px, 1.2vw, 18px);
+    padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
     border: none;
     border-right: 1px solid var(--color-border, #e5e7eb);
     background: var(--color-surface, #ffffff);
@@ -1394,7 +1403,8 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     margin-bottom: 0;
 }
 
-.transaction-page .transaction-tables-loading {
+.transaction-page .transaction-tables-loading,
+.transaction-page .transaction-tables-refreshing {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1402,6 +1412,11 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     width: 100%;
     color: #6b7280;
     font-size: clamp(9px, 0.73vw, 14px);
+}
+
+.transaction-page .transaction-tables-refreshing {
+    min-height: 36px;
+    margin-bottom: 8px;
 }
 
 .transaction-page .transaction-tables-loading::before {
@@ -1798,7 +1813,7 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     background-color: #f8fafc;
 }
 
-/* Payment History：挂 body portal + 随当前视口居中；内容少时收缩，行多时表体内滚动 */
+/* Payment History：对齐 legacy transaction.php — 约 88% 宽 × 80% 高，表体区域填满剩余空间 */
 #historyModal.transaction-modal {
     position: fixed;
     inset: 0;
@@ -1806,23 +1821,43 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     display: flex;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
-    align-items: safe center;
+    align-items: center;
     justify-content: center;
+    padding: clamp(8px, 2vh, 24px) clamp(8px, 1.5vw, 20px);
+    box-sizing: border-box;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
 }
 
-/* 必须高于 member.css 的 `.transaction-page .transaction-modal-content`（同特异性时 member 后加载会盖住宽度） */
+body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
 body.transaction-page .transaction-modal-content.transaction-history-modal,
+.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
 .transaction-page .transaction-modal-content.transaction-history-modal {
-    width: min(75vw, 1420px);
+    width: min(1600px, max(88vw, min(1050px, 100%)));
     max-width: calc(100% - 24px);
-    max-height: min(92vh, calc(100dvh - 24px));
-    height: auto;
-    min-height: 0;
-    margin: 0;
+    height: min(80vh, calc(100dvh - 40px));
+    min-height: min(480px, calc(100dvh - 40px));
+    max-height: min(80vh, calc(100dvh - 40px));
+    margin: auto;
     align-self: center;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
     animation: none;
-    border-radius: 10px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+body.transaction-page #historyModal .transaction-history-modal .transaction-modal-body,
+#historyModal .transaction-history-modal .transaction-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(10px, 1.04vw, 20px) clamp(16px, 2vw, 32px);
 }
 
 .transaction-history-modal .transaction-modal-header {
@@ -1838,75 +1873,81 @@ body.transaction-page .transaction-modal-content.transaction-history-modal,
     font-size: clamp(14px, 1.05vw, 19px);
 }
 
-.transaction-history-modal .transaction-modal-body {
-    flex: 0 1 auto;
+#historyModal .transaction-history-modal .transaction-history-table-frame {
+    flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    /* 列表左右贴齐弹窗内缘（与标题栏宽度对齐由 table-frame 铺满实现） */
-    padding: clamp(6px, 0.75vw, 12px) 0 clamp(12px, 1.05vw, 18px);
-}
-
-.transaction-history-modal .transaction-history-table-frame {
-    flex: 0 1 auto;
-    min-height: 0;
-    max-height: min(68vh, calc(100dvh - 160px));
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     border: 1px solid #cbd5e1;
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
+    border-radius: 10px;
+    background: #ffffff;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
-/* 平板 / 矮屏：宽度与高度跟当前视口，避免仍按 desktop 固定尺寸偏到屏幕外 */
+/* 平板：宽高跟随视口 */
 @media (max-width: 1280px) {
-    body.transaction-page .transaction-modal-content.transaction-history-modal,
-    .transaction-page .transaction-modal-content.transaction-history-modal {
-        width: min(94vw, 1420px);
+    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
+    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal {
+        width: calc(100% - 20px);
         max-width: calc(100% - 20px);
-        max-height: min(90vh, calc(100dvh - 20px));
+        height: min(82vh, calc(100dvh - 24px));
+        min-height: min(400px, calc(100dvh - 24px));
+        max-height: min(82vh, calc(100dvh - 24px));
     }
 
-    .transaction-history-modal .transaction-history-table-frame {
-        max-height: min(62vh, calc(100dvh - 150px));
+    #historyModal .transaction-history-modal .transaction-modal-body {
+        padding: clamp(8px, 1.2vw, 14px) clamp(10px, 1.5vw, 16px);
+    }
+
+    #historyModal .transaction-history-modal .transaction-modal-body .transaction-table {
+        min-width: 960px;
     }
 }
 
 @media (max-height: 800px) {
-    body.transaction-page .transaction-modal-content.transaction-history-modal,
-    .transaction-page .transaction-modal-content.transaction-history-modal {
+    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
+    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal {
+        height: calc(100dvh - 16px);
+        min-height: 0;
         max-height: calc(100dvh - 16px);
-    }
-
-    .transaction-history-modal .transaction-history-table-frame {
-        max-height: calc(100dvh - 140px);
     }
 }
 
 @media (max-width: 768px) {
     #historyModal.transaction-modal {
         padding: 8px;
-        align-items: flex-start;
+        align-items: stretch;
     }
 
-    body.transaction-page .transaction-modal-content.transaction-history-modal,
-    .transaction-page .transaction-modal-content.transaction-history-modal {
+    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
+    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal {
         width: 100%;
         max-width: 100%;
+        height: calc(100dvh - 16px);
+        min-height: 0;
         max-height: calc(100dvh - 16px);
-        border-radius: 8px;
+        border-radius: 10px;
     }
 
-    .transaction-history-modal .transaction-modal-header {
+    #historyModal .transaction-history-modal .transaction-modal-header {
         padding: 10px 12px;
     }
 
-    .transaction-history-modal .transaction-history-table-frame {
-        max-height: calc(100dvh - 120px);
+    #historyModal .transaction-history-modal .transaction-modal-body {
+        padding: 8px 10px 10px;
+    }
+
+    #historyModal .transaction-history-modal .transaction-modal-body .transaction-table {
+        min-width: 860px;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1180px) {
+    body.transaction-page #historyModal .transaction-modal-content.transaction-history-modal,
+    .transaction-page #historyModal .transaction-modal-content.transaction-history-modal {
+        width: calc(100% - 16px);
+        max-width: calc(100% - 16px);
     }
 }
 
@@ -2081,13 +2122,16 @@ body.transaction-page .transaction-modal-content.transaction-history-modal,
     filter: brightness(0.97);
 }
 
-.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row td {
-    background-color: #ffffff !important;
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row td,
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-bf-row td {
+    background-color: #f0f0f0 !important;
+    font-weight: 700 !important;
 }
 
-.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover td {
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover td,
+.transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-bf-row:hover td {
     filter: none;
-    background-color: #ffffff !important;
+    background-color: #f0f0f0 !important;
 }
 
 .transaction-history-modal .transaction-modal-body .transaction-table tbody .transaction-history-bf-row:hover {
@@ -2239,144 +2283,530 @@ body.transaction-page .transaction-container * {
     gap: 12px;
 }
 
-.transaction-header-left {
+/* Title + Contra Inbox share one row; top spacing lives on the row, not the h1. */
+body.ec-auth-shell.transaction-page .transaction-header-left,
+body.transaction-page .transaction-header-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: clamp(12px, 1.04vw, 20px);
     min-width: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    margin-top: var(--text-page-title-mt) !important;
 }
 
 .contra-inbox-wrap {
     position: relative;
+    flex-shrink: 0;
+    align-self: center;
 }
 
 .contra-inbox-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 24px;
+    min-width: 20px;
     height: 20px;
-    padding: 0 8px;
+    padding: 0 6px;
     border-radius: 999px;
-    background: #ef4444;
+    background: #ff3b30;
     color: #fff;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: 11px;
     font-weight: 800;
+    line-height: 1;
 }
 
 .contra-inbox-btn {
-    padding: 6px 10px;
-    border: 1px solid #d0d7de;
-    border-radius: 10px;
-    background: #f8fafc;
+    border: none;
+    background: transparent;
     cursor: pointer;
-    font-size: clamp(9px, 0.73vw, 14px);
-    font-weight: 700;
-    color: #111827;
+    font-family: inherit;
     transition: all 0.15s ease;
 }
 
-.contra-inbox-btn:hover {
-    background: #eef2ff;
-    border-color: #a5b4fc;
+.contra-inbox-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .contra-inbox-btn.contra-inbox-main {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
-    border-radius: 12px;
+    padding: 8px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
     background: #ffffff;
+    font-size: clamp(11px, 0.83vw, 15px);
     font-weight: 800;
-    color: #0f172a;
+    color: #000033;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.contra-inbox-btn.contra-inbox-main:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.contra-inbox-wrap--open .contra-inbox-btn.contra-inbox-main {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.contra-inbox-main-label {
+    white-space: nowrap;
 }
 
 .contra-inbox-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: #000033;
+}
+
+.contra-inbox-chevron {
     width: 16px;
     height: 16px;
-    display: inline-block;
+    flex-shrink: 0;
+    color: #64748b;
+    transition: transform 0.2s ease;
+}
+
+.contra-inbox-wrap--open .contra-inbox-chevron {
+    transform: rotate(180deg);
 }
 
 .contra-inbox-popover {
     position: absolute;
     left: 0;
-    top: calc(100% + 8px);
-    /* JS 会给元素写死宽度，这里用 !important 强制限制最大宽度，避免在较小屏幕溢出 */
-    width: auto !important;
-    max-width: min(760px, calc(100vw - 40px)) !important;
-    max-height: 420px;
+    top: calc(100% + 12px);
+    width: min(920px, calc(100vw - 48px));
+    max-height: min(520px, calc(100vh - 120px));
     overflow: hidden;
-    border: 1px solid #d0d7de;
-    border-radius: 14px;
+    border: 1px solid #e8edf5;
+    border-radius: 16px;
     background: #fff;
-    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.18);
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.12), 0 12px 40px rgba(15, 23, 42, 0.08);
     z-index: 1200;
-    display: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.contra-inbox-popover.contra-inbox-popover--fixed {
+    position: fixed;
+    top: auto;
+    left: auto;
+    z-index: 10050;
+}
+
+.contra-inbox-popover::before {
+    content: "";
+    position: absolute;
+    top: -7px;
+    left: var(--contra-inbox-caret-left, 28px);
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-left: 1px solid #e8edf5;
+    border-top: 1px solid #e8edf5;
+    transform: rotate(45deg);
 }
 
 .contra-inbox-popover-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    padding: clamp(6px, 0.52vw, 10px) 12px;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f8fafc;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #eef2f7;
+    background: #fff;
 }
 
 .contra-inbox-popover-title {
-    font-weight: 900;
-    color: #0f172a;
+    font-weight: 800;
+    color: #000033;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: clamp(11px, 0.94vw, 18px);
-    /* 与其他标题保持一致比例 */
+    font-size: clamp(14px, 1.04vw, 18px);
+}
+
+.contra-inbox-popover-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.contra-inbox-btn.contra-inbox-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: clamp(11px, 0.78vw, 14px);
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.contra-inbox-btn.contra-inbox-refresh svg {
+    width: 16px;
+    height: 16px;
+}
+
+.contra-inbox-btn.contra-inbox-refresh:hover:not(:disabled) {
+    background: #eff6ff;
+}
+
+.contra-inbox-btn.contra-inbox-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: #64748b;
+}
+
+.contra-inbox-btn.contra-inbox-close svg {
+    width: 18px;
+    height: 18px;
+}
+
+.contra-inbox-btn.contra-inbox-close:hover {
+    background: #f1f5f9;
+    color: #334155;
 }
 
 .contra-inbox-popover-body {
-    max-height: 360px;
-    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
-.contra-inbox-table {
+.contra-inbox-loading,
+.contra-inbox-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--color-muted-fg);
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-semibold);
+}
+
+.contra-inbox-empty-hint {
+    margin-top: 8px;
+    font-size: var(--text-tiny);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted-fg);
+    line-height: 1.45;
+    max-width: 36rem;
+    margin-inline: auto;
+}
+
+.contra-inbox-grid {
+    display: grid;
+    grid-template-columns: var(--contra-inbox-grid-cols);
+    column-gap: var(--contra-inbox-grid-gap);
+    align-items: center;
     width: 100%;
-    border-collapse: collapse;
+    min-width: 0;
 }
 
-.contra-inbox-table th,
-.contra-inbox-table td {
-    padding: 6px 8px;
-    border-top: 1px solid #e5e7eb;
-    font-size: clamp(9px, 0.73vw, 14px);
-    font-weight: 700;
+/* Flat grid: row wrappers use display:contents so all cells share one column template (no subgrid). */
+.contra-inbox-grid-row {
+    display: contents;
+}
+
+.contra-inbox-grid-row--head .contra-inbox-grid-cell--head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: var(--contra-inbox-head-pad-y) var(--contra-inbox-head-pad-x);
+    background: var(--contra-inbox-header-bg);
+    border-bottom: 1px solid var(--contra-inbox-header-border);
+    box-shadow: inset -1px 0 0 var(--contra-inbox-header-divider);
+}
+
+.contra-inbox-grid-row--head .contra-inbox-grid-cell--head:last-child {
+    box-shadow: none;
+}
+
+.contra-inbox-grid-row:not(.contra-inbox-grid-row--head) .contra-inbox-grid-cell {
+    padding: var(--contra-inbox-cell-pad-y) var(--contra-inbox-cell-pad-x);
+    border-bottom: 1px solid var(--contra-inbox-row-border);
+}
+
+.contra-inbox-grid-row:not(.contra-inbox-grid-row--head):last-of-type .contra-inbox-grid-cell {
+    border-bottom: none;
+}
+
+.contra-inbox-grid-row:not(.contra-inbox-grid-row--head):hover .contra-inbox-grid-cell {
+    background: #fafbfd;
+}
+
+.contra-inbox-grid-cell {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    font-size: var(--contra-inbox-text-cell);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-body-strong);
+    line-height: 1.35;
+}
+
+.contra-inbox-grid-cell--head {
+    font-size: var(--contra-inbox-text-head);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--contra-inbox-header-fg);
+    white-space: nowrap;
+    background: var(--contra-inbox-header-bg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.contra-inbox-grid-cell--date {
+    white-space: nowrap;
+}
+
+.contra-inbox-grid-cell--from,
+.contra-inbox-grid-cell--to,
+.contra-inbox-grid-cell--currency,
+.contra-inbox-grid-cell--amount,
+.contra-inbox-grid-cell--submitter,
+.contra-inbox-grid-cell--action {
+    justify-content: center;
+    text-align: center;
+}
+
+.contra-inbox-grid-cell--from {
+    position: relative;
+}
+
+.contra-inbox-grid-cell--to {
+    position: relative;
+    gap: 0.2em;
+}
+
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--date {
+    justify-content: flex-start;
     text-align: left;
-    vertical-align: top;
+}
+
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--from,
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--to,
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--currency,
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--amount,
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--submitter,
+.contra-inbox-grid-cell--head.contra-inbox-grid-cell--action {
+    justify-content: center;
+    text-align: center;
+}
+
+.contra-inbox-transfer-arrow {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: #94a3b8;
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.contra-inbox-grid-cell--amount {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-heading);
+    white-space: nowrap;
+}
+
+.contra-inbox-grid-cell--submitter,
+.contra-inbox-grid-cell--desc {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.contra-inbox-grid-cell--desc {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.contra-inbox-account-code {
+    font-size: var(--contra-inbox-text-cell);
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+}
+
+.contra-inbox-account-code--from {
+    color: #0369a1;
+}
+
+.contra-inbox-account-code--to {
+    color: #6d28d9;
+}
+
+.contra-inbox-grid-cell--action .contra-inbox-action-group {
+    justify-content: center;
+}
+
+.contra-inbox-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    color: #334155;
+}
+
+.contra-inbox-date svg {
+    width: 14px;
+    height: 14px;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.contra-inbox-account-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: var(--contra-inbox-text-cell);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.02em;
+}
+
+.contra-inbox-account-badge--from {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.contra-inbox-account-badge--to {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
+.contra-inbox-account-flow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.contra-inbox-account-arrow {
+    color: #94a3b8;
+    font-size: var(--contra-inbox-text-cell);
+    line-height: 1;
+}
+
+.contra-inbox-submitter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.contra-inbox-submitter-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #0284c7;
+    flex-shrink: 0;
+}
+
+.contra-inbox-submitter-avatar svg {
+    width: 14px;
+    height: 14px;
+}
+
+.contra-inbox-action-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+    width: 100%;
+    min-width: 0;
+}
+
+.contra-inbox-btn.contra-inbox-approve,
+.contra-inbox-btn.contra-inbox-reject {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: var(--contra-inbox-text-action);
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+    background: #fff;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.contra-inbox-btn.contra-inbox-approve svg,
+.contra-inbox-btn.contra-inbox-reject svg {
+    display: none;
 }
 
 .contra-inbox-approve {
-    background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
-    border-color: transparent;
-    color: #fff;
+    border: 1.5px solid #4cd964;
+    color: #16a34a;
 }
 
 .contra-inbox-approve:hover {
-    background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
-    border-color: transparent;
+    background: #f0fdf4;
+    border-color: #22c55e;
 }
 
 .contra-inbox-reject {
-    background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-    border-color: transparent;
-    color: #fff;
-    margin-left: 6px;
+    border: 1.5px solid #ff3b30;
+    color: #dc2626;
 }
 
 .contra-inbox-reject:hover {
-    background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
-    border-color: transparent;
+    background: #fef2f2;
+    border-color: #ef4444;
+}
+
+.contra-inbox-popover-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid #eef2f7;
+    background: #fafbfd;
+    color: var(--color-muted-fg);
+    font-size: var(--text-tiny);
+    font-weight: var(--font-weight-semibold);
+}
+
+.contra-inbox-popover-footer svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: #94a3b8;
+}
+
+@media (max-width: 900px) {
+    .contra-inbox-popover:not(.contra-inbox-popover--fixed) {
+        left: auto;
+        right: 0;
+        width: min(920px, calc(100vw - 24px));
+    }
+
+    .contra-inbox-popover:not(.contra-inbox-popover--fixed)::before {
+        left: auto;
+        right: 28px;
+    }
 }
 
 /* 表格自然展开，页面整体滚动 */
@@ -2562,7 +2992,7 @@ body.transaction-page .transaction-container * {
 .transaction-company-buttons {
     display: inline-flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     align-items: center;
 }
 
@@ -3195,6 +3625,7 @@ body.transaction-page:not(.member-winloss-page) .transaction-main-content {
     flex-direction: row;
     gap: 24px;
     align-items: stretch;
+    margin-top: 20px;
     margin-bottom: 0;
     overflow: visible;
 }
@@ -3216,7 +3647,7 @@ body.transaction-page .transaction-search-section .report-outlined-inner .transa
     width: 100%;
     max-width: 100%;
     min-height: clamp(38px, 2.45vw, 40px) !important;
-    padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
+    padding: clamp(4px, 0.35vw, 6px) clamp(8px, 0.75vw, 12px) clamp(4px, 0.35vw, 6px) clamp(8px, 0.65vw, 10px);
     border-radius: clamp(5px, 0.42vw, 7px);
     background: #ffffff !important;
     box-shadow: none !important;
@@ -3231,15 +3662,23 @@ body.transaction-page .transaction-search-section .report-outlined-inner .transa
     box-shadow: none !important;
 }
 
-/* Capture Date floating label: align with text area, not over the calendar tile (avoids white “notch” on blue icon) */
-body.transaction-page .transaction-search-section .report-outlined-label--txn-capture-date {
-    left: clamp(46px, 3.35vw, 58px);
+/* Capture Date: label sits above date text (after calendar tile), not over the blue icon */
+body.transaction-page .transaction-search-section .transaction-category-date-row .report-outlined-label--txn-capture-date {
+    left: calc(
+        clamp(8px, 0.65vw, 10px) + clamp(28px, 2vw, 34px) + clamp(6px, 0.45vw, 8px)
+    );
 }
 
 body.transaction-page .transaction-search-section .transaction-outlined-field-col--date .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+    align-self: center;
+    width: clamp(28px, 2vw, 34px);
+    height: clamp(28px, 2vw, 34px);
+    min-height: 0;
+    margin: 0;
+    flex: 0 0 auto;
     position: relative;
-    z-index: 5;
-    border-radius: clamp(5px, 0.42vw, 7px) 0 0 clamp(5px, 0.42vw, 7px);
+    z-index: 1;
+    border-radius: clamp(5px, 0.42vw, 7px);
     box-shadow: none !important;
 }
 

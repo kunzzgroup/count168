@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import CapturedReferenceTable from "./CapturedReferenceTable.jsx";
 import SummaryTableRow from "./SummaryTableRow.jsx";
 
-export default function SummaryTable({ tableData, rows = [], visible = false }) {
+export default function SummaryTable({ t, tableData, rows = [], visible = false }) {
   if (!visible || !tableData) return null;
 
   return (
@@ -11,17 +11,17 @@ export default function SummaryTable({ tableData, rows = [], visible = false }) 
         <table className="summary-table" id="summaryTable">
           <thead>
             <tr>
-              <th className="id-product-header">Id Product</th>
-              <th>Account</th>
+              <th className="id-product-header">{t("idProduct")}</th>
+              <th>{t("account")}</th>
               <th />
-              <th>Currency</th>
-              <th>Formula</th>
-              <th>Source</th>
-              <th>Rate</th>
-              <th>Rate Value</th>
-              <th>Processed Amount</th>
-              <th>Skip</th>
-              <th>Delete</th>
+              <th>{t("currencyColumn")}</th>
+              <th>{t("formula")}</th>
+              <th>{t("source")}</th>
+              <th>{t("rate")}</th>
+              <th>{t("rateValue")}</th>
+              <th>{t("processedAmount")}</th>
+              <th>{t("skip")}</th>
+              <th>{t("delete")}</th>
             </tr>
           </thead>
           <tbody id="summaryTableBody">
@@ -52,18 +52,16 @@ export default function SummaryTable({ tableData, rows = [], visible = false }) 
   );
 }
 
-export function SummaryEmptyState() {
+export function SummaryEmptyState({ t }) {
   return (
     <div className="summary-table-container empty-state-container">
       <div className="table-header">
-        <span>No Captured Data Available</span>
+        <span>{t("noCapturedData")}</span>
       </div>
       <div className="empty-state">
-        <p>
-          No captured data found. Please go back to the Data Capture page and submit some data first.
-        </p>
+        <p>{t("emptyStateHint")}</p>
         <Link to="/datacapture" className="btn btn-save">
-          Go to Data Capture
+          {t("goToDataCapture")}
         </Link>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "./pages/login/LoginPage.jsx";
-import TransactionDashboardPage from "./pages/TransactionDashboardPage.jsx";
+import TransactionDashboardPage from "./pages/dashboard/TransactionDashboardPage.jsx";
 import DomainPage from "./pages/domain/DomainPage.jsx";
 import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
@@ -12,15 +12,14 @@ import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
 import DataCapturePage from "./pages/datacapture/DataCapturePage.jsx";
 import DataCaptureSummaryPage from "./pages/datacapturesummary/DataCaptureSummaryPage.jsx";
 import TransactionPaymentPage from "./pages/transaction/TransactionPaymentPage.jsx";
-import CustomerReportPage from "./pages/report/CustomerReportPage.jsx";
-import DomainReportPage from "./pages/report/DomainReportPage.jsx";
+import CustomerReportPage from "./pages/report/customer/CustomerReportPage.jsx";
+import DomainReportPage from "./pages/report/domain/DomainReportPage.jsx";
 import CaptureMaintenancePage from "./pages/maintenance/capture/CaptureMaintenancePage.jsx";
 import TransactionMaintenancePage from "./pages/maintenance/transaction/TransactionMaintenancePage.jsx";
 import FormulaMaintenancePage from "./pages/maintenance/formula/FormulaMaintenancePage.jsx";
 import BankprocessMaintenancePage from "./pages/maintenance/bankprocess/BankprocessMaintenancePage.jsx";
 import PaymentMaintenancePage from "./pages/maintenance/payment/PaymentMaintenancePage.jsx";
-import OwnerSecondaryPasswordPage from "./pages/login/OwnerSecondaryPasswordPage.jsx";
-import UserSecondaryPasswordPage from "./pages/login/UserSecondaryPasswordPage.jsx";
+import SecondaryPasswordPage from "./pages/login/SecondaryPasswordPage.jsx";
 import MemberPage from "./pages/member/MemberPage.jsx";
 import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
 import UserAccessPage from "./pages/useraccess/UserAccessPage.jsx";
@@ -33,8 +32,8 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/member" element={<MemberPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/owner-secondary-password" element={<OwnerSecondaryPasswordPage />} />
-      <Route path="/user-secondary-password" element={<UserSecondaryPasswordPage />} />
+      <Route path="/owner-secondary-password" element={<SecondaryPasswordPage variant="owner" />} />
+      <Route path="/user-secondary-password" element={<SecondaryPasswordPage variant="user" />} />
       <Route element={<AuthenticatedLayout />}>
         <Route path="/dashboard" element={<TransactionDashboardPage />} />
         <Route path="/domain" element={<DomainPage />} />
