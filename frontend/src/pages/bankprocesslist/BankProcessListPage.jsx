@@ -323,7 +323,7 @@ export default function BankProcessListPage() {
           <div className="action-buttons">
             <div className="bank-process-toolbar-main">
               <div className="bank-process-toolbar-top-row">
-                <div className="action-controls-row bank-process-toolbar-primary" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div className="action-controls-row bank-process-toolbar-primary" style={{ display: "flex", alignItems: "center" }}>
                   <div className="process-list-date-filter transaction-date-range-group" id="processListDateFilter" style={{ display: "inline-flex" }}>
                     <div
                       className="date-range-picker"

@@ -1708,8 +1708,22 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-expanded,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-expanded {
-        width: clamp(140px, 12vw, 200px) !important;
-        max-width: clamp(140px, 12vw, 200px) !important;
+        /* <1700px：展开后更长（明显一点，避免“看不出变化”） */
+        width: clamp(220px, 18vw, 320px) !important;
+        max-width: clamp(220px, 18vw, 320px) !important;
+    }
+
+    /* <1700px：展开后的 Search 更“细”，高度与 Date range 药丸对齐 */
+    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-expanded,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-expanded {
+        min-height: clamp(28px, 2.1vw, 34px) !important;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-expanded .userlist-search-input,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-expanded .userlist-search-input {
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+        line-height: 1.1;
     }
 
     body.process-page.process-page--bank .bank-process-search-toggle {
@@ -1767,8 +1781,26 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     flex: 1 1 auto !important;
 }
 
+/* Bank 顶栏 Search：高度与 Date range 药丸对齐（更“细”一点） */
+body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
+    min-height: 34px;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar .userlist-search-input,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar .userlist-search-input {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    line-height: 1.1;
+}
+
 /* Bank Process 宽屏（≥1700px）：日期适中、Search 略长，filter 居中并略加宽 */
 @media (min-width: 1700px) {
+    /* 宽屏：date range 与 search bar 间距更紧凑 */
+    body.process-page.process-page--bank .bank-process-toolbar-primary {
+        gap: 2px !important;
+    }
+
     body.process-page.process-page--bank .bank-process-filter-toolbar-slot {
         display: contents;
     }
@@ -1791,13 +1823,30 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
         min-width: 220px;
         width: clamp(220px, 12vw, 280px);
         max-width: 280px;
+        /* 仅缩小高度，宽度保持不变 */
+        min-height: 34px;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+        width: 34px;
+        min-width: 34px;
+        height: 34px;
+        min-height: 34px;
+        border-radius: 10px 0 0 10px;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker #date-range-display {
+        line-height: 1.1;
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
         flex: 0 0 auto;
-        min-width: 240px;
-        width: clamp(240px, 14vw, 300px) !important;
-        max-width: 300px !important;
+        /* 略短一点点 */
+        min-width: 210px;
+        width: clamp(210px, 12vw, 260px) !important;
+        max-width: 260px !important;
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .userlist-filter-chips--bank-process {
