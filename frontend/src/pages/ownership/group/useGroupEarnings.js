@@ -8,6 +8,8 @@ import {
   EMPTY_OWNERSHIP_ROW,
   fmtOwnershipPct,
   validateOwnershipRowsForSave,
+  mapOwnerApiRows,
+  accountsFromOwnerRows,
 } from "../shared/ownershipRowHelpers.js";
 
 export function useGroupEarnings(shell) {
@@ -39,7 +41,10 @@ export function useGroupEarnings(shell) {
   const loadGeGroups = useCallback(async () => {
     setGeLoading(true);
     try {
-      const res = await fetch(buildApiUrl("api/ownership/get_group_earnings_api.php"), {
+      const monthQs = isHistoricalView
+        ? `?month=${encodeURIComponent(selectedMonth)}`
+        : "";
+      const res = await fetch(buildApiUrl(`api/ownership/get_group_earnings_api.php${monthQs}`), {
         credentials: "include",
       });
       const json = await res.json();
@@ -50,11 +55,50 @@ export function useGroupEarnings(shell) {
     } finally {
       setGeLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, isHistoricalView, selectedMonth]);
 
   useEffect(() => {
     if (activeTab === "group-earnings") void loadGeGroups();
-  }, [activeTab, loadGeGroups]);
+  }, [activeTab, loadGeGroups, selectedMonth]);
+
+  useEffect(() => {
+    if (!isHistoricalView || geGroups.length === 0 || activeTab !== "group-earnings") return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const pairs = await Promise.all(
+          geGroups.map(async (grp) => {
+            const gid = grp.group_id;
+            const url = `api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(gid)}&month=${encodeURIComponent(selectedMonth)}`;
+            const oRes = await fetch(buildApiUrl(url), { credentials: "include" }).then((r) => r.json());
+            return { gid, oRes };
+          }),
+        );
+        if (cancelled) return;
+        const next = {};
+        let bannerSet = false;
+        for (const { gid, oRes } of pairs) {
+          if (!isApiSuccess(oRes)) continue;
+          const rows = mapOwnerApiRows(oRes.data);
+          next[gid] = { accounts: accountsFromOwnerRows(rows), rows };
+          if (!bannerSet) {
+            const meta = oRes.meta || {};
+            setHistoryBanner({
+              empty: meta.has_snapshot === false,
+              savedAt: formatOwnershipSavedAt(meta.saved_at, lang),
+            });
+            bannerSet = true;
+          }
+        }
+        setGeStates(next);
+      } catch {
+        if (!cancelled) showToast("Error loading group data", "error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, selectedMonth, isHistoricalView, geGroups, lang, setHistoryBanner, showToast]);
 
   const geToggle = useCallback(
     async (gid) => {
@@ -88,19 +132,13 @@ export function useGroupEarnings(shell) {
           } else {
             setHistoryBanner(null);
           }
+          const rows = mapOwnerApiRows(oRes.status === "success" ? oRes.data : []);
+          const stateAccounts = isHistoricalView ? accountsFromOwnerRows(rows) : (aRes.status === "success" ? aRes.data : []);
           setGeStates((prev) => ({
             ...prev,
             [gid]: {
-              accounts: aRes.status === "success" ? aRes.data : [],
-              rows: (oRes.status === "success" ? oRes.data : []).map((o) => ({
-                account_id: o.composite_id || o.account_id,
-                percentage: parseFloat(o.percentage),
-                role: o.role || "",
-                user_raw_id: o.user_raw_id || null,
-                ownership_id: o.ownership_id || null,
-                is_external_partner: parseInt(o.is_external_partner, 10) === 1,
-                read_only: o.read_only !== null ? parseInt(o.read_only, 10) : 1,
-              })),
+              accounts: stateAccounts,
+              rows,
             },
           }));
         } catch {
@@ -248,6 +286,7 @@ export function useGroupEarnings(shell) {
     calcTotal: calcOwnershipTotal,
     fmtPct: fmtOwnershipPct,
     viewOnlyMode,
+    isHistoricalView,
     geToggle,
     geUpdateRow,
     geAddRow,

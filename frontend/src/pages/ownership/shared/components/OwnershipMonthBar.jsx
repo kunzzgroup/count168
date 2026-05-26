@@ -1,7 +1,8 @@
-import React, { useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   formatOwnershipMonthShort,
   getOwnershipCurrentMonthKey,
+  getOwnershipMonthLabels,
 } from "../ownershipMonthHelpers.js";
 
 export default function OwnershipMonthBar({
@@ -12,31 +13,58 @@ export default function OwnershipMonthBar({
   t,
   lang,
 }) {
-  const inputRef = useRef(null);
+  const wrapRef = useRef(null);
+  const [open, setOpen] = useState(false);
   const shortLabel = formatOwnershipMonthShort(selectedMonth, lang);
-  const maxMonth = new Date().toISOString().slice(0, 7);
+  const currentMonthKey = getOwnershipCurrentMonthKey();
+  const currentYear = parseInt(currentMonthKey.slice(0, 4), 10);
 
-  const openPicker = () => {
-    const el = inputRef.current;
-    if (!el) return;
-    if (typeof el.showPicker === "function") {
-      try {
-        el.showPicker();
-        return;
-      } catch {
-        /* fallback click */
-      }
-    }
-    el.click();
+  const [viewYear, setViewYear] = useState(() => parseInt(selectedMonth.slice(0, 4), 10));
+  const monthLabels = useMemo(() => getOwnershipMonthLabels(lang), [lang]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    setViewYear(parseInt(selectedMonth.slice(0, 4), 10));
+  }, [selectedMonth, open]);
+
+  const pickMonth = (monthIndex) => {
+    const key = `${viewYear}-${String(monthIndex).padStart(2, "0")}`;
+    if (key > currentMonthKey) return;
+    onMonthChange(key);
+    setOpen(false);
   };
 
+  const isMonthDisabled = (monthIndex) => {
+    const key = `${viewYear}-${String(monthIndex).padStart(2, "0")}`;
+    return key > currentMonthKey;
+  };
+
+  const isMonthSelected = (monthIndex) => selectedMonth === `${viewYear}-${String(monthIndex).padStart(2, "0")}`;
+
   return (
-    <div className="own-month-picker-wrap">
+    <div className="own-month-picker-wrap" ref={wrapRef}>
       <div className="own-month-picker">
         <button
           type="button"
-          className={`own-month-trigger${isHistoricalView ? " is-history" : ""}`}
-          onClick={openPicker}
+          className={`own-month-trigger${open ? " is-open" : ""}${isHistoricalView ? " is-history" : ""}`}
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-haspopup="dialog"
           aria-label={t("viewMonth")}
         >
           <span className="own-month-trigger-icon" aria-hidden="true">
@@ -57,27 +85,52 @@ export default function OwnershipMonthBar({
             </svg>
           </span>
         </button>
-        <input
-          ref={inputRef}
-          id="own-month-picker"
-          type="month"
-          className="own-month-input-native"
-          value={selectedMonth}
-          max={maxMonth}
-          tabIndex={-1}
-          aria-hidden="true"
-          onChange={(e) => {
-            if (e.target.value) onMonthChange(e.target.value);
-          }}
-        />
-        {isHistoricalView ? (
-          <button
-            type="button"
-            className="own-month-back-btn"
-            onClick={() => onMonthChange(getOwnershipCurrentMonthKey())}
-          >
-            {t("currentMonth")}
-          </button>
+
+        {open ? (
+          <div className="own-month-popover" role="dialog" aria-label={t("viewMonth")}>
+            <div className="own-month-popover-year">
+              <button
+                type="button"
+                className="own-month-year-btn"
+                aria-label="Previous year"
+                onClick={() => setViewYear((y) => y - 1)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+              <span className="own-month-year-label">{viewYear}</span>
+              <button
+                type="button"
+                className="own-month-year-btn"
+                aria-label="Next year"
+                disabled={viewYear >= currentYear}
+                onClick={() => setViewYear((y) => Math.min(currentYear, y + 1))}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            </div>
+            <div className="own-month-popover-grid">
+              {monthLabels.map((label, idx) => {
+                const monthIndex = idx + 1;
+                const disabled = isMonthDisabled(monthIndex);
+                const selected = isMonthSelected(monthIndex);
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    className={`own-month-cell${selected ? " is-selected" : ""}${disabled ? " is-disabled" : ""}`}
+                    disabled={disabled}
+                    onClick={() => pickMonth(monthIndex)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ) : null}
       </div>
       {historyBanner ? (

@@ -9,6 +9,8 @@ import {
   fmtOwnershipPct,
   reorderOwnershipRows,
   validateOwnershipRowsForSave,
+  mapOwnerApiRows,
+  accountsFromOwnerRows,
 } from "../shared/ownershipRowHelpers.js";
 
 export function useCompanyOwnership(shell) {
@@ -75,6 +77,45 @@ export function useCompanyOwnership(shell) {
   }, [allCompanies, groupFilter, allGroupIds]);
 
   useEffect(() => {
+    if (!isHistoricalView || companiesData.length === 0) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const pairs = await Promise.all(
+          companiesData.map(async (c) => {
+            const cid = Number(c.id);
+            const url = `api/ownership/get_owners_api.php?company_id=${cid}&month=${encodeURIComponent(selectedMonth)}`;
+            const oRes = await fetch(buildApiUrl(url), { credentials: "include" }).then((r) => r.json());
+            return { cid, oRes };
+          }),
+        );
+        if (cancelled) return;
+        const next = {};
+        let bannerSet = false;
+        for (const { cid, oRes } of pairs) {
+          if (!isApiSuccess(oRes)) continue;
+          const rows = mapOwnerApiRows(oRes.data);
+          next[cid] = { accounts: accountsFromOwnerRows(rows), rows };
+          if (!bannerSet) {
+            const meta = oRes.meta || {};
+            setHistoryBanner({
+              empty: meta.has_snapshot === false,
+              savedAt: formatOwnershipSavedAt(meta.saved_at, lang),
+            });
+            bannerSet = true;
+          }
+        }
+        setCompanyStates(next);
+      } catch {
+        if (!cancelled) showToast("Error loading data", "error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMonth, isHistoricalView, companiesData, lang, setHistoryBanner, showToast]);
+
+  useEffect(() => {
     if (groupFilter !== null) return;
     const independent = allCompanies.filter((c) => !c.group_id);
     if (independent.length > 0 || allGroupIds.length === 0) return;
@@ -116,6 +157,8 @@ export function useCompanyOwnership(shell) {
               is_main_owner: 0,
             });
           }
+          const rows = mapOwnerApiRows(oRes.status === "success" ? oRes.data : []);
+          const stateAccounts = isHistoricalView ? accountsFromOwnerRows(rows) : accounts;
           const meta = oRes.meta || {};
           if (isHistoricalView) {
             setHistoryBanner({
@@ -128,16 +171,8 @@ export function useCompanyOwnership(shell) {
           setCompanyStates((prev) => ({
             ...prev,
             [cid]: {
-              accounts,
-              rows: (oRes.status === "success" ? oRes.data : []).map((o) => ({
-                account_id: o.account_id,
-                percentage: parseFloat(o.percentage),
-                role: o.role || "",
-                user_raw_id: o.user_raw_id || null,
-                ownership_id: o.ownership_id || null,
-                is_external_partner: parseInt(o.is_external_partner, 10) === 1,
-                read_only: o.read_only !== null ? parseInt(o.read_only, 10) : 1,
-              })),
+              accounts: stateAccounts,
+              rows,
             },
           }));
         } catch {
@@ -429,6 +464,7 @@ export function useCompanyOwnership(shell) {
     calcTotal: calcOwnershipTotal,
     fmtPct: fmtOwnershipPct,
     viewOnlyMode,
+    isHistoricalView,
     toggleCard,
     updateRow,
     addRow,

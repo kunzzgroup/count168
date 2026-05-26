@@ -7,6 +7,13 @@ export function isOwnershipHistoricalMonth(monthKey) {
   return monthKey < getOwnershipCurrentMonthKey();
 }
 
+export function getOwnershipMonthLabels(lang = "en") {
+  const locale = lang === "zh" ? "zh-CN" : "en-US";
+  return Array.from({ length: 12 }, (_, i) =>
+    new Date(2020, i, 1).toLocaleDateString(locale, { month: "short" }),
+  );
+}
+
 export function formatOwnershipMonthShort(monthKey, lang = "en") {
   if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return monthKey || "";
   const [y, m] = monthKey.split("-").map(Number);

@@ -59,27 +59,33 @@ export function useOwnershipPageShell() {
     };
   }, []);
 
-  const fetchCompanies = useCallback(async () => {
-    setLoadingList(true);
-    try {
-      const res = await fetch(buildApiUrl("api/ownership/get_companies_api.php?all=1"), {
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (isApiSuccess(json)) setAllCompanies(json.data || []);
-      else showToast(getApiMessage(json, "Failed to load companies"), "error");
-      setReadOnlyMode(false);
-    } catch {
-      showToast("Server error", "error");
-    } finally {
-      setLoadingList(false);
-      setBoot(false);
-    }
-  }, [showToast]);
+  const fetchCompanies = useCallback(
+    async (monthKey = getOwnershipCurrentMonthKey()) => {
+      setLoadingList(true);
+      try {
+        const monthQs = isOwnershipHistoricalMonth(monthKey)
+          ? `&month=${encodeURIComponent(monthKey)}`
+          : "";
+        const res = await fetch(buildApiUrl(`api/ownership/get_companies_api.php?all=1${monthQs}`), {
+          credentials: "include",
+        });
+        const json = await res.json();
+        if (isApiSuccess(json)) setAllCompanies(json.data || []);
+        else showToast(getApiMessage(json, "Failed to load companies"), "error");
+        setReadOnlyMode(false);
+      } catch {
+        showToast("Server error", "error");
+      } finally {
+        setLoadingList(false);
+        setBoot(false);
+      }
+    },
+    [showToast],
+  );
 
   useEffect(() => {
-    void fetchCompanies();
-  }, [fetchCompanies]);
+    void fetchCompanies(selectedMonth);
+  }, [fetchCompanies, selectedMonth]);
 
   return {
     lang,

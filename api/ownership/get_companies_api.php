@@ -2,6 +2,7 @@
 require_once '../../includes/session_check.php';
 require_once '../../includes/config.php';
 require_once '../includes/money_decimal.php';
+require_once '../includes/ownership_history.php';
 
 header('Content-Type: application/json');
 
@@ -14,6 +15,8 @@ $current_user_id = $_SESSION['user_id'];
 $current_user_role = $_SESSION['role'] ?? '';
 // ?all=1 → bypass session group filter (used by ownership page's local group filter bar)
 $fetchAll = isset($_GET['all']) && $_GET['all'] === '1';
+$parsedMonth = ownership_history_parse_month_param($_GET['month'] ?? null);
+$useHistory = $parsedMonth !== null && ownership_history_is_past_month($parsedMonth['month_key']);
 
 try {
     // Check if the table exists first (to prevent fatals if SQL wasn't run)
@@ -49,44 +52,64 @@ try {
     }
 
     // Get total ownership assigned for each company
-    if ($tableExists && count($companies) > 0) {
-        $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
-        
+    if (count($companies) > 0) {
         $company_ids = array_column($companies, 'id');
         $in = str_repeat('?,', count($company_ids) - 1) . '?';
-        
-        if ($hasOwnerType) {
+
+        if ($useHistory) {
+            ownership_history_ensure_tables($pdo);
             $stmt = $pdo->prepare("
                 SELECT company_id, SUM(percentage) as total_percent
-                FROM company_ownership
-                WHERE company_id IN ($in) AND owner_type != 'account'
+                FROM company_ownership_history
+                WHERE company_id IN ($in)
+                  AND effective_month = ?
+                  AND owner_type != 'account'
                 GROUP BY company_id
             ");
+            $stmt->execute(array_merge($company_ids, [$parsedMonth['effective_month']]));
+            $totals = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        } elseif ($tableExists) {
+            $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+
+            if ($hasOwnerType) {
+                $stmt = $pdo->prepare("
+                    SELECT company_id, SUM(percentage) as total_percent
+                    FROM company_ownership
+                    WHERE company_id IN ($in) AND owner_type != 'account'
+                    GROUP BY company_id
+                ");
+            } else {
+                $stmt = $pdo->prepare("
+                    SELECT company_id, SUM(percentage) as total_percent
+                    FROM company_ownership
+                    WHERE company_id IN ($in) AND 1=0
+                    GROUP BY company_id
+                ");
+            }
+            $stmt->execute($company_ids);
+            $totals = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
         } else {
-            // If before migration, return 0 for safe fallback rather than accounts we want ignored
-            $stmt = $pdo->prepare("
-                SELECT company_id, SUM(percentage) as total_percent
-                FROM company_ownership
-                WHERE company_id IN ($in) AND 1=0
-                GROUP BY company_id
-            ");
+            $totals = [];
         }
-        $stmt->execute($company_ids);
-        $totals = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-        
-        // Map totals to companies
+
         foreach ($companies as &$company) {
             $company['allocated_percentage'] = isset($totals[$company['id']]) ? money_out($totals[$company['id']], 2) : '0';
         }
+        unset($company);
     } else {
         foreach ($companies as &$company) {
             $company['allocated_percentage'] = '0';
         }
+        unset($company);
     }
 
     echo json_encode([
         'status' => 'success',
-        'data' => $companies
+        'data' => $companies,
+        'meta' => [
+            'is_historical' => $useHistory,
+            'effective_month' => $useHistory ? $parsedMonth['month_key'] : ownership_history_current_month_key(),
+        ],
     ]);
 } catch (PDOException $e) {
     echo json_encode([

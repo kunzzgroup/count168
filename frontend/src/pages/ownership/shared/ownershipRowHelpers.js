@@ -1,9 +1,30 @@
 /** Shared ownership row edit / validate helpers (company + group tabs). */
 
+export function mapOwnerApiRows(data) {
+  return (Array.isArray(data) ? data : []).map((o) => ({
+    account_id: o.account_id,
+    account_label: o.account_name || o.name || String(o.account_id ?? ""),
+    percentage: parseFloat(o.percentage),
+    role: o.role || "",
+    user_raw_id: o.user_raw_id || null,
+    ownership_id: o.ownership_id || null,
+    is_external_partner: parseInt(o.is_external_partner, 10) === 1,
+    read_only: o.read_only !== null ? parseInt(o.read_only, 10) : 1,
+  }));
+}
+
+export function accountsFromOwnerRows(rows) {
+  return rows.map((r) => ({
+    id: r.account_id,
+    account_name: r.account_label || String(r.account_id),
+    name: r.account_label || String(r.account_id),
+    role: r.role || "",
+  }));
+}
+
 export function calcOwnershipTotal(rows) {
   return rows.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
 }
-
 export function fmtOwnershipPct(n) {
   return `${(parseFloat(n) || 0).toFixed(2)}%`;
 }

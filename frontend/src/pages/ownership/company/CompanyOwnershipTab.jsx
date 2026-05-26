@@ -2,7 +2,7 @@ import React from "react";
 import CompanyCard from "./components/CompanyCard.jsx";
 
 export default function CompanyOwnershipTab({ shell, company }) {
-  const { t, loadingList, allCompanies } = shell;
+  const { t, loadingList, allCompanies, isHistoricalView } = shell;
   const {
     groupFilter,
     setGroupFilter,
@@ -122,6 +122,7 @@ export default function CompanyOwnershipTab({ shell, company }) {
               onCancel={() => setExpandedCompanyId(null)}
               calcTotal={calcTotal}
               readOnlyMode={viewOnlyMode}
+              isHistoricalView={isHistoricalView}
               fmtPct={fmtPct}
               t={t}
             />
