@@ -126,9 +126,11 @@ body.ownership-page {
 }
 
 .own-gfb-btn.active {
-    background: var(--btn-add-gradient);
+    background-color: #0d60ff;
+    background-image: var(--btn-add-gradient);
+    background-repeat: no-repeat;
     color: #fff;
-    border-color: transparent;
+    border: none;
     box-shadow: 0 2px 6px rgba(13, 96, 255, 0.35);
 }
 
@@ -183,8 +185,10 @@ body.ownership-page {
 }
 
 .own-select-mode-btn.active {
-    background: var(--btn-add-gradient);
-    border-color: transparent;
+    background-color: #0d60ff;
+    background-image: var(--btn-add-gradient);
+    background-repeat: no-repeat;
+    border: none;
     color: #fff;
 }
 
@@ -1689,8 +1693,10 @@ body.ownership-page {
 }
 
 .own-month-cell.is-selected {
-    background: var(--btn-add-gradient);
-    border-color: transparent;
+    background-color: #0d60ff;
+    background-image: var(--btn-add-gradient);
+    background-repeat: no-repeat;
+    border: none;
     color: #fff;
     box-shadow: 0 2px 8px rgba(13, 96, 255, 0.35);
 }
@@ -1739,25 +1745,42 @@ body.ownership-page {
 .own-month-back-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     height: 36px;
     padding: 0 14px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background: var(--btn-add-gradient);
+    border: none;
+    border-radius: 6px;
+    background-color: #0d60ff;
+    background-image: var(--btn-add-gradient);
+    background-repeat: no-repeat;
     color: #fff;
     font-family: var(--font-heading-page, inherit);
     font-size: var(--own-text-label, 13px);
-    font-weight: var(--font-weight-bold, 600);
+    font-weight: var(--font-weight-semibold, 600);
+    line-height: 1;
     cursor: pointer;
     white-space: nowrap;
-    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.28);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    box-shadow: var(--shadow-btn-add-page, 0 2px 4px rgba(0, 123, 255, 0.3));
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-image 0.15s ease;
+    -webkit-appearance: none;
+    appearance: none;
+    overflow: hidden;
+}
+
+.own-month-back-btn::before,
+.own-month-back-btn::after {
+    content: none;
+    display: none;
 }
 
 .own-month-back-btn:hover {
-    background: var(--btn-add-gradient-hover);
-    box-shadow: 0 4px 12px rgba(13, 96, 255, 0.38);
+    background-image: var(--btn-add-gradient-hover);
+    box-shadow: var(--shadow-btn-add-page-hover, 0 4px 8px rgba(0, 123, 255, 0.4));
     transform: translateY(-1px);
+}
+
+body.ownership-page .own-month-back-btn:active {
+    transform: translateY(0) !important;
 }
 
 .own-month-hint {
@@ -1848,9 +1871,11 @@ body.ownership-page {
 }
 
 .own-tab-btn.active {
-    background: var(--btn-add-gradient);
+    background-color: #0d60ff;
+    background-image: var(--btn-add-gradient);
+    background-repeat: no-repeat;
     color: #fff;
-    border-color: transparent;
+    border: none;
     box-shadow: 0 2px 8px rgba(13, 96, 255, 0.35);
 }
 
