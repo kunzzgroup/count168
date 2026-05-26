@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
   isDashboardGroupOnlyMode,
-  resolveInitialCompanyId,
+  resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
@@ -166,6 +166,7 @@ export default function AccountListPage() {
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
     if (companyId) url.searchParams.set("company_id", String(companyId));
+    else url.searchParams.delete("company_id");
     if (searchTerm.trim()) url.searchParams.set("search", searchTerm.trim());
     else url.searchParams.delete("search");
     if (showInactive) url.searchParams.set("showInactive", "1");
@@ -210,8 +211,12 @@ export default function AccountListPage() {
         setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 
         const url = new URL(window.location.href);
-        const cid = url.searchParams.get("company_id") || sessionMe.company_id || rows[0]?.id;
-        const initialCompanyId = resolveInitialCompanyId(cid);
+        const urlCompanyId = url.searchParams.get("company_id");
+        const initialCompanyId = resolveBootCompanyId({
+          urlCompanyId,
+          sessionCompanyId: sessionMe.company_id,
+          defaultRowId: rows[0]?.id,
+        });
         const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
         const initialShowAll = url.searchParams.get("showAll") === "1";
@@ -229,13 +234,8 @@ export default function AccountListPage() {
             ? rows.find((c) => Number(c.id) === Number(initialCompanyId)) || null
             : null;
         const bootGroup = resolveInitialSelectedGroupFromSession(rows, row);
-        if (isDashboardGroupOnlyMode()) {
-          setCompanyId(null);
-          setSelectedGroup(bootGroup);
-        } else {
-          setCompanyId(initialCompanyId);
-          setSelectedGroup(bootGroup);
-        }
+        setCompanyId(isDashboardGroupOnlyMode() ? null : initialCompanyId);
+        setSelectedGroup(bootGroup);
         setSearchTerm(initialSearchTerm);
         setShowInactive(initialShowInactive);
         setShowAll(initialShowAll);

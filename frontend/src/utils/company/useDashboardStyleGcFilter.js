@@ -88,7 +88,6 @@ export function useDashboardStyleGcFilter({
   );
 
   useLayoutEffect(() => {
-    persistDashboardFilterState(selectedGroup, companyId);
     const cid = isDashboardGroupOnlyMode() ? null : companyId;
     notifyDashboardGroupFilterChanged(selectedGroup, cid);
   }, [selectedGroup, companyId]);

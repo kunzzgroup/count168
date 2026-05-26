@@ -8,7 +8,7 @@ import {
   normalizeOwnerCompanyRow,
   notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
-  resolveInitialCompanyId,
+  resolveBootCompanyId,
   persistDashboardFilterState,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
@@ -75,8 +75,11 @@ export function useTransactionData({
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        let effective = queryCompany || u.company_id || rows[0]?.id || null;
-        effective = resolveInitialCompanyId(effective);
+        let effective = resolveBootCompanyId({
+          urlCompanyId: queryCompany,
+          sessionCompanyId: u.company_id,
+          defaultRowId: rows[0]?.id,
+        });
 
         const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u.company_id);
 
@@ -209,7 +212,6 @@ export function useTransactionData({
 
   useLayoutEffect(() => {
     if (!filterSnapshot) return;
-    persistDashboardFilterState(filterSnapshot.selectedGroup, filterSnapshot.companyId);
     notifyDashboardGroupFilterChanged(filterSnapshot.selectedGroup, filterSnapshot.companyId);
   }, [filterSnapshot?.selectedGroup, filterSnapshot?.companyId]);
 

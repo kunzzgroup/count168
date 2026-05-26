@@ -34,26 +34,44 @@ export function readDashboardSelectedCompanyId() {
   return Number.isFinite(id) && id > 0 ? id : null;
 }
 
+/** Remove stale `company_id` from the address bar (Admin/Account bookmarked URLs). */
+export function stripCompanyIdFromUrl() {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("company_id")) return;
+    url.searchParams.delete("company_id");
+    const qs = url.searchParams.toString();
+    window.history.replaceState(null, "", qs ? `${url.pathname}?${qs}` : url.pathname);
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
- * Persist Group / Company filter for cross-page SPA navigation.
- * Group-only: group set, company cleared. Otherwise stores explicit company id.
+ * Persist Group / Company filter for cross-page SPA navigation (call on user action only).
+ * Cleared company → group-only until user picks a company again.
  */
 export function persistDashboardFilterState(selectedGroup, companyId) {
-  const hasGroup = Boolean(String(selectedGroup || "").trim());
   const noCompany = companyId == null || companyId === "";
 
   if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
 
-  if (hasGroup && noCompany) {
+  if (noCompany) {
     persistDashboardGroupOnlyMode(true);
     persistDashboardSelectedCompany(null);
-  } else if (!noCompany) {
-    persistDashboardGroupOnlyMode(false);
-    persistDashboardSelectedCompany(companyId);
-  } else {
-    persistDashboardGroupOnlyMode(false);
-    persistDashboardSelectedCompany(null);
+    stripCompanyIdFromUrl();
+    return;
   }
+
+  persistDashboardGroupOnlyMode(false);
+  persistDashboardSelectedCompany(companyId);
+}
+
+/** Boot helper: honour group-only + saved id; never fall back to session/URL when group-only. */
+export function resolveBootCompanyId({ urlCompanyId, sessionCompanyId, defaultRowId } = {}) {
+  if (isDashboardGroupOnlyMode()) return null;
+  return resolveInitialCompanyId(urlCompanyId ?? sessionCompanyId ?? defaultRowId ?? null);
 }
 
 /** @deprecated Use {@link persistDashboardFilterState} */

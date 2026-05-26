@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
   isDashboardGroupOnlyMode,
-  resolveInitialCompanyId,
+  resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
@@ -208,6 +208,7 @@ export default function UserListPage() {
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
     if (companyId) url.searchParams.set("company_id", String(companyId));
+    else url.searchParams.delete("company_id");
     if (search.trim()) url.searchParams.set("search", search.trim()); else url.searchParams.delete("search");
     if (showAll) url.searchParams.set("showAll", "1"); else url.searchParams.delete("showAll");
     window.history.replaceState(null, "", url.pathname + url.search);
@@ -334,19 +335,17 @@ export default function UserListPage() {
         modalCompaniesCacheRef.current = modalCompanyList;
         setModalCompanies(modalCompanyList);
         const url = new URL(window.location.href);
-        const cid = url.searchParams.get("company_id");
-        const effective = cid || me.company_id || rows[0]?.id || null;
-        const effectiveNum = resolveInitialCompanyId(effective);
+        const urlCompanyId = url.searchParams.get("company_id");
+        const effectiveNum = resolveBootCompanyId({
+          urlCompanyId,
+          sessionCompanyId: me.company_id,
+          defaultRowId: rows[0]?.id,
+        });
         const row =
           effectiveNum != null ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null : null;
         const bootGroup = resolveInitialSelectedGroupFromSession(rows, row);
-        if (isDashboardGroupOnlyMode()) {
-          setCompanyId(null);
-          setSelectedGroup(bootGroup);
-        } else {
-          setCompanyId(effectiveNum);
-          setSelectedGroup(bootGroup);
-        }
+        setCompanyId(isDashboardGroupOnlyMode() ? null : effectiveNum);
+        setSelectedGroup(bootGroup);
         setSearch(String(url.searchParams.get("search") || ""));
         setShowAll(url.searchParams.get("showAll") === "1");
       } catch {
