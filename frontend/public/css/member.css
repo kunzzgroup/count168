@@ -977,7 +977,8 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     --member-winloss-matrix-inline-gutter: 10px;
     --member-mini-ccy-min: clamp(3.75rem, 5vw, 5rem);
     --member-dash-total-col-min: 15rem;
-    --member-winloss-label-w: 5.75rem;
+    /* 须容纳 "Currency:" / "Account:"，过窄会溢出压到右侧胶囊 */
+    --member-winloss-label-w: 6.75rem;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
@@ -1275,8 +1276,7 @@ body.lang-zh.member-winloss-page .member-dash-col-filters .member-winloss-gc-pan
 
 body.member-winloss-page .member-dash-col-filters .user-gc-inline-panel.member-winloss-gc-panel {
     display: grid;
-    grid-template-columns: var(--member-winloss-label-w, 5.75rem) minmax(0, 1fr);
-    /* 与 dashboard / transaction 等页一致：标签列与胶囊列留白（勿再叠 margin-left） */
+    grid-template-columns: var(--user-gc-inline-label-w, var(--member-winloss-label-w, 6.75rem)) minmax(0, 1fr);
     column-gap: var(--user-gc-inline-column-gap, 4px);
     row-gap: var(--user-gc-inline-row-gap, 4px);
     /* start：多行 Currency 时标签与首行（All 所在行）顶对齐；勿用 center 否则标签会相对整列垂直居中而偏低 */
@@ -1297,11 +1297,18 @@ body.member-winloss-page #member_currency_filter {
     margin-top: 0;
 }
 
-/* Account / Currency：标签右对齐；与胶囊间距由 panel column-gap 控制（同全站 user-gc-inline） */
+/* Account / Currency：标签限制在首列内右对齐，避免文字压到胶囊列 */
 body.member-winloss-page #member_account_filter > .user-gc-inline-label,
 body.member-winloss-page #member_currency_filter > .user-gc-inline-label {
-    padding-right: 0;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-right: clamp(6px, 0.65vw, 10px);
     text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 body.member-winloss-page #member_account_buttons.member-winloss-account-pills {
@@ -1364,6 +1371,8 @@ body.member-winloss-page #member_account_buttons .member-winloss-account-segment
 
 body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments {
     display: grid;
+    width: auto;
+    max-width: 100%;
     align-items: stretch;
     min-width: 0;
     box-sizing: border-box;
@@ -1440,11 +1449,13 @@ body.member-winloss-page #member_currency_buttons .member-winloss-currency-segme
 }
 
 body.member-winloss-page .member-dash-col-filters .user-gc-inline-label {
-    min-width: var(--member-winloss-label-w, 6.5rem);
-    width: auto;
-    max-width: none;
-    overflow: visible;
-    text-overflow: clip;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: var(--text-base);
     text-align: right;
