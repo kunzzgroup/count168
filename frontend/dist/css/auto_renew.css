@@ -132,64 +132,64 @@ body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker:hover 
 body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
 body.auto-renew-page-body .user-list-table.auto-renew-table {
   --user-list-grid-cols:
-    48px
-    minmax(72px, 0.85fr)
-    minmax(100px, 1fr)
-    minmax(72px, 0.75fr)
-    minmax(100px, 0.9fr)
-    minmax(96px, 0.85fr)
-    minmax(100px, 0.9fr)
-    minmax(112px, 1fr)
-    minmax(112px, 1fr)
-    minmax(120px, 1fr);
+    44px
+    minmax(64px, 0.72fr)
+    minmax(88px, 0.88fr)
+    minmax(64px, 0.62fr)
+    minmax(92px, 0.82fr)
+    minmax(108px, 0.86fr)
+    minmax(128px, 1.28fr)
+    minmax(148px, 1.48fr)
+    minmax(148px, 1.48fr)
+    minmax(132px, 1.22fr);
 }
 
 body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
 body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table {
   --user-list-grid-cols:
-    54px
-    minmax(72px, 0.85fr)
-    minmax(100px, 1fr)
-    minmax(72px, 0.75fr)
-    minmax(100px, 0.9fr)
-    minmax(96px, 0.85fr)
-    minmax(100px, 0.9fr)
-    minmax(112px, 1fr)
-    minmax(112px, 1fr)
-    minmax(120px, 1fr);
+    48px
+    minmax(64px, 0.72fr)
+    minmax(88px, 0.88fr)
+    minmax(64px, 0.62fr)
+    minmax(92px, 0.82fr)
+    minmax(108px, 0.86fr)
+    minmax(128px, 1.28fr)
+    minmax(148px, 1.48fr)
+    minmax(148px, 1.48fr)
+    minmax(132px, 1.22fr);
 }
 
 /* 11-column grid — Approved chip only (adds Submitter) */
 body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter,
 body.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
   --user-list-grid-cols:
-    48px
-    minmax(72px, 0.85fr)
-    minmax(100px, 1fr)
-    minmax(72px, 0.75fr)
-    minmax(100px, 0.9fr)
-    minmax(96px, 0.85fr)
-    minmax(100px, 0.9fr)
-    minmax(112px, 1fr)
-    minmax(112px, 1fr)
-    minmax(120px, 1fr)
-    minmax(96px, 0.85fr);
+    44px
+    minmax(64px, 0.72fr)
+    minmax(88px, 0.88fr)
+    minmax(64px, 0.62fr)
+    minmax(92px, 0.82fr)
+    minmax(108px, 0.86fr)
+    minmax(128px, 1.28fr)
+    minmax(148px, 1.48fr)
+    minmax(148px, 1.48fr)
+    minmax(132px, 1.22fr)
+    minmax(88px, 0.82fr);
 }
 
 body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter,
 body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
   --user-list-grid-cols:
-    54px
-    minmax(72px, 0.85fr)
-    minmax(100px, 1fr)
-    minmax(72px, 0.75fr)
-    minmax(100px, 0.9fr)
-    minmax(96px, 0.85fr)
-    minmax(100px, 0.9fr)
-    minmax(112px, 1fr)
-    minmax(112px, 1fr)
-    minmax(120px, 1fr)
-    minmax(96px, 0.85fr);
+    48px
+    minmax(64px, 0.72fr)
+    minmax(88px, 0.88fr)
+    minmax(64px, 0.62fr)
+    minmax(92px, 0.82fr)
+    minmax(108px, 0.86fr)
+    minmax(128px, 1.28fr)
+    minmax(148px, 1.48fr)
+    minmax(148px, 1.48fr)
+    minmax(132px, 1.22fr)
+    minmax(88px, 0.82fr);
 }
 
 body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
@@ -224,6 +224,14 @@ body.auto-renew-page-body .auto-renew-col-control {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+body.auto-renew-page-body .auto-renew-col-control-header .header-item__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 body.auto-renew-page-body .auto-renew-col-control {
@@ -478,7 +486,7 @@ body.auto-renew-page-body .auto-renew-inline-select {
   max-width: 100%;
   height: var(--auto-renew-control-height);
   min-height: var(--auto-renew-control-height);
-  padding: 0 28px 0 10px;
+  padding: 0 24px 0 10px;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
   font-size: 11px;
@@ -683,38 +691,38 @@ body.auto-renew-page-body .auto-renew-toast.error {
   }
 
   body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
-    min-width: max(100%, 1080px);
+    min-width: max(100%, 1120px);
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
   body.auto-renew-page-body .user-list-table.auto-renew-table {
     --user-list-grid-cols:
-      44px
-      72px
+      40px
+      64px
+      84px
+      60px
+      84px
       96px
-      68px
-      92px
-      88px
-      96px
-      100px
-      100px
-      108px !important;
+      120px
+      136px
+      136px
+      124px !important;
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter,
   body.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
     --user-list-grid-cols:
-      44px
-      72px
+      40px
+      64px
+      84px
+      60px
+      84px
       96px
-      68px
-      92px
-      88px
-      96px
-      100px
-      100px
-      108px
-      88px !important;
+      120px
+      136px
+      136px
+      124px
+      84px !important;
   }
 }
 
@@ -722,41 +730,41 @@ body.auto-renew-page-body .auto-renew-toast.error {
 @media screen and (min-width: 1025px) and (max-width: 1440px) {
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table {
     --user-list-grid-cols:
-      48px
-      minmax(72px, 0.85fr)
-      minmax(100px, 1fr)
-      minmax(72px, 0.75fr)
-      minmax(100px, 0.9fr)
-      minmax(96px, 0.85fr)
-      minmax(100px, 0.9fr)
-      minmax(120px, 1fr)
-      minmax(120px, 1fr)
-      minmax(120px, 1fr) !important;
+      44px
+      minmax(64px, 0.72fr)
+      minmax(88px, 0.88fr)
+      minmax(64px, 0.62fr)
+      minmax(92px, 0.82fr)
+      minmax(108px, 0.86fr)
+      minmax(128px, 1.28fr)
+      minmax(148px, 1.48fr)
+      minmax(148px, 1.48fr)
+      minmax(132px, 1.22fr) !important;
     --user-list-grid-cols-bulk:
-      48px
-      minmax(72px, 0.85fr)
-      minmax(100px, 1fr)
-      minmax(72px, 0.75fr)
-      minmax(100px, 0.9fr)
-      minmax(96px, 0.85fr)
-      minmax(100px, 0.9fr)
-      minmax(120px, 1fr)
-      minmax(120px, 1fr)
-      minmax(120px, 1fr) !important;
+      44px
+      minmax(64px, 0.72fr)
+      minmax(88px, 0.88fr)
+      minmax(64px, 0.62fr)
+      minmax(92px, 0.82fr)
+      minmax(108px, 0.86fr)
+      minmax(128px, 1.28fr)
+      minmax(148px, 1.48fr)
+      minmax(148px, 1.48fr)
+      minmax(132px, 1.22fr) !important;
   }
 
   body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table {
     --user-list-grid-cols:
-      54px
-      minmax(72px, 0.85fr)
-      minmax(100px, 1fr)
-      minmax(72px, 0.75fr)
-      minmax(100px, 0.9fr)
-      minmax(96px, 0.85fr)
-      minmax(100px, 0.9fr)
-      minmax(120px, 1fr)
-      minmax(120px, 1fr)
-      minmax(120px, 1fr) !important;
+      48px
+      minmax(64px, 0.72fr)
+      minmax(88px, 0.88fr)
+      minmax(64px, 0.62fr)
+      minmax(92px, 0.82fr)
+      minmax(108px, 0.86fr)
+      minmax(128px, 1.28fr)
+      minmax(148px, 1.48fr)
+      minmax(148px, 1.48fr)
+      minmax(132px, 1.22fr) !important;
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table .table-header.user-list-table-header,
@@ -828,7 +836,7 @@ body.auto-renew-page-body .auto-renew-toast.error {
   }
 
   body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
-    min-width: max(100%, 960px);
+    min-width: max(100%, 1000px);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -837,14 +845,14 @@ body.auto-renew-page-body .auto-renew-toast.error {
   body.auto-renew-page-body .user-list-table.auto-renew-table {
     --user-list-grid-cols:
       36px
-      minmax(52px, 0.68fr)
-      minmax(64px, 0.82fr)
-      minmax(52px, 0.6fr)
-      minmax(72px, 0.75fr)
-      minmax(68px, 0.7fr)
-      minmax(116px, 1.08fr)
-      minmax(122px, 1.12fr)
-      minmax(122px, 1.12fr)
+      minmax(52px, 0.62fr)
+      minmax(64px, 0.78fr)
+      minmax(52px, 0.55fr)
+      minmax(72px, 0.72fr)
+      minmax(68px, 0.68fr)
+      minmax(120px, 1.15fr)
+      minmax(132px, 1.28fr)
+      minmax(132px, 1.28fr)
       minmax(134px, 1.22fr) !important;
   }
 
@@ -852,30 +860,30 @@ body.auto-renew-page-body .auto-renew-toast.error {
   body.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
     --user-list-grid-cols:
       36px
-      minmax(52px, 0.68fr)
-      minmax(64px, 0.82fr)
-      minmax(52px, 0.6fr)
-      minmax(72px, 0.75fr)
-      minmax(68px, 0.7fr)
-      minmax(116px, 1.08fr)
-      minmax(122px, 1.12fr)
-      minmax(122px, 1.12fr)
+      minmax(52px, 0.62fr)
+      minmax(64px, 0.78fr)
+      minmax(52px, 0.55fr)
+      minmax(72px, 0.72fr)
+      minmax(68px, 0.68fr)
+      minmax(120px, 1.15fr)
+      minmax(132px, 1.28fr)
+      minmax(132px, 1.28fr)
       minmax(134px, 1.22fr)
-      minmax(84px, 0.85fr) !important;
+      minmax(84px, 0.82fr) !important;
   }
 
   body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
   body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table {
     --user-list-grid-cols:
       40px
-      minmax(52px, 0.68fr)
-      minmax(64px, 0.82fr)
-      minmax(52px, 0.6fr)
-      minmax(72px, 0.75fr)
-      minmax(68px, 0.7fr)
-      minmax(116px, 1.08fr)
-      minmax(122px, 1.12fr)
-      minmax(122px, 1.12fr)
+      minmax(52px, 0.62fr)
+      minmax(64px, 0.78fr)
+      minmax(52px, 0.55fr)
+      minmax(72px, 0.72fr)
+      minmax(68px, 0.68fr)
+      minmax(120px, 1.15fr)
+      minmax(132px, 1.28fr)
+      minmax(132px, 1.28fr)
       minmax(134px, 1.22fr) !important;
   }
 
@@ -883,16 +891,16 @@ body.auto-renew-page-body .auto-renew-toast.error {
   body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
     --user-list-grid-cols:
       40px
-      minmax(52px, 0.68fr)
-      minmax(64px, 0.82fr)
-      minmax(52px, 0.6fr)
-      minmax(72px, 0.75fr)
-      minmax(68px, 0.7fr)
-      minmax(116px, 1.08fr)
-      minmax(122px, 1.12fr)
-      minmax(122px, 1.12fr)
+      minmax(52px, 0.62fr)
+      minmax(64px, 0.78fr)
+      minmax(52px, 0.55fr)
+      minmax(72px, 0.72fr)
+      minmax(68px, 0.68fr)
+      minmax(120px, 1.15fr)
+      minmax(132px, 1.28fr)
+      minmax(132px, 1.28fr)
       minmax(134px, 1.22fr)
-      minmax(84px, 0.85fr) !important;
+      minmax(84px, 0.82fr) !important;
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table .table-header.user-list-table-header,
