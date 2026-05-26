@@ -4,6 +4,7 @@ import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import { MAINTENANCE_I18N } from "../../translateFile/pages/maintenanceTranslate.js";
 import { formatMemberRole, getMemberText } from "../../translateFile/pages/memberTranslate.js";
 import { ensureMaintenanceDateRangePicker } from "../../utils/date/dateRangePicker.js";
+import { useExpirationReminder } from "../../hooks/useExpirationReminder.js";
 
 function readCookie(name) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -114,6 +115,28 @@ export function useMemberPageShell({ navigate, initSession, mondayDmy, todayDmy,
     };
   }, [navigate, mondayDmy, todayDmy, initSession]);
 
+  const refreshSession = useCallback(async () => {
+    try {
+      const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+      const meJson = await meRes.json();
+      if (meRes.ok && meJson.success && meJson.data) {
+        setMe(meJson.data);
+        return meJson.data;
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    const onCompanySession = () => {
+      void refreshSession();
+    };
+    window.addEventListener("eazycount:company-session-updated", onCompanySession);
+    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+  }, [refreshSession]);
+
   useEffect(() => {
     injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css").catch(() => {});
   }, []);
@@ -150,11 +173,20 @@ export function useMemberPageShell({ navigate, initSession, mondayDmy, todayDmy,
     }
   }, []);
 
-  const toggleNotifications = useCallback(async () => {
+  const roleLabel = useMemo(() => formatMemberRole(lang, me?.role), [lang, me?.role]);
+
+  const expirationReminder = useExpirationReminder(me, lang);
+  const displayAnnouncements = useMemo(
+    () => expirationReminder.mergeAnnouncements(announcements),
+    [announcements, expirationReminder.mergeAnnouncements],
+  );
+
+  const toggleNotificationsWithExpiration = useCallback(async () => {
     if (showNotifications) {
       setShowNotifications(false);
       return;
     }
+    expirationReminder.onBellOpen();
     setShowNotifications(true);
     setAnnouncementsLoading(true);
     try {
@@ -168,7 +200,7 @@ export function useMemberPageShell({ navigate, initSession, mondayDmy, todayDmy,
     } finally {
       setAnnouncementsLoading(false);
     }
-  }, [showNotifications]);
+  }, [showNotifications, expirationReminder.onBellOpen]);
 
   const performLogout = useCallback(async () => {
     if (logoutLoading) return;
@@ -193,8 +225,6 @@ export function useMemberPageShell({ navigate, initSession, mondayDmy, todayDmy,
     [t],
   );
 
-  const roleLabel = useMemo(() => formatMemberRole(lang, me?.role), [lang, me?.role]);
-
   return {
     loading,
     me,
@@ -211,13 +241,14 @@ export function useMemberPageShell({ navigate, initSession, mondayDmy, todayDmy,
     notifications,
     showNotification,
     showNotifications,
-    toggleNotifications,
-    announcements,
+    toggleNotifications: toggleNotificationsWithExpiration,
+    announcements: displayAnnouncements,
     announcementsLoading,
     showLogoutConfirm,
     setShowLogoutConfirm,
     logoutLoading,
     performLogout,
     logoutI18n,
+    expirationReminder,
   };
 }

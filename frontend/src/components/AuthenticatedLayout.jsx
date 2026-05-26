@@ -4,9 +4,11 @@ import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
 import AppBootLoading from "./AppBootLoading.jsx";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
+import ExpirationReminderModal from "./ExpirationReminderModal.jsx";
 import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
 import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
+import { useExpirationReminder } from "../hooks/useExpirationReminder.js";
 import { applyLoginLang } from "../utils/i18n/useLoginLang.js";
 import {
   canAccessFullMaintenance,
@@ -85,6 +87,20 @@ export default function AuthenticatedLayout() {
     () => typeof window !== "undefined" && localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1"
   );
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
+  const {
+    showModal: showExpirationModal,
+    dismissModal: dismissExpirationModal,
+    modalTitle: expirationModalTitle,
+    modalMessage: expirationModalMessage,
+    modalI18n: expirationModalI18n,
+    mergeAnnouncements,
+    hasBellBadge,
+    onBellOpen,
+  } = useExpirationReminder(me, lang);
+  const displayAnnouncements = useMemo(
+    () => mergeAnnouncements(announcements),
+    [announcements, mergeAnnouncements],
+  );
   const sidebarIconOnly = isTabletViewport && sidebarCollapsed;
   const sidebarTabletExpanded = isTabletViewport && !sidebarCollapsed;
 
@@ -255,6 +271,7 @@ export default function AuthenticatedLayout() {
       e.stopPropagation();
     }
     if (!showNotifications) {
+      onBellOpen();
       setShowNotifications(true);
       setAnnouncementsLoading(true);
       try {
@@ -381,7 +398,7 @@ export default function AuthenticatedLayout() {
               </button>
             )}
             <img src={assetUrl("images/count_whitelogo.png")} alt="EAZYCOUNT" className="header-logo" />
-            <div className="notification-bell" title={i18n.notifications} onClick={toggleNotifications}>
+            <div className={`notification-bell${hasBellBadge ? " has-unread" : ""}`} title={i18n.notifications} onClick={toggleNotifications}>
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
                 </svg>
@@ -753,9 +770,13 @@ export default function AuthenticatedLayout() {
         <div className="notification-content" id="notificationContent">
           {announcementsLoading ? (
             <div className="notification-empty"><p>{i18n.loadingAnnouncements}</p></div>
-          ) : announcements.length > 0 ? (
-            announcements.map((announcement, index) => (
-              <div key={index} className={`notification-item ${readAnnouncements.has(index) ? '' : 'unread'}`} onClick={() => markAnnouncementRead(index)}>
+          ) : displayAnnouncements.length > 0 ? (
+            displayAnnouncements.map((announcement, index) => (
+              <div
+                key={announcement.id ?? index}
+                className={`notification-item ${announcement.isExpirationReminder || !readAnnouncements.has(index) ? "unread" : ""}${announcement.isExpirationReminder ? " expiration-reminder-item" : ""}`}
+                onClick={() => markAnnouncementRead(index)}
+              >
                 <div className="notification-title">{announcement.title}</div>
                 <div className="notification-message">{announcement.content}</div>
                 <div className="notification-time">{announcement.created_at}</div>
@@ -771,6 +792,14 @@ export default function AuthenticatedLayout() {
           )}
         </div>
       </div>
+
+      <ExpirationReminderModal
+        open={showExpirationModal}
+        title={expirationModalTitle}
+        message={expirationModalMessage}
+        confirmLabel={expirationModalI18n.confirm}
+        onConfirm={dismissExpirationModal}
+      />
 
       <ConfirmLogoutModal
         open={showLogoutConfirm}

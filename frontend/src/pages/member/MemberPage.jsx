@@ -18,6 +18,7 @@ import "../../../public/css/date-range-picker.css";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
+import ExpirationReminderModal from "../../components/ExpirationReminderModal.jsx";
 import MemberMiniGrid, { MemberMiniGridTotals } from "./components/MemberMiniGrid.jsx";
 import MemberMoneyCell from "./components/MemberMoneyCell.jsx";
 import MemberLinkedFilterModal from "./components/MemberLinkedFilterModal.jsx";
@@ -122,6 +123,7 @@ export default function MemberPage() {
     logoutLoading,
     performLogout,
     logoutI18n,
+    expirationReminder,
   } = useMemberPageShell({
     navigate,
     initSession,
@@ -254,7 +256,7 @@ export default function MemberPage() {
         <div className="informationmenu-header">
           <div className="header-logo-section">
             <img src={assetUrl("images/count_whitelogo.png")} alt="EAZYCOUNT Logo" className="header-logo" />
-            <div className="notification-bell" title={t("notifications")} onClick={toggleNotifications}>
+            <div className={`notification-bell${expirationReminder.hasBellBadge ? " has-unread" : ""}`} title={t("notifications")} onClick={toggleNotifications}>
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
               </svg>
@@ -622,7 +624,10 @@ export default function MemberPage() {
             <div className="notification-empty"><p>{t("loadingAnnouncements")}</p></div>
           ) : announcements.length > 0 ? (
             announcements.map((a, idx) => (
-              <div key={`${a.title || "announcement"}-${idx}`} className="notification-item unread">
+              <div
+                key={a.id ?? `${a.title || "announcement"}-${idx}`}
+                className={`notification-item unread${a.isExpirationReminder ? " expiration-reminder-item" : ""}`}
+              >
                 <div className="notification-title">{a.title}</div>
                 <div className="notification-message">{a.content}</div>
                 <div className="notification-time">{a.created_at}</div>
@@ -647,6 +652,14 @@ export default function MemberPage() {
         onApply={applyWlGridSelection}
         onNotify={showNotification}
         t={t}
+      />
+
+      <ExpirationReminderModal
+        open={expirationReminder.showModal}
+        title={expirationReminder.modalTitle}
+        message={expirationReminder.modalMessage}
+        confirmLabel={expirationReminder.modalI18n.confirm}
+        onConfirm={expirationReminder.dismissModal}
       />
 
       <ConfirmLogoutModal

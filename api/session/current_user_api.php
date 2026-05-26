@@ -76,6 +76,9 @@ $needsUserSecondary = false;
 $companyId = isset($_SESSION['company_id']) ? (int) $_SESSION['company_id'] : null;
 $expirationHint = 'No expiration date';
 $expirationStatus = 'normal';
+$companyExpirationDateRaw = null;
+$daysUntilExpiration = null;
+$companyCodeForResponse = strtoupper(trim((string) ($_SESSION['company_code'] ?? '')));
 $permissions = [];
 $isCurrentCompanyC168 = false;
 $hasC168DomainPageAccess = false;
@@ -101,11 +104,12 @@ if ($companyId && $pdo instanceof PDO) {
             $permissions = $userPermissions ? (json_decode((string) $userPermissions, true) ?: []) : [];
         }
 
-        $companyCode = strtoupper(trim((string) ($_SESSION['company_code'] ?? '')));
+        $companyCode = $companyCodeForResponse;
         if ($companyCode === '') {
             $stmtCode = $pdo->prepare('SELECT company_id FROM company WHERE id = ? LIMIT 1');
             $stmtCode->execute([$companyId]);
             $companyCode = strtoupper(trim((string) $stmtCode->fetchColumn()));
+            $companyCodeForResponse = $companyCode;
         }
         if ($companyCode === 'C168') {
             $isCurrentCompanyC168 = true;
@@ -137,6 +141,7 @@ if ($companyId && $pdo instanceof PDO) {
         $stmt = $pdo->prepare('SELECT expiration_date FROM company WHERE id = ?');
         $stmt->execute([$companyId]);
         $companyExpirationDate = $stmt->fetchColumn();
+        $companyExpirationDateRaw = $companyExpirationDate ? (string) $companyExpirationDate : null;
 
         if ($companyExpirationDate) {
             $now = new DateTime();
@@ -146,6 +151,7 @@ if ($companyId && $pdo instanceof PDO) {
 
             $diff = $now->diff($expiration);
             $diffDays = (int) $diff->format('%r%a');
+            $daysUntilExpiration = $diffDays;
 
             if ($diffDays < 0) {
                 $expirationHint = 'Expired';
@@ -227,8 +233,11 @@ echo json_encode([
         'company_has_bank' => $companyHasBank,
         'company_permissions' => is_array($companyPermissionsList) ? $companyPermissionsList : [],
         'company_id' => $companyId ?: null,
+        'company_code' => $companyCodeForResponse !== '' ? $companyCodeForResponse : null,
         'needs_owner_secondary' => $needsOwnerSecondary,
         'needs_user_secondary' => $needsUserSecondary,
+        'expiration_date' => $companyExpirationDateRaw,
+        'days_until_expiration' => $daysUntilExpiration,
         'expiration_hint' => $expirationHint,
         'expiration_status' => $expirationStatus,
         'read_only' => $readOnlyForClient,
