@@ -1722,6 +1722,29 @@ body.ownership-page {
     transform: rotate(180deg);
 }
 
+.own-month-back-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #0D60FF 0%, #0047CC 100%);
+    color: #fff;
+    font-family: var(--font-heading-page, inherit);
+    font-size: var(--own-text-label, 13px);
+    font-weight: var(--font-weight-bold, 600);
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.28);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.own-month-back-btn:hover {
+    box-shadow: 0 4px 12px rgba(13, 96, 255, 0.38);
+    transform: translateY(-1px);
+}
+
 .own-month-hint {
     margin: 0;
     font-size: 11px;

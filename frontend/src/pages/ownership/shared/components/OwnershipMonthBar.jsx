@@ -132,6 +132,19 @@ export default function OwnershipMonthBar({
             </div>
           </div>
         ) : null}
+
+        {isHistoricalView ? (
+          <button
+            type="button"
+            className="own-month-back-btn"
+            onClick={() => {
+              setOpen(false);
+              onMonthChange(currentMonthKey);
+            }}
+          >
+            {t("currentMonth")}
+          </button>
+        ) : null}
       </div>
       {historyBanner ? (
         <p className={`own-month-hint${historyBanner.empty ? " is-warn" : ""}`}>
