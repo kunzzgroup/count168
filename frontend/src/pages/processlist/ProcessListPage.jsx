@@ -99,6 +99,8 @@ export default function ProcessListPage() {
   const fetchAbortRef = useRef(null);
   const searchDebounceRef = useRef(null);
   const skipNextFetchRef = useRef(false);
+  /** Prevent session refresh from re-running boot and resetting GroupID ALL / follow UI. */
+  const processListInitDoneRef = useRef(false);
   const rowsRef = useRef([]);
   const skipNextCurrencyPillClickRef = useRef(false);
 
@@ -243,11 +245,12 @@ export default function ProcessListPage() {
 
   useEffect(() => {
     if (!sessionReady || !sessionMeFromLayout) return;
+    const routePrefetch = location.state?.processListPrefetch;
+    if (processListInitDoneRef.current && !routePrefetch) return;
     (async () => {
       let skipLoadingDone = false;
       try {
         const layoutMe = sessionMeFromLayout;
-        const routePrefetch = location.state?.processListPrefetch;
         const prefetchCompanyId = routePrefetch?.companyId ? Number(routePrefetch.companyId) : null;
         const currentUrl = new URL(window.location.href);
         const prefetchQueryCompany = currentUrl.searchParams.get("company_id");
@@ -286,6 +289,7 @@ export default function ProcessListPage() {
             setTableLoading(true);
           }
           setLoading(false);
+          processListInitDoneRef.current = true;
           return;
         }
 
@@ -362,13 +366,14 @@ export default function ProcessListPage() {
         setCurrencyFilterCode(String(url.searchParams.get("currency") || "").trim().toUpperCase());
 
         await loadFormMeta(effectiveCompany);
+        processListInitDoneRef.current = true;
       } catch {
         window.location.assign(new URL("/login", window.location.origin).toString());
       } finally {
         if (!skipLoadingDone) setLoading(false);
       }
     })();
-  }, [loadFormMeta, location.state, navigate, sessionReady, sessionMeFromLayout]);
+  }, [loadFormMeta, location.state, navigate, sessionReady, sessionMeFromLayout?.user_id]);
 
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
@@ -795,8 +800,9 @@ export default function ProcessListPage() {
   );
 
   const handlePickAllGroups = useCallback(() => {
-    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, []);
+    if (groupFilterKind === "all") return;
+    setGroupFilterKind("all");
+  }, [groupFilterKind]);
 
   const openAdd = () => {
     if (processMutationsBlocked) {
