@@ -9,23 +9,34 @@ export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
 let ownerCompaniesCache = null;
 let ownerCompaniesInflight = null;
 
+function hasOwnerCompaniesCache() {
+  return Array.isArray(ownerCompaniesCache) && ownerCompaniesCache.length > 0;
+}
+
 export function getCachedOwnerCompanies() {
-  return ownerCompaniesCache;
+  return hasOwnerCompaniesCache() ? ownerCompaniesCache : null;
 }
 
 export function setCachedOwnerCompanies(rows) {
-  ownerCompaniesCache = Array.isArray(rows) ? rows : null;
+  if (!Array.isArray(rows)) {
+    ownerCompaniesCache = null;
+    return;
+  }
+  const normalized = rows.map(normalizeOwnerCompanyRow).filter(Boolean);
+  ownerCompaniesCache = normalized.length > 0 ? normalized : null;
 }
 
 /** @param {() => Promise<object[]>} fetcher */
 export async function loadOwnerCompaniesCached(fetcher) {
-  if (ownerCompaniesCache) return ownerCompaniesCache;
+  if (hasOwnerCompaniesCache()) return ownerCompaniesCache;
   if (!ownerCompaniesInflight) {
     ownerCompaniesInflight = fetcher()
       .then((rows) => {
-        ownerCompaniesCache = rows;
+        const list = Array.isArray(rows) ? rows : [];
+        const normalized = list.map(normalizeOwnerCompanyRow).filter(Boolean);
+        ownerCompaniesCache = normalized.length > 0 ? normalized : null;
         ownerCompaniesInflight = null;
-        return rows;
+        return ownerCompaniesCache || [];
       })
       .catch((err) => {
         ownerCompaniesInflight = null;

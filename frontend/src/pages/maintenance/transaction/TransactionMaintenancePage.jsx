@@ -21,7 +21,7 @@ import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/transaction_maintenance.css";
 import {
   fetchCompanyPermissions,
-  fetchProcesses,
+  fetchProcessesForPermission,
   isBankOnlyCategoryCompany,
   normalizeMaintenanceProcessFilter,
   filterTransactionMaintenancePermissions,
@@ -94,6 +94,8 @@ export default function TransactionMaintenancePage() {
   const [filtersReady, setFiltersReady] = useState(false);
   const [dateRangeReady, setDateRangeReady] = useState(false);
   const [searchDeferredReady, setSearchDeferredReady] = useState(false);
+  /** Meta (process list + permission/category) ready for querying. */
+  const [metaReady, setMetaReady] = useState(false);
   const followGroupRef = useRef(() => {});
   const pageBootOnceRef = useRef(false);
 
@@ -129,10 +131,11 @@ export default function TransactionMaintenancePage() {
   const listQueryEnabled = Boolean(
     filtersReady &&
     dateRangeReady &&
+    metaReady &&
     companyId &&
     dateFrom &&
     dateTo &&
-    (permissions.length === 0 || activePermission),
+    activePermission,
   );
 
   const maintenancePlaceholder = useCallback(
@@ -427,16 +430,13 @@ export default function TransactionMaintenancePage() {
         
         setCompanyId(initialCompanyId);
         
-        const currentComp = filtered.find(c => Number(c.id) === initialCompanyId);
+        const currentComp = filtered.find(c => Number(c.id) === initialCompanyId) || filtered[0] || null;
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
 
-          // Fetch initial metadata here to ensure the first query starts with the correct activePermission
-          const [companyPerms, procList] = await Promise.all([
-            fetchCompanyPermissions(code),
-            fetchProcesses(initialCompanyId)
-          ]);
+          // Fetch permissions first to pick the correct category for downstream APIs.
+          const companyPerms = await fetchCompanyPermissions(code);
 
           const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
           const bankOnly = companyPerms.includes("Bank") && !hasGames;
@@ -450,11 +450,19 @@ export default function TransactionMaintenancePage() {
           }
 
           setPermissions(companyPerms);
-          setProcesses(procList);
 
           const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
           const initialActive = pickTransactionMaintenancePermission(companyPerms, savedPerm);
           setActivePermission(initialActive);
+          setMetaReady(true);
+
+          // Process list is a UI nicety; do not block initial list query on this.
+          try {
+            const procList = await fetchProcessesForPermission(initialCompanyId, initialActive);
+            if (!cancelled) setProcesses(procList);
+          } catch (err) {
+            console.error("Process list load error:", err);
+          }
 
           // Cache permissions so the meta-effect below skips redundant API call
           switchPermsCacheRef.current = { companyCode: code, perms: companyPerms };
@@ -500,15 +508,7 @@ export default function TransactionMaintenancePage() {
 
     (async () => {
       try {
-        const procList = await fetchProcesses(cid);
-        if (cancelled) return;
-        setProcesses(procList);
-        setSelectedProcess((prev) => {
-          const filter = normalizeMaintenanceProcessFilter(prev);
-          if (!filter) return "";
-          return procList.some((p) => String(p.process_name) === filter) ? filter : "";
-        });
-
+        setMetaReady(false);
         const cached = switchPermsCacheRef.current;
         let permList;
         if (cached && cached.companyCode === ccode) {
@@ -520,7 +520,31 @@ export default function TransactionMaintenancePage() {
         if (cancelled) return;
         setPermissions(permList);
 
-        setActivePermission(pickTransactionMaintenancePermission(permList, localStorage.getItem(`selectedPermission_${ccode}`)));
+        const nextPerm = pickTransactionMaintenancePermission(
+          permList,
+          localStorage.getItem(`selectedPermission_${ccode}`),
+        );
+        setActivePermission(
+          pickTransactionMaintenancePermission(
+            permList,
+            localStorage.getItem(`selectedPermission_${ccode}`),
+          ),
+        );
+        setMetaReady(true);
+
+        try {
+          const procList = await fetchProcessesForPermission(cid, nextPerm);
+          if (cancelled) return;
+          setProcesses(procList);
+          setSelectedProcess((prev) => {
+            const filter = normalizeMaintenanceProcessFilter(prev);
+            if (!filter) return "";
+            return procList.some((p) => String(p.process_name) === filter) ? filter : "";
+          });
+        } catch (err) {
+          if (cancelled) return;
+          console.error("Process list load error:", err);
+        }
       } catch (err) {
         if (cancelled) return;
         console.error("Meta data load error:", err);
@@ -596,10 +620,7 @@ export default function TransactionMaintenancePage() {
         return;
       }
 
-      const [perms, procList] = await Promise.all([
-        fetchCompanyPermissions(code),
-        fetchProcesses(nextCompanyId),
-      ]);
+      const perms = await fetchCompanyPermissions(code);
 
       if (isBankOnlyCategoryCompany(perms)) {
         navigate("/process-list", { replace: true });
@@ -610,7 +631,14 @@ export default function TransactionMaintenancePage() {
       switchPermsCacheRef.current = { companyCode: code, perms };
       setActivePermission(nextActive);
       setPermissions(perms);
-      setProcesses(procList);
+      setMetaReady(true);
+
+      try {
+        const procList = await fetchProcessesForPermission(nextCompanyId, nextActive);
+        setProcesses(procList);
+      } catch (err) {
+        console.error("Process list load error:", err);
+      }
 
       followGroupRef.current();
 
