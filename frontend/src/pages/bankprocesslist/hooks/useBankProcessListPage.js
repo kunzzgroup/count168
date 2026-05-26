@@ -125,6 +125,13 @@ export function useBankProcessListPage() {
   const [showOfficial, setShowOfficial] = useState(false);
   const [showEInvoice, setShowEInvoice] = useState(false);
   const [showBlock, setShowBlock] = useState(false);
+  const clearBankProcessFilters = useCallback(() => {
+    setShowAll(false);
+    setShowInactive(false);
+    setShowOfficial(false);
+    setShowEInvoice(false);
+    setShowBlock(false);
+  }, []);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
@@ -1727,6 +1734,7 @@ export function useBankProcessListPage() {
     setShowEInvoice,
     showBlock,
     setShowBlock,
+    clearBankProcessFilters,
     deleteConfirmOpen,
     setDeleteConfirmOpen,
     deleteSubmitting,

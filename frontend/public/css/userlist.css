@@ -2546,14 +2546,7 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     max-width: clamp(200px, 18vw, 280px);
 }
 
-@media (max-width: 1699px) {
-    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
-        width: clamp(96px, 8vw, 140px) !important;
-        max-width: clamp(96px, 8vw, 140px) !important;
-        flex: 0 0 auto !important;
-    }
-}
+/* Bank Process <1700px search widths: processCSS .bank-process-search-bar.is-collapsed / .is-expanded */
 
 body.user-page .userlist-search-bar__icon,
 body.account-page .userlist-search-bar__icon,

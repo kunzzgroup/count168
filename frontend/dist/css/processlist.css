@@ -2284,7 +2284,7 @@ body.process-page .calendar-popup--transaction-range .calendar-year-option.is-ac
 }
 
 /* Bank Add/Edit / Resend：日历宽度与输入框一致（宽度由 JS 写入 inline style） */
-body.process-page .calendar-popup.calendar-popup--transaction-range.calendar-popup--match-anchor {
+body.process-page:not(.process-page--bank) .calendar-popup.calendar-popup--transaction-range.calendar-popup--match-anchor {
     width: auto;
     min-width: 0;
     max-width: calc(100vw - 24px);
