@@ -1905,19 +1905,54 @@ body.ec-auth-shell #root > :is(
     box-sizing: border-box;
 }
 
+.informationmenu-section-title .sidebar-menu-label-wrap {
+    grid-column: 2;
+    position: relative;
+    display: w-fit;
+    max-width: 100%;
+    min-width: 0;
+}
+
 .informationmenu-section-title .sidebar-pending-badge {
+    position: absolute;
+    top: -6px;
+    right: -10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    margin-left: auto;
-    padding: 0 6px;
+    min-width: 16px;
+    height: 16px;
+    margin-left: 0;
+    padding: 0 5px;
     border-radius: 999px;
     background: #f59e0b;
     color: #fff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     line-height: 1;
+    pointer-events: none;
+    box-shadow: 0 0 0 2px rgba(14, 147, 243, 0.35);
 }
 
+.informationmenu-section-title.current-page .sidebar-pending-badge,
+.informationmenu-section-title:hover .sidebar-pending-badge {
+    box-shadow: 0 0 0 2px rgba(14, 147, 243, 0.55);
+}
+
+/* Collapsed sidebar: badge on menu icon top-right */
+@media (max-width: 1280px) {
+    .informationmenu.is-collapsed .informationmenu-section-title.has-sidebar-pending-badge .sidebar-menu-label-wrap {
+        position: absolute;
+        inset: 0;
+        display: block;
+        grid-column: 1 / -1;
+        width: auto;
+        max-width: none;
+        pointer-events: none;
+    }
+
+    .informationmenu.is-collapsed .informationmenu-section-title.has-sidebar-pending-badge .sidebar-pending-badge {
+        top: 6px;
+        right: 8px;
+    }
+}

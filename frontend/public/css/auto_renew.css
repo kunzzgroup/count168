@@ -2,6 +2,8 @@
 
 body.auto-renew-page-body {
   overflow-y: auto !important;
+  --auto-renew-toolbar-search-width: clamp(180px, 16vw, 260px);
+  --auto-renew-toolbar-date-width: clamp(200px, 15vw, 248px);
 }
 
 body.auto-renew-page-body .auto-renew-page .content {
@@ -15,29 +17,49 @@ body.auto-renew-page-body .auto-renew-toolbar-row {
 }
 
 body.auto-renew-page-body .auto-renew-toolbar-left {
+  display: flex;
   align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-/* Date range — Transaction Payment 同款（左侧蓝色日历块 + chevron） */
+body.auto-renew-page-body .auto-renew-filter-chips {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Search — compact like Bank Process toolbar */
+body.auto-renew-page-body .auto-renew-toolbar-left .search-container.userlist-search-bar {
+  width: var(--auto-renew-toolbar-search-width) !important;
+  max-width: var(--auto-renew-toolbar-search-width) !important;
+  flex: 0 0 auto !important;
+}
+
+/* Date range — Transaction Payment / Bank Process 紧凑宽度 */
 body.auto-renew-page-body .auto-renew-date-range-group {
   flex: 0 0 auto;
-  width: clamp(200px, 28vw, 320px);
-  min-width: clamp(200px, 28vw, 320px);
-  max-width: clamp(200px, 28vw, 320px);
+  width: var(--auto-renew-toolbar-date-width);
+  min-width: var(--auto-renew-toolbar-date-width);
+  max-width: var(--auto-renew-toolbar-date-width);
 }
 
 body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker {
-  min-width: 100%;
+  position: relative;
+  min-width: 0;
   width: 100%;
+  max-width: 100%;
   min-height: calc(18px + 12px + 2px);
-  gap: clamp(6px, 0.55vw, 10px);
-  padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
+  gap: clamp(4px, 0.4vw, 6px);
+  padding: 0 clamp(24px, 2vw, 30px) 0 0;
   border: 1px solid rgba(148, 163, 184, 0.62);
   border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
   cursor: pointer;
   box-sizing: border-box;
+  justify-content: flex-start;
 }
 
 body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker:hover {
@@ -87,16 +109,21 @@ body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker:has(#d
 }
 
 body.auto-renew-page-body .auto-renew-date-range-group .transaction-date-range-chevron {
+  position: absolute;
+  right: clamp(8px, 0.7vw, 10px);
+  top: 50%;
   margin: 0;
   color: #64748b;
   font-size: var(--text-tiny, 11px);
   flex: 0 0 auto;
+  pointer-events: none;
+  transform: translateY(-50%);
   transition: color 0.16s ease, transform 0.16s ease;
 }
 
 body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker:hover .transaction-date-range-chevron {
   color: #2563eb;
-  transform: translateY(1px);
+  transform: translate(0, calc(-50% + 1px));
 }
 
 /* 10-column grid (default — no Submitter) */
@@ -161,15 +188,6 @@ body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-t
     minmax(112px, 1fr)
     minmax(120px, 1fr)
     minmax(96px, 0.85fr);
-}
-
-body.auto-renew-page-body .auto-renew-toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
@@ -574,10 +592,16 @@ body.auto-renew-page-body .auto-renew-toast.error {
     gap: 8px;
   }
 
-  body.auto-renew-page-body .search-container.userlist-search-bar {
-    flex: 1 1 100%;
-    max-width: 100%;
-    width: 100%;
+  body.auto-renew-page-body .auto-renew-toolbar-left .search-container.userlist-search-bar {
+    flex: 0 0 auto !important;
+    width: min(var(--auto-renew-toolbar-search-width), calc(100vw - 48px)) !important;
+    max-width: min(var(--auto-renew-toolbar-search-width), calc(100vw - 48px)) !important;
+  }
+
+  body.auto-renew-page-body .auto-renew-date-range-group {
+    width: min(var(--auto-renew-toolbar-date-width), calc(100vw - 48px));
+    min-width: min(var(--auto-renew-toolbar-date-width), calc(100vw - 48px));
+    max-width: min(var(--auto-renew-toolbar-date-width), calc(100vw - 48px));
   }
 
   body.auto-renew-page-body .auto-renew-filter-chips {
