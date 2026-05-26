@@ -8,61 +8,57 @@ body.auto-renew-page-body .auto-renew-page .content {
   max-width: 100%;
 }
 
-/* Page header */
-body.auto-renew-page-body .auto-renew-page-header {
-  margin-bottom: clamp(14px, 1.2vw, 20px);
+/* Toolbar — reuse user-page action-buttons-container; no extra card wrapper */
+
+body.auto-renew-page-body .auto-renew-toolbar-row {
+  padding: 12px 20px;
 }
 
-body.auto-renew-page-body .auto-renew-page-title {
-  margin: 0 0 6px;
-  font-size: clamp(20px, 1.45vw, 26px);
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.02em;
+body.auto-renew-page-body .auto-renew-date-field {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
-body.auto-renew-page-body .auto-renew-page-subtitle {
-  margin: 0;
-  font-size: clamp(13px, 0.9vw, 15px);
-  color: #64748b;
-  line-height: 1.5;
-  max-width: 52rem;
-}
-
-/* Toolbar panel */
-body.auto-renew-page-body .auto-renew-toolbar-panel {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  border-radius: 14px;
-  padding: 14px 16px;
-  margin-bottom: 14px;
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
-  backdrop-filter: blur(6px);
-}
-
-body.auto-renew-page-body .auto-renew-toolbar-panel .action-buttons-container {
-  margin-bottom: 0 !important;
-}
-
-/* Table panel */
-body.auto-renew-page-body .auto-renew-table-panel .user-list-table {
-  margin: 0;
-}
-
-body.auto-renew-page-body .auto-renew-table-panel .user-list-table-header {
-  margin-top: 0 !important;
-  border-radius: 0 !important;
-}
-
-body.auto-renew-page-body .auto-renew-table-panel .auto-renew-pagination {
-  padding: 12px 16px 16px;
-  border-top: 1px solid #f1f5f9;
+body.auto-renew-page-body .auto-renew-table .auto-renew-pagination,
+body.auto-renew-page-body .auto-renew-pagination {
+  padding: 12px 0 16px;
   margin-top: 0;
 }
 
-/* 11-column grid — beat global-13inch override on laptop */
+/* 10-column grid (default — no Submitter) */
 body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
 body.auto-renew-page-body .user-list-table.auto-renew-table {
+  --user-list-grid-cols:
+    48px
+    minmax(72px, 0.85fr)
+    minmax(100px, 1fr)
+    minmax(72px, 0.75fr)
+    minmax(100px, 0.9fr)
+    minmax(96px, 0.85fr)
+    minmax(100px, 0.9fr)
+    minmax(112px, 1fr)
+    minmax(112px, 1fr)
+    minmax(120px, 1fr);
+}
+
+body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
+body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table {
+  --user-list-grid-cols:
+    54px
+    minmax(72px, 0.85fr)
+    minmax(100px, 1fr)
+    minmax(72px, 0.75fr)
+    minmax(100px, 0.9fr)
+    minmax(96px, 0.85fr)
+    minmax(100px, 0.9fr)
+    minmax(112px, 1fr)
+    minmax(112px, 1fr)
+    minmax(120px, 1fr);
+}
+
+/* 11-column grid — Approved chip only (adds Submitter) */
+body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter,
+body.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
   --user-list-grid-cols:
     48px
     minmax(72px, 0.85fr)
@@ -77,8 +73,8 @@ body.auto-renew-page-body .user-list-table.auto-renew-table {
     minmax(96px, 0.85fr);
 }
 
-body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
-body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table {
+body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter,
+body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
   --user-list-grid-cols:
     54px
     minmax(72px, 0.85fr)
@@ -102,21 +98,7 @@ body.auto-renew-page-body .auto-renew-toolbar-left {
   min-width: 0;
 }
 
-body.auto-renew-page-body .auto-renew-table-panel {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
-}
-
-/* Scroll lives on inner — panel must not clip horizontal scroll */
-body.auto-renew-page-body .auto-renew-table-panel.user-table-wrapper {
-  overflow-x: hidden;
-  overflow-y: visible;
-}
-
-body.auto-renew-page-body .auto-renew-table-panel .user-list-table-inner {
+body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
@@ -357,18 +339,6 @@ body.auto-renew-page-body .auto-renew-btn-danger:disabled {
   cursor: not-allowed;
 }
 
-body.auto-renew-page-body .auto-renew-date-range-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-body.auto-renew-page-body .auto-renew-date-range-wrap .dashboard-filter-date-field {
-  min-width: 220px;
-}
-
 body.auto-renew-page-body .auto-renew-submitter {
   cursor: default;
   border-bottom: 1px dotted #94a3b8;
@@ -447,26 +417,31 @@ body.auto-renew-page-body .auto-renew-toast.error {
 }
 
 @media (max-width: 1280px) {
-  body.auto-renew-page-body .auto-renew-toolbar-panel,
-  body.auto-renew-page-body .auto-renew-table-panel {
-    border-radius: 12px;
+  body.auto-renew-page-body .auto-renew-toolbar-row {
+    padding: 10px 14px;
   }
 
-  body.auto-renew-page-body .auto-renew-page-header {
-    margin-bottom: 12px;
-  }
-
-  body.auto-renew-page-body .auto-renew-page-subtitle {
-    font-size: 13px;
-  }
-
-  /* Laptop: table wider than content — enable horizontal scroll */
-  body.auto-renew-page-body .auto-renew-table-panel .user-list-table-inner {
-    min-width: max(100%, 1180px);
+  body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+    min-width: max(100%, 1080px);
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
   body.auto-renew-page-body .user-list-table.auto-renew-table {
+    --user-list-grid-cols:
+      44px
+      72px
+      96px
+      68px
+      92px
+      88px
+      96px
+      100px
+      100px
+      108px !important;
+  }
+
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter,
+  body.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
     --user-list-grid-cols:
       44px
       72px
@@ -486,10 +461,6 @@ body.auto-renew-page-body .auto-renew-toast.error {
 @media (max-width: 1024px) {
   body.auto-renew-page-body .container.auto-renew-page {
     padding-right: clamp(12px, 1.5vw, 24px);
-  }
-
-  body.auto-renew-page-body .auto-renew-toolbar-panel {
-    padding: 12px;
   }
 
   body.auto-renew-page-body .auto-renew-toolbar-row {

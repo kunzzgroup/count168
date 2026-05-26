@@ -369,6 +369,8 @@ export default function AutoRenewPage() {
     );
   };
 
+  const showSubmitterColumn = statusFilter === "approved";
+
   if (!sessionReady || !bootDone) {
     return <PageContentLoader />;
   }
@@ -391,56 +393,53 @@ export default function AutoRenewPage() {
         ))}
       </div>
 
-      <div className="container auto-renew-page">
+      <div className="container">
         <div className="content">
-          <header className="auto-renew-page-header">
-            <h1 className="auto-renew-page-title">{t("pageTitle")}</h1>
-            <p className="auto-renew-page-subtitle">{t("pageSubtitle")}</p>
-          </header>
-
-          <div className="auto-renew-toolbar-panel">
-            <div className="action-buttons-container">
-              <div className="action-buttons auto-renew-toolbar-row">
-                <div className="auto-renew-toolbar-left">
-                  <div className="search-container userlist-search-bar">
-                    <span className="userlist-search-bar__icon" aria-hidden="true">
-                      <svg fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                      </svg>
+          <div className="action-buttons-container" style={{ marginBottom: 20 }}>
+            <div
+              className="action-buttons auto-renew-toolbar-row"
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+            >
+              <div className="auto-renew-toolbar-left">
+                <div className="search-container userlist-search-bar">
+                  <span className="userlist-search-bar__icon" aria-hidden="true">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    className="search-input userlist-search-input"
+                    placeholder={t("searchPlaceholder")}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+                  />
+                </div>
+                <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date auto-renew-date-field">
+                  <div className="report-outlined-shell">
+                    <span className="report-outlined-label" id="auto-renew-date-range-label">
+                      {dashI18n.dateRange}
                     </span>
-                    <input
-                      type="text"
-                      className="search-input userlist-search-input"
-                      placeholder={t("searchPlaceholder")}
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
-                    />
-                  </div>
-                  <div className="auto-renew-date-range-wrap">
-                    <span className="user-gc-inline-label">{dashI18n.dateRange}</span>
-                    <div className="dashboard-filter-date-field report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
-                      <div className="report-outlined-shell report-outlined-shell--no-label">
-                        <div className="report-outlined-inner">
-                          <div className="transaction-date-range-group">
-                            <div
-                              className="date-range-picker"
-                              id="date-range-picker"
-                              role="button"
-                              tabIndex={0}
-                              aria-label={dashI18n.selectDateRange}
-                            >
-                              <i className="fas fa-calendar-alt" />
-                              <span id="date-range-display">{effectiveDateRangeText}</span>
-                              <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
-                            </div>
-                            <input type="hidden" id="date_from" readOnly />
-                            <input type="hidden" id="date_to" readOnly />
-                          </div>
+                    <div className="report-outlined-inner">
+                      <div className="transaction-date-range-group">
+                        <div
+                          className="date-range-picker"
+                          id="date-range-picker"
+                          role="button"
+                          tabIndex={0}
+                          aria-labelledby="auto-renew-date-range-label"
+                        >
+                          <i className="fas fa-calendar-alt" />
+                          <span id="date-range-display">{effectiveDateRangeText}</span>
+                          <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                         </div>
+                        <input type="hidden" id="date_from" readOnly />
+                        <input type="hidden" id="date_to" readOnly />
                       </div>
                     </div>
                   </div>
-                  <div className="userlist-filter-chips auto-renew-filter-chips" role="group" aria-label={t("filterGroupLabel")}>
+                </div>
+                <div className="userlist-filter-chips auto-renew-filter-chips" role="group" aria-label={t("filterGroupLabel")}>
                     <FilterChip
                       active={statusFilter === "pending"}
                       label={t("filterPending")}
@@ -469,14 +468,14 @@ export default function AutoRenewPage() {
                 </div>
               </div>
             </div>
-          </div>
 
           {!canEditGlobal && (
             <div className="auto-renew-notice warn">{t("readOnlyNotice")}</div>
           )}
 
-          <div className="auto-renew-table-panel user-table-wrapper">
-          <div className="user-list-table auto-renew-table">
+          <div
+            className={`user-table-wrapper user-list-table auto-renew-table${showSubmitterColumn ? " auto-renew-table--with-submitter" : ""}`}
+          >
             <div className="user-list-table-inner">
               <div className="table-header user-list-table-header auto-renew-table-header">
                 <div className="header-item"><span className="header-item__label">{t("colNo")}</span></div>
@@ -489,7 +488,7 @@ export default function AutoRenewPage() {
                 <div className="header-item"><span className="header-item__label">{t("colFromAccount")}</span></div>
                 <div className="header-item"><span className="header-item__label">{t("colToAccount")}</span></div>
                 {renderHeader("status", t("colStatus"))}
-                {renderHeader("submitter", t("colSubmitter"))}
+                {showSubmitterColumn ? renderHeader("submitter", t("colSubmitter")) : null}
               </div>
 
               <div className="user-cards auto-renew-cards" aria-busy={Boolean(busyRequestId)}>
@@ -570,7 +569,9 @@ export default function AutoRenewPage() {
                           )}
                         </div>
                         <div className="card-item">{renderStatusCell(row)}</div>
-                        <div className="card-item">{renderSubmitterCell(row)}</div>
+                        {showSubmitterColumn ? (
+                          <div className="card-item">{renderSubmitterCell(row)}</div>
+                        ) : null}
                       </div>
                     );
                   })
@@ -604,7 +605,6 @@ export default function AutoRenewPage() {
               </button>
             </div>
           )}
-          </div>
         </div>
       </div>
 
