@@ -1678,6 +1678,35 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 }
 
 /* 中栏：Win/Loss 矩阵；1–9 币种时贴右向左增宽；宽屏下由 --member-winloss-filters-h 封顶并在栏内滚动 */
+/* 切换账号/查询中：矩阵与 Total 仅显示 loading，避免 shell 全账户表浮在页面上 */
+.member-winloss-page .member-dash-columns--grid-loading > .member-dash-col-matrix,
+.member-winloss-page .member-dash-columns--grid-loading > .member-dash-col-total {
+    align-self: start;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+}
+
+.member-winloss-page .member-dash-matrix-loading {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: clamp(11px, 0.85vw, 13px);
+    font-weight: 500;
+    color: #64748b;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.member-winloss-page .member-dash-rail-matrix:has(.member-dash-matrix-loading),
+.member-winloss-page .member-dash-total-matrix-body:has(.member-dash-matrix-loading) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 0;
+    height: auto;
+    overflow: visible;
+}
+
 .member-winloss-page .member-dash-col-matrix {
     display: flex;
     flex-direction: column;

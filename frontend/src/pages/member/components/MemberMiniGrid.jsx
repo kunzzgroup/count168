@@ -195,9 +195,13 @@ export default function MemberMiniGrid({
   const ncu = orderUpper.length;
 
   let listOrdered = accounts || [];
-  if (shellMode && !listOrdered.length && ncu) {
-    const rowCount = Math.max(3, MINI_GRID_SHELL_ROWS);
-    listOrdered = Array.from({ length: rowCount }, () => ({ id: -1, account_id: "–", name: "" }));
+  /* shell 仅显示占位行，勿用真实账户列表（切换 acc 时会闪出全表） */
+  if (shellMode && ncu) {
+    listOrdered = Array.from({ length: MINI_GRID_SHELL_ROWS }, () => ({
+      id: -1,
+      account_id: "–",
+      name: "",
+    }));
   }
 
   const manyCcy = ncu >= 12;

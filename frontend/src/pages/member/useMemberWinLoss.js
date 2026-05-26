@@ -44,6 +44,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
   const [loadingTable, setLoadingTable] = useState(false);
   const [linkedDataReady, setLinkedDataReady] = useState(false);
   const [miniGridShell, setMiniGridShell] = useState(true);
+  const [miniGridLoading, setMiniGridLoading] = useState(false);
   const [miniGridBalances, setMiniGridBalances] = useState(() => new Map());
   const [miniGridTotals, setMiniGridTotals] = useState(() => new Map());
   const [miniGridHint, setMiniGridHint] = useState("");
@@ -335,6 +336,8 @@ export function useMemberWinLoss({ showNotification, lang }) {
         setMiniGridBalances(new Map());
         setMiniGridTotals(new Map());
         setMiniGridHint(translateMemberApiMessage(lang, e?.message, "couldNotLoadGrid"));
+      } finally {
+        if (seq === searchSeqRef.current) setMiniGridLoading(false);
       }
     },
     [linkedAccounts, wlGridSelectedIds, linkedAccountCurrenciesMap, linkedCurrenciesLoaded, lang, t],
@@ -492,7 +495,10 @@ export function useMemberWinLoss({ showNotification, lang }) {
     searchSeqRef.current += 1;
     const seq = searchSeqRef.current;
     setLoadingTable(true);
-    setMiniGridShell(true);
+    setMiniGridLoading(true);
+    setMiniGridBalances(new Map());
+    setMiniGridTotals(new Map());
+    setMiniGridHint("");
     try {
       const summaryOk = await fetchMemberSummary(seq);
       if (seq !== searchSeqRef.current) return;
@@ -501,7 +507,10 @@ export function useMemberWinLoss({ showNotification, lang }) {
       }
       await fetchMemberHistory(seq);
     } finally {
-      if (seq === searchSeqRef.current) setLoadingTable(false);
+      if (seq === searchSeqRef.current) {
+        setLoadingTable(false);
+        setMiniGridLoading(false);
+      }
     }
   }, [viewAccountId, companyId, dateFrom, dateTo, fetchMemberSummary, fetchMemberHistory, loadCurrencyOrder]);
 
@@ -539,7 +548,6 @@ export function useMemberWinLoss({ showNotification, lang }) {
         showNotification(t("switchedToCompany", { label: companyLabel || nextCompanyId }), "success");
         await reloadLinkedChain(loginRootAccountId, Number(nextCompanyId));
         await loadOwnedCurrencies(viewAccountId, Number(nextCompanyId));
-        await performMemberSearch();
       } catch (e) {
         notifyApi(e?.message, "error", "failedSwitchCompany");
       }
@@ -564,7 +572,6 @@ export function useMemberWinLoss({ showNotification, lang }) {
           "success",
         );
         await loadOwnedCurrencies(newId, companyId);
-        await performMemberSearch();
       } catch (e) {
         notifyApi(e?.message, "error", "failedSwitchAccount");
       }
@@ -716,6 +723,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
     miniGridCurrencies,
     miniGridDisplayCurrencies,
     miniGridShell,
+    miniGridLoading,
     miniGridBalances,
     miniGridTotals,
     miniGridHint,
