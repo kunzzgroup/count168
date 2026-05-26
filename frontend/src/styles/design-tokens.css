@@ -50,9 +50,9 @@
   --sidebar-menu-font: clamp(1.3rem, 1.35rem + .08vw, 1.6rem);
 
   /* 菜单内边距 (Padding) */  
-  --sidebar-menu-pad-y: clamp(0.95rem, 0.92rem + 0.05vw, 1.2rem);
+  --sidebar-menu-pad-y: clamp(1.15rem, 1.1rem + 0.08vw, 1.5rem);
   --sidebar-menu-pad-x: clamp(0.7rem, 0.68rem + 0.06vw, 0.95rem);
-  --sidebar-submenu-pad-y: clamp(0.6rem, 0.57rem + 0.05vw, 0.8rem);
+  --sidebar-submenu-pad-y: clamp(0.75rem, 0.72rem + 0.05vw, 0.95rem);
 
   /* 头部内边距 (Header Padding) */
   --sidebar-header-pad-t: clamp(0.8rem, 0.77rem + 0.05vw, 1rem);
@@ -413,6 +413,8 @@
 @media (max-width: 1280px) {
   :root {
     --layout-sidebar-width-icon: 4.5rem;
+    --sidebar-menu-pad-y: clamp(1.05rem, 1rem + 0.06vw, 1.3rem);
+    --sidebar-submenu-pad-y: clamp(0.7rem, 0.67rem + 0.05vw, 0.9rem);
   }
 
   body.ec-auth-shell {
