@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
@@ -209,7 +209,7 @@ export function useTransactionData({
     };
   }, [loading, forbidden, filterSnapshot?.companyId, todayDmy, queryClient]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!filterSnapshot) return;
     notifyDashboardGroupFilterChanged(filterSnapshot.selectedGroup, filterSnapshot.companyId);
   }, [filterSnapshot?.selectedGroup, filterSnapshot?.companyId]);
