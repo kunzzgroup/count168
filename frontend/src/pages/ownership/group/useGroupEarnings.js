@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { getApiMessage, isApiConflict, isApiSuccess } from "../shared/ownershipHelpers.js";
+import { formatOwnershipSavedAt } from "../shared/ownershipMonthHelpers.js";
 import {
   applyOwnershipRowFieldUpdate,
   calcOwnershipTotal,
@@ -10,7 +11,17 @@ import {
 } from "../shared/ownershipRowHelpers.js";
 
 export function useGroupEarnings(shell) {
-  const { activeTab, showToast, readOnlyMode } = shell;
+  const {
+    activeTab,
+    showToast,
+    readOnlyMode,
+    selectedMonth,
+    isHistoricalView,
+    setHistoryBanner,
+    lang,
+  } = shell;
+
+  const viewOnlyMode = readOnlyMode || isHistoricalView;
 
   const [geGroups, setGeGroups] = useState([]);
   const [geLoading, setGeLoading] = useState(false);
@@ -18,6 +29,12 @@ export function useGroupEarnings(shell) {
   const [geExpanded, setGeExpanded] = useState(null);
   const [geLoadingGid, setGeLoadingGid] = useState(null);
   const [geSavingGid, setGeSavingGid] = useState(null);
+
+  useEffect(() => {
+    setGeStates({});
+    setGeExpanded(null);
+    setHistoryBanner(null);
+  }, [selectedMonth, setHistoryBanner]);
 
   const loadGeGroups = useCallback(async () => {
     setGeLoading(true);
@@ -43,12 +60,16 @@ export function useGroupEarnings(shell) {
     async (gid) => {
       if (geExpanded === gid) {
         setGeExpanded(null);
+        setHistoryBanner(null);
         return;
       }
       setGeExpanded(gid);
       if (!geStates[gid]) {
         setGeLoadingGid(gid);
         try {
+          const ownersUrl = isHistoricalView
+            ? `api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(gid)}&month=${encodeURIComponent(selectedMonth)}`
+            : `api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(gid)}`;
           const [aRes, oRes] = await Promise.all([
             fetch(
               buildApiUrl(
@@ -56,11 +77,17 @@ export function useGroupEarnings(shell) {
               ),
               { credentials: "include" },
             ).then((r) => r.json()),
-            fetch(
-              buildApiUrl(`api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(gid)}`),
-              { credentials: "include" },
-            ).then((r) => r.json()),
+            fetch(buildApiUrl(ownersUrl), { credentials: "include" }).then((r) => r.json()),
           ]);
+          const meta = oRes.meta || {};
+          if (isHistoricalView) {
+            setHistoryBanner({
+              empty: meta.has_snapshot === false,
+              savedAt: formatOwnershipSavedAt(meta.saved_at, lang),
+            });
+          } else {
+            setHistoryBanner(null);
+          }
           setGeStates((prev) => ({
             ...prev,
             [gid]: {
@@ -83,7 +110,7 @@ export function useGroupEarnings(shell) {
         }
       }
     },
-    [geExpanded, geStates, showToast],
+    [geExpanded, geStates, showToast, isHistoricalView, selectedMonth, setHistoryBanner, lang],
   );
 
   const geUpdateRow = useCallback((gid, idx, field, val) => {
@@ -98,7 +125,7 @@ export function useGroupEarnings(shell) {
 
   const geAddRow = useCallback(
     (gid) => {
-      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       setGeStates((prev) => {
         const st = prev[gid];
         if (!st) return prev;
@@ -108,12 +135,12 @@ export function useGroupEarnings(shell) {
         };
       });
     },
-    [readOnlyMode, showToast],
+    [viewOnlyMode, showToast],
   );
 
   const geRemoveRow = useCallback(
     (gid, idx) => {
-      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       setGeStates((prev) => {
         const st = prev[gid];
         if (!st) return prev;
@@ -122,12 +149,12 @@ export function useGroupEarnings(shell) {
         return { ...prev, [gid]: { ...st, rows } };
       });
     },
-    [readOnlyMode, showToast],
+    [viewOnlyMode, showToast],
   );
 
   const geConfirm = useCallback(
     async (groupId) => {
-      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       const st = geStates[groupId];
       if (!st) return;
       const { rows } = st;
@@ -170,12 +197,12 @@ export function useGroupEarnings(shell) {
         setGeSavingGid(null);
       }
     },
-    [geStates, readOnlyMode, showToast],
+    [geStates, viewOnlyMode, showToast],
   );
 
   const geLinkPartner = useCallback(
     async (groupId, loginId, forceType = "") => {
-      if (readOnlyMode) {
+      if (viewOnlyMode) {
         showToast("Read-only: only owner can modify ownership", "error");
         return false;
       }
@@ -207,7 +234,7 @@ export function useGroupEarnings(shell) {
         return false;
       }
     },
-    [geToggle, readOnlyMode, showToast],
+    [geToggle, viewOnlyMode, showToast],
   );
 
   return {
@@ -220,6 +247,7 @@ export function useGroupEarnings(shell) {
     geSavingGid,
     calcTotal: calcOwnershipTotal,
     fmtPct: fmtOwnershipPct,
+    viewOnlyMode,
     geToggle,
     geUpdateRow,
     geAddRow,

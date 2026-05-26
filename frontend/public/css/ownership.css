@@ -1533,6 +1533,78 @@ body.ownership-page {
     flex-shrink: 0;
 }
 
+.own-month-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 12px;
+    background: var(--own-gray-light);
+}
+
+.own-month-bar-main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.own-month-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--own-dark-text);
+}
+
+.own-month-input {
+    padding: 7px 12px;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--own-dark-text);
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.own-month-input:focus {
+    outline: none;
+    border-color: var(--own-primary-blue, #2563eb);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.own-month-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.own-month-badge--current {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+}
+
+.own-month-badge--history {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+}
+
+.own-month-banner {
+    font-size: 13px;
+    color: var(--own-dark-text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(37, 99, 235, 0.08);
+}
+
+.own-month-banner--empty {
+    background: rgba(245, 158, 11, 0.1);
+    color: #92400e;
+}
+
 .own-tab-btn {
     display: inline-flex;
     align-items: center;

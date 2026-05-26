@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { getApiMessage, isApiConflict, isApiSuccess, rebuildGroupIds } from "../shared/ownershipHelpers.js";
+import { formatOwnershipSavedAt } from "../shared/ownershipMonthHelpers.js";
 import {
   applyOwnershipRowFieldUpdate,
   calcOwnershipTotal,
@@ -18,7 +19,13 @@ export function useCompanyOwnership(shell) {
     showToast,
     readOnlyMode,
     setConflict,
+    selectedMonth,
+    isHistoricalView,
+    setHistoryBanner,
+    lang,
   } = shell;
+
+  const viewOnlyMode = readOnlyMode || isHistoricalView;
 
   const [groupFilter, setGroupFilter] = useState(null);
   const [companyStates, setCompanyStates] = useState({});
@@ -43,6 +50,12 @@ export function useCompanyOwnership(shell) {
     setSelectedCompanyIds(new Set());
     setSelectionMode(false);
   }, [groupFilter]);
+
+  useEffect(() => {
+    setCompanyStates({});
+    setExpandedCompanyId(null);
+    setHistoryBanner(null);
+  }, [selectedMonth, setHistoryBanner]);
 
   const allGroupIds = useMemo(() => rebuildGroupIds(allCompanies), [allCompanies]);
 
@@ -72,6 +85,7 @@ export function useCompanyOwnership(shell) {
     async (cid) => {
       if (expandedCompanyId === cid) {
         setExpandedCompanyId(null);
+        if (isHistoricalView) setHistoryBanner(null);
         return;
       }
       setExpandedCompanyId(cid);
@@ -80,11 +94,14 @@ export function useCompanyOwnership(shell) {
         try {
           const compData = allCompanies.find((c) => Number(c.id) === cid);
           const compGid = compData?.group_id || "";
+          const ownersUrl = isHistoricalView
+            ? `api/ownership/get_owners_api.php?company_id=${cid}&month=${encodeURIComponent(selectedMonth)}`
+            : `api/ownership/get_owners_api.php?company_id=${cid}`;
           const [aRes, oRes] = await Promise.all([
             fetch(buildApiUrl(`api/ownership/get_available_accounts_api.php?company_id=${cid}`), {
               credentials: "include",
             }).then((r) => r.json()),
-            fetch(buildApiUrl(`api/ownership/get_owners_api.php?company_id=${cid}`), {
+            fetch(buildApiUrl(ownersUrl), {
               credentials: "include",
             }).then((r) => r.json()),
           ]);
@@ -98,6 +115,15 @@ export function useCompanyOwnership(shell) {
               type: "group",
               is_main_owner: 0,
             });
+          }
+          const meta = oRes.meta || {};
+          if (isHistoricalView) {
+            setHistoryBanner({
+              empty: meta.has_snapshot === false,
+              savedAt: formatOwnershipSavedAt(meta.saved_at, lang),
+            });
+          } else {
+            setHistoryBanner(null);
           }
           setCompanyStates((prev) => ({
             ...prev,
@@ -121,7 +147,7 @@ export function useCompanyOwnership(shell) {
         }
       }
     },
-    [allCompanies, companyStates, expandedCompanyId, showToast],
+    [allCompanies, companyStates, expandedCompanyId, showToast, isHistoricalView, selectedMonth, setHistoryBanner, lang],
   );
 
   const updateRow = useCallback((cid, idx, field, val) => {
@@ -136,7 +162,7 @@ export function useCompanyOwnership(shell) {
 
   const addRow = useCallback(
     (cid) => {
-      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       setCompanyStates((prev) => {
         const st = prev[cid];
         if (!st) return prev;
@@ -146,12 +172,12 @@ export function useCompanyOwnership(shell) {
         };
       });
     },
-    [readOnlyMode, showToast],
+    [viewOnlyMode, showToast],
   );
 
   const removeRow = useCallback(
     (cid, idx) => {
-      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       setCompanyStates((prev) => {
         const st = prev[cid];
         if (!st) return prev;
@@ -160,7 +186,7 @@ export function useCompanyOwnership(shell) {
         return { ...prev, [cid]: { ...st, rows } };
       });
     },
-    [readOnlyMode, showToast],
+    [viewOnlyMode, showToast],
   );
 
   const reorderRows = useCallback((cid, from, to, insertAfter) => {
@@ -173,7 +199,7 @@ export function useCompanyOwnership(shell) {
 
   const linkPartner = useCallback(
     async (cid, loginId, forceType = "") => {
-      if (readOnlyMode) {
+      if (viewOnlyMode) {
         showToast("Read-only: only owner can modify ownership", "error");
         return false;
       }
@@ -202,12 +228,12 @@ export function useCompanyOwnership(shell) {
         return false;
       }
     },
-    [readOnlyMode, setConflict, showToast, toggleCard],
+    [viewOnlyMode, setConflict, showToast, toggleCard],
   );
 
   const confirmCompany = useCallback(
     async (cid) => {
-      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       const st = companyStates[cid];
       if (!st) return;
       const { rows } = st;
@@ -250,12 +276,12 @@ export function useCompanyOwnership(shell) {
         setSavingCompanyId(null);
       }
     },
-    [companyStates, readOnlyMode, setAllCompanies, showToast],
+    [companyStates, viewOnlyMode, setAllCompanies, showToast],
   );
 
   const joinGroup = useCallback(
     async (cid, gid, companyName) => {
-      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       try {
         const res = await fetch(buildApiUrl("api/ownership/update_company_group_api.php"), {
           method: "POST",
@@ -272,12 +298,12 @@ export function useCompanyOwnership(shell) {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, readOnlyMode, showToast],
+    [fetchCompanies, viewOnlyMode, showToast],
   );
 
   const ungroupCompany = useCallback(
     async (cid, companyName) => {
-      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       try {
         const res = await fetch(buildApiUrl("api/ownership/update_company_group_api.php"), {
           method: "POST",
@@ -294,14 +320,14 @@ export function useCompanyOwnership(shell) {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, readOnlyMode, showToast],
+    [fetchCompanies, viewOnlyMode, showToast],
   );
 
   const toggleSelectionMode = useCallback(() => {
-    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+    if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     setSelectionMode((prev) => !prev);
     setSelectedCompanyIds(new Set());
-  }, [readOnlyMode, showToast]);
+  }, [viewOnlyMode, showToast]);
 
   const toggleCompanySelect = useCallback(
     (comp, e) => {
@@ -324,7 +350,7 @@ export function useCompanyOwnership(shell) {
 
   const bulkJoin = useCallback(
     async (gid) => {
-      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       if (!gid) {
         showToast("Please select a group", "error");
         return;
@@ -352,11 +378,11 @@ export function useCompanyOwnership(shell) {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, readOnlyMode, selectedCompanyIds, showToast],
+    [fetchCompanies, viewOnlyMode, selectedCompanyIds, showToast],
   );
 
   const bulkUngroup = useCallback(async () => {
-    if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+    if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
     try {
       const ids = Array.from(selectedCompanyIds);
       const results = await Promise.all(
@@ -379,7 +405,7 @@ export function useCompanyOwnership(shell) {
     } catch {
       showToast("Server error", "error");
     }
-  }, [fetchCompanies, readOnlyMode, selectedCompanyIds, showToast]);
+  }, [fetchCompanies, viewOnlyMode, selectedCompanyIds, showToast]);
 
   return {
     groupFilter,
@@ -402,6 +428,7 @@ export function useCompanyOwnership(shell) {
     dragRef,
     calcTotal: calcOwnershipTotal,
     fmtPct: fmtOwnershipPct,
+    viewOnlyMode,
     toggleCard,
     updateRow,
     addRow,

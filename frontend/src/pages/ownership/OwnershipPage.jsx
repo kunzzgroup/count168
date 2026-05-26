@@ -2,6 +2,7 @@ import React from "react";
 import "../../../public/css/ownership.css";
 import BulkActionBar from "./company/components/BulkActionBar.jsx";
 import ConflictModal from "./shared/components/ConflictModal.jsx";
+import OwnershipMonthBar from "./shared/components/OwnershipMonthBar.jsx";
 import CompanyOwnershipTab from "./company/CompanyOwnershipTab.jsx";
 import GroupEarningsTab from "./group/GroupEarningsTab.jsx";
 import { useOwnershipPageShell } from "./shared/useOwnershipPageShell.js";
@@ -23,6 +24,12 @@ export default function OwnershipPage() {
     toast,
     conflict,
     setConflict,
+    lang,
+    selectedMonth,
+    setSelectedMonth,
+    isHistoricalView,
+    historyBanner,
+    readOnlyMode,
   } = shell;
 
   if (boot || !cssReady) return <PageContentLoader />;
@@ -57,6 +64,15 @@ export default function OwnershipPage() {
             {t("groupEarnings")}
           </button>
         </div>
+
+        <OwnershipMonthBar
+          selectedMonth={selectedMonth}
+          onMonthChange={setSelectedMonth}
+          isHistoricalView={isHistoricalView}
+          historyBanner={isHistoricalView ? historyBanner : null}
+          t={t}
+          lang={lang}
+        />
 
         <div style={{ display: activeTab === "account-ownership" ? "" : "none" }}>
           <CompanyOwnershipTab shell={shell} company={company} />
@@ -95,7 +111,7 @@ export default function OwnershipPage() {
         t={t}
       />
 
-      {typeof document !== "undefined" && (
+      {typeof document !== "undefined" && !isHistoricalView && !readOnlyMode && (
         <BulkActionBar
           selectedCount={company.selectedCompanyIds.size}
           groupFilter={company.groupFilter}

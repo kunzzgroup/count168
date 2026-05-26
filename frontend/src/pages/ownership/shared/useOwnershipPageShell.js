@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { getOwnershipText } from "../../../translateFile/pages/ownershipTranslate.js";
 import { getApiMessage, isApiSuccess } from "./ownershipHelpers.js";
+import {
+  getOwnershipCurrentMonthKey,
+  isOwnershipHistoricalMonth,
+} from "./ownershipMonthHelpers.js";
 
 export function useOwnershipPageShell() {
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -14,7 +18,14 @@ export function useOwnershipPageShell() {
   const [toast, setToast] = useState(null);
   const [conflict, setConflict] = useState(null);
   const [readOnlyMode, setReadOnlyMode] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(getOwnershipCurrentMonthKey);
+  const [historyBanner, setHistoryBanner] = useState(null);
   const toastTimerRef = useRef(null);
+
+  const isHistoricalView = useMemo(
+    () => isOwnershipHistoricalMonth(selectedMonth),
+    [selectedMonth],
+  );
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -86,5 +97,10 @@ export function useOwnershipPageShell() {
     conflict,
     setConflict,
     readOnlyMode,
+    selectedMonth,
+    setSelectedMonth,
+    isHistoricalView,
+    historyBanner,
+    setHistoryBanner,
   };
 }
