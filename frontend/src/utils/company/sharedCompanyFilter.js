@@ -418,8 +418,18 @@ export function filterCompaniesWithDisplayId(companies) {
  * Prefers login company code, then current selection, then first in group.
  */
 export function pickDefaultCompanyForGroup(companies, groupId, options = {}) {
-  const { me = null, preferredCompanyId = null, preferredCompanyCode = null } = options;
-  const list = companiesInGroupList(companies, groupId);
+  const {
+    me = null,
+    preferredCompanyId = null,
+    preferredCompanyCode = null,
+    nativeOnly = false,
+    groupEntityOnly = false,
+  } = options;
+  const list = groupEntityOnly
+    ? companiesGroupEntityList(companies, groupId)
+    : nativeOnly
+      ? companiesNativeInGroupList(companies, groupId)
+      : companiesInGroupList(companies, groupId);
   if (!list.length) return null;
 
   const loginCode =
@@ -440,6 +450,12 @@ export function pickDefaultCompanyForGroup(companies, groupId, options = {}) {
   return list[0] ?? null;
 }
 
+/** Virtual row from group_ownership merge (shown under another group_id). */
+export function isVirtualGroupLinkCompanyRow(c) {
+  const ls = c?.link_source_group ?? c?.linkSourceGroup;
+  return ls != null && String(ls).trim() !== "";
+}
+
 /** Companies visible in the Company row when a GroupID is selected (Dashboard-aligned). */
 export function companiesInGroupList(companies, gid) {
   if (!gid) {
@@ -453,6 +469,50 @@ export function companiesInGroupList(companies, gid) {
       : "";
     return linkSrc === g;
   });
+}
+
+/**
+ * Companies natively in a group (database group_id only).
+ * Excludes virtual link rows — not for group-only entity scope (use companiesGroupEntityList).
+ */
+export function companiesNativeInGroupList(companies, gid) {
+  if (!gid) {
+    return filterCompaniesWithDisplayId(companies).filter(
+      (c) => !normalizeCompanyGroupId(c) && !isVirtualGroupLinkCompanyRow(c),
+    );
+  }
+  const g = String(gid).trim().toUpperCase();
+  return filterCompaniesWithDisplayId(companies).filter((c) => {
+    if (isVirtualGroupLinkCompanyRow(c)) return false;
+    return normalizeCompanyGroupId(c) === g;
+  });
+}
+
+/**
+ * Group entity only (e.g. AP itself) — not subsidiaries such as C168 under group_id AP.
+ * Matches company_id === group code, or GROUPONLY placeholder (empty company_id, group_id set).
+ */
+export function companiesGroupEntityList(companies, gid) {
+  if (!gid) return [];
+  const g = String(gid).trim().toUpperCase();
+  return (companies || []).filter((c) => {
+    if (!c || isVirtualGroupLinkCompanyRow(c)) return false;
+    const code = String(c.company_id ?? c.companyId ?? c.code ?? "").trim().toUpperCase();
+    const grp = normalizeCompanyGroupId(c);
+    if (code === g) return true;
+    return code === "" && grp === g;
+  });
+}
+
+export function companyRowIsGroupEntity(companyRow, groupId) {
+  const g = String(groupId || "").trim().toUpperCase();
+  if (!g || !companyRow) return false;
+  if (isVirtualGroupLinkCompanyRow(companyRow)) return false;
+  const code = String(companyRow.company_id ?? companyRow.companyId ?? companyRow.code ?? "")
+    .trim()
+    .toUpperCase();
+  if (code === g) return true;
+  return code === "" && normalizeCompanyGroupId(companyRow) === g;
 }
 
 /**
