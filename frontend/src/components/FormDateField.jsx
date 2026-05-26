@@ -61,6 +61,13 @@ export default function FormDateField({
     if (picker) window.MaintenanceDateRangePicker?.clearForPicker?.(picker);
   };
 
+  const handleHitboxActivate = (e) => {
+    if (disabled) return;
+    e.stopPropagation();
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.togglePicker?.(e.currentTarget);
+  };
+
   return (
     <div className={`form-group ${className}`.trim()}>
       {label ? <label className={labelClassName || undefined} htmlFor={htmlFor || fieldKey}>{label}</label> : null}
@@ -105,11 +112,13 @@ export default function FormDateField({
           data-drp-collapse-single="true"
           data-drp-hide-clear={allowClear ? "false" : "true"}
           data-form-date-key={fieldKey}
+          data-react-datepicker-bound="true"
+          onClick={handleHitboxActivate}
           onKeyDown={(e) => {
             if (disabled) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              e.currentTarget.click();
+              handleHitboxActivate(e);
             }
           }}
         >

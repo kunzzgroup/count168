@@ -531,11 +531,16 @@ export function ensureMaintenanceDateRangePicker() {
 
   function bindDateRangePickers() {
     document.querySelectorAll(".date-range-picker").forEach((pick) => {
+      if (pick.dataset.reactDatePickerBound === "true") return;
       pick.onclick = (e) => {
         e.stopPropagation();
         toggleCalendar(pick);
       };
     });
+  }
+
+  function togglePicker(pickerEl) {
+    toggleCalendar(pickerEl);
   }
 
   function selectDate(date) {
@@ -733,6 +738,7 @@ export function ensureMaintenanceDateRangePicker() {
   };
   window.MaintenanceDateRangePicker = {
     bindPickers: bindDateRangePickers,
+    togglePicker,
     setLocaleStrings(partial) {
       if (!partial || typeof partial !== "object") return;
       config = { ...config, ...partial };
