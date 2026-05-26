@@ -42,13 +42,19 @@ export async function initDataCaptureSpaPage() {
     } else if (urlParams.get("error") === "1") {
       pushDataCaptureNotification("Failed to capture data. Please try again.", "danger");
       stripSearchParamsFromUrl(["error"]);
+    } else if (urlParams.get("submitted") === "1") {
+      pushDataCaptureNotification("Data captured successfully!", "success");
+      if (window.__DC_IS_GROUP_ONLY_GRID__ === true) {
+        await window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__?.();
+      }
+      stripSearchParamsFromUrl(["submitted", "group_only"]);
     }
   }
 
   if (shouldRestore) {
-    await window.__DC_RESTORE_FROM_STORAGE__?.();
     const { rows, cols } = spaGridDimensions();
     await window.__DC_ENSURE_GRID_READY__?.(rows, cols);
+    await window.__DC_RESTORE_FROM_STORAGE__?.();
   }
 
   window.__DC_RECOMPUTE_SUBMIT_STATE__?.();

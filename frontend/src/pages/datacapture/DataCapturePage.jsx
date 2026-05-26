@@ -12,6 +12,7 @@ import {
   normalizeOwnerCompanyRow,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
+  persistDashboardGroupFilter,
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
   resolveBootCompanyId,
@@ -24,6 +25,7 @@ import "../../../public/css/global-13inch.css";
 import "../../../public/css/datacapture.css";
 
 import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
+import { readCaptureSessionMeta } from "./lib/dataCaptureStorage.js";
 import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
@@ -219,6 +221,7 @@ export default function DataCapturePage() {
   const form = useDataCaptureFormEngine(effectiveCompanyId, {
     applyCompanyOnlyFields: isCompanySelected,
     groupCompanyIds: isCompanySelected ? null : groupCompanyIds,
+    selectedGroup,
   });
 
   const groupOnlyProcessOptions = useMemo(() => getGroupOnlyProcessOptions(t), [t]);
@@ -246,6 +249,7 @@ export default function DataCapturePage() {
   } = useDataCaptureLegacyChrome();
 
   const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
+  const groupOnlyTable = !isCompanySelected;
   const submitReset = useDataCaptureSubmitReset({
     companyId: effectiveCompanyId,
     form,
@@ -254,9 +258,9 @@ export default function DataCapturePage() {
     navigate,
     t,
     requireDescriptions: isCompanySelected,
+    groupOnlyCapture: groupOnlyTable,
+    selectedGroup,
   });
-
-  const groupOnlyTable = !isCompanySelected;
   useDataCaptureGrid(scriptsReady, groupOnlyTable);
   useDataCaptureGridInteraction(scriptsReady);
   useDataCapturePaste();
@@ -378,18 +382,39 @@ export default function DataCapturePage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        let effectiveCompany = resolveBootCompanyId({
-          urlCompanyId: queryCompany,
-          sessionCompanyId: u.company_id,
-          defaultRowId: raw[0]?.id,
-        });
+        const restoreFromUrl = url.searchParams.get("restore") === "1";
+        const submittedFromUrl = url.searchParams.get("submitted") === "1";
+        const queryGroupOnly = url.searchParams.get("group_only") === "1";
+        const sessionMeta = restoreFromUrl ? readCaptureSessionMeta() : null;
+        const groupOnlyBoot =
+          queryGroupOnly ||
+          (sessionMeta?.groupOnlyCapture && restoreFromUrl) ||
+          (submittedFromUrl && queryGroupOnly) ||
+          (isDashboardGroupOnlyMode() && !queryCompany);
+
+        let effectiveCompany = groupOnlyBoot
+          ? null
+          : resolveBootCompanyId({
+              urlCompanyId: queryCompany,
+              sessionCompanyId: u.company_id,
+              defaultRowId: raw[0]?.id,
+            });
 
         const rowForPickEarly =
           effectiveCompany != null
             ? raw.find((c) => Number(c.id) === Number(effectiveCompany)) || null
             : null;
-        const initialGroupEarly = resolveInitialSelectedGroupFromSession(raw, rowForPickEarly);
-        if (isDashboardGroupOnlyMode() && !queryCompany) {
+        const initialGroupEarly =
+          (sessionMeta?.captureSelectedGroup &&
+            String(sessionMeta.captureSelectedGroup).trim().toUpperCase()) ||
+          resolveInitialSelectedGroupFromSession(raw, rowForPickEarly);
+
+        if (groupOnlyBoot) {
+          if (sessionMeta?.captureSelectedGroup) {
+            persistDashboardGroupFilter(sessionMeta.captureSelectedGroup);
+          }
+          persistDashboardGroupOnlyMode(true);
+          persistDashboardSelectedCompany(null);
           setCompanies(raw);
           setCompanyId(null);
           setSelectedGroup(initialGroupEarly);
@@ -460,7 +485,12 @@ export default function DataCapturePage() {
   useEffect(() => {
     if (bootLoading || companies.length === 0) return;
     if (isDashboardGroupOnlyMode()) {
-      if (companyIdFromUrl) navigate("/datacapture", { replace: true });
+      if (companyIdFromUrl) {
+        const params = new URLSearchParams(searchParams);
+        params.delete("company_id");
+        const qs = params.toString();
+        navigate(`/datacapture${qs ? `?${qs}` : ""}`, { replace: true });
+      }
       return;
     }
     if (!companyIdFromUrl) return;
@@ -616,11 +646,11 @@ export default function DataCapturePage() {
     }
     const prev = prevGroupOnlyGroupRef.current;
     if (prev != null && prev !== selectedGroup) {
-      form.clearProcessSelection?.();
+      form.applyGroupOnlyPrefsForGroup?.(selectedGroup);
       form.clearCompanyOnlyFields?.();
     }
     prevGroupOnlyGroupRef.current = selectedGroup;
-  }, [selectedGroup, isCompanySelected, form.clearProcessSelection, form.clearCompanyOnlyFields]);
+  }, [selectedGroup, isCompanySelected, form.applyGroupOnlyPrefsForGroup, form.clearCompanyOnlyFields]);
 
   const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
     companies: companiesDeduped,
