@@ -100,7 +100,7 @@ export default function TransactionMaintenancePage() {
   /** Meta (process list + permission/category) ready for querying. */
   const [metaReady, setMetaReady] = useState(false);
   const followGroupRef = useRef(() => {});
-  const pageBootOnceRef = useRef(false);
+  const bootRunIdRef = useRef(0);
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -193,16 +193,28 @@ export default function TransactionMaintenancePage() {
     enabled: listQueryEnabled && searchDeferredReady,
     initialData: () => {
       const cached = queryClient.getQueryData(maintenanceQueryKey);
-      return isMaintenanceCacheComplete(cached) ? cached : undefined;
+      if (!isMaintenanceCacheComplete(cached)) return undefined;
+      // Do not hydrate empty complete cache — SPA revisit would skip fetch until hard refresh.
+      if (getMaintenanceCacheRows(cached).length === 0) return undefined;
+      return cached;
     },
     initialDataUpdatedAt: () => {
       const state = queryClient.getQueryState(maintenanceQueryKey);
       return state?.dataUpdatedAt;
     },
-    staleTime: (query) =>
-      isMaintenanceCacheComplete(query.state.data) ? 60 * 60 * 1000 : 0,
+    staleTime: (query) => {
+      const data = query.state.data;
+      if (!isMaintenanceCacheComplete(data)) return 0;
+      if (getMaintenanceCacheRows(data).length === 0) return 0;
+      return 60 * 60 * 1000;
+    },
     gcTime: 60 * 60 * 1000,
-    refetchOnMount: (query) => !isMaintenanceCacheComplete(query.state.data),
+    refetchOnMount: (query) => {
+      const data = query.state.data;
+      if (!data) return true;
+      if (getMaintenanceCacheRows(data).length === 0) return true;
+      return !isMaintenanceCacheComplete(data);
+    },
     refetchOnReconnect: false,
     placeholderData: maintenancePlaceholder,
     retry: (failureCount, error) =>
@@ -376,7 +388,27 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     if (!sessionReady || !me) return;
     setDateRangeReady(true);
-  }, [sessionReady, me]);
+  }, [sessionReady, me?.user_id]);
+
+  // Hydrate company from cache before async boot (SPA navigation — filters usable immediately).
+  useEffect(() => {
+    if (!me || companyId != null) return;
+    const cached = getCachedOwnerCompanies();
+    let initialCompanyId = resolveInitialCompanyId(
+      me.company_id ? Number(me.company_id) : cached?.[0]?.id ? Number(cached[0].id) : null,
+    );
+    if (
+      initialCompanyId &&
+      cached?.length &&
+      !cached.some((c) => Number(c.id) === initialCompanyId)
+    ) {
+      initialCompanyId = resolveInitialCompanyId(cached[0]?.id);
+    }
+    if (initialCompanyId == null) return;
+    const comp = cached?.find((c) => Number(c.id) === initialCompanyId);
+    setCompanyId(initialCompanyId);
+    if (comp?.company_id) setCompanyCode(comp.company_id);
+  }, [me?.user_id, me?.company_id, companyId]);
 
   // Defer first search one tick after filters are ready (align with Capture/Payment maintenance).
   useEffect(() => {
@@ -403,10 +435,12 @@ export default function TransactionMaintenancePage() {
   // -- Boot Logic --
   useEffect(() => {
     if (!sessionReady || !me) return;
-    if (pageBootOnceRef.current) return;
-    pageBootOnceRef.current = true;
 
+    const runId = ++bootRunIdRef.current;
     let cancelled = false;
+    setFiltersReady(false);
+    setMetaReady(false);
+
     (async () => {
       try {
         const u = me;
@@ -508,19 +542,19 @@ export default function TransactionMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        if (!cancelled) navigate("/login", { replace: true });
+        if (!cancelled && runId === bootRunIdRef.current) navigate("/login", { replace: true });
       } finally {
-        if (!cancelled) setFiltersReady(true);
+        if (!cancelled && runId === bootRunIdRef.current) setFiltersReady(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, navigate, me]);
+  }, [sessionReady, navigate, me?.user_id]);
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
-    if (!companyId || !companyCode) return;
+    if (!companyId || !companyCode || !filtersReady) return;
     if (skipMetaAfterBootRef.current) {
       skipMetaAfterBootRef.current = false;
       return;
@@ -648,7 +682,6 @@ export default function TransactionMaintenancePage() {
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
-    if (savedPerm) setActivePermission(savedPerm);
 
     try {
       const res = await updateSessionCompany(c.id);
