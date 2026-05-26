@@ -24,6 +24,7 @@ import {
   DASHBOARD_GROUP_FILTER_EVENT,
   shouldHideSidebarProcess,
 } from "../utils/company/sharedCompanyFilter.js";
+import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import "../../public/css/modal-close-unified.css";
 
 function formatSidebarExpirationHint(hint, i18n) {
@@ -777,11 +778,12 @@ export default function AuthenticatedLayout() {
         </div>
 
         <div className="informationmenu-footer">
-          <div
-            className={`company-expiration-countdown ${me?.expiration_status || "normal"}${showAutoRenewEntry ? " is-clickable" : ""}`}
+          <SidebarExpirationCountdown
+            status={me?.expiration_status || "normal"}
+            label={i18n.exp}
+            hint={formatSidebarExpirationHint(me?.expiration_hint, i18n)}
+            clickable={showAutoRenewEntry}
             title={showAutoRenewEntry ? getAutoRenewText(lang, "manageAutoRenew") : undefined}
-            role={showAutoRenewEntry ? "button" : undefined}
-            tabIndex={showAutoRenewEntry ? 0 : undefined}
             onClick={showAutoRenewEntry ? goAutoRenew : undefined}
             onKeyDown={
               showAutoRenewEntry
@@ -793,18 +795,7 @@ export default function AuthenticatedLayout() {
                   }
                 : undefined
             }
-          >
-            <svg className="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <div className="expiration-content">
-              <span className="expiration-label">{i18n.exp}</span>
-              <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>
-                {formatSidebarExpirationHint(me?.expiration_hint, i18n)}
-              </span>
-            </div>
-          </div>
+          />
           <button
             type="button"
             className="btn logout-btn"

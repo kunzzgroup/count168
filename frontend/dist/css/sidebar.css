@@ -357,7 +357,8 @@
     }
     .informationmenu-footer {
         background: #002d49;
-        padding: 12px 10px;
+        padding: 10px 10px 12px;
+        gap: 8px;
     }
 }
 
@@ -880,22 +881,29 @@
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-end;
-    padding: 12px clamp(10px, 0.75rem, 14px) 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0);
+    padding: 10px 10px 14px;
+    border-top: none;
+    background: transparent;
     margin-top: auto;
     flex-shrink: 0;
-    backdrop-filter: blur(10px);
-    gap: 10px;
+    gap: 8px;
+    box-sizing: border-box;
+}
+
+.informationmenu-footer .company-expiration-countdown,
+.informationmenu-footer .logout-btn {
+    width: 100%;
+    max-width: 100%;
     box-sizing: border-box;
 }
 
 .informationmenu-footer .logout-btn {
     align-self: stretch;
-    width: 100%;
-    max-width: none;
-    min-height: 38px;
-    border-radius: 8px;
+    margin: 0;
+    min-height: 34px;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: clamp(11px, 0.78vw, 13px);
     font-weight: 700;
     letter-spacing: 0.02em;
 }
@@ -1344,12 +1352,10 @@
   0%, 100% {
     box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
     border-color: rgba(248, 113, 113, 0.95);
-    transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 22px 6px rgba(239, 68, 68, 0.88), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    box-shadow: 0 0 16px 4px rgba(239, 68, 68, 0.82), inset 0 1px 0 rgba(255, 255, 255, 0.28);
     border-color: #f87171;
-    transform: scale(1.01);
   }
 }
 
@@ -1369,33 +1375,21 @@
   50% { opacity: 0.88; }
 }
 
-.company-expiration-countdown,
-.informationmenu-footer .company-expiration-countdown--sidebar {
+.company-expiration-countdown {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  margin-bottom: 0;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1.5px solid rgba(255, 255, 255, 0.24);
+  padding: 6px 10px;
+  margin: 0;
+  min-height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
-  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.company-expiration-countdown .expiration-icon-wrap {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.14);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  gap: 7px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .company-expiration-countdown.is-clickable {
@@ -1404,176 +1398,145 @@
 
 .company-expiration-countdown.is-clickable:hover {
   filter: brightness(1.05);
-  transform: translateY(-1px);
 }
 
-.company-expiration-countdown.is-clickable:focus-visible {
-  outline: 2px solid rgba(147, 197, 253, 0.85);
-  outline-offset: 2px;
+.company-expiration-countdown.normal {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(96, 165, 250, 0.55);
 }
 
-.informationmenu-footer .company-expiration-countdown--sidebar.normal {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.34) 0%, rgba(29, 78, 216, 0.48) 100%);
-  border-color: rgba(147, 197, 253, 0.72);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.informationmenu-footer .company-expiration-countdown--sidebar.normal .expiration-icon-wrap {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow {
-  background: linear-gradient(135deg, #fde047 0%, #facc15 52%, #eab308 100%);
-  border-color: #fef08a;
+.company-expiration-countdown.exp-yellow {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.92) 0%, rgba(234, 179, 8, 0.78) 100%);
+  border-color: #fde047;
   animation: exp-sidebar-glow-yellow 1.8s ease-in-out infinite;
 }
 
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-orange {
-  background: linear-gradient(135deg, #fdba74 0%, #fb923c 52%, #f97316 100%);
-  border-color: #fed7aa;
+.company-expiration-countdown.exp-orange {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.94) 0%, rgba(249, 115, 22, 0.82) 100%);
+  border-color: #fb923c;
   animation: exp-sidebar-glow-orange 1.45s ease-in-out infinite;
 }
 
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-critical,
-.informationmenu-footer .company-expiration-countdown--sidebar.warning {
-  background: linear-gradient(135deg, #fca5a5 0%, #f87171 50%, #ef4444 100%);
-  border-color: #fecaca;
+.company-expiration-countdown.exp-critical,
+.company-expiration-countdown.warning {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.96) 0%, rgba(239, 68, 68, 0.88) 100%);
+  border-color: #f87171;
   animation: exp-sidebar-glow-critical 1.05s ease-in-out infinite;
 }
 
-.informationmenu-footer .company-expiration-countdown--sidebar.expired {
-  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 50%, #7f1d1d 100%);
-  border-color: #f87171;
+.company-expiration-countdown.expired {
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.95) 0%, rgba(127, 29, 29, 0.92) 100%);
+  border-color: #ef4444;
   animation: exp-sidebar-glow-expired 0.85s ease-in-out infinite;
 }
 
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow .expiration-countdown-text,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-orange .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-orange .expiration-countdown-text,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-critical .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-critical .expiration-countdown-text,
-.informationmenu-footer .company-expiration-countdown--sidebar.warning .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.warning .expiration-countdown-text,
-.informationmenu-footer .company-expiration-countdown--sidebar.expired .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.expired .expiration-countdown-text {
+.company-expiration-countdown.exp-yellow .expiration-label,
+.company-expiration-countdown.exp-yellow .expiration-countdown-text,
+.company-expiration-countdown.exp-orange .expiration-label,
+.company-expiration-countdown.exp-orange .expiration-countdown-text,
+.company-expiration-countdown.exp-critical .expiration-label,
+.company-expiration-countdown.exp-critical .expiration-countdown-text,
+.company-expiration-countdown.warning .expiration-label,
+.company-expiration-countdown.warning .expiration-countdown-text,
+.company-expiration-countdown.expired .expiration-label,
+.company-expiration-countdown.expired .expiration-countdown-text {
   color: #ffffff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
   animation: exp-sidebar-text-pulse 1.8s ease-in-out infinite;
 }
 
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow .expiration-icon-wrap,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-orange .expiration-icon-wrap,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-critical .expiration-icon-wrap,
-.informationmenu-footer .company-expiration-countdown--sidebar.warning .expiration-icon-wrap,
-.informationmenu-footer .company-expiration-countdown--sidebar.expired .expiration-icon-wrap {
-  background: rgba(255, 255, 255, 0.22);
-}
-
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow .expiration-countdown-text {
-  color: #422006;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow .expiration-icon {
-  color: #422006;
-}
-
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-orange .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-orange .expiration-countdown-text {
+.company-expiration-countdown.exp-orange .expiration-label,
+.company-expiration-countdown.exp-orange .expiration-countdown-text {
   animation-duration: 1.45s;
 }
 
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-critical .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-critical .expiration-countdown-text,
-.informationmenu-footer .company-expiration-countdown--sidebar.warning .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.warning .expiration-countdown-text {
+.company-expiration-countdown.exp-critical .expiration-label,
+.company-expiration-countdown.exp-critical .expiration-countdown-text,
+.company-expiration-countdown.warning .expiration-label,
+.company-expiration-countdown.warning .expiration-countdown-text {
   animation-duration: 1.05s;
 }
 
-.informationmenu-footer .company-expiration-countdown--sidebar.expired .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.expired .expiration-countdown-text {
+.company-expiration-countdown.expired .expiration-label,
+.company-expiration-countdown.expired .expiration-countdown-text {
   animation-duration: 0.85s;
 }
 
 .expiration-icon {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
   color: #ffffff;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  margin: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
 }
 
-.informationmenu-footer .company-expiration-countdown--sidebar.normal .expiration-icon,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-orange .expiration-icon,
-.informationmenu-footer .company-expiration-countdown--sidebar.exp-critical .expiration-icon,
-.informationmenu-footer .company-expiration-countdown--sidebar.warning .expiration-icon,
-.informationmenu-footer .company-expiration-countdown--sidebar.expired .expiration-icon {
+.company-expiration-countdown.normal .expiration-icon,
+.company-expiration-countdown.exp-yellow .expiration-icon,
+.company-expiration-countdown.exp-orange .expiration-icon,
+.company-expiration-countdown.exp-critical .expiration-icon,
+.company-expiration-countdown.warning .expiration-icon,
+.company-expiration-countdown.expired .expiration-icon {
   color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .company-expiration-countdown.exp-yellow,
+  .company-expiration-countdown.exp-orange,
+  .company-expiration-countdown.exp-critical,
+  .company-expiration-countdown.warning,
+  .company-expiration-countdown.expired {
+    animation: none;
+  }
+
+  .company-expiration-countdown.exp-yellow .expiration-label,
+  .company-expiration-countdown.exp-yellow .expiration-countdown-text,
+  .company-expiration-countdown.exp-orange .expiration-label,
+  .company-expiration-countdown.exp-orange .expiration-countdown-text,
+  .company-expiration-countdown.exp-critical .expiration-label,
+  .company-expiration-countdown.exp-critical .expiration-countdown-text,
+  .company-expiration-countdown.warning .expiration-label,
+  .company-expiration-countdown.warning .expiration-countdown-text,
+  .company-expiration-countdown.expired .expiration-label,
+  .company-expiration-countdown.expired .expiration-countdown-text {
+    animation: none;
+  }
 }
 
 .expiration-content {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 2px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.32em;
     flex: 1;
     min-width: 0;
 }
 
 .expiration-label {
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.92);
+    font-size: clamp(10px, 0.75vw, 12px);
+    font-weight: 700;
+    color: #ffffff;
     margin: 0;
-    line-height: 1.1;
+    line-height: 1.2;
+    white-space: nowrap;
+    flex-shrink: 0;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
 }
 
 .expiration-countdown-text {
-    font-size: clamp(11px, 0.82vw, 13px);
+    font-size: clamp(10px, 0.75vw, 12px);
     font-weight: 700;
     color: #ffffff;
     margin: 0;
-    line-height: 1.25;
+    line-height: 1.2;
     text-align: left;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
-}
-
-.informationmenu-footer .company-expiration-countdown--sidebar.normal .expiration-label,
-.informationmenu-footer .company-expiration-countdown--sidebar.normal .expiration-countdown-text {
-  color: #eff6ff;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow,
-  .informationmenu-footer .company-expiration-countdown--sidebar.exp-orange,
-  .informationmenu-footer .company-expiration-countdown--sidebar.exp-critical,
-  .informationmenu-footer .company-expiration-countdown--sidebar.warning,
-  .informationmenu-footer .company-expiration-countdown--sidebar.expired {
-    animation: none;
-  }
-
-  .informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow .expiration-label,
-  .informationmenu-footer .company-expiration-countdown--sidebar.exp-yellow .expiration-countdown-text,
-  .informationmenu-footer .company-expiration-countdown--sidebar.exp-orange .expiration-label,
-  .informationmenu-footer .company-expiration-countdown--sidebar.exp-orange .expiration-countdown-text,
-  .informationmenu-footer .company-expiration-countdown--sidebar.exp-critical .expiration-label,
-  .informationmenu-footer .company-expiration-countdown--sidebar.exp-critical .expiration-countdown-text,
-  .informationmenu-footer .company-expiration-countdown--sidebar.warning .expiration-label,
-  .informationmenu-footer .company-expiration-countdown--sidebar.warning .expiration-countdown-text,
-  .informationmenu-footer .company-expiration-countdown--sidebar.expired .expiration-label,
-  .informationmenu-footer .company-expiration-countdown--sidebar.expired .expiration-countdown-text {
-    animation: none;
-  }
 }
 
 /* 头像图片（替代内联样式） */
