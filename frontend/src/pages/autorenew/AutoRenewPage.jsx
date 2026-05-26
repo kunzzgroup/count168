@@ -36,7 +36,6 @@ import "../../../public/css/userlist.css";
 import "../../../public/css/admin-responsive.css";
 import "../../../public/css/auto_renew.css";
 import "../../../public/css/date-range-picker.css";
-import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 
 function FilterChip({ active, label, count, onClick }) {
@@ -422,33 +421,20 @@ export default function AutoRenewPage() {
                     onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
                   />
                 </div>
-                <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date auto-renew-date-field">
-                  <div className="report-outlined-shell">
-                    <span
-                      className="report-outlined-label report-outlined-label--txn-capture-date"
-                      id="auto-renew-date-range-label"
-                    >
-                      {dashI18n.dateRange}
-                    </span>
-                    <div className="report-outlined-inner">
-                      <div className="transaction-date-range-group">
-                        <div
-                          className="date-range-picker"
-                          id="date-range-picker"
-                          role="button"
-                          tabIndex={0}
-                          aria-labelledby="auto-renew-date-range-label"
-                        >
-                          <i className="fas fa-calendar-alt" />
-                          {/* Text driven by MaintenanceDateRangePicker */}
-                          <span id="date-range-display" aria-live="polite" />
-                          <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
-                        </div>
-                        <input type="hidden" id="date_from" readOnly />
-                        <input type="hidden" id="date_to" readOnly />
-                      </div>
-                    </div>
+                <div className="transaction-date-range-group auto-renew-date-range-group">
+                  <div
+                    className="date-range-picker"
+                    id="date-range-picker"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={dashI18n.selectDateRange}
+                  >
+                    <i className="fas fa-calendar-alt" />
+                    <span id="date-range-display" aria-live="polite" />
+                    <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                   </div>
+                  <input type="hidden" id="date_from" readOnly />
+                  <input type="hidden" id="date_to" readOnly />
                 </div>
                 <div className="userlist-filter-chips auto-renew-filter-chips" role="group" aria-label={t("filterGroupLabel")}>
                     <FilterChip
