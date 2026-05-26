@@ -17,6 +17,7 @@ body.auto-renew-page-body .auto-renew-toolbar-row {
 body.auto-renew-page-body .auto-renew-date-field {
   flex: 0 1 auto;
   min-width: 0;
+  align-self: center;
 }
 
 body.auto-renew-page-body .auto-renew-table .auto-renew-pagination,

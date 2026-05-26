@@ -13,13 +13,8 @@ export function useAutoRenewDateRangeState() {
   return { dateFrom, setDateFrom, dateTo, setDateTo };
 }
 
-export function useAutoRenewDateRange({ me, i18n, dateFrom, dateTo, setDateFrom, setDateTo }) {
+export function useAutoRenewDateRange({ me, ready, i18n, dateFrom, dateTo, setDateFrom, setDateTo }) {
   const pickerReadyRef = useRef(false);
-
-  const effectiveDateRangeText = useMemo(
-    () => `${ymdToDmy(dateFrom)} - ${ymdToDmy(dateTo)}`,
-    [dateFrom, dateTo],
-  );
 
   const periodPresets = useMemo(
     () => [
@@ -48,6 +43,7 @@ export function useAutoRenewDateRange({ me, i18n, dateFrom, dateTo, setDateFrom,
   }, [i18n]);
 
   useEffect(() => {
+    if (!ready) return;
     const df = document.getElementById("date_from");
     const dt = document.getElementById("date_to");
     if (!df || !dt) return;
@@ -55,47 +51,78 @@ export function useAutoRenewDateRange({ me, i18n, dateFrom, dateTo, setDateFrom,
     const t = ymdToDmy(dateTo);
     if (df.value !== f) df.value = f;
     if (dt.value !== t) dt.value = t;
-    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
-  }, [dateFrom, dateTo]);
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.({
+      dateFromId: "date_from",
+      dateToId: "date_to",
+      displayId: "date-range-display",
+    });
+  }, [ready, dateFrom, dateTo]);
 
   useEffect(() => {
-    if (!me) return undefined;
+    if (!me || !ready) return undefined;
+
     let cancelled = false;
-    ensureMaintenanceDateRangePicker();
-    const initPicker = () => {
-      if (cancelled || pickerReadyRef.current) return;
-      if (!window.MaintenanceDateRangePicker?.init) return;
-      if (!document.getElementById("calendar-popup")) return;
-      window.MaintenanceDateRangePicker.init({
-        allowEmpty: false,
-        placeholder: i18n.selectDateRange,
-        selectEndDateHint: i18n.selectEndDate,
-        onChange: () => {
-          const fromDmy =
-            window.MaintenanceDateRangePicker.getDateFrom?.() ||
-            document.getElementById("date_from")?.value ||
-            "";
-          const toDmy =
-            window.MaintenanceDateRangePicker.getDateTo?.() ||
-            document.getElementById("date_to")?.value ||
-            "";
-          const from = parseDdMmYyyyToYmd(fromDmy);
-          const to = parseDdMmYyyyToYmd(toDmy);
-          if (from && to) {
-            setDateFrom(from);
-            setDateTo(to);
-          }
-        },
+    let attempts = 0;
+
+    const tryInit = () => {
+      if (cancelled) return;
+      ensureMaintenanceDateRangePicker();
+
+      const hasPopup = document.getElementById("calendar-popup");
+      const hasPicker = document.getElementById("date-range-picker");
+      const hasFrom = document.getElementById("date_from");
+      const hasTo = document.getElementById("date_to");
+
+      if (!window.MaintenanceDateRangePicker?.init || !hasPopup || !hasPicker || !hasFrom || !hasTo) {
+        if (attempts < 30) {
+          attempts += 1;
+          requestAnimationFrame(tryInit);
+        }
+        return;
+      }
+
+      if (!pickerReadyRef.current) {
+        window.MaintenanceDateRangePicker.init({
+          allowEmpty: false,
+          placeholder: i18n.selectDateRange,
+          selectEndDateHint: i18n.selectEndDate,
+          onChange: () => {
+            const fromDmy =
+              window.MaintenanceDateRangePicker.getDateFrom?.() ||
+              document.getElementById("date_from")?.value ||
+              "";
+            const toDmy =
+              window.MaintenanceDateRangePicker.getDateTo?.() ||
+              document.getElementById("date_to")?.value ||
+              "";
+            const from = parseDdMmYyyyToYmd(fromDmy);
+            const to = parseDdMmYyyyToYmd(toDmy);
+            if (from && to) {
+              setDateFrom(from);
+              setDateTo(to);
+            }
+          },
+        });
+        pickerReadyRef.current = true;
+      } else {
+        window.MaintenanceDateRangePicker.bindPickers?.();
+      }
+
+      window.MaintenanceDateRangePicker.refreshInputsDisplay?.({
+        dateFromId: "date_from",
+        dateToId: "date_to",
+        displayId: "date-range-display",
       });
-      pickerReadyRef.current = true;
-      window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
     };
-    initPicker();
+
+    tryInit();
+
     return () => {
       cancelled = true;
       pickerReadyRef.current = false;
     };
-  }, [me, i18n.selectDateRange, i18n.selectEndDate, setDateFrom, setDateTo]);
+  }, [me, ready, i18n.selectDateRange, i18n.selectEndDate, setDateFrom, setDateTo]);
 
-  return { effectiveDateRangeText, periodPresets };
+  return { periodPresets };
 }

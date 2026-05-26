@@ -108,18 +108,18 @@ export default function AutoRenewPage() {
   const lang = useLoginLang();
   const t = useCallback((key, params) => getAutoRenewText(lang, key, params), [lang]);
   const dashI18n = useMemo(() => DASHBOARD_I18N[lang === "zh" ? "zh" : "en"], [lang]);
+  const [bootDone, setBootDone] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const { dateFrom, setDateFrom, dateTo, setDateTo } = useAutoRenewDateRangeState();
-  const { effectiveDateRangeText, periodPresets } = useAutoRenewDateRange({
+  const { periodPresets } = useAutoRenewDateRange({
     me,
+    ready: sessionReady && bootDone && !loadError,
     i18n: dashI18n,
     dateFrom,
     dateTo,
     setDateFrom,
     setDateTo,
   });
-
-  const [bootDone, setBootDone] = useState(false);
-  const [loadError, setLoadError] = useState("");
   const [rows, setRows] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
@@ -372,7 +372,14 @@ export default function AutoRenewPage() {
   const showSubmitterColumn = statusFilter === "approved";
 
   if (!sessionReady || !bootDone) {
-    return <PageContentLoader />;
+    return (
+      <>
+        <PageContentLoader />
+        {me?.has_c168_auto_renew_access ? (
+          <DashboardCalendarPopup i18n={dashI18n} periodPresets={periodPresets} dateFrom={dateFrom} />
+        ) : null}
+      </>
+    );
   }
 
   if (loadError) {
@@ -417,7 +424,10 @@ export default function AutoRenewPage() {
                 </div>
                 <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date auto-renew-date-field">
                   <div className="report-outlined-shell">
-                    <span className="report-outlined-label" id="auto-renew-date-range-label">
+                    <span
+                      className="report-outlined-label report-outlined-label--txn-capture-date"
+                      id="auto-renew-date-range-label"
+                    >
                       {dashI18n.dateRange}
                     </span>
                     <div className="report-outlined-inner">
@@ -430,7 +440,8 @@ export default function AutoRenewPage() {
                           aria-labelledby="auto-renew-date-range-label"
                         >
                           <i className="fas fa-calendar-alt" />
-                          <span id="date-range-display">{effectiveDateRangeText}</span>
+                          {/* Text driven by MaintenanceDateRangePicker */}
+                          <span id="date-range-display" aria-live="polite" />
                           <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                         </div>
                         <input type="hidden" id="date_from" readOnly />
@@ -608,7 +619,9 @@ export default function AutoRenewPage() {
         </div>
       </div>
 
-      <DashboardCalendarPopup i18n={dashI18n} periodPresets={periodPresets} dateFrom={dateFrom} />
+      {me?.has_c168_auto_renew_access ? (
+        <DashboardCalendarPopup i18n={dashI18n} periodPresets={periodPresets} dateFrom={dateFrom} />
+      ) : null}
     </>
   );
 }
