@@ -1155,13 +1155,38 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
         margin-inline-start: auto;
     }
 
-    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix .member-dash-rail-matrix {
+    /* 账户行数 ≤ WINLOSS_MINI_MATRIX_ACCOUNT_SCROLL_THRESHOLD：矩阵随内容增高，不锁高、不纵向滚动 */
+    .member-winloss-page
+        .member-dash-columns--wl-sync-h:not(.member-dash-columns--matrix-accounts-scroll)
+        > .member-dash-col-matrix
+        .member-dash-rail-matrix {
+        display: block;
+        max-height: none;
+    }
+
+    .member-winloss-page
+        .member-dash-columns--wl-sync-h:not(.member-dash-columns--matrix-accounts-scroll)
+        > .member-dash-col-matrix
+        .member-dash-matrix-scroll {
+        flex: 0 0 auto;
+        max-height: none;
+        overflow-y: hidden;
+    }
+
+    /* 展开账号超过阈值：矩阵高度对齐左栏，表体内纵向滚动 */
+    .member-winloss-page
+        .member-dash-columns--wl-sync-h.member-dash-columns--matrix-accounts-scroll
+        > .member-dash-col-matrix
+        .member-dash-rail-matrix {
         display: flex;
         flex-direction: column;
         max-height: calc(var(--member-winloss-filters-h) - var(--member-dash-matrix-toolbar-slot, 34px) - 8px);
     }
 
-    .member-winloss-page .member-dash-columns--wl-sync-h > .member-dash-col-matrix .member-dash-matrix-scroll {
+    .member-winloss-page
+        .member-dash-columns--wl-sync-h.member-dash-columns--matrix-accounts-scroll
+        > .member-dash-col-matrix
+        .member-dash-matrix-scroll.member-dash-matrix-scroll--accounts-scroll {
         flex: 0 1 auto;
         min-height: 0;
         max-height: 100%;
@@ -2514,6 +2539,10 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 .member-wl-compact-matrix__amt-hd {
     justify-content: flex-end;
     text-align: right;
+    white-space: nowrap;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    text-transform: none;
 }
 
 .member-wl-compact-matrix__account {

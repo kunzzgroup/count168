@@ -6,6 +6,19 @@ export const MINI_GRID_SHELL_ROWS = 5;
 /** Win/Loss 迷你矩阵：账户行数大于此值时，矩阵区域纵向滚动，默认可见约 5 个账户行 + 表头 */
 export const WINLOSS_MINI_MATRIX_ACCOUNT_SCROLL_THRESHOLD = 5;
 
+export function winLossMiniMatrixNeedsAccountScroll(shellMode, accounts) {
+  if (shellMode) return false;
+  const n = Array.isArray(accounts) ? accounts.length : 0;
+  return n > WINLOSS_MINI_MATRIX_ACCOUNT_SCROLL_THRESHOLD;
+}
+
+/** Win/Loss 筛选/矩阵表头：币种以 (myr) 形式展示 */
+export function formatWinLossCurrencyParens(code) {
+  const c = String(code || "").trim();
+  if (!c) return "";
+  return `(${c.toLowerCase()})`;
+}
+
 /** Win/Loss Account：每条 segment 白底带最多按钮数，多出的自动再开新带 */
 export const WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS = 7;
 /** 视口较窄（<1410px）时每行更少格，多账户换行展示完整户 名 */

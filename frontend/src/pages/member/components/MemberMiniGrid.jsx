@@ -8,7 +8,9 @@ import {
   MEMBER_AMOUNT_NA_MARK,
   miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
+  formatWinLossCurrencyParens,
   measureCompactMatrixColumnWidths,
+  winLossMiniMatrixNeedsAccountScroll,
   WINLOSS_MATRIX_FILL_CCY_COLS,
   WINLOSS_MATRIX_MIN_CCY_COL_WIDTH,
   WINLOSS_MATRIX_ROWHEAD_COL_WIDTH,
@@ -204,6 +206,7 @@ export default function MemberMiniGrid({
   const singleCu = compactMode ? orderUpper[0] : "";
   const lastCi = ncu - 1;
   const lastRi = listOrdered.length - 1;
+  const accountScroll = winLossMiniMatrixNeedsAccountScroll(shellMode, listOrdered);
   const gridRef = useRef(null);
   const fillMode = !compactMode && ncu > 0 && ncu < WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD;
   const gridCols = !compactMode && ncu > 0 ? miniMatrixGridTemplateColumns(ncu) : undefined;
@@ -324,7 +327,9 @@ export default function MemberMiniGrid({
 
   return (
     <>
-      <div className={`member-dash-matrix-scroll${compactMode ? " member-dash-matrix-scroll--compact" : ""}`}>
+      <div
+        className={`member-dash-matrix-scroll${compactMode ? " member-dash-matrix-scroll--compact" : ""}${accountScroll ? " member-dash-matrix-scroll--accounts-scroll" : ""}`}
+      >
         {compactMode ? (
           <div
             id="member_balance_grid"
@@ -338,7 +343,7 @@ export default function MemberMiniGrid({
                 {t?.("accounts") || "Accounts"}
               </div>
               <div className="member-wl-compact-matrix__amt-hd" role="columnheader">
-                {singleCu}
+                {t?.("currency") || "Currency:"} {formatWinLossCurrencyParens(singleCu)}
               </div>
             </div>
             {listOrdered.map((acc, accIdx) => (

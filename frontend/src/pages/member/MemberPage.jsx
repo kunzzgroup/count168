@@ -29,6 +29,8 @@ import {
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW,
   WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ,
   WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS,
+  formatWinLossCurrencyParens,
+  winLossMiniMatrixNeedsAccountScroll,
 } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 import { useMemberPageShell } from "./useMemberPageShell.js";
@@ -146,6 +148,11 @@ export default function MemberPage() {
     }
     return bands;
   }, [linkedAccounts, accountMaxPerBand]);
+
+  const matrixNeedsAccountScroll = useMemo(
+    () => winLossMiniMatrixNeedsAccountScroll(miniGridShell, miniGridAccounts),
+    [miniGridShell, miniGridAccounts],
+  );
 
   useEffect(() => {
     const mq = window.matchMedia(WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ);
@@ -319,7 +326,7 @@ export default function MemberPage() {
         <div className="transaction-main-content member-winloss-dash">
           <div className="transaction-search-section member-dash-unified-bar">
             <div
-              className={`member-dash-columns${showMiniRail ? " member-dash-columns--three-col" : " member-dash-columns--no-mini-rail"}${showMiniRail && miniGridDisplayCurrencies.length === 1 ? " member-dash-columns--single-ccy-rail" : ""}${wlFiltersSyncPx != null ? " member-dash-columns--wl-sync-h" : ""}`}
+              className={`member-dash-columns${showMiniRail ? " member-dash-columns--three-col" : " member-dash-columns--no-mini-rail"}${showMiniRail && miniGridDisplayCurrencies.length === 1 ? " member-dash-columns--single-ccy-rail" : ""}${wlFiltersSyncPx != null ? " member-dash-columns--wl-sync-h" : ""}${matrixNeedsAccountScroll ? " member-dash-columns--matrix-accounts-scroll" : ""}`}
               style={wlFiltersSyncPx != null ? { ["--member-winloss-filters-h"]: `${wlFiltersSyncPx}px` } : undefined}
             >
               <div className="member-dash-col member-dash-col-filters" ref={wlFiltersColRef}>
@@ -439,7 +446,7 @@ export default function MemberPage() {
                             onDrop={handleWinLossCurrencyCodeDrop}
                             onClick={() => onCurrencyToggle(cell.code)}
                           >
-                            {cell.code}
+                            {formatWinLossCurrencyParens(cell.code)}
                           </button>
                         )
                       )}
