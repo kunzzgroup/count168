@@ -8,7 +8,10 @@ import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangeP
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   getCachedOwnerCompanies,
+  isDashboardGroupOnlyMode,
   loadOwnerCompaniesCached,
+  resolveInitialCompanyId,
+  resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
@@ -358,11 +361,17 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     if (!me || companyId != null) return;
     const cached = getCachedOwnerCompanies();
-    let initialCompanyId = me.company_id ? Number(me.company_id) : (cached?.[0]?.id ? Number(cached[0].id) : null);
-    if (initialCompanyId && cached?.length && !cached.some((c) => Number(c.id) === initialCompanyId)) {
-      initialCompanyId = cached[0]?.id ? Number(cached[0].id) : null;
+    let initialCompanyId = resolveInitialCompanyId(
+      me.company_id ? Number(me.company_id) : cached?.[0]?.id ? Number(cached[0].id) : null,
+    );
+    if (
+      initialCompanyId &&
+      cached?.length &&
+      !cached.some((c) => Number(c.id) === initialCompanyId)
+    ) {
+      initialCompanyId = resolveInitialCompanyId(cached[0]?.id);
     }
-    if (initialCompanyId) setCompanyId(initialCompanyId);
+    if (initialCompanyId != null) setCompanyId(initialCompanyId);
   }, [me, companyId]);
 
   // Defer first search one tick after filters are ready (align with Payment/Capture maintenance).
@@ -421,16 +430,31 @@ export default function TransactionMaintenancePage() {
         setCompanies(filtered);
 
         // Set Initial Company
-        let initialCompanyId = u.company_id ? Number(u.company_id) : (filtered[0]?.id ? Number(filtered[0].id) : null);
-        
-        // Ensure initialCompanyId exists in filtered list
-        if (initialCompanyId && !filtered.some(c => Number(c.id) === initialCompanyId)) {
-          initialCompanyId = filtered[0]?.id ? Number(filtered[0].id) : null;
+        const fallbackId = u.company_id ? Number(u.company_id) : filtered[0]?.id ? Number(filtered[0].id) : null;
+        let initialCompanyId = resolveInitialCompanyId(fallbackId);
+
+        if (
+          initialCompanyId &&
+          !filtered.some((c) => Number(c.id) === initialCompanyId)
+        ) {
+          initialCompanyId = resolveInitialCompanyId(filtered[0]?.id);
         }
-        
+
+        const currentComp =
+          initialCompanyId != null
+            ? filtered.find((c) => Number(c.id) === initialCompanyId) || null
+            : null;
+        const bootGroup = resolveInitialSelectedGroupFromSession(filtered, currentComp);
+        setSelectedGroup(bootGroup);
+
+        if (isDashboardGroupOnlyMode() && bootGroup) {
+          setCompanyId(null);
+          setFiltersReady(true);
+          return;
+        }
+
         setCompanyId(initialCompanyId);
-        
-        const currentComp = filtered.find(c => Number(c.id) === initialCompanyId) || filtered[0] || null;
+
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
@@ -468,18 +492,7 @@ export default function TransactionMaintenancePage() {
           switchPermsCacheRef.current = { companyCode: code, perms: companyPerms };
           skipMetaAfterBootRef.current = true;
 
-          const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-          const groups = [...new Set(filtered.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-          
-          let selGroup = null;
-          if (savedGroup && groups.includes(savedGroup) && currentComp.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
-            selGroup = savedGroup;
-          } else if (currentComp.group_id?.trim()) {
-            selGroup = String(currentComp.group_id).toUpperCase().trim();
-          }
-          
-          setSelectedGroup(selGroup);
-          if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
         }
 
       } catch (err) {
@@ -595,8 +608,18 @@ export default function TransactionMaintenancePage() {
   ]);
 
   // -- Handlers --
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setCompanyCode("");
+    setMetaReady(false);
+    setProcesses([]);
+    setPermissions([]);
+    setActivePermission("");
+    setSelectedProcess("");
+  }, []);
+
   const handleSwitchCompany = useCallback(async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
+    if (!c?.id) return;
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
@@ -656,22 +679,17 @@ export default function TransactionMaintenancePage() {
     }
   }, [companyId, navigate, notify, t]);
 
-  const {
-    groupFilterKind,
-    snapGroupIds,
-    visibleCompanies,
-    handlePickAllGroups,
-    handleGroupClick,
-    followCurrentCompanyGroup,
-  } = useMaintenanceGroupCompanyFilter({
-    companies,
-    companyId,
-    selectedGroup,
-    setSelectedGroup,
-    switchCompany: handleSwitchCompany,
-  });
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+    useMaintenanceGroupCompanyFilter({
+      companies,
+      companyId,
+      selectedGroup,
+      setSelectedGroup,
+      switchCompany: handleSwitchCompany,
+      onClearCompany: handleClearCompany,
+    });
 
-  followGroupRef.current = followCurrentCompanyGroup;
+  followGroupRef.current = () => {};
 
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
@@ -718,13 +736,12 @@ export default function TransactionMaintenancePage() {
           today={todayDmy}
           companyId={companyId}
           companies={companies}
-          groupFilterKind={groupFilterKind}
           snapGroupIds={snapGroupIds}
           visibleCompanies={visibleCompanies}
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
-          onPickAllGroups={handlePickAllGroups}
-          onSwitchCompany={handleSwitchCompany}
+          onPickCompany={handlePickCompany}
+          onClearCompany={handleClearCompany}
           m={m}
         />
 

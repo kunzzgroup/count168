@@ -5,6 +5,7 @@ export default function ReportGcFilterPanel({
   groupIds,
   groupFilterKind,
   selectedGroupKey,
+  selectedGroup,
   onPickAllGroups,
   onPickGroup,
   companyButtons,
@@ -12,6 +13,9 @@ export default function ReportGcFilterPanel({
   /** 乐观高亮：切换会话未返回前显示为已选 */
   highlightCompanyId,
   onSwitchCompany,
+  onClearCompany,
+  /** "dashboard" = no group ALL, company toggle-off, group highlight from selectedGroup */
+  layout = "legacy",
   currencyList,
   showAllCurrencies,
   selectedCurrencies,
@@ -25,6 +29,10 @@ export default function ReportGcFilterPanel({
   if (!hasGroup && !hasCompanies && !hasCurrency) return null;
 
   const activeCompanyId = highlightCompanyId != null ? highlightCompanyId : companyId;
+  const isDashboardLayout = layout === "dashboard";
+  const groupHighlightKey = isDashboardLayout
+    ? String(selectedGroup || "").trim().toUpperCase()
+    : selectedGroupKey;
 
   return (
     <div className="user-gc-inline-panel report-gc-inline-panel">
@@ -33,18 +41,28 @@ export default function ReportGcFilterPanel({
           <span className="user-gc-inline-label">{t("groupId")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-              <button
-                type="button"
-                className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
-                onClick={onPickAllGroups}
-              >
-                {t("groupFilterAll")}
-              </button>
+              {!isDashboardLayout && (
+                <button
+                  type="button"
+                  className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
+                  onClick={onPickAllGroups}
+                >
+                  {t("groupFilterAll")}
+                </button>
+              )}
               {groupIds.map((g) => (
                 <button
                   key={g}
                   type="button"
-                  className={`user-gc-segment${groupFilterKind === "follow" && g === selectedGroupKey ? " is-on" : ""}`}
+                  className={`user-gc-segment${
+                    isDashboardLayout
+                      ? groupHighlightKey === g
+                        ? " is-on"
+                        : ""
+                      : groupFilterKind === "follow" && g === selectedGroupKey
+                        ? " is-on"
+                        : ""
+                  }`}
                   onClick={() => onPickGroup(g)}
                 >
                   {g}
@@ -67,6 +85,10 @@ export default function ReportGcFilterPanel({
                     type="button"
                     className={`user-gc-segment${active ? " is-on" : ""}`}
                     onClick={() => {
+                      if (active && isDashboardLayout) {
+                        onClearCompany?.();
+                        return;
+                      }
                       if (!active) void onSwitchCompany(c);
                     }}
                   >

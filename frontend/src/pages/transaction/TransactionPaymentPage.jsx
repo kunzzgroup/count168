@@ -284,7 +284,6 @@ export default function TransactionPaymentPage() {
             onSearch={onSearch}
             fs={filterSnapshot}
             onGroupButtonClick={data.onGroupButtonClick}
-            onGroupFilterAllClick={data.onGroupFilterAllClick}
             onCompanyButtonClick={data.onCompanyButtonClick}
             currencyRowsOrdered={currencyRowsOrdered}
             toggleAllCurrenciesBtn={search.toggleAllCurrenciesBtn}

@@ -14,6 +14,11 @@ import { formatYmd } from "../../../utils/date/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
+  isDashboardGroupOnlyMode,
+  resolveInitialCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../../utils/company/sharedCompanyFilter.js";
+import {
   fetchCompanyPermissions,
   fetchProcesses,
   searchCaptureData,
@@ -202,10 +207,20 @@ export default function CaptureMaintenancePage() {
         setCompanies(rows);
 
         // Set Initial Company
-        let initialCompanyId = u.company_id ? Number(u.company_id) : (rows[0]?.id ? Number(rows[0].id) : null);
+        const fallbackId = u.company_id ? Number(u.company_id) : rows[0]?.id ? Number(rows[0].id) : null;
+        let initialCompanyId = resolveInitialCompanyId(fallbackId);
+        const currentComp =
+          initialCompanyId != null
+            ? rows.find((c) => Number(c.id) === initialCompanyId)
+            : null;
+        const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
+        setSelectedGroup(bootGroup);
+        if (isDashboardGroupOnlyMode() && bootGroup) {
+          setCompanyId(null);
+          return;
+        }
         setCompanyId(initialCompanyId);
 
-        const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
@@ -235,18 +250,7 @@ export default function CaptureMaintenancePage() {
           const initialActive = savedPerm && companyPerms.includes(savedPerm) ? savedPerm : (companyPerms.length > 0 ? companyPerms[0] : "");
           setActivePermission(initialActive);
 
-          const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-          const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-
-          let selGroup = null;
-          if (savedGroup && groups.includes(savedGroup) && currentComp.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
-            selGroup = savedGroup;
-          } else if (currentComp.group_id?.trim()) {
-            selGroup = String(currentComp.group_id).toUpperCase().trim();
-          }
-
-          setSelectedGroup(selGroup);
-          if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
         }
 
       } catch (err) {
@@ -369,8 +373,14 @@ export default function CaptureMaintenancePage() {
   }, [companyId]);
 
   // -- Handlers --
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setCompanyCode("");
+    setSelectedIds([]);
+  }, []);
+
   const handleSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
+    if (!c?.id) return;
     const nextId = Number(c.id);
     const nextCode = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
@@ -425,22 +435,17 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  const {
-    groupFilterKind,
-    snapGroupIds,
-    visibleCompanies,
-    handlePickAllGroups,
-    handleGroupClick,
-    followCurrentCompanyGroup,
-  } = useMaintenanceGroupCompanyFilter({
-    companies,
-    companyId,
-    selectedGroup,
-    setSelectedGroup,
-    switchCompany: handleSwitchCompany,
-  });
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+    useMaintenanceGroupCompanyFilter({
+      companies,
+      companyId,
+      selectedGroup,
+      setSelectedGroup,
+      switchCompany: handleSwitchCompany,
+      onClearCompany: handleClearCompany,
+    });
 
-  followGroupRef.current = followCurrentCompanyGroup;
+  followGroupRef.current = () => {};
 
   const handlePermissionSwitch = (p) => {
     if (p === activePermission) return;
@@ -545,13 +550,12 @@ export default function CaptureMaintenancePage() {
           setDateTo={setDateTo}
           today={todayDmy}
           companyId={companyId}
-          groupFilterKind={groupFilterKind}
           snapGroupIds={snapGroupIds}
           visibleCompanies={visibleCompanies}
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
-          onPickAllGroups={handlePickAllGroups}
-          onSwitchCompany={handleSwitchCompany}
+          onPickCompany={handlePickCompany}
+          onClearCompany={handleClearCompany}
           onDelete={handleDeleteClick}
           canDelete={selectedIds.length > 0}
           confirmDelete={confirmDelete}

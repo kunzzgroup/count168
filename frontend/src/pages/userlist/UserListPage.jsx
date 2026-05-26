@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
+import {
+  resolveInitialCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../utils/company/sharedCompanyFilter.js";
+import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
@@ -86,8 +91,7 @@ export default function UserListPage() {
   const [showAll, setShowAll] = useState(false);
   const [sortColumn, setSortColumn] = useState("loginId");
   const [sortDirection, setSortDirection] = useState("asc");
-  /** Group 筛选：follow=随当前公司所属组；all=全部公司；ungrouped=仅无 group_id 的公司 */
-  const [groupFilterKind, setGroupFilterKind] = useState("follow");
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
   const [selectAllUsers, setSelectAllUsers] = useState(false);
@@ -168,46 +172,7 @@ export default function UserListPage() {
       ),
     [companies]
   );
-  const groupIds = useMemo(
-    () =>
-      [...new Set(allCompanyButtons
-        .map((c) => String(c.group_id || "").trim().toUpperCase())
-        .filter(Boolean))]
-        .sort(),
-    [allCompanyButtons]
-  );
   const pickerCompanyId = pendingCompanyId ?? companyId;
-  const selectedCompany = useMemo(
-    () => allCompanyButtons.find((c) => Number(c.id) === Number(pickerCompanyId)) || null,
-    [allCompanyButtons, pickerCompanyId]
-  );
-  const selectedGroupKey = useMemo(
-    () => String(selectedCompany?.group_id || "").trim().toUpperCase(),
-    [selectedCompany?.group_id]
-  );
-  const companiesForPicker = useMemo(() => {
-    if (groupFilterKind === "all") {
-      const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
-      return [...allCompanyButtons].sort((a, b) => {
-        const ga = String(a.group_id || "").trim().toUpperCase();
-        const gb = String(b.group_id || "").trim().toUpperCase();
-        const ra = groupOrder.has(ga) ? groupOrder.get(ga) : Number.MAX_SAFE_INTEGER;
-        const rb = groupOrder.has(gb) ? groupOrder.get(gb) : Number.MAX_SAFE_INTEGER;
-        if (ra !== rb) return ra - rb;
-        return String(a.company_id || "").localeCompare(String(b.company_id || ""), undefined, { numeric: true });
-      });
-    }
-    if (groupFilterKind === "ungrouped") {
-      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
-    }
-    if (groupIds.length === 0) return allCompanyButtons;
-    if (!selectedGroupKey) {
-      const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
-      return ung.length ? ung : allCompanyButtons;
-    }
-    const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
-    return inG.length ? inG : allCompanyButtons;
-  }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
     return sortUsers(f, sortColumn, sortDirection);
@@ -370,7 +335,11 @@ export default function UserListPage() {
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id");
         const effective = cid || me.company_id || rows[0]?.id || null;
-        setCompanyId(effective ? Number(effective) : null);
+        const effectiveNum = resolveInitialCompanyId(effective);
+        const row =
+          effectiveNum != null ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null : null;
+        setCompanyId(effectiveNum);
+        setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
         setSearch(String(url.searchParams.get("search") || ""));
         setShowAll(url.searchParams.get("showAll") === "1");
       } catch {
@@ -390,9 +359,15 @@ export default function UserListPage() {
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setUsersRaw([]);
+    hasLoadedUsersRef.current = false;
+  }, []);
+
   const onSwitchCompany = async (c) => {
     const nextCompanyId = Number(c?.id);
-    if (!nextCompanyId || Number(nextCompanyId) === Number(pickerCompanyId) || switchingCompany) {
+    if (!nextCompanyId || switchingCompany) {
       return;
     }
     setPendingCompanyId(nextCompanyId);
@@ -417,27 +392,16 @@ export default function UserListPage() {
     }
   };
 
-  const handlePickGroup = useCallback(
-    (gid) => {
-      if (switchingCompany) return;
-      const g = String(gid || "").trim().toUpperCase();
-      if (!g) return;
-      if (groupFilterKind === "follow" && g === selectedGroupKey) {
-        setGroupFilterKind("ungrouped");
-        return;
-      }
-      setGroupFilterKind("follow");
-      if (g === selectedGroupKey) return;
-      const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
-      if (first) void onSwitchCompany(first);
-    },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany]
-  );
-
-  const handlePickAllGroups = useCallback(() => {
-    if (switchingCompany) return;
-    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, [switchingCompany]);
+  const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
+    companies: allCompanyButtons,
+    companyId: pickerCompanyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: onSwitchCompany,
+    onClearCompany: handleClearCompany,
+    switchingCompany,
+    preferredCompanyId: pickerCompanyId,
+  });
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
     const cacheKey = String(cid || "");
@@ -842,19 +806,12 @@ export default function UserListPage() {
                   <span className="user-gc-inline-label">{t("groupId")}</span>
                   <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                     <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-                      <button
-                        type="button"
-                        className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
-                        onClick={handlePickAllGroups}
-                      >
-                        {t("groupFilterAll")}
-                      </button>
                       {groupIds.map((gid) => (
                         <button
                           key={gid}
                           type="button"
-                          className={`user-gc-segment${groupFilterKind === "follow" && gid === selectedGroupKey ? " is-on" : ""}`}
-                          onClick={() => handlePickGroup(gid)}
+                          className={`user-gc-segment${gid === selectedGroup ? " is-on" : ""}`}
+                          onClick={() => void handlePickGroup(gid)}
                         >
                           {gid}
                         </button>
@@ -876,9 +833,7 @@ export default function UserListPage() {
                           className={`user-gc-segment${active ? " is-on" : ""}`}
                           onClick={() => {
                             if (switchingCompany) return;
-                            if (!active) {
-                              void onSwitchCompany(c);
-                            }
+                            void handlePickCompany(c);
                           }}
                         >
                           {String(c.company_id || "").toUpperCase()}

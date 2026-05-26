@@ -16,13 +16,12 @@ export default function PaymentMaintenanceFilters({
   setDateTo,
   today,
   companyId,
-  groupFilterKind,
   snapGroupIds,
   visibleCompanies,
   selectedGroup,
   onGroupClick,
-  onPickAllGroups,
-  onSwitchCompany,
+  onPickCompany,
+  onClearCompany,
   currencies,
   selectedCurrency,
   setSelectedCurrency,
@@ -97,15 +96,15 @@ export default function PaymentMaintenanceFilters({
       <div className="maintenance-filter-row">
         <div className="maintenance-filter-left-full">
           <ReportGcFilterPanel
+            layout="dashboard"
             groupIds={snapGroupIds}
-            groupFilterKind={groupFilterKind}
-            selectedGroupKey={selectedGroup}
-            onPickAllGroups={onPickAllGroups}
+            selectedGroup={selectedGroup}
             onPickGroup={(g) => onGroupClick(g)}
             companyButtons={visibleCompanies}
             companyId={companyId}
             highlightCompanyId={companyId}
-            onSwitchCompany={onSwitchCompany}
+            onSwitchCompany={onPickCompany}
+            onClearCompany={onClearCompany}
             currencyList={currencies}
             showAllCurrencies={!selectedCurrency}
             selectedCurrencies={selectedCurrency ? [selectedCurrency] : []}

@@ -32,7 +32,13 @@ import {
 } from "../lib/dashboardDateUtils.js";
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
-import { companiesInGroupList, sortIds } from "../lib/dashboardEarnings.js";
+import { companiesInGroupList } from "../../../utils/company/sharedCompanyFilter.js";
+import { sortIds } from "../lib/dashboardEarnings.js";
+import {
+  notifyDashboardGroupFilterChanged,
+  isDashboardGroupOnlyMode,
+  persistDashboardGroupOnlyMode,
+} from "../../../utils/company/sharedCompanyFilter.js";
 
 export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const { me, sessionReady } = useAuthSession();
@@ -64,6 +70,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const currencyLoadGenRef = useRef(0);
   /** @type {React.MutableRefObject<Map<number, string[]>>} */
   const currenciesByCompanyRef = useRef(new Map());
+  /** @type {React.MutableRefObject<Map<string, string[]>>} */
+  const currenciesByGroupRef = useRef(new Map());
 
   const dashboardScopeKey = useMemo(
     () =>
@@ -114,10 +122,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       let group = null;
       const current = cj.data.find((c) => parseInt(c.id, 10) === parseInt(u.company_id, 10));
+      if (isDashboardGroupOnlyMode() && savedGroup && groups.includes(savedGroup)) {
+        group = savedGroup;
+        setSelectedGroup(group);
+        setCompanyId(null);
+        return;
+      }
       if (savedGroup && groups.includes(savedGroup) && current?.group_id?.toUpperCase() === savedGroup) {
         group = savedGroup;
       } else if (savedGroup && !groups.includes(savedGroup)) {
         sessionStorage.removeItem("dashboard_group_filter");
+        persistDashboardGroupOnlyMode(false);
       }
       if (!group && current?.group_id?.trim()) {
         group = String(current.group_id).toUpperCase();
@@ -131,6 +146,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       } else if (cid && !cj.data.some((c) => parseInt(c.id, 10) === parseInt(cid, 10))) {
         cid = parseInt(cj.data[0].id, 10);
       }
+      persistDashboardGroupOnlyMode(false);
       setCompanyId(cid ? parseInt(cid, 10) : null);
     } catch (err) {
       if (err?.name === "AbortError") return;
@@ -144,6 +160,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     bootstrap(controller.signal);
     return () => controller.abort();
   }, [bootstrap, sessionReady, me]);
+
+  useEffect(() => {
+    notifyDashboardGroupFilterChanged(selectedGroup, companyId);
+  }, [selectedGroup, companyId]);
 
   const companiesForPicker = useMemo(
     () => companiesInGroupList(companies, selectedGroup),
@@ -162,6 +182,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     setCompanyId(parseInt(id, 10));
     if (clearGroupAll) setGroupAllMode(false);
     if (clearSubset) setMergedSubsetIds(null);
+  }, []);
+
+  const clearCompanySelection = useCallback(() => {
+    persistDashboardGroupOnlyMode(true);
+    setCompanyId(null);
+    setGroupAllMode(false);
+    setMergedSubsetIds(null);
+    setDashboardData(null);
+    setDashboardDataPrev(null);
+    setDisplayScopeKey("");
+    setEarningsByCurrency([]);
+    setEarningsByCurrencyLoading(false);
+    setLoading(false);
+    setLoadError("");
   }, []);
 
   const syncCompanySession = useCallback(
@@ -217,45 +251,76 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (cid != null && codes.length) currenciesByCompanyRef.current.set(cid, codes);
   }, []);
 
-  const loadCurrencies = useCallback(async () => {
-    if (!companyId) return;
-    const cid = parseInt(companyId, 10);
-    const gen = ++currencyLoadGenRef.current;
+  const orderCurrencyCodes = useCallback((codes, order) => {
+    if (!Array.isArray(order) || !order.length) return codes;
+    const set = new Set(codes);
+    const ordered = [...order.map((c) => String(c).toUpperCase()).filter((c) => set.has(c))];
+    const rest = codes.filter((c) => !ordered.includes(c));
+    return [...ordered, ...rest];
+  }, []);
 
-    const cached = currenciesByCompanyRef.current.get(cid);
-    if (cached?.length) applyCurrencyCodes(cached, cid);
+  const loadCurrencies = useCallback(async () => {
+    const gen = ++currencyLoadGenRef.current;
+    const singleCid = companyId != null ? parseInt(companyId, 10) : null;
+    const groupKey = !singleCid && selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+
+    const companyIds = singleCid
+      ? [singleCid]
+      : groupKey
+        ? companiesInGroupList(companies, groupKey)
+            .map((c) => parseInt(c.id, 10))
+            .filter((id) => Number.isFinite(id))
+        : [];
+
+    if (!companyIds.length) {
+      setCurrencies([]);
+      setCurrencyCode("");
+      return;
+    }
+
+    if (singleCid) {
+      const cached = currenciesByCompanyRef.current.get(singleCid);
+      if (cached?.length) applyCurrencyCodes(cached, singleCid);
+    } else if (groupKey) {
+      const cached = currenciesByGroupRef.current.get(groupKey);
+      if (cached?.length) applyCurrencyCodes(cached, null);
+    }
 
     try {
-      const [curRes, ordRes] = await Promise.all([
-        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`), {
-          credentials: "include",
-        }),
-        fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), {
-          credentials: "include",
-        }).catch(() => null),
-      ]);
+      const ordRes = await fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), {
+        credentials: "include",
+      }).catch(() => null);
+
+      const currencyResults = await Promise.all(
+        companyIds.map(async (cid) => {
+          const curRes = await fetch(
+            buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`),
+            { credentials: "include" }
+          );
+          const curJson = await curRes.json();
+          if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) return [];
+          return curJson.data.map((r) => String(r.code).toUpperCase());
+        })
+      );
       if (gen !== currencyLoadGenRef.current) return;
 
-      const curJson = await curRes.json();
-      if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) return;
-
-      let codes = curJson.data.map((r) => String(r.code).toUpperCase());
+      let codes = [...new Set(currencyResults.flat())];
       if (ordRes) {
         const ordJson = await ordRes.json();
-        const order = ordJson?.data?.order;
-        if (Array.isArray(order) && order.length) {
-          const set = new Set(codes);
-          const ordered = [...order.map((c) => String(c).toUpperCase()).filter((c) => set.has(c))];
-          const rest = codes.filter((c) => !ordered.includes(c));
-          codes = [...ordered, ...rest];
-        }
+        codes = orderCurrencyCodes(codes, ordJson?.data?.order);
       }
       if (gen !== currencyLoadGenRef.current) return;
-      applyCurrencyCodes(codes, cid);
+
+      if (singleCid) {
+        applyCurrencyCodes(codes, singleCid);
+      } else if (groupKey) {
+        applyCurrencyCodes(codes, null);
+        if (codes.length) currenciesByGroupRef.current.set(groupKey, codes);
+      }
     } catch {
       /* Keep visible currencies on error; stale-while-revalidate avoids flicker. */
     }
-  }, [companyId, applyCurrencyCodes]);
+  }, [companyId, selectedGroup, companies, applyCurrencyCodes, orderCurrencyCodes]);
 
   useEffect(() => {
     loadCurrencies();
@@ -723,9 +788,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const isActive =
         !groupAllMode &&
         !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
+        companyId != null &&
         parseInt(companyId, 10) === id &&
         (!gid || gid === selectedGroup);
-      if (isActive) return;
+      if (isActive) {
+        clearCompanySelection();
+        return;
+      }
 
       const switchGen = ++companySwitchGenRef.current;
       const prevId = companyId;
@@ -736,6 +805,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setSelectedGroup(null);
         sessionStorage.removeItem("dashboard_group_filter");
       }
+      persistDashboardGroupOnlyMode(false);
       applyCompanySelection(id);
       void syncCompanySession(id).then((ok) => {
         if (switchGen !== companySwitchGenRef.current) return;
@@ -757,6 +827,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       companies,
       applyCompanySelection,
       syncCompanySession,
+      clearCompanySelection,
     ]
   );
 

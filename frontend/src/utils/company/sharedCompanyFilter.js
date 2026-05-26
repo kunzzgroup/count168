@@ -4,6 +4,41 @@
  */
 
 export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
+/** Set to "1" when user cleared company but kept a group (group-only mode across pages). */
+export const DASHBOARD_GROUP_ONLY_KEY = "dashboard_group_only";
+export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-changed";
+
+export function isDashboardGroupOnlyMode() {
+  return sessionStorage.getItem(DASHBOARD_GROUP_ONLY_KEY) === "1";
+}
+
+export function persistDashboardGroupOnlyMode(groupOnly) {
+  if (groupOnly) sessionStorage.setItem(DASHBOARD_GROUP_ONLY_KEY, "1");
+  else sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
+}
+
+/** Company id for page boot: null when group-only is persisted, otherwise numeric fallback. */
+export function resolveInitialCompanyId(fallbackCompanyId) {
+  if (isDashboardGroupOnlyMode()) return null;
+  if (fallbackCompanyId == null || fallbackCompanyId === "") return null;
+  const id = Number(fallbackCompanyId);
+  return Number.isFinite(id) ? id : null;
+}
+
+/**
+ * Notify layout (sidebar Process visibility) when dashboard Group / Company filter changes.
+ * Process is hidden only while a group is selected with no company (see AuthenticatedLayout).
+ */
+export function notifyDashboardGroupFilterChanged(selectedGroup, companyId) {
+  const value = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+  const cid =
+    companyId != null && companyId !== "" && Number.isFinite(Number(companyId))
+      ? Number(companyId)
+      : null;
+  window.dispatchEvent(
+    new CustomEvent(DASHBOARD_GROUP_FILTER_EVENT, { detail: { selectedGroup: value, companyId: cid } })
+  );
+}
 
 /** In-memory cache so report/maintenance remounts do not re-block on companies API. */
 let ownerCompaniesCache = null;
@@ -104,9 +139,15 @@ export function persistDashboardGroupFilter(selectedGroup) {
  * Boot-time resolution (matches transaction/maintenance pages): honour session only when it matches current company's group.
  */
 export function resolveInitialSelectedGroupFromSession(companies, currentCompany) {
-  const savedGroup = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+  const savedRaw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+  const savedGroup = savedRaw ? String(savedRaw).trim().toUpperCase() : null;
   const groups = sortedUniqueGroupIds(companies);
   let selGroup = null;
+
+  if (isDashboardGroupOnlyMode() && savedGroup && groups.includes(savedGroup)) {
+    return savedGroup;
+  }
+
   if (
     savedGroup &&
     groups.includes(savedGroup) &&
@@ -116,6 +157,7 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
     selGroup = savedGroup;
   } else if (savedGroup && !groups.includes(savedGroup)) {
     sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
+    sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
   }
   if (!selGroup && currentCompany?.group_id?.trim()) {
     selGroup = normalizeCompanyGroupId(currentCompany);
@@ -126,6 +168,15 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
 
 export function filterCompaniesWithDisplayId(companies) {
   return (companies || []).filter((c) => c?.company_id && String(c.company_id).trim() !== "");
+}
+
+/** Companies visible in the Company row when a GroupID is selected (Dashboard-aligned). */
+export function companiesInGroupList(companies, gid) {
+  if (!gid) {
+    return filterCompaniesWithDisplayId(companies).filter((c) => !normalizeCompanyGroupId(c));
+  }
+  const g = String(gid).trim().toUpperCase();
+  return filterCompaniesWithDisplayId(companies).filter((c) => normalizeCompanyGroupId(c) === g);
 }
 
 /**

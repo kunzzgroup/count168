@@ -5,8 +5,11 @@ import {
   getCachedOwnerCompanies,
   loadOwnerCompaniesCached,
   normalizeOwnerCompanyRow,
-  persistDashboardGroupFilter,
+  isDashboardGroupOnlyMode,
+  resolveInitialCompanyId as resolveGcCompanyId,
+  resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { useDashboardStyleGcFilter } from "../../../utils/company/useDashboardStyleGcFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
@@ -26,7 +29,6 @@ import { formatYmd } from "../../../utils/date/dateUtils.js";
 import { getReportText, REPORT_I18N } from "../../../translateFile/pages/reportTranslate.js";
 import CustomerReportFilters from "./CustomerReportFilters.jsx";
 import CustomerReportTable from "./CustomerReportTable.jsx";
-import { useReportGcSwitcher } from "../shared/useReportGcSwitcher.js";
 import { reportToastMaintenanceVariant } from "../shared/reportAmountFormat.js";
 import {
   buildReportSnapshotKey,
@@ -39,12 +41,12 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 const REPORT_PAGE_KEY = "customer";
 const REPORT_FETCH_DEBOUNCE_MS = 150;
 
-function resolveInitialCompanyId() {
+function resolveReportBootCompanyId() {
   const cached = getCachedOwnerCompanies();
   const url = new URL(window.location.href);
   const queryCompany = url.searchParams.get("company_id");
-  const id = queryCompany || cached?.[0]?.id || null;
-  return id ? Number(id) : null;
+  const fallback = queryCompany || cached?.[0]?.id || null;
+  return resolveGcCompanyId(fallback);
 }
 
 export default function CustomerReportPage() {
@@ -56,8 +58,8 @@ export default function CustomerReportPage() {
 
   const [companies, setCompanies] = useState(() => getCachedOwnerCompanies() || []);
 
-  const [companyId, setCompanyId] = useState(resolveInitialCompanyId);
-  const [groupFilterKind, setGroupFilterKind] = useState("follow");
+  const [companyId, setCompanyId] = useState(resolveReportBootCompanyId);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [companyHighlightId, setCompanyHighlightId] = useState(null);
   const switchCompanySeqRef = useRef(0);
   const [accountId, setAccountId] = useState("");
@@ -102,12 +104,6 @@ export default function CustomerReportPage() {
   useEffect(() => {
     reportDataRef.current = reportData;
   }, [reportData]);
-
-  const { allCompanyButtons, groupIds, selectedGroupKey, companyButtons } = useReportGcSwitcher(
-    companies,
-    companyId,
-    groupFilterKind,
-  );
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -192,12 +188,14 @@ export default function CustomerReportPage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        let effective = queryCompany || u.company_id || rows[0]?.id || null;
-        effective = effective ? Number(effective) : null;
-        if (effective) {
+        const fallback = queryCompany || u.company_id || rows[0]?.id || null;
+        const effective = resolveGcCompanyId(fallback);
+        if (effective != null || isDashboardGroupOnlyMode()) {
+          const row =
+            effective != null ? rows.find((c) => Number(c.id) === Number(effective)) || null : null;
           setCompanyId((prev) => (prev != null ? prev : effective));
-          setGroupFilterKind("follow");
-          void checkBankOnly(effective);
+          setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
+          if (effective != null) void checkBankOnly(effective);
         }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
@@ -264,6 +262,55 @@ export default function CustomerReportPage() {
       console.error("Bank only check error:", err);
     }
   }, [companies]);
+
+  const handleClearCompany = useCallback(() => {
+    invalidateReportFetch();
+    setCompanyId(null);
+    setCompanyHighlightId(null);
+    setReportData(null);
+    setError("");
+    setCurrencyFilterReady(false);
+  }, [invalidateReportFetch]);
+
+  const onSwitchCompany = useCallback(async (c) => {
+    if (!c?.id) return;
+    const reqId = ++switchCompanySeqRef.current;
+    setCompanyHighlightId(Number(c.id));
+    try {
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
+      const json = await res.json();
+      if (reqId !== switchCompanySeqRef.current) return;
+      if (!json.success) {
+        setCompanyHighlightId(null);
+        notify(json.error || t("switchFailed"), "danger");
+        return;
+      }
+      if (reportDataRef.current != null) setReportSyncing(true);
+      setCompanyId(Number(c.id));
+      setCompanyHighlightId(null);
+      void checkBankOnly(c.id);
+      notifyCompanySessionUpdated();
+    } catch {
+      if (reqId === switchCompanySeqRef.current) setCompanyHighlightId(null);
+      notify(t("switchFailed"), "danger");
+    }
+  }, [notify, t, checkBankOnly]);
+
+  const {
+    groupIds,
+    companiesForPicker: companyButtons,
+    handlePickGroup,
+    handlePickCompany,
+  } = useDashboardStyleGcFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: onSwitchCompany,
+    onClearCompany: handleClearCompany,
+    switchingCompany: companyHighlightId != null,
+    preferredCompanyId: companyHighlightId ?? companyId,
+  });
 
   const persistCurrencyPrefs = useCallback((compId, currencies, showAll) => {
     if (!compId) return;
@@ -401,56 +448,6 @@ export default function CustomerReportPage() {
     }
   }, [companyId, currencyFilterReady, reportParams]);
 
-  const onSwitchCompany = useCallback(async (c) => {
-    const effectiveId = companyHighlightId ?? companyId;
-    if (!c?.id || Number(c.id) === Number(effectiveId)) return;
-    const reqId = ++switchCompanySeqRef.current;
-    setCompanyHighlightId(Number(c.id));
-    try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
-      const json = await res.json();
-      if (reqId !== switchCompanySeqRef.current) return;
-      if (!json.success) {
-        setCompanyHighlightId(null);
-        notify(json.error || t("switchFailed"), "danger");
-        return;
-      }
-      if (reportDataRef.current != null) setReportSyncing(true);
-      setCompanyId(Number(c.id));
-      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
-      const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-      persistDashboardGroupFilter(newGroup || null);
-      setCompanyHighlightId(null);
-      void checkBankOnly(c.id);
-      notifyCompanySessionUpdated();
-    } catch {
-      if (reqId === switchCompanySeqRef.current) setCompanyHighlightId(null);
-      notify(t("switchFailed"), "danger");
-    }
-  }, [companyId, companyHighlightId, notify, t, checkBankOnly]);
-
-  const handlePickGroup = useCallback(
-    (gid) => {
-      const g = String(gid || "").trim().toUpperCase();
-      if (!g) return;
-      if (groupFilterKind === "follow" && g === selectedGroupKey) {
-        setGroupFilterKind("ungrouped");
-        persistDashboardGroupFilter(null);
-        return;
-      }
-      setGroupFilterKind("follow");
-      persistDashboardGroupFilter(g);
-      if (g === selectedGroupKey) return;
-      const first = allCompanyButtons.find((row) => String(row.group_id || "").trim().toUpperCase() === g);
-      if (first) void onSwitchCompany(first);
-    },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey],
-  );
-
-  const handlePickAllGroups = useCallback(() => {
-    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, []);
-
   const toggleCurrency = (code) => {
     setShowAllCurrencies(false);
     setSelectedCurrencies((prev) => {
@@ -481,11 +478,10 @@ export default function CustomerReportPage() {
 
         <CustomerReportFilters
           companyId={companyId}
-          onSwitchCompany={onSwitchCompany}
+          onSwitchCompany={handlePickCompany}
+          onClearCompany={handleClearCompany}
           groupIds={groupIds}
-          groupFilterKind={groupFilterKind}
-          selectedGroupKey={selectedGroupKey}
-          onPickAllGroups={handlePickAllGroups}
+          selectedGroup={selectedGroup}
           onPickGroup={handlePickGroup}
           companyButtons={companyButtons}
           highlightCompanyId={companyHighlightId}

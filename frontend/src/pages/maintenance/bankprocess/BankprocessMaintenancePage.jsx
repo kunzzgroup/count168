@@ -6,6 +6,11 @@ import { injectStylesheet } from "../../../utils/core/injectStylesheet.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import {
+  isDashboardGroupOnlyMode,
+  resolveInitialCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../../utils/company/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
@@ -195,13 +200,33 @@ export default function BankprocessMaintenancePage() {
 
         setCompanies(compRows);
 
-        let initialCompanyId = user.company_id ? Number(user.company_id) : (compRows[0]?.id ? Number(compRows[0].id) : null);
-        if (initialCompanyId && !compRows.some((c) => Number(c.id) === Number(initialCompanyId))) {
-          initialCompanyId = compRows[0]?.id ? Number(compRows[0].id) : null;
+        const fallbackId = user.company_id
+          ? Number(user.company_id)
+          : compRows[0]?.id
+            ? Number(compRows[0].id)
+            : null;
+        let initialCompanyId = resolveInitialCompanyId(fallbackId);
+        if (
+          initialCompanyId &&
+          !compRows.some((c) => Number(c.id) === Number(initialCompanyId))
+        ) {
+          initialCompanyId = resolveInitialCompanyId(compRows[0]?.id);
+        }
+        const currentComp =
+          initialCompanyId != null
+            ? compRows.find((c) => Number(c.id) === Number(initialCompanyId))
+            : null;
+        const bootGroup = resolveInitialSelectedGroupFromSession(compRows, currentComp);
+        setSelectedGroup(bootGroup);
+        if (isDashboardGroupOnlyMode() && bootGroup) {
+          setCompanyId(null);
+          currentCompanyIdRef.current = null;
+          setCompanyCode("");
+          setCurrenciesReady(true);
+          return;
         }
         setCompanyId(initialCompanyId);
         currentCompanyIdRef.current = initialCompanyId;
-        const currentComp = compRows.find((c) => Number(c.id) === Number(initialCompanyId));
         setCompanyCode(currentComp?.company_id || "");
         const code = currentComp?.company_id || "";
 
@@ -228,17 +253,8 @@ export default function BankprocessMaintenancePage() {
         }
         setCurrenciesReady(true);
 
-        const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-        const groups = [...new Set(compRows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-        let selGroup = null;
-        if (savedGroup && groups.includes(savedGroup) && currentComp?.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
-          selGroup = savedGroup;
-        } else if (currentComp?.group_id) {
-          selGroup = String(currentComp.group_id).toUpperCase().trim();
-        }
-        setSelectedGroup(selGroup);
-        if (selGroup) {
-          sessionStorage.setItem("dashboard_group_filter", selGroup);
+        if (bootGroup) {
+          sessionStorage.setItem("dashboard_group_filter", bootGroup);
         } else {
           sessionStorage.removeItem("dashboard_group_filter");
         }
@@ -399,10 +415,18 @@ export default function BankprocessMaintenancePage() {
 
   const followGroupRef = useRef(() => {});
 
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setCompanyCode("");
+    setSelectedIds([]);
+    setRows([]);
+    setHasSearched(false);
+    currentCompanyIdRef.current = null;
+  }, []);
+
   const handleSwitchCompany = useCallback(async (targetCompany) => {
     if (!targetCompany?.id) return;
     const nextId = Number(targetCompany.id);
-    if (nextId === Number(currentCompanyIdRef.current)) return;
     try {
       await updateSessionCompany(nextId);
       const newGroup = targetCompany.group_id
@@ -423,21 +447,20 @@ export default function BankprocessMaintenancePage() {
   }, [notify, t]);
 
   const {
-    groupFilterKind,
     snapGroupIds: groupedIdsFromHook,
     visibleCompanies,
-    handlePickAllGroups,
     handleGroupClick: onGroupClick,
-    followCurrentCompanyGroup,
+    handlePickCompany,
   } = useMaintenanceGroupCompanyFilter({
     companies,
     companyId,
     selectedGroup,
     setSelectedGroup,
     switchCompany: handleSwitchCompany,
+    onClearCompany: handleClearCompany,
   });
 
-  followGroupRef.current = followCurrentCompanyGroup;
+  followGroupRef.current = () => {};
 
   const groupedIds = groupedIdsFromHook;
 
@@ -523,14 +546,13 @@ export default function BankprocessMaintenancePage() {
         setQuery={setQuery}
         onSearch={performSearch}
         groupedIds={groupedIds}
-        groupFilterKind={groupFilterKind}
         selectedGroup={selectedGroup}
         onGroupClick={onGroupClick}
-        onPickAllGroups={handlePickAllGroups}
+        onPickCompany={handlePickCompany}
+        onClearCompany={handleClearCompany}
         companies={companies}
         visibleCompanies={visibleCompanies}
         companyId={companyId}
-        handleSwitchCompany={handleSwitchCompany}
         currencies={currencies}
         allCurrenciesSelected={allCurrenciesSelected}
         selectedCurrencies={selectedCurrencies}

@@ -1,17 +1,8 @@
 import { useMemo } from "react";
-import { isCompanyVisibleForSharedFilter } from "../../../utils/company/sharedCompanyFilter.js";
-
-/** GroupID = ALL: show C168 first (same expectation as other owner tools). */
-function orderSnapCompaniesForAllGroup(companies) {
-  const list = Array.isArray(companies) ? companies : [];
-  if (list.length === 0) return [...list];
-  const code = (c) => String(c.company_id || "").trim().toUpperCase();
-  const i = list.findIndex((c) => code(c) === "C168");
-  if (i <= 0) return [...list];
-  const next = [...list];
-  const [c168] = next.splice(i, 1);
-  return [c168, ...next];
-}
+import {
+  companiesInGroupList,
+  filterCompaniesWithDisplayId,
+} from "../../../utils/company/sharedCompanyFilter.js";
 
 export default function TransactionSearchSection({
   selectedCategories,
@@ -26,7 +17,6 @@ export default function TransactionSearchSection({
   setSearchState,
   fs,
   onGroupButtonClick,
-  onGroupFilterAllClick,
   onCompanyButtonClick,
   currencyRowsOrdered,
   showAllCurrencies,
@@ -38,7 +28,6 @@ export default function TransactionSearchSection({
   m,
   t,
 }) {
-  const hideGroupFilter = !fs.snapGroupIds?.length;
   const displayFilterChips = useMemo(() => [
     { id: "show_name", key: "showName", label: m.showName },
     { id: "show_capture_only", key: "showCaptureOnly", label: m.showCaptureOnly },
@@ -48,9 +37,8 @@ export default function TransactionSearchSection({
 
   const companiesForCompanyStrip = useMemo(() => {
     const list = fs.snapCompanies || [];
-    if (fs.groupFilterKind === "all") return orderSnapCompaniesForAllGroup(list);
-    return list;
-  }, [fs.snapCompanies, fs.groupFilterKind]);
+    return filterCompaniesWithDisplayId(companiesInGroupList(list, fs.selectedGroup));
+  }, [fs.snapCompanies, fs.selectedGroup]);
 
   return (
     <div className="transaction-search-section">
@@ -206,19 +194,11 @@ export default function TransactionSearchSection({
                 <span className="user-gc-inline-label">{m.groupId}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label="Group ID">
-                    <button
-                      type="button"
-                      className={`user-gc-segment${fs.groupFilterKind === "all" ? " is-on" : ""}`}
-                      data-group-filter="all"
-                      onClick={() => onGroupFilterAllClick?.()}
-                    >
-                      {m.all}
-                    </button>
                     {fs.snapGroupIds.map((gid) => (
                       <button
                         key={gid}
                         type="button"
-                        className={`user-gc-segment${fs.groupFilterKind === "follow" && fs.selectedGroup === gid ? " is-on" : ""}`}
+                        className={`user-gc-segment${fs.selectedGroup === gid ? " is-on" : ""}`}
                         data-group-id={gid}
                         onClick={() => onGroupButtonClick(gid)}
                       >
@@ -236,25 +216,16 @@ export default function TransactionSearchSection({
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label="Company">
                     {companiesForCompanyStrip.map((comp) => {
-                      const visible = isCompanyVisibleForSharedFilter(
-                        comp,
-                        fs.selectedGroup,
-                        hideGroupFilter,
-                        fs.groupFilterKind || "follow",
-                      );
+                      const active = Number(comp.id) === Number(fs.companyId);
                       return (
                         <button
                           key={comp.id}
                           type="button"
-                          style={{ display: visible ? undefined : "none" }}
-                          className={`user-gc-segment${Number(comp.id) === Number(fs.companyId) ? " is-on" : ""}`}
+                          className={`user-gc-segment${active ? " is-on" : ""}`}
                           data-company-id={comp.id}
                           data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
                           data-company-code={comp.company_id}
-                          onClick={() => {
-                            if (!visible) return;
-                            onCompanyButtonClick(comp);
-                          }}
+                          onClick={() => onCompanyButtonClick(comp)}
                         >
                           {String(comp.company_id || "").toUpperCase()}
                         </button>

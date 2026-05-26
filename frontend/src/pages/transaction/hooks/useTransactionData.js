@@ -4,11 +4,14 @@ import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
+  companiesInGroupList,
   dedupeOwnerCompaniesByCode,
   filterCompaniesWithDisplayId,
-  normalizeCompanyGroupId,
   normalizeOwnerCompanyRow,
+  notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
+  persistDashboardGroupOnlyMode,
+  resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -75,11 +78,15 @@ export function useTransactionData({
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
         let effective = queryCompany || u.company_id || rows[0]?.id || null;
-        effective = effective ? Number(effective) : null;
+        effective = resolveInitialCompanyId(effective);
 
-        const snapRows = dedupeOwnerCompaniesByCode(rows, effective);
+        const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u.company_id);
 
-        if (queryCompany && rows.some((c) => Number(c.id) === Number(queryCompany))) {
+        if (
+          effective != null &&
+          queryCompany &&
+          rows.some((c) => Number(c.id) === Number(queryCompany))
+        ) {
           const sync = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${queryCompany}`), {
             credentials: "include",
           });
@@ -91,15 +98,14 @@ export function useTransactionData({
           }
         }
 
-        const current = snapRows.find((c) => Number(c.id) === Number(effective));
+        const current =
+          effective != null ? snapRows.find((c) => Number(c.id) === Number(effective)) : null;
         const selGroup = resolveInitialSelectedGroupFromSession(snapRows, current);
 
         if (!cancelled) {
           setFilterSnapshot({
             companyId: effective,
             selectedGroup: selGroup,
-            /** Same as User List: follow = filter companies by selected group; all = every company; ungrouped = no group_id only */
-            groupFilterKind: "follow",
             snapCompanies: snapRows,
             snapGroupIds: sortedUniqueGroupIds(snapRows),
             viewerRole: String(u.role || "").toLowerCase(),
@@ -203,10 +209,27 @@ export function useTransactionData({
     };
   }, [loading, forbidden, filterSnapshot?.companyId, todayDmy, queryClient]);
 
+  useEffect(() => {
+    if (!filterSnapshot) return;
+    notifyDashboardGroupFilterChanged(filterSnapshot.selectedGroup, filterSnapshot.companyId);
+  }, [filterSnapshot?.selectedGroup, filterSnapshot?.companyId]);
+
   const onCompanyButtonClick = useCallback(
     async (comp) => {
       const cid = comp.id;
       if (!cid) return;
+      const snap = filterSnapshotRef.current;
+      if (snap && Number(cid) === Number(snap.companyId)) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("company_id");
+        window.history.replaceState(null, "", url.toString());
+        const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : snap.selectedGroup;
+        persistDashboardGroupOnlyMode(true);
+        setFilterSnapshot((prev) =>
+          prev ? { ...prev, companyId: null, selectedGroup: gid || prev.selectedGroup } : prev,
+        );
+        return;
+      }
       try {
         const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${cid}`), {
           credentials: "include",
@@ -238,7 +261,12 @@ export function useTransactionData({
           const url = new URL(window.location.href);
           url.searchParams.set("company_id", String(cid));
           window.history.replaceState(null, "", url.toString());
-          setFilterSnapshot((prev) => (prev ? { ...prev, companyId: numericCid } : prev));
+          const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
+          persistDashboardGroupOnlyMode(false);
+          if (gid) persistDashboardGroupFilter(gid);
+          setFilterSnapshot((prev) =>
+            prev ? { ...prev, companyId: numericCid, selectedGroup: gid || prev.selectedGroup } : prev,
+          );
         }
       } catch (e) {
         if (e?.name === "AbortError" || isCancelledError(e)) return;
@@ -248,48 +276,22 @@ export function useTransactionData({
     [queryClient],
   );
 
-  /**
-   * Match User List `handlePickGroup`: use **current company's group** for "same group" detection,
-   * not `selectedGroup` alone — after ALL, `selectedGroup` can still be AP while `groupFilterKind` is `all`;
-   * clicking AP must enter follow for AP, not run legacy toggle-off (empty company row).
-   */
   const onGroupButtonClick = useCallback(
     async (gid) => {
       const snap = filterSnapshotRef.current;
       if (!snap) return;
       const g = String(gid || "").trim().toUpperCase();
-      if (!g) return;
-
-      const currentCo = snap.snapCompanies.find((c) => Number(c.id) === Number(snap.companyId));
-      const selectedGroupKey = String(currentCo?.group_id || "").trim().toUpperCase();
-
-      if (snap.groupFilterKind === "follow" && g === selectedGroupKey) {
-        setFilterSnapshot((prev) => (prev ? { ...prev, groupFilterKind: "ungrouped" } : prev));
-        return;
-      }
+      if (!g || g === snap.selectedGroup) return;
 
       persistDashboardGroupFilter(g);
-      setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup: g, groupFilterKind: "follow" } : prev));
+      setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup: g } : prev));
 
-      if (g === selectedGroupKey) return;
-
-      const list = filterCompaniesWithDisplayId(snap.snapCompanies);
-      const first = list.find((c) => normalizeCompanyGroupId(c) === g) ?? null;
-      if (first && Number(first.id) !== Number(snap.companyId)) {
-        await onCompanyButtonClick(first);
-      }
+      const list = filterCompaniesWithDisplayId(companiesInGroupList(snap.snapCompanies, g));
+      const first = list[0] ?? null;
+      if (first) await onCompanyButtonClick(first);
     },
     [onCompanyButtonClick],
   );
-
-  /** Matches User List: ALL toggles between show-all companies and ungrouped-only companies. */
-  const onGroupFilterAllClick = useCallback(() => {
-    setFilterSnapshot((prev) => {
-      if (!prev) return prev;
-      const next = prev.groupFilterKind === "all" ? "ungrouped" : "all";
-      return { ...prev, groupFilterKind: next };
-    });
-  }, []);
 
   return {
     loading,
@@ -308,7 +310,6 @@ export function useTransactionData({
     setCurrencyRowsOrdered,
     currencyInitCompanyRef,
     onGroupButtonClick,
-    onGroupFilterAllClick,
     onCompanyButtonClick,
   };
 }

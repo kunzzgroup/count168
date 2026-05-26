@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
+import {
+  resolveInitialCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../utils/company/sharedCompanyFilter.js";
+import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
@@ -68,7 +73,7 @@ export default function AccountListPage() {
   const [sortColumn, setSortColumn] = useState("account");
   const [sortDirection, setSortDirection] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
-  const [groupFilterKind, setGroupFilterKind] = useState("follow");
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
 
   // -- Modals & Forms --
@@ -205,7 +210,7 @@ export default function AccountListPage() {
 
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id") || sessionMe.company_id || rows[0]?.id;
-        const initialCompanyId = cid ? Number(cid) : null;
+        const initialCompanyId = resolveInitialCompanyId(cid);
         const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
         const initialShowAll = url.searchParams.get("showAll") === "1";
@@ -218,7 +223,12 @@ export default function AccountListPage() {
             bootFetchedAccountsKeyRef.current = buildAccountsFetchKey(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll);
           }
         }
+        const row =
+          initialCompanyId != null
+            ? rows.find((c) => Number(c.id) === Number(initialCompanyId)) || null
+            : null;
         setCompanyId(initialCompanyId);
+        setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
         setSearchTerm(initialSearchTerm);
         setShowInactive(initialShowInactive);
         setShowAll(initialShowAll);
@@ -249,43 +259,7 @@ export default function AccountListPage() {
     () => companies.filter(c => c.company_id && String(c.company_id).trim() !== "" && !isVirtualGroupLinkCompanyRow(c)),
     [companies]
   );
-  const groupIds = useMemo(
-    () =>
-      [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
-    [allCompanyButtons]
-  );
   const pickerCompanyId = pendingCompanyId ?? companyId;
-  const selectedCompany = useMemo(
-    () => allCompanyButtons.find((c) => Number(c.id) === Number(pickerCompanyId)) || null,
-    [allCompanyButtons, pickerCompanyId]
-  );
-  const selectedGroupKey = useMemo(
-    () => String(selectedCompany?.group_id || "").trim().toUpperCase(),
-    [selectedCompany?.group_id]
-  );
-  const companiesForPicker = useMemo(() => {
-    if (groupFilterKind === "all") {
-      const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
-      return [...allCompanyButtons].sort((a, b) => {
-        const ga = String(a.group_id || "").trim().toUpperCase();
-        const gb = String(b.group_id || "").trim().toUpperCase();
-        const ra = groupOrder.has(ga) ? groupOrder.get(ga) : Number.MAX_SAFE_INTEGER;
-        const rb = groupOrder.has(gb) ? groupOrder.get(gb) : Number.MAX_SAFE_INTEGER;
-        if (ra !== rb) return ra - rb;
-        return String(a.company_id || "").localeCompare(String(b.company_id || ""), undefined, { numeric: true });
-      });
-    }
-    if (groupFilterKind === "ungrouped") {
-      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
-    }
-    if (groupIds.length === 0) return allCompanyButtons;
-    if (!selectedGroupKey) {
-      const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
-      return ung.length ? ung : allCompanyButtons;
-    }
-    const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
-    return inG.length ? inG : allCompanyButtons;
-  }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
 
   const sortedAccounts = useMemo(() => {
     const arr = [...accounts];
@@ -332,9 +306,14 @@ export default function AccountListPage() {
   }, [filteredForMode, showAll, currentPage, totalPages]);
 
   // -- Handlers --
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setAccounts([]);
+  }, []);
+
   const onSwitchCompany = async (c) => {
     const nextCompanyId = Number(c?.id);
-    if (!nextCompanyId || Number(nextCompanyId) === Number(pickerCompanyId) || switchingCompany) return;
+    if (!nextCompanyId || switchingCompany) return;
     setPendingCompanyId(nextCompanyId);
     setSwitchingCompany(true);
     try {
@@ -348,27 +327,16 @@ export default function AccountListPage() {
     finally { setPendingCompanyId(null); setSwitchingCompany(false); }
   };
 
-  const handlePickGroup = useCallback(
-    (gid) => {
-      if (switchingCompany) return;
-      const g = String(gid || "").trim().toUpperCase();
-      if (!g) return;
-      if (groupFilterKind === "follow" && g === selectedGroupKey) {
-        setGroupFilterKind("ungrouped");
-        return;
-      }
-      setGroupFilterKind("follow");
-      if (g === selectedGroupKey) return;
-      const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
-      if (first) void onSwitchCompany(first);
-    },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany]
-  );
-
-  const handlePickAllGroups = useCallback(() => {
-    if (switchingCompany) return;
-    setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, [switchingCompany]);
+  const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
+    companies: allCompanyButtons,
+    companyId: pickerCompanyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: onSwitchCompany,
+    onClearCompany: handleClearCompany,
+    switchingCompany,
+    preferredCompanyId: pickerCompanyId,
+  });
 
   useEffect(() => {
     if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
@@ -1036,19 +1004,12 @@ export default function AccountListPage() {
                   <span className="user-gc-inline-label">{t("groupId")}</span>
                   <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                     <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-                      <button
-                        type="button"
-                        className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
-                        onClick={handlePickAllGroups}
-                      >
-                        {t("groupFilterAll")}
-                      </button>
                       {groupIds.map((gid) => (
                         <button
                           key={gid}
                           type="button"
-                          className={`user-gc-segment${groupFilterKind === "follow" && gid === selectedGroupKey ? " is-on" : ""}`}
-                          onClick={() => handlePickGroup(gid)}
+                          className={`user-gc-segment${gid === selectedGroup ? " is-on" : ""}`}
+                          onClick={() => void handlePickGroup(gid)}
                         >
                           {gid}
                         </button>
@@ -1070,7 +1031,7 @@ export default function AccountListPage() {
                           className={`user-gc-segment${active ? " is-on" : ""}`}
                           onClick={() => {
                             if (switchingCompany) return;
-                            if (!active) void onSwitchCompany(c);
+                            void handlePickCompany(c);
                           }}
                         >
                           {String(c.company_id || "").toUpperCase()}

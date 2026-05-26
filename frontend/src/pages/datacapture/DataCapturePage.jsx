@@ -4,15 +4,14 @@ import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import {
-  applySharedGroupClickWithCompanySwitch,
   dedupeOwnerCompaniesByCode,
   filterCompaniesWithDisplayId,
-  isCompanyVisibleForSharedFilter,
   normalizeOwnerCompanyRow,
-  persistDashboardGroupFilter,
+  isDashboardGroupOnlyMode,
+  resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
-  sortedUniqueGroupIds,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
@@ -167,8 +166,6 @@ export default function DataCapturePage() {
     () => dedupeOwnerCompaniesByCode(companiesNormalized, companyId),
     [companiesNormalized, companyId]
   );
-
-  const groups = useMemo(() => sortedUniqueGroupIds(companiesDeduped), [companiesDeduped]);
 
   /** Full list: deduped strips rows without display code; URL session can still target a valid numeric id. */
   const currentCompanyRow = useMemo(
@@ -337,8 +334,21 @@ export default function DataCapturePage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        let effectiveCompany = queryCompany || u.company_id || raw[0]?.id || null;
-        effectiveCompany = effectiveCompany ? Number(effectiveCompany) : null;
+        let effectiveCompany = resolveInitialCompanyId(
+          queryCompany || u.company_id || raw[0]?.id || null,
+        );
+
+        const rowForPickEarly =
+          effectiveCompany != null
+            ? raw.find((c) => Number(c.id) === Number(effectiveCompany)) || null
+            : null;
+        const initialGroupEarly = resolveInitialSelectedGroupFromSession(raw, rowForPickEarly);
+        if (isDashboardGroupOnlyMode() && initialGroupEarly) {
+          setCompanies(raw);
+          setCompanyId(null);
+          setSelectedGroup(initialGroupEarly);
+          return;
+        }
 
         if (queryCompany && effectiveCompany && Number(effectiveCompany) !== Number(u.company_id)) {
           try {
@@ -442,6 +452,22 @@ export default function DataCapturePage() {
     navigate(`/datacapture?company_id=${encodeURIComponent(id)}`, { replace: true });
   }, [navigate]);
 
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+  }, []);
+
+  const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
+    companies: companiesDeduped,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: async (comp) => {
+      if (comp?.id) await switchCompanySessionAndNavigate(comp.id);
+    },
+    onClearCompany: handleClearCompany,
+    preferredCompanyId: companyId,
+  });
+
   useEffect(() => {
     if (bootLoading || !me || !companyId) return;
 
@@ -513,28 +539,11 @@ export default function DataCapturePage() {
     window.DATACAPTURE_COMPANY_CODE = companyCode || String(companyId);
   }, [companyId, companyCode]);
 
-  const onGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies: companiesDeduped,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: async (comp) => switchCompanySessionAndNavigate(comp.id),
-    });
-  };
-
-  const onCompanyClick = async (comp) => {
-    if (!comp?.id) return;
-    persistDashboardGroupFilter(selectedGroup);
-    await switchCompanySessionAndNavigate(comp.id);
-  };
-
   if (bootLoading) {
     return <PageContentLoader />;
   }
 
-  const list = filterCompaniesWithDisplayId(companiesDeduped);
+  const list = filterCompaniesWithDisplayId(companiesForPicker);
 
   return (
     <DataCaptureErrorBoundary key={companyId ?? "none"}>
@@ -583,20 +592,20 @@ export default function DataCapturePage() {
                 e.preventDefault();
               }}
             >
-              {(groups.length > 0 || list.length > 0) && (
+              {(groupIds.length > 0 || list.length > 0) && (
                 <div className="user-gc-inline-panel dc-data-capture-gc-panel">
-                  {groups.length > 0 ? (
+                  {groupIds.length > 0 ? (
                     <div id="group-buttons-wrapper" className="user-gc-inline-row shared-group-wrapper">
                       <span className="user-gc-inline-label">{t("groupId")}</span>
                       <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                         <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label={t("groupAria")}>
-                          {groups.map((gid) => (
+                          {groupIds.map((gid) => (
                             <button
                               key={gid}
                               type="button"
                               className={`user-gc-segment shared-group-btn ${selectedGroup === gid ? "active is-on" : ""}`.trim()}
                               data-group-id={gid}
-                              onClick={() => void onGroupClick(gid)}
+                              onClick={() => void handlePickGroup(gid)}
                             >
                               {gid}
                             </button>
@@ -613,18 +622,16 @@ export default function DataCapturePage() {
                         <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label={t("companyAria")}>
                           {list.map((comp) => {
                             const gid = String(comp.group_id || "").trim().toUpperCase();
-                            const visible = isCompanyVisibleForSharedFilter(comp, selectedGroup, false, "follow");
                             const active = Number(comp.id) === Number(companyId);
                             return (
                               <button
                                 key={comp.id}
                                 type="button"
-                                style={{ display: visible ? undefined : "none" }}
                                 className={`user-gc-segment shared-company-btn ${active ? "active is-on" : ""}`.trim()}
                                 data-company-id={comp.id}
                                 data-group-id={gid}
                                 data-company-code={comp.company_id || ""}
-                                onClick={() => void onCompanyClick(comp)}
+                                onClick={() => void handlePickCompany(comp)}
                               >
                                 {comp.company_id}
                               </button>
