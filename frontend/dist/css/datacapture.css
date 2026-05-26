@@ -1599,10 +1599,23 @@ body.datacapture-page .excel-table-container {
     color: #0f172a;
 }
 
+.excel-table-header .dc-table-header-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex: 0 0 auto;
+}
+
+.excel-table-header.dc-table-header-bar--group-only {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+}
+
 .excel-table-header .dc-table-header-controls {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    flex: 0 0 auto;
 }
 
 .data-capture-type-selector {
