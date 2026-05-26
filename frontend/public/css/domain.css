@@ -1784,11 +1784,29 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     grid-row: 1;
 }
 
-.company-settings-react-modal .company-settings-date-row .company-settings-form-datepicker-wrap {
+.company-settings-react-modal .company-settings-date-row .company-settings-form-datepicker-wrap,
+.company-settings-react-modal .company-settings-date-row .company-settings-period-wrap {
     grid-row: 2;
     position: relative;
     width: 100%;
+    height: 2.55rem;
     min-height: 2.55rem;
+    max-height: 2.55rem;
+    box-sizing: border-box;
+}
+
+.company-settings-react-modal .company-settings-period-wrap::after {
+    content: "";
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid #64748b;
+    border-bottom: 2px solid #64748b;
+    transform: translateY(-70%) rotate(45deg);
+    pointer-events: none;
+    z-index: 1;
 }
 
 .company-settings-react-modal .company-settings-date-row .company-settings-start-date-field > .company-settings-start-hint {
@@ -1799,17 +1817,13 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     grid-row: 1;
 }
 
-.company-settings-react-modal .company-settings-date-row .company-settings-field-half--period > select {
-    grid-row: 2;
-}
-
 .company-settings-react-modal .company-settings-date-row .company-settings-field-half--period > .company-settings-start-hint {
     grid-row: 3;
 }
 
 .company-settings-react-modal .company-settings-date-row-control,
-.company-settings-react-modal .company-settings-date-row select.company-settings-date-row-control,
-.company-settings-react-modal .company-settings-date-row .company-settings-form-datepicker-input {
+.company-settings-react-modal .company-settings-date-row .company-settings-form-datepicker-input,
+.company-settings-react-modal .company-settings-date-row .company-settings-period-select {
     display: block;
     width: 100%;
     height: 2.55rem;
@@ -1825,6 +1839,16 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     color: var(--color-text-label);
     background-color: var(--color-surface);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    margin: 0;
+}
+
+.company-settings-react-modal .company-settings-date-row .company-settings-period-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 36px;
+    cursor: pointer;
+    background-image: none;
 }
 
 .company-settings-react-modal .company-settings-date-row .company-settings-form-datepicker-input {
@@ -1833,7 +1857,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
 }
 
 .company-settings-react-modal .company-settings-date-row-control:focus,
-.company-settings-react-modal .company-settings-date-row select.company-settings-date-row-control:focus,
+.company-settings-react-modal .company-settings-date-row .company-settings-period-select:focus,
 .company-settings-react-modal .company-settings-date-row .company-settings-form-datepicker-wrap:focus-within .company-settings-form-datepicker-input {
     outline: none;
     border-color: var(--color-focus-ring);

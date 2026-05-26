@@ -397,19 +397,21 @@ export default function CompanySettingsModal({
                 </div>
                 <div className="company-settings-field-half company-settings-field-half--period">
                   <label className="cs-company-field-label" htmlFor="expDatePeriod">{t("period")}</label>
-                  <select
-                    id="expDatePeriod"
-                    className="company-settings-date-row-control"
-                    value={period}
-                    onChange={(e) => setPeriod(e.target.value)}
-                  >
+                  <div className="company-settings-period-wrap">
+                    <select
+                      id="expDatePeriod"
+                      className="company-settings-date-row-control company-settings-period-select"
+                      value={period}
+                      onChange={(e) => setPeriod(e.target.value)}
+                    >
                     <option value="">{t("selectPeriod")}</option>
                     <option value="7days">{t("sevenDays")}</option>
                     <option value="1month">{t("oneMonth")}</option>
                     <option value="3months">{t("threeMonths")}</option>
                     <option value="6months">{t("sixMonths")}</option>
                     <option value="1year">{t("oneYear")}</option>
-                  </select>
+                    </select>
+                  </div>
                   <small className="company-settings-start-hint company-settings-start-hint--align-spacer" aria-hidden="true">
                     &#8203;
                   </small>
