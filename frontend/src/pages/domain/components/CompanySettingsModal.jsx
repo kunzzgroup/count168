@@ -174,8 +174,11 @@ export default function CompanySettingsModal({
     const base = startDate || new Date().toISOString().split("T")[0];
     const exp = calculateExpirationDate(period, base);
     setExpDisplay(formatDate(exp));
-    setCompany((prev) => ({ ...prev, expiration_date: exp, selectedPeriod: period }));
-  }, [period, startDate, company.expiration_date, t]);
+    setCompany((prev) => {
+      if (prev.expiration_date === exp && prev.selectedPeriod === period) return prev;
+      return { ...prev, expiration_date: exp, selectedPeriod: period };
+    });
+  }, [period, startDate, t]);
 
   function togglePermission(val) {
     if (SINGLE_CATEGORY_MODE) {
@@ -387,6 +390,7 @@ export default function CompanySettingsModal({
                     value={startDate}
                     placeholder={t("pickDate")}
                     allowClear={false}
+                    onValueChange={setStartDate}
                     className="company-settings-form-date-field"
                     wrapClassName="company-settings-form-datepicker-wrap"
                     inputClassName="company-settings-date-row-control company-settings-form-datepicker-input"

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useCallback } from "react";
 import { ensureMaintenanceDateRangePicker } from "../utils/date/dateRangePicker.js";
 import { formatDmy, parseYmd } from "../utils/date/dateUtils.js";
 
@@ -28,6 +28,7 @@ export default function FormDateField({
   showCalendarIcon = true,
   allowClear = true,
   labelClassName = "",
+  onValueChange,
 }) {
   const fromId = `${fieldKey}_drp_from`;
   const toId = `${fieldKey}_drp_to`;
@@ -35,10 +36,25 @@ export default function FormDateField({
   const pickerId = `${fieldKey}_drp_picker`;
   const displayDmy = isoToDmy(String(value || "").trim());
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     ensureMaintenanceDateRangePicker();
     window.MaintenanceDateRangePicker?.bindPickers?.();
-  }, []);
+  });
+
+  useEffect(() => {
+    if (typeof onValueChange !== "function") return undefined;
+    const picker = document.getElementById(pickerId);
+    if (!picker) return undefined;
+
+    const handler = () => {
+      const fromDmy = document.getElementById(fromId)?.value?.trim() || "";
+      const iso = parseYmd(fromDmy);
+      if (iso) onValueChange(iso);
+    };
+
+    picker.addEventListener("ec:date-changed", handler);
+    return () => picker.removeEventListener("ec:date-changed", handler);
+  }, [fromId, onValueChange, pickerId]);
 
   useEffect(() => {
     const fromEl = document.getElementById(fromId);
@@ -61,17 +77,44 @@ export default function FormDateField({
     if (picker) window.MaintenanceDateRangePicker?.clearForPicker?.(picker);
   };
 
+  const openPicker = useCallback(
+    (targetEl) => {
+      if (disabled) return;
+      const picker = targetEl?.closest?.(".date-range-picker") || document.getElementById(pickerId);
+      if (!picker) return;
+      ensureMaintenanceDateRangePicker();
+      window.MaintenanceDateRangePicker?.togglePicker?.(picker);
+    },
+    [disabled, pickerId],
+  );
+
   const handleHitboxActivate = (e) => {
-    if (disabled) return;
     e.stopPropagation();
-    ensureMaintenanceDateRangePicker();
-    window.MaintenanceDateRangePicker?.togglePicker?.(e.currentTarget);
+    openPicker(e.currentTarget);
+  };
+
+  const handleWrapActivate = (e) => {
+    if (disabled) return;
+    if (e.target.closest("button")) return;
+    e.stopPropagation();
+    openPicker(document.getElementById(pickerId));
   };
 
   return (
     <div className={`form-group ${className}`.trim()}>
       {label ? <label className={labelClassName || undefined} htmlFor={htmlFor || fieldKey}>{label}</label> : null}
-      <div className={`form-datepicker-wrap ${wrapClassName}`.trim()}>
+      <div
+        className={`form-datepicker-wrap ${wrapClassName}`.trim()}
+        onClick={handleWrapActivate}
+        onKeyDown={(e) => {
+          if (disabled) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openPicker(document.getElementById(pickerId));
+          }
+        }}
+        role="presentation"
+      >
         <input
           id={htmlFor || fieldKey}
           type="text"
@@ -82,6 +125,10 @@ export default function FormDateField({
           placeholder={placeholder}
           value={displayDmy}
           disabled={disabled}
+          onClick={(e) => {
+            e.stopPropagation();
+            openPicker(document.getElementById(pickerId));
+          }}
         />
         {showCalendarIcon ? (
           <i className="fas fa-calendar-alt form-datepicker-icon" aria-hidden="true" />

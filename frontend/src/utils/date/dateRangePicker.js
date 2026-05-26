@@ -114,6 +114,18 @@ export function ensureMaintenanceDateRangePicker() {
     };
   }
 
+  function notifyActivePickerChanged() {
+    const picker = document.querySelector(
+      `.date-range-picker[data-drp-from="${activeRangeBinding.dateFromId}"]`,
+    );
+    picker?.dispatchEvent(new CustomEvent("ec:date-changed", { bubbles: true }));
+  }
+
+  function runOnChange() {
+    if (typeof config.onChange === "function") config.onChange();
+    notifyActivePickerChanged();
+  }
+
   function formatDateDisplay(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -555,7 +567,7 @@ export function ensureMaintenanceDateRangePicker() {
         syncToHiddenInputs();
         updateDateRangeDisplay();
         updateQuickPresetActive("");
-        if (typeof config.onChange === "function") config.onChange();
+        runOnChange();
         closeMaintenanceCalendarPopup();
         renderCalendar();
         return;
@@ -571,7 +583,7 @@ export function ensureMaintenanceDateRangePicker() {
       syncToHiddenInputs();
       updateDateRangeDisplay();
       updateQuickPresetActive(detectMatchingQuickRange());
-      if (typeof config.onChange === "function") config.onChange();
+      runOnChange();
       closeMaintenanceCalendarPopup();
     }
     renderCalendar();
@@ -707,7 +719,7 @@ export function ensureMaintenanceDateRangePicker() {
     renderCalendar();
     updateCalendarClearFooter();
     closeMaintenanceCalendarPopup();
-    if (triggerOnChange !== false && typeof config.onChange === "function") config.onChange();
+    if (triggerOnChange !== false) runOnChange();
   }
 
   function setQuickRange(range) {
@@ -725,7 +737,7 @@ export function ensureMaintenanceDateRangePicker() {
     updateDateRangeDisplay();
     updateQuickPresetActive(range);
     renderCalendar();
-    if (typeof config.onChange === "function") config.onChange();
+    runOnChange();
     const qd = document.getElementById("quick-select-dropdown");
     if (qd) qd.classList.remove("show");
   }
