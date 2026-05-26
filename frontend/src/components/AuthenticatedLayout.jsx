@@ -218,7 +218,7 @@ export default function AuthenticatedLayout() {
     prevPathRef.current = path;
   }, [path, isTabletViewport, sidebarCollapsed, collapseSidebar]);
 
-  const sidebarMenuTitle = (label) => (sidebarIconOnly ? label : undefined);
+  const sidebarMenuTitle = (label) => label;
 
   useEffect(() => {
     let cancelled = false;
