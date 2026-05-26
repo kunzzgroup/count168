@@ -22,6 +22,8 @@ export function useDashboardStyleGcFilter({
   onClearCompany,
   switchingCompany = false,
   preferredCompanyId = null,
+  /** When false, picking a group clears company (maintenance pages). */
+  selectFirstCompanyOnGroupChange = true,
 }) {
   const groupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
 
@@ -35,14 +37,27 @@ export function useDashboardStyleGcFilter({
       if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g || g === selectedGroup) return;
-      const list = companiesInGroupList(companies, g);
-      const first = list[0] ?? null;
       persistDashboardGroupFilter(g);
-      persistDashboardGroupOnlyMode(false);
       setSelectedGroup(g);
-      if (first && onSelectCompany) await onSelectCompany(first);
+      if (selectFirstCompanyOnGroupChange) {
+        const list = companiesInGroupList(companies, g);
+        const first = list[0] ?? null;
+        persistDashboardGroupOnlyMode(false);
+        if (first && onSelectCompany) await onSelectCompany(first);
+      } else {
+        persistDashboardGroupOnlyMode(true);
+        onClearCompany?.();
+      }
     },
-    [switchingCompany, selectedGroup, companies, setSelectedGroup, onSelectCompany],
+    [
+      switchingCompany,
+      selectedGroup,
+      companies,
+      setSelectedGroup,
+      onSelectCompany,
+      onClearCompany,
+      selectFirstCompanyOnGroupChange,
+    ],
   );
 
   const handlePickCompany = useCallback(

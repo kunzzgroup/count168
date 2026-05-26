@@ -1,5 +1,6 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { formatDmy, parseDdMmYyyyToYmd, parseYmd } from "../../../utils/date/dateUtils.js";
+import { companiesInGroupList } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   fetchDomainCompanyPermissions,
   fetchMaintenanceProcesses,
@@ -73,6 +74,30 @@ export async function fetchProcesses(companyId) {
 
 export async function fetchProcessesForPermission(companyId, permission) {
   return fetchMaintenanceProcesses(companyId, { credentials: true, permission });
+}
+
+/**
+ * Load permission/category + process list when Company is cleared (group-only).
+ * Uses a group anchor company for permissions UI only — does not select that company.
+ */
+export async function bootstrapTransactionMaintenanceMeta({
+  companies,
+  groupId = null,
+  anchorCompany = null,
+}) {
+  const anchor =
+    anchorCompany ??
+    (groupId ? companiesInGroupList(companies, groupId)[0] : null) ??
+    (Array.isArray(companies) ? companies[0] : null) ??
+    null;
+  const code = anchor?.company_id ? String(anchor.company_id) : "";
+  const companyPerms = code
+    ? await fetchCompanyPermissions(code)
+    : filterTransactionMaintenancePermissions(["Games", "Gambling", "Bank"]);
+  const savedPerm = code ? localStorage.getItem(`selectedPermission_${code}`) : null;
+  const activePermission = pickTransactionMaintenancePermission(companyPerms, savedPerm);
+  const processes = await fetchProcessesForPermission(anchor?.id ?? null, activePermission);
+  return { permissions: companyPerms, activePermission, processes };
 }
 
 /** Transaction Maintenance 仅 Games/Gambling/Bank 有数据；Loan/Rate/Money 与其它维护页共用 localStorage 时会误传。 */

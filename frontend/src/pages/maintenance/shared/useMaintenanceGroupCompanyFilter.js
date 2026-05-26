@@ -11,6 +11,7 @@ export function useMaintenanceGroupCompanyFilter({
   switchCompany,
   onClearCompany,
   switchingCompany = false,
+  selectFirstCompanyOnGroupChange = false,
 }) {
   const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
     companies,
@@ -21,6 +22,7 @@ export function useMaintenanceGroupCompanyFilter({
     onClearCompany,
     switchingCompany,
     preferredCompanyId: companyId,
+    selectFirstCompanyOnGroupChange,
   });
 
   return {

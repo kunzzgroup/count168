@@ -10,6 +10,8 @@ import {
   getCachedOwnerCompanies,
   isDashboardGroupOnlyMode,
   loadOwnerCompaniesCached,
+  persistDashboardGroupFilter,
+  persistDashboardGroupOnlyMode,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -37,6 +39,7 @@ import {
   getMaintenanceCacheRows,
   isMaintenanceCacheComplete,
   buildTransactionMaintenanceQueryKey,
+  bootstrapTransactionMaintenanceMeta,
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
@@ -135,7 +138,6 @@ export default function TransactionMaintenancePage() {
     filtersReady &&
     dateRangeReady &&
     metaReady &&
-    companyId &&
     dateFrom &&
     dateTo &&
     activePermission,
@@ -145,7 +147,6 @@ export default function TransactionMaintenancePage() {
     !filtersReady ||
     !dateRangeReady ||
     !metaReady ||
-    !companyId ||
     !dateFrom ||
     !dateTo ||
     !activePermission;
@@ -392,7 +393,7 @@ export default function TransactionMaintenancePage() {
 
   // Hydrate company from cache before async boot (SPA navigation — filters usable immediately).
   useEffect(() => {
-    if (!me || companyId != null) return;
+    if (!me || companyId != null || isDashboardGroupOnlyMode()) return;
     const cached = getCachedOwnerCompanies();
     let initialCompanyId = resolveInitialCompanyId(
       me.company_id ? Number(me.company_id) : cached?.[0]?.id ? Number(cached[0].id) : null,
@@ -485,13 +486,27 @@ export default function TransactionMaintenancePage() {
         const bootGroup = resolveInitialSelectedGroupFromSession(filtered, currentComp);
         setSelectedGroup(bootGroup);
 
-        if (isDashboardGroupOnlyMode() && bootGroup) {
+        const groupOnlyBoot = isDashboardGroupOnlyMode() && bootGroup;
+
+        if (groupOnlyBoot) {
           setCompanyId(null);
-          setFiltersReady(true);
+          setCompanyCode("");
+          const meta = await bootstrapTransactionMaintenanceMeta({
+            companies: filtered,
+            groupId: bootGroup,
+          });
+          if (cancelled) return;
+          setPermissions(meta.permissions);
+          setActivePermission(meta.activePermission);
+          setProcesses(meta.processes);
+          setMetaReady(true);
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           return;
         }
 
-        setCompanyId(initialCompanyId);
+        if (initialCompanyId != null) {
+          setCompanyId(initialCompanyId);
+        }
 
         if (currentComp) {
           const code = currentComp.company_id || "";
@@ -656,14 +671,28 @@ export default function TransactionMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
+    persistDashboardGroupOnlyMode(true);
+    if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
     setCompanyId(null);
     setCompanyCode("");
-    setMetaReady(false);
-    setProcesses([]);
-    setPermissions([]);
-    setActivePermission("");
     setSelectedProcess("");
-  }, []);
+    setProcesses([]);
+    void (async () => {
+      try {
+        const meta = await bootstrapTransactionMaintenanceMeta({
+          companies,
+          groupId: selectedGroup,
+        });
+        setPermissions(meta.permissions);
+        setActivePermission(meta.activePermission);
+        setProcesses(meta.processes);
+        setMetaReady(true);
+      } catch (err) {
+        console.error("Meta bootstrap after clear company:", err);
+        setMetaReady(true);
+      }
+    })();
+  }, [companies, selectedGroup]);
 
   const handleSwitchCompany = useCallback(async (c) => {
     if (!c?.id) return;
@@ -677,6 +706,7 @@ export default function TransactionMaintenancePage() {
     const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
     switchPermsCacheRef.current = null;
     skipMetaAfterBootRef.current = true;
+    persistDashboardGroupOnlyMode(false);
     // Force list query to re-arm for the new company once meta is ready.
     setMetaReady(false);
     setCompanyCode(code);
