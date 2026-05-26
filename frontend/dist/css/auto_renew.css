@@ -72,6 +72,16 @@
   color: #b91c1c;
 }
 
+.auto-renew-company-select {
+  max-width: 100%;
+}
+
+.auto-renew-toggle-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .auto-renew-toggle-row {
   display: flex;
   align-items: center;

@@ -109,9 +109,7 @@ export default function AuthenticatedLayout() {
     () => mergeAnnouncements(announcements),
     [announcements, mergeAnnouncements],
   );
-  const showAutoRenewEntry = Boolean(
-    me && me.user_type !== "member" && !me.is_current_company_c168,
-  );
+  const showAutoRenewEntry = Boolean(me?.has_c168_auto_renew_access);
   const goAutoRenew = useCallback(() => {
     navigate("/auto-renew");
   }, [navigate]);
@@ -499,6 +497,16 @@ export default function AuthenticatedLayout() {
                   <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
                 </svg>
                 <span className="sidebar-menu-label">{i18n.sidebarAnnouncement}</span>
+              </div>
+            </div>
+          )}
+          {me?.has_c168_auto_renew_access && (
+            <div className="informationmenu-section">
+              <div className={`informationmenu-section-title ${path === "/auto-renew" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarAutoRenew)} onClick={() => navigate("/auto-renew")} role="presentation">
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
+                </svg>
+                <span className="sidebar-menu-label">{i18n.sidebarAutoRenew}</span>
               </div>
             </div>
           )}

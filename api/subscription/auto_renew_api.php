@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/auto_renew.php';
+require_once __DIR__ . '/../c168/c168_domain_access.php';
 
 session_start();
 
@@ -38,15 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     auto_renew_json_response(false, 'Invalid request method', null, 405);
 }
 
-$companyId = (int) $_SESSION['company_id'];
-$companyCode = strtoupper(trim((string) ($_SESSION['company_code'] ?? '')));
 $userType = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
 if ($userType === 'member') {
     auto_renew_json_response(false, 'Members cannot access auto renew settings', null, 403);
-}
-
-if (auto_renew_is_c168($companyCode)) {
-    auto_renew_json_response(false, 'Auto renew is not available for this company', null, 403);
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
@@ -58,6 +53,25 @@ $action = strtolower(trim((string) ($input['action'] ?? 'get')));
 try {
     auto_renew_ensure_columns($pdo);
 
+    if (!auto_renew_page_access($pdo, $_SESSION)) {
+        session_write_close();
+        auto_renew_json_response(false, 'Access denied', null, 403);
+    }
+
+    if ($action === 'list_companies') {
+        session_write_close();
+        auto_renew_json_response(true, 'success', [
+            'companies' => auto_renew_list_client_companies($pdo),
+            'can_edit' => auto_renew_can_edit($_SESSION, $pdo),
+        ]);
+    }
+
+    $targetCompanyId = auto_renew_resolve_target_company_id($pdo, $input, $_SESSION);
+    if (!$targetCompanyId) {
+        session_write_close();
+        auto_renew_json_response(false, 'Invalid target company', null, 400);
+    }
+
     $stmt = $pdo->prepare('
         SELECT company_id, expiration_date, auto_renew_enabled, auto_renew_period,
                payment_customer_id, payment_subscription_id,
@@ -66,26 +80,29 @@ try {
         WHERE id = ?
         LIMIT 1
     ');
-    $stmt->execute([$companyId]);
+    $stmt->execute([$targetCompanyId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
         auto_renew_json_response(false, 'Company not found', null, 404);
     }
 
-    $canEdit = auto_renew_can_edit($_SESSION);
+    $canEdit = auto_renew_can_edit($_SESSION, $pdo);
 
     if ($action === 'get') {
         session_write_close();
         auto_renew_json_response(true, 'success', array_merge(
             auto_renew_format_row($row),
-            ['can_edit' => $canEdit]
+            [
+                'can_edit' => $canEdit,
+                'company_numeric_id' => $targetCompanyId,
+            ]
         ));
     }
 
     if ($action === 'update') {
         if (!$canEdit) {
             session_write_close();
-            auto_renew_json_response(false, 'Only owner can update auto renew settings', null, 403);
+            auto_renew_json_response(false, 'Only C168 owner or admin can update auto renew settings', null, 403);
         }
 
         $enabled = !empty($input['auto_renew_enabled']);
@@ -119,7 +136,7 @@ try {
             $enabled ? 1 : 0,
             $period,
             $updatedBy,
-            $companyId,
+            $targetCompanyId,
         ]);
 
         $row['auto_renew_enabled'] = $enabled ? 1 : 0;
@@ -130,7 +147,10 @@ try {
         session_write_close();
         auto_renew_json_response(true, 'Auto renew settings saved', array_merge(
             auto_renew_format_row($row),
-            ['can_edit' => true]
+            [
+                'can_edit' => true,
+                'company_numeric_id' => $targetCompanyId,
+            ]
         ));
     }
 

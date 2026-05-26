@@ -11,6 +11,7 @@ import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
 import {
   AUTO_RENEW_PERIODS,
+  fetchAutoRenewCompanies,
   fetchAutoRenewSettings,
   saveAutoRenewSettings,
 } from "./autoRenewLogic.js";
@@ -32,10 +33,13 @@ export default function AutoRenewPage() {
 
   const [bootDone, setBootDone] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [data, setData] = useState(null);
   const [enabled, setEnabled] = useState(false);
   const [period, setPeriod] = useState("1month");
   const [saving, setSaving] = useState(false);
+  const [loadingCompany, setLoadingCompany] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   const notify = useCallback((message, type = "success") => {
@@ -57,23 +61,22 @@ export default function AutoRenewPage() {
     setLoadError("");
 
     (async () => {
-      if (me.user_type === "member") {
+      if (!me.has_c168_auto_renew_access) {
         navigate("/dashboard", { replace: true });
-        return;
-      }
-      if (me.is_current_company_c168) {
-        setLoadError("c168");
-        setBootDone(true);
         return;
       }
 
       try {
-        const settings = await fetchAutoRenewSettings();
+        const listData = await fetchAutoRenewCompanies();
         if (cancelled) return;
-        setData(settings);
-        setEnabled(Boolean(settings.auto_renew_enabled));
-        setPeriod(settings.auto_renew_period || "1month");
-        setBootDone(true);
+        const rows = Array.isArray(listData?.companies) ? listData.companies : [];
+        setCompanies(rows);
+        if (rows.length === 0) {
+          setBootDone(true);
+          return;
+        }
+        const firstId = rows[0].company_numeric_id;
+        setSelectedCompanyId(firstId);
       } catch (err) {
         if (cancelled) return;
         setLoadError(err.message || "load");
@@ -86,9 +89,37 @@ export default function AutoRenewPage() {
     };
   }, [me, navigate, sessionReady]);
 
+  useEffect(() => {
+    if (!selectedCompanyId) return undefined;
+
+    let cancelled = false;
+    setLoadingCompany(true);
+
+    (async () => {
+      try {
+        const settings = await fetchAutoRenewSettings(selectedCompanyId);
+        if (cancelled) return;
+        setData(settings);
+        setEnabled(Boolean(settings.auto_renew_enabled));
+        setPeriod(settings.auto_renew_period || "1month");
+        setBootDone(true);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err.message || "load");
+        setBootDone(true);
+      } finally {
+        if (!cancelled) setLoadingCompany(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompanyId]);
+
   const canEdit = Boolean(data?.can_edit);
   const hasExpiration = Boolean(data?.expiration_date);
-  const formDisabled = !canEdit || !hasExpiration;
+  const formDisabled = !canEdit || !hasExpiration || loadingCompany;
 
   const previewNext = useMemo(() => {
     if (!enabled || !period || !data?.expiration_date) return null;
@@ -101,41 +132,37 @@ export default function AutoRenewPage() {
     return countdown?.text || formatRemainingLabel(t, data.days_until_expiration);
   }, [data?.days_until_expiration, data?.expiration_date, t]);
 
-  const statusClass = data?.expiration_status || me?.expiration_status || "normal";
+  const statusClass = data?.expiration_status || "normal";
 
   const handleSave = useCallback(async () => {
-    if (formDisabled || saving) return;
+    if (formDisabled || saving || !selectedCompanyId) return;
     setSaving(true);
     try {
       const saved = await saveAutoRenewSettings({
+        targetCompanyId: selectedCompanyId,
         autoRenewEnabled: enabled,
         autoRenewPeriod: enabled ? period : null,
       });
       setData(saved);
       setEnabled(Boolean(saved.auto_renew_enabled));
       setPeriod(saved.auto_renew_period || "1month");
+      setCompanies((prev) =>
+        prev.map((row) =>
+          row.company_numeric_id === selectedCompanyId
+            ? { ...row, auto_renew_enabled: saved.auto_renew_enabled, auto_renew_period: saved.auto_renew_period }
+            : row,
+        ),
+      );
       notify(t("saved"), "success");
     } catch (err) {
       notify(t("saveFailed", { message: err.message }), "error");
     } finally {
       setSaving(false);
     }
-  }, [enabled, formDisabled, notify, period, saving, t]);
+  }, [enabled, formDisabled, notify, period, saving, selectedCompanyId, t]);
 
   if (!sessionReady || !bootDone) {
     return <PageContentLoader />;
-  }
-
-  if (loadError === "c168") {
-    return (
-      <div className="auto-renew-page">
-        <h1 className="auto-renew-page-title">{t("pageTitle")}</h1>
-        <div className="auto-renew-notice warn">{t("c168Notice")}</div>
-        <button type="button" className="auto-renew-btn auto-renew-btn-secondary" onClick={() => navigate("/dashboard")}>
-          {t("backDashboard")}
-        </button>
-      </div>
-    );
   }
 
   if (loadError) {
@@ -143,6 +170,18 @@ export default function AutoRenewPage() {
       <div className="auto-renew-page">
         <h1 className="auto-renew-page-title">{t("pageTitle")}</h1>
         <div className="auto-renew-notice warn">{t("loadFailed", { message: loadError })}</div>
+        <button type="button" className="auto-renew-btn auto-renew-btn-secondary" onClick={() => navigate("/dashboard")}>
+          {t("backDashboard")}
+        </button>
+      </div>
+    );
+  }
+
+  if (companies.length === 0) {
+    return (
+      <div className="auto-renew-page">
+        <h1 className="auto-renew-page-title">{t("pageTitle")}</h1>
+        <div className="auto-renew-notice warn">{t("noCompanies")}</div>
         <button type="button" className="auto-renew-btn auto-renew-btn-secondary" onClick={() => navigate("/dashboard")}>
           {t("backDashboard")}
         </button>
@@ -164,10 +203,32 @@ export default function AutoRenewPage() {
         <h1 className="auto-renew-page-title">{t("pageTitle")}</h1>
 
         <section className="auto-renew-card">
+          <h2 className="auto-renew-card-title">{t("selectCompanyTitle")}</h2>
+          <div className="auto-renew-field">
+            <label className="auto-renew-field-label" htmlFor="autoRenewCompanySelect">
+              {t("company")}
+            </label>
+            <select
+              id="autoRenewCompanySelect"
+              className="auto-renew-period-select auto-renew-company-select"
+              value={selectedCompanyId ?? ""}
+              onChange={(e) => setSelectedCompanyId(Number(e.target.value))}
+            >
+              {companies.map((row) => (
+                <option key={row.company_numeric_id} value={row.company_numeric_id}>
+                  {row.company_code}
+                  {row.auto_renew_enabled ? ` (${t("autoRenewOnShort")})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
+
+        <section className="auto-renew-card">
           <h2 className="auto-renew-card-title">{t("subscriptionInfo")}</h2>
           <div className="auto-renew-info-grid">
             <span className="auto-renew-info-label">{t("company")}</span>
-            <span className="auto-renew-info-value">{data?.company_code || me?.company_code || "-"}</span>
+            <span className="auto-renew-info-value">{data?.company_code || "-"}</span>
 
             <span className="auto-renew-info-label">{t("expirationDate")}</span>
             <span className="auto-renew-info-value">
@@ -194,7 +255,7 @@ export default function AutoRenewPage() {
 
           <div className="auto-renew-toggle-row">
             <span className="auto-renew-toggle-label">{t("enableAutoRenew")}</span>
-            <div className="flex items-center">
+            <div className="auto-renew-toggle-controls">
               <span className={`auto-renew-toggle-state${enabled ? " is-on" : ""}`}>
                 {enabled ? t("autoRenewOn") : t("autoRenewOff")}
               </span>
@@ -262,7 +323,7 @@ export default function AutoRenewPage() {
               <button
                 type="button"
                 className="auto-renew-btn auto-renew-btn-primary"
-                disabled={saving || (enabled && !period)}
+                disabled={saving || loadingCompany || (enabled && !period)}
                 onClick={handleSave}
               >
                 {saving ? t("saving") : t("save")}

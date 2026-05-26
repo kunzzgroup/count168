@@ -8,34 +8,33 @@ export const AUTO_RENEW_PERIODS = [
   { value: "1year", labelKey: "period1year" },
 ];
 
-export async function fetchAutoRenewSettings() {
+async function postAutoRenew(body) {
   const res = await fetch(buildApiUrl("api/subscription/auto_renew_api.php"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "get" }),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
   if (!json.success) {
-    throw new Error(json.message || "Failed to load auto renew settings");
+    throw new Error(json.message || "Auto renew request failed");
   }
   return json.data;
 }
 
-export async function saveAutoRenewSettings({ autoRenewEnabled, autoRenewPeriod }) {
-  const res = await fetch(buildApiUrl("api/subscription/auto_renew_api.php"), {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "update",
-      auto_renew_enabled: autoRenewEnabled,
-      auto_renew_period: autoRenewPeriod,
-    }),
+export async function fetchAutoRenewCompanies() {
+  return postAutoRenew({ action: "list_companies" });
+}
+
+export async function fetchAutoRenewSettings(targetCompanyId) {
+  return postAutoRenew({ action: "get", target_company_id: targetCompanyId });
+}
+
+export async function saveAutoRenewSettings({ targetCompanyId, autoRenewEnabled, autoRenewPeriod }) {
+  return postAutoRenew({
+    action: "update",
+    target_company_id: targetCompanyId,
+    auto_renew_enabled: autoRenewEnabled,
+    auto_renew_period: autoRenewPeriod,
   });
-  const json = await res.json();
-  if (!json.success) {
-    throw new Error(json.message || "Failed to save auto renew settings");
-  }
-  return json.data;
 }

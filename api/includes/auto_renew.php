@@ -4,6 +4,8 @@
  * Ensures company columns exist; shared by auto_renew_api.php.
  */
 
+require_once __DIR__ . '/../c168/c168_domain_access.php';
+
 const AUTO_RENEW_VALID_PERIODS = ['7days', '1month', '3months', '6months', '1year'];
 
 function auto_renew_ensure_columns(PDO $pdo): void
@@ -108,7 +110,7 @@ function auto_renew_expiration_status(?int $daysLeft): string
     return 'normal';
 }
 
-function auto_renew_can_edit(array $session): bool
+function auto_renew_can_edit(array $session, ?PDO $pdo = null): bool
 {
     $userType = strtolower(trim((string) ($session['user_type'] ?? '')));
     $role = strtolower(trim((string) ($session['role'] ?? '')));
@@ -118,7 +120,49 @@ function auto_renew_can_edit(array $session): bool
     if ((int) ($session['read_only'] ?? 0) === 1) {
         return false;
     }
-    return $userType === 'owner' || $role === 'owner';
+    if ($pdo instanceof PDO) {
+        return userHasC168AutoRenewAccess($pdo, $role, $userType);
+    }
+    return in_array($role, c168AutoRenewAllowedRoles(), true);
+}
+
+function auto_renew_page_access(PDO $pdo, array $session): bool
+{
+    $role = strtolower(trim((string) ($session['role'] ?? '')));
+    $userType = strtolower(trim((string) ($session['user_type'] ?? '')));
+    return userHasC168AutoRenewAccess($pdo, $role, $userType);
+}
+
+function auto_renew_list_client_companies(PDO $pdo): array
+{
+    $stmt = $pdo->query("
+        SELECT id, company_id, expiration_date, auto_renew_enabled, auto_renew_period,
+               auto_renew_updated_at, auto_renew_updated_by
+        FROM company
+        WHERE UPPER(company_id) <> 'C168'
+        ORDER BY company_id ASC
+    ");
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $list = [];
+    foreach ($rows as $row) {
+        $list[] = array_merge(
+            auto_renew_format_row($row),
+            ['company_numeric_id' => (int) ($row['id'] ?? 0)]
+        );
+    }
+    return $list;
+}
+
+function auto_renew_resolve_target_company_id(PDO $pdo, array $input, array $session): ?int
+{
+    $targetId = isset($input['target_company_id']) ? (int) $input['target_company_id'] : 0;
+    if ($targetId <= 0) {
+        return null;
+    }
+    $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND UPPER(company_id) <> 'C168' LIMIT 1");
+    $stmt->execute([$targetId]);
+    $found = $stmt->fetchColumn();
+    return $found ? (int) $found : null;
 }
 
 function auto_renew_is_c168(?string $companyCode): bool
