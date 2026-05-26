@@ -1,4 +1,4 @@
-import { persistDashboardGroupOnlyMode } from "../../../utils/company/sharedCompanyFilter.js";
+import { persistDashboardFilterState } from "../../../utils/company/sharedCompanyFilter.js";
 
 /**
  * Process List（user-gc-inline-panel）同款：GroupID / Company / Currency 分段控件。
@@ -87,7 +87,7 @@ export default function ReportGcFilterPanel({
                     className={`user-gc-segment${active ? " is-on" : ""}`}
                     onClick={() => {
                       if (active && isDashboardLayout) {
-                        persistDashboardGroupOnlyMode(true);
+                        persistDashboardFilterState(selectedGroup, null);
                         onClearCompany?.();
                         return;
                       }

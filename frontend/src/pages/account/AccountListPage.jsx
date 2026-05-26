@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
+  isDashboardGroupOnlyMode,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
@@ -227,8 +228,14 @@ export default function AccountListPage() {
           initialCompanyId != null
             ? rows.find((c) => Number(c.id) === Number(initialCompanyId)) || null
             : null;
-        setCompanyId(initialCompanyId);
-        setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
+        const bootGroup = resolveInitialSelectedGroupFromSession(rows, row);
+        if (isDashboardGroupOnlyMode()) {
+          setCompanyId(null);
+          setSelectedGroup(bootGroup);
+        } else {
+          setCompanyId(initialCompanyId);
+          setSelectedGroup(bootGroup);
+        }
         setSearchTerm(initialSearchTerm);
         setShowInactive(initialShowInactive);
         setShowAll(initialShowAll);

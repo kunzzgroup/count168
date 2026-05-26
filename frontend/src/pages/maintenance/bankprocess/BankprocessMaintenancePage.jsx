@@ -8,8 +8,7 @@ import { notifyCompanySessionUpdated } from "../../../utils/company/companySessi
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
   isDashboardGroupOnlyMode,
-  persistDashboardGroupFilter,
-  persistDashboardGroupOnlyMode,
+  persistDashboardFilterState,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -418,8 +417,7 @@ export default function BankprocessMaintenancePage() {
   const followGroupRef = useRef(() => {});
 
   const handleClearCompany = useCallback(() => {
-    persistDashboardGroupOnlyMode(true);
-    if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
+    persistDashboardFilterState(selectedGroup, null);
     setCompanyId(null);
     setCompanyCode("");
     setSelectedIds([]);
@@ -439,8 +437,7 @@ export default function BankprocessMaintenancePage() {
       setCompanyId(nextId);
       setCompanyCode(targetCompany.company_id || "");
       setSelectedGroup(newGroup);
-      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
-      else sessionStorage.removeItem("dashboard_group_filter");
+      persistDashboardFilterState(newGroup, nextId);
       currentCompanyIdRef.current = nextId;
       followGroupRef.current();
       notifyCompanySessionUpdated();

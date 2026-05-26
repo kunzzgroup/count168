@@ -10,8 +10,7 @@ import { notifyCompanySessionUpdated } from "../../../utils/company/companySessi
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
   isDashboardGroupOnlyMode,
-  persistDashboardGroupFilter,
-  persistDashboardGroupOnlyMode,
+  persistDashboardFilterState,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -473,8 +472,7 @@ export default function FormulaMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
-    persistDashboardGroupOnlyMode(true);
-    if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
+    persistDashboardFilterState(selectedGroup, null);
     companyIdRef.current = null;
     setCompanyId(null);
     setCompanyCode("");
@@ -501,8 +499,7 @@ export default function FormulaMaintenancePage() {
 
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       setSelectedGroup(newGroup);
-      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
-      else sessionStorage.removeItem("dashboard_group_filter");
+      persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
 
       setSearchFilter("");

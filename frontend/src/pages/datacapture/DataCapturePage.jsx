@@ -8,6 +8,7 @@ import {
   filterCompaniesWithDisplayId,
   normalizeOwnerCompanyRow,
   isDashboardGroupOnlyMode,
+  persistDashboardFilterState,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
@@ -343,7 +344,7 @@ export default function DataCapturePage() {
             ? raw.find((c) => Number(c.id) === Number(effectiveCompany)) || null
             : null;
         const initialGroupEarly = resolveInitialSelectedGroupFromSession(raw, rowForPickEarly);
-        if (isDashboardGroupOnlyMode() && initialGroupEarly) {
+        if (isDashboardGroupOnlyMode()) {
           setCompanies(raw);
           setCompanyId(null);
           setSelectedGroup(initialGroupEarly);
