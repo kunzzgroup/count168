@@ -1,62 +1,38 @@
 -- =============================================================================
--- April 2026 ownership sample snapshot (re-run safe)
+-- April 2026 ownership sample — phpMyAdmin 分步版（不用临时表）
 -- =============================================================================
--- How to run (phpMyAdmin):
---   1. Select your database
---   2. Copy ALL lines below → SQL tab → Go (one shot)
---
--- What you get:
---   • One company (first with ownership rows) gets a 2026-04 snapshot
---   • Percentages = current live % with a simple demo tweak:
---       largest holder -5%, every other holder +2.5% each (2-holder case ≈ swap 5%)
---   • saved_at = 2026-04-05 14:30:00
---
--- View: https://count168.site/ownership → month 2026-04 → Manage that company
+-- 若 history 表是空的，按顺序执行下面 STEP 1 → 2 → 3
 -- =============================================================================
 
--- 1) Ensure history table exists (safe if already created)
-CREATE TABLE IF NOT EXISTS `company_ownership_history` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `company_id` int(11) NOT NULL,
-  `effective_month` date NOT NULL,
-  `account_id` int(11) NOT NULL,
-  `owner_type` enum('account','owner','user','group') NOT NULL DEFAULT 'account',
-  `percentage` decimal(6,2) NOT NULL DEFAULT 0.00,
-  `partner_group_id` varchar(50) DEFAULT NULL,
-  `read_only` tinyint(1) NOT NULL DEFAULT 1,
-  `saved_by` int(11) DEFAULT NULL,
-  `saved_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_co_hist_month_account` (`company_id`,`effective_month`,`account_id`,`owner_type`),
-  KEY `idx_co_hist_company_month` (`company_id`,`effective_month`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 2) Pick target company (first company_id that has non-account ownership)
-DROP TEMPORARY TABLE IF EXISTS tmp_own_april_target;
-CREATE TEMPORARY TABLE tmp_own_april_target AS
-SELECT company_id
+-- ── STEP 1：诊断（可单独跑）────────────────────────────────────────────
+-- 1a) 主表有没有 ownership 数据？
+SELECT company_id, owner_type, account_id, percentage
 FROM company_ownership
 WHERE owner_type != 'account'
-GROUP BY company_id
-ORDER BY company_id
-LIMIT 1;
+ORDER BY company_id, percentage DESC
+LIMIT 30;
 
--- 3) Show target (empty = nothing to seed)
-SELECT
-  t.company_id,
-  c.name AS company_name,
-  c.company_id AS company_code,
-  IF(t.company_id IS NULL, 'STOP: no company_ownership rows', 'OK: will seed April 2026') AS status
-FROM tmp_own_april_target t
-LEFT JOIN company c ON c.id = t.company_id;
+-- 1b) 若 1a 有行，记下任意一个 company_id（数字主键）
+-- 1c) history 表当前是否为空？
+SELECT COUNT(*) AS history_row_count FROM company_ownership_history;
 
--- 4) Remove old April demo for that company
-DELETE h
-FROM company_ownership_history h
-INNER JOIN tmp_own_april_target t ON t.company_id = h.company_id
-WHERE h.effective_month = '2026-04-01';
 
--- 5) Insert April snapshot (copy live rows, then tweak in step 6)
+-- ── STEP 2：写入 4 月示例（整段选中一次 Execute）──────────────────────
+-- 自动选「第一家有 ownership 的公司」；若无数据则 INSERT 0 行
+
+DELETE FROM company_ownership_history
+WHERE effective_month = '2026-04-01'
+  AND company_id = (
+    SELECT cid FROM (
+      SELECT company_id AS cid
+      FROM company_ownership
+      WHERE owner_type != 'account'
+      GROUP BY company_id
+      ORDER BY company_id
+      LIMIT 1
+    ) pick
+  );
+
 INSERT INTO company_ownership_history (
   company_id,
   effective_month,
@@ -69,6 +45,79 @@ INSERT INTO company_ownership_history (
   saved_at
 )
 SELECT
+  src.company_id,
+  '2026-04-01',
+  src.account_id,
+  src.owner_type,
+  CASE
+    WHEN src.holder_cnt <= 1 THEN src.percentage
+    WHEN src.percentage = src.max_pct THEN GREATEST(0.01, ROUND(src.percentage - 5, 2))
+    ELSE ROUND(src.percentage + (5 / (src.holder_cnt - 1)), 2)
+  END,
+  src.partner_group_id,
+  src.read_only,
+  NULL,
+  '2026-04-05 14:30:00'
+FROM (
+  SELECT
+    co.company_id,
+    co.account_id,
+    co.owner_type,
+    co.percentage,
+    co.partner_group_id,
+    COALESCE(co.read_only, 1) AS read_only,
+    agg.max_pct,
+    agg.holder_cnt
+  FROM company_ownership co
+  INNER JOIN (
+    SELECT company_id AS cid
+    FROM company_ownership
+    WHERE owner_type != 'account'
+    GROUP BY company_id
+    ORDER BY company_id
+    LIMIT 1
+  ) pick ON pick.cid = co.company_id
+  INNER JOIN (
+    SELECT
+      company_id,
+      MAX(percentage) AS max_pct,
+      COUNT(*) AS holder_cnt
+    FROM company_ownership
+    WHERE owner_type != 'account'
+    GROUP BY company_id
+  ) agg ON agg.company_id = co.company_id
+  WHERE co.owner_type != 'account'
+) src;
+
+
+-- ── STEP 3：验证（可单独跑）──────────────────────────────────────────
+SELECT
+  c.company_id AS company_name,
+  h.effective_month,
+  h.owner_type,
+  h.account_id,
+  h.percentage,
+  h.saved_at
+FROM company_ownership_history h
+JOIN company c ON c.id = h.company_id
+WHERE h.effective_month = '2026-04-01'
+ORDER BY c.company_id, h.percentage DESC;
+
+
+-- =============================================================================
+-- 若 STEP 1a 无数据，或 STEP 2 后仍 0 行：用手动版（改 @co_id）
+-- =============================================================================
+/*
+SET @co_id = 1;   -- ← 改成你 company 表的主键 id（不是 company_id 字符串）
+
+DELETE FROM company_ownership_history
+WHERE company_id = @co_id AND effective_month = '2026-04-01';
+
+INSERT INTO company_ownership_history (
+  company_id, effective_month, account_id, owner_type,
+  percentage, partner_group_id, read_only, saved_by, saved_at
+)
+SELECT
   co.company_id,
   '2026-04-01',
   co.account_id,
@@ -79,46 +128,6 @@ SELECT
   NULL,
   '2026-04-05 14:30:00'
 FROM company_ownership co
-INNER JOIN tmp_own_april_target t ON t.company_id = co.company_id
-WHERE co.owner_type != 'account';
-
--- 6) Demo adjustment: top holder -5%
-UPDATE company_ownership_history h
-INNER JOIN tmp_own_april_target t ON t.company_id = h.company_id
-INNER JOIN (
-  SELECT company_id, MAX(percentage) AS max_pct
-  FROM company_ownership_history
-  WHERE effective_month = '2026-04-01'
-  GROUP BY company_id
-) mx ON mx.company_id = h.company_id AND h.percentage = mx.max_pct
-SET h.percentage = GREATEST(0.01, ROUND(h.percentage - 5, 2))
-WHERE h.effective_month = '2026-04-01';
-
--- 7) Demo adjustment: other holders +2.5% each (keeps total ≈ 100 for 2–3 holders)
-UPDATE company_ownership_history h
-INNER JOIN tmp_own_april_target t ON t.company_id = h.company_id
-INNER JOIN (
-  SELECT company_id, MAX(percentage) AS max_pct
-  FROM company_ownership_history
-  WHERE effective_month = '2026-04-01'
-  GROUP BY company_id
-) mx ON mx.company_id = h.company_id
-SET h.percentage = LEAST(100, ROUND(h.percentage + 2.5, 2))
-WHERE h.effective_month = '2026-04-01'
-  AND h.percentage < mx.max_pct;
-
--- 8) VERIFY — always works alone too (no @variables)
-SELECT
-  c.name AS company_name,
-  c.company_id AS company_code,
-  h.effective_month,
-  h.owner_type,
-  h.account_id,
-  h.percentage,
-  h.saved_at
-FROM company_ownership_history h
-JOIN company c ON c.id = h.company_id
-WHERE h.effective_month = '2026-04-01'
-ORDER BY c.name, h.percentage DESC;
-
-DROP TEMPORARY TABLE IF EXISTS tmp_own_april_target;
+WHERE co.company_id = @co_id
+  AND co.owner_type != 'account';
+*/

@@ -37,11 +37,11 @@ try {
 }
 
 $rows = $pdo->query("
-    SELECT c.name, c.company_id AS code, h.owner_type, h.account_id, h.percentage, h.saved_at
+    SELECT c.company_id AS name, h.owner_type, h.account_id, h.percentage, h.saved_at
     FROM company_ownership_history h
     JOIN company c ON c.id = h.company_id
     WHERE h.effective_month = '2026-04-01'
-    ORDER BY c.name, h.percentage DESC
+    ORDER BY c.company_id, h.percentage DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
 if (count($rows) === 0) {
@@ -52,9 +52,8 @@ if (count($rows) === 0) {
 echo "OK: April 2026 sample seeded\n";
 foreach ($rows as $r) {
     echo sprintf(
-        "  %s (%s) | %s #%s = %s%% | saved %s\n",
+        "  %s | %s #%s = %s%% | saved %s\n",
         $r['name'],
-        $r['code'],
         $r['owner_type'],
         $r['account_id'],
         $r['percentage'],
