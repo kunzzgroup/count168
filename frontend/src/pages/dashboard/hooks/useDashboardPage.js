@@ -761,11 +761,41 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g || g === selectedGroup) return;
+
+      const switchGen = ++companySwitchGenRef.current;
+      const prevId = companyId;
+
       setSelectedGroup(g);
       sessionStorage.setItem("dashboard_group_filter", g);
-      clearCompanySelection(g);
+
+      const list = companiesInGroupList(companies, g);
+      const first = list[0] ?? null;
+      if (!first) {
+        clearCompanySelection(g);
+        return;
+      }
+
+      const id = parseInt(first.id, 10);
+      persistDashboardFilterState(g, id);
+      applyCompanySelection(id);
+      void syncCompanySession(id).then((ok) => {
+        if (switchGen !== companySwitchGenRef.current) return;
+        if (!ok && prevId != null) {
+          const prevCo = companies.find((x) => parseInt(x.id, 10) === parseInt(prevId, 10));
+          const prevGroup = prevCo?.group_id ? String(prevCo.group_id).toUpperCase() : null;
+          if (prevGroup) {
+            setSelectedGroup(prevGroup);
+            sessionStorage.setItem("dashboard_group_filter", prevGroup);
+          } else {
+            setSelectedGroup(null);
+            sessionStorage.removeItem("dashboard_group_filter");
+          }
+          persistDashboardFilterState(prevGroup, prevId);
+          applyCompanySelection(prevId);
+        }
+      });
     },
-    [selectedGroup, clearCompanySelection]
+    [selectedGroup, companies, companyId, clearCompanySelection, applyCompanySelection, syncCompanySession]
   );
 
   const handlePickCompany = useCallback(
