@@ -316,7 +316,6 @@ export default function MemberPage() {
       </div>
 
       <div className="transaction-container">
-        <div className="transaction-separator-line" />
         <div className="transaction-main-content member-winloss-dash">
           <div className="transaction-search-section member-dash-unified-bar">
             <div
