@@ -44,6 +44,33 @@ function FilterChip({ active, label, count, onClick }) {
   );
 }
 
+function EmptyState({ statusFilter, searchTerm, t }) {
+  const hintKey =
+    searchTerm.trim() !== ""
+      ? "noResults"
+      : statusFilter === "approved"
+        ? "emptyHintApproved"
+        : statusFilter === "rejected"
+          ? "emptyHintRejected"
+          : statusFilter === "all"
+            ? "emptyHintAll"
+            : "emptyHintPending";
+
+  return (
+    <div className="auto-renew-empty-state" role="status">
+      <div className="auto-renew-empty-state__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p className="auto-renew-empty-state__title">
+        {searchTerm.trim() ? t("noResults") : t("emptyTitle")}
+      </p>
+      <p className="auto-renew-empty-state__hint">{t(hintKey)}</p>
+    </div>
+  );
+}
+
 function AccountSelect({ value, accounts, placeholder, disabled, onChange }) {
   return (
     <select
@@ -286,50 +313,57 @@ export default function AutoRenewPage() {
         ))}
       </div>
 
-      <div className="container">
+      <div className="container auto-renew-page">
         <div className="content">
-          <div className="action-buttons-container" style={{ marginBottom: 20 }}>
-            <div className="action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <div className="search-container userlist-search-bar">
-                  <span className="userlist-search-bar__icon" aria-hidden="true">
-                    <svg fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                    </svg>
-                  </span>
-                  <input
-                    type="text"
-                    className="search-input userlist-search-input"
-                    placeholder={t("searchPlaceholder")}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
-                  />
-                </div>
-                <div className="userlist-filter-chips auto-renew-filter-chips" role="group" aria-label={t("filterGroupLabel")}>
-                  <FilterChip
-                    active={statusFilter === "pending"}
-                    label={t("filterPending")}
-                    count={counts.pending}
-                    onClick={() => setStatusFilter("pending")}
-                  />
-                  <FilterChip
-                    active={statusFilter === "approved"}
-                    label={t("filterApproved")}
-                    count={counts.approved}
-                    onClick={() => setStatusFilter("approved")}
-                  />
-                  <FilterChip
-                    active={statusFilter === "rejected"}
-                    label={t("filterRejected")}
-                    count={counts.rejected}
-                    onClick={() => setStatusFilter("rejected")}
-                  />
-                  <FilterChip
-                    active={statusFilter === "all"}
-                    label={t("filterShowAll")}
-                    count={counts.total}
-                    onClick={() => setStatusFilter("all")}
-                  />
+          <header className="auto-renew-page-header">
+            <h1 className="auto-renew-page-title">{t("pageTitle")}</h1>
+            <p className="auto-renew-page-subtitle">{t("pageSubtitle")}</p>
+          </header>
+
+          <div className="auto-renew-toolbar-panel">
+            <div className="action-buttons-container">
+              <div className="action-buttons">
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div className="search-container userlist-search-bar">
+                    <span className="userlist-search-bar__icon" aria-hidden="true">
+                      <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      className="search-input userlist-search-input"
+                      placeholder={t("searchPlaceholder")}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+                    />
+                  </div>
+                  <div className="userlist-filter-chips auto-renew-filter-chips" role="group" aria-label={t("filterGroupLabel")}>
+                    <FilterChip
+                      active={statusFilter === "pending"}
+                      label={t("filterPending")}
+                      count={counts.pending}
+                      onClick={() => setStatusFilter("pending")}
+                    />
+                    <FilterChip
+                      active={statusFilter === "approved"}
+                      label={t("filterApproved")}
+                      count={counts.approved}
+                      onClick={() => setStatusFilter("approved")}
+                    />
+                    <FilterChip
+                      active={statusFilter === "rejected"}
+                      label={t("filterRejected")}
+                      count={counts.rejected}
+                      onClick={() => setStatusFilter("rejected")}
+                    />
+                    <FilterChip
+                      active={statusFilter === "all"}
+                      label={t("filterShowAll")}
+                      count={counts.total}
+                      onClick={() => setStatusFilter("all")}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -339,6 +373,7 @@ export default function AutoRenewPage() {
             <div className="auto-renew-notice warn">{t("readOnlyNotice")}</div>
           )}
 
+          <div className="auto-renew-table-panel">
           <div className="user-list-table auto-renew-table">
             <div className="user-list-table-inner">
               <div className="table-header user-list-table-header auto-renew-table-header">
@@ -354,11 +389,9 @@ export default function AutoRenewPage() {
                 <div className="header-item"><span className="header-item__label">{t("colToAccount")}</span></div>
               </div>
 
-              <div className="user-cards" aria-busy={Boolean(busyRequestId)}>
+              <div className="user-cards auto-renew-cards" aria-busy={Boolean(busyRequestId)}>
                 {pagination.rows.length === 0 ? (
-                  <div className="user-card user-list-row auto-renew-table-empty show-card row-even" role="status">
-                    {t("noResults")}
-                  </div>
+                  <EmptyState statusFilter={statusFilter} searchTerm={searchTerm} t={t} />
                 ) : (
                   pagination.rows.map((row, idx) => {
                     const globalIdx = (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
@@ -442,7 +475,7 @@ export default function AutoRenewPage() {
           </div>
 
           {filteredRows.length > 0 && (
-            <div className="pagination-container">
+            <div className="pagination-container auto-renew-pagination">
               <button
                 type="button"
                 className="pagination-btn"
@@ -466,6 +499,7 @@ export default function AutoRenewPage() {
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
     </>

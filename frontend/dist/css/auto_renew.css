@@ -1,10 +1,74 @@
-/* Auto Renew approval page — extends userlist / account page patterns */
+/* Auto Renew approval page */
 
 body.auto-renew-page-body {
   overflow-y: auto !important;
 }
 
-/* 10-column grid for approval table (override user-list default via CSS variable) */
+body.auto-renew-page-body .auto-renew-page .content {
+  max-width: 100%;
+}
+
+/* Page header */
+body.auto-renew-page-body .auto-renew-page-header {
+  margin-bottom: clamp(14px, 1.2vw, 20px);
+}
+
+body.auto-renew-page-body .auto-renew-page-title {
+  margin: 0 0 6px;
+  font-size: clamp(20px, 1.45vw, 26px);
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+body.auto-renew-page-body .auto-renew-page-subtitle {
+  margin: 0;
+  font-size: clamp(13px, 0.9vw, 15px);
+  color: #64748b;
+  line-height: 1.5;
+  max-width: 52rem;
+}
+
+/* Toolbar panel */
+body.auto-renew-page-body .auto-renew-toolbar-panel {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(6px);
+}
+
+body.auto-renew-page-body .auto-renew-toolbar-panel .action-buttons-container {
+  margin-bottom: 0 !important;
+}
+
+/* Table panel */
+body.auto-renew-page-body .auto-renew-table-panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+}
+
+body.auto-renew-page-body .auto-renew-table-panel .user-list-table {
+  margin: 0;
+}
+
+body.auto-renew-page-body .auto-renew-table-panel .user-list-table-header {
+  margin-top: 0 !important;
+  border-radius: 0 !important;
+}
+
+body.auto-renew-page-body .auto-renew-table-panel .auto-renew-pagination {
+  padding: 12px 16px 16px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 0;
+}
+
+/* 10-column grid */
 body.auto-renew-page-body .user-list-table.auto-renew-table {
   --user-list-grid-cols:
     48px
@@ -50,13 +114,61 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(4
   min-width: 6.75rem;
 }
 
-body.auto-renew-page-body .auto-renew-table-empty {
-  grid-column: 1 / -1 !important;
+/* Empty state — NOT a grid row (fixes vertical letter stacking) */
+body.auto-renew-page-body .auto-renew-cards {
+  min-height: 220px;
+}
+
+body.auto-renew-page-body .auto-renew-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   text-align: center;
-  color: #64748b;
-  font-weight: 600;
-  padding: 24px 16px !important;
+  padding: 48px 24px 56px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+body.auto-renew-page-body .auto-renew-empty-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(96, 193, 254, 0.18) 0%, rgba(15, 97, 255, 0.1) 100%);
+  color: #2563eb;
+}
+
+body.auto-renew-page-body .auto-renew-empty-state__icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+body.auto-renew-page-body .auto-renew-empty-state__title {
+  margin: 0 0 8px;
+  font-size: clamp(15px, 1vw, 17px);
+  font-weight: 700;
+  color: #334155;
+}
+
+body.auto-renew-page-body .auto-renew-empty-state__hint {
+  margin: 0;
+  max-width: 28rem;
+  font-size: clamp(13px, 0.85vw, 14px);
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+/* Data rows */
+body.auto-renew-page-body .auto-renew-table-row.show-card {
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body.auto-renew-page-body .auto-renew-table-row.show-card:hover {
+  background: rgba(248, 250, 252, 0.95);
 }
 
 body.auto-renew-page-body .card-item--strong {
@@ -123,12 +235,25 @@ body.auto-renew-page-body .auto-renew-inline-select {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  padding: 6px 8px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  padding: 7px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   font-size: 12px;
-  background: #fff;
+  background: #f8fafc;
   color: #0f172a;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+body.auto-renew-page-body .auto-renew-inline-select:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #fff;
+}
+
+body.auto-renew-page-body .auto-renew-inline-select:focus {
+  outline: none;
+  border-color: #60a5fa;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 body.auto-renew-page-body .auto-renew-inline-select:disabled {
@@ -144,29 +269,45 @@ body.auto-renew-page-body .auto-renew-action-btns {
 
 body.auto-renew-page-body .auto-renew-btn {
   min-width: 64px;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   border: none;
   white-space: nowrap;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+
+body.auto-renew-page-body .auto-renew-btn:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+}
+
+body.auto-renew-page-body .auto-renew-btn-primary:not(:disabled):hover {
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 body.auto-renew-page-body .auto-renew-btn-secondary {
-  background: #f1f5f9;
-  color: #334155;
-  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+body.auto-renew-page-body .auto-renew-btn-secondary:not(:disabled):hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 body.auto-renew-page-body .auto-renew-btn-secondary:disabled {
@@ -198,7 +339,7 @@ body.auto-renew-page-body .auto-renew-notice {
   border-radius: 10px;
   font-size: 14px;
   line-height: 1.5;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 body.auto-renew-page-body .auto-renew-notice.warn {
@@ -232,4 +373,11 @@ body.auto-renew-page-body .auto-renew-toast.success {
 
 body.auto-renew-page-body .auto-renew-toast.error {
   background: #dc2626;
+}
+
+@media (max-width: 1280px) {
+  body.auto-renew-page-body .auto-renew-toolbar-panel,
+  body.auto-renew-page-body .auto-renew-table-panel {
+    border-radius: 12px;
+  }
 }
