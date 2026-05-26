@@ -38,7 +38,7 @@ import {
   notifyDashboardGroupFilterChanged,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
-  resolveInitialCompanyId,
+  resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
 
@@ -121,9 +121,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           : u.company_id
             ? parseInt(u.company_id, 10)
             : null;
-      let cid = resolveInitialCompanyId(fallbackId);
+      let cid = resolveBootCompanyId({ sessionCompanyId: fallbackId, defaultRowId: cj.data[0]?.id });
       if (cid && !cj.data.some((c) => parseInt(c.id, 10) === parseInt(cid, 10))) {
-        cid = resolveInitialCompanyId(parseInt(cj.data[0].id, 10));
+        cid = resolveBootCompanyId({ defaultRowId: parseInt(cj.data[0].id, 10) });
       }
 
       const current =
@@ -152,7 +152,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [bootstrap, sessionReady, me]);
 
   useLayoutEffect(() => {
-    persistDashboardFilterState(selectedGroup, companyId);
     notifyDashboardGroupFilterChanged(selectedGroup, companyId);
   }, [selectedGroup, companyId]);
 
@@ -175,8 +174,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (clearSubset) setMergedSubsetIds(null);
   }, []);
 
-  const clearCompanySelection = useCallback(() => {
-    persistDashboardFilterState(selectedGroup, null);
+  const clearCompanySelection = useCallback((groupForPersist) => {
+    const g =
+      groupForPersist ??
+      selectedGroup ??
+      (typeof sessionStorage !== "undefined"
+        ? sessionStorage.getItem("dashboard_group_filter")
+        : null);
+    persistDashboardFilterState(g, null);
     setCompanyId(null);
     setGroupAllMode(false);
     setMergedSubsetIds(null);
@@ -758,7 +763,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!g || g === selectedGroup) return;
       setSelectedGroup(g);
       sessionStorage.setItem("dashboard_group_filter", g);
-      clearCompanySelection();
+      clearCompanySelection(g);
     },
     [selectedGroup, clearCompanySelection]
   );

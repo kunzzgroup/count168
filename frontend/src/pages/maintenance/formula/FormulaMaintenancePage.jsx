@@ -11,7 +11,7 @@ import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupC
 import {
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
-  resolveInitialCompanyId,
+  resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
@@ -292,8 +292,10 @@ export default function FormulaMaintenancePage() {
         const rows = Array.isArray(compJson?.data) ? compJson.data : [];
         setCompanies(rows);
 
-        const fallbackId = u.company_id ? Number(u.company_id) : rows[0]?.id ? Number(rows[0].id) : null;
-        let initialCompanyId = resolveInitialCompanyId(fallbackId);
+        const initialCompanyId = resolveBootCompanyId({
+          sessionCompanyId: u.company_id,
+          defaultRowId: rows[0]?.id,
+        });
         const currentComp =
           initialCompanyId != null
             ? rows.find((c) => Number(c.id) === initialCompanyId)

@@ -9,7 +9,7 @@ import {
   normalizeOwnerCompanyRow,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
-  resolveInitialCompanyId,
+  resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
@@ -335,9 +335,11 @@ export default function DataCapturePage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        let effectiveCompany = resolveInitialCompanyId(
-          queryCompany || u.company_id || raw[0]?.id || null,
-        );
+        let effectiveCompany = resolveBootCompanyId({
+          urlCompanyId: queryCompany,
+          sessionCompanyId: u.company_id,
+          defaultRowId: raw[0]?.id,
+        });
 
         const rowForPickEarly =
           effectiveCompany != null

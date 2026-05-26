@@ -11,7 +11,7 @@ import {
   isDashboardGroupOnlyMode,
   loadOwnerCompaniesCached,
   persistDashboardFilterState,
-  resolveInitialCompanyId,
+  resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
@@ -390,19 +390,20 @@ export default function TransactionMaintenancePage() {
     setDateRangeReady(true);
   }, [sessionReady, me?.user_id]);
 
-  // Hydrate company from cache before async boot (SPA navigation — filters usable immediately).
+  // Hydrate company from cache before async boot — skip when user cleared company (group-only).
   useEffect(() => {
     if (!me || companyId != null || isDashboardGroupOnlyMode()) return;
     const cached = getCachedOwnerCompanies();
-    let initialCompanyId = resolveInitialCompanyId(
-      me.company_id ? Number(me.company_id) : cached?.[0]?.id ? Number(cached[0].id) : null,
-    );
+    let initialCompanyId = resolveBootCompanyId({
+      sessionCompanyId: me.company_id,
+      defaultRowId: cached?.[0]?.id,
+    });
     if (
       initialCompanyId &&
       cached?.length &&
       !cached.some((c) => Number(c.id) === initialCompanyId)
     ) {
-      initialCompanyId = resolveInitialCompanyId(cached[0]?.id);
+      initialCompanyId = resolveBootCompanyId({ defaultRowId: cached[0]?.id });
     }
     if (initialCompanyId == null) return;
     const comp = cached?.find((c) => Number(c.id) === initialCompanyId);
@@ -468,14 +469,16 @@ export default function TransactionMaintenancePage() {
         setCompanies(filtered);
 
         // Set Initial Company
-        const fallbackId = u.company_id ? Number(u.company_id) : filtered[0]?.id ? Number(filtered[0].id) : null;
-        let initialCompanyId = resolveInitialCompanyId(fallbackId);
+        let initialCompanyId = resolveBootCompanyId({
+          sessionCompanyId: u.company_id,
+          defaultRowId: filtered[0]?.id,
+        });
 
         if (
           initialCompanyId &&
           !filtered.some((c) => Number(c.id) === initialCompanyId)
         ) {
-          initialCompanyId = resolveInitialCompanyId(filtered[0]?.id);
+          initialCompanyId = resolveBootCompanyId({ defaultRowId: filtered[0]?.id });
         }
 
         const currentComp =

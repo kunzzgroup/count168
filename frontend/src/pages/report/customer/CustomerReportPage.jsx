@@ -7,7 +7,7 @@ import {
   normalizeOwnerCompanyRow,
   DASHBOARD_GROUP_FILTER_KEY,
   isDashboardGroupOnlyMode,
-  resolveInitialCompanyId as resolveGcCompanyId,
+  resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -47,8 +47,10 @@ function resolveReportBootCompanyId() {
   const cached = getCachedOwnerCompanies();
   const url = new URL(window.location.href);
   const queryCompany = url.searchParams.get("company_id");
-  const fallback = queryCompany || cached?.[0]?.id || null;
-  return resolveGcCompanyId(fallback);
+  return resolveBootCompanyId({
+    urlCompanyId: queryCompany,
+    defaultRowId: cached?.[0]?.id,
+  });
 }
 
 export default function CustomerReportPage() {
@@ -159,8 +161,11 @@ export default function CustomerReportPage() {
     const cached = getCachedOwnerCompanies();
     const url = new URL(window.location.href);
     const queryCompany = url.searchParams.get("company_id");
-    const fallback = queryCompany || me.company_id || cached?.[0]?.id || null;
-    const effective = resolveGcCompanyId(fallback);
+    const effective = resolveBootCompanyId({
+      urlCompanyId: queryCompany,
+      sessionCompanyId: me.company_id,
+      defaultRowId: cached?.[0]?.id,
+    });
     if (effective != null || isDashboardGroupOnlyMode()) setCompanyId(effective);
   }, [me, companyId]);
 
@@ -193,8 +198,11 @@ export default function CustomerReportPage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        const fallback = queryCompany || u.company_id || rows[0]?.id || null;
-        const effective = resolveGcCompanyId(fallback);
+        const effective = resolveBootCompanyId({
+          urlCompanyId: queryCompany,
+          sessionCompanyId: u.company_id,
+          defaultRowId: rows[0]?.id,
+        });
         const nextCompanyId =
           companyId != null ? companyId : effective != null || isDashboardGroupOnlyMode() ? effective : null;
         const row =

@@ -9,7 +9,7 @@ import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupC
 import {
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
-  resolveInitialCompanyId,
+  resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
@@ -201,17 +201,15 @@ export default function BankprocessMaintenancePage() {
 
         setCompanies(compRows);
 
-        const fallbackId = user.company_id
-          ? Number(user.company_id)
-          : compRows[0]?.id
-            ? Number(compRows[0].id)
-            : null;
-        let initialCompanyId = resolveInitialCompanyId(fallbackId);
+        let initialCompanyId = resolveBootCompanyId({
+          sessionCompanyId: user.company_id,
+          defaultRowId: compRows[0]?.id,
+        });
         if (
           initialCompanyId &&
           !compRows.some((c) => Number(c.id) === Number(initialCompanyId))
         ) {
-          initialCompanyId = resolveInitialCompanyId(compRows[0]?.id);
+          initialCompanyId = resolveBootCompanyId({ defaultRowId: compRows[0]?.id });
         }
         const currentComp =
           initialCompanyId != null
