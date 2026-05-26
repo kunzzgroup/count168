@@ -605,6 +605,8 @@ let domainAddDeletedCurrencyIds = [];
 let domainAddPreferredRole = '';
 let domainAddAccountEventsBound = false;
 let domainFeePriceCache = '0';
+let domainFeePeriodPricesCache = {};
+let domainFeePeriodEditGridBuilt = false;
 
 function defaultFeeShareAllocations() {
     return { profit: [], sales: [], cs: [], it: [] };
@@ -2113,12 +2115,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    ensureDomainFeePeriodEditGrid();
     refreshDomainFeeSummaryFromApi();
-
-    var domainFeePriceInput = document.getElementById('domainFeePrice');
-    if (domainFeePriceInput) {
-        domainFeePriceInput.addEventListener('input', refreshDomainFeePeriodSummaryFromInput);
-    }
 });
 
 /** Period keys align with Company Settings → Period dropdown */
@@ -2130,21 +2128,40 @@ var DOMAIN_FEE_PERIOD_DEFS = [
     { key: '1year', label: '1 Year' }
 ];
 
-/** Proportional prices from 1 Year base: months ÷12, 7 days ÷365×7 */
-function computeDomainFeePeriodPrices(yearlyPrice) {
-    var y;
-    try {
-        y = domainDecimal(yearlyPrice === '' || yearlyPrice === null || yearlyPrice === undefined ? '0' : yearlyPrice, 0);
-    } catch (e) {
-        y = domainDecimal('0', 0);
+function defaultDomainFeePeriodPricesObject() {
+    var o = {};
+    DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+        o[def.key] = '';
+    });
+    return o;
+}
+
+function normalizeDomainFeePeriodPricesFromApi(data) {
+    var out = defaultDomainFeePeriodPricesObject();
+    if (!data) {
+        return out;
     }
-    return {
-        '7days': MoneyDecimal.div(MoneyDecimal.mul(y, '7'), '365'),
-        '1month': MoneyDecimal.div(y, '12'),
-        '3months': MoneyDecimal.div(MoneyDecimal.mul(y, '3'), '12'),
-        '6months': MoneyDecimal.div(MoneyDecimal.mul(y, '6'), '12'),
-        '1year': y
-    };
+    var src = data.period_prices && typeof data.period_prices === 'object' ? data.period_prices : null;
+    if (!src && data.price !== null && data.price !== undefined && data.price !== '') {
+        src = { '1year': data.price };
+    }
+    if (!src) {
+        return out;
+    }
+    DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+        if (src[def.key] !== null && src[def.key] !== undefined && src[def.key] !== '') {
+            out[def.key] = String(src[def.key]);
+        }
+    });
+    return out;
+}
+
+function syncDomainFeePriceCacheFromPeriodPrices(periodPrices) {
+    domainFeePeriodPricesCache = periodPrices || {};
+    var yearly = periodPrices && periodPrices['1year'] !== undefined && periodPrices['1year'] !== ''
+        ? String(periodPrices['1year'])
+        : '0';
+    domainFeePriceCache = yearly || '0';
 }
 
 function formatDomainFeePeriodAmount(val) {
@@ -2182,49 +2199,69 @@ function formatDomainFeeEdit2(val) {
     }
 }
 
-function buildDomainFeePeriodSummaryHtml(yearlyPrice) {
-    var prices = computeDomainFeePeriodPrices(yearlyPrice);
-    var rows = DOMAIN_FEE_PERIOD_DEFS.map(function (def) {
-        var amt = formatDomainFeePeriodAmount(prices[def.key]);
-        return '<div class="domain-fee-period-row"><span class="domain-fee-period-label">' + def.label + '</span><strong>' + amt + '</strong></div>';
+function buildDomainFeePeriodSummaryHtml(periodPrices) {
+    var cards = DOMAIN_FEE_PERIOD_DEFS.map(function (def) {
+        var amt = formatDomainFeePeriodAmount(periodPrices[def.key]);
+        return '<div class="domain-fee-period-card">' +
+            '<span class="domain-fee-period-label">' + def.label + '</span>' +
+            '<strong class="domain-fee-period-display-value">' + amt + '</strong>' +
+            '</div>';
     }).join('');
-    return '<div class="domain-fee-period-summary-title">Prices by period <span class="domain-fee-period-base-hint">(from 1 Year fee)</span></div>' +
-        '<div class="domain-fee-period-list">' + rows + '</div>';
+    return '<div class="domain-fee-period-summary-title">Display prices</div>' +
+        '<div class="domain-fee-period-grid">' + cards + '</div>';
 }
 
 function buildDomainFeeSummaryHtml2(data) {
-    var yearly = data && data.price !== null && data.price !== undefined && data.price !== '' ? data.price : '0';
-    return buildDomainFeePeriodSummaryHtml(yearly);
+    return buildDomainFeePeriodSummaryHtml(normalizeDomainFeePeriodPricesFromApi(data));
 }
 
 function buildDomainFeeInlineSummaryText2(data) {
-    var yearly = data && data.price !== null && data.price !== undefined && data.price !== '' ? data.price : '';
-    if (yearly === '') {
-        return '';
+    var prices = normalizeDomainFeePeriodPricesFromApi(data);
+    var parts = DOMAIN_FEE_PERIOD_DEFS.map(function (def) {
+        var amt = formatDomainFeePeriodAmount(prices[def.key]);
+        if (amt === '—') {
+            return null;
+        }
+        return def.label + ': ' + amt;
+    }).filter(Boolean);
+    return parts.length ? parts.join(' · ') : '';
+}
+
+function ensureDomainFeePeriodEditGrid() {
+    if (domainFeePeriodEditGridBuilt) {
+        return;
     }
-    var p1y = formatDomainFeePeriodAmount(computeDomainFeePeriodPrices(yearly)['1year']);
-    if (p1y === '—') {
-        return '';
+    var grid = document.getElementById('domainFeePeriodEditGrid');
+    if (!grid) {
+        return;
     }
-    return '1 Year: ' + p1y;
+    grid.innerHTML = DOMAIN_FEE_PERIOD_DEFS.map(function (def) {
+        return '<div class="domain-fee-period-card domain-fee-period-card--edit">' +
+            '<label for="domainFeePrice_' + def.key + '">' + def.label + '</label>' +
+            '<input type="text" id="domainFeePrice_' + def.key + '" class="domain-fee-period-input" data-period="' + def.key + '" inputmode="decimal" placeholder="0.00" autocomplete="off">' +
+            '</div>';
+    }).join('');
+    grid.querySelectorAll('.domain-fee-period-input').forEach(function (input) {
+        input.addEventListener('input', refreshDomainFeePeriodSummaryFromInput);
+    });
+    domainFeePeriodEditGridBuilt = true;
+}
+
+function collectDomainFeePeriodPricesFromInputs() {
+    var out = defaultDomainFeePeriodPricesObject();
+    DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+        var el = document.getElementById('domainFeePrice_' + def.key);
+        out[def.key] = el ? String(el.value).trim() : '';
+    });
+    return out;
 }
 
 function refreshDomainFeePeriodSummaryFromInput() {
-    var priceEl = document.getElementById('domainFeePrice');
-    var raw = priceEl ? String(priceEl.value).trim() : '';
-    var yearly = raw;
-    if (yearly !== '') {
-        try {
-            yearly = domainDecimalFixed(yearly, 8);
-        } catch (e) {
-            yearly = domainFeePriceCache || '0';
-        }
-    } else {
-        yearly = '0';
-    }
+    var periodPrices = collectDomainFeePeriodPricesFromInputs();
+    syncDomainFeePriceCacheFromPeriodPrices(periodPrices);
     var modalEl = document.getElementById('domainFeeSummaryDisplay');
     if (modalEl) {
-        modalEl.innerHTML = buildDomainFeePeriodSummaryHtml(yearly);
+        modalEl.innerHTML = buildDomainFeePeriodSummaryHtml(periodPrices);
     }
 }
 
@@ -2232,7 +2269,8 @@ function applyDomainFeeSummaryDisplays(data) {
     if (!data) {
         return;
     }
-    domainFeePriceCache = data.price !== null && data.price !== undefined && data.price !== '' ? String(data.price) : '0';
+    var periodPrices = normalizeDomainFeePeriodPricesFromApi(data);
+    syncDomainFeePriceCacheFromPeriodPrices(periodPrices);
     var modalEl = document.getElementById('domainFeeSummaryDisplay');
     if (modalEl) {
         modalEl.innerHTML = buildDomainFeeSummaryHtml2(data);
@@ -2248,10 +2286,14 @@ function applyDomainFeeEditInputs(data) {
     if (!data) {
         return;
     }
-    var p = document.getElementById('domainFeePrice');
-    if (p) {
-        p.value = formatDomainFeeEdit2(data.price);
-    }
+    ensureDomainFeePeriodEditGrid();
+    var periodPrices = normalizeDomainFeePeriodPricesFromApi(data);
+    DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+        var el = document.getElementById('domainFeePrice_' + def.key);
+        if (el) {
+            el.value = formatDomainFeeEdit2(periodPrices[def.key]);
+        }
+    });
 }
 
 /** 页面加载时更新列表旁「展示」文案（失败则静默） */
@@ -2277,6 +2319,7 @@ function refreshDomainFeeSummaryFromApi() {
 function openDomainFeeSettingsModal() {
     const modal = document.getElementById('domainFeeSettingsModal');
     if (!modal) return;
+    ensureDomainFeePeriodEditGrid();
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
     fetch('api/domain/domain_api.php', {
@@ -2307,15 +2350,20 @@ function closeDomainFeeSettingsModal() {
 }
 
 function saveDomainFeeSettings() {
-    var priceEl = document.getElementById('domainFeePrice');
-    var price = priceEl ? String(priceEl.value).trim() : '';
-    if (price !== '') {
-        try {
-            price = domainDecimalFixed(price, 8);
-        } catch (e) {
-            showAlert('Price must be a number or empty', 'danger');
-            return;
-        }
+    var rawPeriods = collectDomainFeePeriodPricesFromInputs();
+    var periodPrices = {};
+    try {
+        DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+            var raw = rawPeriods[def.key];
+            if (raw === '') {
+                periodPrices[def.key] = null;
+                return;
+            }
+            periodPrices[def.key] = domainDecimalFixed(raw, 8);
+        });
+    } catch (e) {
+        showAlert('Each period price must be a number or empty', 'danger');
+        return;
     }
     fetch('api/domain/domain_api.php', {
         cache: 'no-cache',
@@ -2323,7 +2371,8 @@ function saveDomainFeeSettings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             action: 'save_domain_fee_settings',
-            price: price
+            period_prices: periodPrices,
+            price: periodPrices['1year']
         })
     })
         .then(function (r) { return r.json(); })
