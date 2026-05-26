@@ -3,14 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
-import { getAutoRenewCalendarI18n, getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
+import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
 import { formatDate, formatDomainFeeDisplay2 } from "../domain/domainHelpers.js";
-import { DashboardCalendarPopup } from "../dashboard/components/DashboardCalendarPopup.jsx";
-import { defaultDashboardDateRange, ymdToDmy } from "../dashboard/lib/dashboardDateUtils.js";
 import {
   approveAutoRenew,
   AUTO_RENEW_PERIODS,
-  deleteAutoRenewApproval,
   fetchAutoRenewApprovals,
   rejectAutoRenew,
 } from "./autoRenewLogic.js";
@@ -19,26 +16,15 @@ import {
   canApproveRow,
   filterAutoRenewRows,
   formatRemainingForRow,
-  formatSubmitterTooltip,
   getRowDraftValues,
   paginateRows,
   periodToLabelKey,
   sortAutoRenewRows,
 } from "./autoRenewPageHelpers.js";
-import { useAutoRenewDateRange } from "./hooks/useAutoRenewDateRange.js";
-import AutoRenewPaymentHistory from "./components/AutoRenewPaymentHistory.jsx";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/admin-responsive.css";
 import "../../../public/css/auto_renew.css";
-import "../../../public/css/date-range-picker.css";
-import "../../../public/css/report-outlined-fields.css";
-import "../../../public/css/transaction.css";
-
-const TOOLBAR_FROM_ID = "auto_renew_toolbar_date_from";
-const TOOLBAR_TO_ID = "auto_renew_toolbar_date_to";
-const TOOLBAR_DISPLAY_ID = "auto-renew-toolbar-date-display";
-const TOOLBAR_PICKER_ID = "auto-renew-toolbar-date-range-picker";
 
 function FilterChip({ active, label, count, onClick }) {
   return (
@@ -108,11 +94,6 @@ export default function AutoRenewPage() {
   const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const t = useCallback((key, params) => getAutoRenewText(lang, key, params), [lang]);
-  const calendarI18n = useMemo(() => getAutoRenewCalendarI18n(lang), [lang]);
-
-  const defaultRange = useMemo(() => defaultDashboardDateRange(), []);
-  const [toolbarDateFrom, setToolbarDateFrom] = useState(defaultRange.dateFrom);
-  const [toolbarDateTo, setToolbarDateTo] = useState(defaultRange.dateTo);
 
   const [bootDone, setBootDone] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -128,34 +109,6 @@ export default function AutoRenewPage() {
   const [rowDrafts, setRowDrafts] = useState({});
   const [busyRequestId, setBusyRequestId] = useState(null);
   const [toasts, setToasts] = useState([]);
-  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
-
-  const periodPresets = useMemo(
-    () => [
-      ["today", calendarI18n.today],
-      ["yesterday", calendarI18n.yesterday],
-      ["thisWeek", calendarI18n.thisWeek],
-      ["lastWeek", calendarI18n.lastWeek],
-      ["thisMonth", calendarI18n.thisMonth],
-      ["lastMonth", calendarI18n.lastMonth],
-      ["thisYear", calendarI18n.thisYear],
-      ["lastYear", calendarI18n.lastYear],
-    ],
-    [calendarI18n],
-  );
-
-  const { effectiveDateRangeText } = useAutoRenewDateRange({
-    ready: bootDone,
-    i18n: calendarI18n,
-    dateFrom: toolbarDateFrom,
-    dateTo: toolbarDateTo,
-    setDateFrom: setToolbarDateFrom,
-    setDateTo: setToolbarDateTo,
-    fromInputId: TOOLBAR_FROM_ID,
-    toInputId: TOOLBAR_TO_ID,
-    displayId: TOOLBAR_DISPLAY_ID,
-    pickerId: TOOLBAR_PICKER_ID,
-  });
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -173,17 +126,13 @@ export default function AutoRenewPage() {
   }, []);
 
   const loadList = useCallback(async (status) => {
-    const useDateFilter = status !== "pending";
-    const data = await fetchAutoRenewApprovals(status, {
-      dateFrom: useDateFilter ? ymdToDmy(toolbarDateFrom) : undefined,
-      dateTo: useDateFilter ? ymdToDmy(toolbarDateTo) : undefined,
-    });
+    const data = await fetchAutoRenewApprovals(status);
     setRows(Array.isArray(data?.rows) ? data.rows : []);
     setAccounts(Array.isArray(data?.accounts) ? data.accounts : []);
     setCounts(data?.counts || { pending: 0, approved: 0, rejected: 0, total: 0 });
     setCanEditGlobal(Boolean(data?.can_edit));
     setRowDrafts({});
-  }, [toolbarDateFrom, toolbarDateTo]);
+  }, []);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -215,7 +164,7 @@ export default function AutoRenewPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, sortColumn, sortDirection, toolbarDateFrom, toolbarDateTo]);
+  }, [searchTerm, statusFilter, sortColumn, sortDirection]);
 
   const updateDraft = useCallback((requestId, patch) => {
     setRowDrafts((prev) => ({
@@ -223,8 +172,6 @@ export default function AutoRenewPage() {
       [requestId]: { ...(prev[requestId] || {}), ...patch },
     }));
   }, []);
-
-  const bumpHistory = useCallback(() => setHistoryRefreshKey((k) => k + 1), []);
 
   const handleApprove = useCallback(async (row) => {
     if (!canEditGlobal || busyRequestId) return;
@@ -242,14 +189,13 @@ export default function AutoRenewPage() {
         toAccountId,
       });
       notify(t("approvedSuccess"), "success");
-      bumpHistory();
       await loadList(statusFilter);
     } catch (err) {
       notify(t("approveFailed", { message: err.message }), "error");
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, bumpHistory, canEditGlobal, loadList, notify, rowDrafts, statusFilter, t]);
+  }, [busyRequestId, canEditGlobal, loadList, notify, rowDrafts, statusFilter, t]);
 
   const handleReject = useCallback(async (row) => {
     if (!canEditGlobal || busyRequestId) return;
@@ -266,23 +212,6 @@ export default function AutoRenewPage() {
       setBusyRequestId(null);
     }
   }, [busyRequestId, canEditGlobal, loadList, notify, statusFilter, t]);
-
-  const handleDelete = useCallback(async (row) => {
-    if (!canEditGlobal || busyRequestId) return;
-    if (!window.confirm(t("confirmDelete", { company: row.company_code }))) return;
-
-    setBusyRequestId(row.request_id);
-    try {
-      await deleteAutoRenewApproval({ requestId: row.request_id });
-      notify(t("deletedSuccess"), "success");
-      bumpHistory();
-      await loadList(statusFilter);
-    } catch (err) {
-      notify(t("deleteFailed", { message: err.message }), "error");
-    } finally {
-      setBusyRequestId(null);
-    }
-  }, [busyRequestId, bumpHistory, canEditGlobal, loadList, notify, statusFilter, t]);
 
   const handleSort = useCallback(
     (column) => {
@@ -328,70 +257,36 @@ export default function AutoRenewPage() {
   );
 
   const renderStatusCell = (row) => {
-    const statusClass =
-      row.status === "approved" ? "is-approved" : row.status === "rejected" ? "is-rejected" : "is-pending";
-    const badge = (
-      <span className={`auto-renew-approval-badge ${statusClass}`}>
-        {t(`status${row.status.charAt(0).toUpperCase()}${row.status.slice(1)}`)}
-      </span>
-    );
-
     if (row.status === "pending" && canEditGlobal) {
       const approveEnabled = canApproveRow(row, rowDrafts) && busyRequestId !== row.request_id;
       return (
-        <div className="auto-renew-status-cell">
-          {badge}
-          <div className="auto-renew-action-btns">
-            <button
-              type="button"
-              className="auto-renew-btn auto-renew-btn-primary auto-renew-btn--sm"
-              disabled={!approveEnabled}
-              title={!row.price ? t("noPriceHint") : undefined}
-              onClick={() => handleApprove(row)}
-            >
-              {busyRequestId === row.request_id ? t("processing") : t("approve")}
-            </button>
-            <button
-              type="button"
-              className="auto-renew-btn auto-renew-btn-secondary auto-renew-btn--sm"
-              disabled={busyRequestId === row.request_id}
-              onClick={() => handleReject(row)}
-            >
-              {t("reject")}
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (row.status === "approved" && canEditGlobal) {
-      return (
-        <div className="auto-renew-status-cell">
-          {badge}
+        <div className="auto-renew-action-btns">
           <button
             type="button"
-            className="auto-renew-btn auto-renew-btn-danger auto-renew-btn--sm"
-            disabled={busyRequestId === row.request_id}
-            onClick={() => handleDelete(row)}
+            className="auto-renew-btn auto-renew-btn-primary auto-renew-btn--sm"
+            disabled={!approveEnabled}
+            title={!row.price ? t("noPriceHint") : undefined}
+            onClick={() => handleApprove(row)}
           >
-            {busyRequestId === row.request_id ? t("processing") : t("delete")}
+            {busyRequestId === row.request_id ? t("processing") : t("approve")}
+          </button>
+          <button
+            type="button"
+            className="auto-renew-btn auto-renew-btn-secondary auto-renew-btn--sm"
+            disabled={busyRequestId === row.request_id}
+            onClick={() => handleReject(row)}
+          >
+            {t("reject")}
           </button>
         </div>
       );
     }
 
-    return badge;
-  };
-
-  const renderSubmitterCell = (row) => {
-    const submitter = row.submitter || row.processed_by;
-    if (!submitter) {
-      return <span className="auto-renew-table-muted">{t("submitterPending")}</span>;
-    }
-    const tooltip = formatSubmitterTooltip(row.submitter_at || row.processed_at);
+    const statusClass =
+      row.status === "approved" ? "is-approved" : row.status === "rejected" ? "is-rejected" : "is-pending";
     return (
-      <span className="auto-renew-submitter" title={tooltip || undefined}>
-        {submitter}
+      <span className={`auto-renew-approval-badge ${statusClass}`}>
+        {t(`status${row.status.charAt(0).toUpperCase()}${row.status.slice(1)}`)}
       </span>
     );
   };
@@ -418,8 +313,6 @@ export default function AutoRenewPage() {
         ))}
       </div>
 
-      <DashboardCalendarPopup i18n={calendarI18n} periodPresets={periodPresets} dateFrom={toolbarDateFrom} />
-
       <div className="container auto-renew-page">
         <div className="content">
           <header className="auto-renew-page-header">
@@ -445,35 +338,6 @@ export default function AutoRenewPage() {
                       onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
                     />
                   </div>
-                  {statusFilter !== "pending" ? (
-                    <div className="auto-renew-toolbar-date-row">
-                      <span className="user-gc-inline-label">{t("dateRange")}</span>
-                      <div className="report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
-                        <div className="report-outlined-shell report-outlined-shell--no-label">
-                          <div className="report-outlined-inner">
-                            <div className="transaction-date-range-group">
-                              <div
-                                className="date-range-picker"
-                                id={TOOLBAR_PICKER_ID}
-                                data-drp-from={TOOLBAR_FROM_ID}
-                                data-drp-to={TOOLBAR_TO_ID}
-                                data-drp-display={TOOLBAR_DISPLAY_ID}
-                                role="button"
-                                tabIndex={0}
-                                aria-label={t("selectDateRange")}
-                              >
-                                <i className="fas fa-calendar-alt" />
-                                <span id={TOOLBAR_DISPLAY_ID}>{effectiveDateRangeText}</span>
-                                <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
-                              </div>
-                              <input type="hidden" id={TOOLBAR_FROM_ID} readOnly />
-                              <input type="hidden" id={TOOLBAR_TO_ID} readOnly />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
                   <div className="userlist-filter-chips auto-renew-filter-chips" role="group" aria-label={t("filterGroupLabel")}>
                     <FilterChip
                       active={statusFilter === "pending"}
@@ -510,136 +374,132 @@ export default function AutoRenewPage() {
           )}
 
           <div className="auto-renew-table-panel user-table-wrapper">
-            <div className="user-list-table auto-renew-table">
-              <div className="user-list-table-inner">
-                <div className="table-header user-list-table-header auto-renew-table-header">
-                  <div className="header-item"><span className="header-item__label">{t("colNo")}</span></div>
-                  {renderHeader("company", t("colCompany"))}
-                  {renderHeader("name", t("colName"))}
-                  {renderHeader("price", t("colPrice"))}
-                  {renderHeader("expiration", t("colExpiration"))}
-                  {renderHeader("remaining", t("colRemaining"))}
-                  {renderHeader("period", t("colPeriod"))}
-                  <div className="header-item"><span className="header-item__label">{t("colFromAccount")}</span></div>
-                  <div className="header-item"><span className="header-item__label">{t("colToAccount")}</span></div>
-                  {renderHeader("status", t("colStatus"))}
-                  <div className="header-item"><span className="header-item__label">{t("colSubmitter")}</span></div>
-                </div>
+          <div className="user-list-table auto-renew-table">
+            <div className="user-list-table-inner">
+              <div className="table-header user-list-table-header auto-renew-table-header">
+                <div className="header-item"><span className="header-item__label">{t("colNo")}</span></div>
+                {renderHeader("company", t("colCompany"))}
+                {renderHeader("name", t("colName"))}
+                {renderHeader("price", t("colPrice"))}
+                {renderHeader("expiration", t("colExpiration"))}
+                {renderHeader("remaining", t("colRemaining"))}
+                {renderHeader("period", t("colPeriod"))}
+                {renderHeader("status", t("colStatus"))}
+                <div className="header-item"><span className="header-item__label">{t("colFromAccount")}</span></div>
+                <div className="header-item"><span className="header-item__label">{t("colToAccount")}</span></div>
+              </div>
 
-                <div className="user-cards auto-renew-cards" aria-busy={Boolean(busyRequestId)}>
-                  {pagination.rows.length === 0 ? (
-                    <EmptyState statusFilter={statusFilter} searchTerm={searchTerm} t={t} />
-                  ) : (
-                    pagination.rows.map((row, idx) => {
-                      const globalIdx = (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
-                      const isPendingEditable = row.status === "pending" && canEditGlobal;
-                      const draft = getRowDraftValues(row, rowDrafts);
-                      const rowBusy = busyRequestId === row.request_id;
+              <div className="user-cards auto-renew-cards" aria-busy={Boolean(busyRequestId)}>
+                {pagination.rows.length === 0 ? (
+                  <EmptyState statusFilter={statusFilter} searchTerm={searchTerm} t={t} />
+                ) : (
+                  pagination.rows.map((row, idx) => {
+                    const globalIdx = (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
+                    const isPendingEditable = row.status === "pending" && canEditGlobal;
+                    const draft = getRowDraftValues(row, rowDrafts);
+                    const rowBusy = busyRequestId === row.request_id;
 
-                      return (
-                        <div
-                          key={row.request_id}
-                          className={`user-card user-list-row auto-renew-table-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
-                        >
-                          <div className="card-item auto-renew-table-muted">{globalIdx}</div>
-                          <div className="card-item card-item--strong">{row.company_code}</div>
-                          <div className="card-item">{row.owner_name || "-"}</div>
-                          <div className="card-item">
-                            {row.price ? formatDomainFeeDisplay2(row.price) : <span className="auto-renew-table-muted">—</span>}
-                          </div>
-                          <div className="card-item">{row.expiration_date ? formatDate(row.expiration_date) : "-"}</div>
-                          <div className="card-item">
-                            <span className={`auto-renew-status-badge ${row.expiration_status || "normal"}`}>
-                              {formatRemainingForRow(row, t)}
-                            </span>
-                          </div>
-                          <div className="card-item">
-                            {isPendingEditable ? (
-                              <select
-                                className="auto-renew-inline-select"
-                                value={draft.period}
-                                disabled={rowBusy}
-                                onChange={(e) => updateDraft(row.request_id, { period: e.target.value })}
-                              >
-                                <option value="">{t("selectPeriod")}</option>
-                                {AUTO_RENEW_PERIODS.map((p) => (
-                                  <option key={p.value} value={p.value}>
-                                    {t(p.labelKey)}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <span>{row.period ? t(periodToLabelKey(row.period)) : "-"}</span>
-                            )}
-                          </div>
-                          <div className="card-item">
-                            {isPendingEditable ? (
-                              <AccountSelect
-                                value={draft.fromAccountId}
-                                accounts={accounts}
-                                placeholder={t("selectFromAccount")}
-                                disabled={rowBusy}
-                                onChange={(val) => updateDraft(row.request_id, { fromAccountId: val })}
-                              />
-                            ) : (
-                              <span className="auto-renew-table-muted">
-                                {accounts.find((a) => a.id === row.from_account_id)?.account_code || "-"}
-                              </span>
-                            )}
-                          </div>
-                          <div className="card-item">
-                            {isPendingEditable ? (
-                              <AccountSelect
-                                value={draft.toAccountId}
-                                accounts={accounts}
-                                placeholder={t("selectToAccount")}
-                                disabled={rowBusy}
-                                onChange={(val) => updateDraft(row.request_id, { toAccountId: val })}
-                              />
-                            ) : (
-                              <span className="auto-renew-table-muted">
-                                {accounts.find((a) => a.id === row.to_account_id)?.account_code || "-"}
-                              </span>
-                            )}
-                          </div>
-                          <div className="card-item">{renderStatusCell(row)}</div>
-                          <div className="card-item">{renderSubmitterCell(row)}</div>
+                    return (
+                      <div
+                        key={row.request_id}
+                        className={`user-card user-list-row auto-renew-table-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
+                      >
+                        <div className="card-item auto-renew-table-muted">{globalIdx}</div>
+                        <div className="card-item card-item--strong">{row.company_code}</div>
+                        <div className="card-item">{row.owner_name || "-"}</div>
+                        <div className="card-item">
+                          {row.price ? formatDomainFeeDisplay2(row.price) : <span className="auto-renew-table-muted">—</span>}
                         </div>
-                      );
-                    })
-                  )}
-                </div>
+                        <div className="card-item">{row.expiration_date ? formatDate(row.expiration_date) : "-"}</div>
+                        <div className="card-item">
+                          <span className={`auto-renew-status-badge ${row.expiration_status || "normal"}`}>
+                            {formatRemainingForRow(row, t)}
+                          </span>
+                        </div>
+                        <div className="card-item">
+                          {isPendingEditable ? (
+                            <select
+                              className="auto-renew-inline-select"
+                              value={draft.period}
+                              disabled={rowBusy}
+                              onChange={(e) => updateDraft(row.request_id, { period: e.target.value })}
+                            >
+                              <option value="">{t("selectPeriod")}</option>
+                              {AUTO_RENEW_PERIODS.map((p) => (
+                                <option key={p.value} value={p.value}>
+                                  {t(p.labelKey)}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span>{row.period ? t(periodToLabelKey(row.period)) : "-"}</span>
+                          )}
+                        </div>
+                        <div className="card-item">{renderStatusCell(row)}</div>
+                        <div className="card-item">
+                          {isPendingEditable ? (
+                            <AccountSelect
+                              value={draft.fromAccountId}
+                              accounts={accounts}
+                              placeholder={t("selectFromAccount")}
+                              disabled={rowBusy}
+                              onChange={(val) => updateDraft(row.request_id, { fromAccountId: val })}
+                            />
+                          ) : (
+                            <span className="auto-renew-table-muted">
+                              {accounts.find((a) => a.id === row.from_account_id)?.account_code || "-"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="card-item">
+                          {isPendingEditable ? (
+                            <AccountSelect
+                              value={draft.toAccountId}
+                              accounts={accounts}
+                              placeholder={t("selectToAccount")}
+                              disabled={rowBusy}
+                              onChange={(val) => updateDraft(row.request_id, { toAccountId: val })}
+                            />
+                          ) : (
+                            <span className="auto-renew-table-muted">
+                              {accounts.find((a) => a.id === row.to_account_id)?.account_code || "-"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
-
-            {filteredRows.length > 0 && (
-              <div className="pagination-container auto-renew-pagination">
-                <button
-                  type="button"
-                  className="pagination-btn"
-                  disabled={pagination.page <= 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  aria-label={t("prevPage")}
-                >
-                  ◀
-                </button>
-                <span className="pagination-info">
-                  {t("pageInfo", { page: pagination.page, total: pagination.totalPages, count: filteredRows.length })}
-                </span>
-                <button
-                  type="button"
-                  className="pagination-btn"
-                  disabled={pagination.page >= pagination.totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  aria-label={t("nextPage")}
-                >
-                  ▶
-                </button>
-              </div>
-            )}
           </div>
 
-          <AutoRenewPaymentHistory key={historyRefreshKey} ready={bootDone} t={t} />
+          {filteredRows.length > 0 && (
+            <div className="pagination-container auto-renew-pagination">
+              <button
+                type="button"
+                className="pagination-btn"
+                disabled={pagination.page <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                aria-label={t("prevPage")}
+              >
+                ◀
+              </button>
+              <span className="pagination-info">
+                {t("pageInfo", { page: pagination.page, total: pagination.totalPages, count: filteredRows.length })}
+              </span>
+              <button
+                type="button"
+                className="pagination-btn"
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+                aria-label={t("nextPage")}
+              >
+                ▶
+              </button>
+            </div>
+          )}
+          </div>
         </div>
       </div>
     </>

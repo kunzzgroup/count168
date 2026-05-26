@@ -63,14 +63,7 @@ try {
 
     if ($action === 'list') {
         $statusFilter = strtolower(trim((string) ($input['status'] ?? 'pending')));
-        $dateFrom = trim((string) ($input['date_from'] ?? ''));
-        $dateTo = trim((string) ($input['date_to'] ?? ''));
-        $result = auto_renew_list_approvals(
-            $pdo,
-            $statusFilter,
-            $dateFrom !== '' ? $dateFrom : null,
-            $dateTo !== '' ? $dateTo : null
-        );
+        $result = auto_renew_list_approvals($pdo, $statusFilter);
         session_write_close();
         auto_renew_json_response(true, 'success', [
             'rows' => $result['rows'],
@@ -78,18 +71,6 @@ try {
             'counts' => $result['counts'],
             'can_edit' => $canEdit,
         ]);
-    }
-
-    if ($action === 'payment_history') {
-        $dateFrom = trim((string) ($input['date_from'] ?? ''));
-        $dateTo = trim((string) ($input['date_to'] ?? ''));
-        $result = auto_renew_payment_history(
-            $pdo,
-            $dateFrom !== '' ? $dateFrom : null,
-            $dateTo !== '' ? $dateTo : null
-        );
-        session_write_close();
-        auto_renew_json_response(true, 'success', $result);
     }
 
     if ($action === 'list_accounts') {
@@ -167,17 +148,7 @@ try {
         }
         $row = auto_renew_reject($pdo, $requestId, $input, $_SESSION);
         session_write_close();
-        auto_renew_json_response(true, 'Draft cleared', $row);
-    }
-
-    if ($action === 'delete') {
-        if (!$canEdit) {
-            session_write_close();
-            auto_renew_json_response(false, 'Access denied', null, 403);
-        }
-        $row = auto_renew_delete($pdo, $requestId, $_SESSION);
-        session_write_close();
-        auto_renew_json_response(true, 'Approval undone', $row);
+        auto_renew_json_response(true, 'Renewal rejected', $row);
     }
 
     session_write_close();

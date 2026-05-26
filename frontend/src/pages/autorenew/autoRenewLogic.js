@@ -1,8 +1,4 @@
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
-import {
-  TX_DATA_CHANGED_EVENT,
-  TX_LIST_INVALIDATE_LS_KEY,
-} from "../transaction/lib/transactionPaymentLogic.js";
 
 export const AUTO_RENEW_PERIODS = [
   { value: "7days", labelKey: "period7days" },
@@ -28,31 +24,8 @@ async function postAutoRenew(body) {
   return json.data;
 }
 
-export function invalidateTransactionListCache(source = "auto_renew") {
-  const ts = String(Date.now());
-  try {
-    localStorage.setItem(TX_LIST_INVALIDATE_LS_KEY, ts);
-  } catch {
-    /* ignore */
-  }
-  window.dispatchEvent(
-    new CustomEvent(TX_DATA_CHANGED_EVENT, { detail: { ts, source } }),
-  );
-}
-
-export async function fetchAutoRenewApprovals(status = "pending", { dateFrom, dateTo } = {}) {
-  const body = { action: "list", status };
-  if (dateFrom) body.date_from = dateFrom;
-  if (dateTo) body.date_to = dateTo;
-  return postAutoRenew(body);
-}
-
-export async function fetchAutoRenewPaymentHistory({ dateFrom, dateTo }) {
-  return postAutoRenew({
-    action: "payment_history",
-    date_from: dateFrom || null,
-    date_to: dateTo || null,
-  });
+export async function fetchAutoRenewApprovals(status = "pending") {
+  return postAutoRenew({ action: "list", status });
 }
 
 export async function fetchAutoRenewStatusMap() {
@@ -70,29 +43,19 @@ export async function saveAutoRenewDraft({ requestId, period, fromAccountId, toA
 }
 
 export async function approveAutoRenew({ requestId, period, fromAccountId, toAccountId }) {
-  const result = await postAutoRenew({
+  return postAutoRenew({
     action: "approve",
     request_id: requestId,
     period,
     from_account_id: fromAccountId,
     to_account_id: toAccountId,
   });
-  invalidateTransactionListCache("auto_renew_approve");
-  return result;
 }
 
-export async function rejectAutoRenew({ requestId }) {
+export async function rejectAutoRenew({ requestId, rejectReason }) {
   return postAutoRenew({
     action: "reject",
     request_id: requestId,
+    reject_reason: rejectReason || "",
   });
-}
-
-export async function deleteAutoRenewApproval({ requestId }) {
-  const result = await postAutoRenew({
-    action: "delete",
-    request_id: requestId,
-  });
-  invalidateTransactionListCache("auto_renew_delete");
-  return result;
 }
