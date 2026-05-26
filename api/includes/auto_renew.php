@@ -210,6 +210,79 @@ require_once __DIR__ . '/money_decimal.php';
 const AUTO_RENEW_WINDOW_DAYS = 30;
 const AUTO_RENEW_HISTORY_DAYS = 90;
 
+function auto_renew_period_display_label(?string $period): string
+{
+    $map = [
+        '7days' => '7 days',
+        '1month' => '1 month',
+        '3months' => '3 months',
+        '6months' => '6 months',
+        '1year' => '1 year',
+    ];
+    $period = trim((string) ($period ?? ''));
+    return $map[$period] ?? $period;
+}
+
+function auto_renew_parse_date_input(?string $raw): ?string
+{
+    $s = trim((string) ($raw ?? ''));
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) {
+        return $s;
+    }
+    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $s, $m)) {
+        return sprintf('%04d-%02d-%02d', (int) $m[3], (int) $m[2], (int) $m[1]);
+    }
+    $ts = strtotime(str_replace('/', '-', $s));
+    return $ts ? date('Y-m-d', $ts) : null;
+}
+
+function auto_renew_format_payment_description(string $companyCode, ?string $period): string
+{
+    $code = strtoupper(trim($companyCode));
+    $label = auto_renew_period_display_label($period);
+    return 'Renew ' . $code . ' | ' . $label;
+}
+
+/**
+ * @return array{description: string, company: ?string, period: ?string}
+ */
+function auto_renew_parse_payment_description(?string $description, ?string $sms): array
+{
+    $desc = trim((string) ($description ?? ''));
+    if (preg_match('/^Renew\s+([A-Z0-9_\-]+)\s*\|\s*(.+)$/i', $desc, $m)) {
+        return [
+            'description' => 'Renew ' . strtoupper($m[1]) . ' | ' . trim($m[2]),
+            'company' => strtoupper($m[1]),
+            'period' => trim($m[2]),
+        ];
+    }
+    if (preg_match('/^Auto Renew\s*-\s*(.+)$/i', $desc, $m)) {
+        $company = strtoupper(trim($m[1]));
+        return [
+            'description' => 'Renew ' . $company . ' | —',
+            'company' => $company,
+            'period' => null,
+        ];
+    }
+    $sms = trim((string) ($sms ?? ''));
+    if (preg_match('/^\[AUTO_RENEW\|([^|]+)\|/', $sms, $m)) {
+        $company = strtoupper(trim($m[1]));
+        return [
+            'description' => 'Renew ' . $company . ' | —',
+            'company' => $company,
+            'period' => null,
+        ];
+    }
+    return [
+        'description' => $desc !== '' ? $desc : '—',
+        'company' => null,
+        'period' => null,
+    ];
+}
+
 function auto_renew_table_has_column(PDO $pdo, string $table, string $column): bool
 {
     try {
@@ -599,6 +672,8 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
         'new_expiration_date' => !empty($row['new_expiration_date']) ? (string) $row['new_expiration_date'] : null,
         'processed_by' => $row['processed_by'] ?? null,
         'processed_at' => $row['processed_at'] ?? null,
+        'submitter' => $row['processed_by'] ?? null,
+        'submitter_at' => $row['processed_at'] ?? null,
         'reject_reason' => $row['reject_reason'] ?? null,
         'can_approve' => $requestStatus === 'pending' && $price !== null,
     ];
@@ -607,8 +682,12 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
 /**
  * @return array{rows: list<array>, counts: array{pending:int, approved:int, rejected:int, total:int}}
  */
-function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null): array
-{
+function auto_renew_list_approvals(
+    PDO $pdo,
+    ?string $statusFilter = null,
+    ?string $dateFrom = null,
+    ?string $dateTo = null
+): array {
     auto_renew_sync_window_requests($pdo);
     $c168Pk = auto_renew_get_c168_pk($pdo) ?? 0;
     $accounts = auto_renew_list_c168_accounts($pdo, $c168Pk);
@@ -620,10 +699,11 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null): arra
     $windowDays = (int) AUTO_RENEW_WINDOW_DAYS;
     $historyDays = (int) AUTO_RENEW_HISTORY_DAYS;
     $filter = strtolower(trim((string) ($statusFilter ?? 'pending')));
+    $dateFromDb = auto_renew_parse_date_input($dateFrom);
+    $dateToDb = auto_renew_parse_date_input($dateTo);
+    $applyProcessedDate = ($filter !== 'pending') && ($dateFromDb || $dateToDb);
 
-    if ($filter === 'approved' || $filter === 'rejected') {
-        $stmt = $pdo->prepare("
-            SELECT
+    $selectCols = "
                 r.id AS request_id,
                 r.status AS request_status,
                 r.period AS request_period,
@@ -639,36 +719,68 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null): arra
                 c.company_id AS company_code,
                 c.group_id,
                 c.expiration_date,
-                COALESCE(o.name, '') AS owner_name
+                COALESCE(o.name, '') AS owner_name";
+
+    if ($filter === 'approved' || $filter === 'rejected') {
+        $where = ['r.status = ?', "UPPER(TRIM(c.company_id)) <> 'C168'"];
+        $params = [$filter];
+        if ($applyProcessedDate) {
+            if ($dateFromDb) {
+                $where[] = 'DATE(r.processed_at) >= ?';
+                $params[] = $dateFromDb;
+            }
+            if ($dateToDb) {
+                $where[] = 'DATE(r.processed_at) <= ?';
+                $params[] = $dateToDb;
+            }
+        } else {
+            $where[] = "r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)";
+        }
+        $sql = "
+            SELECT {$selectCols}
             FROM company_auto_renew_request r
             INNER JOIN company c ON c.id = r.company_id
             LEFT JOIN owner o ON o.id = c.owner_id
-            WHERE r.status = ?
-              AND UPPER(TRIM(c.company_id)) <> 'C168'
-              AND r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
+            WHERE " . implode(' AND ', $where) . '
             ORDER BY r.processed_at DESC, c.company_id ASC
-        ");
-        $stmt->execute([$filter]);
+        ';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+    } elseif ($filter === 'all' && $applyProcessedDate) {
+        $processedWhere = ["r.status IN ('approved','rejected')", "UPPER(TRIM(c.company_id)) <> 'C168'"];
+        $processedParams = [];
+        if ($dateFromDb) {
+            $processedWhere[] = 'DATE(r.processed_at) >= ?';
+            $processedParams[] = $dateFromDb;
+        }
+        if ($dateToDb) {
+            $processedWhere[] = 'DATE(r.processed_at) <= ?';
+            $processedParams[] = $dateToDb;
+        }
+        $sql = "
+            SELECT {$selectCols}
+            FROM company c
+            INNER JOIN company_auto_renew_request r
+                ON r.company_id = c.id AND r.expiration_snapshot = c.expiration_date
+            LEFT JOIN owner o ON o.id = c.owner_id
+            WHERE UPPER(TRIM(c.company_id)) <> 'C168'
+              AND c.expiration_date IS NOT NULL
+              AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
+              AND r.status = 'pending'
+            UNION ALL
+            SELECT {$selectCols}
+            FROM company_auto_renew_request r
+            INNER JOIN company c ON c.id = r.company_id
+            LEFT JOIN owner o ON o.id = c.owner_id
+            WHERE " . implode(' AND ', $processedWhere) . '
+            ORDER BY request_status ASC, processed_at DESC, expiration_date ASC, company_code ASC
+        ';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($processedParams);
     } else {
         $statusClause = ($filter === 'all') ? '' : "AND r.status = 'pending'";
         $stmt = $pdo->query("
-            SELECT
-                r.id AS request_id,
-                r.status AS request_status,
-                r.period AS request_period,
-                r.from_account_id,
-                r.to_account_id,
-                r.transaction_id,
-                r.new_expiration_date,
-                r.expiration_snapshot,
-                r.processed_by,
-                r.processed_at,
-                r.reject_reason,
-                c.id AS company_numeric_id,
-                c.company_id AS company_code,
-                c.group_id,
-                c.expiration_date,
-                COALESCE(o.name, '') AS owner_name
+            SELECT {$selectCols}
             FROM company c
             INNER JOIN company_auto_renew_request r
                 ON r.company_id = c.id AND r.expiration_snapshot = c.expiration_date
@@ -765,6 +877,7 @@ function auto_renew_create_fee_payment(
     int $c168Pk,
     string $customerCompanyCode,
     string $expirationSnapshot,
+    string $period,
     int $fromAccountId,
     int $toAccountId,
     string $amount,
@@ -791,7 +904,7 @@ function auto_renew_create_fee_payment(
     }
     $today = date('Y-m-d');
     $now = date('Y-m-d H:i:s');
-    $desc = 'Auto Renew - ' . $custCodeU;
+    $desc = auto_renew_format_payment_description($custCodeU, $period);
     $amountNorm = money_normalize($amount, 2);
 
     $hasCurrencyId = auto_renew_table_has_column($pdo, 'transactions', 'currency_id');
@@ -964,6 +1077,7 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
             $c168Pk,
             $companyCode,
             $snapshot,
+            $period,
             $fromId,
             $toId,
             $price,
@@ -1050,21 +1164,15 @@ function auto_renew_reject(PDO $pdo, int $requestId, array $input, array $sessio
         throw new RuntimeException('Request is not pending');
     }
 
-    $reason = trim((string) ($input['reject_reason'] ?? ''));
-    if (strlen($reason) > 255) {
-        $reason = substr($reason, 0, 255);
-    }
-    $processedBy = (string) ($session['login_id'] ?? 'system');
-
     $upd = $pdo->prepare("
         UPDATE company_auto_renew_request
-        SET status = 'rejected',
-            processed_by = ?,
-            processed_at = NOW(),
-            reject_reason = ?
+        SET period = NULL,
+            from_account_id = NULL,
+            to_account_id = NULL,
+            price = NULL
         WHERE id = ? AND status = 'pending'
     ");
-    $upd->execute([$processedBy, $reason !== '' ? $reason : null, $requestId]);
+    $upd->execute([$requestId]);
 
     $updated = auto_renew_get_request_row($pdo, $requestId);
     $c168Pk = auto_renew_get_c168_pk($pdo) ?? 0;
@@ -1086,4 +1194,228 @@ function auto_renew_reject(PDO $pdo, int $requestId, array $input, array $sessio
         'expiration_date' => $updated['expiration_date'],
         'owner_name' => $updated['owner_name'],
     ], $pdo, $c168Pk, []);
+}
+
+function auto_renew_delete(PDO $pdo, int $requestId, array $session): array
+{
+    if (!auto_renew_can_edit($session, $pdo)) {
+        throw new RuntimeException('Access denied');
+    }
+    require_once __DIR__ . '/payment_delete_shared.php';
+
+    $row = auto_renew_get_request_row($pdo, $requestId);
+    if (!$row) {
+        throw new RuntimeException('Request not found');
+    }
+    if ((string) ($row['status'] ?? '') !== 'approved') {
+        throw new RuntimeException('Only approved requests can be deleted');
+    }
+    $txId = (int) ($row['transaction_id'] ?? 0);
+    if ($txId <= 0) {
+        throw new RuntimeException('No payment linked to this request');
+    }
+    $c168Pk = auto_renew_get_c168_pk($pdo);
+    if (!$c168Pk) {
+        throw new RuntimeException('C168 company not found');
+    }
+
+    $snapshot = (string) ($row['expiration_snapshot'] ?? '');
+    $companyId = (int) ($row['company_id'] ?? 0);
+
+    $pdo->beginTransaction();
+    try {
+        payment_delete_transactions_by_ids(
+            $pdo,
+            [$txId],
+            $c168Pk,
+            $session,
+            '/api/subscription/auto_renew_api.php',
+            false
+        );
+
+        if ($snapshot !== '' && $companyId > 0) {
+            $updCompany = $pdo->prepare('UPDATE company SET expiration_date = ? WHERE id = ?');
+            $updCompany->execute([$snapshot, $companyId]);
+        }
+
+        $updReq = $pdo->prepare("
+            UPDATE company_auto_renew_request
+            SET status = 'pending',
+                transaction_id = NULL,
+                new_expiration_date = NULL,
+                period = NULL,
+                from_account_id = NULL,
+                to_account_id = NULL,
+                price = NULL,
+                processed_by = NULL,
+                processed_at = NULL,
+                reject_reason = NULL
+            WHERE id = ? AND status = 'approved'
+        ");
+        $updReq->execute([$requestId]);
+        if ($updReq->rowCount() === 0) {
+            throw new RuntimeException('Request was already changed');
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    $updated = auto_renew_get_request_row($pdo, $requestId);
+    return auto_renew_format_approval_row([
+        'request_id' => $updated['id'],
+        'request_status' => $updated['status'],
+        'request_period' => $updated['period'],
+        'from_account_id' => $updated['from_account_id'],
+        'to_account_id' => $updated['to_account_id'],
+        'transaction_id' => $updated['transaction_id'],
+        'new_expiration_date' => $updated['new_expiration_date'],
+        'expiration_snapshot' => $updated['expiration_snapshot'],
+        'processed_by' => $updated['processed_by'],
+        'processed_at' => $updated['processed_at'],
+        'reject_reason' => $updated['reject_reason'],
+        'company_numeric_id' => $updated['company_numeric_id'],
+        'company_code' => $updated['company_code'],
+        'group_id' => $updated['group_id'],
+        'expiration_date' => $snapshot !== '' ? $snapshot : $updated['expiration_date'],
+        'owner_name' => $updated['owner_name'],
+    ], $pdo, $c168Pk, []);
+}
+
+/**
+ * @return array{rows: list<array>}
+ */
+function auto_renew_payment_history(PDO $pdo, ?string $dateFrom = null, ?string $dateTo = null): array
+{
+    $c168Pk = auto_renew_get_c168_pk($pdo);
+    if (!$c168Pk) {
+        return ['rows' => []];
+    }
+
+    $dateFromDb = auto_renew_parse_date_input($dateFrom);
+    $dateToDb = auto_renew_parse_date_input($dateTo);
+    if (!$dateFromDb) {
+        $dateFromDb = date('Y-m-d', strtotime('-' . (int) AUTO_RENEW_HISTORY_DAYS . ' days'));
+    }
+    if (!$dateToDb) {
+        $dateToDb = date('Y-m-d');
+    }
+
+    $hasCurrency = auto_renew_table_has_column($pdo, 'transactions', 'currency_id');
+    $currencyJoin = $hasCurrency
+        ? 'LEFT JOIN currency cur ON t.currency_id = cur.id'
+        : '';
+    $currencySelect = $hasCurrency ? ', cur.code AS currency_code' : ", NULL AS currency_code";
+    $delCurrencyJoin = $hasCurrency
+        ? 'LEFT JOIN currency cur ON td.currency_id = cur.id'
+        : '';
+
+    $rows = [];
+
+    $activeSql = "
+        SELECT
+            t.id AS transaction_id,
+            DATE_FORMAT(t.transaction_date, '%d/%m/%Y') AS transaction_date,
+            t.amount,
+            t.description,
+            t.sms,
+            to_acc.account_id AS to_account_code,
+            from_acc.account_id AS from_account_code
+            {$currencySelect},
+            0 AS is_deleted,
+            NULL AS deleted_by,
+            NULL AS dts_deleted
+        FROM transactions t
+        INNER JOIN account to_acc ON t.account_id = to_acc.id
+        LEFT JOIN account from_acc ON t.from_account_id = from_acc.id
+        {$currencyJoin}
+        WHERE t.company_id = ?
+          AND t.transaction_type = 'PAYMENT'
+          AND t.sms LIKE '[AUTO_RENEW|%'
+          AND t.transaction_date BETWEEN ? AND ?
+        ORDER BY t.transaction_date DESC, t.id DESC
+    ";
+    $activeStmt = $pdo->prepare($activeSql);
+    $activeStmt->execute([$c168Pk, $dateFromDb, $dateToDb]);
+    foreach ($activeStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+        $parsed = auto_renew_parse_payment_description($row['description'] ?? null, $row['sms'] ?? null);
+        $rows[] = [
+            'transaction_id' => (int) ($row['transaction_id'] ?? 0),
+            'transaction_date' => (string) ($row['transaction_date'] ?? ''),
+            'from_account' => (string) ($row['from_account_code'] ?? ''),
+            'to_account' => (string) ($row['to_account_code'] ?? ''),
+            'amount' => money_out($row['amount'] ?? '0'),
+            'currency' => (string) ($row['currency_code'] ?? ''),
+            'description' => $parsed['description'],
+            'is_deleted' => 0,
+            'deleted_by' => null,
+            'dts_deleted' => null,
+        ];
+    }
+
+    try {
+        $check = $pdo->query("SHOW TABLES LIKE 'transactions_deleted'");
+        if ($check && $check->rowCount() > 0) {
+            $delSql = "
+                SELECT
+                    td.transaction_id,
+                    DATE_FORMAT(td.transaction_date, '%d/%m/%Y') AS transaction_date,
+                    td.amount,
+                    td.description,
+                    td.sms,
+                    to_acc.account_id AS to_account_code,
+                    from_acc.account_id AS from_account_code
+                    {$currencySelect},
+                    1 AS is_deleted,
+                    COALESCE(du.login_id, do.owner_code, '') AS deleted_by,
+                    DATE_FORMAT(td.deleted_at, '%d/%m/%Y %H:%i:%s') AS dts_deleted
+                FROM transactions_deleted td
+                INNER JOIN account to_acc ON td.account_id = to_acc.id
+                LEFT JOIN account from_acc ON td.from_account_id = from_acc.id
+                {$delCurrencyJoin}
+                LEFT JOIN user du ON td.deleted_by_user_id = du.id
+                LEFT JOIN owner do ON td.deleted_by_owner_id = do.id
+                WHERE td.company_id = ?
+                  AND td.transaction_type = 'PAYMENT'
+                  AND td.sms LIKE '[AUTO_RENEW|%'
+                  AND td.transaction_date BETWEEN ? AND ?
+                ORDER BY td.transaction_date DESC, td.transaction_id DESC
+            ";
+            $delStmt = $pdo->prepare($delSql);
+            $delStmt->execute([$c168Pk, $dateFromDb, $dateToDb]);
+            foreach ($delStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                $parsed = auto_renew_parse_payment_description($row['description'] ?? null, $row['sms'] ?? null);
+                $deletedBy = trim((string) ($row['deleted_by'] ?? ''));
+                $rows[] = [
+                    'transaction_id' => (int) ($row['transaction_id'] ?? 0),
+                    'transaction_date' => (string) ($row['transaction_date'] ?? ''),
+                    'from_account' => (string) ($row['from_account_code'] ?? ''),
+                    'to_account' => (string) ($row['to_account_code'] ?? ''),
+                    'amount' => money_out($row['amount'] ?? '0'),
+                    'currency' => (string) ($row['currency_code'] ?? ''),
+                    'description' => $parsed['description'],
+                    'is_deleted' => 1,
+                    'deleted_by' => $deletedBy !== '' ? $deletedBy : null,
+                    'dts_deleted' => $row['dts_deleted'] ?? null,
+                ];
+            }
+        }
+    } catch (PDOException $e) {
+        // best effort
+    }
+
+    usort($rows, static function ($a, $b) {
+        $da = strtotime(str_replace('/', '-', (string) ($a['transaction_date'] ?? ''))) ?: 0;
+        $db = strtotime(str_replace('/', '-', (string) ($b['transaction_date'] ?? ''))) ?: 0;
+        if ($da !== $db) {
+            return $db <=> $da;
+        }
+        return ((int) ($b['transaction_id'] ?? 0)) <=> ((int) ($a['transaction_id'] ?? 0));
+    });
+
+    return ['rows' => $rows];
 }

@@ -114,3 +114,12 @@ export function canApproveRow(row, drafts) {
   const { period, fromAccountId, toAccountId } = getRowDraftValues(row, drafts);
   return Boolean(period && fromAccountId && toAccountId && row.price);
 }
+
+/** DD/MM/YYYY HH:mm:ss for Submitter tooltip (Payment Maintenance style). */
+export function formatSubmitterTooltip(processedAt) {
+  if (!processedAt) return "";
+  const s = String(processedAt).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2}:\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}`;
+  return s;
+}
