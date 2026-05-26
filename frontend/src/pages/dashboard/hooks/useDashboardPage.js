@@ -269,15 +269,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const loadCurrencies = useCallback(async () => {
     const gen = ++currencyLoadGenRef.current;
     const singleCid = companyId != null ? parseInt(companyId, 10) : null;
-    const groupKey = !singleCid && selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+    const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
 
-    const companyIds = singleCid
-      ? [singleCid]
-      : groupKey
-        ? companiesInGroupList(companies, groupKey)
-            .map((c) => parseInt(c.id, 10))
-            .filter((id) => Number.isFinite(id))
-        : [];
+    let companyIds = [];
+    if (groupAllMode && groupKey) {
+      companyIds = companiesInGroupList(companies, groupKey)
+        .map((c) => parseInt(c.id, 10))
+        .filter((id) => Number.isFinite(id));
+    } else if (mergedSubsetIds && mergedSubsetIds.length > 1) {
+      companyIds = mergedSubsetIds.filter((id) => Number.isFinite(id));
+    } else if (singleCid) {
+      companyIds = [singleCid];
+    } else if (groupKey) {
+      companyIds = companiesInGroupList(companies, groupKey)
+        .map((c) => parseInt(c.id, 10))
+        .filter((id) => Number.isFinite(id));
+    }
 
     if (!companyIds.length) {
       setCurrencies([]);
@@ -327,7 +334,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     } catch {
       /* Keep visible currencies on error; stale-while-revalidate avoids flicker. */
     }
-  }, [companyId, selectedGroup, companies, applyCurrencyCodes, orderCurrencyCodes]);
+  }, [
+    companyId,
+    selectedGroup,
+    groupAllMode,
+    mergedSubsetIds,
+    companies,
+    applyCurrencyCodes,
+    orderCurrencyCodes,
+  ]);
 
   useEffect(() => {
     loadCurrencies();
@@ -424,16 +439,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
 
     const cacheKey = dashboardScopeKey;
-    const cached = cacheKey ? getDashboardCache(cacheKey) : null;
-    const cachedEarnings = cached?.earnings;
     const gen = ++earningsFetchGenRef.current;
     setEarningsByCurrencyLoading(true);
-    setEarningsByCurrency(
-      currencies.map((code) => {
-        const hit = cachedEarnings?.find((r) => r.code === code);
-        return { code, earnings: hit?.earnings ?? null };
-      })
-    );
+    setEarningsByCurrency(currencies.map((code) => ({ code, earnings: null })));
     setEarningsByCurrencyPrev([]);
 
     const prevRange = previousPeriodRange(dateFrom, dateTo);
@@ -458,20 +466,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     fetchEarningsRowsForRange,
     dashboardScopeKey,
   ]);
-
-  useEffect(() => {
-    if (!dashboardData || !currencyCode || currencies.length <= 1) return;
-    const metrics = computeKpiMetrics(dashboardData, selectedGroup);
-    setEarningsByCurrency((prev) => {
-      const base =
-        prev.length === currencies.length
-          ? prev
-          : currencies.map((code) => ({ code, earnings: null }));
-      return base.map((row) =>
-        row.code === currencyCode ? { ...row, earnings: metrics?.earnings ?? 0 } : row
-      );
-    });
-  }, [dashboardData, currencyCode, selectedGroup, currencies]);
 
   useEffect(() => {
     if (!currencyCode || currencies.length <= 1) {
@@ -531,11 +525,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setDashboardData(cached.current);
       setDashboardDataPrev(cached.previous ?? null);
       setDisplayScopeKey(cacheKey);
-      if (cached.earnings?.length) setEarningsByCurrency(cached.earnings);
       setLoading(false);
     } else {
       setLoading(true);
     }
+    setEarningsByCurrency([]);
+    setEarningsByCurrencyPrev([]);
 
     try {
       const current = await loadMergedDashboard(dateFrom, dateTo, currencyCode);
@@ -811,18 +806,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const kpiForDisplay = useMemo(() => {
     if (!kpi) return kpi;
-    const useConverted =
-      useConvertedEarnings && convertedEarningsTotal != null && !earningsByCurrencyLoading;
-    if (!useConverted) return kpi;
-
+    const displayEarnings =
+      useConvertedEarnings && convertedEarningsTotal != null
+        ? convertedEarningsTotal
+        : kpi.earnings;
     const earningsCompare =
-      convertedEarningsTotalPrev != null
+      useConvertedEarnings && convertedEarningsTotal != null && convertedEarningsTotalPrev != null
         ? buildKpiCompare(convertedEarningsTotal, convertedEarningsTotalPrev)
         : kpi.comparisons?.earnings;
 
+    if (displayEarnings === kpi.earnings && earningsCompare === kpi.comparisons?.earnings) {
+      return kpi;
+    }
+
     return {
       ...kpi,
-      earnings: convertedEarningsTotal,
+      earnings: displayEarnings,
       comparisons: kpi.comparisons
         ? { ...kpi.comparisons, earnings: earningsCompare ?? kpi.comparisons.earnings }
         : earningsCompare
@@ -834,7 +833,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     useConvertedEarnings,
     convertedEarningsTotal,
     convertedEarningsTotalPrev,
-    earningsByCurrencyLoading,
   ]);
 
   const scopeDataPending =
@@ -843,7 +841,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const earningsKpiLoading =
     summaryEarningsLoading ||
     (currencies.length > 1 &&
-      (earningsByCurrencyLoading || exchangeRatesLoading || !allCurrencyEarningsReady));
+      !exchangeRatesError &&
+      (earningsByCurrencyLoading ||
+        exchangeRatesLoading ||
+        !allCurrencyEarningsReady ||
+        (useConvertedEarnings && convertedEarningsTotal == null)));
   const kpiLoading = summaryEarningsLoading;
 
   const handlePickGroup = useCallback(

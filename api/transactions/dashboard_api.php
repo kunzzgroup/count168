@@ -688,27 +688,32 @@ try {
                   AND h.transaction_date BETWEEN ? AND ?
             ";
             $rateMMParams = [$company_id, $company_id, $date_from_db, $date_to_db];
+            $skipRateMM = false;
 
             // 按币种过滤（与前端选择的 currency 一致）
             if ($filter_currency_code !== null) {
                 $rateCurrId = array_search($filter_currency_code, $currency_map);
-                if ($rateCurrId !== false) {
+                if ($rateCurrId === false) {
+                    // 该公司无此币种：勿把其它币种的 RATE_MIDDLEMAN 并入 profit
+                    $skipRateMM = true;
+                } else {
                     $rateMMSql .= " AND e.currency_id = ?";
                     $rateMMParams[] = $rateCurrId;
                 }
             }
 
-            $rateMMSql .= " GROUP BY DATE(h.transaction_date)";
-            $rateMMStmt = $pdo->prepare($rateMMSql);
-            $rateMMStmt->execute($rateMMParams);
-
             $rateMMDaily = [];
             $rateMMPeriodTotal = dashboardMoneyZero();
-            while ($rateRow = $rateMMStmt->fetch(PDO::FETCH_ASSOC)) {
-                $d = $rateRow['date'];
-                $v = $rateRow['total'] ?? '0';
-                dashboardAddDailyAmount($rateMMDaily, (string) $d, $v);
-                $rateMMPeriodTotal = dashboardMoneyAdd($rateMMPeriodTotal, $v);
+            if (!$skipRateMM) {
+                $rateMMSql .= " GROUP BY DATE(h.transaction_date)";
+                $rateMMStmt = $pdo->prepare($rateMMSql);
+                $rateMMStmt->execute($rateMMParams);
+                while ($rateRow = $rateMMStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $d = $rateRow['date'];
+                    $v = $rateRow['total'] ?? '0';
+                    dashboardAddDailyAmount($rateMMDaily, (string) $d, $v);
+                    $rateMMPeriodTotal = dashboardMoneyAdd($rateMMPeriodTotal, $v);
+                }
             }
 
             // 合并到 profit：period_total、daily_data、total_balance
