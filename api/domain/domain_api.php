@@ -1812,6 +1812,54 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
     return $changed;
 }
 
+function domainFeePeriodLabel(string $periodKey): string
+{
+    $labels = [
+        '7days' => '7 Days',
+        '1month' => '1 Month',
+        '3months' => '3 Months',
+        '6months' => '6 Months',
+        '1year' => '1 Year',
+    ];
+    $key = normalizeDomainFeePeriodKey($periodKey);
+    return $labels[$key] ?? $key;
+}
+
+/**
+ * Confirm 入帳前校驗：所選 Period 的 domain fee 必須已在 Price 設定且 > 0。
+ *
+ * @return string|null 錯誤訊息；通過則 null
+ */
+function domainApiValidateDomainFeePaymentsFromPayload(PDO $pdo, $companies, bool $hasC168Context, bool $domainActorAllowed): ?string
+{
+    if (!$hasC168Context || !$domainActorAllowed) {
+        return null;
+    }
+    $rows = domainApiNormalizeCompaniesPayload($companies);
+    $problems = [];
+    foreach ($rows as $row) {
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        if ($cid === '' || $cid === 'C168') {
+            continue;
+        }
+        $apply = filter_var($row['apply_commission_payments_on_domain_save'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if (!$apply) {
+            continue;
+        }
+        $billingPeriod = resolveDomainBillingPeriodForCompany($pdo, $cid, $row);
+        $feePrice = getDomainFeePriceForPeriod($pdo, $billingPeriod);
+        if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
+            $problems[] = $cid . ' (' . domainFeePeriodLabel($billingPeriod) . ')';
+        }
+    }
+    if ($problems === []) {
+        return null;
+    }
+    return 'Cannot post domain fee: the price for the selected period is not set or is 0 for: '
+        . implode(', ', $problems)
+        . '. Set the amount in Price.';
+}
+
 /**
  * EDIT DOMAIN 按下 Confirm 後：對 companies 中標記 apply_commission_payments_on_domain_save 的公司
  * 寫入 domain list fee 與 Share% 佣金（transactions.PAYMENT），與 Transaction Payment / Payment History 同一數據源。
@@ -2490,6 +2538,10 @@ try {
                     }
                 }
 
+                $paymentErr = domainApiValidateDomainFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
+                if ($paymentErr !== null) {
+                    throw new Exception($paymentErr);
+                }
                 domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
 
                 $pdo->commit();
@@ -2799,6 +2851,10 @@ try {
                     }
                 }
 
+                $paymentErr = domainApiValidateDomainFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
+                if ($paymentErr !== null) {
+                    throw new Exception($paymentErr);
+                }
                 domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
                 
                 $pdo->commit();

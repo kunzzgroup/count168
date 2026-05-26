@@ -333,7 +333,7 @@ try {
                             <div class="company-share-charge-on-save" title="On: After you Confirm the domain (main modal), post domain list fee and Share% commission to Transaction Payment / Payment History. Off: allocations only until Confirm.">
                                 <span class="company-share-charge-on-save__state" id="companyShareChargeState" aria-hidden="true">Off</span>
                                 <label class="company-share-charge-switch">
-                                    <input type="checkbox" id="companyShareChargeToggle" class="company-share-charge-switch__input" role="switch" aria-checked="false" aria-label="Charge when domain is confirmed" onchange="syncCompanyShareChargeToggleUi()">
+                                    <input type="checkbox" id="companyShareChargeToggle" class="company-share-charge-switch__input" role="switch" aria-checked="false" aria-label="Charge when domain is confirmed" onchange="onCompanyShareChargeToggleChange()">
                                     <span class="company-share-charge-switch__track" aria-hidden="true"><span class="company-share-charge-switch__thumb"></span></span>
                                 </label>
                             </div>
