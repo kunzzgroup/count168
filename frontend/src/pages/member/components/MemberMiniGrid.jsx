@@ -8,7 +8,6 @@ import {
   MEMBER_AMOUNT_NA_MARK,
   miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
-  formatWinLossCurrencyParens,
   measureCompactMatrixColumnWidths,
   winLossMiniMatrixNeedsAccountScroll,
   WINLOSS_MATRIX_FILL_CCY_COLS,
@@ -343,7 +342,7 @@ export default function MemberMiniGrid({
                 {t?.("accounts") || "Accounts"}
               </div>
               <div className="member-wl-compact-matrix__amt-hd" role="columnheader">
-                {t?.("currency") || "Currency:"} {formatWinLossCurrencyParens(singleCu)}
+                {singleCu}
               </div>
             </div>
             {listOrdered.map((acc, accIdx) => (

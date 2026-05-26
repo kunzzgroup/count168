@@ -29,7 +29,6 @@ import {
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW,
   WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ,
   WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS,
-  formatWinLossCurrencyParens,
   winLossMiniMatrixNeedsAccountScroll,
 } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
@@ -446,7 +445,7 @@ export default function MemberPage() {
                             onDrop={handleWinLossCurrencyCodeDrop}
                             onClick={() => onCurrencyToggle(cell.code)}
                           >
-                            {formatWinLossCurrencyParens(cell.code)}
+                            {cell.code}
                           </button>
                         )
                       )}

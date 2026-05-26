@@ -12,13 +12,6 @@ export function winLossMiniMatrixNeedsAccountScroll(shellMode, accounts) {
   return n > WINLOSS_MINI_MATRIX_ACCOUNT_SCROLL_THRESHOLD;
 }
 
-/** Win/Loss 筛选/矩阵表头：币种以 (myr) 形式展示 */
-export function formatWinLossCurrencyParens(code) {
-  const c = String(code || "").trim();
-  if (!c) return "";
-  return `(${c.toLowerCase()})`;
-}
-
 /** Win/Loss Account：每条 segment 白底带最多按钮数，多出的自动再开新带 */
 export const WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS = 7;
 /** 视口较窄（<1410px）时每行更少格，多账户换行展示完整户 名 */
