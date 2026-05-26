@@ -1,7 +1,7 @@
 ﻿:root {
-    --own-primary-blue: #3b8ef6;
-    --own-primary-blue-hover: #2563eb;
-    --own-primary-light: #e6f0fd;
+    --own-primary-blue: #0d60ff;
+    --own-primary-blue-hover: #63c4ff;
+    --own-primary-light: #e9f1ff;
     --own-danger-red: #ef4444;
     --own-warning-bg: #fffbeb;
     --own-warning-text: #d97706;
@@ -126,10 +126,10 @@ body.ownership-page {
 }
 
 .own-gfb-btn.active {
-    background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%);
+    background: var(--btn-add-gradient);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 2px 6px rgba(59, 142, 246, 0.35);
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.35);
 }
 
 /* Company count badge inside group buttons */
@@ -183,9 +183,9 @@ body.ownership-page {
 }
 
 .own-select-mode-btn.active {
-    background: var(--own-primary-light);
-    border-color: var(--own-primary-blue);
-    color: var(--own-primary-blue-hover);
+    background: var(--btn-add-gradient);
+    border-color: transparent;
+    color: #fff;
 }
 
 .own-select-mode-btn svg {
@@ -200,14 +200,14 @@ body.ownership-page {
 
 .own-card.own-selection-mode:hover {
     box-shadow: 0 0 0 2px var(--own-primary-blue),
-        0 4px 14px rgba(59, 142, 246, 0.10);
+        0 4px 14px rgba(13, 96, 255, 0.10);
     border-color: var(--own-primary-blue);
 }
 
 /* Selected card: solid blue ring */
 .own-card.own-selected {
     box-shadow: 0 0 0 2.5px var(--own-primary-blue),
-        0 4px 14px rgba(59, 142, 246, 0.18);
+        0 4px 14px rgba(13, 96, 255, 0.18);
     border-color: var(--own-primary-blue);
     background: var(--own-primary-light);
 }
@@ -356,10 +356,10 @@ body.ownership-page {
 
 .own-progress-bar-fill {
     height: 100%;
-    background-color: var(--own-primary-blue);
+    background: var(--btn-add-gradient);
     border-radius: 5px;
     transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 1px 5px rgba(59, 142, 246, 0.4);
+    box-shadow: 0 1px 5px rgba(13, 96, 255, 0.35);
 }
 
 .own-card-header-right {
@@ -371,8 +371,8 @@ body.ownership-page {
 .own-btn-outline {
     padding: 8px 20px;
     /* Larger button padding */
-    border: 1px solid var(--own-primary-blue);
-    color: var(--own-primary-blue);
+    border: 1px solid var(--account-select-card-border-checked, var(--own-primary-blue));
+    color: var(--account-select-label-checked, var(--own-primary-blue));
     background: transparent;
     border-radius: 8px;
     font-size: var(--own-text-body);
@@ -539,7 +539,7 @@ body.ownership-page {
     outline: none;
     border-color: var(--own-primary-blue);
     background-color: #fff;
-    box-shadow: 0 0 0 3px rgba(59, 142, 246, 0.1);
+    box-shadow: 0 0 0 3px rgba(13, 96, 255, 0.12);
 }
 
 .own-account-select-trigger.is-open,
@@ -612,12 +612,12 @@ body.ownership-page {
 }
 
 .own-account-select-option.is-selected {
-    background: var(--own-primary-blue);
+    background: var(--btn-add-gradient);
     color: #fff;
 }
 
 .own-account-select-option.is-selected:hover {
-    background: var(--own-primary-blue-hover);
+    background: var(--btn-add-gradient-hover);
 }
 
 .own-account-select-option.is-group:not(.is-selected) {
@@ -758,8 +758,8 @@ body.ownership-page {
     /* Bigger margins */
     padding: 14px;
     background-color: var(--own-primary-light);
-    color: var(--own-primary-blue);
-    border: 2px dashed #bfdbfe;
+    color: var(--account-select-label-checked, var(--own-primary-blue));
+    border: 2px dashed rgba(13, 96, 255, 0.35);
     /* Cool dashed border */
     border-radius: 12px;
     font-size: var(--own-text-control);
@@ -769,8 +769,8 @@ body.ownership-page {
 }
 
 .own-btn-add-account:hover {
-    background-color: #dbeafe;
-    border-color: #93c5fd;
+    background-color: rgba(13, 96, 255, 0.08);
+    border-color: rgba(13, 96, 255, 0.55);
     transform: translateY(-1px);
 }
 
@@ -835,19 +835,29 @@ body.ownership-page {
 }
 
 .own-btn-cancel {
-    background: linear-gradient(to bottom, #9ca3af, #6b7280);
-    box-shadow: 0 2px 4px rgba(107, 114, 128, 0.2);
+    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
+}
+
+.own-btn-cancel:hover {
+    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
 }
 
 .own-btn-confirm {
-    background: linear-gradient(to bottom, #60a5fa, #3b82f6);
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    background: var(--btn-add-gradient);
+    box-shadow: 0 2px 4px rgba(13, 96, 255, 0.3);
+}
+
+.own-btn-confirm:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover);
 }
 
 .own-btn-confirm:disabled {
-    background: #9ca3af;
+    background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%);
     cursor: not-allowed;
     box-shadow: none;
+    transform: none;
 }
 
 /* Loader */
@@ -860,7 +870,7 @@ body.ownership-page {
 .own-loader {
     width: 40px;
     height: 40px;
-    border: 3px solid rgba(59, 142, 246, 0.2);
+    border: 3px solid rgba(13, 96, 255, 0.2);
     border-radius: 50%;
     border-top-color: var(--own-primary-blue);
     animation: own-spin 1s ease-in-out infinite;
@@ -977,15 +987,15 @@ body.ownership-page {
 
 .own-partner-input:focus {
     border-color: var(--own-primary-blue);
-    box-shadow: 0 0 0 3px rgba(59, 142, 246, 0.1);
+    box-shadow: 0 0 0 3px rgba(13, 96, 255, 0.12);
 }
 
 .own-partner-link-btn {
     margin: 0;
     padding: 10px 16px;
     border-radius: 8px;
-    border: 1px solid var(--own-primary-blue);
-    color: var(--own-primary-blue);
+    border: 1px solid var(--account-select-card-border-checked, var(--own-primary-blue));
+    color: var(--account-select-label-checked, var(--own-primary-blue));
     font-weight: var(--font-weight-semibold);
     cursor: pointer;
     background: white;
@@ -994,7 +1004,7 @@ body.ownership-page {
 }
 
 .own-partner-link-btn:hover {
-    background-color: #eff6ff;
+    background-color: var(--own-primary-light);
 }
 
 
@@ -1150,7 +1160,7 @@ body.ownership-page {
 }
 
 .own-ro-toggle input:checked+.own-ro-slider {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    background: var(--btn-add-gradient);
 }
 
 .own-ro-toggle input:checked+.own-ro-slider::before {
@@ -1168,9 +1178,9 @@ body.ownership-page {
     font-size: var(--own-text-caption);
     font-weight: var(--font-weight-bold);
     letter-spacing: 0.04em;
-    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
+    background: var(--own-primary-light);
+    color: var(--account-select-label-checked, var(--own-primary-blue));
+    border: 1px solid rgba(13, 96, 255, 0.25);
     white-space: nowrap;
     vertical-align: middle;
     /* no margin-left — gap on parent handles spacing */
@@ -1262,8 +1272,8 @@ body.ownership-page {
 }
 
 .own-group-option:hover {
-    background: #eff6ff;
-    color: #2563eb;
+    background: var(--own-primary-light);
+    color: var(--account-select-label-checked, var(--own-primary-blue));
 }
 
 .own-group-option+.own-group-option {
@@ -1328,7 +1338,7 @@ body.ownership-page {
 /* Selected card gets a blue ring */
 .own-card.own-selected {
     box-shadow: 0 0 0 2.5px var(--own-primary-blue),
-        0 4px 14px rgba(59, 142, 246, 0.18);
+        0 4px 14px rgba(13, 96, 255, 0.18);
     border-color: var(--own-primary-blue);
 }
 
@@ -1348,7 +1358,7 @@ body.ownership-page {
     background: #ffffff;
     border-radius: 16px;
     border: 1.5px solid var(--own-primary-blue);
-    box-shadow: 0 8px 32px rgba(59, 142, 246, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 32px rgba(13, 96, 255, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
     min-width: 480px;
     transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
         opacity 0.30s ease;
@@ -1370,7 +1380,7 @@ body.ownership-page {
     top: 0;
     bottom: 0;
     width: 5px;
-    background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%);
+    background: var(--btn-add-gradient);
 }
 
 /* Red accent stripe when bulk bar is in ungroup mode */
@@ -1437,7 +1447,7 @@ body.ownership-page {
 .own-bulk-group-select:focus {
     border-color: var(--own-primary-blue);
     background-color: #ffffff;
-    box-shadow: 0 0 0 3px rgba(59, 142, 246, 0.12);
+    box-shadow: 0 0 0 3px rgba(13, 96, 255, 0.12);
 }
 
 .own-bulk-group-select option {
@@ -1449,20 +1459,20 @@ body.ownership-page {
     padding: 9px 20px;
     border-radius: 8px;
     border: none;
-    background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%);
+    background: var(--btn-add-gradient);
     color: #fff;
     font-size: var(--own-text-body);
     font-weight: var(--font-weight-bold);
     cursor: pointer;
     white-space: nowrap;
-    box-shadow: 0 2px 6px rgba(59, 142, 246, 0.35);
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.35);
     transition: all 0.18s ease;
 }
 
 .own-bulk-join-btn:hover {
-    background: linear-gradient(180deg, #60a5fa 0%, var(--own-primary-blue) 100%);
+    background: var(--btn-add-gradient-hover);
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(59, 142, 246, 0.45);
+    box-shadow: 0 4px 14px rgba(13, 96, 255, 0.45);
 }
 
 .own-bulk-join-btn:disabled {
@@ -1582,7 +1592,7 @@ body.ownership-page {
 
 .own-month-trigger:hover,
 .own-month-trigger.is-open {
-    border-color: #0D60FF;
+    border-color: var(--account-select-card-border-checked, var(--own-primary-blue));
     background: var(--own-gray-bg, #fff);
     box-shadow: 0 2px 8px rgba(13, 96, 255, 0.12);
 }
@@ -1593,7 +1603,7 @@ body.ownership-page {
 }
 
 .own-month-trigger.is-history.is-open {
-    border-color: #0D60FF;
+    border-color: var(--account-select-card-border-checked, var(--own-primary-blue));
 }
 
 .own-month-popover {
@@ -1675,11 +1685,11 @@ body.ownership-page {
 
 .own-month-cell:hover:not(:disabled):not(.is-selected) {
     background: var(--own-gray-bg, #fff);
-    border-color: #0D60FF;
+    border-color: var(--account-select-card-border-checked, var(--own-primary-blue));
 }
 
 .own-month-cell.is-selected {
-    background: linear-gradient(135deg, #0D60FF 0%, #0047CC 100%);
+    background: var(--btn-add-gradient);
     border-color: transparent;
     color: #fff;
     box-shadow: 0 2px 8px rgba(13, 96, 255, 0.35);
@@ -1692,7 +1702,7 @@ body.ownership-page {
 
 .own-month-trigger-icon {
     display: flex;
-    color: var(--own-primary-blue, #2563eb);
+    color: var(--account-select-label-checked, var(--own-primary-blue));
 }
 
 .own-month-trigger.is-history .own-month-trigger-icon {
@@ -1731,9 +1741,9 @@ body.ownership-page {
     align-items: center;
     height: 36px;
     padding: 0 14px;
-    border: 1px solid var(--own-gray-border);
+    border: 1px solid transparent;
     border-radius: 999px;
-    background: linear-gradient(135deg, #0D60FF 0%, #0047CC 100%);
+    background: var(--btn-add-gradient);
     color: #fff;
     font-family: var(--font-heading-page, inherit);
     font-size: var(--own-text-label, 13px);
@@ -1741,10 +1751,11 @@ body.ownership-page {
     cursor: pointer;
     white-space: nowrap;
     box-shadow: 0 2px 8px rgba(13, 96, 255, 0.28);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .own-month-back-btn:hover {
+    background: var(--btn-add-gradient-hover);
     box-shadow: 0 4px 12px rgba(13, 96, 255, 0.38);
     transform: translateY(-1px);
 }
@@ -1793,7 +1804,7 @@ body.ownership-page {
 }
 
 .own-history-preview-pct {
-    color: #2563eb;
+    color: var(--account-select-label-checked, var(--own-primary-blue));
     font-weight: 700;
 }
 
@@ -1833,11 +1844,11 @@ body.ownership-page {
 
 .own-tab-btn:hover {
     background: var(--own-gray-bg);
-    border-color: #0D60FF;
+    border-color: var(--account-select-card-border-checked, var(--own-primary-blue));
 }
 
 .own-tab-btn.active {
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    background: var(--btn-add-gradient);
     color: #fff;
     border-color: transparent;
     box-shadow: 0 2px 8px rgba(13, 96, 255, 0.35);
