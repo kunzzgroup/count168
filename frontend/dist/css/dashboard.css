@@ -150,6 +150,20 @@ body.dashboard-page {
     background: linear-gradient(135deg, #45b8e0, #003dd4);
 }
 
+.dashboard-alert-modal-overlay--elevated {
+    z-index: 2147483000;
+}
+
+.dashboard-alert-modal-icon-wrap--warning {
+    background: rgba(249, 115, 22, 0.12);
+}
+
+.dashboard-alert-modal-icon--warning {
+    width: 42px;
+    height: 42px;
+    color: #ea580c;
+}
+
 .dashboard-container {
     max-width: none;
     margin: 0;
