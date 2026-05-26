@@ -50,7 +50,8 @@ export function resolveAccessibleGroupIds(me, companies = []) {
   const fromSession = readAccessibleGroupIds(me);
   const set = new Set(fromSession);
   const ident = getLoginIdentifier(me);
-  if (ident) set.add(ident);
+  // Group login: login_identifier is a group id (e.g. AP). Company login: it is a company code — do not add as a group pill.
+  if (ident && isGroupLogin(me)) set.add(ident);
   if (isCompanyLogin(me)) {
     const loginGroup = resolveCompanyLoginGroupId(me, companies);
     if (loginGroup) set.add(loginGroup);
