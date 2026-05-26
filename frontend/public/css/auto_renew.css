@@ -4,6 +4,7 @@ body.auto-renew-page-body {
   overflow-y: auto !important;
   --auto-renew-toolbar-search-width: clamp(180px, 16vw, 260px);
   --auto-renew-toolbar-date-width: clamp(200px, 15vw, 248px);
+  --auto-renew-control-height: 28px;
 }
 
 body.auto-renew-page-body .auto-renew-page .content {
@@ -297,6 +298,31 @@ body.auto-renew-page-body .auto-renew-table-row.show-card:hover {
   background: rgba(248, 250, 252, 0.95);
 }
 
+body.auto-renew-page-body .auto-renew-table-row .card-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+body.auto-renew-page-body .auto-renew-table-row .card-item > span,
+body.auto-renew-page-body .auto-renew-table-row .card-item > select,
+body.auto-renew-page-body .auto-renew-table-row .card-item > button,
+body.auto-renew-page-body .auto-renew-table-row .card-item > .auto-renew-action-btns {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body.auto-renew-page-body .auto-renew-cell-readonly {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 body.auto-renew-page-body .card-item--strong {
   font-weight: 700;
   color: #0f172a;
@@ -334,75 +360,120 @@ body.auto-renew-page-body .auto-renew-status-badge.expired {
 body.auto-renew-page-body .auto-renew-approval-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: var(--auto-renew-control-height);
+  height: var(--auto-renew-control-height);
+  padding: 0 12px;
   border-radius: 999px;
+  border: 1px solid transparent;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  line-height: 1;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
 body.auto-renew-page-body .auto-renew-approval-badge.is-pending {
-  background: rgba(251, 191, 36, 0.2);
+  background: rgba(251, 191, 36, 0.18);
   color: #b45309;
+  border-color: rgba(251, 191, 36, 0.45);
 }
 
 body.auto-renew-page-body .auto-renew-approval-badge.is-approved {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.14);
   color: #047857;
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 body.auto-renew-page-body .auto-renew-approval-badge.is-rejected {
   background: rgba(239, 68, 68, 0.12);
   color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+body.auto-renew-page-body .auto-renew-approval-badge.is-deleted {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.32);
+  text-decoration: none;
 }
 
 body.auto-renew-page-body .auto-renew-inline-select {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  padding: 7px 10px;
+  height: var(--auto-renew-control-height);
+  min-height: var(--auto-renew-control-height);
+  padding: 0 28px 0 10px;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 12px;
-  background: #f8fafc;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 11px;
   color: #0f172a;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  text-overflow: ellipsis;
 }
 
 body.auto-renew-page-body .auto-renew-inline-select:hover:not(:disabled) {
   border-color: #cbd5e1;
-  background: #fff;
+  background-color: #ffffff;
 }
 
 body.auto-renew-page-body .auto-renew-inline-select:focus {
   outline: none;
   border-color: #60a5fa;
-  background: #fff;
+  background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 body.auto-renew-page-body .auto-renew-inline-select:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+  background-color: #f8fafc;
 }
 
 body.auto-renew-page-body .auto-renew-action-btns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
 }
 
 body.auto-renew-page-body .auto-renew-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   min-width: 64px;
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 0 12px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
+  line-height: 1;
   cursor: pointer;
   border: none;
   white-space: nowrap;
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+
+body.auto-renew-page-body .auto-renew-btn--sm {
+  height: var(--auto-renew-control-height);
+  min-height: var(--auto-renew-control-height);
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 11px;
 }
 
 body.auto-renew-page-body .auto-renew-btn:not(:disabled):active {
@@ -467,10 +538,9 @@ body.auto-renew-page-body .auto-renew-table-row.maintenance-row-deleted .card-it
   text-decoration: line-through;
 }
 
-body.auto-renew-page-body .auto-renew-approval-badge.is-deleted {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+body.auto-renew-page-body .auto-renew-table-row.maintenance-row-deleted .auto-renew-approval-badge,
+body.auto-renew-page-body .auto-renew-table-row.maintenance-row-deleted .auto-renew-inline-select,
+body.auto-renew-page-body .auto-renew-table-row.maintenance-row-deleted .auto-renew-btn {
   text-decoration: none;
 }
 
@@ -656,13 +726,19 @@ body.auto-renew-page-body .auto-renew-toast.error {
 
   body.auto-renew-page-body .auto-renew-inline-select {
     font-size: 10px;
-    padding: 5px 6px;
+    padding: 0 24px 0 8px;
+    background-position: right 8px center;
   }
 
-  body.auto-renew-page-body .auto-renew-btn {
+  body.auto-renew-page-body .auto-renew-btn,
+  body.auto-renew-page-body .auto-renew-btn--sm {
     font-size: 10px;
-    padding: 5px 8px;
-    min-width: 56px;
+    padding: 0 8px;
+  }
+
+  body.auto-renew-page-body .auto-renew-approval-badge {
+    font-size: 10px;
+    padding: 0 10px;
   }
 
   body.auto-renew-page-body .auto-renew-empty-state {

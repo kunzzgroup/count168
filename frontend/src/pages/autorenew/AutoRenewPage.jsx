@@ -532,7 +532,7 @@ export default function AutoRenewPage() {
                               ))}
                             </select>
                           ) : (
-                            <span>{row.period ? t(periodToLabelKey(row.period)) : "-"}</span>
+                            <span className="auto-renew-cell-readonly">{row.period ? t(periodToLabelKey(row.period)) : "-"}</span>
                           )}
                         </div>
                         <div className="card-item">
@@ -545,7 +545,7 @@ export default function AutoRenewPage() {
                               onChange={(val) => updateDraft(row.request_id, { fromAccountId: val })}
                             />
                           ) : (
-                            <span className="auto-renew-table-muted">
+                            <span className="auto-renew-cell-readonly auto-renew-table-muted">
                               {accounts.find((a) => a.id === row.from_account_id)?.account_code || "-"}
                             </span>
                           )}
@@ -560,7 +560,7 @@ export default function AutoRenewPage() {
                               onChange={(val) => updateDraft(row.request_id, { toAccountId: val })}
                             />
                           ) : (
-                            <span className="auto-renew-table-muted">
+                            <span className="auto-renew-cell-readonly auto-renew-table-muted">
                               {accounts.find((a) => a.id === row.to_account_id)?.account_code || "-"}
                             </span>
                           )}
