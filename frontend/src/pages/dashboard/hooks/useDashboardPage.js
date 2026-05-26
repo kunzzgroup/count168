@@ -804,49 +804,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     i18n,
   ]);
 
-  const kpiForDisplay = useMemo(() => {
-    if (!kpi) return kpi;
-    const displayEarnings =
-      useConvertedEarnings && convertedEarningsTotal != null
-        ? convertedEarningsTotal
-        : kpi.earnings;
-    const earningsCompare =
-      useConvertedEarnings && convertedEarningsTotal != null && convertedEarningsTotalPrev != null
-        ? buildKpiCompare(convertedEarningsTotal, convertedEarningsTotalPrev)
-        : kpi.comparisons?.earnings;
-
-    if (displayEarnings === kpi.earnings && earningsCompare === kpi.comparisons?.earnings) {
-      return kpi;
-    }
-
-    return {
-      ...kpi,
-      earnings: displayEarnings,
-      comparisons: kpi.comparisons
-        ? { ...kpi.comparisons, earnings: earningsCompare ?? kpi.comparisons.earnings }
-        : earningsCompare
-          ? { earnings: earningsCompare }
-          : null,
-    };
-  }, [
-    kpi,
-    useConvertedEarnings,
-    convertedEarningsTotal,
-    convertedEarningsTotalPrev,
-  ]);
-
   const scopeDataPending =
     Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
-  const summaryEarningsLoading = scopeDataPending || (loading && !dashboardData);
-  const earningsKpiLoading =
-    summaryEarningsLoading ||
+  const summaryEarningsLoading =
+    scopeDataPending ||
+    (loading && !dashboardData) ||
     (currencies.length > 1 &&
       !exchangeRatesError &&
       (earningsByCurrencyLoading ||
         exchangeRatesLoading ||
         !allCurrencyEarningsReady ||
         (useConvertedEarnings && convertedEarningsTotal == null)));
-  const kpiLoading = summaryEarningsLoading;
+  const kpiLoading = scopeDataPending || (loading && !dashboardData);
 
   const handlePickGroup = useCallback(
     (gid) => {
@@ -961,10 +930,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     setCurrencyCode,
     loading: kpiLoading,
     dashboardData,
-    kpi: kpiForDisplay ?? kpi,
+    kpi,
     kpiCompareLabel,
-    earningsKpiLoading,
-    earningsConversionNote: summaryConversionNote,
     kpiFooter,
     chartRows,
     chartSeries,
