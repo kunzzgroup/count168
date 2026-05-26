@@ -2114,7 +2114,49 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     refreshDomainFeeSummaryFromApi();
+
+    var domainFeePriceInput = document.getElementById('domainFeePrice');
+    if (domainFeePriceInput) {
+        domainFeePriceInput.addEventListener('input', refreshDomainFeePeriodSummaryFromInput);
+    }
 });
+
+/** Period keys align with Company Settings → Period dropdown */
+var DOMAIN_FEE_PERIOD_DEFS = [
+    { key: '7days', label: '7 Days' },
+    { key: '1month', label: '1 Month' },
+    { key: '3months', label: '3 Months' },
+    { key: '6months', label: '6 Months' },
+    { key: '1year', label: '1 Year' }
+];
+
+/** Proportional prices from 1 Year base: months ÷12, 7 days ÷365×7 */
+function computeDomainFeePeriodPrices(yearlyPrice) {
+    var y;
+    try {
+        y = domainDecimal(yearlyPrice === '' || yearlyPrice === null || yearlyPrice === undefined ? '0' : yearlyPrice, 0);
+    } catch (e) {
+        y = domainDecimal('0', 0);
+    }
+    return {
+        '7days': MoneyDecimal.div(MoneyDecimal.mul(y, '7'), '365'),
+        '1month': MoneyDecimal.div(y, '12'),
+        '3months': MoneyDecimal.div(MoneyDecimal.mul(y, '3'), '12'),
+        '6months': MoneyDecimal.div(MoneyDecimal.mul(y, '6'), '12'),
+        '1year': y
+    };
+}
+
+function formatDomainFeePeriodAmount(val) {
+    if (val === null || val === undefined || val === '') {
+        return '—';
+    }
+    try {
+        return domainDecimalDisplay(val, 2);
+    } catch (e) {
+        return '—';
+    }
+}
 
 /** 展示用：固定两位小数 */
 function formatDomainFeeDisplay2(val) {
@@ -2140,17 +2182,50 @@ function formatDomainFeeEdit2(val) {
     }
 }
 
+function buildDomainFeePeriodSummaryHtml(yearlyPrice) {
+    var prices = computeDomainFeePeriodPrices(yearlyPrice);
+    var rows = DOMAIN_FEE_PERIOD_DEFS.map(function (def) {
+        var amt = formatDomainFeePeriodAmount(prices[def.key]);
+        return '<div class="domain-fee-period-row"><span class="domain-fee-period-label">' + def.label + '</span><strong>' + amt + '</strong></div>';
+    }).join('');
+    return '<div class="domain-fee-period-summary-title">Prices by period <span class="domain-fee-period-base-hint">(from 1 Year fee)</span></div>' +
+        '<div class="domain-fee-period-list">' + rows + '</div>';
+}
+
 function buildDomainFeeSummaryHtml2(data) {
-    var p2 = formatDomainFeeDisplay2(data.price);
-    return 'Display: Price <strong>' + p2 + '</strong>';
+    var yearly = data && data.price !== null && data.price !== undefined && data.price !== '' ? data.price : '0';
+    return buildDomainFeePeriodSummaryHtml(yearly);
 }
 
 function buildDomainFeeInlineSummaryText2(data) {
-    var p2 = formatDomainFeeDisplay2(data.price);
-    if (p2 === '—') {
+    var yearly = data && data.price !== null && data.price !== undefined && data.price !== '' ? data.price : '';
+    if (yearly === '') {
         return '';
     }
-    return 'Display: Price ' + p2;
+    var p1y = formatDomainFeePeriodAmount(computeDomainFeePeriodPrices(yearly)['1year']);
+    if (p1y === '—') {
+        return '';
+    }
+    return '1 Year: ' + p1y;
+}
+
+function refreshDomainFeePeriodSummaryFromInput() {
+    var priceEl = document.getElementById('domainFeePrice');
+    var raw = priceEl ? String(priceEl.value).trim() : '';
+    var yearly = raw;
+    if (yearly !== '') {
+        try {
+            yearly = domainDecimalFixed(yearly, 8);
+        } catch (e) {
+            yearly = domainFeePriceCache || '0';
+        }
+    } else {
+        yearly = '0';
+    }
+    var modalEl = document.getElementById('domainFeeSummaryDisplay');
+    if (modalEl) {
+        modalEl.innerHTML = buildDomainFeePeriodSummaryHtml(yearly);
+    }
 }
 
 function applyDomainFeeSummaryDisplays(data) {
@@ -2213,8 +2288,9 @@ function openDomainFeeSettingsModal() {
         .then(function (r) { return r.json(); })
         .then(function (res) {
             if (res.success && res.data) {
-                applyDomainFeeSummaryDisplays(res.data);
                 applyDomainFeeEditInputs(res.data);
+                applyDomainFeeSummaryDisplays(res.data);
+                refreshDomainFeePeriodSummaryFromInput();
             } else {
                 showAlert(res.message || 'Could not load settings', 'danger');
             }
