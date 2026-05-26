@@ -1,5 +1,12 @@
 import { useEffect } from "react";
 
+const URGENCY_ICON_CLASS = {
+  yellow: "dashboard-alert-modal-icon-wrap--yellow",
+  orange: "dashboard-alert-modal-icon-wrap--orange",
+  critical: "dashboard-alert-modal-icon-wrap--critical",
+  expired: "dashboard-alert-modal-icon-wrap--critical",
+};
+
 export default function ExpirationReminderModal({
   open,
   title,
@@ -8,6 +15,7 @@ export default function ExpirationReminderModal({
   onConfirm,
   secondaryLabel,
   onSecondary,
+  urgencyTier = "yellow",
 }) {
   useEffect(() => {
     if (!open) return undefined;
@@ -20,6 +28,17 @@ export default function ExpirationReminderModal({
 
   if (!open) return null;
 
+  const iconWrapClass =
+    URGENCY_ICON_CLASS[urgencyTier] || URGENCY_ICON_CLASS.yellow;
+  const boxClass =
+    urgencyTier === "critical" || urgencyTier === "expired"
+      ? " dashboard-alert-modal-box--critical"
+      : urgencyTier === "orange"
+        ? " dashboard-alert-modal-box--orange"
+        : urgencyTier === "yellow"
+          ? " dashboard-alert-modal-box--yellow"
+          : "";
+
   return (
     <div
       className="dashboard-alert-modal-overlay is-open dashboard-alert-modal-overlay--elevated"
@@ -28,10 +47,14 @@ export default function ExpirationReminderModal({
         if (e.target === e.currentTarget) onConfirm();
       }}
     >
-      <div className="dashboard-alert-modal-box" role="dialog" aria-labelledby="expirationReminderTitle">
-        <div className="dashboard-alert-modal-icon-wrap dashboard-alert-modal-icon-wrap--warning">
+      <div
+        className={`dashboard-alert-modal-box expiration-reminder-modal-box${boxClass}`}
+        role="dialog"
+        aria-labelledby="expirationReminderTitle"
+      >
+        <div className={`dashboard-alert-modal-icon-wrap ${iconWrapClass}`}>
           <svg
-            className="dashboard-alert-modal-icon dashboard-alert-modal-icon--warning"
+            className="dashboard-alert-modal-icon dashboard-alert-modal-icon--clock"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"

@@ -19,6 +19,7 @@ import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 import ExpirationReminderModal from "../../components/ExpirationReminderModal.jsx";
+import SidebarExpirationCountdown from "../../components/SidebarExpirationCountdown.jsx";
 import MemberMiniGrid, { MemberMiniGridTotals } from "./components/MemberMiniGrid.jsx";
 import MemberMoneyCell from "./components/MemberMoneyCell.jsx";
 import MemberLinkedFilterModal from "./components/MemberLinkedFilterModal.jsx";
@@ -305,16 +306,11 @@ export default function MemberPage() {
           </div>
         </div>
         <div className="informationmenu-footer">
-          <div className={`company-expiration-countdown ${me?.expiration_status || "normal"}`}>
-            <svg className="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <div className="expiration-content">
-              <span className="expiration-label">{t("exp")}</span>
-              <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>{me?.expiration_hint || "-"}</span>
-            </div>
-          </div>
+          <SidebarExpirationCountdown
+            status={me?.expiration_status || "normal"}
+            label={t("exp")}
+            hint={me?.expiration_hint || "-"}
+          />
           <button className="btn logout-btn" onClick={() => setShowLogoutConfirm(true)} type="button">{t("logout")}</button>
         </div>
       </div>
@@ -660,6 +656,7 @@ export default function MemberPage() {
         message={expirationReminder.modalMessage}
         confirmLabel={expirationReminder.modalI18n.confirm}
         onConfirm={expirationReminder.dismissModal}
+        urgencyTier={expirationReminder.reminder?.tier || "yellow"}
       />
 
       <ConfirmLogoutModal
