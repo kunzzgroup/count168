@@ -197,6 +197,58 @@ body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-
   scrollbar-gutter: stable;
 }
 
+/* Header / row share same horizontal inset so grid columns line up */
+body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header.auto-renew-table-header {
+  padding-left: 22px !important;
+  padding-right: 22px !important;
+  box-sizing: border-box;
+}
+
+body.auto-renew-page-body .user-list-table.auto-renew-table .user-card.user-list-row.auto-renew-table-row {
+  padding-left: 22px !important;
+  padding-right: 22px !important;
+  box-sizing: border-box;
+}
+
+/* Period / Account / Status — controls fill the grid track (same width as header cell) */
+body.auto-renew-page-body .auto-renew-col-control-header,
+body.auto-renew-page-body .auto-renew-col-control {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+body.auto-renew-page-body .auto-renew-col-control {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+
+body.auto-renew-page-body .auto-renew-col-control > .auto-renew-inline-select,
+body.auto-renew-page-body .auto-renew-col-control > select.auto-renew-inline-select {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+body.auto-renew-page-body .auto-renew-col-control > .auto-renew-cell-readonly {
+  width: 100%;
+  min-width: 0;
+}
+
+body.auto-renew-page-body .auto-renew-col-control--status {
+  justify-content: flex-start;
+}
+
+body.auto-renew-page-body .auto-renew-col-control--status > .auto-renew-action-btns,
+body.auto-renew-page-body .auto-renew-col-control--status > .auto-renew-btn,
+body.auto-renew-page-body .auto-renew-col-control--status > .auto-renew-approval-badge {
+  max-width: 100%;
+}
+
 /* Sort icon visually left of label; keep label+icon grouped (Status / Submitter / all sort cols) */
 body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header.auto-renew-table-header .header-item.header-item--with-sort-icon {
   display: flex;

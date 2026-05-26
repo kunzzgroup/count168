@@ -285,9 +285,9 @@ export default function AutoRenewPage() {
     </span>
   );
 
-  const renderHeader = (column, label) => (
+  const renderHeader = (column, label, { controlCol = false } = {}) => (
     <div
-      className="header-item header-item--with-sort-icon header-sortable"
+      className={`header-item header-item--with-sort-icon header-sortable${controlCol ? " auto-renew-col-control-header" : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => handleSort(column)}
@@ -481,10 +481,10 @@ export default function AutoRenewPage() {
                 {renderHeader("price", t("colPrice"))}
                 {renderHeader("expiration", t("colExpiration"))}
                 {renderHeader("remaining", t("colRemaining"))}
-                {renderHeader("period", t("colPeriod"))}
-                <div className="header-item"><span className="header-item__label">{t("colFromAccount")}</span></div>
-                <div className="header-item"><span className="header-item__label">{t("colToAccount")}</span></div>
-                {renderHeader("status", t("colStatus"))}
+                {renderHeader("period", t("colPeriod"), { controlCol: true })}
+                <div className="header-item auto-renew-col-control-header"><span className="header-item__label">{t("colFromAccount")}</span></div>
+                <div className="header-item auto-renew-col-control-header"><span className="header-item__label">{t("colToAccount")}</span></div>
+                {renderHeader("status", t("colStatus"), { controlCol: true })}
                 {showSubmitterColumn ? renderHeader("submitter", t("colSubmitter")) : null}
               </div>
 
@@ -516,7 +516,7 @@ export default function AutoRenewPage() {
                             {formatRemainingForRow(row, t)}
                           </span>
                         </div>
-                        <div className="card-item">
+                        <div className="card-item auto-renew-col-control">
                           {isPendingEditable ? (
                             <select
                               className="auto-renew-inline-select"
@@ -535,7 +535,7 @@ export default function AutoRenewPage() {
                             <span className="auto-renew-cell-readonly">{row.period ? t(periodToLabelKey(row.period)) : "-"}</span>
                           )}
                         </div>
-                        <div className="card-item">
+                        <div className="card-item auto-renew-col-control">
                           {isPendingEditable ? (
                             <AccountSelect
                               value={draft.fromAccountId}
@@ -550,7 +550,7 @@ export default function AutoRenewPage() {
                             </span>
                           )}
                         </div>
-                        <div className="card-item">
+                        <div className="card-item auto-renew-col-control">
                           {isPendingEditable ? (
                             <AccountSelect
                               value={draft.toAccountId}
@@ -565,7 +565,7 @@ export default function AutoRenewPage() {
                             </span>
                           )}
                         </div>
-                        <div className="card-item">{renderStatusCell(row)}</div>
+                        <div className="card-item auto-renew-col-control auto-renew-col-control--status">{renderStatusCell(row)}</div>
                         {showSubmitterColumn ? (
                           <div className="card-item">{renderSubmitterCell(row)}</div>
                         ) : null}
