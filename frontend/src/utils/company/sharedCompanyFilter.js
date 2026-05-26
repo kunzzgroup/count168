@@ -68,10 +68,13 @@ export function persistDashboardFilterState(selectedGroup, companyId) {
   persistDashboardSelectedCompany(companyId);
 }
 
-/** Boot helper: honour group-only + saved id; never fall back to session/URL when group-only. */
+/** Boot helper: explicit URL company wins; otherwise honour group-only + saved id. */
 export function resolveBootCompanyId({ urlCompanyId, sessionCompanyId, defaultRowId } = {}) {
+  const urlNum =
+    urlCompanyId != null && urlCompanyId !== "" ? Number(urlCompanyId) : Number.NaN;
+  if (Number.isFinite(urlNum) && urlNum > 0) return urlNum;
   if (isDashboardGroupOnlyMode()) return null;
-  return resolveInitialCompanyId(urlCompanyId ?? sessionCompanyId ?? defaultRowId ?? null);
+  return resolveInitialCompanyId(sessionCompanyId ?? defaultRowId ?? null);
 }
 
 /** @deprecated Use {@link persistDashboardFilterState} */
@@ -191,6 +194,21 @@ export function dedupeOwnerCompaniesByCode(companies, preferredCompanyId) {
 
 export function normalizeCompanyGroupId(comp) {
   return String(comp?.group_id ?? "").trim().toUpperCase();
+}
+
+/** True when the company row belongs to the selected group (or no group filter is active). */
+export function companyBelongsToGroup(companyRow, selectedGroup) {
+  if (!companyRow) return false;
+  const sel = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+  if (!sel) return true;
+  return normalizeCompanyGroupId(companyRow) === sel;
+}
+
+/** User explicitly picked a company that matches the current group filter. */
+export function isExplicitCompanySelection(companyId, companyRow, selectedGroup) {
+  const id = Number(companyId);
+  if (!Number.isFinite(id) || id <= 0) return false;
+  return companyBelongsToGroup(companyRow, selectedGroup);
 }
 
 /** Sorted unique non-empty group ids from company rows. */

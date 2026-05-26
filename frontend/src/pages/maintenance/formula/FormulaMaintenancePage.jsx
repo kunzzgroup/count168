@@ -474,14 +474,13 @@ export default function FormulaMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
-    persistDashboardFilterState(selectedGroup, null);
     companyIdRef.current = null;
     setCompanyId(null);
     setCompanyCode("");
     setSearchFilter("");
     setSelectedProcess(null);
     clearFormulaList();
-  }, [clearFormulaList, selectedGroup]);
+  }, [clearFormulaList]);
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;

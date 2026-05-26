@@ -53,6 +53,7 @@ export function useDataCaptureSubmitReset({
   mutationsBlocked = false,
   navigate,
   t,
+  requireDescriptions = true,
 }) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreInFlightRef = useRef(false);
@@ -80,9 +81,10 @@ export function useDataCaptureSubmitReset({
       currencyId: form.currencyId,
       captureType: activeCaptureType,
       tableData,
+      requireDescriptions,
     });
     setSubmitDisabled(!ready);
-  }, [form.selectedProcess, form.currencyId, form.descriptionDisplay]);
+  }, [form.selectedProcess, form.currencyId, form.descriptionDisplay, requireDescriptions]);
 
   useEffect(() => {
     recomputeSubmitState();
@@ -139,6 +141,7 @@ export function useDataCaptureSubmitReset({
       currencyId: form.currencyId,
       captureType: activeCaptureType,
       tableData,
+      requireDescriptions,
     });
     if (!validation.ok) {
       pushDataCaptureNotification(translateDataCaptureMessage(localStorage.getItem("login_lang") === "zh" ? "zh" : "en", validation.message), "danger");
@@ -179,7 +182,7 @@ export function useDataCaptureSubmitReset({
       console.error("Error submitting data:", error);
       pushDataCaptureNotification(t("failedCaptureData"), "danger");
     }
-  }, [form, captureType, mutationsBlocked, navigate, t]);
+  }, [form, captureType, mutationsBlocked, navigate, t, requireDescriptions]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {

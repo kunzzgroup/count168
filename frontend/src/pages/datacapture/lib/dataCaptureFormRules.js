@@ -52,6 +52,7 @@ export function validateDataCaptureForm({
   currencyId,
   captureType,
   tableData,
+  requireDescriptions = true,
 }) {
   const activeDescriptions = descriptions?.length
     ? descriptions
@@ -60,7 +61,7 @@ export function validateDataCaptureForm({
   if (!selectedProcess?.id) {
     return { ok: false, message: "Please select a process" };
   }
-  if (!activeDescriptions.length) {
+  if (requireDescriptions && !activeDescriptions.length) {
     return { ok: false, message: "Please select at least one description" };
   }
   if (!currencyId) {

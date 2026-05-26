@@ -191,11 +191,6 @@ export default function AuthenticatedLayout() {
   const prevPathRef = useRef(path);
 
   useEffect(() => {
-    const onFilterChange = () => setSidebarGcTick((n) => n + 1);
-    window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-    return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-  }, []);
-  useEffect(() => {
     if (!isTabletViewport || sidebarCollapsed) {
       prevPathRef.current = path;
       return;
@@ -273,6 +268,15 @@ export default function AuthenticatedLayout() {
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
     return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+  }, [refreshSession]);
+
+  useEffect(() => {
+    const onFilterChange = () => {
+      setSidebarGcTick((n) => n + 1);
+      void refreshSession();
+    };
+    window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
+    return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
   }, [refreshSession]);
 
   useEffect(() => {

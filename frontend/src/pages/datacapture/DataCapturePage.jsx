@@ -4,11 +4,16 @@ import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import {
+  companiesInGroupList,
+  companyBelongsToGroup,
   dedupeOwnerCompaniesByCode,
   filterCompaniesWithDisplayId,
+  isExplicitCompanySelection,
   normalizeOwnerCompanyRow,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
+  persistDashboardGroupOnlyMode,
+  persistDashboardSelectedCompany,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
@@ -24,6 +29,10 @@ import {
   resolveCompanyGamesAccess,
   syncDataCaptureCompanySession,
 } from "./lib/dataCaptureCompanyAccess.js";
+import {
+  getGroupOnlyProcessOptions,
+  isGroupOnlyProcessId,
+} from "./lib/dataCaptureGroupOnlyProcesses.js";
 import DataCaptureContextMenus from "./components/DataCaptureContextMenus.jsx";
 import DataCaptureDeleteDialog from "./components/DataCaptureDeleteDialog.jsx";
 import DataCaptureTableSection from "./components/DataCaptureTableSection.jsx";
@@ -147,6 +156,11 @@ export default function DataCapturePage() {
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const bootCompletedRef = useRef(false);
+  const scriptsBootedRef = useRef(false);
+  const prevGroupOnlyGroupRef = useRef(null);
+  /** Tracks anchor session sync per group (sidebar flags follow PHP session company). */
+  const groupAnchorSessionRef = useRef({ group: null, companyId: null });
 
   /** Set as soon as this route mounts (including Loading…), before scripts run — legacy uses it to skip DOM that React owns. */
   useLayoutEffect(() => {
@@ -174,16 +188,31 @@ export default function DataCapturePage() {
     [companiesNormalized, companyId]
   );
 
+  const isCompanySelected = useMemo(
+    () => isExplicitCompanySelection(companyId, currentCompanyRow, selectedGroup),
+    [companyId, currentCompanyRow, selectedGroup]
+  );
+
+  const anchorCompanyRow = useMemo(() => {
+    if (isCompanySelected) return currentCompanyRow;
+    const inGroup = companiesInGroupList(companiesDeduped, selectedGroup);
+    return inGroup[0] ?? null;
+  }, [isCompanySelected, currentCompanyRow, companiesDeduped, selectedGroup]);
+
+  const effectiveCompanyId = isCompanySelected ? companyId : anchorCompanyRow?.id ?? null;
+
   const companyCode = useMemo(() => {
-    const raw = currentCompanyRow?.company_id;
+    const raw = (isCompanySelected ? currentCompanyRow : anchorCompanyRow)?.company_id;
     if (raw != null && String(raw).trim() !== "") return String(raw).trim();
-    if (companyId != null && Number(companyId) > 0) return String(companyId);
+    if (effectiveCompanyId != null && Number(effectiveCompanyId) > 0) return String(effectiveCompanyId);
     return "";
-  }, [currentCompanyRow, companyId]);
+  }, [isCompanySelected, currentCompanyRow, anchorCompanyRow, effectiveCompanyId]);
 
-  const form = useDataCaptureFormEngine(companyId);
+  const form = useDataCaptureFormEngine(effectiveCompanyId, { applyCompanyOnlyFields: isCompanySelected });
 
-  const { submittedItems } = useDataCaptureSubmittedList(companyId, form.captureDate);
+  const groupOnlyProcessOptions = useMemo(() => getGroupOnlyProcessOptions(t), [t]);
+
+  const { submittedItems } = useDataCaptureSubmittedList(effectiveCompanyId, form.captureDate);
 
   const { topSectionRef, formColumnRef } = useDataCaptureSubmittedPanelHeight();
 
@@ -207,12 +236,13 @@ export default function DataCapturePage() {
 
   const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
   const submitReset = useDataCaptureSubmitReset({
-    companyId,
+    companyId: effectiveCompanyId,
     form,
     captureType,
     mutationsBlocked,
     navigate,
     t,
+    requireDescriptions: isCompanySelected,
   });
 
   useDataCaptureGrid(scriptsReady);
@@ -308,6 +338,7 @@ export default function DataCapturePage() {
 
   useEffect(() => {
     if (!sessionReady || !me) return;
+    if (bootCompletedRef.current) return;
 
     let cancelled = false;
     setBootLoading(true);
@@ -346,7 +377,7 @@ export default function DataCapturePage() {
             ? raw.find((c) => Number(c.id) === Number(effectiveCompany)) || null
             : null;
         const initialGroupEarly = resolveInitialSelectedGroupFromSession(raw, rowForPickEarly);
-        if (isDashboardGroupOnlyMode()) {
+        if (isDashboardGroupOnlyMode() && !queryCompany) {
           setCompanies(raw);
           setCompanyId(null);
           setSelectedGroup(initialGroupEarly);
@@ -395,7 +426,10 @@ export default function DataCapturePage() {
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        if (!cancelled) setBootLoading(false);
+        if (!cancelled) {
+          setBootLoading(false);
+          bootCompletedRef.current = true;
+        }
       }
     })();
     return () => {
@@ -404,14 +438,39 @@ export default function DataCapturePage() {
   }, [sessionReady, me, navigate]);
 
   useEffect(() => {
-    if (bootLoading || !companyIdFromUrl || companies.length === 0) return;
+    return () => {
+      scriptsBootedRef.current = false;
+      bootCompletedRef.current = false;
+      document.getElementById("dataCaptureForm")?.removeAttribute("data-dc-page-init");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (bootLoading || companies.length === 0) return;
+    if (isDashboardGroupOnlyMode()) {
+      if (companyIdFromUrl) navigate("/datacapture", { replace: true });
+      return;
+    }
+    if (!companyIdFromUrl) return;
     const id = Number(companyIdFromUrl);
     if (!Number.isFinite(id) || id <= 0) return;
-    const allowed = companies.some((c) => Number(c.id) === id);
-    if (!allowed || Number(companyId) === id) return;
+    const row = companiesNormalized.find((c) => Number(c.id) === id) || null;
+    if (!row) return;
+    if (selectedGroup && !companyBelongsToGroup(row, selectedGroup)) {
+      navigate("/datacapture", { replace: true });
+      return;
+    }
+    if (
+      Number(companyId) === id &&
+      isExplicitCompanySelection(companyId, row, selectedGroup)
+    ) {
+      return;
+    }
 
     let cancelled = false;
     (async () => {
+      persistDashboardGroupOnlyMode(false);
+      persistDashboardSelectedCompany(id);
       try {
         const syncJson = await syncDataCaptureCompanySession(id);
         if (!syncJson.success) return;
@@ -431,7 +490,60 @@ export default function DataCapturePage() {
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, companyIdFromUrl, companies, companyId]);
+  }, [bootLoading, companyIdFromUrl, companies, companiesNormalized, companyId, selectedGroup, navigate]);
+
+  useEffect(() => {
+    if (!companyId || !selectedGroup) return;
+    if (!currentCompanyRow) return;
+    if (companyBelongsToGroup(currentCompanyRow, selectedGroup)) return;
+    setCompanyId(null);
+    navigate("/datacapture", { replace: true });
+    form.clearCompanyOnlyFields?.();
+    form.clearProcessSelection?.();
+  }, [companyId, selectedGroup, currentCompanyRow, navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
+
+  /** Group-only UI keeps company unselected; sync anchor company so sidebar matches AP vs IG. */
+  useEffect(() => {
+    if (bootLoading || isCompanySelected || !selectedGroup) return;
+    const anchorId =
+      anchorCompanyRow?.id != null ? Number(anchorCompanyRow.id) : Number.NaN;
+    if (!Number.isFinite(anchorId) || anchorId <= 0) return;
+
+    const g = String(selectedGroup).trim().toUpperCase();
+    const prev = groupAnchorSessionRef.current;
+    if (prev.group === g && prev.companyId === anchorId) return;
+    if (me?.company_id != null && Number(me.company_id) === anchorId && prev.group === g) {
+      groupAnchorSessionRef.current = { group: g, companyId: anchorId };
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const syncJson = await syncDataCaptureCompanySession(anchorId);
+        if (!syncJson.success || cancelled) return;
+        if (syncJson.data?.has_gambling === false) {
+          navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+          return;
+        }
+        groupAnchorSessionRef.current = { group: g, companyId: anchorId };
+        notifyCompanySessionUpdated();
+      } catch {
+        /* ignore */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    bootLoading,
+    isCompanySelected,
+    selectedGroup,
+    anchorCompanyRow?.id,
+    me?.company_id,
+    navigate,
+  ]);
 
   const switchCompanySessionAndNavigate = useCallback(async (nextCompanyId) => {
     const id = Number(nextCompanyId);
@@ -452,12 +564,51 @@ export default function DataCapturePage() {
       return;
     }
 
+    persistDashboardGroupOnlyMode(false);
+    persistDashboardSelectedCompany(id);
+    groupAnchorSessionRef.current = {
+      group: selectedGroup ? String(selectedGroup).trim().toUpperCase() : null,
+      companyId: id,
+    };
+    setCompanyId(id);
     navigate(`/datacapture?company_id=${encodeURIComponent(id)}`, { replace: true });
-  }, [navigate]);
+  }, [navigate, selectedGroup]);
 
   const handleClearCompany = useCallback(() => {
     setCompanyId(null);
-  }, []);
+    groupAnchorSessionRef.current = { group: null, companyId: null };
+    navigate("/datacapture", { replace: true });
+    form.clearCompanyOnlyFields?.();
+    form.clearProcessSelection?.();
+  }, [navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
+
+  useEffect(() => {
+    if (isCompanySelected) return;
+    form.clearCompanyOnlyFields?.();
+  }, [isCompanySelected, form.clearCompanyOnlyFields]);
+
+  useEffect(() => {
+    const id = form.selectedProcess?.id;
+    if (!id) return;
+    if (!isCompanySelected && !isGroupOnlyProcessId(id)) {
+      form.clearProcessSelection();
+    } else if (isCompanySelected && isGroupOnlyProcessId(id)) {
+      form.clearProcessSelection();
+    }
+  }, [isCompanySelected, form.selectedProcess?.id, form.clearProcessSelection]);
+
+  useEffect(() => {
+    if (isCompanySelected) {
+      prevGroupOnlyGroupRef.current = selectedGroup;
+      return;
+    }
+    const prev = prevGroupOnlyGroupRef.current;
+    if (prev != null && prev !== selectedGroup) {
+      form.clearProcessSelection?.();
+      form.clearCompanyOnlyFields?.();
+    }
+    prevGroupOnlyGroupRef.current = selectedGroup;
+  }, [selectedGroup, isCompanySelected, form.clearProcessSelection, form.clearCompanyOnlyFields]);
 
   const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
     companies: companiesDeduped,
@@ -469,14 +620,11 @@ export default function DataCapturePage() {
     },
     onClearCompany: handleClearCompany,
     preferredCompanyId: companyId,
+    enableGroupAnchorSession: false,
   });
 
   useEffect(() => {
-    if (bootLoading || !me || !companyId) return;
-
-    window.DATACAPTURE_COMPANY_ID = companyId;
-    window.DATACAPTURE_USER_ROLE = String(me.role || "").toLowerCase();
-    window.DATACAPTURE_COMPANY_CODE = companyCode || String(companyId);
+    if (bootLoading || !me) return;
 
     window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__ = async (rawId) => {
       await switchCompanySessionAndNavigate(Number(rawId));
@@ -486,9 +634,48 @@ export default function DataCapturePage() {
       if (cid) window.switchDataCaptureCompany?.(Number(cid));
     };
 
+    return () => {
+      try {
+        delete window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__;
+      } catch {
+        window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__ = undefined;
+      }
+      try {
+        delete window.onSharedCompanyFilterChanged;
+      } catch {
+        window.onSharedCompanyFilterChanged = undefined;
+      }
+    };
+  }, [bootLoading, me, switchCompanySessionAndNavigate]);
+
+  useEffect(() => {
+    if (bootLoading || !me) return;
+
+    if (effectiveCompanyId) {
+      window.DATACAPTURE_COMPANY_ID = effectiveCompanyId;
+      window.DATACAPTURE_COMPANY_CODE = companyCode || String(effectiveCompanyId);
+    }
+    window.DATACAPTURE_USER_ROLE = String(me.role || "").toLowerCase();
+
+    const syncCompanyContext = async () => {
+      if (!effectiveCompanyId) return;
+      try {
+        await window.__DC_REFRESH_SUBMITTED_PROCESSES__?.();
+      } catch {
+        /* ignore */
+      }
+      window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+    };
+
+    if (scriptsBootedRef.current) {
+      void syncCompanyContext();
+      return;
+    }
+
+    if (!effectiveCompanyId) return;
+
     let alive = true;
     setEngineError("");
-    setScriptsReady(false);
 
     (async () => {
       try {
@@ -502,55 +689,38 @@ export default function DataCapturePage() {
         if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
           window.__DC_ENSURE_GRID_READY__(26, 20);
         }
-        if (typeof window.__DC_RECOMPUTE_SUBMIT_STATE__ === "function") {
-          window.__DC_RECOMPUTE_SUBMIT_STATE__();
-        }
+        scriptsBootedRef.current = true;
         if (alive) setScriptsReady(true);
+        await syncCompanyContext();
       } catch (e) {
         if (!alive) return;
         console.error(e);
         setEngineError("Failed to load Data Capture scripts.");
+        scriptsBootedRef.current = false;
         setScriptsReady(false);
       }
     })();
 
     return () => {
       alive = false;
-      setScriptsReady(false);
-      document.getElementById("dataCaptureForm")?.removeAttribute("data-dc-page-init");
-      try {
-        delete window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__;
-      } catch {
-        window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__ = undefined;
-      }
-      try {
-        delete window.onSharedCompanyFilterChanged;
-      } catch {
-        window.onSharedCompanyFilterChanged = undefined;
-      }
     };
-  }, [bootLoading, me, companyId, switchCompanySessionAndNavigate]);
+  }, [bootLoading, me, effectiveCompanyId, companyCode]);
 
   useEffect(() => {
     if (!scriptsReady) return;
     preloadSummaryLegacyScriptsInBackground();
   }, [scriptsReady]);
 
-  useEffect(() => {
-    if (!companyId) return;
-    window.DATACAPTURE_COMPANY_ID = companyId;
-    window.DATACAPTURE_COMPANY_CODE = companyCode || String(companyId);
-  }, [companyId, companyCode]);
-
   if (bootLoading) {
     return <PageContentLoader />;
   }
 
   const list = filterCompaniesWithDisplayId(companiesForPicker);
+  const pageShellKey = isCompanySelected ? `company-${companyId}` : "group-only";
 
   return (
-    <DataCaptureErrorBoundary key={companyId ?? "none"}>
-      <div className="container" key={companyId ?? "none"}>
+    <DataCaptureErrorBoundary key={pageShellKey}>
+      <div className="container" key={pageShellKey}>
       <div className="dc-page-toolbar">
 
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
@@ -589,7 +759,7 @@ export default function DataCapturePage() {
             <form
               id="dataCaptureForm"
               data-ezc-spa="1"
-              className="process-form"
+              className={`process-form${isCompanySelected ? "" : " dc-form--group-only"}`.trim()}
               method="POST"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -661,104 +831,126 @@ export default function DataCapturePage() {
 
                 <div className="form-group">
                   <label htmlFor="capture_process">{t("process")}</label>
-                  <div className="custom-select-wrapper">
-                    <button
-                      type="button"
-                      className={`custom-select-button${form.processOpen ? " open" : ""}`.trim()}
-                      id="capture_process"
-                      data-placeholder={t("selectProcess")}
-                      name="process"
-                      {...(form.selectedProcess?.id
-                        ? {
-                            "data-value": form.selectedProcess.id,
-                            "data-process-code": form.selectedProcess.process_id || "",
-                            ...(form.selectedProcess.description_name
-                              ? { "data-description-name": form.selectedProcess.description_name }
-                              : {}),
-                          }
-                        : {})}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (typeof window.tableActive !== "undefined") window.tableActive = false;
-                        form.setProcessOpen((o) => !o);
-                      }}
-                    >
-                      {form.selectedProcess?.displayText || t("selectProcess")}
-                    </button>
-                    <div
-                      className={`custom-select-dropdown${form.processOpen ? " show" : ""}`.trim()}
-                      id="capture_process_dropdown"
-                    >
-                      <div className="custom-select-search">
-                        <input
-                          ref={form.processSearchInputRef}
-                          type="text"
-                          placeholder={t("searchProcess")}
-                          autoComplete="off"
-                          value={form.processFilter}
-                          onChange={(e) => form.setProcessFilter(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                              form.setProcessOpen(false);
-                            } else if (e.key === "Enter") {
-                              e.preventDefault();
-                              const first = form.filteredProcesses[0];
-                              if (first) void form.selectProcessRow(first);
+                  {isCompanySelected ? (
+                    <div className="custom-select-wrapper">
+                      <button
+                        type="button"
+                        className={`custom-select-button${form.processOpen ? " open" : ""}`.trim()}
+                        id="capture_process"
+                        data-placeholder={t("selectProcess")}
+                        name="process"
+                        {...(form.selectedProcess?.id
+                          ? {
+                              "data-value": form.selectedProcess.id,
+                              "data-process-code": form.selectedProcess.process_id || "",
+                              ...(form.selectedProcess.description_name
+                                ? { "data-description-name": form.selectedProcess.description_name }
+                                : {}),
                             }
-                          }}
-                        />
-                      </div>
-                      {/* Legacy `loadProcessesByDate` clears the first `.custom-select-options` — keep an empty decoy. */}
+                          : {})}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (typeof window.tableActive !== "undefined") window.tableActive = false;
+                          form.setProcessOpen((o) => !o);
+                        }}
+                      >
+                        {form.selectedProcess?.displayText || t("selectProcess")}
+                      </button>
                       <div
-                        className="custom-select-options dc-legacy-process-options-host"
-                        aria-hidden="true"
-                        style={{ display: "none" }}
-                      />
-                      <div className="custom-select-options dc-react-process-options">
-                        {form.processListTruncated ? (
-                          <div className="custom-select-option custom-select-option--hint" style={{ cursor: "default", opacity: 0.85 }}>
-                            {t("typeToSearchProcesses", { count: form.processRowsCount })}
-                          </div>
-                        ) : null}
-                        {form.visibleProcesses.map((row) => (
-                          <div
-                            key={row.id}
-                            role="presentation"
-                            className="custom-select-option"
-                            onClick={() => void form.selectProcessRow(row)}
-                          >
-                            {form.displayTextFromProcessRow(row)}
-                          </div>
-                        ))}
+                        className={`custom-select-dropdown${form.processOpen ? " show" : ""}`.trim()}
+                        id="capture_process_dropdown"
+                      >
+                        <div className="custom-select-search">
+                          <input
+                            ref={form.processSearchInputRef}
+                            type="text"
+                            placeholder={t("searchProcess")}
+                            autoComplete="off"
+                            value={form.processFilter}
+                            onChange={(e) => form.setProcessFilter(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                form.setProcessOpen(false);
+                              } else if (e.key === "Enter") {
+                                e.preventDefault();
+                                const first = form.filteredProcesses[0];
+                                if (first) void form.selectProcessRow(first);
+                              }
+                            }}
+                          />
+                        </div>
+                        {/* Legacy `loadProcessesByDate` clears the first `.custom-select-options` — keep an empty decoy. */}
+                        <div
+                          className="custom-select-options dc-legacy-process-options-host"
+                          aria-hidden="true"
+                          style={{ display: "none" }}
+                        />
+                        <div className="custom-select-options dc-react-process-options">
+                          {form.processListTruncated ? (
+                            <div className="custom-select-option custom-select-option--hint" style={{ cursor: "default", opacity: 0.85 }}>
+                              {t("typeToSearchProcesses", { count: form.processRowsCount })}
+                            </div>
+                          ) : null}
+                          {form.visibleProcesses.map((row) => (
+                            <div
+                              key={row.id}
+                              role="presentation"
+                              className="custom-select-option"
+                              onClick={() => void form.selectProcessRow(row)}
+                            >
+                              {form.displayTextFromProcessRow(row)}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <select
+                      id="capture_process"
+                      name="process"
+                      value={form.selectedProcess?.id || ""}
+                      onChange={(e) => {
+                        const opt = groupOnlyProcessOptions.find((o) => o.id === e.target.value);
+                        if (opt) form.selectGroupOnlyProcess(opt);
+                        else form.clearProcessSelection();
+                      }}
+                    >
+                      <option value="">{t("selectProcess")}</option>
+                      {groupOnlyProcessOptions.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.displayText}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
               <div className="dc-form-two-col dc-form-two-col--stacked">
-                <div className="form-group">
-                  <label htmlFor="capture_description">{t("description")}</label>
-                  <div className="input-with-icon">
-                    <input
-                      type="text"
-                      id="capture_description"
-                      name="description"
-                      required
-                      readOnly
-                      placeholder={t("clickToSelectDescriptions")}
-                      value={form.descriptionDisplay}
-                    />
-                    <button
-                      type="button"
-                      className="add-icon"
-                      onClick={() => openDescriptionModal()}
-                      title={t("selectDescriptions")}
-                    >
-                      +
-                    </button>
+                {isCompanySelected ? (
+                  <div className="form-group">
+                    <label htmlFor="capture_description">{t("description")}</label>
+                    <div className="input-with-icon">
+                      <input
+                        type="text"
+                        id="capture_description"
+                        name="description"
+                        required
+                        readOnly
+                        placeholder={t("clickToSelectDescriptions")}
+                        value={form.descriptionDisplay}
+                      />
+                      <button
+                        type="button"
+                        className="add-icon"
+                        onClick={() => openDescriptionModal()}
+                        title={t("selectDescriptions")}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
                 <div className="form-group">
                   <label htmlFor="capture_currency">{t("currency")}</label>
@@ -779,63 +971,79 @@ export default function DataCapturePage() {
                     ))}
                   </select>
                 </div>
-              </div>
 
-              <div className="dc-form-bottom-block">
-                <div className="form-group replace-word-group dc-replace-word-field">
-                  <label htmlFor="capture_replace_word_from">{t("replaceWord")}</label>
-                  <div className="replace-word-fields">
+                {!isCompanySelected ? (
+                  <div className="form-group">
+                    <label htmlFor="capture_remark">{t("remark")}</label>
                     <input
                       type="text"
-                      id="capture_replace_word_from"
-                      name="replace_word_from"
-                      placeholder={t("oldWord")}
-                      value={form.replaceFrom}
-                      onChange={(e) => form.setReplaceFrom(e.target.value.toUpperCase())}
-                    />
-                    <span className="replace-arrow">→</span>
-                    <input
-                      type="text"
-                      id="capture_replace_word_to"
-                      name="replace_word_to"
-                      placeholder={t("newWord")}
-                      value={form.replaceTo}
-                      onChange={(e) => form.setReplaceTo(e.target.value.toUpperCase())}
+                      id="capture_remark"
+                      name="remark"
+                      placeholder={t("enterRemark")}
+                      value={form.remark}
+                      onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
                     />
                   </div>
-                </div>
-
-                <div className="dc-form-remove-remark-grid">
-                  <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
-                    {t("removeWord")}
-                  </label>
-                  <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk">
-                    {t("remark")}
-                  </label>
-                  <input
-                    type="text"
-                    id="capture_remove_word"
-                    name="remove_word"
-                    className="dc-remove-remark__input dc-remove-remark__input--rm"
-                    placeholder={t("enterWordsToRemove")}
-                    value={form.removeWord}
-                    onChange={(e) => form.setRemoveWord(e.target.value.toUpperCase())}
-                  />
-                  <input
-                    type="text"
-                    id="capture_remark"
-                    name="remark"
-                    className="dc-remove-remark__input dc-remove-remark__input--mk"
-                    placeholder={t("enterRemark")}
-                    value={form.remark}
-                    onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
-                  />
-                  <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
-                    {t("removeWordHelp")}
-                  </small>
-                  <div className="dc-remove-remark__slot" aria-hidden="true" />
-                </div>
+                ) : null}
               </div>
+
+              {isCompanySelected ? (
+              <div className="dc-form-bottom-block">
+                  <div className="form-group replace-word-group dc-replace-word-field">
+                    <label htmlFor="capture_replace_word_from">{t("replaceWord")}</label>
+                    <div className="replace-word-fields">
+                      <input
+                        type="text"
+                        id="capture_replace_word_from"
+                        name="replace_word_from"
+                        placeholder={t("oldWord")}
+                        value={form.replaceFrom}
+                        onChange={(e) => form.setReplaceFrom(e.target.value.toUpperCase())}
+                      />
+                      <span className="replace-arrow">→</span>
+                      <input
+                        type="text"
+                        id="capture_replace_word_to"
+                        name="replace_word_to"
+                        placeholder={t("newWord")}
+                        value={form.replaceTo}
+                        onChange={(e) => form.setReplaceTo(e.target.value.toUpperCase())}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="dc-form-remove-remark-grid">
+                    <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
+                      {t("removeWord")}
+                    </label>
+                    <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk">
+                      {t("remark")}
+                    </label>
+                    <input
+                      type="text"
+                      id="capture_remove_word"
+                      name="remove_word"
+                      className="dc-remove-remark__input dc-remove-remark__input--rm"
+                      placeholder={t("enterWordsToRemove")}
+                      value={form.removeWord}
+                      onChange={(e) => form.setRemoveWord(e.target.value.toUpperCase())}
+                    />
+                    <input
+                      type="text"
+                      id="capture_remark"
+                      name="remark"
+                      className="dc-remove-remark__input dc-remove-remark__input--mk"
+                      placeholder={t("enterRemark")}
+                      value={form.remark}
+                      onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
+                    />
+                    <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
+                      {t("removeWordHelp")}
+                    </small>
+                    <div className="dc-remove-remark__slot" aria-hidden="true" />
+                  </div>
+              </div>
+              ) : null}
             </form>
           </div>
         </div>
@@ -891,13 +1099,15 @@ export default function DataCapturePage() {
         onReset={submitReset.reset}
       />
 
-      <DescriptionSelectionModal
-        t={t}
-        open={descriptionModalOpen}
-        onClose={closeDescriptionModal}
-        companyId={companyId}
-        onConfirm={handleDescriptionsConfirmed}
-      />
+      {isCompanySelected ? (
+        <DescriptionSelectionModal
+          t={t}
+          open={descriptionModalOpen}
+          onClose={closeDescriptionModal}
+          companyId={companyId}
+          onConfirm={handleDescriptionsConfirmed}
+        />
+      ) : null}
 
       <ProcessNotificationContainer />
 

@@ -415,14 +415,13 @@ export default function BankprocessMaintenancePage() {
   const followGroupRef = useRef(() => {});
 
   const handleClearCompany = useCallback(() => {
-    persistDashboardFilterState(selectedGroup, null);
     setCompanyId(null);
     setCompanyCode("");
     setSelectedIds([]);
     setRows([]);
     setHasSearched(false);
     currentCompanyIdRef.current = null;
-  }, [selectedGroup]);
+  }, []);
 
   const handleSwitchCompany = useCallback(async (targetCompany) => {
     if (!targetCompany?.id) return;

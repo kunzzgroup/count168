@@ -22,6 +22,7 @@ import {
 } from "../lib/transactionApi.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
 import { orderCurrencyRows, readTransactionCurrencyFilterState } from "../lib/transactionPaymentLogic.js";
+import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 
 export function useTransactionData({
   todayDmy,
@@ -215,6 +216,13 @@ export function useTransactionData({
     notifyDashboardGroupFilterChanged(filterSnapshot.selectedGroup, filterSnapshot.companyId);
   }, [filterSnapshot?.selectedGroup, filterSnapshot?.companyId]);
 
+  useGroupAnchorSessionSync({
+    companies: filterSnapshot?.snapCompanies ?? [],
+    selectedGroup: filterSnapshot?.selectedGroup,
+    companyId: filterSnapshot?.companyId,
+    enabled: Boolean(filterSnapshot),
+  });
+
   const onCompanyButtonClick = useCallback(
     async (comp) => {
       const cid = comp.id;
@@ -286,6 +294,7 @@ export function useTransactionData({
     if (!g || g === snap.selectedGroup) return;
 
     persistDashboardFilterState(g, null);
+    notifyDashboardGroupFilterChanged(g, null);
     setFilterSnapshot((prev) =>
       prev ? { ...prev, selectedGroup: g, companyId: null } : prev,
     );

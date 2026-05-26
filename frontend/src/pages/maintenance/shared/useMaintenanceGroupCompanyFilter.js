@@ -2,6 +2,7 @@ import { useDashboardStyleGcFilter } from "../../../utils/company/useDashboardSt
 
 /**
  * Maintenance Group / Company filters — Dashboard-aligned (no group ALL/ungrouped, company can be empty).
+ * `onClearCompany` receives the target group id when invoked from group switch (avoid stale session writes).
  */
 export function useMaintenanceGroupCompanyFilter({
   companies,

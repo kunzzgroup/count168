@@ -97,7 +97,7 @@ body.process-page {
 
 /* Bank Process 列表日期：对齐 Transaction Payment 药丸框（无 Period 侧栏） */
 .process-page .process-list-date-filter.transaction-date-range-group {
-    min-width: clamp(180px, 15vw, 250px);
+    min-width: clamp(180px, 15vw, 235px);
 }
 
 .process-page .transaction-date-range-group .date-range-picker {
