@@ -150,6 +150,7 @@ function ensureDomainListFeeSettingsTable(PDO $pdo): void {
             } catch (Exception $e) {
                 // Best effort for old schemas.
             }
+            ensureDomainListFeePeriodPricesColumn($pdo);
             $ensured = true;
             return;
         }
@@ -169,7 +170,139 @@ function ensureDomainListFeeSettingsTable(PDO $pdo): void {
         // Best effort for old schemas; save will still fail visibly if the column is incompatible.
     }
     $pdo->exec("INSERT IGNORE INTO `domain_list_fee_settings` (`id`, `price`) VALUES (1, NULL)");
+    ensureDomainListFeePeriodPricesColumn($pdo);
     $ensured = true;
+}
+
+function domainFeePeriodKeys(): array
+{
+    return ['7days', '1month', '3months', '6months', '1year'];
+}
+
+function ensureDomainListFeePeriodPricesColumn(PDO $pdo): void
+{
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM `domain_list_fee_settings` LIKE 'period_prices'");
+        if ($check && $check->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `domain_list_fee_settings` ADD COLUMN `period_prices` JSON NULL DEFAULT NULL COMMENT '7days,1month,3months,6months,1year' AFTER `price`");
+        }
+    } catch (Exception $e) {
+        // Best effort for old schemas.
+    }
+    $ensured = true;
+}
+
+function computeDomainFeePeriodPricesFromYearly(?string $yearly): array
+{
+    $keys = domainFeePeriodKeys();
+    $empty = array_fill_keys($keys, null);
+    if ($yearly === null || $yearly === '' || money_cmp($yearly, '0') <= 0) {
+        return $empty;
+    }
+    $y = money_normalize($yearly);
+    return [
+        '7days' => money_out(money_div(money_mul($y, '7'), '365')),
+        '1month' => money_out(money_div($y, '12')),
+        '3months' => money_out(money_div(money_mul($y, '3'), '12')),
+        '6months' => money_out(money_div(money_mul($y, '6'), '12')),
+        '1year' => money_out($y),
+    ];
+}
+
+/**
+ * @param mixed $raw period_prices from DB/JSON or request body
+ * @return array<string, ?string>|false
+ */
+function normalizeDomainFeePeriodPricesInput($raw, ?string $legacyYearly = null)
+{
+    $keys = domainFeePeriodKeys();
+    $out = array_fill_keys($keys, null);
+    $hasAny = false;
+
+    if (is_string($raw) && $raw !== '') {
+        $decoded = json_decode($raw, true);
+        $raw = is_array($decoded) ? $decoded : null;
+    }
+
+    if (is_array($raw)) {
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $raw)) {
+                continue;
+            }
+            $norm = normalizeOptionalDecimal($raw[$key]);
+            if ($norm === false) {
+                return false;
+            }
+            if ($norm !== null) {
+                $out[$key] = $norm;
+                $hasAny = true;
+            }
+        }
+    }
+
+    if (!$hasAny && $legacyYearly !== null && $legacyYearly !== '') {
+        $legacyNorm = normalizeOptionalDecimal($legacyYearly);
+        if ($legacyNorm === false) {
+            return false;
+        }
+        if ($legacyNorm !== null) {
+            return computeDomainFeePeriodPricesFromYearly($legacyNorm);
+        }
+    }
+
+    return $out;
+}
+
+function domainFeePeriodPricesForApi(array $periodPrices): array
+{
+    $api = [];
+    foreach (domainFeePeriodKeys() as $key) {
+        $v = $periodPrices[$key] ?? null;
+        $api[$key] = ($v !== null && $v !== '') ? money_out($v) : null;
+    }
+    return $api;
+}
+
+function loadDomainFeeSettingsRow(PDO $pdo): array
+{
+    ensureDomainListFeeSettingsTable($pdo);
+    ensureDomainListFeePeriodPricesColumn($pdo);
+    $stmt = $pdo->query("SELECT `price`, `period_prices` FROM `domain_list_fee_settings` WHERE `id` = 1");
+    $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+    if (!$row) {
+        $row = ['price' => null, 'period_prices' => null];
+    }
+
+    $legacyYearly = ($row['price'] !== null && $row['price'] !== '') ? money_normalize($row['price']) : null;
+    $periodPrices = normalizeDomainFeePeriodPricesInput($row['period_prices'] ?? null, $legacyYearly);
+    if ($periodPrices === false) {
+        $periodPrices = computeDomainFeePeriodPricesFromYearly($legacyYearly);
+    }
+
+    $hasStoredPeriod = false;
+    if (!empty($row['period_prices'])) {
+        $decoded = is_string($row['period_prices'])
+            ? json_decode($row['period_prices'], true)
+            : $row['period_prices'];
+        if (is_array($decoded) && count($decoded) > 0) {
+            $hasStoredPeriod = true;
+        }
+    }
+
+    if (!$hasStoredPeriod && $legacyYearly !== null && money_cmp($legacyYearly, '0') > 0) {
+        $periodPrices = computeDomainFeePeriodPricesFromYearly($legacyYearly);
+    }
+
+    $yearly = $periodPrices['1year'] ?? $legacyYearly;
+
+    return [
+        'price' => $yearly !== null ? money_out($yearly) : null,
+        'period_prices' => domainFeePeriodPricesForApi($periodPrices),
+    ];
 }
 
 /**
@@ -536,15 +669,127 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool
     }
 }
 
-function getDomainFeePrice(PDO $pdo): ?string
+function normalizeDomainFeePeriodKey(?string $period): string
 {
-    ensureDomainListFeeSettingsTable($pdo);
-    $stmt = $pdo->query("SELECT `price` FROM `domain_list_fee_settings` WHERE `id` = 1");
-    $price = $stmt ? $stmt->fetchColumn() : null;
-    if ($price === false || $price === null || $price === '') {
+    $p = strtolower(trim((string) $period));
+    $allowed = array_flip(domainFeePeriodKeys());
+    return isset($allowed[$p]) ? $p : '1year';
+}
+
+function getDomainFeePriceForPeriod(PDO $pdo, ?string $periodKey): ?string
+{
+    $key = normalizeDomainFeePeriodKey($periodKey);
+    $settings = loadDomainFeeSettingsRow($pdo);
+    $apiPrices = is_array($settings['period_prices'] ?? null) ? $settings['period_prices'] : [];
+    $price = $apiPrices[$key] ?? null;
+    if ($price === null || $price === '') {
+        if ($key === '1year' && !empty($settings['price'])) {
+            $price = $settings['price'];
+        } else {
+            return null;
+        }
+    }
+    if (money_cmp($price, '0') <= 0) {
         return null;
     }
     return money_normalize($price);
+}
+
+function getDomainFeePrice(PDO $pdo): ?string
+{
+    return getDomainFeePriceForPeriod($pdo, '1year');
+}
+
+/**
+ * 从 domain Confirm payload 或 company 表解析计费周期（7days / 1month / … / 1year）
+ */
+function resolveDomainBillingPeriodForCompany(PDO $pdo, string $companyCode, array $payloadRow = []): string
+{
+    $raw = $payloadRow['selected_period'] ?? $payloadRow['selectedPeriod'] ?? null;
+    if ($raw !== null && trim((string) $raw) !== '') {
+        return normalizeDomainFeePeriodKey((string) $raw);
+    }
+    try {
+        ensureCompanyDomainBillingPeriodColumn($pdo);
+        $st = $pdo->prepare("
+            SELECT domain_billing_period, expiration_date
+            FROM company
+            WHERE UPPER(TRIM(company_id)) = ?
+            LIMIT 1
+        ");
+        $st->execute([strtoupper(trim($companyCode))]);
+        $dbRow = $st->fetch(PDO::FETCH_ASSOC);
+        if ($dbRow && !empty($dbRow['domain_billing_period'])) {
+            return normalizeDomainFeePeriodKey((string) $dbRow['domain_billing_period']);
+        }
+        if ($dbRow && !empty($dbRow['expiration_date'])) {
+            return inferDomainFeePeriodFromExpirationDate((string) $dbRow['expiration_date']);
+        }
+    } catch (Exception $e) {
+        // fall through
+    }
+    if (!empty($payloadRow['expiration_date'])) {
+        return inferDomainFeePeriodFromExpirationDate((string) $payloadRow['expiration_date']);
+    }
+    return '1year';
+}
+
+function inferDomainFeePeriodFromExpirationDate(string $expirationDate): string
+{
+    $exp = strtotime($expirationDate);
+    if ($exp === false) {
+        return '1year';
+    }
+    $today = strtotime(date('Y-m-d'));
+    $diffDays = (int) ceil(($exp - $today) / 86400);
+    if ($diffDays >= 360 && $diffDays <= 370) {
+        return '1year';
+    }
+    if ($diffDays >= 175 && $diffDays <= 190) {
+        return '6months';
+    }
+    if ($diffDays >= 88 && $diffDays <= 95) {
+        return '3months';
+    }
+    if ($diffDays >= 28 && $diffDays <= 32) {
+        return '1month';
+    }
+    if ($diffDays >= 5 && $diffDays <= 9) {
+        return '7days';
+    }
+    if ($diffDays >= 330) {
+        return '1year';
+    }
+    if ($diffDays >= 150) {
+        return '6months';
+    }
+    if ($diffDays >= 75) {
+        return '3months';
+    }
+    if ($diffDays >= 25) {
+        return '1month';
+    }
+    if ($diffDays >= 7) {
+        return '7days';
+    }
+    return '7days';
+}
+
+function ensureCompanyDomainBillingPeriodColumn(PDO $pdo): void
+{
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM `company` LIKE 'domain_billing_period'");
+        if ($check && $check->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `company` ADD COLUMN `domain_billing_period` VARCHAR(20) NULL DEFAULT NULL COMMENT '7days,1month,3months,6months,1year' AFTER `expiration_date`");
+        }
+    } catch (Exception $e) {
+        // Best effort
+    }
+    $ensured = true;
 }
 
 function domainApiClearTransactionSearchCache(): void
@@ -1089,7 +1334,8 @@ function createDomainListFeePayment(
     PDO $pdo,
     string $customerCompanyCode,
     ?int $createdByUser,
-    ?int $createdByOwner
+    ?int $createdByOwner,
+    ?string $billingPeriod = null
 ): array {
     $out = [
         'created' => false,
@@ -1101,7 +1347,7 @@ function createDomainListFeePayment(
         'amount' => '0',
         'pool_account_id' => null,
     ];
-    $feePrice = getDomainFeePrice($pdo);
+    $feePrice = getDomainFeePriceForPeriod($pdo, $billingPeriod);
     if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
         $out['skipped_no_price'] = true;
         return $out;
@@ -1216,7 +1462,8 @@ function createDomainShareCommissionPayments(
     array $normalizedAllocations,
     ?int $c168SourceAccountId,
     ?int $createdByUser,
-    ?int $createdByOwner
+    ?int $createdByOwner,
+    ?string $billingPeriod = null
 ): array {
     $result = [
         'created_count' => 0,
@@ -1227,7 +1474,7 @@ function createDomainShareCommissionPayments(
         'commission_total' => '0',
     ];
 
-    $feePrice = getDomainFeePrice($pdo);
+    $feePrice = getDomainFeePriceForPeriod($pdo, $billingPeriod);
     if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
         return $result;
     }
@@ -1565,6 +1812,54 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
     return $changed;
 }
 
+function domainFeePeriodLabel(string $periodKey): string
+{
+    $labels = [
+        '7days' => '7 Days',
+        '1month' => '1 Month',
+        '3months' => '3 Months',
+        '6months' => '6 Months',
+        '1year' => '1 Year',
+    ];
+    $key = normalizeDomainFeePeriodKey($periodKey);
+    return $labels[$key] ?? $key;
+}
+
+/**
+ * Confirm 入帳前校驗：所選 Period 的 domain fee 必須已在 Price 設定且 > 0。
+ *
+ * @return string|null 錯誤訊息；通過則 null
+ */
+function domainApiValidateDomainFeePaymentsFromPayload(PDO $pdo, $companies, bool $hasC168Context, bool $domainActorAllowed): ?string
+{
+    if (!$hasC168Context || !$domainActorAllowed) {
+        return null;
+    }
+    $rows = domainApiNormalizeCompaniesPayload($companies);
+    $problems = [];
+    foreach ($rows as $row) {
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        if ($cid === '' || $cid === 'C168') {
+            continue;
+        }
+        $apply = filter_var($row['apply_commission_payments_on_domain_save'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if (!$apply) {
+            continue;
+        }
+        $billingPeriod = resolveDomainBillingPeriodForCompany($pdo, $cid, $row);
+        $feePrice = getDomainFeePriceForPeriod($pdo, $billingPeriod);
+        if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
+            $problems[] = $cid . ' (' . domainFeePeriodLabel($billingPeriod) . ')';
+        }
+    }
+    if ($problems === []) {
+        return null;
+    }
+    return 'Cannot post domain fee: the price for the selected period is not set or is 0 for: '
+        . implode(', ', $problems)
+        . '. Set the amount in Price.';
+}
+
 /**
  * EDIT DOMAIN 按下 Confirm 後：對 companies 中標記 apply_commission_payments_on_domain_save 的公司
  * 寫入 domain list fee 與 Share% 佣金（transactions.PAYMENT），與 Transaction Payment / Payment History 同一數據源。
@@ -1606,12 +1901,13 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
         } catch (Exception $e) {
             // ignore and keep payload normalization
         }
-        $feeResult = createDomainListFeePayment($pdo, $cid, $u, $o);
+        $billingPeriod = resolveDomainBillingPeriodForCompany($pdo, $cid, $row);
+        $feeResult = createDomainListFeePayment($pdo, $cid, $u, $o, $billingPeriod);
         $poolId = isset($feeResult['pool_account_id']) ? (int) $feeResult['pool_account_id'] : null;
         if ($poolId <= 0) {
             $poolId = null;
         }
-        $commissionResult = createDomainShareCommissionPayments($pdo, $cid, $normalized, $poolId, $u, $o);
+        $commissionResult = createDomainShareCommissionPayments($pdo, $cid, $normalized, $poolId, $u, $o, $billingPeriod);
         $profitResult = createDomainNetProfitPayment(
             $pdo,
             $cid,
@@ -2242,6 +2538,10 @@ try {
                     }
                 }
 
+                $paymentErr = domainApiValidateDomainFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
+                if ($paymentErr !== null) {
+                    throw new Exception($paymentErr);
+                }
                 domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
 
                 $pdo->commit();
@@ -2551,6 +2851,10 @@ try {
                     }
                 }
 
+                $paymentErr = domainApiValidateDomainFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
+                if ($paymentErr !== null) {
+                    throw new Exception($paymentErr);
+                }
                 domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
                 
                 $pdo->commit();
@@ -2833,17 +3137,26 @@ try {
                 // 转换为 JSON
                 $permissions_json = json_encode(array_values($filtered_permissions));
 
+                ensureCompanyDomainBillingPeriodColumn($pdo);
+                $billingPeriod = null;
+                if (array_key_exists('selected_period', $data) || array_key_exists('selectedPeriod', $data)) {
+                    $rawPeriod = $data['selected_period'] ?? $data['selectedPeriod'] ?? null;
+                    $billingPeriod = ($rawPeriod !== null && trim((string) $rawPeriod) !== '')
+                        ? normalizeDomainFeePeriodKey((string) $rawPeriod)
+                        : null;
+                }
+
                 // 同步写入 expiration_date（前端传 null 时清除，不传时保持原有）
                 if (array_key_exists('expiration_date', $data)) {
                     $expiration_date_val = (!empty($data['expiration_date']) && $data['expiration_date'] !== 'null')
                         ? $data['expiration_date']
                         : null;
-                    $stmt = $pdo->prepare("UPDATE company SET permissions = ?, expiration_date = ? WHERE company_id = ?");
-                    $stmt->execute([$permissions_json, $expiration_date_val, strtoupper($company_id)]);
+                    $stmt = $pdo->prepare("UPDATE company SET permissions = ?, expiration_date = ?, domain_billing_period = ? WHERE company_id = ?");
+                    $stmt->execute([$permissions_json, $expiration_date_val, $billingPeriod, strtoupper($company_id)]);
                 } else {
-                    // 旧调用方式兼容：未传 expiration_date 时只更新权限
-                    $stmt = $pdo->prepare("UPDATE company SET permissions = ? WHERE company_id = ?");
-                    $stmt->execute([$permissions_json, strtoupper($company_id)]);
+                    // 旧调用方式兼容：未传 expiration_date 时只更新权限与计费周期
+                    $stmt = $pdo->prepare("UPDATE company SET permissions = ?, domain_billing_period = ? WHERE company_id = ?");
+                    $stmt->execute([$permissions_json, $billingPeriod, strtoupper($company_id)]);
                 }
 
                 echo json_encode([
@@ -2961,15 +3274,7 @@ try {
                 exit;
             }
             try {
-                ensureDomainListFeeSettingsTable($pdo);
-                $stmt = $pdo->query("SELECT `price` FROM `domain_list_fee_settings` WHERE `id` = 1");
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                if (!$row) {
-                    $row = ['price' => null];
-                } elseif ($row['price'] !== null && $row['price'] !== '') {
-                    $row['price'] = money_out($row['price']);
-                }
-                jsonResponse(true, 'OK', $row);
+                jsonResponse(true, 'OK', loadDomainFeeSettingsRow($pdo));
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
             }
@@ -2980,18 +3285,33 @@ try {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
-            $price = normalizeOptionalDecimal($data['price'] ?? null);
-            if ($price === false) {
-                jsonResponse(false, 'Price must be a number or empty', null);
+            $legacyPrice = $data['price'] ?? null;
+            $periodRaw = $data['period_prices'] ?? null;
+            if ($periodRaw === null && $legacyPrice !== null) {
+                $periodRaw = ['1year' => $legacyPrice];
+            }
+            $periodPrices = normalizeDomainFeePeriodPricesInput($periodRaw, null);
+            if ($periodPrices === false) {
+                jsonResponse(false, 'Each period price must be a number or empty', null);
                 exit;
+            }
+            $yearly = $periodPrices['1year'] ?? null;
+            if ($yearly === null && $legacyPrice !== null && $legacyPrice !== '') {
+                $legacyNorm = normalizeOptionalDecimal($legacyPrice);
+                if ($legacyNorm === false) {
+                    jsonResponse(false, 'Price must be a number or empty', null);
+                    exit;
+                }
+                $yearly = $legacyNorm;
+                $periodPrices['1year'] = $yearly;
             }
             try {
                 ensureDomainListFeeSettingsTable($pdo);
-                $stmt = $pdo->prepare("UPDATE `domain_list_fee_settings` SET `price` = ? WHERE `id` = 1");
-                $stmt->execute([$price]);
-                jsonResponse(true, 'Saved successfully', [
-                    'price' => $price !== null ? money_out($price) : null
-                ]);
+                ensureDomainListFeePeriodPricesColumn($pdo);
+                $periodJson = json_encode(domainFeePeriodPricesForApi($periodPrices), JSON_UNESCAPED_UNICODE);
+                $stmt = $pdo->prepare("UPDATE `domain_list_fee_settings` SET `price` = ?, `period_prices` = ? WHERE `id` = 1");
+                $stmt->execute([$yearly, $periodJson]);
+                jsonResponse(true, 'Saved successfully', loadDomainFeeSettingsRow($pdo));
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
             }

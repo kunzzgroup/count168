@@ -605,6 +605,8 @@ let domainAddDeletedCurrencyIds = [];
 let domainAddPreferredRole = '';
 let domainAddAccountEventsBound = false;
 let domainFeePriceCache = '0';
+let domainFeePeriodPricesCache = {};
+let domainFeePeriodEditGridBuilt = false;
 
 function defaultFeeShareAllocations() {
     return { profit: [], sales: [], cs: [], it: [] };
@@ -1239,8 +1241,106 @@ function updateCompanyShareTotals() {
     updateCompanyShareRowAmounts();
 }
 
+/** 当前 Company Settings 选中的 Period（与 Price 弹窗各周期金额对应） */
+function getActiveCompanyExpPeriod() {
+    var periodEl = document.getElementById('expDatePeriod');
+    var fromSelect = periodEl ? String(periodEl.value || '').trim() : '';
+    if (fromSelect) {
+        return fromSelect;
+    }
+    if (currentEditingCompanyId) {
+        var company = tempCompanies.find(function (c) { return c.company_id === currentEditingCompanyId; });
+        if (company && company.selectedPeriod) {
+            return company.selectedPeriod;
+        }
+    }
+    return '1year';
+}
+
+function getDomainFeePriceForPeriod(periodKey) {
+    var key = periodKey || '1year';
+    var cached = domainFeePeriodPricesCache && domainFeePeriodPricesCache[key];
+    if (cached !== undefined && cached !== null && String(cached).trim() !== '') {
+        try {
+            return domainDecimal(cached, 0);
+        } catch (e) {
+            // fall through
+        }
+    }
+    if (key === '1year') {
+        return domainDecimal(domainFeePriceCache || '0', 0);
+    }
+    return domainDecimal('0', 0);
+}
+
 function getDomainPriceForShareCalc() {
-    return domainDecimal(domainFeePriceCache || '0', 0);
+    return getDomainFeePriceForPeriod(getActiveCompanyExpPeriod());
+}
+
+function getDomainFeePeriodLabel(periodKey) {
+    var key = periodKey || '1year';
+    var def = DOMAIN_FEE_PERIOD_DEFS.find(function (d) { return d.key === key; });
+    return def ? def.label : key;
+}
+
+/** 所选周期在 Price 中是否已设置且 > 0 */
+function getDomainFeePriceStatusForPeriod(periodKey) {
+    var period = periodKey || '1year';
+    var price;
+    try {
+        price = getDomainFeePriceForPeriod(period);
+    } catch (e) {
+        price = domainDecimal('0', 0);
+    }
+    return {
+        ok: price.gt(0),
+        period: period,
+        label: getDomainFeePeriodLabel(period),
+        price: price
+    };
+}
+
+function buildDomainFeePaymentBlockedMessage(companyId, periodLabel) {
+    var who = companyId ? ('Company ' + companyId + ': ') : '';
+    return who + 'Domain fee for ' + periodLabel + ' is not set or is 0. Set it in Price before posting.';
+}
+
+function collectDomainFeePaymentValidationErrors(companies) {
+    var list = Array.isArray(companies) ? companies : [];
+    var errors = [];
+    list.forEach(function (c) {
+        if (!c || !c.apply_commission_payments_on_domain_save) {
+            return;
+        }
+        var cid = (c.company_id || '').trim();
+        if (!cid || cid.toUpperCase() === 'C168') {
+            return;
+        }
+        var period = c.selected_period || c.selectedPeriod || '1year';
+        var status = getDomainFeePriceStatusForPeriod(period);
+        if (!status.ok) {
+            errors.push(buildDomainFeePaymentBlockedMessage(cid, status.label));
+        }
+    });
+    return errors;
+}
+
+function parseCompaniesPayloadFromFormField(raw) {
+    if (!raw) {
+        return [];
+    }
+    if (Array.isArray(raw)) {
+        return raw;
+    }
+    if (typeof raw === 'string') {
+        try {
+            var parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+    return [];
 }
 
 function formatShareRowAmount2(value) {
@@ -1494,6 +1594,31 @@ function syncCompanyShareChargeToggleUi() {
     cb.setAttribute('aria-checked', cb.checked ? 'true' : 'false');
 }
 
+function onCompanyShareChargeToggleChange() {
+    var cb = document.getElementById('companyShareChargeToggle');
+    if (!cb) {
+        return;
+    }
+    if (cb.checked) {
+        var periodEl = document.getElementById('expDatePeriod');
+        var periodVal = periodEl ? String(periodEl.value || '').trim() : '';
+        if (!periodVal) {
+            cb.checked = false;
+            showAlert('Select a Period before enabling fee posting.', 'danger');
+            syncCompanyShareChargeToggleUi();
+            return;
+        }
+        var status = getDomainFeePriceStatusForPeriod(periodVal);
+        if (!status.ok) {
+            cb.checked = false;
+            showAlert(buildDomainFeePaymentBlockedMessage('', status.label), 'danger');
+            syncCompanyShareChargeToggleUi();
+            return;
+        }
+    }
+    syncCompanyShareChargeToggleUi();
+}
+
 // 打开到期日期设置弹窗
 function openCompanyExpDateModal(companyId) {
     const company = tempCompanies.find(c => c.company_id === companyId);
@@ -1536,8 +1661,8 @@ function openCompanyExpDateModal(companyId) {
         document.getElementById('expDateStartDateHelp').style.color = '#64748b';
     }
 
-    // Period 默认显示 "Select Period"；只有用户手动选择具体期限时才在保存时更新到期日，避免仅改权限时误加 period
-    document.getElementById('expDatePeriod').value = '';
+    // 恢复已选 Period（供到期日与 Share % 计算）；未选过则保持空白
+    document.getElementById('expDatePeriod').value = company.selectedPeriod || '';
 
     // 如果已经有到期日期，直接显示；否则根据选择的period计算
     const displayElement = document.getElementById('expDateDisplay');
@@ -1557,6 +1682,7 @@ function openCompanyExpDateModal(companyId) {
     };
     document.getElementById('expDatePeriod').onchange = function () {
         updateExpDateDisplay();
+        updateCompanyShareRowAmounts();
     };
 
     // 显示弹窗（左右分栏同时展示 Company 与 Share %）
@@ -1567,7 +1693,31 @@ function openCompanyExpDateModal(companyId) {
         syncCompanyShareChargeToggleUi();
     }
     collapseAllShareRoleCards();
-    loadCompanyShareDataForModal(company.company_id);
+    refreshDomainFeePeriodPricesForShare(function () {
+        loadCompanyShareDataForModal(company.company_id);
+    });
+}
+
+/** 打开 Company Settings 前确保已加载各周期 Price（供 Share % 计算） */
+function refreshDomainFeePeriodPricesForShare(done) {
+    var finish = typeof done === 'function' ? done : function () {};
+    fetch('api/domain/domain_api.php', {
+        cache: 'no-cache',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_domain_fee_settings' })
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success && res.data) {
+                var periodPrices = normalizeDomainFeePeriodPricesFromApi(res.data);
+                syncDomainFeePriceCacheFromPeriodPrices(periodPrices);
+            }
+            finish();
+        })
+        .catch(function () {
+            finish();
+        });
 }
 
 // 关闭到期日期设置弹窗。restore === true 时还原为打开弹窗时的状态（Cancel/X/点击遮罩）
@@ -1776,6 +1926,18 @@ function saveCompanyExpDate() {
     var chargeOnSave = !!(document.getElementById('companyShareChargeToggle') && document.getElementById('companyShareChargeToggle').checked);
     company.apply_commission_payments_on_domain_save = chargeOnSave;
 
+    if (chargeOnSave) {
+        if (!period) {
+            showAlert('Select a Period before saving with fee posting enabled.', 'danger');
+            return;
+        }
+        var feeStatus = getDomainFeePriceStatusForPeriod(period);
+        if (!feeStatus.ok) {
+            showAlert(buildDomainFeePaymentBlockedMessage(company.company_id, feeStatus.label), 'danger');
+            return;
+        }
+    }
+
     const permReq = fetch('api/domain/domain_api.php', {
         cache: 'no-cache',
         method: 'POST',
@@ -1786,7 +1948,8 @@ function saveCompanyExpDate() {
             action: 'update_company_permissions',
             company_id: company.company_id,
             permissions: permissions,
-            expiration_date: company.expiration_date || null  // 同步写库；null 时清除到期日
+            expiration_date: company.expiration_date || null,
+            selected_period: period || company.selectedPeriod || null
         })
     }).then(response => response.json());
 
@@ -1860,6 +2023,7 @@ function resetCompanyExpDateInModal() {
     document.getElementById('expDatePeriod').value = '';
     document.getElementById('expDateDisplay').textContent = 'Not set';
     document.getElementById('expDateDisplay').style.color = '#94a3b8';
+    updateCompanyShareRowAmounts();
 
     // 重置权限（SINGLE_CATEGORY_MODE 时仅选第一个 Games）
     if (SINGLE_CATEGORY_MODE) {
@@ -2006,6 +2170,22 @@ function updateCompanyDisplay() {
     }
 }
 
+/** Company Settings 若仍开着，把 Period 写回 tempCompanies（Confirm Domain 入账用） */
+function syncEditingCompanyPeriodToTemp() {
+    if (!currentEditingCompanyId) {
+        return;
+    }
+    var periodEl = document.getElementById('expDatePeriod');
+    var periodVal = periodEl ? String(periodEl.value || '').trim() : '';
+    if (!periodVal) {
+        return;
+    }
+    var company = tempCompanies.find(function (c) { return c.company_id === currentEditingCompanyId; });
+    if (company) {
+        company.selectedPeriod = periodVal;
+    }
+}
+
 /** Domain 表單 JSON：帶入「確認後才入帳」標記（與 domain_api apply_commission_payments_on_domain_save 對應） */
 function companyToDomainPayloadEntry(c) {
     const o = {
@@ -2014,6 +2194,7 @@ function companyToDomainPayloadEntry(c) {
         permissions: Array.isArray(c.permissions) ? c.permissions : [],
         group_id: c.group_id || null,
         fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations),
+        selected_period: c.selectedPeriod || null,
         // 明确传递开关状态：Off 时也传 false，确保后端不会因缺字段而误判
         apply_commission_payments_on_domain_save: !!c.apply_commission_payments_on_domain_save
     };
@@ -2113,8 +2294,65 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    ensureDomainFeePeriodEditGrid();
     refreshDomainFeeSummaryFromApi();
 });
+
+/** Period keys align with Company Settings → Period dropdown */
+var DOMAIN_FEE_PERIOD_DEFS = [
+    { key: '7days', label: '7 Days' },
+    { key: '1month', label: '1 Month' },
+    { key: '3months', label: '3 Months' },
+    { key: '6months', label: '6 Months' },
+    { key: '1year', label: '1 Year' }
+];
+
+function defaultDomainFeePeriodPricesObject() {
+    var o = {};
+    DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+        o[def.key] = '';
+    });
+    return o;
+}
+
+function normalizeDomainFeePeriodPricesFromApi(data) {
+    var out = defaultDomainFeePeriodPricesObject();
+    if (!data) {
+        return out;
+    }
+    var src = data.period_prices && typeof data.period_prices === 'object' ? data.period_prices : null;
+    if (!src && data.price !== null && data.price !== undefined && data.price !== '') {
+        src = { '1year': data.price };
+    }
+    if (!src) {
+        return out;
+    }
+    DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+        if (src[def.key] !== null && src[def.key] !== undefined && src[def.key] !== '') {
+            out[def.key] = String(src[def.key]);
+        }
+    });
+    return out;
+}
+
+function syncDomainFeePriceCacheFromPeriodPrices(periodPrices) {
+    domainFeePeriodPricesCache = periodPrices || {};
+    var yearly = periodPrices && periodPrices['1year'] !== undefined && periodPrices['1year'] !== ''
+        ? String(periodPrices['1year'])
+        : '0';
+    domainFeePriceCache = yearly || '0';
+}
+
+function formatDomainFeePeriodAmount(val) {
+    if (val === null || val === undefined || val === '') {
+        return '—';
+    }
+    try {
+        return domainDecimalDisplay(val, 2);
+    } catch (e) {
+        return '—';
+    }
+}
 
 /** 展示用：固定两位小数 */
 function formatDomainFeeDisplay2(val) {
@@ -2140,24 +2378,78 @@ function formatDomainFeeEdit2(val) {
     }
 }
 
+function buildDomainFeePeriodSummaryHtml(periodPrices) {
+    var cards = DOMAIN_FEE_PERIOD_DEFS.map(function (def) {
+        var amt = formatDomainFeePeriodAmount(periodPrices[def.key]);
+        return '<div class="domain-fee-period-card">' +
+            '<span class="domain-fee-period-label">' + def.label + '</span>' +
+            '<strong class="domain-fee-period-display-value">' + amt + '</strong>' +
+            '</div>';
+    }).join('');
+    return '<div class="domain-fee-period-summary-title">Display prices</div>' +
+        '<div class="domain-fee-period-grid">' + cards + '</div>';
+}
+
 function buildDomainFeeSummaryHtml2(data) {
-    var p2 = formatDomainFeeDisplay2(data.price);
-    return 'Display: Price <strong>' + p2 + '</strong>';
+    return buildDomainFeePeriodSummaryHtml(normalizeDomainFeePeriodPricesFromApi(data));
 }
 
 function buildDomainFeeInlineSummaryText2(data) {
-    var p2 = formatDomainFeeDisplay2(data.price);
-    if (p2 === '—') {
-        return '';
+    var prices = normalizeDomainFeePeriodPricesFromApi(data);
+    var parts = DOMAIN_FEE_PERIOD_DEFS.map(function (def) {
+        var amt = formatDomainFeePeriodAmount(prices[def.key]);
+        if (amt === '—') {
+            return null;
+        }
+        return def.label + ': ' + amt;
+    }).filter(Boolean);
+    return parts.length ? parts.join(' · ') : '';
+}
+
+function ensureDomainFeePeriodEditGrid() {
+    if (domainFeePeriodEditGridBuilt) {
+        return;
     }
-    return 'Display: Price ' + p2;
+    var grid = document.getElementById('domainFeePeriodEditGrid');
+    if (!grid) {
+        return;
+    }
+    grid.innerHTML = DOMAIN_FEE_PERIOD_DEFS.map(function (def) {
+        return '<div class="domain-fee-period-card domain-fee-period-card--edit">' +
+            '<label for="domainFeePrice_' + def.key + '">' + def.label + '</label>' +
+            '<input type="text" id="domainFeePrice_' + def.key + '" class="domain-fee-period-input" data-period="' + def.key + '" inputmode="decimal" placeholder="0.00" autocomplete="off">' +
+            '</div>';
+    }).join('');
+    grid.querySelectorAll('.domain-fee-period-input').forEach(function (input) {
+        input.addEventListener('input', refreshDomainFeePeriodSummaryFromInput);
+    });
+    domainFeePeriodEditGridBuilt = true;
+}
+
+function collectDomainFeePeriodPricesFromInputs() {
+    var out = defaultDomainFeePeriodPricesObject();
+    DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+        var el = document.getElementById('domainFeePrice_' + def.key);
+        out[def.key] = el ? String(el.value).trim() : '';
+    });
+    return out;
+}
+
+function refreshDomainFeePeriodSummaryFromInput() {
+    var periodPrices = collectDomainFeePeriodPricesFromInputs();
+    syncDomainFeePriceCacheFromPeriodPrices(periodPrices);
+    var modalEl = document.getElementById('domainFeeSummaryDisplay');
+    if (modalEl) {
+        modalEl.innerHTML = buildDomainFeePeriodSummaryHtml(periodPrices);
+    }
 }
 
 function applyDomainFeeSummaryDisplays(data) {
     if (!data) {
         return;
     }
-    domainFeePriceCache = data.price !== null && data.price !== undefined && data.price !== '' ? String(data.price) : '0';
+    var periodPrices = normalizeDomainFeePeriodPricesFromApi(data);
+    syncDomainFeePriceCacheFromPeriodPrices(periodPrices);
     var modalEl = document.getElementById('domainFeeSummaryDisplay');
     if (modalEl) {
         modalEl.innerHTML = buildDomainFeeSummaryHtml2(data);
@@ -2173,10 +2465,14 @@ function applyDomainFeeEditInputs(data) {
     if (!data) {
         return;
     }
-    var p = document.getElementById('domainFeePrice');
-    if (p) {
-        p.value = formatDomainFeeEdit2(data.price);
-    }
+    ensureDomainFeePeriodEditGrid();
+    var periodPrices = normalizeDomainFeePeriodPricesFromApi(data);
+    DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+        var el = document.getElementById('domainFeePrice_' + def.key);
+        if (el) {
+            el.value = formatDomainFeeEdit2(periodPrices[def.key]);
+        }
+    });
 }
 
 /** 页面加载时更新列表旁「展示」文案（失败则静默） */
@@ -2202,6 +2498,7 @@ function refreshDomainFeeSummaryFromApi() {
 function openDomainFeeSettingsModal() {
     const modal = document.getElementById('domainFeeSettingsModal');
     if (!modal) return;
+    ensureDomainFeePeriodEditGrid();
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
     fetch('api/domain/domain_api.php', {
@@ -2213,8 +2510,9 @@ function openDomainFeeSettingsModal() {
         .then(function (r) { return r.json(); })
         .then(function (res) {
             if (res.success && res.data) {
-                applyDomainFeeSummaryDisplays(res.data);
                 applyDomainFeeEditInputs(res.data);
+                applyDomainFeeSummaryDisplays(res.data);
+                refreshDomainFeePeriodSummaryFromInput();
             } else {
                 showAlert(res.message || 'Could not load settings', 'danger');
             }
@@ -2231,15 +2529,20 @@ function closeDomainFeeSettingsModal() {
 }
 
 function saveDomainFeeSettings() {
-    var priceEl = document.getElementById('domainFeePrice');
-    var price = priceEl ? String(priceEl.value).trim() : '';
-    if (price !== '') {
-        try {
-            price = domainDecimalFixed(price, 8);
-        } catch (e) {
-            showAlert('Price must be a number or empty', 'danger');
-            return;
-        }
+    var rawPeriods = collectDomainFeePeriodPricesFromInputs();
+    var periodPrices = {};
+    try {
+        DOMAIN_FEE_PERIOD_DEFS.forEach(function (def) {
+            var raw = rawPeriods[def.key];
+            if (raw === '') {
+                periodPrices[def.key] = null;
+                return;
+            }
+            periodPrices[def.key] = domainDecimalFixed(raw, 8);
+        });
+    } catch (e) {
+        showAlert('Each period price must be a number or empty', 'danger');
+        return;
     }
     fetch('api/domain/domain_api.php', {
         cache: 'no-cache',
@@ -2247,7 +2550,8 @@ function saveDomainFeeSettings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             action: 'save_domain_fee_settings',
-            price: price
+            period_prices: periodPrices,
+            price: periodPrices['1year']
         })
     })
         .then(function (r) { return r.json(); })
@@ -2916,6 +3220,7 @@ document.addEventListener('DOMContentLoaded', function () {
         domainForm.addEventListener('submit', function (e) {
             e.preventDefault();
 
+            syncEditingCompanyPeriodToTemp();
             // 先同步 tempCompanies 到 selectedCompanies 和 hidden field
             syncCompaniesFromTemp();
 
@@ -2939,36 +3244,44 @@ document.addEventListener('DOMContentLoaded', function () {
                 delete data.secondary_password;
             }
 
-            // DEBUG: 检查发送的 companies 数据中的 group_id
-            console.log('[Domain Save] companies data:', data.companies);
+            function submitDomainFormPayload() {
+                var companiesList = parseCompaniesPayloadFromFormField(data.companies);
+                var paymentErrors = collectDomainFeePaymentValidationErrors(companiesList);
+                if (paymentErrors.length > 0) {
+                    showAlert(paymentErrors[0], 'danger');
+                    return;
+                }
 
-            fetch('api/domain/domain_api.php', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showAlert(isEditMode ? 'Owner updated successfully!' : 'Owner created successfully!');
-                        closeModal();
-
-                        if (isEditMode) {
-                            updateDomainCard(data.data);
-                        } else {
-                            addDomainCard(data.data);
-                        }
-                    } else {
-                        showAlert(data.message || 'Operation failed', 'danger');
-                    }
+                fetch('api/domain/domain_api.php', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
                 })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showAlert('An error occurred while saving owner', 'danger');
-                });
+                    .then(response => response.json())
+                    .then(function (res) {
+                        if (res.success) {
+                            showAlert(isEditMode ? 'Owner updated successfully!' : 'Owner created successfully!');
+                            closeModal();
+
+                            if (isEditMode) {
+                                updateDomainCard(res.data);
+                            } else {
+                                addDomainCard(res.data);
+                            }
+                        } else {
+                            showAlert(res.message || 'Operation failed', 'danger');
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error('Error:', error);
+                        showAlert('An error occurred while saving owner', 'danger');
+                    });
+            }
+
+            refreshDomainFeePeriodPricesForShare(submitDomainFormPayload);
         });
     }
 });
