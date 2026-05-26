@@ -161,7 +161,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return () => controller.abort();
   }, [bootstrap, sessionReady, me]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     notifyDashboardGroupFilterChanged(selectedGroup, companyId);
   }, [selectedGroup, companyId]);
 

@@ -31,13 +31,22 @@ export function resolveInitialCompanyId(fallbackCompanyId) {
  */
 export function notifyDashboardGroupFilterChanged(selectedGroup, companyId) {
   const value = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
-  const cid =
-    companyId != null && companyId !== "" && Number.isFinite(Number(companyId))
+  const groupOnly = isDashboardGroupOnlyMode();
+  const cid = groupOnly
+    ? null
+    : companyId != null && companyId !== "" && Number.isFinite(Number(companyId))
       ? Number(companyId)
       : null;
   window.dispatchEvent(
     new CustomEvent(DASHBOARD_GROUP_FILTER_EVENT, { detail: { selectedGroup: value, companyId: cid } })
   );
+}
+
+/** Sidebar Process: hidden when a group is selected and company is cleared (group-only), except on process list routes. */
+export function shouldHideSidebarProcess(pathname) {
+  if (pathname === "/process-list" || pathname === "/bank-process-list") return false;
+  const g = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+  return Boolean(String(g || "").trim()) && isDashboardGroupOnlyMode();
 }
 
 /** In-memory cache so report/maintenance remounts do not re-block on companies API. */

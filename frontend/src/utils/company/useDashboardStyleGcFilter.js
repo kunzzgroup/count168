@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useLayoutEffect, useMemo } from "react";
 import {
   companiesInGroupList,
   dedupeOwnerCompaniesByCode,
+  isDashboardGroupOnlyMode,
   notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
   persistDashboardGroupOnlyMode,
@@ -70,8 +71,9 @@ export function useDashboardStyleGcFilter({
     [switchingCompany, companyId, selectedGroup, setSelectedGroup, onSelectCompany, onClearCompany],
   );
 
-  useEffect(() => {
-    notifyDashboardGroupFilterChanged(selectedGroup, companyId);
+  useLayoutEffect(() => {
+    const cid = isDashboardGroupOnlyMode() ? null : companyId;
+    notifyDashboardGroupFilterChanged(selectedGroup, cid);
   }, [selectedGroup, companyId]);
 
   return {
