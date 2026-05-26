@@ -35,6 +35,7 @@ import UserModal from "./components/UserModal.jsx";
 import UserConfirmModal from "./components/UserConfirmModal.jsx";
 import { processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
 import { getUserListText, translateUserListApiMessage } from "../../translateFile/pages/userListTranslate.js";
+import { validateEmail } from "../../utils/input/emailValidation.js";
 
 function roleBadgeClass(role) {
   return `role-${String(role || "").toLowerCase().replace(/\s+/g, "-")}`;
@@ -683,9 +684,11 @@ export default function UserListPage() {
     }
     if (isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only, currentUserId)) return;
     if (!isEditMode && !form.password.trim()) { notify(t("passwordRequired"), "danger"); return; }
+    const emailCheck = validateEmail(form.email);
+    if (!emailCheck.ok) { notify(t("invalidEmailFormat"), "danger"); return; }
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
-    let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: form.email.trim().toLowerCase(), role: form.role, status: form.status };
+    let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: emailCheck.normalized, role: form.role, status: form.status };
     if (form.password.trim()) payload.password = form.password;
     const allowSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
     if (allowSecondaryPassword && form.secondary_password.trim()) {

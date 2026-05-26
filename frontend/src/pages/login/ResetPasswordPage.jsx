@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RESET_PASSWORD_I18N } from "../../translateFile/auth/authTranslate.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 import { sendResetTac, submitResetPassword } from "./resetPassword.js";
+import { sanitizeEmailInput, validateEmail } from "../../utils/input/emailValidation.js";
 
 function AlertModal({ open, title, message, confirmText, onClose }) {
   useEffect(() => {
@@ -99,7 +100,7 @@ export default function ResetPasswordPage() {
 
   const onSendTac = async () => {
     const normalizedCompanyId = companyId.toUpperCase().trim();
-    const trimmedEmail = email.trim();
+    const trimmedEmail = validateEmail(email).normalized;
 
     if (!normalizedCompanyId) {
       showModal(i18n.notice, i18n.companyIdFirst);
@@ -107,6 +108,10 @@ export default function ResetPasswordPage() {
     }
     if (!trimmedEmail) {
       showModal(i18n.notice, i18n.emailFirst);
+      return;
+    }
+    if (!validateEmail(trimmedEmail).ok) {
+      showModal(i18n.notice, i18n.invalidEmailFormat);
       return;
     }
 
@@ -148,7 +153,8 @@ export default function ResetPasswordPage() {
     }
 
     const normalizedCompanyId = companyId.toUpperCase().trim();
-    const trimmedEmail = email.trim();
+    const emailCheck = validateEmail(email);
+    const trimmedEmail = emailCheck.normalized;
     const trimmedTac = tac.trim();
 
     if (!trimmedTac) {
@@ -158,6 +164,10 @@ export default function ResetPasswordPage() {
 
     if (!normalizedCompanyId || !trimmedEmail) {
       showModal(i18n.notice, i18n.companyEmailRequired);
+      return;
+    }
+    if (!emailCheck.ok) {
+      showModal(i18n.notice, i18n.invalidEmailFormat);
       return;
     }
 
@@ -210,10 +220,13 @@ export default function ResetPasswordPage() {
               <div className="input-group">
                 <i className="fas fa-envelope input-icon" />
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="email"
+                  autoComplete="email"
+                  spellCheck={false}
                   placeholder={i18n.emailPlaceholder}
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => setEmail(sanitizeEmailInput(event.target.value))}
                   required
                 />
               </div>

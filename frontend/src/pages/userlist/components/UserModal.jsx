@@ -142,6 +142,7 @@ import {
   canInteractWithReadOnlyToggle,
   isUserModalPageReadOnlyLock,
 } from "../userListLogic.js";
+import { sanitizeEmailInput } from "../../../utils/input/emailValidation.js";
 
 export default function UserModal({
   open,
@@ -438,7 +439,7 @@ export default function UserModal({
                     required
                     disabled={fieldLocks.email || pageReadOnlyLock}
                     value={form.email}
-                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.toLowerCase() }))}
+                    onChange={(e) => setForm((f) => ({ ...f, email: sanitizeEmailInput(e.target.value) }))}
                   />
                 </div>
                 {(currentUserRole === "admin" || currentUserRole === "owner") && (

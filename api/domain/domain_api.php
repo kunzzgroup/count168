@@ -2,6 +2,7 @@
 session_start();
 // session_write_close() 将在 session 写入（回填 company_code）完成后调用
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/email_validation.php';
 require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
@@ -2382,7 +2383,12 @@ try {
             // Create new owner
             $owner_code = strtoupper(trim($data['owner_code'] ?? ''));
             $name = trim($data['name'] ?? '');
-            $email = strtolower(trim($data['email'] ?? ''));
+            $emailValidation = validate_email($data['email'] ?? '');
+            if (!$emailValidation['ok']) {
+                echo json_encode(['success' => false, 'message' => 'Invalid email format', 'data' => null]);
+                exit;
+            }
+            $email = $emailValidation['normalized'];
             $password = $data['password'] ?? '';
             $secondary_password = $data['secondary_password'] ?? '';
             $companies = $data['companies'] ?? '';
@@ -2489,7 +2495,12 @@ try {
             // Update existing owner
             $id = $data['id'] ?? 0;
             $name = trim($data['name'] ?? '');
-            $email = strtolower(trim($data['email'] ?? ''));
+            $emailValidation = validate_email($data['email'] ?? '');
+            if (!$emailValidation['ok']) {
+                echo json_encode(['success' => false, 'message' => 'Invalid email format', 'data' => null]);
+                exit;
+            }
+            $email = $emailValidation['normalized'];
             $password = $data['password'] ?? '';
             $secondary_password = $data['secondary_password'] ?? '';
             $companies = $data['companies'] ?? '';
