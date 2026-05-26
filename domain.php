@@ -223,7 +223,7 @@ try {
                 <div id="domainFeeSummaryDisplay" class="domain-fee-summary-display" aria-live="polite"></div>
                 <p class="domain-fee-edit-hint">Edit each period below (up to 2 decimal places). Display above updates as you type.</p>
                 <div id="domainFeePeriodEditGrid" class="domain-fee-period-edit-grid"></div>
-                <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <div class="form-actions domain-fee-form-actions">
                     <button type="button" class="btn btn-save" onclick="saveDomainFeeSettings()">Save</button>
                     <button type="button" class="btn btn-cancel" onclick="closeDomainFeeSettingsModal()">Cancel</button>
                 </div>
