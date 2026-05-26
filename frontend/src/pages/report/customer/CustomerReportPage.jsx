@@ -5,9 +5,11 @@ import {
   getCachedOwnerCompanies,
   loadOwnerCompaniesCached,
   normalizeOwnerCompanyRow,
+  DASHBOARD_GROUP_FILTER_KEY,
   isDashboardGroupOnlyMode,
   resolveInitialCompanyId as resolveGcCompanyId,
   resolveInitialSelectedGroupFromSession,
+  sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useDashboardStyleGcFilter } from "../../../utils/company/useDashboardStyleGcFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
@@ -59,7 +61,10 @@ export default function CustomerReportPage() {
   const [companies, setCompanies] = useState(() => getCachedOwnerCompanies() || []);
 
   const [companyId, setCompanyId] = useState(resolveReportBootCompanyId);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(() => {
+    const g = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+    return g ? String(g).trim().toUpperCase() : null;
+  });
   const [companyHighlightId, setCompanyHighlightId] = useState(null);
   const switchCompanySeqRef = useRef(0);
   const [accountId, setAccountId] = useState("");
@@ -154,9 +159,9 @@ export default function CustomerReportPage() {
     const cached = getCachedOwnerCompanies();
     const url = new URL(window.location.href);
     const queryCompany = url.searchParams.get("company_id");
-    let effective = queryCompany || me.company_id || cached?.[0]?.id || null;
-    effective = effective ? Number(effective) : null;
-    if (effective) setCompanyId(effective);
+    const fallback = queryCompany || me.company_id || cached?.[0]?.id || null;
+    const effective = resolveGcCompanyId(fallback);
+    if (effective != null || isDashboardGroupOnlyMode()) setCompanyId(effective);
   }, [me, companyId]);
 
   useEffect(() => {
@@ -190,13 +195,17 @@ export default function CustomerReportPage() {
         const queryCompany = url.searchParams.get("company_id");
         const fallback = queryCompany || u.company_id || rows[0]?.id || null;
         const effective = resolveGcCompanyId(fallback);
-        if (effective != null || isDashboardGroupOnlyMode()) {
-          const row =
-            effective != null ? rows.find((c) => Number(c.id) === Number(effective)) || null : null;
+        const nextCompanyId =
+          companyId != null ? companyId : effective != null || isDashboardGroupOnlyMode() ? effective : null;
+        const row =
+          nextCompanyId != null
+            ? rows.find((c) => Number(c.id) === Number(nextCompanyId)) || null
+            : null;
+        if (nextCompanyId != null || isDashboardGroupOnlyMode()) {
           setCompanyId((prev) => (prev != null ? prev : effective));
-          setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
-          if (effective != null) void checkBankOnly(effective);
         }
+        setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
+        if (nextCompanyId != null) void checkBankOnly(nextCompanyId);
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
       }
@@ -204,7 +213,22 @@ export default function CustomerReportPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, me, navigate]);
+  }, [sessionReady, me, navigate, companyId]);
+
+  useEffect(() => {
+    if (!companies.length) return;
+    const row =
+      companyId != null
+        ? companies.find((c) => Number(c.id) === Number(companyId)) || null
+        : null;
+    setSelectedGroup((prev) => {
+      const resolved = resolveInitialSelectedGroupFromSession(companies, row);
+      if (resolved) return resolved;
+      const g = prev ? String(prev).trim().toUpperCase() : "";
+      if (g && sortedUniqueGroupIds(companies).includes(g)) return g;
+      return prev;
+    });
+  }, [companies, companyId]);
 
   const reportParams = useMemo(
     () => ({
@@ -270,6 +294,10 @@ export default function CustomerReportPage() {
     setReportData(null);
     setError("");
     setCurrencyFilterReady(false);
+    setCurrencyList([]);
+    setSelectedCurrencies([]);
+    setShowAllCurrencies(false);
+    setAccounts([]);
   }, [invalidateReportFetch]);
 
   const onSwitchCompany = useCallback(async (c) => {

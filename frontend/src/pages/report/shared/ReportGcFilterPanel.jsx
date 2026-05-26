@@ -23,13 +23,12 @@ export default function ReportGcFilterPanel({
   toggleCurrency,
   t,
 }) {
+  const activeCompanyId = highlightCompanyId != null ? highlightCompanyId : companyId;
+  const isDashboardLayout = layout === "dashboard";
   const hasGroup = Array.isArray(groupIds) && groupIds.length > 0;
   const hasCompanies = Array.isArray(companyButtons) && companyButtons.length > 0;
   const hasCurrency = Array.isArray(currencyList) && currencyList.length > 0;
   if (!hasGroup && !hasCompanies && !hasCurrency) return null;
-
-  const activeCompanyId = highlightCompanyId != null ? highlightCompanyId : companyId;
-  const isDashboardLayout = layout === "dashboard";
   const groupHighlightKey = isDashboardLayout
     ? String(selectedGroup || "").trim().toUpperCase()
     : selectedGroupKey;
