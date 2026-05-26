@@ -669,14 +669,127 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool
     }
 }
 
-function getDomainFeePrice(PDO $pdo): ?string
+function normalizeDomainFeePeriodKey(?string $period): string
 {
+    $p = strtolower(trim((string) $period));
+    $allowed = array_flip(domainFeePeriodKeys());
+    return isset($allowed[$p]) ? $p : '1year';
+}
+
+function getDomainFeePriceForPeriod(PDO $pdo, ?string $periodKey): ?string
+{
+    $key = normalizeDomainFeePeriodKey($periodKey);
     $settings = loadDomainFeeSettingsRow($pdo);
-    $yearly = $settings['price'] ?? null;
-    if ($yearly === null || $yearly === '') {
+    $apiPrices = is_array($settings['period_prices'] ?? null) ? $settings['period_prices'] : [];
+    $price = $apiPrices[$key] ?? null;
+    if ($price === null || $price === '') {
+        if ($key === '1year' && !empty($settings['price'])) {
+            $price = $settings['price'];
+        } else {
+            return null;
+        }
+    }
+    if (money_cmp($price, '0') <= 0) {
         return null;
     }
-    return money_normalize($yearly);
+    return money_normalize($price);
+}
+
+function getDomainFeePrice(PDO $pdo): ?string
+{
+    return getDomainFeePriceForPeriod($pdo, '1year');
+}
+
+/**
+ * 从 domain Confirm payload 或 company 表解析计费周期（7days / 1month / … / 1year）
+ */
+function resolveDomainBillingPeriodForCompany(PDO $pdo, string $companyCode, array $payloadRow = []): string
+{
+    $raw = $payloadRow['selected_period'] ?? $payloadRow['selectedPeriod'] ?? null;
+    if ($raw !== null && trim((string) $raw) !== '') {
+        return normalizeDomainFeePeriodKey((string) $raw);
+    }
+    try {
+        ensureCompanyDomainBillingPeriodColumn($pdo);
+        $st = $pdo->prepare("
+            SELECT domain_billing_period, expiration_date
+            FROM company
+            WHERE UPPER(TRIM(company_id)) = ?
+            LIMIT 1
+        ");
+        $st->execute([strtoupper(trim($companyCode))]);
+        $dbRow = $st->fetch(PDO::FETCH_ASSOC);
+        if ($dbRow && !empty($dbRow['domain_billing_period'])) {
+            return normalizeDomainFeePeriodKey((string) $dbRow['domain_billing_period']);
+        }
+        if ($dbRow && !empty($dbRow['expiration_date'])) {
+            return inferDomainFeePeriodFromExpirationDate((string) $dbRow['expiration_date']);
+        }
+    } catch (Exception $e) {
+        // fall through
+    }
+    if (!empty($payloadRow['expiration_date'])) {
+        return inferDomainFeePeriodFromExpirationDate((string) $payloadRow['expiration_date']);
+    }
+    return '1year';
+}
+
+function inferDomainFeePeriodFromExpirationDate(string $expirationDate): string
+{
+    $exp = strtotime($expirationDate);
+    if ($exp === false) {
+        return '1year';
+    }
+    $today = strtotime(date('Y-m-d'));
+    $diffDays = (int) ceil(($exp - $today) / 86400);
+    if ($diffDays >= 360 && $diffDays <= 370) {
+        return '1year';
+    }
+    if ($diffDays >= 175 && $diffDays <= 190) {
+        return '6months';
+    }
+    if ($diffDays >= 88 && $diffDays <= 95) {
+        return '3months';
+    }
+    if ($diffDays >= 28 && $diffDays <= 32) {
+        return '1month';
+    }
+    if ($diffDays >= 5 && $diffDays <= 9) {
+        return '7days';
+    }
+    if ($diffDays >= 330) {
+        return '1year';
+    }
+    if ($diffDays >= 150) {
+        return '6months';
+    }
+    if ($diffDays >= 75) {
+        return '3months';
+    }
+    if ($diffDays >= 25) {
+        return '1month';
+    }
+    if ($diffDays >= 7) {
+        return '7days';
+    }
+    return '7days';
+}
+
+function ensureCompanyDomainBillingPeriodColumn(PDO $pdo): void
+{
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM `company` LIKE 'domain_billing_period'");
+        if ($check && $check->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `company` ADD COLUMN `domain_billing_period` VARCHAR(20) NULL DEFAULT NULL COMMENT '7days,1month,3months,6months,1year' AFTER `expiration_date`");
+        }
+    } catch (Exception $e) {
+        // Best effort
+    }
+    $ensured = true;
 }
 
 function domainApiClearTransactionSearchCache(): void
@@ -1221,7 +1334,8 @@ function createDomainListFeePayment(
     PDO $pdo,
     string $customerCompanyCode,
     ?int $createdByUser,
-    ?int $createdByOwner
+    ?int $createdByOwner,
+    ?string $billingPeriod = null
 ): array {
     $out = [
         'created' => false,
@@ -1233,7 +1347,7 @@ function createDomainListFeePayment(
         'amount' => '0',
         'pool_account_id' => null,
     ];
-    $feePrice = getDomainFeePrice($pdo);
+    $feePrice = getDomainFeePriceForPeriod($pdo, $billingPeriod);
     if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
         $out['skipped_no_price'] = true;
         return $out;
@@ -1348,7 +1462,8 @@ function createDomainShareCommissionPayments(
     array $normalizedAllocations,
     ?int $c168SourceAccountId,
     ?int $createdByUser,
-    ?int $createdByOwner
+    ?int $createdByOwner,
+    ?string $billingPeriod = null
 ): array {
     $result = [
         'created_count' => 0,
@@ -1359,7 +1474,7 @@ function createDomainShareCommissionPayments(
         'commission_total' => '0',
     ];
 
-    $feePrice = getDomainFeePrice($pdo);
+    $feePrice = getDomainFeePriceForPeriod($pdo, $billingPeriod);
     if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
         return $result;
     }
@@ -1738,12 +1853,13 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
         } catch (Exception $e) {
             // ignore and keep payload normalization
         }
-        $feeResult = createDomainListFeePayment($pdo, $cid, $u, $o);
+        $billingPeriod = resolveDomainBillingPeriodForCompany($pdo, $cid, $row);
+        $feeResult = createDomainListFeePayment($pdo, $cid, $u, $o, $billingPeriod);
         $poolId = isset($feeResult['pool_account_id']) ? (int) $feeResult['pool_account_id'] : null;
         if ($poolId <= 0) {
             $poolId = null;
         }
-        $commissionResult = createDomainShareCommissionPayments($pdo, $cid, $normalized, $poolId, $u, $o);
+        $commissionResult = createDomainShareCommissionPayments($pdo, $cid, $normalized, $poolId, $u, $o, $billingPeriod);
         $profitResult = createDomainNetProfitPayment(
             $pdo,
             $cid,
@@ -2965,17 +3081,26 @@ try {
                 // 转换为 JSON
                 $permissions_json = json_encode(array_values($filtered_permissions));
 
+                ensureCompanyDomainBillingPeriodColumn($pdo);
+                $billingPeriod = null;
+                if (array_key_exists('selected_period', $data) || array_key_exists('selectedPeriod', $data)) {
+                    $rawPeriod = $data['selected_period'] ?? $data['selectedPeriod'] ?? null;
+                    $billingPeriod = ($rawPeriod !== null && trim((string) $rawPeriod) !== '')
+                        ? normalizeDomainFeePeriodKey((string) $rawPeriod)
+                        : null;
+                }
+
                 // 同步写入 expiration_date（前端传 null 时清除，不传时保持原有）
                 if (array_key_exists('expiration_date', $data)) {
                     $expiration_date_val = (!empty($data['expiration_date']) && $data['expiration_date'] !== 'null')
                         ? $data['expiration_date']
                         : null;
-                    $stmt = $pdo->prepare("UPDATE company SET permissions = ?, expiration_date = ? WHERE company_id = ?");
-                    $stmt->execute([$permissions_json, $expiration_date_val, strtoupper($company_id)]);
+                    $stmt = $pdo->prepare("UPDATE company SET permissions = ?, expiration_date = ?, domain_billing_period = ? WHERE company_id = ?");
+                    $stmt->execute([$permissions_json, $expiration_date_val, $billingPeriod, strtoupper($company_id)]);
                 } else {
-                    // 旧调用方式兼容：未传 expiration_date 时只更新权限
-                    $stmt = $pdo->prepare("UPDATE company SET permissions = ? WHERE company_id = ?");
-                    $stmt->execute([$permissions_json, strtoupper($company_id)]);
+                    // 旧调用方式兼容：未传 expiration_date 时只更新权限与计费周期
+                    $stmt = $pdo->prepare("UPDATE company SET permissions = ?, domain_billing_period = ? WHERE company_id = ?");
+                    $stmt->execute([$permissions_json, $billingPeriod, strtoupper($company_id)]);
                 }
 
                 echo json_encode([

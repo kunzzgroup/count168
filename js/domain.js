@@ -1845,7 +1845,8 @@ function saveCompanyExpDate() {
             action: 'update_company_permissions',
             company_id: company.company_id,
             permissions: permissions,
-            expiration_date: company.expiration_date || null  // 同步写库；null 时清除到期日
+            expiration_date: company.expiration_date || null,
+            selected_period: period || company.selectedPeriod || null
         })
     }).then(response => response.json());
 
@@ -2066,6 +2067,22 @@ function updateCompanyDisplay() {
     }
 }
 
+/** Company Settings 若仍开着，把 Period 写回 tempCompanies（Confirm Domain 入账用） */
+function syncEditingCompanyPeriodToTemp() {
+    if (!currentEditingCompanyId) {
+        return;
+    }
+    var periodEl = document.getElementById('expDatePeriod');
+    var periodVal = periodEl ? String(periodEl.value || '').trim() : '';
+    if (!periodVal) {
+        return;
+    }
+    var company = tempCompanies.find(function (c) { return c.company_id === currentEditingCompanyId; });
+    if (company) {
+        company.selectedPeriod = periodVal;
+    }
+}
+
 /** Domain 表單 JSON：帶入「確認後才入帳」標記（與 domain_api apply_commission_payments_on_domain_save 對應） */
 function companyToDomainPayloadEntry(c) {
     const o = {
@@ -2074,6 +2091,7 @@ function companyToDomainPayloadEntry(c) {
         permissions: Array.isArray(c.permissions) ? c.permissions : [],
         group_id: c.group_id || null,
         fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations),
+        selected_period: c.selectedPeriod || null,
         // 明确传递开关状态：Off 时也传 false，确保后端不会因缺字段而误判
         apply_commission_payments_on_domain_save: !!c.apply_commission_payments_on_domain_save
     };
@@ -3099,6 +3117,7 @@ document.addEventListener('DOMContentLoaded', function () {
         domainForm.addEventListener('submit', function (e) {
             e.preventDefault();
 
+            syncEditingCompanyPeriodToTemp();
             // 先同步 tempCompanies 到 selectedCompanies 和 hidden field
             syncCompaniesFromTemp();
 
