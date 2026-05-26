@@ -60,7 +60,7 @@ body.auto-renew-page-body .auto-renew-table-panel .auto-renew-pagination {
   margin-top: 0;
 }
 
-/* 10-column grid — beat global-13inch 9-col override on laptop */
+/* 11-column grid — beat global-13inch override on laptop */
 body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
 body.auto-renew-page-body .user-list-table.auto-renew-table {
   --user-list-grid-cols:
@@ -71,9 +71,10 @@ body.auto-renew-page-body .user-list-table.auto-renew-table {
     minmax(100px, 0.9fr)
     minmax(96px, 0.85fr)
     minmax(100px, 0.9fr)
+    minmax(112px, 1fr)
+    minmax(112px, 1fr)
     minmax(120px, 1fr)
-    minmax(120px, 1fr)
-    minmax(120px, 1fr);
+    minmax(96px, 0.85fr);
 }
 
 body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
@@ -86,9 +87,10 @@ body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table {
     minmax(100px, 0.9fr)
     minmax(96px, 0.85fr)
     minmax(100px, 0.9fr)
+    minmax(112px, 1fr)
+    minmax(112px, 1fr)
     minmax(120px, 1fr)
-    minmax(120px, 1fr)
-    minmax(120px, 1fr);
+    minmax(96px, 0.85fr);
 }
 
 body.auto-renew-page-body .auto-renew-toolbar-left {
@@ -339,6 +341,51 @@ body.auto-renew-page-body .auto-renew-btn-secondary:disabled {
   cursor: not-allowed;
 }
 
+body.auto-renew-page-body .auto-renew-btn-danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+body.auto-renew-page-body .auto-renew-btn-danger:not(:disabled):hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+body.auto-renew-page-body .auto-renew-btn-danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+body.auto-renew-page-body .auto-renew-date-range-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+body.auto-renew-page-body .auto-renew-date-range-wrap .dashboard-filter-date-field {
+  min-width: 220px;
+}
+
+body.auto-renew-page-body .auto-renew-submitter {
+  cursor: default;
+  border-bottom: 1px dotted #94a3b8;
+}
+
+body.auto-renew-page-body .auto-renew-table-row.maintenance-row-deleted .card-item {
+  color: #b91c1c;
+  text-decoration: line-through;
+}
+
+body.auto-renew-page-body .auto-renew-approval-badge.is-deleted {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  text-decoration: none;
+}
+
 body.auto-renew-page-body .auto-renew-chip-count {
   display: inline-flex;
   align-items: center;
@@ -415,7 +462,7 @@ body.auto-renew-page-body .auto-renew-toast.error {
 
   /* Laptop: table wider than content — enable horizontal scroll */
   body.auto-renew-page-body .auto-renew-table-panel .user-list-table-inner {
-    min-width: max(100%, 1080px);
+    min-width: max(100%, 1180px);
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
@@ -428,9 +475,10 @@ body.auto-renew-page-body .auto-renew-toast.error {
       92px
       88px
       96px
-      112px
-      112px
-      112px !important;
+      100px
+      100px
+      108px
+      88px !important;
   }
 }
 

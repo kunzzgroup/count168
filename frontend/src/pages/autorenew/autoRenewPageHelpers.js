@@ -65,6 +65,10 @@ export function sortAutoRenewRows(rows, sortColumn, sortDirection) {
         av = a.days_until_expiration ?? 999999;
         bv = b.days_until_expiration ?? 999999;
         break;
+      case "submitter":
+        av = String(a.submitter || a.processed_by || "").toUpperCase();
+        bv = String(b.submitter || b.processed_by || "").toUpperCase();
+        break;
       case "status":
         av = String(a.status || "");
         bv = String(b.status || "");
@@ -107,6 +111,26 @@ export function getRowDraftValues(row, drafts) {
     fromAccountId: draft.fromAccountId ?? row.from_account_id ?? row.default_from_account_id ?? "",
     toAccountId: draft.toAccountId ?? row.to_account_id ?? "",
   };
+}
+
+export function formatSubmitterAt(value) {
+  if (!value) return "";
+  const raw = String(value).trim();
+  const d = new Date(raw.includes("T") ? raw : raw.replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return raw;
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${day}/${month}/${year} ${hours}:${mins}`;
+}
+
+export function rowStableKey(row) {
+  if (row?.is_payment_deleted && row.deleted_payment_id) {
+    return `deleted-${row.deleted_payment_id}`;
+  }
+  return String(row?.request_id ?? "");
 }
 
 export function canApproveRow(row, drafts) {

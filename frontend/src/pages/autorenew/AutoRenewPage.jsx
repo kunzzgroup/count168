@@ -4,27 +4,40 @@ import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
+import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
 import { formatDate, formatDomainFeeDisplay2 } from "../domain/domainHelpers.js";
+import { DashboardCalendarPopup } from "../dashboard/components/DashboardCalendarPopup.jsx";
 import {
   approveAutoRenew,
   AUTO_RENEW_PERIODS,
+  deleteAutoRenew,
   fetchAutoRenewApprovals,
+  invalidateTransactionListCache,
   rejectAutoRenew,
 } from "./autoRenewLogic.js";
+import {
+  useAutoRenewDateRange,
+  useAutoRenewDateRangeState,
+} from "./hooks/useAutoRenewDateRange.js";
 import {
   AUTO_RENEW_PAGE_SIZE,
   canApproveRow,
   filterAutoRenewRows,
   formatRemainingForRow,
+  formatSubmitterAt,
   getRowDraftValues,
   paginateRows,
   periodToLabelKey,
+  rowStableKey,
   sortAutoRenewRows,
 } from "./autoRenewPageHelpers.js";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/admin-responsive.css";
 import "../../../public/css/auto_renew.css";
+import "../../../public/css/date-range-picker.css";
+import "../../../public/css/report-outlined-fields.css";
+import "../../../public/css/transaction.css";
 
 function FilterChip({ active, label, count, onClick }) {
   return (
@@ -94,6 +107,16 @@ export default function AutoRenewPage() {
   const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const t = useCallback((key, params) => getAutoRenewText(lang, key, params), [lang]);
+  const dashI18n = useMemo(() => DASHBOARD_I18N[lang === "zh" ? "zh" : "en"], [lang]);
+  const { dateFrom, setDateFrom, dateTo, setDateTo } = useAutoRenewDateRangeState();
+  const { effectiveDateRangeText, periodPresets } = useAutoRenewDateRange({
+    me,
+    i18n: dashI18n,
+    dateFrom,
+    dateTo,
+    setDateFrom,
+    setDateTo,
+  });
 
   const [bootDone, setBootDone] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -125,8 +148,11 @@ export default function AutoRenewPage() {
     };
   }, []);
 
-  const loadList = useCallback(async (status) => {
-    const data = await fetchAutoRenewApprovals(status);
+  const loadList = useCallback(async (status, range) => {
+    const data = await fetchAutoRenewApprovals(status, {
+      dateFrom: range?.dateFrom,
+      dateTo: range?.dateTo,
+    });
     setRows(Array.isArray(data?.rows) ? data.rows : []);
     setAccounts(Array.isArray(data?.accounts) ? data.accounts : []);
     setCounts(data?.counts || { pending: 0, approved: 0, rejected: 0, total: 0 });
@@ -148,7 +174,7 @@ export default function AutoRenewPage() {
       }
 
       try {
-        await loadList(statusFilter);
+        await loadList(statusFilter, { dateFrom, dateTo });
         if (!cancelled) setBootDone(true);
       } catch (err) {
         if (cancelled) return;
@@ -160,7 +186,7 @@ export default function AutoRenewPage() {
     return () => {
       cancelled = true;
     };
-  }, [me, navigate, sessionReady, statusFilter, loadList]);
+  }, [me, navigate, sessionReady, statusFilter, dateFrom, dateTo, loadList]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -189,29 +215,51 @@ export default function AutoRenewPage() {
         toAccountId,
       });
       notify(t("approvedSuccess"), "success");
-      await loadList(statusFilter);
+      await loadList(statusFilter, { dateFrom, dateTo });
     } catch (err) {
       notify(t("approveFailed", { message: err.message }), "error");
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, loadList, notify, rowDrafts, statusFilter, t]);
+  }, [busyRequestId, canEditGlobal, dateFrom, dateTo, loadList, notify, rowDrafts, statusFilter, t]);
 
   const handleReject = useCallback(async (row) => {
-    if (!canEditGlobal || busyRequestId) return;
+    if (!canEditGlobal || busyRequestId || row.is_payment_deleted) return;
     if (!window.confirm(t("confirmReject", { company: row.company_code }))) return;
 
     setBusyRequestId(row.request_id);
     try {
       await rejectAutoRenew({ requestId: row.request_id });
+      setRowDrafts((prev) => {
+        const next = { ...prev };
+        delete next[row.request_id];
+        return next;
+      });
       notify(t("rejectedSuccess"), "success");
-      await loadList(statusFilter);
+      await loadList(statusFilter, { dateFrom, dateTo });
     } catch (err) {
       notify(t("rejectFailed", { message: err.message }), "error");
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, loadList, notify, statusFilter, t]);
+  }, [busyRequestId, canEditGlobal, dateFrom, dateTo, loadList, notify, statusFilter, t]);
+
+  const handleDelete = useCallback(async (row) => {
+    if (!canEditGlobal || busyRequestId || !row.can_delete) return;
+    if (!window.confirm(t("confirmDelete", { company: row.company_code }))) return;
+
+    setBusyRequestId(row.request_id);
+    try {
+      await deleteAutoRenew({ requestId: row.request_id });
+      invalidateTransactionListCache("auto_renew_delete");
+      notify(t("deletedSuccess"), "success");
+      await loadList(statusFilter, { dateFrom, dateTo });
+    } catch (err) {
+      notify(t("deleteFailed", { message: err.message }), "error");
+    } finally {
+      setBusyRequestId(null);
+    }
+  }, [busyRequestId, canEditGlobal, dateFrom, dateTo, loadList, notify, statusFilter, t]);
 
   const handleSort = useCallback(
     (column) => {
@@ -257,6 +305,12 @@ export default function AutoRenewPage() {
   );
 
   const renderStatusCell = (row) => {
+    if (row.is_payment_deleted) {
+      return (
+        <span className="auto-renew-approval-badge is-deleted">{t("statusDeleted")}</span>
+      );
+    }
+
     if (row.status === "pending" && canEditGlobal) {
       const approveEnabled = canApproveRow(row, rowDrafts) && busyRequestId !== row.request_id;
       return (
@@ -282,11 +336,35 @@ export default function AutoRenewPage() {
       );
     }
 
+    if (row.status === "approved" && row.can_delete && canEditGlobal) {
+      return (
+        <button
+          type="button"
+          className="auto-renew-btn auto-renew-btn-danger auto-renew-btn--sm"
+          disabled={busyRequestId === row.request_id}
+          onClick={() => handleDelete(row)}
+        >
+          {busyRequestId === row.request_id ? t("processing") : t("delete")}
+        </button>
+      );
+    }
+
     const statusClass =
       row.status === "approved" ? "is-approved" : row.status === "rejected" ? "is-rejected" : "is-pending";
     return (
       <span className={`auto-renew-approval-badge ${statusClass}`}>
         {t(`status${row.status.charAt(0).toUpperCase()}${row.status.slice(1)}`)}
+      </span>
+    );
+  };
+
+  const renderSubmitterCell = (row) => {
+    const name = row.submitter || row.processed_by;
+    if (!name) return <span className="auto-renew-table-muted">—</span>;
+    const at = formatSubmitterAt(row.submitter_at || row.processed_at);
+    return (
+      <span className="auto-renew-submitter" title={at || undefined}>
+        {name}
       </span>
     );
   };
@@ -338,6 +416,30 @@ export default function AutoRenewPage() {
                       onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
                     />
                   </div>
+                  <div className="auto-renew-date-range-wrap">
+                    <span className="user-gc-inline-label">{dashI18n.dateRange}</span>
+                    <div className="dashboard-filter-date-field report-outlined-anchor transaction-outlined-field-col transaction-outlined-field-col--date">
+                      <div className="report-outlined-shell report-outlined-shell--no-label">
+                        <div className="report-outlined-inner">
+                          <div className="transaction-date-range-group">
+                            <div
+                              className="date-range-picker"
+                              id="date-range-picker"
+                              role="button"
+                              tabIndex={0}
+                              aria-label={dashI18n.selectDateRange}
+                            >
+                              <i className="fas fa-calendar-alt" />
+                              <span id="date-range-display">{effectiveDateRangeText}</span>
+                              <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+                            </div>
+                            <input type="hidden" id="date_from" readOnly />
+                            <input type="hidden" id="date_to" readOnly />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div className="userlist-filter-chips auto-renew-filter-chips" role="group" aria-label={t("filterGroupLabel")}>
                     <FilterChip
                       active={statusFilter === "pending"}
@@ -384,9 +486,10 @@ export default function AutoRenewPage() {
                 {renderHeader("expiration", t("colExpiration"))}
                 {renderHeader("remaining", t("colRemaining"))}
                 {renderHeader("period", t("colPeriod"))}
-                {renderHeader("status", t("colStatus"))}
                 <div className="header-item"><span className="header-item__label">{t("colFromAccount")}</span></div>
                 <div className="header-item"><span className="header-item__label">{t("colToAccount")}</span></div>
+                {renderHeader("status", t("colStatus"))}
+                {renderHeader("submitter", t("colSubmitter"))}
               </div>
 
               <div className="user-cards auto-renew-cards" aria-busy={Boolean(busyRequestId)}>
@@ -395,14 +498,15 @@ export default function AutoRenewPage() {
                 ) : (
                   pagination.rows.map((row, idx) => {
                     const globalIdx = (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
-                    const isPendingEditable = row.status === "pending" && canEditGlobal;
+                    const isPendingEditable = row.status === "pending" && canEditGlobal && !row.is_payment_deleted;
                     const draft = getRowDraftValues(row, rowDrafts);
                     const rowBusy = busyRequestId === row.request_id;
+                    const rowKey = rowStableKey(row);
 
                     return (
                       <div
-                        key={row.request_id}
-                        className={`user-card user-list-row auto-renew-table-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
+                        key={rowKey}
+                        className={`user-card user-list-row auto-renew-table-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}${row.is_payment_deleted ? " maintenance-row-deleted" : ""}`}
                       >
                         <div className="card-item auto-renew-table-muted">{globalIdx}</div>
                         <div className="card-item card-item--strong">{row.company_code}</div>
@@ -435,7 +539,6 @@ export default function AutoRenewPage() {
                             <span>{row.period ? t(periodToLabelKey(row.period)) : "-"}</span>
                           )}
                         </div>
-                        <div className="card-item">{renderStatusCell(row)}</div>
                         <div className="card-item">
                           {isPendingEditable ? (
                             <AccountSelect
@@ -466,6 +569,8 @@ export default function AutoRenewPage() {
                             </span>
                           )}
                         </div>
+                        <div className="card-item">{renderStatusCell(row)}</div>
+                        <div className="card-item">{renderSubmitterCell(row)}</div>
                       </div>
                     );
                   })
@@ -502,6 +607,8 @@ export default function AutoRenewPage() {
           </div>
         </div>
       </div>
+
+      <DashboardCalendarPopup i18n={dashI18n} periodPresets={periodPresets} dateFrom={dateFrom} />
     </>
   );
 }

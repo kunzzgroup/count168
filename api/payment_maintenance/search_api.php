@@ -219,6 +219,7 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
 function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $profitCode = 'PROFIT') {
     $isDomainShareCommission = false;
     $isDomainListFee = false;
+    $isAutoRenewFee = false;
     $descriptionRaw = (string)($row['description'] ?? '');
     $remarkRaw = (string)($row['remark'] ?? '');
     $remarkTrim = trim($remarkRaw);
@@ -232,6 +233,9 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
         || $remarkTrim === '[DOMAIN_LIST_FEE]'
         || stripos($remarkTrim, '[DOMAIN_LIST_FEE|') === 0) {
         $isDomainListFee = true;
+    }
+    if (stripos($remarkTrim, '[AUTO_RENEW|') === 0) {
+        $isAutoRenewFee = true;
     }
 
     $description = $row['description'] ?? '';
@@ -275,6 +279,13 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
     }
     if ($isDomainListFee) {
         $description = 'Pay Domain Fee';
+    }
+    if ($isAutoRenewFee) {
+        if (preg_match('/^\s*Renew\s+(.+)$/i', trim($descriptionRaw), $mRenew)) {
+            $description = 'Renew ' . trim((string) $mRenew[1]);
+        } else {
+            $description = trim($descriptionRaw) !== '' ? trim($descriptionRaw) : 'Renew';
+        }
     }
     // Domain List Fee：顾客 from 有账号，入账「池」在业务上视为从总额中扣 % 的前序步骤，Maintenance 上 Account(To) 不展示具体池账号（与 JK 上净利润行口径一致）
     $accRaw = (string) ($row['account_code'] ?? '');
@@ -339,7 +350,7 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
         'currency' => $row['currency_code'] ?? '-',
         'amount' => money_out($row['amount'] ?? '0'),
         'description' => $description,
-        'remark' => ($isDomainShareCommission || $isDomainListFee) ? '' : ($row['remark'] ?? ''),
+        'remark' => ($isDomainShareCommission || $isDomainListFee || $isAutoRenewFee) ? '' : ($row['remark'] ?? ''),
         'dts_created' => $row['dts_created'] ?? '',
         'created_by' => $createdBy,
         'transaction_type' => $row['transaction_type'],
