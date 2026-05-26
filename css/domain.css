@@ -1709,13 +1709,12 @@ h1 {
 }
 
 .exp-date-display {
-    font-size: 9px;
+    font-size: clamp(11px, 0.73vw, 13px);
     color: #64748b;
     margin-left: clamp(6px, 0.625vw, 12px);
     white-space: nowrap;
     flex-shrink: 0;
-    width: clamp(46px, 3.91vw, 75px);
-    max-width: 100px;
+    min-width: 0;
 }
 
 .company-start-date-input {
@@ -2252,6 +2251,14 @@ h1 {
     .company-item {
         font-size: clamp(8px, 0.73vw, 14px);
     }
+
+    .companies-list-box .company-item .company-item-right {
+        gap: 6px;
+    }
+
+    .two-columns {
+        gap: 24px;
+    }
 }
 
 /* =========================================================
@@ -2579,11 +2586,30 @@ h1 {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
     background-color: white;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 10px 14px;
     margin-bottom: 8px;
+    min-width: 0;
+    overflow: visible;
+}
+
+.companies-list-box .company-item .company-item-left {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.companies-list-box .company-item .company-item-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .companies-list-box .company-item span {
@@ -2592,6 +2618,8 @@ h1 {
 
 .companies-list-box .company-item .exp-date-display {
     font-size: 13px;
+    margin-left: 0;
+    margin-right: 8px;
 }
 
 .companies-list-box .company-item .company-reset-btn {

@@ -1984,7 +1984,7 @@ function updateCompanyDisplay() {
             // 显示到期日期和设置按钮
             const expDateText = company.expiration_date ? formatDate(company.expiration_date) : 'Not set';
             const expirationControls = `
-                <span class="exp-date-display" style="margin-right: 8px;">${expDateText}</span>
+                <span class="exp-date-display">${expDateText}</span>
                 <button type="button" class="company-reset-btn" onclick="openCompanyExpDateModal('${company.company_id}')" title="Set expiration date" style="background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);">Set</button>
             `;
 
