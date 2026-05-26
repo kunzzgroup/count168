@@ -6,10 +6,12 @@ import {
   companiesGroupEntityList,
   isDashboardGroupOnlyMode,
   isVirtualGroupLinkCompanyRow,
+  persistDashboardGroupOnlyMode,
   pickDefaultCompanyForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { isCompanyLogin, isGroupLogin } from "../../utils/company/loginScope.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
@@ -171,8 +173,14 @@ export default function UserListPage() {
     [companies]
   );
   const groupOnlyUserList = useMemo(
-    () => Boolean(selectedGroup && companyId == null && isDashboardGroupOnlyMode()),
-    [selectedGroup, companyId],
+    () =>
+      Boolean(
+        selectedGroup &&
+          companyId == null &&
+          isDashboardGroupOnlyMode() &&
+          isGroupLogin(me),
+      ),
+    [selectedGroup, companyId, me],
   );
   const groupEntityCompanies = useMemo(
     () => (selectedGroup ? companiesGroupEntityList(companies, selectedGroup) : []),
@@ -180,16 +188,40 @@ export default function UserListPage() {
   );
   const anchorCompanyId = useMemo(() => {
     if (!groupOnlyUserList || !selectedGroup) return null;
-    const pick = pickDefaultCompanyForGroup(companies, selectedGroup, {
+    const entityPick = pickDefaultCompanyForGroup(companies, selectedGroup, {
       me,
       preferredCompanyId: me?.company_id,
       groupEntityOnly: true,
     });
-    const id = pick?.id != null ? Number(pick.id) : Number.NaN;
+    if (entityPick?.id != null) {
+      const eid = Number(entityPick.id);
+      if (Number.isFinite(eid) && eid > 0) return eid;
+    }
+    const fallback = pickDefaultCompanyForGroup(companies, selectedGroup, {
+      me,
+      preferredCompanyId: me?.company_id,
+    });
+    const id = fallback?.id != null ? Number(fallback.id) : Number.NaN;
     return Number.isFinite(id) && id > 0 ? id : null;
   }, [groupOnlyUserList, selectedGroup, companies, me]);
-  /** API/modal scope: explicit company, or anchor company while group-only UI has no company chip selected. */
-  const scopeCompanyId = companyId ?? (groupOnlyUserList ? anchorCompanyId : null);
+  /** API/modal scope: selected company, group anchor, or login/default company in the active group. */
+  const scopeCompanyId = useMemo(() => {
+    if (companyId != null) {
+      const id = Number(companyId);
+      if (Number.isFinite(id) && id > 0) return id;
+    }
+    if (groupOnlyUserList && anchorCompanyId != null) return anchorCompanyId;
+    if (selectedGroup) {
+      const pick = pickDefaultCompanyForGroup(companies, selectedGroup, {
+        me,
+        preferredCompanyId: me?.company_id ?? companyId,
+      });
+      const pid = pick?.id != null ? Number(pick.id) : Number.NaN;
+      if (Number.isFinite(pid) && pid > 0) return pid;
+    }
+    const sessionId = me?.company_id != null ? Number(me.company_id) : Number.NaN;
+    return Number.isFinite(sessionId) && sessionId > 0 ? sessionId : null;
+  }, [companyId, groupOnlyUserList, anchorCompanyId, selectedGroup, companies, me]);
   /** Group-only list/add-user: group entity only (e.g. AP), not subsidiaries (e.g. C168). */
   const groupScopedModalCompanies = useMemo(() => {
     const base = selectedGroup ? groupEntityCompanies : allCompanyButtons;
@@ -368,15 +400,29 @@ export default function UserListPage() {
         setModalCompanies(modalCompanyList);
         const url = new URL(window.location.href);
         const urlCompanyId = url.searchParams.get("company_id");
-        const effectiveNum = resolveBootCompanyId({
+        if (isCompanyLogin(me) && isDashboardGroupOnlyMode()) {
+          persistDashboardGroupOnlyMode(false);
+        }
+        let effectiveNum = resolveBootCompanyId({
           urlCompanyId,
           sessionCompanyId: me.company_id,
           defaultRowId: rows[0]?.id,
         });
-        const row =
-          effectiveNum != null ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null : null;
-        const bootGroup = resolveInitialSelectedGroupFromSession(rows, row);
-        setCompanyId(isDashboardGroupOnlyMode() ? null : effectiveNum);
+        const bootGroup = resolveInitialSelectedGroupFromSession(
+          rows,
+          effectiveNum != null
+            ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null
+            : null,
+        );
+        if (isCompanyLogin(me) && (effectiveNum == null || !Number.isFinite(Number(effectiveNum)))) {
+          const pick = pickDefaultCompanyForGroup(rows, bootGroup, {
+            me,
+            preferredCompanyId: me.company_id,
+          });
+          if (pick?.id != null) effectiveNum = Number(pick.id);
+          else if (me.company_id != null) effectiveNum = Number(me.company_id);
+        }
+        setCompanyId(isGroupLogin(me) && isDashboardGroupOnlyMode() ? null : effectiveNum);
         setSelectedGroup(bootGroup);
         setSearch(String(url.searchParams.get("search") || ""));
         setShowAll(url.searchParams.get("showAll") === "1");
@@ -479,14 +525,13 @@ export default function UserListPage() {
       modalAccessCompanyIdRef.current = Number(cid);
       setModalAccounts(next.accounts); setModalProcesses(next.processes); setModalAccessReadyCompanyId(Number(cid)); return next;
     } catch {
-      if (cached) {
-        setModalAccounts(cached.accounts);
-        setModalProcesses(cached.processes);
-        setModalAccessReadyCompanyId(Number(cid));
-        return cached;
-      }
-      setModalAccessReadyCompanyId(null);
-      setModalAccounts([]); setModalProcesses([]); return { accounts: [], processes: [] };
+      const empty = { accounts: [], processes: [] };
+      modalAccessCacheRef.current.set(cacheKey, cached || empty);
+      modalAccessCompanyIdRef.current = Number(cid);
+      setModalAccounts((cached || empty).accounts);
+      setModalProcesses((cached || empty).processes);
+      setModalAccessReadyCompanyId(Number(cid));
+      return cached || empty;
     }
     finally { modalAccessPendingRef.current.delete(cacheKey); }
   }, []);
