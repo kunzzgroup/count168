@@ -87,6 +87,13 @@ export function useDashboardStyleGcFilter({
   );
 
   useLayoutEffect(() => {
+    const hasGroup = Boolean(String(selectedGroup || "").trim());
+    const noCompany = companyId == null || companyId === "";
+    if (hasGroup && noCompany) {
+      persistDashboardGroupOnlyMode(true);
+    } else if (!noCompany || !hasGroup) {
+      persistDashboardGroupOnlyMode(false);
+    }
     const cid = isDashboardGroupOnlyMode() ? null : companyId;
     notifyDashboardGroupFilterChanged(selectedGroup, cid);
   }, [selectedGroup, companyId]);
