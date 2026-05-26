@@ -4,6 +4,7 @@ import {
   dedupeOwnerCompaniesByCode,
   notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
+  persistDashboardGroupOnlyMode,
   sortedUniqueGroupIds,
 } from "./sharedCompanyFilter.js";
 
@@ -36,6 +37,7 @@ export function useDashboardStyleGcFilter({
       const list = companiesInGroupList(companies, g);
       const first = list[0] ?? null;
       persistDashboardGroupFilter(g);
+      persistDashboardGroupOnlyMode(false);
       setSelectedGroup(g);
       if (first && onSelectCompany) await onSelectCompany(first);
     },
@@ -51,9 +53,11 @@ export function useDashboardStyleGcFilter({
       const isActive =
         companyId != null && Number(companyId) === id && (!gid || gid === sel);
       if (isActive) {
+        persistDashboardGroupOnlyMode(true);
         onClearCompany?.();
         return;
       }
+      persistDashboardGroupOnlyMode(false);
       if (gid) {
         persistDashboardGroupFilter(gid);
         setSelectedGroup(gid);

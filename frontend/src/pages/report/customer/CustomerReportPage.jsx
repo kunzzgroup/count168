@@ -5,6 +5,8 @@ import {
   getCachedOwnerCompanies,
   loadOwnerCompaniesCached,
   normalizeOwnerCompanyRow,
+  isDashboardGroupOnlyMode,
+  resolveInitialCompanyId as resolveGcCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useDashboardStyleGcFilter } from "../../../utils/company/useDashboardStyleGcFilter.js";
@@ -39,12 +41,12 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 const REPORT_PAGE_KEY = "customer";
 const REPORT_FETCH_DEBOUNCE_MS = 150;
 
-function resolveInitialCompanyId() {
+function resolveReportBootCompanyId() {
   const cached = getCachedOwnerCompanies();
   const url = new URL(window.location.href);
   const queryCompany = url.searchParams.get("company_id");
-  const id = queryCompany || cached?.[0]?.id || null;
-  return id ? Number(id) : null;
+  const fallback = queryCompany || cached?.[0]?.id || null;
+  return resolveGcCompanyId(fallback);
 }
 
 export default function CustomerReportPage() {
@@ -56,7 +58,7 @@ export default function CustomerReportPage() {
 
   const [companies, setCompanies] = useState(() => getCachedOwnerCompanies() || []);
 
-  const [companyId, setCompanyId] = useState(resolveInitialCompanyId);
+  const [companyId, setCompanyId] = useState(resolveReportBootCompanyId);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [companyHighlightId, setCompanyHighlightId] = useState(null);
   const switchCompanySeqRef = useRef(0);
@@ -186,13 +188,14 @@ export default function CustomerReportPage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        let effective = queryCompany || u.company_id || rows[0]?.id || null;
-        effective = effective ? Number(effective) : null;
-        if (effective) {
-          const row = rows.find((c) => Number(c.id) === Number(effective)) || null;
+        const fallback = queryCompany || u.company_id || rows[0]?.id || null;
+        const effective = resolveGcCompanyId(fallback);
+        if (effective != null || isDashboardGroupOnlyMode()) {
+          const row =
+            effective != null ? rows.find((c) => Number(c.id) === Number(effective)) || null : null;
           setCompanyId((prev) => (prev != null ? prev : effective));
           setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
-          void checkBankOnly(effective);
+          if (effective != null) void checkBankOnly(effective);
         }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });

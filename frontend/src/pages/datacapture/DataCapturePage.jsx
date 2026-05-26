@@ -7,6 +7,8 @@ import {
   dedupeOwnerCompaniesByCode,
   filterCompaniesWithDisplayId,
   normalizeOwnerCompanyRow,
+  isDashboardGroupOnlyMode,
+  resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
@@ -332,8 +334,21 @@ export default function DataCapturePage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        let effectiveCompany = queryCompany || u.company_id || raw[0]?.id || null;
-        effectiveCompany = effectiveCompany ? Number(effectiveCompany) : null;
+        let effectiveCompany = resolveInitialCompanyId(
+          queryCompany || u.company_id || raw[0]?.id || null,
+        );
+
+        const rowForPickEarly =
+          effectiveCompany != null
+            ? raw.find((c) => Number(c.id) === Number(effectiveCompany)) || null
+            : null;
+        const initialGroupEarly = resolveInitialSelectedGroupFromSession(raw, rowForPickEarly);
+        if (isDashboardGroupOnlyMode() && initialGroupEarly) {
+          setCompanies(raw);
+          setCompanyId(null);
+          setSelectedGroup(initialGroupEarly);
+          return;
+        }
 
         if (queryCompany && effectiveCompany && Number(effectiveCompany) !== Number(u.company_id)) {
           try {

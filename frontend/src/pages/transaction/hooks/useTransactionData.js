@@ -10,6 +10,8 @@ import {
   normalizeOwnerCompanyRow,
   notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
+  persistDashboardGroupOnlyMode,
+  resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -76,11 +78,15 @@ export function useTransactionData({
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
         let effective = queryCompany || u.company_id || rows[0]?.id || null;
-        effective = effective ? Number(effective) : null;
+        effective = resolveInitialCompanyId(effective);
 
-        const snapRows = dedupeOwnerCompaniesByCode(rows, effective);
+        const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u.company_id);
 
-        if (queryCompany && rows.some((c) => Number(c.id) === Number(queryCompany))) {
+        if (
+          effective != null &&
+          queryCompany &&
+          rows.some((c) => Number(c.id) === Number(queryCompany))
+        ) {
           const sync = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${queryCompany}`), {
             credentials: "include",
           });
@@ -92,7 +98,8 @@ export function useTransactionData({
           }
         }
 
-        const current = snapRows.find((c) => Number(c.id) === Number(effective));
+        const current =
+          effective != null ? snapRows.find((c) => Number(c.id) === Number(effective)) : null;
         const selGroup = resolveInitialSelectedGroupFromSession(snapRows, current);
 
         if (!cancelled) {
@@ -217,6 +224,7 @@ export function useTransactionData({
         url.searchParams.delete("company_id");
         window.history.replaceState(null, "", url.toString());
         const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : snap.selectedGroup;
+        persistDashboardGroupOnlyMode(true);
         setFilterSnapshot((prev) =>
           prev ? { ...prev, companyId: null, selectedGroup: gid || prev.selectedGroup } : prev,
         );
@@ -254,6 +262,7 @@ export function useTransactionData({
           url.searchParams.set("company_id", String(cid));
           window.history.replaceState(null, "", url.toString());
           const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
+          persistDashboardGroupOnlyMode(false);
           if (gid) persistDashboardGroupFilter(gid);
           setFilterSnapshot((prev) =>
             prev ? { ...prev, companyId: numericCid, selectedGroup: gid || prev.selectedGroup } : prev,

@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
-import { resolveInitialSelectedGroupFromSession } from "../../utils/company/sharedCompanyFilter.js";
+import {
+  resolveInitialCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../utils/company/sharedCompanyFilter.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
@@ -332,8 +335,9 @@ export default function UserListPage() {
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id");
         const effective = cid || me.company_id || rows[0]?.id || null;
-        const effectiveNum = effective ? Number(effective) : null;
-        const row = rows.find((c) => Number(c.id) === Number(effectiveNum)) || null;
+        const effectiveNum = resolveInitialCompanyId(effective);
+        const row =
+          effectiveNum != null ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null : null;
         setCompanyId(effectiveNum);
         setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
         setSearch(String(url.searchParams.get("search") || ""));

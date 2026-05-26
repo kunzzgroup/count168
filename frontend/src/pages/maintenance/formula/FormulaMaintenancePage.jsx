@@ -8,6 +8,11 @@ import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnersh
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import {
+  isDashboardGroupOnlyMode,
+  resolveInitialCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../../utils/company/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
@@ -286,10 +291,20 @@ export default function FormulaMaintenancePage() {
         const rows = Array.isArray(compJson?.data) ? compJson.data : [];
         setCompanies(rows);
 
-        let initialCompanyId = u.company_id ? Number(u.company_id) : (rows[0]?.id ? Number(rows[0].id) : null);
+        const fallbackId = u.company_id ? Number(u.company_id) : rows[0]?.id ? Number(rows[0].id) : null;
+        let initialCompanyId = resolveInitialCompanyId(fallbackId);
+        const currentComp =
+          initialCompanyId != null
+            ? rows.find((c) => Number(c.id) === initialCompanyId)
+            : null;
+        const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
+        setSelectedGroup(bootGroup);
+        if (isDashboardGroupOnlyMode() && bootGroup) {
+          setCompanyId(null);
+          return;
+        }
         setCompanyId(initialCompanyId);
-        
-        const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
+
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
@@ -321,18 +336,7 @@ export default function FormulaMaintenancePage() {
           const initialActive = savedPerm && permList.includes(savedPerm) ? savedPerm : (permList.length > 0 ? permList[0] : "");
           setActivePermission(initialActive);
           
-          const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-          const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-          
-          let selGroup = null;
-          if (savedGroup && groups.includes(savedGroup) && currentComp.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
-            selGroup = savedGroup;
-          } else if (currentComp.group_id?.trim()) {
-            selGroup = String(currentComp.group_id).toUpperCase().trim();
-          }
-          
-          setSelectedGroup(selGroup);
-          if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
         }
 
       } catch (err) {

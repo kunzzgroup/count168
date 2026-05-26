@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
-import { resolveInitialSelectedGroupFromSession } from "../../utils/company/sharedCompanyFilter.js";
+import {
+  resolveInitialCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../utils/company/sharedCompanyFilter.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
@@ -207,7 +210,7 @@ export default function AccountListPage() {
 
         const url = new URL(window.location.href);
         const cid = url.searchParams.get("company_id") || sessionMe.company_id || rows[0]?.id;
-        const initialCompanyId = cid ? Number(cid) : null;
+        const initialCompanyId = resolveInitialCompanyId(cid);
         const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
         const initialShowAll = url.searchParams.get("showAll") === "1";
@@ -220,7 +223,10 @@ export default function AccountListPage() {
             bootFetchedAccountsKeyRef.current = buildAccountsFetchKey(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll);
           }
         }
-        const row = rows.find((c) => Number(c.id) === Number(initialCompanyId)) || null;
+        const row =
+          initialCompanyId != null
+            ? rows.find((c) => Number(c.id) === Number(initialCompanyId)) || null
+            : null;
         setCompanyId(initialCompanyId);
         setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
         setSearchTerm(initialSearchTerm);

@@ -34,7 +34,11 @@ import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
 import { companiesInGroupList } from "../../../utils/company/sharedCompanyFilter.js";
 import { sortIds } from "../lib/dashboardEarnings.js";
-import { notifyDashboardGroupFilterChanged } from "../../../utils/company/sharedCompanyFilter.js";
+import {
+  notifyDashboardGroupFilterChanged,
+  isDashboardGroupOnlyMode,
+  persistDashboardGroupOnlyMode,
+} from "../../../utils/company/sharedCompanyFilter.js";
 
 export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const { me, sessionReady } = useAuthSession();
@@ -118,10 +122,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       let group = null;
       const current = cj.data.find((c) => parseInt(c.id, 10) === parseInt(u.company_id, 10));
+      if (isDashboardGroupOnlyMode() && savedGroup && groups.includes(savedGroup)) {
+        group = savedGroup;
+        setSelectedGroup(group);
+        setCompanyId(null);
+        return;
+      }
       if (savedGroup && groups.includes(savedGroup) && current?.group_id?.toUpperCase() === savedGroup) {
         group = savedGroup;
       } else if (savedGroup && !groups.includes(savedGroup)) {
         sessionStorage.removeItem("dashboard_group_filter");
+        persistDashboardGroupOnlyMode(false);
       }
       if (!group && current?.group_id?.trim()) {
         group = String(current.group_id).toUpperCase();
@@ -135,6 +146,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       } else if (cid && !cj.data.some((c) => parseInt(c.id, 10) === parseInt(cid, 10))) {
         cid = parseInt(cj.data[0].id, 10);
       }
+      persistDashboardGroupOnlyMode(false);
       setCompanyId(cid ? parseInt(cid, 10) : null);
     } catch (err) {
       if (err?.name === "AbortError") return;
@@ -173,6 +185,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, []);
 
   const clearCompanySelection = useCallback(() => {
+    persistDashboardGroupOnlyMode(true);
     setCompanyId(null);
     setGroupAllMode(false);
     setMergedSubsetIds(null);
@@ -792,6 +805,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setSelectedGroup(null);
         sessionStorage.removeItem("dashboard_group_filter");
       }
+      persistDashboardGroupOnlyMode(false);
       applyCompanySelection(id);
       void syncCompanySession(id).then((ok) => {
         if (switchGen !== companySwitchGenRef.current) return;
