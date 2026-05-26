@@ -1,28 +1,43 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  calculateCountdown,
-  calculateExpirationDate,
-  formatDate,
-} from "../domain/domainHelpers.js";
+import { assetUrl } from "../../utils/core/apiUrl.js";
+import { formatDate } from "../domain/domainHelpers.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
 import {
-  AUTO_RENEW_PERIODS,
   fetchAutoRenewCompanies,
   fetchAutoRenewSettings,
   saveAutoRenewSettings,
 } from "./autoRenewLogic.js";
+import {
+  AUTO_RENEW_FILTER_KEYS,
+  AUTO_RENEW_PAGE_SIZE,
+  filterAutoRenewRows,
+  formatRemainingForRow,
+  paginateRows,
+  sortAutoRenewRows,
+} from "./autoRenewPageHelpers.js";
+import AutoRenewEditModal, { AutoRenewPeriodCell } from "./components/AutoRenewEditModal.jsx";
+import "../../../public/css/accountCSS.css";
+import "../../../public/css/userlist.css";
 import "../../../public/css/auto_renew.css";
 import "../../../public/css/domain.css";
 
-function formatRemainingLabel(t, daysLeft) {
-  if (daysLeft == null) return t("notSet");
-  if (daysLeft < 0) return t("expExpired");
-  if (daysLeft === 0) return t("expToday");
-  return t("expDaysLeft", { days: daysLeft });
+function FilterChip({ active, label, onClick }) {
+  return (
+    <button type="button" className={`user-filter-chip${active ? " is-selected" : ""}`} aria-pressed={active} onClick={onClick}>
+      <span className="user-filter-chip__dot" aria-hidden>
+        {active ? (
+          <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 12l4 4 8-8" />
+          </svg>
+        ) : null}
+      </span>
+      <span className="user-filter-chip__label">{label}</span>
+    </button>
+  );
 }
 
 export default function AutoRenewPage() {
@@ -34,12 +49,19 @@ export default function AutoRenewPage() {
   const [bootDone, setBootDone] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
-  const [data, setData] = useState(null);
-  const [enabled, setEnabled] = useState(false);
-  const [period, setPeriod] = useState("1month");
+  const [canEditGlobal, setCanEditGlobal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState(() =>
+    Object.fromEntries(AUTO_RENEW_FILTER_KEYS.map((key) => [key, false])),
+  );
+  const [sortColumn, setSortColumn] = useState("company");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [editRow, setEditRow] = useState(null);
+  const [editEnabled, setEditEnabled] = useState(false);
+  const [editPeriod, setEditPeriod] = useState("1month");
+  const [editLoading, setEditLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [loadingCompany, setLoadingCompany] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   const notify = useCallback((message, type = "success") => {
@@ -49,8 +71,11 @@ export default function AutoRenewPage() {
   }, []);
 
   useEffect(() => {
-    document.body.classList.add("auto-renew-page-active");
-    return () => document.body.classList.remove("auto-renew-page-active");
+    document.body.classList.remove("bg");
+    document.body.classList.add("dashboard-page", "auto-renew-page-body");
+    return () => {
+      document.body.classList.remove("auto-renew-page-body");
+    };
   }, []);
 
   useEffect(() => {
@@ -69,14 +94,9 @@ export default function AutoRenewPage() {
       try {
         const listData = await fetchAutoRenewCompanies();
         if (cancelled) return;
-        const rows = Array.isArray(listData?.companies) ? listData.companies : [];
-        setCompanies(rows);
-        if (rows.length === 0) {
-          setBootDone(true);
-          return;
-        }
-        const firstId = rows[0].company_numeric_id;
-        setSelectedCompanyId(firstId);
+        setCompanies(Array.isArray(listData?.companies) ? listData.companies : []);
+        setCanEditGlobal(Boolean(listData?.can_edit));
+        setBootDone(true);
       } catch (err) {
         if (cancelled) return;
         setLoadError(err.message || "load");
@@ -90,76 +110,101 @@ export default function AutoRenewPage() {
   }, [me, navigate, sessionReady]);
 
   useEffect(() => {
-    if (!selectedCompanyId) return undefined;
+    setCurrentPage(1);
+  }, [searchTerm, filters, sortColumn, sortDirection]);
 
-    let cancelled = false;
-    setLoadingCompany(true);
+  const toggleFilter = useCallback((key) => {
+    setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
-    (async () => {
-      try {
-        const settings = await fetchAutoRenewSettings(selectedCompanyId);
-        if (cancelled) return;
-        setData(settings);
-        setEnabled(Boolean(settings.auto_renew_enabled));
-        setPeriod(settings.auto_renew_period || "1month");
-        setBootDone(true);
-      } catch (err) {
-        if (cancelled) return;
-        setLoadError(err.message || "load");
-        setBootDone(true);
-      } finally {
-        if (!cancelled) setLoadingCompany(false);
-      }
-    })();
+  const handleSort = useCallback(
+    (column) => {
+      setSortDirection((dir) => (sortColumn === column && dir === "asc" ? "desc" : "asc"));
+      setSortColumn(column);
+    },
+    [sortColumn],
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCompanyId]);
+  const filteredRows = useMemo(
+    () => sortAutoRenewRows(filterAutoRenewRows(companies, { searchTerm, filters }), sortColumn, sortDirection),
+    [companies, filters, searchTerm, sortColumn, sortDirection],
+  );
 
-  const canEdit = Boolean(data?.can_edit);
-  const hasExpiration = Boolean(data?.expiration_date);
-  const formDisabled = !canEdit || !hasExpiration || loadingCompany;
+  const pagination = useMemo(
+    () => paginateRows(filteredRows, currentPage, AUTO_RENEW_PAGE_SIZE),
+    [filteredRows, currentPage],
+  );
 
-  const previewNext = useMemo(() => {
-    if (!enabled || !period || !data?.expiration_date) return null;
-    return calculateExpirationDate(period, data.expiration_date);
-  }, [data?.expiration_date, enabled, period]);
+  const openEdit = useCallback(async (row) => {
+    setEditRow(row);
+    setEditEnabled(Boolean(row.auto_renew_enabled));
+    setEditPeriod(row.auto_renew_period || "1month");
+    setEditLoading(true);
+    try {
+      const fresh = await fetchAutoRenewSettings(row.company_numeric_id);
+      setEditRow({ ...row, ...fresh });
+      setEditEnabled(Boolean(fresh.auto_renew_enabled));
+      setEditPeriod(fresh.auto_renew_period || "1month");
+    } catch (err) {
+      notify(t("loadFailed", { message: err.message }), "error");
+      setEditRow(null);
+    } finally {
+      setEditLoading(false);
+    }
+  }, [notify, t]);
 
-  const remainingLabel = useMemo(() => {
-    if (!data?.expiration_date) return t("noExpirationDate");
-    const countdown = calculateCountdown(data.expiration_date);
-    return countdown?.text || formatRemainingLabel(t, data.days_until_expiration);
-  }, [data?.days_until_expiration, data?.expiration_date, t]);
-
-  const statusClass = data?.expiration_status || "normal";
+  const closeEdit = useCallback(() => {
+    if (saving) return;
+    setEditRow(null);
+  }, [saving]);
 
   const handleSave = useCallback(async () => {
-    if (formDisabled || saving || !selectedCompanyId) return;
+    if (!editRow || saving) return;
     setSaving(true);
     try {
       const saved = await saveAutoRenewSettings({
-        targetCompanyId: selectedCompanyId,
-        autoRenewEnabled: enabled,
-        autoRenewPeriod: enabled ? period : null,
+        targetCompanyId: editRow.company_numeric_id,
+        autoRenewEnabled: editEnabled,
+        autoRenewPeriod: editEnabled ? editPeriod : null,
       });
-      setData(saved);
-      setEnabled(Boolean(saved.auto_renew_enabled));
-      setPeriod(saved.auto_renew_period || "1month");
       setCompanies((prev) =>
         prev.map((row) =>
-          row.company_numeric_id === selectedCompanyId
-            ? { ...row, auto_renew_enabled: saved.auto_renew_enabled, auto_renew_period: saved.auto_renew_period }
-            : row,
+          row.company_numeric_id === editRow.company_numeric_id ? { ...row, ...saved } : row,
         ),
       );
       notify(t("saved"), "success");
+      setEditRow(null);
     } catch (err) {
       notify(t("saveFailed", { message: err.message }), "error");
     } finally {
       setSaving(false);
     }
-  }, [enabled, formDisabled, notify, period, saving, selectedCompanyId, t]);
+  }, [editEnabled, editPeriod, editRow, notify, saving, t]);
+
+  const renderSortIcon = (column) => (
+    <span className={`account-sort-icon${sortColumn === column ? ` is-active is-${sortDirection}` : ""}`} aria-hidden="true">
+      <span className="account-sort-icon__up" />
+      <span className="account-sort-icon__down" />
+    </span>
+  );
+
+  const renderHeader = (column, label) => (
+    <div
+      className="header-item header-item--with-sort-icon header-sortable"
+      role="button"
+      tabIndex={0}
+      onClick={() => handleSort(column)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleSort(column);
+        }
+      }}
+    >
+      <span className="header-item__label">{label}</span>
+      {renderSortIcon(column)}
+    </div>
+  );
 
   if (!sessionReady || !bootDone) {
     return <PageContentLoader />;
@@ -168,23 +213,7 @@ export default function AutoRenewPage() {
   if (loadError) {
     return (
       <div className="auto-renew-page">
-        <h1 className="auto-renew-page-title">{t("pageTitle")}</h1>
         <div className="auto-renew-notice warn">{t("loadFailed", { message: loadError })}</div>
-        <button type="button" className="auto-renew-btn auto-renew-btn-secondary" onClick={() => navigate("/dashboard")}>
-          {t("backDashboard")}
-        </button>
-      </div>
-    );
-  }
-
-  if (companies.length === 0) {
-    return (
-      <div className="auto-renew-page">
-        <h1 className="auto-renew-page-title">{t("pageTitle")}</h1>
-        <div className="auto-renew-notice warn">{t("noCompanies")}</div>
-        <button type="button" className="auto-renew-btn auto-renew-btn-secondary" onClick={() => navigate("/dashboard")}>
-          {t("backDashboard")}
-        </button>
       </div>
     );
   }
@@ -199,139 +228,139 @@ export default function AutoRenewPage() {
         ))}
       </div>
 
-      <div className="auto-renew-page">
-        <h1 className="auto-renew-page-title">{t("pageTitle")}</h1>
-
-        <section className="auto-renew-card">
-          <h2 className="auto-renew-card-title">{t("selectCompanyTitle")}</h2>
-          <div className="auto-renew-field">
-            <label className="auto-renew-field-label" htmlFor="autoRenewCompanySelect">
-              {t("company")}
-            </label>
-            <select
-              id="autoRenewCompanySelect"
-              className="auto-renew-period-select auto-renew-company-select"
-              value={selectedCompanyId ?? ""}
-              onChange={(e) => setSelectedCompanyId(Number(e.target.value))}
-            >
-              {companies.map((row) => (
-                <option key={row.company_numeric_id} value={row.company_numeric_id}>
-                  {row.company_code}
-                  {row.auto_renew_enabled ? ` (${t("autoRenewOnShort")})` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        </section>
-
-        <section className="auto-renew-card">
-          <h2 className="auto-renew-card-title">{t("subscriptionInfo")}</h2>
-          <div className="auto-renew-info-grid">
-            <span className="auto-renew-info-label">{t("company")}</span>
-            <span className="auto-renew-info-value">{data?.company_code || "-"}</span>
-
-            <span className="auto-renew-info-label">{t("expirationDate")}</span>
-            <span className="auto-renew-info-value">
-              {data?.expiration_date ? formatDate(data.expiration_date) : t("notSet")}
-            </span>
-
-            <span className="auto-renew-info-label">{t("timeRemaining")}</span>
-            <span className="auto-renew-info-value">
-              <span className={`auto-renew-status-badge ${statusClass}`}>{remainingLabel}</span>
-            </span>
-          </div>
-        </section>
-
-        {!hasExpiration && (
-          <div className="auto-renew-notice warn">{t("noDateNotice")}</div>
-        )}
-
-        {!canEdit && (
-          <div className="auto-renew-notice info">{t("readOnlyNotice")}</div>
-        )}
-
-        <section className="auto-renew-card">
-          <h2 className="auto-renew-card-title">{t("autoRenewSettings")}</h2>
-
-          <div className="auto-renew-toggle-row">
-            <span className="auto-renew-toggle-label">{t("enableAutoRenew")}</span>
-            <div className="auto-renew-toggle-controls">
-              <span className={`auto-renew-toggle-state${enabled ? " is-on" : ""}`}>
-                {enabled ? t("autoRenewOn") : t("autoRenewOff")}
-              </span>
-              <label className="company-share-charge-switch">
-                <input
-                  type="checkbox"
-                  className="company-share-charge-switch__input"
-                  role="switch"
-                  aria-label={t("enableAutoRenew")}
-                  checked={enabled}
-                  disabled={formDisabled}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                />
-                <span className="company-share-charge-switch__track" aria-hidden="true">
-                  <span className="company-share-charge-switch__thumb" />
-                </span>
-              </label>
+      <div className="container auto-renew-page-container">
+        <div className="content">
+          <div className="action-buttons-container">
+            <div className="action-buttons">
+              <div className="account-toolbar-top-row">
+                <div className="action-controls-row account-toolbar-primary">
+                  <div className="search-container userlist-search-bar">
+                    <span className="userlist-search-bar__icon" aria-hidden="true">
+                      <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      className="search-input userlist-search-input"
+                      placeholder={t("searchPlaceholder")}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+                    />
+                  </div>
+                  <div className="userlist-filter-chips" role="group" aria-label={t("filterGroupLabel")}>
+                    <FilterChip active={filters.showAutoRenew} label={t("filterShowAutoRenew")} onClick={() => toggleFilter("showAutoRenew")} />
+                    <FilterChip active={filters.autoRenewOff} label={t("filterAutoRenewOff")} onClick={() => toggleFilter("autoRenewOff")} />
+                    <FilterChip active={filters.expiringSoon} label={t("filterExpiringSoon")} onClick={() => toggleFilter("expiringSoon")} />
+                    <FilterChip active={filters.expired} label={t("filterExpired")} onClick={() => toggleFilter("expired")} />
+                    <FilterChip active={filters.noExpiration} label={t("filterNoExpiration")} onClick={() => toggleFilter("noExpiration")} />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <p className="auto-renew-hint">{t("enableAutoRenewHint")}</p>
 
-          <div className="auto-renew-field">
-            <label className="auto-renew-field-label" htmlFor="autoRenewPeriod">
-              {t("renewalPeriod")}
-            </label>
-            <select
-              id="autoRenewPeriod"
-              className="auto-renew-period-select"
-              value={period}
-              disabled={formDisabled || !enabled}
-              onChange={(e) => setPeriod(e.target.value)}
-            >
-              <option value="">{t("selectPeriod")}</option>
-              {AUTO_RENEW_PERIODS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {t(p.labelKey)}
-                </option>
-              ))}
-            </select>
+          <div className="user-list-table auto-renew-table">
+            <div className="user-list-table-inner">
+              <div className="table-header user-list-table-header auto-renew-table-header">
+                {renderHeader("company", t("colCompany"))}
+                {renderHeader("group", t("colGroup"))}
+                {renderHeader("expiration", t("colExpiration"))}
+                {renderHeader("remaining", t("colRemaining"))}
+                {renderHeader("autoRenew", t("colAutoRenew"))}
+                {renderHeader("period", t("colPeriod"))}
+                <div className="header-item header-item--action">
+                  <span className="header-item__label">{t("colAction")}</span>
+                </div>
+              </div>
+
+              <div className="user-cards" aria-busy={editLoading}>
+                {pagination.rows.length === 0 ? (
+                  <div className="user-card user-list-row auto-renew-table-empty show-card row-even" role="status">
+                    {t("noResults")}
+                  </div>
+                ) : (
+                  pagination.rows.map((row, idx) => (
+                    <div
+                      key={row.company_numeric_id}
+                      className={`user-card user-list-row auto-renew-table-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
+                    >
+                      <div className="card-item card-item--strong">{row.company_code}</div>
+                      <div className="card-item">{row.group_id || "-"}</div>
+                      <div className="card-item">
+                        {row.expiration_date ? formatDate(row.expiration_date) : t("notSet")}
+                      </div>
+                      <div className="card-item">
+                        <span className={`auto-renew-status-badge ${row.expiration_status || "normal"}`}>
+                          {formatRemainingForRow(row, t)}
+                        </span>
+                      </div>
+                      <div className="card-item">
+                        <span className={`auto-renew-pill${row.auto_renew_enabled ? " is-on" : ""}`}>
+                          {row.auto_renew_enabled ? t("autoRenewOnShort") : t("autoRenewOffShort")}
+                        </span>
+                      </div>
+                      <div className="card-item">
+                        <AutoRenewPeriodCell period={row.auto_renew_period} t={t} />
+                      </div>
+                      <div className="card-item card-item--action">
+                        <button
+                          type="button"
+                          className="btn btn-edit"
+                          aria-label={t("edit")}
+                          disabled={!canEditGlobal}
+                          style={{ opacity: canEditGlobal ? 1 : 0.35 }}
+                          onClick={() => openEdit(row)}
+                        >
+                          <img src={assetUrl("images/edit.svg")} alt="" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="auto-renew-preview">
-            <strong>{t("previewTitle")}: </strong>
-            {previewNext ? (
-              t("previewExtend", {
-                from: formatDate(data.expiration_date),
-                to: formatDate(previewNext),
-              })
-            ) : (
-              t("previewNeedPeriod")
-            )}
-          </div>
-
-          {data?.auto_renew_updated_at && (
-            <p className="auto-renew-meta">
-              {t("lastUpdated", {
-                at: data.auto_renew_updated_at,
-                by: data.auto_renew_updated_by || "-",
-              })}
-            </p>
-          )}
-
-          {canEdit && hasExpiration && (
-            <div className="auto-renew-actions">
+          {pagination.totalPages > 1 && (
+            <div className="auto-renew-pagination">
               <button
                 type="button"
-                className="auto-renew-btn auto-renew-btn-primary"
-                disabled={saving || loadingCompany || (enabled && !period)}
-                onClick={handleSave}
+                className="auto-renew-page-btn"
+                disabled={pagination.page <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               >
-                {saving ? t("saving") : t("save")}
+                {t("prevPage")}
+              </button>
+              <span className="auto-renew-page-info">
+                {t("pageInfo", { page: pagination.page, total: pagination.totalPages, count: pagination.total })}
+              </span>
+              <button
+                type="button"
+                className="auto-renew-page-btn"
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
+              >
+                {t("nextPage")}
               </button>
             </div>
           )}
-        </section>
+        </div>
       </div>
+
+      <AutoRenewEditModal
+        open={Boolean(editRow) && !editLoading}
+        row={editRow}
+        enabled={editEnabled}
+        period={editPeriod}
+        saving={saving}
+        canEdit={canEditGlobal}
+        onEnabledChange={setEditEnabled}
+        onPeriodChange={setEditPeriod}
+        onClose={closeEdit}
+        onSave={handleSave}
+        t={t}
+      />
     </>
   );
 }

@@ -136,7 +136,7 @@ function auto_renew_page_access(PDO $pdo, array $session): bool
 function auto_renew_list_client_companies(PDO $pdo): array
 {
     $stmt = $pdo->query("
-        SELECT id, company_id, expiration_date, auto_renew_enabled, auto_renew_period,
+        SELECT id, company_id, group_id, expiration_date, auto_renew_enabled, auto_renew_period,
                auto_renew_updated_at, auto_renew_updated_by
         FROM company
         WHERE UPPER(company_id) <> 'C168'
@@ -179,6 +179,7 @@ function auto_renew_format_row(array $row): array
 
     return [
         'company_code' => (string) ($row['company_id'] ?? ''),
+        'group_id' => !empty($row['group_id']) ? (string) $row['group_id'] : null,
         'expiration_date' => $expirationDate,
         'days_until_expiration' => $daysLeft,
         'expiration_status' => auto_renew_expiration_status($daysLeft),
