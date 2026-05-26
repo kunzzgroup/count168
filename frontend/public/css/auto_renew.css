@@ -282,7 +282,9 @@ body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-l
   justify-content: flex-start !important;
 }
 
-body.auto-renew-page-body .auto-renew-table-panel .user-cards.auto-renew-cards {
+body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-cards.auto-renew-cards {
+  flex: 0 1 auto;
+  min-height: 0 !important;
   overflow-x: visible;
   overflow-y: visible;
 }
@@ -301,7 +303,7 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(4
 }
 
 /* Empty state — NOT a grid row (fixes vertical letter stacking) */
-body.auto-renew-page-body .auto-renew-cards {
+body.auto-renew-page-body .auto-renew-cards:has(.auto-renew-empty-state) {
   min-height: 220px;
 }
 
@@ -394,26 +396,38 @@ body.auto-renew-page-body .auto-renew-table-muted {
 body.auto-renew-page-body .auto-renew-status-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: var(--auto-renew-control-height);
+  height: var(--auto-renew-control-height);
+  padding: 0 10px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
 body.auto-renew-page-body .auto-renew-status-badge.normal {
-  background: rgba(59, 130, 246, 0.12);
+  background: #dbeafe;
   color: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.5);
 }
 
 body.auto-renew-page-body .auto-renew-status-badge.warning {
-  background: rgba(251, 191, 36, 0.2);
-  color: #b45309;
+  background: #fde68a;
+  color: #78350f;
+  border-color: #f59e0b;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.22);
 }
 
 body.auto-renew-page-body .auto-renew-status-badge.expired {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
+  background: #fecaca;
+  color: #991b1b;
+  border-color: rgba(239, 68, 68, 0.55);
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.18);
 }
 
 body.auto-renew-page-body .auto-renew-approval-badge {
@@ -704,114 +718,8 @@ body.auto-renew-page-body .auto-renew-toast.error {
   }
 }
 
-/* Tablet ≤1024 — align with admin-responsive user-page patterns */
-@media (max-width: 1024px) {
-  body.auto-renew-page-body .container.auto-renew-page {
-    padding-right: clamp(12px, 1.5vw, 24px);
-  }
-
-  body.auto-renew-page-body .auto-renew-toolbar-row {
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    gap: 10px;
-  }
-
-  body.auto-renew-page-body .auto-renew-toolbar-left {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  body.auto-renew-page-body .auto-renew-toolbar-left .search-container.userlist-search-bar {
-    flex: 0 0 auto !important;
-    width: min(var(--auto-renew-toolbar-search-width), calc(100vw - 48px)) !important;
-    max-width: min(var(--auto-renew-toolbar-search-width), calc(100vw - 48px)) !important;
-  }
-
-  body.auto-renew-page-body .auto-renew-date-range-group {
-    width: min(var(--auto-renew-toolbar-date-width), calc(100vw - 48px));
-    min-width: min(var(--auto-renew-toolbar-date-width), calc(100vw - 48px));
-    max-width: min(var(--auto-renew-toolbar-date-width), calc(100vw - 48px));
-  }
-
-  body.auto-renew-page-body .auto-renew-filter-chips {
-    flex: 1 1 100%;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip {
-    min-width: 0 !important;
-    flex: 1 1 calc(50% - 6px);
-    justify-content: flex-start;
-  }
-
-  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(1),
-  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(2),
-  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(3),
-  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(4) {
-    min-width: 0 !important;
-  }
-
-  body.auto-renew-page-body .auto-renew-table-panel .user-list-table-inner {
-    min-width: max(100%, 1040px);
-  }
-
-  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
-  body.auto-renew-page-body .user-list-table.auto-renew-table {
-    --user-list-grid-cols:
-      40px
-      68px
-      88px
-      64px
-      84px
-      80px
-      88px
-      100px
-      100px
-      100px !important;
-  }
-
-  body.auto-renew-page-body .auto-renew-table-panel .user-list-table-header {
-    font-size: 11px !important;
-    padding-top: 6px !important;
-    padding-bottom: 6px !important;
-  }
-
-  body.auto-renew-page-body .auto-renew-table-panel .user-list-table-header .header-item,
-  body.auto-renew-page-body .auto-renew-table-row .card-item {
-    font-size: 10px !important;
-    line-height: 1.35;
-  }
-
-  body.auto-renew-page-body .auto-renew-inline-select {
-    font-size: 10px;
-    padding: 0 24px 0 8px;
-    background-position: right 8px center;
-  }
-
-  body.auto-renew-page-body .auto-renew-btn,
-  body.auto-renew-page-body .auto-renew-btn--sm {
-    font-size: 10px;
-    padding: 0 8px;
-  }
-
-  body.auto-renew-page-body .auto-renew-approval-badge {
-    font-size: 10px;
-    padding: 0 10px;
-  }
-
-  body.auto-renew-page-body .auto-renew-empty-state {
-    padding: 36px 16px 44px;
-  }
-
-  body.auto-renew-page-body .auto-renew-empty-state__hint {
-    max-width: 22rem;
-    font-size: 12px;
-  }
-}
-
-/* Counter global-13inch.css 9-column override (loads via app-shell, max-width 1440px) */
-@media screen and (max-width: 1440px) {
+/* Counter global-13inch.css 9-column override (1025–1440 only; tablet uses rules below) */
+@media screen and (min-width: 1025px) and (max-width: 1440px) {
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table {
     --user-list-grid-cols:
       48px
@@ -854,5 +762,192 @@ body.auto-renew-page-body .auto-renew-toast.error {
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table .table-header.user-list-table-header,
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table .user-card.auto-renew-table-row {
     grid-template-columns: var(--user-list-grid-cols) !important;
+  }
+}
+
+/* Tablet ≤1024 — after 1440 block so these rules win on tablet */
+@media (max-width: 1024px) {
+  body.auto-renew-page-body .container {
+    padding-right: clamp(12px, 1.5vw, 24px);
+  }
+
+  body.auto-renew-page-body .action-buttons-container {
+    margin-bottom: 12px !important;
+    flex-shrink: 0;
+  }
+
+  body.auto-renew-page-body .auto-renew-toolbar-row {
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  body.auto-renew-page-body .auto-renew-toolbar-left {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  body.auto-renew-page-body .auto-renew-toolbar-left .search-container.userlist-search-bar {
+    flex: 1 1 clamp(140px, 34vw, 220px) !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0;
+  }
+
+  body.auto-renew-page-body .auto-renew-date-range-group {
+    flex: 1 1 clamp(168px, 32vw, 228px);
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  body.auto-renew-page-body .auto-renew-filter-chips {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip {
+    min-width: 0 !important;
+    flex: 1 1 calc(50% - 6px);
+    justify-content: flex-start;
+  }
+
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(1),
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(2),
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(3),
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(4) {
+    min-width: 0 !important;
+  }
+
+  body.auto-renew-page-body .user-table-wrapper.auto-renew-table {
+    padding-bottom: clamp(20px, 3vw, 36px);
+  }
+
+  body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+    min-width: max(100%, 960px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
+  body.auto-renew-page-body .user-list-table.auto-renew-table {
+    --user-list-grid-cols:
+      36px
+      minmax(52px, 0.68fr)
+      minmax(64px, 0.82fr)
+      minmax(52px, 0.6fr)
+      minmax(72px, 0.75fr)
+      minmax(68px, 0.7fr)
+      minmax(116px, 1.08fr)
+      minmax(122px, 1.12fr)
+      minmax(122px, 1.12fr)
+      minmax(134px, 1.22fr) !important;
+  }
+
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter,
+  body.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
+    --user-list-grid-cols:
+      36px
+      minmax(52px, 0.68fr)
+      minmax(64px, 0.82fr)
+      minmax(52px, 0.6fr)
+      minmax(72px, 0.75fr)
+      minmax(68px, 0.7fr)
+      minmax(116px, 1.08fr)
+      minmax(122px, 1.12fr)
+      minmax(122px, 1.12fr)
+      minmax(134px, 1.22fr)
+      minmax(84px, 0.85fr) !important;
+  }
+
+  body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
+  body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table {
+    --user-list-grid-cols:
+      40px
+      minmax(52px, 0.68fr)
+      minmax(64px, 0.82fr)
+      minmax(52px, 0.6fr)
+      minmax(72px, 0.75fr)
+      minmax(68px, 0.7fr)
+      minmax(116px, 1.08fr)
+      minmax(122px, 1.12fr)
+      minmax(122px, 1.12fr)
+      minmax(134px, 1.22fr) !important;
+  }
+
+  body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter,
+  body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-table--with-submitter {
+    --user-list-grid-cols:
+      40px
+      minmax(52px, 0.68fr)
+      minmax(64px, 0.82fr)
+      minmax(52px, 0.6fr)
+      minmax(72px, 0.75fr)
+      minmax(68px, 0.7fr)
+      minmax(116px, 1.08fr)
+      minmax(122px, 1.12fr)
+      minmax(122px, 1.12fr)
+      minmax(134px, 1.22fr)
+      minmax(84px, 0.85fr) !important;
+  }
+
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table .table-header.user-list-table-header,
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table .user-card.auto-renew-table-row {
+    grid-template-columns: var(--user-list-grid-cols) !important;
+  }
+
+  body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header.auto-renew-table-header {
+    font-size: 11px !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header .header-item,
+  body.auto-renew-page-body .auto-renew-table-row .card-item {
+    font-size: 10px !important;
+    line-height: 1.35;
+  }
+
+  body.auto-renew-page-body .auto-renew-inline-select {
+    font-size: 10px;
+    padding: 0 22px 0 8px;
+    background-position: right 7px center;
+    background-size: 10px;
+  }
+
+  body.auto-renew-page-body .auto-renew-btn,
+  body.auto-renew-page-body .auto-renew-btn--sm {
+    font-size: 10px;
+    padding: 0 7px;
+  }
+
+  body.auto-renew-page-body .auto-renew-approval-badge {
+    font-size: 10px;
+    padding: 0 8px;
+  }
+
+  body.auto-renew-page-body .auto-renew-action-btns {
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  body.auto-renew-page-body .auto-renew-status-badge {
+    font-size: 10px;
+    padding: 0 8px;
+    min-height: var(--auto-renew-control-height);
+    height: var(--auto-renew-control-height);
+  }
+
+  body.auto-renew-page-body .auto-renew-empty-state {
+    padding: 36px 16px 44px;
+  }
+
+  body.auto-renew-page-body .auto-renew-empty-state__hint {
+    max-width: 22rem;
+    font-size: 12px;
   }
 }
