@@ -1241,8 +1241,40 @@ function updateCompanyShareTotals() {
     updateCompanyShareRowAmounts();
 }
 
+/** 当前 Company Settings 选中的 Period（与 Price 弹窗各周期金额对应） */
+function getActiveCompanyExpPeriod() {
+    var periodEl = document.getElementById('expDatePeriod');
+    var fromSelect = periodEl ? String(periodEl.value || '').trim() : '';
+    if (fromSelect) {
+        return fromSelect;
+    }
+    if (currentEditingCompanyId) {
+        var company = tempCompanies.find(function (c) { return c.company_id === currentEditingCompanyId; });
+        if (company && company.selectedPeriod) {
+            return company.selectedPeriod;
+        }
+    }
+    return '1year';
+}
+
+function getDomainFeePriceForPeriod(periodKey) {
+    var key = periodKey || '1year';
+    var cached = domainFeePeriodPricesCache && domainFeePeriodPricesCache[key];
+    if (cached !== undefined && cached !== null && String(cached).trim() !== '') {
+        try {
+            return domainDecimal(cached, 0);
+        } catch (e) {
+            // fall through
+        }
+    }
+    if (key === '1year') {
+        return domainDecimal(domainFeePriceCache || '0', 0);
+    }
+    return domainDecimal('0', 0);
+}
+
 function getDomainPriceForShareCalc() {
-    return domainDecimal(domainFeePriceCache || '0', 0);
+    return getDomainFeePriceForPeriod(getActiveCompanyExpPeriod());
 }
 
 function formatShareRowAmount2(value) {
@@ -1538,8 +1570,8 @@ function openCompanyExpDateModal(companyId) {
         document.getElementById('expDateStartDateHelp').style.color = '#64748b';
     }
 
-    // Period 默认显示 "Select Period"；只有用户手动选择具体期限时才在保存时更新到期日，避免仅改权限时误加 period
-    document.getElementById('expDatePeriod').value = '';
+    // 恢复已选 Period（供到期日与 Share % 计算）；未选过则保持空白
+    document.getElementById('expDatePeriod').value = company.selectedPeriod || '';
 
     // 如果已经有到期日期，直接显示；否则根据选择的period计算
     const displayElement = document.getElementById('expDateDisplay');
@@ -1559,6 +1591,7 @@ function openCompanyExpDateModal(companyId) {
     };
     document.getElementById('expDatePeriod').onchange = function () {
         updateExpDateDisplay();
+        updateCompanyShareRowAmounts();
     };
 
     // 显示弹窗（左右分栏同时展示 Company 与 Share %）
@@ -1569,7 +1602,31 @@ function openCompanyExpDateModal(companyId) {
         syncCompanyShareChargeToggleUi();
     }
     collapseAllShareRoleCards();
-    loadCompanyShareDataForModal(company.company_id);
+    refreshDomainFeePeriodPricesForShare(function () {
+        loadCompanyShareDataForModal(company.company_id);
+    });
+}
+
+/** 打开 Company Settings 前确保已加载各周期 Price（供 Share % 计算） */
+function refreshDomainFeePeriodPricesForShare(done) {
+    var finish = typeof done === 'function' ? done : function () {};
+    fetch('api/domain/domain_api.php', {
+        cache: 'no-cache',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_domain_fee_settings' })
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success && res.data) {
+                var periodPrices = normalizeDomainFeePeriodPricesFromApi(res.data);
+                syncDomainFeePriceCacheFromPeriodPrices(periodPrices);
+            }
+            finish();
+        })
+        .catch(function () {
+            finish();
+        });
 }
 
 // 关闭到期日期设置弹窗。restore === true 时还原为打开弹窗时的状态（Cancel/X/点击遮罩）
@@ -1862,6 +1919,7 @@ function resetCompanyExpDateInModal() {
     document.getElementById('expDatePeriod').value = '';
     document.getElementById('expDateDisplay').textContent = 'Not set';
     document.getElementById('expDateDisplay').style.color = '#94a3b8';
+    updateCompanyShareRowAmounts();
 
     // 重置权限（SINGLE_CATEGORY_MODE 时仅选第一个 Games）
     if (SINGLE_CATEGORY_MODE) {
