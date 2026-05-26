@@ -103,6 +103,30 @@ $stmt->execute([$user_id]);
 $userPermissions = $stmt->fetchColumn();
 $permissions = $userPermissions ? json_decode($userPermissions, true) : [];
 
+// 没有 home 权限的普通 user 直接访问 dashboard.php 时，重定向到 sidebar 第一个有权限的页面
+// 仅当 permissions 显式非空（排除 owner / 旧账号 fallback）且不含 'home' 时生效
+$_userTypeForHomeGuard = isset($_SESSION['user_type']) ? strtolower((string) $_SESSION['user_type']) : 'user';
+if ($_userTypeForHomeGuard === 'user'
+    && is_array($permissions) && !empty($permissions)
+    && !in_array('home', $permissions, true)) {
+    $_permRedirectMap = [
+        'admin' => 'userlist.php',
+        'account' => 'account-list.php',
+        'ownership' => 'ownership.php',
+        'process' => 'processlist.php',
+        'datacapture' => 'datacapture.php',
+        'payment' => 'transaction.php',
+        'report' => 'customer_report.php',
+        'maintenance' => 'transaction_maintenance.php',
+    ];
+    foreach ($_permRedirectMap as $_perm => $_page) {
+        if (in_array($_perm, $permissions, true)) {
+            header("Location: $_page");
+            exit();
+        }
+    }
+}
+
 $company_id = 'c168'; // 固定值
 $avatarLetter = strtoupper($name[0]);
 // 为JavaScript准备用户数据
