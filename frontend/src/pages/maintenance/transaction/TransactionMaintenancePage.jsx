@@ -607,6 +607,8 @@ export default function TransactionMaintenancePage() {
     const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
     switchPermsCacheRef.current = null;
     skipMetaAfterBootRef.current = true;
+    // Force list query to re-arm for the new company once meta is ready.
+    setMetaReady(false);
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
