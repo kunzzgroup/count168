@@ -4,7 +4,6 @@ import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
 import AppBootLoading from "./AppBootLoading.jsx";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
-import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import ExpirationReminderModal from "./ExpirationReminderModal.jsx";
 import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
@@ -99,7 +98,6 @@ export default function AuthenticatedLayout() {
   const [sidebarGcTick, setSidebarGcTick] = useState(0);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
   const {
-    reminder: expirationReminder,
     showModal: showExpirationModal,
     dismissModal: dismissExpirationModal,
     modalTitle: expirationModalTitle,
@@ -779,12 +777,11 @@ export default function AuthenticatedLayout() {
         </div>
 
         <div className="informationmenu-footer">
-          <SidebarExpirationCountdown
-            status={me?.expiration_status || "normal"}
-            label={i18n.exp}
-            hint={formatSidebarExpirationHint(me?.expiration_hint, i18n)}
-            clickable={showAutoRenewEntry}
+          <div
+            className={`company-expiration-countdown ${me?.expiration_status || "normal"}${showAutoRenewEntry ? " is-clickable" : ""}`}
             title={showAutoRenewEntry ? getAutoRenewText(lang, "manageAutoRenew") : undefined}
+            role={showAutoRenewEntry ? "button" : undefined}
+            tabIndex={showAutoRenewEntry ? 0 : undefined}
             onClick={showAutoRenewEntry ? goAutoRenew : undefined}
             onKeyDown={
               showAutoRenewEntry
@@ -796,7 +793,18 @@ export default function AuthenticatedLayout() {
                   }
                 : undefined
             }
-          />
+          >
+            <svg className="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <div className="expiration-content">
+              <span className="expiration-label">{i18n.exp}</span>
+              <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>
+                {formatSidebarExpirationHint(me?.expiration_hint, i18n)}
+              </span>
+            </div>
+          </div>
           <button
             type="button"
             className="btn logout-btn"
@@ -859,7 +867,6 @@ export default function AuthenticatedLayout() {
         message={expirationModalMessage}
         confirmLabel={expirationModalI18n.confirm}
         onConfirm={dismissExpirationModal}
-        urgencyTier={expirationReminder?.tier || "yellow"}
         secondaryLabel={showAutoRenewEntry ? getExpirationReminderText(lang, "expReminderAutoRenew") : undefined}
         onSecondary={showAutoRenewEntry ? handleExpirationModalSecondary : undefined}
       />
