@@ -385,7 +385,7 @@ export default function CompanySettingsModal({
                     label={t("startDate")}
                     value={startDate}
                     placeholder={t("pickDate")}
-                    clearLabel={t("clearDate")}
+                    allowClear={false}
                     className="company-settings-form-date-field"
                     wrapClassName="company-settings-form-datepicker-wrap"
                     inputClassName="company-settings-form-datepicker-input"

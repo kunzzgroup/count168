@@ -26,6 +26,7 @@ export default function FormDateField({
   clearClassName = "form-datepicker-clear",
   srSpanClassName = "form-datepicker-sr-span",
   showCalendarIcon = true,
+  allowClear = true,
 }) {
   const fromId = `${fieldKey}_drp_from`;
   const toId = `${fieldKey}_drp_to`;
@@ -77,7 +78,7 @@ export default function FormDateField({
         {showCalendarIcon ? (
           <i className="fas fa-calendar-alt form-datepicker-icon" aria-hidden="true" />
         ) : null}
-        {displayDmy && !disabled ? (
+        {allowClear && displayDmy && !disabled ? (
           <button
             type="button"
             className={clearClassName}
@@ -101,6 +102,7 @@ export default function FormDateField({
           data-drp-display={displayId}
           data-drp-hide-presets="true"
           data-drp-collapse-single="true"
+          data-drp-hide-clear={allowClear ? "false" : "true"}
           data-form-date-key={fieldKey}
           onKeyDown={(e) => {
             if (disabled) return;

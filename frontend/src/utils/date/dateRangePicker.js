@@ -98,6 +98,7 @@ export function ensureMaintenanceDateRangePicker() {
     hidePresets: false,
     /** Show one date text when range start equals end (add / rate transaction pickers). */
     collapseSingleDisplay: false,
+    hideClear: false,
   };
 
   function setActiveRangeBindingFromTrigger(pickerEl) {
@@ -109,6 +110,7 @@ export function ensureMaintenanceDateRangePicker() {
       displayId: el.dataset.drpDisplay || config.rangeDisplayId || "date-range-display",
       hidePresets: el.dataset.drpHidePresets === "true",
       collapseSingleDisplay: el.dataset.drpCollapseSingle === "true",
+      hideClear: el.dataset.drpHideClear === "true",
     };
   }
 
@@ -655,7 +657,7 @@ export function ensureMaintenanceDateRangePicker() {
     const wrap = document.getElementById("calendar-popup-clear-wrap");
     const btn = document.getElementById("calendar-popup-clear-btn");
     if (!wrap || !btn) return;
-    const show = !!activeRangeBinding.collapseSingleDisplay;
+    const show = !!activeRangeBinding.collapseSingleDisplay && !activeRangeBinding.hideClear;
     wrap.style.display = show ? "flex" : "none";
     wrap.setAttribute("aria-hidden", show ? "false" : "true");
     btn.textContent = config.clearDateLabel || "Clear";
