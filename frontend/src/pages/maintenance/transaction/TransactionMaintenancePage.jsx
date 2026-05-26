@@ -10,8 +10,7 @@ import {
   getCachedOwnerCompanies,
   isDashboardGroupOnlyMode,
   loadOwnerCompaniesCached,
-  persistDashboardGroupFilter,
-  persistDashboardGroupOnlyMode,
+  persistDashboardFilterState,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -486,9 +485,7 @@ export default function TransactionMaintenancePage() {
         const bootGroup = resolveInitialSelectedGroupFromSession(filtered, currentComp);
         setSelectedGroup(bootGroup);
 
-        const groupOnlyBoot = isDashboardGroupOnlyMode() && bootGroup;
-
-        if (groupOnlyBoot) {
+        if (isDashboardGroupOnlyMode()) {
           setCompanyId(null);
           setCompanyCode("");
           const meta = await bootstrapTransactionMaintenanceMeta({
@@ -671,8 +668,7 @@ export default function TransactionMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
-    persistDashboardGroupOnlyMode(true);
-    if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
+    persistDashboardFilterState(selectedGroup, null);
     setCompanyId(null);
     setCompanyCode("");
     setSelectedProcess("");
@@ -699,14 +695,12 @@ export default function TransactionMaintenancePage() {
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-    if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
-    else sessionStorage.removeItem("dashboard_group_filter");
     setSelectedGroup(newGroup);
 
     const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
     switchPermsCacheRef.current = null;
     skipMetaAfterBootRef.current = true;
-    persistDashboardGroupOnlyMode(false);
+    persistDashboardFilterState(newGroup, nextCompanyId);
     // Force list query to re-arm for the new company once meta is ready.
     setMetaReady(false);
     setCompanyCode(code);

@@ -6,6 +6,7 @@ import { notifyCompanySessionUpdated } from "../../../utils/company/companySessi
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
   isDashboardGroupOnlyMode,
+  persistDashboardFilterState,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -232,8 +233,9 @@ export default function PaymentMaintenancePage() {
             : null;
         const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
         setSelectedGroup(bootGroup);
-        if (isDashboardGroupOnlyMode() && bootGroup) {
+        if (isDashboardGroupOnlyMode()) {
           setCompanyId(null);
+          setCompanyCode("");
           companyIdRef.current = null;
           return;
         }
@@ -399,11 +401,12 @@ export default function PaymentMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
+    persistDashboardFilterState(selectedGroup, null);
     companyIdRef.current = null;
     setCompanyId(null);
     setCompanyCode("");
     setSelectedIds([]);
-  }, []);
+  }, [selectedGroup]);
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;
@@ -418,8 +421,7 @@ export default function PaymentMaintenancePage() {
       setCompanyId(nextId);
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
-      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
-      else sessionStorage.removeItem("dashboard_group_filter");
+      persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
       void performSearch({ companyId: nextId });
       notify(t("switchedTo", { company: nextCode }), "success");
@@ -442,8 +444,7 @@ export default function PaymentMaintenancePage() {
       setCompanyId(nextId);
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
-      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
-      else sessionStorage.removeItem("dashboard_group_filter");
+      persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
 
       notifyCompanySessionUpdated();

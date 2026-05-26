@@ -6,6 +6,8 @@
 export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
 /** Set to "1" when user cleared company but kept a group (group-only mode across pages). */
 export const DASHBOARD_GROUP_ONLY_KEY = "dashboard_group_only";
+/** Last explicitly selected company id (SPA navigation; overrides stale PHP session when set). */
+export const DASHBOARD_SELECTED_COMPANY_KEY = "dashboard_selected_company_id";
 export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-changed";
 
 export function isDashboardGroupOnlyMode() {
@@ -17,9 +19,53 @@ export function persistDashboardGroupOnlyMode(groupOnly) {
   else sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
 }
 
-/** Company id for page boot: null when group-only is persisted, otherwise numeric fallback. */
+export function persistDashboardSelectedCompany(companyId) {
+  if (companyId == null || companyId === "" || !Number.isFinite(Number(companyId))) {
+    sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
+    return;
+  }
+  sessionStorage.setItem(DASHBOARD_SELECTED_COMPANY_KEY, String(Number(companyId)));
+}
+
+export function readDashboardSelectedCompanyId() {
+  const saved = sessionStorage.getItem(DASHBOARD_SELECTED_COMPANY_KEY);
+  if (saved == null || saved === "") return null;
+  const id = Number(saved);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+/**
+ * Persist Group / Company filter for cross-page SPA navigation.
+ * Group-only: group set, company cleared. Otherwise stores explicit company id.
+ */
+export function persistDashboardFilterState(selectedGroup, companyId) {
+  const hasGroup = Boolean(String(selectedGroup || "").trim());
+  const noCompany = companyId == null || companyId === "";
+
+  if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
+
+  if (hasGroup && noCompany) {
+    persistDashboardGroupOnlyMode(true);
+    persistDashboardSelectedCompany(null);
+  } else if (!noCompany) {
+    persistDashboardGroupOnlyMode(false);
+    persistDashboardSelectedCompany(companyId);
+  } else {
+    persistDashboardGroupOnlyMode(false);
+    persistDashboardSelectedCompany(null);
+  }
+}
+
+/** @deprecated Use {@link persistDashboardFilterState} */
+export function syncDashboardGroupOnlyFromFilter(selectedGroup, companyId) {
+  persistDashboardFilterState(selectedGroup, companyId);
+}
+
+/** Company id for page boot: group-only → null; else saved id, then PHP/fallback. */
 export function resolveInitialCompanyId(fallbackCompanyId) {
   if (isDashboardGroupOnlyMode()) return null;
+  const saved = readDashboardSelectedCompanyId();
+  if (saved != null) return saved;
   if (fallbackCompanyId == null || fallbackCompanyId === "") return null;
   const id = Number(fallbackCompanyId);
   return Number.isFinite(id) ? id : null;
@@ -167,6 +213,7 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
   } else if (savedGroup && !groups.includes(savedGroup)) {
     sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
     sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
+    sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
   }
   if (!selGroup && currentCompany?.group_id?.trim()) {
     selGroup = normalizeCompanyGroupId(currentCompany);

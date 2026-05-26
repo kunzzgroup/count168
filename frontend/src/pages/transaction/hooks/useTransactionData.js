@@ -4,14 +4,12 @@ import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
-  companiesInGroupList,
   dedupeOwnerCompaniesByCode,
-  filterCompaniesWithDisplayId,
   normalizeOwnerCompanyRow,
   notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
-  persistDashboardGroupOnlyMode,
   resolveInitialCompanyId,
+  persistDashboardFilterState,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -211,6 +209,7 @@ export function useTransactionData({
 
   useLayoutEffect(() => {
     if (!filterSnapshot) return;
+    persistDashboardFilterState(filterSnapshot.selectedGroup, filterSnapshot.companyId);
     notifyDashboardGroupFilterChanged(filterSnapshot.selectedGroup, filterSnapshot.companyId);
   }, [filterSnapshot?.selectedGroup, filterSnapshot?.companyId]);
 
@@ -224,9 +223,10 @@ export function useTransactionData({
         url.searchParams.delete("company_id");
         window.history.replaceState(null, "", url.toString());
         const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : snap.selectedGroup;
-        persistDashboardGroupOnlyMode(true);
+        const nextGroup = gid || snap.selectedGroup;
+        persistDashboardFilterState(nextGroup, null);
         setFilterSnapshot((prev) =>
-          prev ? { ...prev, companyId: null, selectedGroup: gid || prev.selectedGroup } : prev,
+          prev ? { ...prev, companyId: null, selectedGroup: nextGroup || prev.selectedGroup } : prev,
         );
         return;
       }
@@ -262,10 +262,11 @@ export function useTransactionData({
           url.searchParams.set("company_id", String(cid));
           window.history.replaceState(null, "", url.toString());
           const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
-          persistDashboardGroupOnlyMode(false);
+          const nextGroup = gid || snap.selectedGroup;
           if (gid) persistDashboardGroupFilter(gid);
+          persistDashboardFilterState(nextGroup, numericCid);
           setFilterSnapshot((prev) =>
-            prev ? { ...prev, companyId: numericCid, selectedGroup: gid || prev.selectedGroup } : prev,
+            prev ? { ...prev, companyId: numericCid, selectedGroup: nextGroup || prev.selectedGroup } : prev,
           );
         }
       } catch (e) {
@@ -276,22 +277,17 @@ export function useTransactionData({
     [queryClient],
   );
 
-  const onGroupButtonClick = useCallback(
-    async (gid) => {
-      const snap = filterSnapshotRef.current;
-      if (!snap) return;
-      const g = String(gid || "").trim().toUpperCase();
-      if (!g || g === snap.selectedGroup) return;
+  const onGroupButtonClick = useCallback(async (gid) => {
+    const snap = filterSnapshotRef.current;
+    if (!snap) return;
+    const g = String(gid || "").trim().toUpperCase();
+    if (!g || g === snap.selectedGroup) return;
 
-      persistDashboardGroupFilter(g);
-      setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup: g } : prev));
-
-      const list = filterCompaniesWithDisplayId(companiesInGroupList(snap.snapCompanies, g));
-      const first = list[0] ?? null;
-      if (first) await onCompanyButtonClick(first);
-    },
-    [onCompanyButtonClick],
-  );
+    persistDashboardFilterState(g, null);
+    setFilterSnapshot((prev) =>
+      prev ? { ...prev, selectedGroup: g, companyId: null } : prev,
+    );
+  }, []);
 
   return {
     loading,
