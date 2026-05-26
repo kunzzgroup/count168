@@ -10,6 +10,8 @@ import {
   getCachedOwnerCompanies,
   isDashboardGroupOnlyMode,
   loadOwnerCompaniesCached,
+  persistDashboardGroupFilter,
+  persistDashboardGroupOnlyMode,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -37,6 +39,7 @@ import {
   getMaintenanceCacheRows,
   isMaintenanceCacheComplete,
   buildTransactionMaintenanceQueryKey,
+  bootstrapTransactionMaintenanceMeta,
 } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
@@ -100,7 +103,7 @@ export default function TransactionMaintenancePage() {
   /** Meta (process list + permission/category) ready for querying. */
   const [metaReady, setMetaReady] = useState(false);
   const followGroupRef = useRef(() => {});
-  const pageBootOnceRef = useRef(false);
+  const bootRunIdRef = useRef(0);
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -135,11 +138,18 @@ export default function TransactionMaintenancePage() {
     filtersReady &&
     dateRangeReady &&
     metaReady &&
-    companyId &&
     dateFrom &&
     dateTo &&
     activePermission,
   );
+
+  const bootPending =
+    !filtersReady ||
+    !dateRangeReady ||
+    !metaReady ||
+    !dateFrom ||
+    !dateTo ||
+    !activePermission;
 
   const maintenancePlaceholder = useCallback(
     (previousData, previousQuery) => {
@@ -184,16 +194,28 @@ export default function TransactionMaintenancePage() {
     enabled: listQueryEnabled && searchDeferredReady,
     initialData: () => {
       const cached = queryClient.getQueryData(maintenanceQueryKey);
-      return isMaintenanceCacheComplete(cached) ? cached : undefined;
+      if (!isMaintenanceCacheComplete(cached)) return undefined;
+      // Do not hydrate empty complete cache — SPA revisit would skip fetch until hard refresh.
+      if (getMaintenanceCacheRows(cached).length === 0) return undefined;
+      return cached;
     },
     initialDataUpdatedAt: () => {
       const state = queryClient.getQueryState(maintenanceQueryKey);
       return state?.dataUpdatedAt;
     },
-    staleTime: (query) =>
-      isMaintenanceCacheComplete(query.state.data) ? 60 * 60 * 1000 : 0,
+    staleTime: (query) => {
+      const data = query.state.data;
+      if (!isMaintenanceCacheComplete(data)) return 0;
+      if (getMaintenanceCacheRows(data).length === 0) return 0;
+      return 60 * 60 * 1000;
+    },
     gcTime: 60 * 60 * 1000,
-    refetchOnMount: (query) => !isMaintenanceCacheComplete(query.state.data),
+    refetchOnMount: (query) => {
+      const data = query.state.data;
+      if (!data) return true;
+      if (getMaintenanceCacheRows(data).length === 0) return true;
+      return !isMaintenanceCacheComplete(data);
+    },
     refetchOnReconnect: false,
     placeholderData: maintenancePlaceholder,
     retry: (failureCount, error) =>
@@ -210,9 +232,11 @@ export default function TransactionMaintenancePage() {
     isMaintenanceRecoverableError(transactionQuery.error);
   /** 无数据：加载中或可恢复错误 — 显示 Loading，不出现 Search failed */
   const showListSkeleton =
-    listQueryEnabled &&
     listRowCount === 0 &&
-    (transactionQuery.isLoading ||
+    (bootPending ||
+      !searchDeferredReady ||
+      (listQueryEnabled && !transactionQuery.isFetched) ||
+      transactionQuery.isLoading ||
       transactionQuery.isFetching ||
       (searchRecoverable && !recoverableExhausted));
   const recoverableRetryRef = useRef(0);
@@ -285,6 +309,15 @@ export default function TransactionMaintenancePage() {
     t,
   ]);
 
+  const showNoDataEmpty =
+    listQueryEnabled &&
+    searchDeferredReady &&
+    transactionQuery.isFetched &&
+    !transactionQuery.isFetching &&
+    listRowCount === 0 &&
+    !showListSkeleton &&
+    !listStatusMessage;
+
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
     setToasts(prev => {
@@ -356,10 +389,11 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     if (!sessionReady || !me) return;
     setDateRangeReady(true);
-  }, [sessionReady, me]);
+  }, [sessionReady, me?.user_id]);
 
+  // Hydrate company from cache before async boot (SPA navigation — filters usable immediately).
   useEffect(() => {
-    if (!me || companyId != null) return;
+    if (!me || companyId != null || isDashboardGroupOnlyMode()) return;
     const cached = getCachedOwnerCompanies();
     let initialCompanyId = resolveInitialCompanyId(
       me.company_id ? Number(me.company_id) : cached?.[0]?.id ? Number(cached[0].id) : null,
@@ -371,10 +405,13 @@ export default function TransactionMaintenancePage() {
     ) {
       initialCompanyId = resolveInitialCompanyId(cached[0]?.id);
     }
-    if (initialCompanyId != null) setCompanyId(initialCompanyId);
-  }, [me, companyId]);
+    if (initialCompanyId == null) return;
+    const comp = cached?.find((c) => Number(c.id) === initialCompanyId);
+    setCompanyId(initialCompanyId);
+    if (comp?.company_id) setCompanyCode(comp.company_id);
+  }, [me?.user_id, me?.company_id, companyId]);
 
-  // Defer first search one tick after filters are ready (align with Payment/Capture maintenance).
+  // Defer first search one tick after filters are ready (align with Capture/Payment maintenance).
   useEffect(() => {
     if (!listQueryEnabled) {
       setSearchDeferredReady(false);
@@ -399,10 +436,12 @@ export default function TransactionMaintenancePage() {
   // -- Boot Logic --
   useEffect(() => {
     if (!sessionReady || !me) return;
-    if (pageBootOnceRef.current) return;
-    pageBootOnceRef.current = true;
 
+    const runId = ++bootRunIdRef.current;
     let cancelled = false;
+    setFiltersReady(false);
+    setMetaReady(false);
+
     (async () => {
       try {
         const u = me;
@@ -447,13 +486,27 @@ export default function TransactionMaintenancePage() {
         const bootGroup = resolveInitialSelectedGroupFromSession(filtered, currentComp);
         setSelectedGroup(bootGroup);
 
-        if (isDashboardGroupOnlyMode() && bootGroup) {
+        const groupOnlyBoot = isDashboardGroupOnlyMode() && bootGroup;
+
+        if (groupOnlyBoot) {
           setCompanyId(null);
-          setFiltersReady(true);
+          setCompanyCode("");
+          const meta = await bootstrapTransactionMaintenanceMeta({
+            companies: filtered,
+            groupId: bootGroup,
+          });
+          if (cancelled) return;
+          setPermissions(meta.permissions);
+          setActivePermission(meta.activePermission);
+          setProcesses(meta.processes);
+          setMetaReady(true);
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           return;
         }
 
-        setCompanyId(initialCompanyId);
+        if (initialCompanyId != null) {
+          setCompanyId(initialCompanyId);
+        }
 
         if (currentComp) {
           const code = currentComp.company_id || "";
@@ -472,6 +525,13 @@ export default function TransactionMaintenancePage() {
             navigate("/dashboard", { replace: true });
             return;
           }
+
+          try {
+            await updateSessionCompany(initialCompanyId);
+          } catch (err) {
+            console.error("Session company sync error:", err);
+          }
+          if (cancelled) return;
 
           setPermissions(companyPerms);
 
@@ -497,19 +557,19 @@ export default function TransactionMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        if (!cancelled) navigate("/login", { replace: true });
+        if (!cancelled && runId === bootRunIdRef.current) navigate("/login", { replace: true });
       } finally {
-        if (!cancelled) setFiltersReady(true);
+        if (!cancelled && runId === bootRunIdRef.current) setFiltersReady(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, navigate, me]);
+  }, [sessionReady, navigate, me?.user_id]);
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId || !companyCode || !filtersReady) return;
     if (skipMetaAfterBootRef.current) {
       skipMetaAfterBootRef.current = false;
       return;
@@ -592,6 +652,7 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     if (!listQueryEnabled) return;
     if (!transactionQuery.isSuccess) return;
+    if (!transactionQuery.isFetched) return;
     if (transactionQuery.isFetching) return;
     if (transactionData.length > 0) return;
     const key = `${transactionQuery.dataUpdatedAt ?? ""}:empty`;
@@ -600,6 +661,7 @@ export default function TransactionMaintenancePage() {
   }, [
     listQueryEnabled,
     transactionQuery.isSuccess,
+    transactionQuery.isFetched,
     transactionQuery.isFetching,
     transactionData.length,
     transactionQuery.dataUpdatedAt,
@@ -609,14 +671,28 @@ export default function TransactionMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
+    persistDashboardGroupOnlyMode(true);
+    if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
     setCompanyId(null);
     setCompanyCode("");
-    setMetaReady(false);
-    setProcesses([]);
-    setPermissions([]);
-    setActivePermission("");
     setSelectedProcess("");
-  }, []);
+    setProcesses([]);
+    void (async () => {
+      try {
+        const meta = await bootstrapTransactionMaintenanceMeta({
+          companies,
+          groupId: selectedGroup,
+        });
+        setPermissions(meta.permissions);
+        setActivePermission(meta.activePermission);
+        setProcesses(meta.processes);
+        setMetaReady(true);
+      } catch (err) {
+        console.error("Meta bootstrap after clear company:", err);
+        setMetaReady(true);
+      }
+    })();
+  }, [companies, selectedGroup]);
 
   const handleSwitchCompany = useCallback(async (c) => {
     if (!c?.id) return;
@@ -630,12 +706,12 @@ export default function TransactionMaintenancePage() {
     const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
     switchPermsCacheRef.current = null;
     skipMetaAfterBootRef.current = true;
+    persistDashboardGroupOnlyMode(false);
     // Force list query to re-arm for the new company once meta is ready.
     setMetaReady(false);
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
-    if (savedPerm) setActivePermission(savedPerm);
 
     try {
       const res = await updateSessionCompany(c.id);
@@ -748,6 +824,7 @@ export default function TransactionMaintenancePage() {
         <TransactionMaintenanceTable
           data={transactionData}
           showSkeleton={showListSkeleton && !listSyncing}
+          showEmptyState={showNoDataEmpty}
           statusMessage={listStatusMessage}
           isPlaceholderData={transactionQuery.isPlaceholderData || listSyncing}
           m={m}

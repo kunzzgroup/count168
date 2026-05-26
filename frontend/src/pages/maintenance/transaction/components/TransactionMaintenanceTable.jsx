@@ -107,6 +107,7 @@ function VirtualDataRow({ row, index }) {
  * @param {object} props
  * @param {Array} props.data
  * @param {boolean} props.showSkeleton
+ * @param {boolean} props.showEmptyState
  * @param {string} props.statusMessage
  * @param {boolean} props.isPlaceholderData
  * @param {object} props.m
@@ -114,6 +115,7 @@ function VirtualDataRow({ row, index }) {
 export default function TransactionMaintenanceTable({
   data,
   showSkeleton,
+  showEmptyState = false,
   statusMessage = "",
   isPlaceholderData,
   m,
@@ -192,7 +194,7 @@ export default function TransactionMaintenanceTable({
     );
   }
 
-  if (rows.length === 0 && !showSkeleton) {
+  if (rows.length === 0 && showEmptyState && !showSkeleton) {
     return (
       <div className="empty-state-container" style={{ display: "block" }}>
         <div className="empty-state">
