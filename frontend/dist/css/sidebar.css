@@ -1312,49 +1312,192 @@
 }
 
 /* 公司到期倒计时样式 */
+@keyframes exp-sidebar-glow-yellow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    border-color: rgba(253, 224, 71, 0.95);
+  }
+  50% {
+    box-shadow: 0 0 18px 4px rgba(250, 204, 21, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    border-color: #fde047;
+  }
+}
+
+@keyframes exp-sidebar-glow-orange {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    border-color: rgba(251, 146, 60, 0.95);
+  }
+  50% {
+    box-shadow: 0 0 20px 5px rgba(249, 115, 22, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    border-color: #fb923c;
+  }
+}
+
+@keyframes exp-sidebar-glow-critical {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    border-color: rgba(248, 113, 113, 0.95);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 22px 6px rgba(239, 68, 68, 0.88), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    border-color: #f87171;
+    transform: scale(1.01);
+  }
+}
+
+@keyframes exp-sidebar-glow-expired {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    border-color: rgba(239, 68, 68, 0.9);
+  }
+  50% {
+    box-shadow: 0 0 24px 7px rgba(220, 38, 38, 0.95), inset 0 0 12px rgba(127, 29, 29, 0.35);
+    border-color: #ef4444;
+  }
+}
+
+@keyframes exp-sidebar-text-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.88; }
+}
+
 .company-expiration-countdown {
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    padding: 8px 10px;
-    margin-bottom: 8px;
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
-    gap: 8px;
-    transition: background 0.3s ease, border-color 0.3s ease;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 9px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-.company-expiration-countdown.expired {
-    background: rgba(239, 68, 68, 0.4);
-    border-color: rgba(239, 68, 68, 0.7);
+.company-expiration-countdown.is-clickable {
+  cursor: pointer;
 }
 
-.company-expiration-countdown.warning {
-    background: rgba(251, 191, 36, 0.4);
-    border-color: rgba(251, 191, 36, 0.7);
+.company-expiration-countdown.is-clickable:hover {
+  filter: brightness(1.06);
 }
 
 .company-expiration-countdown.normal {
-    background: rgba(59, 130, 246, 0.35);
-    border-color: rgba(59, 130, 246, 0.6);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.42) 0%, rgba(37, 99, 235, 0.28) 100%);
+  border-color: rgba(96, 165, 250, 0.65);
+}
+
+.company-expiration-countdown.exp-yellow {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.92) 0%, rgba(234, 179, 8, 0.78) 100%);
+  border-color: #fde047;
+  animation: exp-sidebar-glow-yellow 1.8s ease-in-out infinite;
+}
+
+.company-expiration-countdown.exp-orange {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.94) 0%, rgba(249, 115, 22, 0.82) 100%);
+  border-color: #fb923c;
+  animation: exp-sidebar-glow-orange 1.45s ease-in-out infinite;
+}
+
+.company-expiration-countdown.exp-critical,
+.company-expiration-countdown.warning {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.96) 0%, rgba(239, 68, 68, 0.88) 100%);
+  border-color: #f87171;
+  animation: exp-sidebar-glow-critical 1.05s ease-in-out infinite;
+}
+
+.company-expiration-countdown.expired {
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.95) 0%, rgba(127, 29, 29, 0.92) 100%);
+  border-color: #ef4444;
+  animation: exp-sidebar-glow-expired 0.85s ease-in-out infinite;
+}
+
+.company-expiration-countdown.exp-yellow .expiration-label,
+.company-expiration-countdown.exp-yellow .expiration-countdown-text,
+.company-expiration-countdown.exp-orange .expiration-label,
+.company-expiration-countdown.exp-orange .expiration-countdown-text,
+.company-expiration-countdown.exp-critical .expiration-label,
+.company-expiration-countdown.exp-critical .expiration-countdown-text,
+.company-expiration-countdown.warning .expiration-label,
+.company-expiration-countdown.warning .expiration-countdown-text,
+.company-expiration-countdown.expired .expiration-label,
+.company-expiration-countdown.expired .expiration-countdown-text {
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  animation: exp-sidebar-text-pulse 1.8s ease-in-out infinite;
+}
+
+.company-expiration-countdown.exp-orange .expiration-label,
+.company-expiration-countdown.exp-orange .expiration-countdown-text {
+  animation-duration: 1.45s;
+}
+
+.company-expiration-countdown.exp-critical .expiration-label,
+.company-expiration-countdown.exp-critical .expiration-countdown-text,
+.company-expiration-countdown.warning .expiration-label,
+.company-expiration-countdown.warning .expiration-countdown-text {
+  animation-duration: 1.05s;
+}
+
+.company-expiration-countdown.expired .expiration-label,
+.company-expiration-countdown.expired .expiration-countdown-text {
+  animation-duration: 0.85s;
 }
 
 .expiration-icon {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    color: white;
-    margin-top: 1px;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #ffffff;
+  margin-top: 1px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
 }
 
-.company-expiration-countdown.expired .expiration-icon,
+.company-expiration-countdown.exp-yellow .expiration-icon {
+  color: #422006;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.45));
+}
+
+.company-expiration-countdown.exp-orange .expiration-icon,
+.company-expiration-countdown.exp-critical .expiration-icon,
 .company-expiration-countdown.warning .expiration-icon,
+.company-expiration-countdown.expired .expiration-icon,
 .company-expiration-countdown.normal .expiration-icon {
-    color: #ffffff;
+  color: #ffffff;
+}
+
+.company-expiration-countdown.exp-yellow .expiration-label,
+.company-expiration-countdown.exp-yellow .expiration-countdown-text {
+  color: #422006;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .company-expiration-countdown.exp-yellow,
+  .company-expiration-countdown.exp-orange,
+  .company-expiration-countdown.exp-critical,
+  .company-expiration-countdown.warning,
+  .company-expiration-countdown.expired {
+    animation: none;
+  }
+
+  .company-expiration-countdown.exp-yellow .expiration-label,
+  .company-expiration-countdown.exp-yellow .expiration-countdown-text,
+  .company-expiration-countdown.exp-orange .expiration-label,
+  .company-expiration-countdown.exp-orange .expiration-countdown-text,
+  .company-expiration-countdown.exp-critical .expiration-label,
+  .company-expiration-countdown.exp-critical .expiration-countdown-text,
+  .company-expiration-countdown.warning .expiration-label,
+  .company-expiration-countdown.warning .expiration-countdown-text,
+  .company-expiration-countdown.expired .expiration-label,
+  .company-expiration-countdown.expired .expiration-countdown-text {
+    animation: none;
+  }
 }
 
 .expiration-content {

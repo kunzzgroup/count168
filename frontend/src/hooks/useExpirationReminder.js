@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  dismissExpirationTier,
+  dismissExpirationReminderForToday,
   mergeExpirationBellItem,
   resolveExpirationReminder,
 } from "../utils/expiration/expirationReminder.js";
 import { getExpirationReminderText } from "../translateFile/shell/expirationReminderTranslate.js";
 
 /**
- * 到期提醒：铃铛通知 + 登录/会话弹窗（15 天 / 7 天 / 最后 3 天各一次）
+ * 到期提醒：铃铛通知 + 登录弹窗
+ * 到期前 30 天内，每个自然日首次登录弹一次（点「知道了」仅关闭当日，次日登录再弹）
  */
 export function useExpirationReminder(me, lang = "en") {
   const reminder = useMemo(() => resolveExpirationReminder(me, lang), [me, lang]);
@@ -20,15 +21,15 @@ export function useExpirationReminder(me, lang = "en") {
     } else {
       setShowModal(false);
     }
-  }, [reminder?.shouldShowPopup, reminder?.tier, reminder?.expirationDate, reminder?.companyId]);
+  }, [reminder?.shouldShowPopup, reminder?.tier, reminder?.expirationDate, reminder?.companyId, reminder?.daysLeft]);
 
   useEffect(() => {
     setBellRead(false);
-  }, [reminder?.tier, reminder?.expirationDate, reminder?.companyId]);
+  }, [reminder?.tier, reminder?.expirationDate, reminder?.companyId, reminder?.daysLeft]);
 
   const dismissModal = useCallback(() => {
     if (reminder) {
-      dismissExpirationTier(reminder.companyId, reminder.expirationDate, reminder.tier);
+      dismissExpirationReminderForToday(reminder.companyId, reminder.expirationDate);
     }
     setShowModal(false);
   }, [reminder]);

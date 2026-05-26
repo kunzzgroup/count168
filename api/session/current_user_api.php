@@ -11,6 +11,7 @@ try {
     require_once __DIR__ . '/../c168/c168_domain_access.php';
     require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
     require_once __DIR__ . '/../includes/member_linked_closure.php';
+    require_once __DIR__ . '/../../includes/expiration_status.php';
 } catch (Throwable $e) {
     // Do not fail bootstrap because of DB wiring errors; session data is still enough for routing.
     error_log('current_user_api config load failed: ' . $e->getMessage());
@@ -171,13 +172,10 @@ if ($companyId && $pdo instanceof PDO) {
                 $expirationStatus = 'expired';
             } elseif ($diffDays === 0) {
                 $expirationHint = 'Expires today';
-                $expirationStatus = 'warning';
-            } elseif ($diffDays <= 7) {
-                $expirationHint = $diffDays . ' day' . ($diffDays > 1 ? 's' : '') . ' left';
-                $expirationStatus = 'warning';
+                $expirationStatus = company_expiration_status(0);
             } elseif ($diffDays <= 30) {
-                $expirationHint = $diffDays . ' days left';
-                $expirationStatus = 'normal';
+                $expirationHint = $diffDays . ' day' . ($diffDays > 1 ? 's' : '') . ' left';
+                $expirationStatus = company_expiration_status($diffDays);
             } else {
                 $months = (int) floor($diffDays / 30);
                 $days = $diffDays % 30;

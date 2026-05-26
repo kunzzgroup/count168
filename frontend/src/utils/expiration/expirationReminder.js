@@ -1,14 +1,21 @@
 import { getExpirationReminderText } from "../../translateFile/shell/expirationReminderTranslate.js";
 
 const STORAGE_KEY = "ec_exp_reminder_dismissed";
+export const EXPIRATION_REMINDER_WINDOW_DAYS = 30;
 export const EXPIRATION_BELL_ITEM_ID = "__expiration_reminder__";
 
-/** 到期前三个提醒节点：≤15 天、≤7 天、≤3 天（各弹一次） */
-export function getActiveExpirationTier(daysLeft) {
+/** 到期前 30 天内（含当天）需要每日登录弹窗 */
+export function isWithinExpirationReminderWindow(daysLeft) {
+  if (daysLeft == null || daysLeft < 0) return false;
+  return daysLeft <= EXPIRATION_REMINDER_WINDOW_DAYS;
+}
+
+/** 弹窗 / 侧栏 urgency：30–16 黄、15–8 橙、7–0 红 */
+export function getExpirationUrgencyTier(daysLeft) {
   if (daysLeft == null || daysLeft < 0) return null;
-  if (daysLeft <= 3) return "d3";
-  if (daysLeft <= 7) return "d7";
-  if (daysLeft <= 15) return "d15";
+  if (daysLeft <= 7) return "critical";
+  if (daysLeft <= 15) return "orange";
+  if (daysLeft <= 30) return "yellow";
   return null;
 }
 
@@ -21,6 +28,13 @@ export function getDaysUntilExpiration(expirationDate) {
   today.setHours(0, 0, 0, 0);
   exp.setHours(0, 0, 0, 0);
   return Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+}
+
+function getLocalDateKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function readDismissedMap() {
@@ -47,21 +61,21 @@ export function getExpirationReminderStorageKey(companyId, expirationDate) {
   return `${companyId}_${exp}`;
 }
 
-export function isExpirationTierDismissed(companyId, expirationDate, tier) {
-  if (!companyId || !expirationDate || !tier) return true;
+/** 今日是否已点「知道了」— 未 dismiss 则每次登录（每天）弹一次 */
+export function isExpirationReminderDismissedToday(companyId, expirationDate) {
+  if (!companyId || !expirationDate) return true;
   const map = readDismissedMap();
   const key = getExpirationReminderStorageKey(companyId, expirationDate);
-  const tiers = Array.isArray(map[key]) ? map[key] : [];
-  return tiers.includes(tier);
+  const dismissedOn = map[key];
+  if (typeof dismissedOn !== "string") return false;
+  return dismissedOn === getLocalDateKey();
 }
 
-export function dismissExpirationTier(companyId, expirationDate, tier) {
-  if (!companyId || !expirationDate || !tier) return;
+export function dismissExpirationReminderForToday(companyId, expirationDate) {
+  if (!companyId || !expirationDate) return;
   const map = readDismissedMap();
   const key = getExpirationReminderStorageKey(companyId, expirationDate);
-  const tiers = Array.isArray(map[key]) ? [...map[key]] : [];
-  if (!tiers.includes(tier)) tiers.push(tier);
-  map[key] = tiers;
+  map[key] = getLocalDateKey();
   writeDismissedMap(map);
 }
 
@@ -71,6 +85,14 @@ function formatExpirationDate(expirationDate, lang) {
   if (parts.length !== 3) return expStr;
   const [y, m, d] = parts;
   return lang === "zh" ? `${y}年${Number(m)}月${Number(d)}日` : `${d}/${m}/${y}`;
+}
+
+function resolveMessageKey(daysLeft, urgency) {
+  if (daysLeft === 0) return "expReminderToday";
+  if (daysLeft === 1) return "expReminderD1";
+  if (urgency === "critical") return "expReminderCritical";
+  if (urgency === "orange") return "expReminderOrange";
+  return "expReminderDaily";
 }
 
 export function resolveExpirationReminder(me, lang = "en") {
@@ -85,34 +107,25 @@ export function resolveExpirationReminder(me, lang = "en") {
     me.days_until_expiration != null
       ? Number(me.days_until_expiration)
       : getDaysUntilExpiration(expirationDate);
-  if (daysLeft == null || daysLeft < 0) return null;
+  if (!isWithinExpirationReminderWindow(daysLeft)) return null;
 
-  const tier = getActiveExpirationTier(daysLeft);
-  if (!tier) return null;
-
+  const urgency = getExpirationUrgencyTier(daysLeft);
   const dateLabel = formatExpirationDate(expirationDate, lang);
-  let messageKey = "expReminderD15";
-  if (tier === "d7") messageKey = "expReminderD7";
-  else if (tier === "d3") {
-    if (daysLeft === 0) messageKey = "expReminderToday";
-    else if (daysLeft === 1) messageKey = "expReminderD1";
-    else messageKey = "expReminderD3";
-  }
-
+  const messageKey = resolveMessageKey(daysLeft, urgency);
   const message = getExpirationReminderText(lang, messageKey, {
     days: daysLeft,
     date: dateLabel,
   });
   const title =
-    tier === "d3"
+    urgency === "critical"
       ? getExpirationReminderText(lang, "expReminderTitleUrgent")
       : getExpirationReminderText(lang, "expReminderTitle");
 
   const companyId = me.company_id;
-  const shouldShowPopup = !isExpirationTierDismissed(companyId, expirationDate, tier);
+  const shouldShowPopup = !isExpirationReminderDismissedToday(companyId, expirationDate);
 
   return {
-    tier,
+    tier: urgency,
     daysLeft,
     expirationDate,
     companyId,

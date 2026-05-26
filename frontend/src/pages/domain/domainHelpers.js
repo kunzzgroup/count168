@@ -70,6 +70,16 @@ export function formatDate(dateString) {
   });
 }
 
+/** Map days-until-expiration to sidebar urgency class (matches includes/expiration_status.php). */
+export function expirationStatusFromDays(diffDays) {
+  if (diffDays == null || Number.isNaN(diffDays)) return "normal";
+  if (diffDays < 0) return "expired";
+  if (diffDays <= 7) return "exp-critical";
+  if (diffDays <= 15) return "exp-orange";
+  if (diffDays <= 30) return "exp-yellow";
+  return "normal";
+}
+
 /** 计算倒计时 */
 export function calculateCountdown(expirationDate) {
   if (!expirationDate) return null;
@@ -81,19 +91,18 @@ export function calculateCountdown(expirationDate) {
 
   const diffTime = exp - today;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const status = expirationStatusFromDays(diffDays);
 
   if (diffDays < 0) {
-    return { text: "Expired", days: diffDays, status: "expired" };
+    return { text: "Expired", days: diffDays, status };
   } else if (diffDays === 0) {
-    return { text: "Expires today", days: 0, status: "warning" };
-  } else if (diffDays <= 7) {
+    return { text: "Expires today", days: 0, status };
+  } else if (diffDays <= 30) {
     return {
       text: `${diffDays} day${diffDays > 1 ? "s" : ""} left`,
       days: diffDays,
-      status: "warning",
+      status,
     };
-  } else if (diffDays <= 30) {
-    return { text: `${diffDays} days left`, days: diffDays, status: "normal" };
   } else {
     const months = Math.floor(diffDays / 30);
     const days = diffDays % 30;

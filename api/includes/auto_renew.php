@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../c168/c168_domain_access.php';
+require_once __DIR__ . '/../../includes/expiration_status.php';
 
 const AUTO_RENEW_VALID_PERIODS = ['7days', '1month', '3months', '6months', '1year'];
 
@@ -98,16 +99,7 @@ function auto_renew_days_until(?string $expirationDate): ?int
 
 function auto_renew_expiration_status(?int $daysLeft): string
 {
-    if ($daysLeft === null) {
-        return 'normal';
-    }
-    if ($daysLeft < 0) {
-        return 'expired';
-    }
-    if ($daysLeft <= 7) {
-        return 'warning';
-    }
-    return 'normal';
+    return company_expiration_status($daysLeft);
 }
 
 function auto_renew_can_edit(array $session, ?PDO $pdo = null): bool
